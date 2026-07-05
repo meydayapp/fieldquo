@@ -1,0 +1,922 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// PLATFORM — FieldQuo's own back office (never mixed with tenant auth)
+// ============================================================
+
+model PlatformAdmin {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  passwordHash String
+  role         PlatformAdminRole @default(support)
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+
+  auditLogs    PlatformAuditLog[]
+}
+
+model PlatformAuditLog {
+  id              String         @id @default(cuid())
+  platformAdminId String
+  platformAdmin   PlatformAdmin  @relation(fields: [platformAdminId], references: [id])
+  action          String
+  targetCompanyId String?
+  details         Json?
+  createdAt       DateTime       @default(now())
+}
+
+model Plan {
+  id               String   @id @default(cuid())
+  name             String
+  priceMonthly     Decimal  @default(0) @db.Decimal(12, 2)
+  stripePriceId    String?
+  maxUsers         Int?
+  maxQuotesPerMonth Int?
+  aiCopilotEnabled Boolean  @default(false)
+  features         Json?
+  createdAt        DateTime @default(now())
+
+  subscriptions    Subscription[]
+}
+
+model Subscription {
+  id                   String            @id @default(cuid())
+  companyId            String            @unique
+  company              Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 Plan              @relation(fields: [planId], references: [id])
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               SubscriptionStatus @default(trialing)
+  currentPeriodEnd     DateTime?
+  trialEndsAt          DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+}
+
+// ============================================================
+// TENANT CORE — Company, Users, Membership/RBAC
+// ============================================================
+
+model Company {
+  id                     String    @id @default(cuid())
+  name                   String
+  slug                   String    @unique
+  email                  String?
+  phone                  String?
+  address                String?
+  city                   String?
+  province               String?
+  website                String?
+  logoUrl                String?
+  brandColor             String?   @default("#bd9d60")
+  paymentTerms           String?
+  taxRate                Decimal   @default(0) @db.Decimal(6, 3)
+  paymentMethods         String[]  @default(["cash", "e_transfer", "cheque"])
+  bookingSlug            String?   @unique
+  onboardingStatus       OnboardingStatus @default(pending)
+  trialEndsAt            DateTime?
+  shareAnonymizedPricing Boolean   @default(false)
+
+  // Stripe Connect — for this company to receive payments from ITS clients
+  stripeAccountId        String?
+  stripeOnboarded        Boolean   @default(false)
+  stripeChargesEnabled   Boolean   @default(false)
+
+  createdAt              DateTime  @default(now())
+
+  members                Member[]
+  clients                Client[]
+  quotes                 Quote[]
+  invoices               Invoice[]
+  appointments           Appointment[]
+  tasks                  Task[]
+  workAreas              WorkArea[]
+  serviceCategories      CompanyServiceCategory[]
+  documentTemplates      DocumentTemplate[]
+  expenses               Expense[]
+  marketingSpends        MarketingSpend[]
+  salaries               Salary[]
+  debts                  Debt[]
+  forecastSettings       ForecastSettings?
+  workers                Worker[]
+  eventTypes             EventType[]
+  jobs                   Job[]
+  jobChecklistTemplates  JobChecklistTemplate[]
+  leadRequests           LeadRequest[]
+  materials              Material[]
+  notificationRules      NotificationRule[]
+  aiDigests              AiDigest[]
+  subscription           Subscription?
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  memberships          Member[]
+  sessions             Session[]
+  accounts             Account[]
+  quotesCreated        Quote[]       @relation("QuoteCreatedBy")
+  invoicesCreated      Invoice[]     @relation("InvoiceCreatedBy")
+  appointmentsCreated  Appointment[] @relation("AppointmentCreatedBy")
+  appointmentsAssigned Appointment[] @relation("AppointmentAssignee")
+  tasksCreated         Task[]        @relation("TaskCreatedBy")
+  tasksAssigned        Task[]        @relation("TaskAssignee")
+  timeEntriesApproved  TimeEntry[]   @relation("TimeEntryApprovedBy")
+  workAreaAssignments  WorkAreaAssignment[]
+  availability         AvailabilitySchedule[]
+  eventTypes           EventType[]
+  jobVisitsAssigned    JobVisit[]    @relation("JobVisitAssignee")
+  workerProfile        Worker?
+}
+
+// One row per (user, company) — this is the RBAC join
+model Member {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      MemberRole @default(employee)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, companyId])
+}
+
+// ── Better Auth required tables ──────────────────────────────
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Account {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId   String
+  accountId    String
+  password     String?
+  accessToken  String?
+  refreshToken String?
+  createdAt    DateTime @default(now())
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+}
+
+// ============================================================
+// CLIENTS / QUOTES / INVOICES / PAYMENTS
+// ============================================================
+
+model Client {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String
+  email         String?
+  phone         String?
+  address       String?
+  city          String?
+  province      String?
+  notes         String?
+  portalToken   String?  @unique
+  createdAt     DateTime @default(now())
+
+  quotes        Quote[]
+  invoices      Invoice[]
+  jobs          Job[]
+  referralLinks ReferralLink[]
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteNumber   String
+  status        QuoteStatus @default(draft)
+  language      String      @default("en")
+  clientId      String
+  client        Client      @relation(fields: [clientId], references: [id])
+  createdById   String?
+  createdBy     User?       @relation("QuoteCreatedBy", fields: [createdById], references: [id])
+
+  lineItems     Json?
+  clientPhotos  Json?
+  subtotal      Decimal     @default(0) @db.Decimal(12, 2)
+  discount      Decimal     @default(0) @db.Decimal(12, 2)
+  tax           Decimal     @default(0) @db.Decimal(12, 2)
+  total         Decimal     @default(0) @db.Decimal(12, 2)
+  taxEnabled    Boolean     @default(true)
+  notes         String?
+  validUntil    DateTime?
+  pdfUrl        String?
+
+  quoteType     String?
+  scopeDetails  Json?
+
+  shareToken          String?   @unique
+  clientDesignSaved   Boolean   @default(false)
+  clientDesignAt      DateTime?
+  clientKitchenConfig Json?
+
+  sentAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  invoices      Invoice[]
+  scopeGroups   QuoteScopeGroup[]
+  appointments  Appointment[]
+  tasks         Task[]
+  jobs          Job[]
+
+  @@unique([companyId, quoteNumber])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  companyId       String
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceNumber   String
+  status          InvoiceStatus @default(draft)
+  clientId        String
+  client          Client        @relation(fields: [clientId], references: [id])
+  quoteId         String?
+  quote           Quote?        @relation(fields: [quoteId], references: [id])
+  createdById     String?
+  createdBy       User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+
+  parentInvoiceId String?
+  parentInvoice   Invoice?      @relation("InvoiceVersions", fields: [parentInvoiceId], references: [id])
+  versions        Invoice[]     @relation("InvoiceVersions")
+  version         Int           @default(1)
+  changeLog       Json?
+
+  lineItems       Json?
+  subtotal        Decimal       @default(0) @db.Decimal(12, 2)
+  discount        Decimal       @default(0) @db.Decimal(12, 2)
+  tax             Decimal       @default(0) @db.Decimal(12, 2)
+  total           Decimal       @default(0) @db.Decimal(12, 2)
+
+  dueDate         DateTime?
+  startDate       DateTime?
+  endDate         DateTime?
+  pdfUrl          String?
+  clientPhotos    String[]      @default([])
+  language        String        @default("en")
+
+  // Stripe
+  stripePaymentIntentId String?
+  stripeCheckoutUrl     String?
+  paidVia               String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payments        Payment[]
+  tasks           Task[]
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  invoiceId             String
+  invoice               Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount                Decimal       @default(0) @db.Decimal(12, 2)
+  method                PaymentMethod @default(e_transfer)
+  notes                 String?
+  stripePaymentIntentId String?
+  date                  DateTime      @default(now())
+  createdAt             DateTime      @default(now())
+}
+
+// ============================================================
+// SERVICE CATALOG / PRICING
+// ============================================================
+
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0)
+  isSystem    Boolean  @default(true)
+
+  companySettings CompanyServiceCategory[]
+  scopeGroups     QuoteScopeGroup[]
+  checklistTemplates JobChecklistTemplate[]
+  leadRequests    LeadRequest[]
+}
+
+model CompanyServiceCategory {
+  id           String          @id @default(cuid())
+  companyId    String
+  company      Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     ServiceCategory @relation(fields: [categoryId], references: [id])
+  enabled      Boolean         @default(false)
+  pricingModel PricingModel    @default(flat)
+  defaultRate  Decimal?        @db.Decimal(12, 2)
+  unit         String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([companyId, categoryId])
+}
+
+model QuoteScopeGroup {
+  id         String          @id @default(cuid())
+  quoteId    String
+  quote      Quote           @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id])
+  label      String?
+  lineItems  Json?
+  subtotal   Decimal         @default(0) @db.Decimal(12, 2)
+  sortOrder  Int             @default(0)
+}
+
+// ============================================================
+// DOCUMENT TEMPLATES (customizable PDF/email layouts)
+// ============================================================
+
+model DocumentTemplate {
+  id        String               @id @default(cuid())
+  companyId String
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type      DocumentTemplateType
+  name      String
+  sections  Json
+  isDefault Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+}
+
+// ============================================================
+// APPOINTMENTS / TASKS / WORK AREAS
+// ============================================================
+
+model Appointment {
+  id                 String            @id @default(cuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId           String
+  client             Client            @relation(fields: [clientId], references: [id])
+  quoteId            String?
+  quote              Quote?            @relation(fields: [quoteId], references: [id])
+  scheduledAt        DateTime
+  location           String?
+  requiresSupervisor Boolean           @default(false)
+  status             AppointmentStatus @default(scheduled)
+  notes              String?
+  createdById        String
+  createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+  assignedToId       String?
+  assignedTo         User?             @relation("AppointmentAssignee", fields: [assignedToId], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  booking            Booking?
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  companyId    String
+  company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  dueDate      DateTime?
+  status       TaskStatus   @default(open)
+  priority     TaskPriority @default(normal)
+  createdById  String
+  createdBy    User         @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?        @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  clientId     String?
+  client       Client?      @relation(fields: [clientId], references: [id])
+  quoteId      String?
+  quote        Quote?       @relation(fields: [quoteId], references: [id])
+  invoiceId    String?
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+  workAreaId   String?
+  workArea     WorkArea?    @relation(fields: [workAreaId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model WorkArea {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  assignments WorkAreaAssignment[]
+  tasks       Task[]
+}
+
+model WorkAreaAssignment {
+  id         String   @id @default(cuid())
+  workAreaId String
+  workArea   WorkArea @relation(fields: [workAreaId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([workAreaId, userId])
+}
+
+// ============================================================
+// JOBS (work orders — separate from Quote/Invoice)
+// ============================================================
+
+model Job {
+  id             String    @id @default(cuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteId        String?
+  quote          Quote?    @relation(fields: [quoteId], references: [id])
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id])
+  title          String
+  status         JobStatus @default(scheduled)
+  recurring      Boolean   @default(false)
+  recurrenceRule String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  visits         JobVisit[]
+  timeEntries    TimeEntry[]
+}
+
+model JobVisit {
+  id             String   @id @default(cuid())
+  jobId          String
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  scheduledAt    DateTime
+  assignedToId   String?
+  assignedTo     User?    @relation("JobVisitAssignee", fields: [assignedToId], references: [id])
+  status         String   @default("scheduled")
+  checklistItems Json?
+  photos         String[] @default([])
+  notes          String?
+  createdAt      DateTime @default(now())
+}
+
+model JobChecklistTemplate {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name       String
+  items      Json
+  categoryId String?
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime         @default(now())
+}
+
+// ============================================================
+// LEADS / REFERRALS / BOOKING
+// ============================================================
+
+model LeadRequest {
+  id         String           @id @default(cuid())
+  companyId  String
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name       String
+  email      String?
+  phone      String?
+  categoryId String?
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id])
+  message    String?
+  status     LeadStatus       @default(new)
+  source     String?
+  createdAt  DateTime         @default(now())
+}
+
+model ReferralLink {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  code          String   @unique
+  referredCount Int      @default(0)
+  rewardIssued  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model AvailabilitySchedule {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayOfWeek Int
+  startTime String
+  endTime   String
+  timezone  String   @default("America/Toronto")
+  createdAt DateTime @default(now())
+}
+
+model EventType {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id])
+  name            String
+  slug            String
+  durationMinutes Int      @default(60)
+  bufferBefore    Int      @default(0)
+  bufferAfter     Int      @default(0)
+  location        String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  bookings        Booking[]
+
+  @@unique([companyId, slug])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  eventTypeId   String
+  eventType     EventType     @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  clientName    String
+  clientEmail   String
+  clientPhone   String?
+  startTime     DateTime
+  endTime       DateTime
+  status        BookingStatus @default(confirmed)
+  appointmentId String?       @unique
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime      @default(now())
+}
+
+// ============================================================
+// WORKFORCE — Workers, Time Tracking, Payouts
+// ============================================================
+
+model Worker {
+  id                        String     @id @default(cuid())
+  companyId                 String
+  company                   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId                    String?    @unique
+  user                      User?      @relation(fields: [userId], references: [id])
+  name                      String
+  email                     String?
+  type                      WorkerType @default(contractor)
+  hourlyRate                Decimal?   @db.Decimal(10, 2)
+  stripeConnectedAccountId  String?
+  payrollProviderEmployeeId String?
+  active                    Boolean    @default(true)
+  createdAt                 DateTime   @default(now())
+
+  timeEntries               TimeEntry[]
+  payouts                   Payout[]
+  salaries                  Salary[]
+}
+
+model TimeEntry {
+  id           String          @id @default(cuid())
+  workerId     String
+  worker       Worker          @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  jobId        String?
+  job          Job?            @relation(fields: [jobId], references: [id])
+  clockIn      DateTime
+  clockOut     DateTime?
+  hours        Decimal?        @db.Decimal(6, 2)
+  approvedById String?
+  approvedBy   User?           @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
+  status       TimeEntryStatus @default(pending)
+  createdAt    DateTime        @default(now())
+}
+
+model Payout {
+  id          String       @id @default(cuid())
+  workerId    String
+  worker      Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  amount      Decimal      @db.Decimal(12, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  method      PayoutMethod @default(stripe_transfer)
+  status      PayoutStatus @default(pending)
+  createdAt   DateTime     @default(now())
+}
+
+// ============================================================
+// FINANCE — Expenses, Marketing, Salaries, Debt, Forecast
+// ============================================================
+
+model Expense {
+  id         String            @id @default(cuid())
+  companyId  String
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category   String
+  amount     Decimal           @default(0) @db.Decimal(12, 2)
+  date       DateTime          @default(now())
+  notes      String?
+  projectId  String?
+  isOverhead Boolean           @default(false)
+  recurring  Boolean           @default(false)
+  frequency  ExpenseFrequency  @default(one_time)
+  materialId String?
+  material   Material?         @relation(fields: [materialId], references: [id])
+  createdAt  DateTime          @default(now())
+
+  priceEntries MaterialPriceEntry[]
+}
+
+model MarketingSpend {
+  id           String           @id @default(cuid())
+  companyId    String
+  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  platform     MarketingPlatform @default(other)
+  campaignName String?
+  amount       Decimal          @default(0) @db.Decimal(12, 2)
+  impressions  Int?
+  clicks       Int?
+  leads        Int              @default(0)
+  conversions  Int?
+  date         DateTime         @default(now())
+  notes        String?
+  createdAt    DateTime         @default(now())
+}
+
+model Salary {
+  id        String           @id @default(cuid())
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String?
+  worker    Worker?          @relation(fields: [workerId], references: [id])
+  name      String
+  amount    Decimal          @db.Decimal(12, 2)
+  frequency ExpenseFrequency @default(monthly)
+  startDate DateTime         @default(now())
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+}
+
+model Debt {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  principal      Decimal  @db.Decimal(12, 2)
+  interestRate   Decimal  @default(0) @db.Decimal(6, 3)
+  monthlyPayment Decimal  @db.Decimal(12, 2)
+  startDate      DateTime @default(now())
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+}
+
+model ForecastSettings {
+  id                  String    @id @default(cuid())
+  companyId           String    @unique
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteSentToPaid     Decimal   @default(0.35) @db.Decimal(6, 3)
+  invoiceSentToPaid   Decimal   @default(0.80) @db.Decimal(6, 3)
+  avgJobValue         Decimal   @default(7000) @db.Decimal(12, 2)
+  jobsPerWeekCapacity Int       @default(3)
+  leadsPer1000        Decimal   @default(12) @db.Decimal(8, 2)
+  leadToSale          Decimal   @default(0.60) @db.Decimal(6, 3)
+  curveType           CurveType @default(log)
+  curveA              Decimal   @default(18) @db.Decimal(12, 4)
+  curveB              Decimal   @default(0.0018) @db.Decimal(12, 6)
+  smoothingAlpha      Decimal   @default(0.35) @db.Decimal(6, 3)
+  useCalendarYear     Boolean   @default(true)
+  updatedAt           DateTime  @updatedAt
+}
+
+// ============================================================
+// MATERIALS
+// ============================================================
+
+model Material {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name             String
+  unit             String?
+  category         String?
+  currentAvgCost   Decimal? @db.Decimal(12, 2)
+  reorderThreshold Decimal? @db.Decimal(12, 2)
+  createdAt        DateTime @default(now())
+
+  expenses         Expense[]
+  priceEntries     MaterialPriceEntry[]
+}
+
+model MaterialPriceEntry {
+  id         String   @id @default(cuid())
+  materialId String
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  expenseId  String?
+  expense    Expense? @relation(fields: [expenseId], references: [id])
+  price      Decimal  @db.Decimal(12, 2)
+  date       DateTime @default(now())
+  supplier   String?
+  createdAt  DateTime @default(now())
+}
+
+// ============================================================
+// NOTIFICATIONS / AI
+// ============================================================
+
+model NotificationRule {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type      String
+  threshold Decimal? @db.Decimal(12, 2)
+  channel   String   @default("email")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AiDigest {
+  id             String    @id @default(cuid())
+  companyId      String
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  periodStart    DateTime
+  periodEnd      DateTime
+  summaryText    String
+  highlightsJson Json?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum PlatformAdminRole {
+  support
+  superadmin
+}
+
+enum OnboardingStatus {
+  pending
+  active
+  suspended
+  churned
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+enum MemberRole {
+  owner
+  admin
+  supervisor
+  employee
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  declined
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+}
+
+enum PaymentMethod {
+  cash
+  e_transfer
+  cheque
+  shop
+  stripe
+}
+
+enum PricingModel {
+  flat
+  per_unit
+  hourly
+}
+
+enum DocumentTemplateType {
+  quote_pdf
+  invoice_pdf
+  quote_email
+  invoice_email
+  receipt_email
+  follow_up_email
+  instructions_email
+}
+
+enum AppointmentStatus {
+  scheduled
+  needs_supervisor
+  completed
+  cancelled
+}
+
+enum TaskStatus {
+  open
+  in_progress
+  done
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum JobStatus {
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+enum LeadStatus {
+  new
+  contacted
+  converted
+  lost
+}
+
+enum BookingStatus {
+  confirmed
+  cancelled
+  completed
+}
+
+enum WorkerType {
+  contractor
+  employee
+}
+
+enum TimeEntryStatus {
+  pending
+  approved
+  rejected
+}
+
+enum PayoutMethod {
+  stripe_transfer
+  payroll_provider
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  paid
+  failed
+}
+
+enum ExpenseFrequency {
+  one_time
+  weekly
+  monthly
+  yearly
+}
+
+enum MarketingPlatform {
+  facebook
+  google
+  tiktok
+  pamphlet
+  referral
+  other
+}
+
+enum CurveType {
+  linear
+  log
+  exp
+}
