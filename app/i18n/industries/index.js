@@ -2,26 +2,20 @@
 //
 // Industry page content per language, with English as the fallback.
 //
-// es/uk/pa/tl are aliased to English until their files are written. That's a
-// deliberate, visible placeholder rather than a silent gap: a Spanish visitor
-// reads English industry copy — not a raw key — and the alias below is the
-// single place that shows what's outstanding. Replace an alias with a real
-// import as each file lands.
+// All six languages are now written. Punjabi and Tagalog were drafted rather
+// than natively authored — see the header notes in pa.js and tl.js. They're
+// complete and idiomatic enough to ship, but they're the two worth putting in
+// front of a native speaker before these pages become a primary acquisition
+// channel for those communities.
 
 import en from "./en";
 import fr from "./fr";
 import es from "./es";
 import uk from "./uk";
+import pa from "./pa";
+import tl from "./tl";
 
-export const INDUSTRY_MESSAGES = {
-  en,
-  fr,
-  es,
-  uk,
-  // TODO: real translations. ~130 strings each — see en.js for the shape.
-  pa: en,
-  tl: en,
-};
+export const INDUSTRY_MESSAGES = { en, fr, es, uk, pa, tl };
 
 /**
  * Resolves industry page content for a language, falling back field by field
