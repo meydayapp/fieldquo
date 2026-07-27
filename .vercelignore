@@ -1,0 +1,17 @@
+# Files never to upload in a CLI deploy (`vercel --prod`).
+#
+# Unlike a Git-triggered build, `vercel deploy` uploads the working directory
+# and does NOT read .gitignore. Without this, local .env files ride along into
+# the deployment — putting secrets in the build bundle and, worse, letting
+# localhost values silently win for any variable not set in Vercel itself.
+# That's how NEXT_PUBLIC_APP_URL=http://localhost:3000 ends up baked into a
+# production build, making every emailed quote link point at the recipient's
+# own machine.
+.env
+.env.*
+!.env.example
+
+.git
+node_modules
+.next
+.preview-emails
