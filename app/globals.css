@@ -49,73 +49,92 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* FieldQuo brand palette.
+ *
+ * These were shadcn's defaults — --primary was a teal (hue 223), which is why
+ * nothing ever looked gold. Values are hex rather than oklch so they match
+ * app/components/theme.js literally; that file supplies the same colours to
+ * HTML emails and PDFs, where CSS variables can't reach, and two sources of
+ * truth are easier to keep in sync when they're the same strings.
+ *
+ * Note --secondary here is shadcn's NEUTRAL SURFACE token, not "the brand's
+ * secondary colour". The brown (#6c2f1d) is a brand accent for illustration
+ * and email chrome — putting it on every secondary button would be shouty.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.147 0.004 49.3);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.147 0.004 49.3);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.147 0.004 49.3);
-  --primary: oklch(0.52 0.105 223.128);
-  --primary-foreground: oklch(0.984 0.019 200.873);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.96 0.002 17.2);
-  --muted-foreground: oklch(0.547 0.021 43.1);
-  --accent: oklch(0.96 0.002 17.2);
-  --accent-foreground: oklch(0.214 0.009 43.1);
+  --background: #fafaf9;
+  --foreground: #2d2520;
+  --card: #ffffff;
+  --card-foreground: #2d2520;
+  --popover: #ffffff;
+  --popover-foreground: #2d2520;
+  --primary: #bd9d60;
+  /* Dark text on gold, not white. #bd9d60 against white text is roughly 3:1 —
+   * below the 4.5:1 needed for body copy. Against #2d2520 it's about 5.5:1. */
+  --primary-foreground: #2d2520;
+  --secondary: #f5f0e8;
+  --secondary-foreground: #2d2520;
+  --muted: #f5f0e8;
+  --muted-foreground: #6b5d52;
+  --accent: #e8dcc8;
+  --accent-foreground: #2d2520;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0.005 34.3);
-  --input: oklch(0.922 0.005 34.3);
-  --ring: oklch(0.714 0.014 41.2);
+  --border: #e8dcc8;
+  --input: #e8dcc8;
+  --ring: #bd9d60;
   --chart-1: oklch(0.868 0.007 39.5);
   --chart-2: oklch(0.547 0.021 43.1);
   --chart-3: oklch(0.438 0.017 39.3);
   --chart-4: oklch(0.367 0.016 35.7);
   --chart-5: oklch(0.268 0.011 36.5);
   --radius: 0;
-  --sidebar: oklch(0.986 0.002 67.8);
-  --sidebar-foreground: oklch(0.147 0.004 49.3);
-  --sidebar-primary: oklch(0.609 0.126 221.723);
-  --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
-  --sidebar-accent: oklch(0.96 0.002 17.2);
-  --sidebar-accent-foreground: oklch(0.214 0.009 43.1);
-  --sidebar-border: oklch(0.922 0.005 34.3);
-  --sidebar-ring: oklch(0.714 0.014 41.2);
+  --sidebar: #f5f0e8;
+  --sidebar-foreground: #2d2520;
+  --sidebar-primary: #bd9d60;
+  --sidebar-primary-foreground: #2d2520;
+  --sidebar-accent: #e8dcc8;
+  --sidebar-accent-foreground: #2d2520;
+  --sidebar-border: #e8dcc8;
+  --sidebar-ring: #bd9d60;
 }
 
+/* Dark surfaces carry a brown undertone rather than neutral grey — grey next
+ * to a gold accent reads as cheap. Surfaces get lighter with elevation so
+ * stacked cards stay distinguishable. */
 .dark {
-  --background: oklch(0.147 0.004 49.3);
-  --foreground: oklch(0.986 0.002 67.8);
-  --card: oklch(0.214 0.009 43.1);
-  --card-foreground: oklch(0.986 0.002 67.8);
-  --popover: oklch(0.214 0.009 43.1);
-  --popover-foreground: oklch(0.986 0.002 67.8);
-  --primary: oklch(0.45 0.085 224.283);
-  --primary-foreground: oklch(0.984 0.019 200.873);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.268 0.011 36.5);
-  --muted-foreground: oklch(0.714 0.014 41.2);
-  --accent: oklch(0.268 0.011 36.5);
-  --accent-foreground: oklch(0.986 0.002 67.8);
+  --background: #12100e;
+  --foreground: #f5f0e8;
+  --card: #2d2520;
+  --card-foreground: #f5f0e8;
+  --popover: #2d2520;
+  --popover-foreground: #f5f0e8;
+  /* Lighter gold on dark. The light-mode #bd9d60 against #12100e is legible
+   * but muddy; lifting it keeps the same hue readable. */
+  --primary: #d1b87d;
+  --primary-foreground: #12100e;
+  --secondary: #3e342b;
+  --secondary-foreground: #f5f0e8;
+  --muted: #3e342b;
+  --muted-foreground: #c4b5a0;
+  --accent: #4a3428;
+  --accent-foreground: #f5f0e8;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.547 0.021 43.1);
+  --border: #4a3428;
+  --input: #4a3428;
+  --ring: #bd9d60;
   --chart-1: oklch(0.868 0.007 39.5);
   --chart-2: oklch(0.547 0.021 43.1);
   --chart-3: oklch(0.438 0.017 39.3);
   --chart-4: oklch(0.367 0.016 35.7);
   --chart-5: oklch(0.268 0.011 36.5);
-  --sidebar: oklch(0.214 0.009 43.1);
-  --sidebar-foreground: oklch(0.986 0.002 67.8);
-  --sidebar-primary: oklch(0.715 0.143 215.221);
-  --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
-  --sidebar-accent: oklch(0.268 0.011 36.5);
-  --sidebar-accent-foreground: oklch(0.986 0.002 67.8);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.547 0.021 43.1);
+  --sidebar: #1a1614;
+  --sidebar-foreground: #f5f0e8;
+  --sidebar-primary: #d1b87d;
+  --sidebar-primary-foreground: #12100e;
+  --sidebar-accent: #3e342b;
+  --sidebar-accent-foreground: #f5f0e8;
+  --sidebar-border: #4a3428;
+  --sidebar-ring: #bd9d60;
 }
 
 @layer base {
