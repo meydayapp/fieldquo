@@ -221,7 +221,7 @@ export default function CompanySettingsPage() {
   async function handleCreateTaxRate(e) {
     e.preventDefault();
     if (!newRate.name || !newRate.rate) return;
-    const res = await fetch("/api/settings/tax-rates", {
+    const res = await fetch("/api/settings/tax-rate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -244,7 +244,7 @@ export default function CompanySettingsPage() {
   }
 
   async function handleDeleteTaxRate(id) {
-    const res = await fetch(`/api/settings/tax-rates/${id}`, {
+    const res = await fetch(`/api/settings/tax-rate/${id}`, {
       method: "DELETE",
     });
     if (res.ok) setTaxRates((prev) => prev.filter((r) => r.id !== id));

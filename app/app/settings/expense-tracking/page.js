@@ -223,7 +223,7 @@ export default function ExpenseTrackingPage() {
     setAiLoading(true);
     setAiError("");
     try {
-      const res = await fetch("/api/expenses/ai-summary", {
+      const res = await fetch("/api/ai/ai-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ month: monthParam(monthDate) }),

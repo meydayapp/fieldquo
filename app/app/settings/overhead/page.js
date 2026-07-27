@@ -23,7 +23,7 @@ export default function OverheadPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/salaries").then((r) => r.json()),
-      fetch("/api/debts").then((r) => r.json()),
+      fetch("/api/debt").then((r) => r.json()),
     ]).then(([s, d]) => {
       setSalaries(Array.isArray(s) ? s : []);
       setDebts(Array.isArray(d) ? d : []);
@@ -50,7 +50,7 @@ export default function OverheadPage() {
 
   async function addDebt(e) {
     e.preventDefault();
-    const res = await fetch("/api/debts", {
+    const res = await fetch("/api/debt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
