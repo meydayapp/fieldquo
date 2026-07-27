@@ -4,8 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Resend } from "resend";
+import { lazyClient } from "@/lib/lazyClient";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy: `new Resend()` throws on a missing key, and at module scope that
+// fires during `next build` when Next imports routes to collect page data.
+const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 // Vercel Cron hits this on a schedule and emails admins about quotes above
 // their company's threshold.

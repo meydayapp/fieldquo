@@ -4,8 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Resend } from "resend";
+import { lazyClient } from "@/lib/lazyClient";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy — see lib/lazyClient.js. A module-scope `new Resend()` breaks the
+// production build when RESEND_API_KEY isn't present at build time.
+const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
 // Public — FieldQuo's own sales/demo-request lead, distinct from a tenant company's
 // LeadRequest. Stored on PlatformAdmin's side conceptually, but since there's no

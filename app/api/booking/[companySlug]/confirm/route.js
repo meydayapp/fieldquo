@@ -7,6 +7,9 @@ import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
+  // Next 16: params is a Promise. Reading it synchronously yields undefined,
+  // which made the company lookup below silently 404 every booking.
+  const { companySlug } = await params;
   const body = await request.json();
   const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone } =
     body;
@@ -22,7 +25,7 @@ export async function POST(request, { params }) {
   }
 
   const company = await db.company.findUnique({
-    where: { slug: params.companySlug },
+    where: { slug: companySlug },
   });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
