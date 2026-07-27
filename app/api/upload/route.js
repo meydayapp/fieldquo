@@ -1,50 +1,92 @@
 // app/api/upload/route.js
+//
+// Authenticated image upload, used by Settings > Branding (company logo) and
+// anywhere else the app needs to put a user-supplied file on a CDN.
+//
+// Signed, server-side upload — NOT an unsigned preset. Two reasons:
+//
+//   1. Unsigned presets are designed for uploading straight from a browser,
+//      where you can't keep a secret. This route already runs on the server
+//      behind a session check, so there's nothing to hide from and no reason
+//      to accept the weaker mode.
+//   2. An unsigned preset is effectively a public write token. Anyone who
+//      spots the preset name can upload to the account from anywhere.
+//
+// So this uses the API key/secret via lib/cloudinary.js. CLOUDINARY_UPLOAD_PRESET
+// is no longer needed.
 export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
+import { getCurrentMember } from "@/lib/currentMember";
+import { uploadBuffer } from "@/lib/cloudinary";
+
+const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
+const ALLOWED = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+]);
 
 export async function POST(request) {
-  const formData = await request.formData();
-  const file = formData.get("file");
-
-  if (!file) {
-    return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  // Previously absent: this endpoint accepted uploads from anyone on the
+  // internet, which is a free way to exhaust the Cloudinary quota.
+  const member = await getCurrentMember(request);
+  if (!member) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fail loudly on placeholder/missing config. Otherwise the request goes out
-  // to /v1_1/your_cloud_name/... and Cloudinary answers "unknown API key",
-  // which surfaces as an opaque 500 that looks like a code bug rather than a
-  // setup step.
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const preset = process.env.CLOUDINARY_UPLOAD_PRESET;
-  const unset = (v, placeholder) => !v || v === placeholder;
-
-  if (unset(cloudName, "your_cloud_name") || unset(preset, "your_unsigned_preset")) {
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
     return NextResponse.json(
       {
         error:
-          "Image uploads aren't configured. Set CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET (an unsigned preset) in .env, then restart the dev server.",
+          "Image uploads aren't configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in .env, then restart the dev server.",
       },
       { status: 503 },
     );
   }
 
-  const cloudForm = new FormData();
-  cloudForm.append("file", file);
-  cloudForm.append("upload_preset", preset);
+  const formData = await request.formData();
+  const file = formData.get("file");
 
-  const res = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-    { method: "POST", body: cloudForm },
-  );
+  if (!file || typeof file.arrayBuffer !== "function") {
+    return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  }
 
-  const data = await res.json();
-
-  if (!res.ok) {
+  if (!ALLOWED.has(file.type)) {
     return NextResponse.json(
-      { error: data.error?.message || "Upload failed" },
-      { status: 500 },
+      { error: "Upload a PNG, JPEG, WebP, GIF or SVG." },
+      { status: 400 },
     );
   }
 
-  return NextResponse.json({ url: data.secure_url, publicId: data.public_id });
+  if (file.size > MAX_BYTES) {
+    return NextResponse.json(
+      { error: "That file is larger than 8 MB." },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Foldered per company so one tenant's assets are easy to find, audit and
+    // delete without trawling a flat global namespace.
+    const uploaded = await uploadBuffer(buffer, {
+      folder: `fieldquo/companies/${member.companyId}`,
+      resourceType: "image",
+    });
+
+    return NextResponse.json({
+      url: uploaded.secure_url,
+      publicId: uploaded.public_id,
+    });
+  } catch (err) {
+    console.error("[upload] Cloudinary error:", err?.message);
+    return NextResponse.json(
+      { error: err?.message || "Upload failed" },
+      { status: 500 },
+    );
+  }
 }
