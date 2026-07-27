@@ -101,6 +101,30 @@ const en = {
   "contact.sent": "Thanks — we'll be in touch shortly.",
   "contact.error": "Something went wrong. Try again, or email us directly.",
 
+  "features.everything": "Everything your business needs, in one place",
+  "features.anyTrade": "Built for any trade",
+
+  // AI Copilot section
+  "ai.badge": "AI Copilot",
+  "ai.title": "Ask your business a question, get a real answer",
+  "ai.body":
+    "Copilot reads your own quotes, invoices, and expenses — not generic advice. Ask how your quote conversion rate is doing this month, or whether materials were cheaper last month, and get an answer grounded in your actual numbers.",
+  "ai.samples.pricing": "“Am I pricing too low compared to last quarter?”",
+  "ai.samples.topClients":
+    "“Which of my clients have paid the most this year?”",
+  "ai.samples.materials":
+    "“Should I stock up on any materials right now?”",
+  "ai.chat.question": "How's my quote conversion rate this month?",
+  "ai.chat.answer":
+    "You've sent 14 quotes and 6 were accepted — a 43% conversion rate, up from 31% last month. Your painting quotes are converting best.",
+
+  // Resources
+  "resources.title": "Free resources",
+  "resources.help.description":
+    "Guides for getting set up and using FieldQuo",
+  "resources.faq.description": "Quick answers to common questions",
+  "resources.contact.description": "Talk to a real person",
+
   // Pricing card
   "pricing.popular": "Most popular",
   "pricing.selected": "Selected",
@@ -249,6 +273,30 @@ const fr = {
   "contact.sent": "Merci — nous vous répondrons sous peu.",
   "contact.error": "Une erreur est survenue. Réessayez ou écrivez-nous directement.",
 
+  "features.everything":
+    "Tout ce dont votre entreprise a besoin, au même endroit",
+  "features.anyTrade": "Conçu pour tous les métiers",
+
+  "ai.badge": "Copilote IA",
+  "ai.title": "Posez une question à votre entreprise, obtenez une vraie réponse",
+  "ai.body":
+    "Le copilote lit vos propres soumissions, factures et dépenses — pas des conseils génériques. Demandez où en est votre taux de conversion ce mois-ci, ou si les matériaux coûtaient moins cher le mois dernier, et obtenez une réponse fondée sur vos vrais chiffres.",
+  "ai.samples.pricing":
+    "« Est-ce que je facture trop peu par rapport au trimestre dernier? »",
+  "ai.samples.topClients":
+    "« Quels clients ont payé le plus cette année? »",
+  "ai.samples.materials":
+    "« Devrais-je faire des réserves de matériaux maintenant? »",
+  "ai.chat.question": "Où en est mon taux de conversion ce mois-ci?",
+  "ai.chat.answer":
+    "Vous avez envoyé 14 soumissions et 6 ont été acceptées — un taux de conversion de 43 %, en hausse par rapport à 31 % le mois dernier. Vos soumissions de peinture convertissent le mieux.",
+
+  "resources.title": "Ressources gratuites",
+  "resources.help.description":
+    "Guides pour configurer et utiliser FieldQuo",
+  "resources.faq.description": "Réponses rapides aux questions courantes",
+  "resources.contact.description": "Parlez à une vraie personne",
+
   "pricing.popular": "Le plus populaire",
   "pricing.selected": "Sélectionné",
   "pricing.firstMonth": "Premier mois",
@@ -393,6 +441,28 @@ const es = {
   "contact.sent": "Gracias — te contactaremos pronto.",
   "contact.error": "Algo salió mal. Inténtalo de nuevo o escríbenos directamente.",
 
+  "features.everything": "Todo lo que tu negocio necesita, en un solo lugar",
+  "features.anyTrade": "Hecho para cualquier oficio",
+
+  "ai.badge": "Copiloto IA",
+  "ai.title": "Hazle una pregunta a tu negocio y obtén una respuesta real",
+  "ai.body":
+    "El copiloto lee tus propios presupuestos, facturas y gastos — no consejos genéricos. Pregunta cómo va tu tasa de conversión este mes, o si los materiales estaban más baratos el mes pasado, y recibe una respuesta basada en tus números reales.",
+  "ai.samples.pricing":
+    "«¿Estoy cobrando muy poco comparado con el trimestre pasado?»",
+  "ai.samples.topClients":
+    "«¿Qué clientes han pagado más este año?»",
+  "ai.samples.materials":
+    "«¿Debería abastecerme de algún material ahora?»",
+  "ai.chat.question": "¿Cómo va mi tasa de conversión este mes?",
+  "ai.chat.answer":
+    "Enviaste 14 presupuestos y 6 fueron aceptados — una tasa de conversión del 43 %, frente al 31 % del mes pasado. Tus presupuestos de pintura son los que mejor convierten.",
+
+  "resources.title": "Recursos gratuitos",
+  "resources.help.description": "Guías para configurar y usar FieldQuo",
+  "resources.faq.description": "Respuestas rápidas a preguntas comunes",
+  "resources.contact.description": "Habla con una persona real",
+
   "pricing.popular": "Más popular",
   "pricing.selected": "Seleccionado",
   "pricing.firstMonth": "Primer mes",
@@ -502,6 +572,29 @@ const uk = {
   "hero.tabs.analytics.headline": "Знайте, скільки брати, замість здогадок",
   "hero.tabs.analytics.body":
     "Побачте свої реальні накладні витрати, мінімальну ціну за роботу та як ви виглядаєте на тлі інших у вашій галузі.",
+
+  "features.everything": "Усе потрібне вашому бізнесу — в одному місці",
+  "features.anyTrade": "Створено для будь-якої галузі",
+
+  "ai.badge": "ШІ-помічник",
+  "ai.title": "Запитайте свій бізнес — і отримайте справжню відповідь",
+  "ai.body":
+    "Помічник читає ваші власні кошториси, рахунки та витрати — а не дає загальних порад. Запитайте, який у вас відсоток прийнятих кошторисів цього місяця або чи були матеріали дешевшими минулого місяця, і отримайте відповідь на основі ваших реальних цифр.",
+  "ai.samples.pricing":
+    "«Чи не занадто низькі в мене ціни порівняно з минулим кварталом?»",
+  "ai.samples.topClients":
+    "«Які клієнти заплатили найбільше цього року?»",
+  "ai.samples.materials":
+    "«Чи варто зараз закупити якісь матеріали?»",
+  "ai.chat.question": "Який у мене відсоток прийнятих кошторисів цього місяця?",
+  "ai.chat.answer":
+    "Ви надіслали 14 кошторисів, 6 було прийнято — 43 % проти 31 % минулого місяця. Найкраще конвертуються ваші малярні кошториси.",
+
+  "resources.title": "Безкоштовні ресурси",
+  "resources.help.description":
+    "Посібники з налаштування та використання FieldQuo",
+  "resources.faq.description": "Швидкі відповіді на поширені запитання",
+  "resources.contact.description": "Поговоріть із живою людиною",
 
   "pricing.popular": "Найпопулярніший",
   "pricing.selected": "Обрано",
@@ -646,6 +739,29 @@ const pa = {
   "hero.tabs.analytics.body":
     "ਆਪਣਾ ਅਸਲ ਖਰਚਾ, ਹਰ ਕੰਮ ਲਈ ਘੱਟੋ-ਘੱਟ ਕੀਮਤ, ਅਤੇ ਆਪਣੇ ਖੇਤਰ ਦੀਆਂ ਹੋਰ ਦੁਕਾਨਾਂ ਨਾਲ ਤੁਲਨਾ ਵੇਖੋ।",
 
+  "features.everything": "ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ ਲੋੜੀਂਦਾ ਸਭ ਕੁਝ, ਇੱਕੋ ਥਾਂ",
+  "features.anyTrade": "ਹਰ ਕਿੱਤੇ ਲਈ ਬਣਾਇਆ ਗਿਆ",
+
+  "ai.badge": "AI ਸਹਾਇਕ",
+  "ai.title": "ਆਪਣੇ ਕਾਰੋਬਾਰ ਤੋਂ ਸਵਾਲ ਪੁੱਛੋ, ਅਸਲ ਜਵਾਬ ਪਾਓ",
+  "ai.body":
+    "ਸਹਾਇਕ ਤੁਹਾਡੇ ਆਪਣੇ ਕੋਟ, ਇਨਵੌਇਸ ਅਤੇ ਖਰਚੇ ਪੜ੍ਹਦਾ ਹੈ — ਆਮ ਸਲਾਹ ਨਹੀਂ ਦਿੰਦਾ। ਪੁੱਛੋ ਕਿ ਇਸ ਮਹੀਨੇ ਕਿੰਨੇ ਕੋਟ ਮਨਜ਼ੂਰ ਹੋਏ, ਜਾਂ ਪਿਛਲੇ ਮਹੀਨੇ ਸਮੱਗਰੀ ਸਸਤੀ ਸੀ ਜਾਂ ਨਹੀਂ — ਅਤੇ ਆਪਣੇ ਅਸਲ ਅੰਕੜਿਆਂ 'ਤੇ ਆਧਾਰਿਤ ਜਵਾਬ ਪਾਓ।",
+  "ai.samples.pricing":
+    "\"ਕੀ ਮੈਂ ਪਿਛਲੀ ਤਿਮਾਹੀ ਦੇ ਮੁਕਾਬਲੇ ਬਹੁਤ ਘੱਟ ਕੀਮਤ ਲੈ ਰਿਹਾ ਹਾਂ?\"",
+  "ai.samples.topClients":
+    "\"ਇਸ ਸਾਲ ਕਿਹੜੇ ਗਾਹਕਾਂ ਨੇ ਸਭ ਤੋਂ ਵੱਧ ਭੁਗਤਾਨ ਕੀਤਾ?\"",
+  "ai.samples.materials":
+    "\"ਕੀ ਮੈਨੂੰ ਹੁਣ ਕੋਈ ਸਮੱਗਰੀ ਸਟਾਕ ਕਰਨੀ ਚਾਹੀਦੀ ਹੈ?\"",
+  "ai.chat.question": "ਇਸ ਮਹੀਨੇ ਮੇਰੇ ਕਿੰਨੇ ਕੋਟ ਮਨਜ਼ੂਰ ਹੋਏ?",
+  "ai.chat.answer":
+    "ਤੁਸੀਂ 14 ਕੋਟ ਭੇਜੇ ਅਤੇ 6 ਮਨਜ਼ੂਰ ਹੋਏ — 43% ਦਰ, ਪਿਛਲੇ ਮਹੀਨੇ ਦੇ 31% ਤੋਂ ਵੱਧ। ਤੁਹਾਡੇ ਪੇਂਟਿੰਗ ਕੋਟ ਸਭ ਤੋਂ ਵਧੀਆ ਚੱਲ ਰਹੇ ਹਨ।",
+
+  "resources.title": "ਮੁਫ਼ਤ ਸਰੋਤ",
+  "resources.help.description":
+    "FieldQuo ਸੈੱਟਅੱਪ ਅਤੇ ਵਰਤੋਂ ਲਈ ਗਾਈਡਾਂ",
+  "resources.faq.description": "ਆਮ ਸਵਾਲਾਂ ਦੇ ਤੇਜ਼ ਜਵਾਬ",
+  "resources.contact.description": "ਕਿਸੇ ਅਸਲ ਵਿਅਕਤੀ ਨਾਲ ਗੱਲ ਕਰੋ",
+
   "pricing.popular": "ਸਭ ਤੋਂ ਪ੍ਰਸਿੱਧ",
   "pricing.selected": "ਚੁਣਿਆ ਗਿਆ",
   "pricing.firstMonth": "ਪਹਿਲਾ ਮਹੀਨਾ",
@@ -789,6 +905,30 @@ const tl = {
     "Alamin kung magkano ang sisingilin, bago ka manghula",
   "hero.tabs.analytics.body":
     "Tingnan ang totoong gastos mo, ang pinakamababang presyo bawat trabaho, at kung paano ka kumpara sa ibang negosyo sa larangan mo.",
+
+  "features.everything":
+    "Lahat ng kailangan ng negosyo mo, sa iisang lugar",
+  "features.anyTrade": "Ginawa para sa anumang trabaho",
+
+  "ai.badge": "AI Copilot",
+  "ai.title": "Magtanong sa negosyo mo, makakuha ng totoong sagot",
+  "ai.body":
+    "Binabasa ng Copilot ang sarili mong mga quote, invoice at gastos — hindi generic na payo. Itanong kung kumusta ang conversion rate mo ngayong buwan, o kung mas mura ba ang materyales noong isang buwan, at makakuha ng sagot base sa totoo mong numero.",
+  "ai.samples.pricing":
+    "“Masyado ba akong mababa magpresyo kumpara noong nakaraang quarter?”",
+  "ai.samples.topClients":
+    "“Sinong mga kliyente ang pinakamalaki ang binayad ngayong taon?”",
+  "ai.samples.materials":
+    "“Dapat ba akong mag-stock ng materyales ngayon?”",
+  "ai.chat.question": "Kumusta ang quote conversion rate ko ngayong buwan?",
+  "ai.chat.answer":
+    "Nakapagpadala ka ng 14 na quote at 6 ang naaprubahan — 43% conversion rate, mula 31% noong isang buwan. Ang mga quote mo sa pagpipinta ang pinakamataas ang conversion.",
+
+  "resources.title": "Libreng resources",
+  "resources.help.description":
+    "Mga gabay sa pag-setup at paggamit ng FieldQuo",
+  "resources.faq.description": "Mabilis na sagot sa madalas itanong",
+  "resources.contact.description": "Makipag-usap sa totoong tao",
 
   "pricing.popular": "Pinakasikat",
   "pricing.selected": "Napili",

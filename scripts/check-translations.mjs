@@ -9,8 +9,17 @@
 // wiring into CI: t() falls back to English on a missing key, which means an
 // untranslated string ships silently and a customer finds it before you do.
 
-import { MESSAGES, MESSAGE_KEYS } from "../app/i18n/messages.js";
-import { LANGUAGES, DEFAULT_LANGUAGE } from "../app/i18n/languages.js";
+// Namespace imports, not named ones. package.json has no "type": "module",
+// so tsx transpiles these .js sources to CommonJS, and Node's CJS→ESM
+// interop detects named exports by static analysis that doesn't catch every
+// pattern — producing "does not provide an export named DEFAULT_LANGUAGE"
+// even though it plainly does. Reading properties off the namespace object
+// happens at runtime and always works.
+import * as messages from "../app/i18n/messages.js";
+import * as languages from "../app/i18n/languages.js";
+
+const { MESSAGES, MESSAGE_KEYS } = messages;
+const { LANGUAGES, DEFAULT_LANGUAGE } = languages;
 
 let problems = 0;
 
