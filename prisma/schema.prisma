@@ -17,6 +17,17 @@ model Product {
   company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name        String
   description String?
+  // Per-language name and description, keyed by language code:
+  //   { fr: { name, description }, es: { name, description }, ... }
+  //
+  // `name`/`description` above stay the source language — what the company
+  // typed — and are what the app UI shows. This field is only read when
+  // rendering a document for a CLIENT in another language.
+  //
+  // Populated two ways: standard add-ons ship with hand-written translations
+  // (app/data/standardAddOns.js), and services a company adds itself get
+  // drafted by lib/i18n/translateContent.js for the company to review.
+  translations Json?
   type        ProductType @default(service)
   unitPrice   Decimal?    @db.Decimal(12, 2)
   costPrice   Decimal?    @db.Decimal(12, 2)
@@ -151,6 +162,14 @@ model Company {
   // Distinct from Quote.language, which records the language a specific quote
   // was sent in — that must stay fixed even if the company later switches.
   defaultLanguage        String            @default("en")
+  // Languages this company actually sends CLIENT documents in. Drives which
+  // options the employee sees when setting a client's language, and which
+  // translations get drafted when a service is added.
+  //
+  // Separate from the six FieldQuo supports: a painter in Ottawa might send
+  // in English and French only, and shouldn't be asked to review Tagalog
+  // drafts for every service they add. Empty means "default language only".
+  sendLanguages          String[]          @default([])
 
   // ── Per-company email sending domain (Resend) ──────────────────────────
   // Until emailDomainStatus is "verified", mail for this company goes out on
