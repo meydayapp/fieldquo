@@ -3,6 +3,16 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { db } from "@/lib/db";
 
+// Rendered per request, not at build time.
+//
+// Without this, Next statically prerenders the page during `next build`,
+// which means the BUILD needs a reachable database — a deploy then fails
+// with "Can't reach database server" for reasons that have nothing to do
+// with the code being deployed. It also contradicts the intent below: a
+// prerendered page would freeze whatever plans existed at build time and
+// keep serving them until the next deploy.
+export const dynamic = "force-dynamic";
+
 // Server component — reads live from the Plan table so this page can never drift
 // from what companies actually get charged. If you add/edit a plan in /platform,
 // this page reflects it on next request, no code deploy needed.
