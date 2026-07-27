@@ -11,6 +11,25 @@ datasource db {
 // ============================================================
 // PLATFORM — FieldQuo's own back office (never mixed with tenant auth)
 // ============================================================
+model Product {
+  id          String      @id @default(cuid())
+  companyId   String
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  type        ProductType @default(service)
+  unitPrice   Decimal?    @db.Decimal(12, 2)
+  costPrice   Decimal?    @db.Decimal(12, 2)
+  unit        String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+
+  // Which quote types (ServiceCategory) this product/service can be added to
+  // as a line item. Empty = available on every quote type (e.g. a generic
+  // "Rush Fee"); non-empty = only offered when building a quote in one of
+  // these categories, so a Flooring quote doesn't offer cabinet hinges.
+  categories ServiceCategory[]
+}
 
 model PlatformAdmin {
   id           String            @id @default(cuid())
@@ -24,42 +43,83 @@ model PlatformAdmin {
 }
 
 model PlatformAuditLog {
-  id              String         @id @default(cuid())
+  id              String        @id @default(cuid())
   platformAdminId String
-  platformAdmin   PlatformAdmin  @relation(fields: [platformAdminId], references: [id])
+  platformAdmin   PlatformAdmin @relation(fields: [platformAdminId], references: [id])
   action          String
   targetCompanyId String?
   details         Json?
-  createdAt       DateTime       @default(now())
+  createdAt       DateTime      @default(now())
+}
+
+model CustomField {
+  id         String                @id @default(cuid())
+  companyId  String
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  entityType CustomFieldEntityType
+  label      String
+  fieldType  CustomFieldType       @default(text)
+  options    Json? // string[] — only used when fieldType is "dropdown"
+  required   Boolean               @default(false)
+  sortOrder  Int                   @default(0)
+  createdAt  DateTime              @default(now())
+ 
+  values CustomFieldValue[]
+}
+ 
+// Polymorphic on purpose — entityId points at whichever table entityType
+// implies (Client.id, Quote.id, Job.id, Invoice.id, Member.id). Not wired up
+// to any of those forms yet (see note 2 above); the model just exists so the
+// data has somewhere to live once that integration happens.
+model CustomFieldValue {
+  id            String      @id @default(cuid())
+  customFieldId String
+  customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  entityId      String
+  value         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+ 
+  @@unique([customFieldId, entityId])
+}
+
+model TaxRate {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  rate      Decimal  @db.Decimal(6, 3)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
 }
 
 model Plan {
-  id               String   @id @default(cuid())
-  name             String
-  priceMonthly     Decimal  @default(0) @db.Decimal(12, 2)
-  stripePriceId    String?
-  maxUsers         Int?
+  id                String   @id @default(cuid())
+  name              String   @unique
+  priceMonthly      Decimal  @default(0) @db.Decimal(12, 2)
+  stripePriceId     String?
+  maxUsers          Int?
   maxQuotesPerMonth Int?
-  aiCopilotEnabled Boolean  @default(false)
-  features         Json?
-  createdAt        DateTime @default(now())
+  aiCopilotEnabled  Boolean  @default(false)
+  features          Json?
+  createdAt         DateTime @default(now())
 
-  subscriptions    Subscription[]
+  subscriptions Subscription[]
 }
 
 model Subscription {
-  id                   String            @id @default(cuid())
-  companyId            String            @unique
-  company              Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                   String             @id @default(cuid())
+  companyId            String             @unique
+  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   planId               String
-  plan                 Plan              @relation(fields: [planId], references: [id])
+  plan                 Plan               @relation(fields: [planId], references: [id])
   stripeCustomerId     String?
   stripeSubscriptionId String?
   status               SubscriptionStatus @default(trialing)
   currentPeriodEnd     DateTime?
   trialEndsAt          DateTime?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 }
 
 // ============================================================
@@ -67,9 +127,9 @@ model Subscription {
 // ============================================================
 
 model Company {
-  id                     String    @id @default(cuid())
+  id                     String            @id @default(cuid())
   name                   String
-  slug                   String    @unique
+  slug                   String            @unique
   email                  String?
   phone                  String?
   address                String?
@@ -77,74 +137,144 @@ model Company {
   province               String?
   website                String?
   logoUrl                String?
-  brandColor             String?   @default("#bd9d60")
+  // Kept as the canonical PRIMARY colour. Everything that read brandColor
+  // before still works; brandColors below layers secondary/neutral on top
+  // rather than replacing it, so there's no migration of existing values.
+  brandColor             String?           @default("#bd9d60")
+  // { secondary, neutral } — see lib/email/emailTheme.js. Null means "derive
+  // sensible defaults from brandColor", which is what every existing company
+  // gets without touching a thing.
+  brandColors            Json?
   paymentTerms           String?
-  taxRate                Decimal   @default(0) @db.Decimal(6, 3)
-  paymentMethods         String[]  @default(["cash", "e_transfer", "cheque"])
-  bookingSlug            String?   @unique
-  onboardingStatus       OnboardingStatus @default(pending)
+  taxRate                Decimal           @default(0) @db.Decimal(6, 3)
+  paymentMethods         String[]          @default(["cash", "e_transfer", "cheque"])
+  bookingSlug            String?           @unique
+  industries String[] @default([])
+  onboardingStatus       OnboardingStatus  @default(pending)
   trialEndsAt            DateTime?
-  shareAnonymizedPricing Boolean   @default(false)
+  shareAnonymizedPricing Boolean           @default(false)
+
+  pendingTeamProfiles PendingTeamProfile[]
+  customFields CustomField[]
+
+  referralCode   String? @unique
+  referredByCode String?
 
   // Stripe Connect — for this company to receive payments from ITS clients
-  stripeAccountId        String?
-  stripeOnboarded        Boolean   @default(false)
-  stripeChargesEnabled   Boolean   @default(false)
+  stripeAccountId      String?
+  stripeOnboarded      Boolean @default(false)
+  stripeChargesEnabled Boolean @default(false)
 
-  createdAt              DateTime  @default(now())
+  createdAt DateTime @default(now())
 
-  members                Member[]
-  clients                Client[]
-  quotes                 Quote[]
-  invoices               Invoice[]
-  appointments           Appointment[]
-  tasks                  Task[]
-  workAreas              WorkArea[]
-  serviceCategories      CompanyServiceCategory[]
-  documentTemplates      DocumentTemplate[]
-  expenses               Expense[]
-  marketingSpends        MarketingSpend[]
-  salaries               Salary[]
-  debts                  Debt[]
-  forecastSettings       ForecastSettings?
-  workers                Worker[]
-  eventTypes             EventType[]
-  jobs                   Job[]
-  jobChecklistTemplates  JobChecklistTemplate[]
-  leadRequests           LeadRequest[]
-  materials              Material[]
-  notificationRules      NotificationRule[]
-  aiDigests              AiDigest[]
-  subscription           Subscription?
+  products Product[]
+
+  members               Member[]
+  clients               Client[]
+  quotes                Quote[]
+  invoices              Invoice[]
+  appointments          Appointment[]
+  tasks                 Task[]
+  workAreas             WorkArea[]
+  serviceCategories     CompanyServiceCategory[]
+  customQuoteTypes      ServiceCategory[]
+  marketingCampaigns    MarketingCampaign[]
+  documentTemplates     DocumentTemplate[]
+  expenses              Expense[]
+  marketingSpends       MarketingSpend[]
+  salaries              Salary[]
+  debts                 Debt[]
+  forecastSettings      ForecastSettings?
+  workers               Worker[]
+  eventTypes            EventType[]
+  jobs                  Job[]
+  jobChecklistTemplates JobChecklistTemplate[]
+  leadRequests          LeadRequest[]
+  materials             Material[]
+  notificationRules     NotificationRule[]
+  aiDigests             AiDigest[]
+  subscription          Subscription?
+
+  postalCode        String?
+  country           String?  @default("CA")
+  latitude          Decimal? @db.Decimal(9, 6)
+  longitude         Decimal? @db.Decimal(9, 6)
+  discoverable      Boolean  @default(false)
+
+  taxIdName         String?  // e.g. "GST"
+  taxIdNumber       String?
+  autoApplyLocalTax Boolean  @default(true)
+
+  timezone          String?  @default("America/Toronto")
+  dateFormat        String?  @default("MM/DD/YYYY")
+  weekStartsOn      Int?     @default(0) // 0 = Sunday, 1 = Monday
+
+  sitePublished     Boolean  @default(false)
+  taxRates          TaxRate[]
+
+  authOrgId String? @unique
+
+  quickAddItems QuickAddItem[]
+
+  defaultMaterialMarkupPercent Decimal @default(40) @db.Decimal(6, 3)
+
+  materialRecipeSettings MaterialRecipeSetting[]
+  followUpRules          FollowUpRule[]
+  marketingSubscribers   MarketingSubscriber[]
 }
 
+// Per-company overrides on top of the built-in defaults in
+// app/data/materialRecipes.js — lets a shop punch in its own primer/top-coat
+// coverage rates, per-gallon costs, coat counts, consumable costs, and
+// labour minutes instead of using the TrueFinish-derived starting numbers.
+// `overrides` only needs to contain the keys the company changed; the
+// resolver in materialRecipes.js merges this on top of the shared default
+// recipe for that categoryKey. One row per company per category.
+model MaterialRecipeSetting {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryKey String
+  overrides   Json
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, categoryKey])
+}
+
+
+
 model User {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  orgMemberships OrgMember[]
 
   memberships          Member[]
   sessions             Session[]
   accounts             Account[]
-  quotesCreated        Quote[]       @relation("QuoteCreatedBy")
-  invoicesCreated      Invoice[]     @relation("InvoiceCreatedBy")
-  appointmentsCreated  Appointment[] @relation("AppointmentCreatedBy")
-  appointmentsAssigned Appointment[] @relation("AppointmentAssignee")
-  tasksCreated         Task[]        @relation("TaskCreatedBy")
-  tasksAssigned        Task[]        @relation("TaskAssignee")
-  timeEntriesApproved  TimeEntry[]   @relation("TimeEntryApprovedBy")
+  quotesCreated        Quote[]              @relation("QuoteCreatedBy")
+  invoicesCreated      Invoice[]            @relation("InvoiceCreatedBy")
+  appointmentsCreated  Appointment[]        @relation("AppointmentCreatedBy")
+  appointmentsAssigned Appointment[]        @relation("AppointmentAssignee")
+  tasksCreated         Task[]               @relation("TaskCreatedBy")
+  tasksAssigned        Task[]               @relation("TaskAssignee")
+  timeEntriesApproved  TimeEntry[]          @relation("TimeEntryApprovedBy")
   workAreaAssignments  WorkAreaAssignment[]
   availability         AvailabilitySchedule[]
   eventTypes           EventType[]
-  jobVisitsAssigned    JobVisit[]    @relation("JobVisitAssignee")
+  jobVisitsAssigned    JobVisit[]           @relation("JobVisitAssignee")
   workerProfile        Worker?
+  campaignsAssigned    MarketingCampaign[]  @relation("CampaignAssignee")
+  pamphletStopsAssigned PamphletStop[]      @relation("PamphletStopAssignee")
 }
 
-// One row per (user, company) — this is the RBAC join
+// One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
 model Member {
   id        String     @id @default(cuid())
   userId    String
@@ -155,31 +285,70 @@ model Member {
   active    Boolean    @default(true)
   createdAt DateTime   @default(now())
 
+  phone            String?
+  address          String?
+  city             String?
+  province         String?
+  postalCode       String?
+  country          String?
+  imageUrl         String?
+  laborCostPerHour Decimal? @db.Decimal(10, 2)
+  permissions      Json?
+
+  invitationLanguage String? @default("en")
+
   @@unique([userId, companyId])
 }
 
-// ── Better Auth required tables ──────────────────────────────
+model PendingTeamProfile {
+  id                 String   @id @default(cuid())
+  companyId          String
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email              String
+  name               String?
+  phone              String?
+  address            String?
+  city               String?
+  province           String?
+  postalCode         String?
+  country            String?
+  imageUrl           String?
+  laborCostPerHour   Decimal? @db.Decimal(10, 2)
+  permissions        Json?
+  invitationLanguage String?  @default("en")
+  createdAt          DateTime @default(now())
+ 
+  @@unique([companyId, email])
+}
+
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token                String   @unique
+  expiresAt            DateTime
+  ipAddress            String?
+  userAgent            String?
+  activeOrganizationId String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Account {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId   String
-  accountId    String
-  password     String?
-  accessToken  String?
-  refreshToken String?
-  createdAt    DateTime @default(now())
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId            String
+  accountId             String
+  password              String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 model Verification {
@@ -187,6 +356,45 @@ model Verification {
   identifier String
   value      String
   expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ── Better Auth organization plugin — separate from your own Member/Company models ──
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  members     OrgMember[]
+  invitations Invitation[]
+}
+
+// Renamed from Better Auth's default "member" to avoid colliding with your own Member table
+model OrgMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime     @default(now())
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String       @default("pending")
+  inviterId      String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
 }
 
 // ============================================================
@@ -194,111 +402,136 @@ model Verification {
 // ============================================================
 
 model Client {
-  id            String   @id @default(cuid())
-  companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name          String
-  email         String?
-  phone         String?
-  address       String?
-  city          String?
-  province      String?
-  notes         String?
-  portalToken   String?  @unique
-  createdAt     DateTime @default(now())
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  // individual = a homeowner / end customer whose jobs are at their own
+  // address; company = another business (e.g. a general contractor) that
+  // hires this company across many DIFFERENT job sites, so `address` is just
+  // their office and the real work location is set per quote/job instead.
+  type        ClientType @default(individual)
+  // For company clients: the person you actually deal with there. Null for
+  // individuals (the client IS the person).
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  province    String?
+  notes       String?
+  portalToken String?  @unique
+  createdAt   DateTime @default(now())
 
   quotes        Quote[]
   invoices      Invoice[]
   jobs          Job[]
   referralLinks ReferralLink[]
+  appointments  Appointment[]
+  tasks         Task[]
+  pamphletStops PamphletStop[]
+}
+
+enum ClientType {
+  individual
+  company
 }
 
 model Quote {
-  id            String      @id @default(cuid())
-  companyId     String
-  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  quoteNumber   String
-  status        QuoteStatus @default(draft)
-  language      String      @default("en")
-  clientId      String
-  client        Client      @relation(fields: [clientId], references: [id])
-  createdById   String?
-  createdBy     User?       @relation("QuoteCreatedBy", fields: [createdById], references: [id])
+  id          String      @id @default(cuid())
+  companyId   String
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteNumber String
+  status      QuoteStatus @default(draft)
+  language    String      @default("en")
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id])
+  createdById String?
+  createdBy   User?       @relation("QuoteCreatedBy", fields: [createdById], references: [id])
 
-  lineItems     Json?
-  clientPhotos  Json?
-  subtotal      Decimal     @default(0) @db.Decimal(12, 2)
-  discount      Decimal     @default(0) @db.Decimal(12, 2)
-  tax           Decimal     @default(0) @db.Decimal(12, 2)
-  total         Decimal     @default(0) @db.Decimal(12, 2)
-  taxEnabled    Boolean     @default(true)
-  notes         String?
-  validUntil    DateTime?
-  pdfUrl        String?
+  lineItems    Json?
+  clientPhotos Json?
+  subtotal     Decimal   @default(0) @db.Decimal(12, 2)
+  discount     Decimal   @default(0) @db.Decimal(12, 2)
+  tax          Decimal   @default(0) @db.Decimal(12, 2)
+  total        Decimal   @default(0) @db.Decimal(12, 2)
+  taxEnabled   Boolean   @default(true)
+  notes        String?
+  validUntil   DateTime?
+  pdfUrl       String?
 
-  quoteType     String?
-  scopeDetails  Json?
+  quoteType    String?
+  scopeDetails Json?
 
   shareToken          String?   @unique
   clientDesignSaved   Boolean   @default(false)
   clientDesignAt      DateTime?
   clientKitchenConfig Json?
 
-  sentAt        DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  invoices      Invoice[]
-  scopeGroups   QuoteScopeGroup[]
-  appointments  Appointment[]
-  tasks         Task[]
-  jobs          Job[]
+  invoices     Invoice[]
+  scopeGroups  QuoteScopeGroup[]
+  appointments Appointment[]
+  tasks        Task[]
+  jobs         Job[]
 
   @@unique([companyId, quoteNumber])
+
+  calledAt DateTime?
+
+  tierGroupId String?     // shared ID linking Good/Better/Best variants together
+  tierLabel   String?      // "good" | "better" | "best"
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  companyId       String
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  invoiceNumber   String
-  status          InvoiceStatus @default(draft)
-  clientId        String
-  client          Client        @relation(fields: [clientId], references: [id])
-  quoteId         String?
-  quote           Quote?        @relation(fields: [quoteId], references: [id])
-  createdById     String?
-  createdBy       User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  id            String        @id @default(cuid())
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceNumber String
+  status        InvoiceStatus @default(draft)
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+  quoteId       String?
+  quote         Quote?        @relation(fields: [quoteId], references: [id])
+  createdById   String?
+  createdBy     User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
 
   parentInvoiceId String?
-  parentInvoice   Invoice?      @relation("InvoiceVersions", fields: [parentInvoiceId], references: [id])
-  versions        Invoice[]     @relation("InvoiceVersions")
-  version         Int           @default(1)
+  parentInvoice   Invoice?  @relation("InvoiceVersions", fields: [parentInvoiceId], references: [id])
+  versions        Invoice[] @relation("InvoiceVersions")
+  version         Int       @default(1)
   changeLog       Json?
 
-  lineItems       Json?
-  subtotal        Decimal       @default(0) @db.Decimal(12, 2)
-  discount        Decimal       @default(0) @db.Decimal(12, 2)
-  tax             Decimal       @default(0) @db.Decimal(12, 2)
-  total           Decimal       @default(0) @db.Decimal(12, 2)
+  lineItems    Json?
+  subtotal     Decimal @default(0) @db.Decimal(12, 2)
+  discount     Decimal @default(0) @db.Decimal(12, 2)
+  tax          Decimal @default(0) @db.Decimal(12, 2)
+  total        Decimal @default(0) @db.Decimal(12, 2)
 
-  dueDate         DateTime?
-  startDate       DateTime?
-  endDate         DateTime?
-  pdfUrl          String?
-  clientPhotos    String[]      @default([])
-  language        String        @default("en")
+  dueDate      DateTime?
+  startDate    DateTime?
+  endDate      DateTime?
+  pdfUrl       String?
+  clientPhotos String[] @default([])
+  language     String   @default("en")
 
-  // Stripe
   stripePaymentIntentId String?
   stripeCheckoutUrl     String?
   paidVia               String?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  payments        Payment[]
-  tasks           Task[]
+  payments Payment[]
+  tasks    Task[]
+
+  amountPaid Decimal   @default(0) @db.Decimal(12, 2)
+  amountDue  Decimal   @default(0) @db.Decimal(12, 2)
+  paidDate   DateTime?
+  sentAt     DateTime?
 }
 
 model Payment {
@@ -318,18 +551,50 @@ model Payment {
 // ============================================================
 
 model ServiceCategory {
-  id          String   @id @default(cuid())
-  key         String   @unique
+  id          String  @id @default(cuid())
+  key         String  @unique
   label       String
   description String?
   icon        String?
-  sortOrder   Int      @default(0)
-  isSystem    Boolean  @default(true)
+  sortOrder   Int     @default(0)
+  isSystem    Boolean @default(true)
 
-  companySettings CompanyServiceCategory[]
-  scopeGroups     QuoteScopeGroup[]
+  // Custom (non-system) quote types a company creates for itself — null for
+  // the ~26 seeded system categories, set for anything a company added under
+  // Settings > Services. `key` stays globally unique either way (custom keys
+  // are generated as custom_<cuid>, never user-typed), so this doesn't need
+  // its own compound unique constraint.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Only set (and only read) for custom categories — the subset of fields
+  // the company picked from the shared field library in
+  // app/data/intakeFieldLibrary.js when creating this quote type. Same shape
+  // as one entry's array in app/data/quoteIntakeFields.js's INTAKE_FIELDS map
+  // ({ key, label, type, options? }[]), so the quote builder can treat both
+  // sources identically. System categories keep using getIntakeFields()
+  // instead and leave this null.
+  customFields Json?
+
+  companySettings    CompanyServiceCategory[]
+  scopeGroups        QuoteScopeGroup[]
   checklistTemplates JobChecklistTemplate[]
-  leadRequests    LeadRequest[]
+  leadRequests       LeadRequest[]
+  quickAddItems QuickAddItem[]
+  products           Product[]
+}
+model QuickAddItem {
+  id          String           @id @default(cuid())
+  companyId   String
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    ServiceCategory? @relation(fields: [categoryId], references: [id])
+  description String
+  unit        String           @default("flat")
+  rate        Decimal          @db.Decimal(12, 2)
+  section     String?
+  sku         String?
+  createdAt   DateTime         @default(now())
 }
 
 model CompanyServiceCategory {
@@ -346,6 +611,9 @@ model CompanyServiceCategory {
   updatedAt    DateTime        @updatedAt
 
   @@unique([companyId, categoryId])
+
+  crewRate1Person Decimal? @db.Decimal(10, 2)
+  crewRate2Person Decimal? @db.Decimal(10, 2)
 }
 
 model QuoteScopeGroup {
@@ -370,10 +638,58 @@ model DocumentTemplate {
   company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type      DocumentTemplateType
   name      String
+  // Client-facing subject line. Supports the same {{mergeField}} tokens as
+  // the body blocks. Nullable so each send path can fall back to its own
+  // built-in subject when a company hasn't set one.
+  subject   String?
   sections  Json
+  // Per-template theme overrides (accent colour, background, font, whether
+  // to show the branded header/footer). Null means "inherit from
+  // Company.brandColor / Company.logoUrl" — see lib/email/emailTheme.js.
+  theme     Json?
   isDefault Boolean              @default(false)
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
+
+  followUpRules FollowUpRule[]
+  marketingCampaigns MarketingCampaign[]
+}
+
+// A company-configured automation rule: "N days/hours after <triggerEvent>,
+// if still unresolved, send <template>." triggerEvent is a plain String
+// (not a Prisma enum) so new trigger types can be added later just by
+// extending the checker in app/api/cron/follow-ups/route.js and the UI
+// dropdown, with no migration. Supported today: quote_no_response,
+// invoice_overdue, job_completed.
+model FollowUpRule {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  triggerEvent String
+  delayValue  Int      @default(3)
+  delayUnit   String   @default("days") // "hours" | "days"
+  templateId  String?
+  template    DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  active      Boolean  @default(true)
+  conditions  Json? // reserved for future rule conditions (min quote total, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  logs FollowUpLog[]
+}
+
+// One row per (rule, entity) send — the cron route's dedupe guard so the
+// same quote/invoice/job never gets the same rule's email twice.
+model FollowUpLog {
+  id         String       @id @default(cuid())
+  ruleId     String
+  rule       FollowUpRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  entityType String // "quote" | "invoice" | "job"
+  entityId   String
+  sentAt     DateTime     @default(now())
+
+  @@unique([ruleId, entityId])
 }
 
 // ============================================================
@@ -400,7 +716,7 @@ model Appointment {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
-  booking            Booking?
+  booking Booking?
 }
 
 model Task {
@@ -470,8 +786,8 @@ model Job {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  visits         JobVisit[]
-  timeEntries    TimeEntry[]
+  visits      JobVisit[]
+  timeEntries TimeEntry[]
 }
 
 model JobVisit {
@@ -497,6 +813,125 @@ model JobChecklistTemplate {
   categoryId String?
   category   ServiceCategory? @relation(fields: [categoryId], references: [id])
   createdAt  DateTime         @default(now())
+}
+
+// ============================================================
+// MARKETING — campaigns + pamphlet (door-to-door) distribution
+// ============================================================
+
+// A marketing effort the company runs. `type` distinguishes the facets Emilio
+// described: pamphlet door-to-door distribution (the one with real workflow
+// below), plus lighter-weight records for paid channels (meta_ads) and a
+// generic bucket. Only pamphlet campaigns use PamphletStop rows.
+model MarketingCampaign {
+  id           String                  @id @default(cuid())
+  companyId    String
+  company      Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  type         MarketingCampaignType   @default(pamphlet)
+  status       MarketingCampaignStatus @default(draft)
+  notes        String?
+
+  // The employee tasked with distribution (User, so it lines up with the same
+  // assignee model appointments/jobs use). Nullable until assigned.
+  assignedToId String?
+  assignedTo   User?                   @relation("CampaignAssignee", fields: [assignedToId], references: [id])
+
+  // Paid-channel record-keeping — only meaningful for non-pamphlet types,
+  // left null for pamphlet campaigns.
+  budget       Decimal?                @db.Decimal(12, 2)
+  externalUrl  String?
+
+  // Email-blast campaigns (type = email): which template to send and to how
+  // many subscribers, set once Send is clicked on the campaign detail page.
+  templateId     String?
+  template       DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  sentAt         DateTime?
+  recipientCount Int?
+
+  stops        PamphletStop[]
+
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+// A marketing-email recipient — either imported from the Client list or
+// added by hand. Kept separate from Client because not every subscriber is
+// necessarily a client yet (e.g. a pamphlet-stop lead who never converted),
+// and because unsubscribes need to persist even if the underlying Client
+// record changes or is removed. `clientId` is a plain reference (no Prisma
+// relation/cascade) so a subscriber's send history survives a client delete.
+model MarketingSubscriber {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email      String
+  name       String?
+  phone      String?
+  address    String?
+  clientId   String?
+  subscribed Boolean  @default(true)
+  source     String   @default("manual") // "manual" | "client_import"
+  createdAt  DateTime @default(now())
+
+  @@unique([companyId, email])
+}
+
+// One address on a pamphlet route. Ordering is precomputed (nearest-neighbor
+// over lat/lng) so the assigned employee walks an efficient path; status +
+// spokeToOwner capture what happened at the door in the field. When they talk
+// to a homeowner and have the RBAC role, a stop can spawn a real Appointment
+// and/or Quote — those FKs link back to the created records.
+model PamphletStop {
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     MarketingCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  address      String
+  latitude     Decimal?           @db.Decimal(9, 6)
+  longitude    Decimal?           @db.Decimal(9, 6)
+  sortOrder    Int                @default(0)
+
+  status       PamphletStopStatus @default(pending)
+  spokeToOwner Boolean            @default(false)
+  notes        String?
+
+  // Field agent override — a stop can be handed to a specific person, though
+  // by default it inherits the campaign's assignee.
+  assignedToId String?
+  assignedTo   User?              @relation("PamphletStopAssignee", fields: [assignedToId], references: [id])
+
+  // Set when the doorstep conversation converts into real work.
+  clientId      String?
+  client        Client?           @relation(fields: [clientId], references: [id])
+  appointmentId String?
+  quoteId       String?
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([campaignId, sortOrder])
+}
+
+enum MarketingCampaignType {
+  pamphlet
+  meta_ads
+  email
+  other
+}
+
+enum MarketingCampaignStatus {
+  draft
+  active
+  completed
+}
+
+enum PamphletStopStatus {
+  pending
+  delivered
+  spoke
+  not_home
+  skipped
 }
 
 // ============================================================
@@ -554,7 +989,7 @@ model EventType {
   active          Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  bookings        Booking[]
+  bookings Booking[]
 
   @@unique([companyId, slug])
 }
@@ -586,6 +1021,10 @@ model Worker {
   user                      User?      @relation(fields: [userId], references: [id])
   name                      String
   email                     String?
+  phone                     String?
+  address                   String?
+  city                      String?
+  province                  String?
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
   stripeConnectedAccountId  String?
@@ -593,9 +1032,9 @@ model Worker {
   active                    Boolean    @default(true)
   createdAt                 DateTime   @default(now())
 
-  timeEntries               TimeEntry[]
-  payouts                   Payout[]
-  salaries                  Salary[]
+  timeEntries TimeEntry[]
+  payouts     Payout[]
+  salaries    Salary[]
 }
 
 model TimeEntry {
@@ -630,38 +1069,38 @@ model Payout {
 // ============================================================
 
 model Expense {
-  id         String            @id @default(cuid())
+  id         String           @id @default(cuid())
   companyId  String
-  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   category   String
-  amount     Decimal           @default(0) @db.Decimal(12, 2)
-  date       DateTime          @default(now())
+  amount     Decimal          @default(0) @db.Decimal(12, 2)
+  date       DateTime         @default(now())
   notes      String?
   projectId  String?
-  isOverhead Boolean           @default(false)
-  recurring  Boolean           @default(false)
-  frequency  ExpenseFrequency  @default(one_time)
+  isOverhead Boolean          @default(false)
+  recurring  Boolean          @default(false)
+  frequency  ExpenseFrequency @default(one_time)
   materialId String?
-  material   Material?         @relation(fields: [materialId], references: [id])
-  createdAt  DateTime          @default(now())
+  material   Material?        @relation(fields: [materialId], references: [id])
+  createdAt  DateTime         @default(now())
 
   priceEntries MaterialPriceEntry[]
 }
 
 model MarketingSpend {
-  id           String           @id @default(cuid())
+  id           String            @id @default(cuid())
   companyId    String
-  company      Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   platform     MarketingPlatform @default(other)
   campaignName String?
-  amount       Decimal          @default(0) @db.Decimal(12, 2)
+  amount       Decimal           @default(0) @db.Decimal(12, 2)
   impressions  Int?
   clicks       Int?
-  leads        Int              @default(0)
+  leads        Int               @default(0)
   conversions  Int?
-  date         DateTime         @default(now())
+  date         DateTime          @default(now())
   notes        String?
-  createdAt    DateTime         @default(now())
+  createdAt    DateTime          @default(now())
 }
 
 model Salary {
@@ -724,8 +1163,8 @@ model Material {
   reorderThreshold Decimal? @db.Decimal(12, 2)
   createdAt        DateTime @default(now())
 
-  expenses         Expense[]
-  priceEntries     MaterialPriceEntry[]
+  expenses     Expense[]
+  priceEntries MaterialPriceEntry[]
 }
 
 model MaterialPriceEntry {
@@ -770,6 +1209,28 @@ model AiDigest {
 // ============================================================
 // ENUMS
 // ============================================================
+enum ProductType {
+  service
+  product
+}
+
+enum CustomFieldEntityType {
+  client
+  property
+  quote
+  job
+  invoice
+  team
+}
+ 
+enum CustomFieldType {
+  text
+  number
+  date
+  checkbox
+  dropdown
+}
+ 
 
 enum PlatformAdminRole {
   support
@@ -833,6 +1294,8 @@ enum DocumentTemplateType {
   receipt_email
   follow_up_email
   instructions_email
+  marketing_email
+  custom_email
 }
 
 enum AppointmentStatus {

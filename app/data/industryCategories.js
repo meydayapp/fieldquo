@@ -1,0 +1,90 @@
+// app/data/industryCategories.js
+//
+// The missing link between the marketing INDUSTRIES list (app/data/industries.js
+// — what a company calls itself: "Painting", "Plumbing") and the ServiceCategory
+// catalog (prisma/seed.js — the actual quote types: cabinet_refinishing,
+// interior_painting, etc.).
+//
+// Picking an industry at signup should surface a *preset* of the quote types
+// that trade actually sells, so a painter lands on refinishing / refacing /
+// interior / exterior painting already selected — instead of scrolling the
+// full ~60-category catalog hunting for them. This is what makes the signup
+// copy ("this narrows down which quote types you'll see") actually true.
+//
+// Keys here are ServiceCategory.key values from seed.js — kept in sync with
+// that file. A category can belong to more than one industry on purpose
+// (flooring shows up under both Painting-adjacent remodels and Construction),
+// so resolving multiple industries unions and de-dupes their category sets.
+
+export const INDUSTRY_CATEGORY_KEYS = {
+  painting: [
+    "cabinet_refinishing",
+    "cabinet_refacing",
+    "interior_painting",
+    "exterior_painting",
+    "countertop",
+    "flooring",
+    "stairs",
+  ],
+  cleaning: [
+    "residential_cleaning",
+    "deep_cleaning",
+    "commercial_cleaning",
+    "janitorial",
+    "carpet_cleaning",
+    "window_cleaning",
+  ],
+  "construction-contracting": [
+    "general_contracting",
+    "general_contracting_reno",
+    "remodeling",
+    "construction",
+    "carpentry",
+    "drywall",
+    "drywall_install",
+    "demolition",
+    "demolition_contractor",
+    "concrete",
+    "masonry",
+    "excavation",
+    "tiling",
+    "flooring_install",
+  ],
+  electrical: ["electrical"],
+  hvac: ["hvac_install", "hvac_repair"],
+  handyman: [
+    "handyman",
+    "installation_services",
+    "property_maintenance",
+    "appliance_repair",
+    "locksmith",
+    "garage_door",
+  ],
+  landscaping: [
+    "landscaping_design",
+    "irrigation",
+    "pool_spa",
+    "pest_control",
+  ],
+  "lawn-care": ["lawn_care", "lawn_mowing", "snow_removal"],
+  plumbing: ["plumbing", "well_water"],
+  "pressure-washing": [
+    "pressure_washing_house",
+    "pressure_washing_driveway",
+  ],
+  roofing: ["roofing_service", "siding", "restoration"],
+  "tree-care": ["tree_care_service"],
+};
+
+// Union of the category keys for the given industry slugs, de-duplicated and
+// order-stable. Unknown slugs contribute nothing rather than throwing, so a
+// stale slug never breaks signup.
+export function categoryKeysForIndustries(industrySlugs = []) {
+  const seen = new Set();
+  for (const slug of industrySlugs) {
+    for (const key of INDUSTRY_CATEGORY_KEYS[slug] || []) {
+      seen.add(key);
+    }
+  }
+  return [...seen];
+}

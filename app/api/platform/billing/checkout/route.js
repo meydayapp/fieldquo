@@ -1,4 +1,8 @@
 // app/api/platform/billing/checkout/route.js
+//
+// Only change vs. what you already have: successUrl/cancelUrl now point at
+// /app/settings/account-billing instead of /app/settings/billing, matching
+// the page that actually exists now.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -31,8 +35,8 @@ export async function POST(request) {
   const session = await createBillingCheckoutSession({
     company,
     plan,
-    successUrl: `${baseUrl}/app/settings/billing?upgraded=true`,
-    cancelUrl: `${baseUrl}/app/settings/billing`,
+    successUrl: `${baseUrl}/app/settings/account-billing?upgraded=true`,
+    cancelUrl: `${baseUrl}/app/settings/account-billing`,
   });
 
   return NextResponse.json({ checkoutUrl: session.url });

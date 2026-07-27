@@ -28,6 +28,7 @@ export async function GET(request) {
 // Records a manual payment (cash, e-transfer, cheque) — Stripe payments are recorded
 // via the checkout webhook instead, not through this endpoint, since those need the
 // stripePaymentIntentId set and shouldn't be enterable by hand.
+// app/api/payments/route.js — POST handler, replace the totals section
 export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -60,17 +61,21 @@ export async function POST(request) {
     },
   });
 
-  // Auto-mark the invoice paid once payments cover the total
   const totalPaid =
     invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0) +
     Number(amount);
+  const amountDue = Math.max(0, Number(invoice.total) - totalPaid);
+  const isPaid = amountDue === 0;
 
-  if (totalPaid >= Number(invoice.total) && invoice.status !== "paid") {
-    await db.invoice.update({
-      where: { id: invoiceId },
-      data: { status: "paid" },
-    });
-  }
+  await db.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      amountPaid: totalPaid,
+      amountDue,
+      status: isPaid ? "paid" : invoice.status,
+      paidDate: isPaid ? new Date() : invoice.paidDate,
+    },
+  });
 
   return NextResponse.json(payment, { status: 201 });
 }

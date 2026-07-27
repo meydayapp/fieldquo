@@ -1,0 +1,512 @@
+// app/app/settings/products/page.js
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Download,
+  Upload,
+  X,
+} from "lucide-react";
+
+const inputClass =
+  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+
+const PAGE_SIZE_OPTIONS = [6, 10, 25, 50];
+
+const SAMPLE_CSV =
+  "name,description,type,unitPrice,costPrice,unit\n" +
+  "Concrete Pouring,Pouring and finishing of concrete for driveways and walkways,service,,,\n";
+
+function emptyForm() {
+  return {
+    name: "",
+    description: "",
+    type: "service",
+    unitPrice: "",
+    costPrice: "",
+    unit: "",
+    categoryIds: [],
+  };
+}
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
+
+  // Enabled quote types — the pool of categories a product can be linked to.
+  // Same source as quotes/new/page.js so "which quote types can use this
+  // product" and "which quote types can I even build a quote in" stay
+  // consistent.
+  const [quoteTypes, setQuoteTypes] = useState([]);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState(null); // product being edited, or null for "add"
+  const [form, setForm] = useState(emptyForm());
+  const [saving, setSaving] = useState(false);
+
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState("");
+  const fileInputRef = useRef(null);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const qs = search ? `?q=${encodeURIComponent(search)}` : "";
+    return fetch(`/api/products${qs}`)
+      .then((r) => r.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .finally(() => setLoading(false));
+  }, [search]);
+
+  useEffect(() => {
+    const t = setTimeout(load, 250); // debounce search
+    return () => clearTimeout(t);
+  }, [load]);
+
+  useEffect(() => setPage(1), [search, pageSize]);
+
+  useEffect(() => {
+    fetch("/api/settings/service-categories")
+      .then((r) => r.json())
+      .then((data) =>
+        setQuoteTypes(Array.isArray(data) ? data.filter((c) => c.enabled) : []),
+      );
+  }, []);
+
+  function openAdd() {
+    setEditing(null);
+    setForm(emptyForm());
+    setShowModal(true);
+  }
+
+  function openEdit(product) {
+    setEditing(product);
+    setForm({
+      name: product.name,
+      description: product.description || "",
+      type: product.type,
+      unitPrice: product.unitPrice ?? "",
+      costPrice: product.costPrice ?? "",
+      unit: product.unit || "",
+      categoryIds: Array.isArray(product.categories)
+        ? product.categories.map((c) => c.id)
+        : [],
+    });
+    setShowModal(true);
+  }
+
+  function toggleCategory(id) {
+    setForm((prev) => ({
+      ...prev,
+      categoryIds: prev.categoryIds.includes(id)
+        ? prev.categoryIds.filter((c) => c !== id)
+        : [...prev.categoryIds, id],
+    }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description || null,
+        type: form.type,
+        unitPrice: form.unitPrice ? Number(form.unitPrice) : null,
+        costPrice: form.costPrice ? Number(form.costPrice) : null,
+        unit: form.unit || null,
+        categoryIds: form.categoryIds,
+      };
+      const res = await fetch(
+        editing ? `/api/products/${editing.id}` : "/api/products",
+        {
+          method: editing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (res.ok) {
+        setShowModal(false);
+        load();
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(id) {
+    const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
+    if (res.ok) load();
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportMessage("");
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/products/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      setImportMessage(
+        res.ok
+          ? `Imported ${data.imported} items.`
+          : data.error || "Import failed",
+      );
+      if (res.ok) load();
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function downloadSample() {
+    const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "products-sample.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
+  const pageItems = products.slice((page - 1) * pageSize, page * pageSize);
+  const startIdx = products.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIdx = Math.min(page * pageSize, products.length);
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Products & Services
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">
+          Add and update your products & services to stay organized when
+          creating quotes, quote templates, jobs, and invoices.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            placeholder="Search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`${inputClass} pl-9`}
+          />
+        </div>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
+        >
+          <Plus size={14} /> Add Item
+        </button>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+          <span>Name</span>
+          <span>Description</span>
+          <span>Type</span>
+          <span></span>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {loading && (
+            <div className="p-6 animate-pulse space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-4 bg-gray-100 rounded" />
+              ))}
+            </div>
+          )}
+          {!loading && pageItems.length === 0 && (
+            <p className="px-5 py-8 text-sm text-gray-500 text-center">
+              No products or services yet.
+            </p>
+          )}
+          {!loading &&
+            pageItems.map((p) => (
+              <div
+                key={p.id}
+                className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 items-center"
+              >
+                <span className="text-sm font-medium text-gray-900">
+                  {p.name}
+                  {Array.isArray(p.categories) && p.categories.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {p.categories.map((c) => (
+                        <span
+                          key={c.id}
+                          className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full"
+                        >
+                          {c.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </span>
+                <span className="text-sm text-gray-500 truncate">
+                  {p.description}
+                </span>
+                <span className="text-xs bg-gray-100 px-2.5 py-1 rounded-full capitalize w-fit">
+                  {p.type}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEdit(p)}
+                    className="text-gray-400 hover:text-gray-700"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="text-gray-400 hover:text-red-500"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {!loading && products.length > 0 && (
+          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+            <span>
+              Showing {startIdx}-{endIdx} of {products.length} items
+            </span>
+            <div className="flex items-center gap-3">
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="border border-gray-300 rounded px-2 py-1"
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} per page
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => p - 1)}
+                  className="px-2 py-1 border border-gray-300 rounded disabled:opacity-40"
+                >
+                  Prev
+                </button>
+                <span>
+                  {page} / {totalPages}
+                </span>
+                <button
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-2 py-1 border border-gray-300 rounded disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <h2 className="text-base font-semibold text-gray-900">Costs</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Add costs to your products and services on quotes and jobs — set a
+          Cost Price alongside the sale price when you add or edit an item
+          above, and job costing will pick it up automatically.
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">
+            Import products & services
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Bulk import via a .csv exported from Excel, Google Sheets, or
+            Numbers. Columns: name, description, type, unitPrice, costPrice,
+            unit.
+          </p>
+          {importMessage && (
+            <p className="text-sm text-gray-700 mb-2">{importMessage}</p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <label className="flex items-center gap-2 text-sm font-medium border border-gray-300 rounded-full px-4 py-2 cursor-pointer hover:bg-gray-50">
+              <Upload size={14} />
+              {importing ? "Importing..." : "Import CSV"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={handleImport}
+                disabled={importing}
+              />
+            </label>
+            <button
+              onClick={downloadSample}
+              className="text-sm font-medium text-gray-600 px-4 py-2 rounded-full hover:bg-gray-50"
+            >
+              Download sample file
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">
+            Export products & services
+          </h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Export everything in this list as a .csv file.
+          </p>
+          <a
+            href="/api/products/export"
+            className="flex items-center gap-2 w-fit text-sm font-medium border border-gray-300 rounded-full px-4 py-2 hover:bg-gray-50"
+          >
+            <Download size={14} /> Export CSV
+          </a>
+        </div>
+      </div>
+
+      {showModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {editing ? "Edit Item" : "Add Item"}
+              </h2>
+              <button onClick={() => setShowModal(false)}>
+                <X size={18} className="text-gray-400" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                required
+                placeholder="Name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={inputClass}
+              />
+              <textarea
+                placeholder="Description"
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+                className={inputClass}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="service">Service</option>
+                  <option value="product">Product</option>
+                </select>
+                <input
+                  placeholder="Unit (e.g. sqft)"
+                  value={form.unit}
+                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">
+                    Unit price
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.unitPrice}
+                    onChange={(e) =>
+                      setForm({ ...form, unitPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 block mb-1">
+                    Cost price
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.costPrice}
+                    onChange={(e) =>
+                      setForm({ ...form, costPrice: e.target.value })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">
+                  Available on these quote types
+                </label>
+                {quoteTypes.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    No quote types enabled yet — go to Settings → Services to
+                    turn some on first.
+                  </p>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                    {quoteTypes.map((c) => (
+                      <label
+                        key={c.id}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={form.categoryIds.includes(c.id)}
+                          onChange={() => toggleCategory(c.id)}
+                        />
+                        {c.label}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  Leave all unchecked to make this available on every quote
+                  type.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {saving ? "Saving..." : editing ? "Save Changes" : "Add Item"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

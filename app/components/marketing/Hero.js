@@ -65,7 +65,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="bg-gradient-to-b from-gray-50 to-white">
+    <section className="bg-linear-to-b from-gray-50 to-white">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
           The all-in-one system for contractors and service pros
@@ -136,7 +136,7 @@ export default function Hero() {
             <p className="mt-3 text-gray-600 leading-relaxed">{active.body}</p>
           </div>
           {/* Placeholder visual — swap for a real screenshot/illustration per tab once the app UI exists */}
-          <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-50 rounded-xl border border-gray-200 flex items-center justify-center">
+          <div className="aspect-video bg-linear-to-br from-gray-100 to-gray-50 rounded-xl border border-gray-200 flex items-center justify-center">
             <active.icon size={48} className="text-gray-300" />
           </div>
         </div>

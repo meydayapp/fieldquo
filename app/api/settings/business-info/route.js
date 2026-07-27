@@ -20,14 +20,45 @@ export async function GET(request) {
       address: true,
       city: true,
       province: true,
+      // New — read-only display of what was picked at signup, see
+      // app/app/settings/company/page.js
+      industries: true,
+      // New — Company Settings page (address autocomplete + mini map)
+      postalCode: true,
+      country: true,
+      latitude: true,
+      longitude: true,
       website: true,
       logoUrl: true,
       brandColor: true,
+      brandColors: true,
       paymentTerms: true,
       taxRate: true,
       paymentMethods: true,
       shareAnonymizedPricing: true,
       bookingSlug: true,
+      // New — read-only identity used for the {slug}.fieldquo.com preview
+      slug: true,
+      // New — "Help clients find my business" toggle
+      discoverable: true,
+      // New — Tax settings
+      taxIdName: true,
+      taxIdNumber: true,
+      autoApplyLocalTax: true,
+      taxRates: {
+        select: { id: true, name: true, rate: true, isDefault: true },
+        orderBy: { createdAt: "asc" },
+      },
+      // New — Regional settings
+      timezone: true,
+      dateFormat: true,
+      weekStartsOn: true,
+      // New — website/subdomain publish stub
+      sitePublished: true,
+
+      stripeAccountId: true,
+      stripeOnboarded: true,
+      stripeChargesEnabled: true,
     },
   });
 
@@ -56,13 +87,26 @@ export async function PATCH(request) {
     address,
     city,
     province,
+    postalCode,
+    country,
+    latitude,
+    longitude,
     website,
     logoUrl,
     brandColor,
+    brandColors,
     paymentTerms,
     taxRate,
     paymentMethods,
     shareAnonymizedPricing,
+    discoverable,
+    taxIdName,
+    taxIdNumber,
+    autoApplyLocalTax,
+    timezone,
+    dateFormat,
+    weekStartsOn,
+    sitePublished,
   } = body;
 
   const updated = await db.company.update({
@@ -74,13 +118,26 @@ export async function PATCH(request) {
       ...(address !== undefined && { address }),
       ...(city !== undefined && { city }),
       ...(province !== undefined && { province }),
+      ...(postalCode !== undefined && { postalCode }),
+      ...(country !== undefined && { country }),
+      ...(latitude !== undefined && { latitude }),
+      ...(longitude !== undefined && { longitude }),
       ...(website !== undefined && { website }),
       ...(logoUrl !== undefined && { logoUrl }),
       ...(brandColor !== undefined && { brandColor }),
+      ...(brandColors !== undefined && { brandColors }),
       ...(paymentTerms !== undefined && { paymentTerms }),
       ...(taxRate !== undefined && { taxRate }),
       ...(paymentMethods !== undefined && { paymentMethods }),
       ...(shareAnonymizedPricing !== undefined && { shareAnonymizedPricing }),
+      ...(discoverable !== undefined && { discoverable }),
+      ...(taxIdName !== undefined && { taxIdName }),
+      ...(taxIdNumber !== undefined && { taxIdNumber }),
+      ...(autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
+      ...(timezone !== undefined && { timezone }),
+      ...(dateFormat !== undefined && { dateFormat }),
+      ...(weekStartsOn !== undefined && { weekStartsOn }),
+      ...(sitePublished !== undefined && { sitePublished }),
     },
   });
 

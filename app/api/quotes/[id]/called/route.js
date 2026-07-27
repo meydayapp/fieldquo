@@ -1,0 +1,25 @@
+// app/api/quotes/[id]/called/route.js
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { getCurrentMember } from "@/lib/currentMember";
+
+export async function POST(request, { params }) {
+  const member = await getCurrentMember(request);
+  if (!member)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const existing = await db.quote.findFirst({
+    where: { id: params.id, companyId: member.companyId },
+  });
+  if (!existing)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const quote = await db.quote.update({
+    where: { id: params.id },
+    data: { calledAt: new Date() },
+  });
+
+  return NextResponse.json(quote);
+}

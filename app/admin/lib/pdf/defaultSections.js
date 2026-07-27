@@ -1,6 +1,4 @@
 // app/admin/lib/pdf/defaultSections.js
-// Also used by the email side — same section order works for both since both
-// renderers read the same registry.
 export function getDefaultSections(documentType) {
   const base = [
     { type: "header", sortOrder: 0 },
@@ -10,6 +8,14 @@ export function getDefaultSections(documentType) {
     { type: "notes", sortOrder: 4 },
     { type: "footer", sortOrder: 5 },
   ];
-  return base; // same structure for quote_pdf/invoice_pdf/quote_email/etc. today —
-  // diverge per documentType here later if a type needs a different default
+
+  if (documentType === "invoice_pdf" || documentType === "invoice_email") {
+    return [
+      ...base.slice(0, 4), // header, client_info, scope_groups, totals
+      { type: "payment_summary", sortOrder: 3.5 },
+      ...base.slice(4), // notes, footer
+    ];
+  }
+
+  return base;
 }

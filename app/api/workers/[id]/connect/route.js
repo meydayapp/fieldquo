@@ -36,7 +36,7 @@ export async function POST(request, { params }) {
   const { accountId, url } = await createConnectOnboardingLink({
     companyId: member.companyId, // used as metadata on the Stripe account for traceability
     stripeAccountId: worker.stripeConnectedAccountId,
-    returnUrl: `${baseUrl}/app/team/workers?connected=${worker.id}`,
+    returnUrl: `${baseUrl}/app/settings/team/workers?connected=${worker.id}`,
     refreshUrl: `${baseUrl}/api/workers/${worker.id}/connect/refresh`,
   });
 

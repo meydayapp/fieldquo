@@ -36,12 +36,21 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, email, phone, address, city, province, notes } = body;
+  const { name, type, contactName, email, phone, address, city, province, notes } =
+    body;
 
   const updated = await db.client.update({
     where: { id: params.id },
     data: {
       ...(name !== undefined && { name }),
+      ...(type !== undefined && {
+        type: type === "company" ? "company" : "individual",
+        // Switching to individual clears any stale contact person.
+        contactName: type === "company" ? contactName ?? existing.contactName : null,
+      }),
+      // Allow updating contactName on its own for an already-company client.
+      ...(type === undefined &&
+        contactName !== undefined && { contactName: contactName || null }),
       ...(email !== undefined && { email }),
       ...(phone !== undefined && { phone }),
       ...(address !== undefined && { address }),

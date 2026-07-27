@@ -3,10 +3,12 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, X, Phone } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { INDUSTRIES } from "@/app/data/industries";
+import { useSession } from "@/lib/auth-client";
 
 const PRODUCT_ITEMS = [
   {
@@ -31,8 +33,40 @@ const PRODUCT_ITEMS = [
   },
 ];
 
+function UserAvatar({ user, size = 36 }) {
+  const initials = (user?.name || user?.email || "?")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
+
+  if (user?.image) {
+    return (
+      <Image
+        src={user.image}
+        alt={user?.name || "Profile"}
+        width={size}
+        height={size}
+        className="rounded-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold shrink-0"
+    >
+      {initials || "?"}
+    </div>
+  );
+}
+
 export default function MarketingHeader() {
   const pathname = usePathname();
+  const { data: session, isPending } = useSession();
+  const isLoggedIn = !isPending && !!session?.user;
 
   const [productOpen, setProductOpen] = useState(false);
   const [industriesOpen, setIndustriesOpen] = useState(false);
@@ -180,30 +214,47 @@ export default function MarketingHeader() {
               <Phone size={14} /> (819) 555-1234
             </a>
 
-            <Link
-              href="/app/login"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
-            >
-              Log In
-            </Link>
+            {isPending ? (
+              <div className="w-9 h-9 rounded-full bg-gray-100 animate-pulse" />
+            ) : isLoggedIn ? (
+              <Link href="/app" aria-label="Go to dashboard">
+                <UserAvatar user={session.user} />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
+                >
+                  Log In
+                </Link>
 
-            <Link
-              href="/signup"
-              className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-full hover:bg-gray-800"
-            >
-              Start Free Trial
-            </Link>
+                <Link
+                  href="/signup"
+                  className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-full hover:bg-gray-800"
+                >
+                  Start Free Trial
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile toggle */}
-          <button
-            type="button"
-            className="lg:hidden p-2"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu size={22} />
-          </button>
+          <div className="lg:hidden flex items-center gap-3">
+            {isLoggedIn && !isPending && (
+              <Link href="/app" aria-label="Go to dashboard">
+                <UserAvatar user={session.user} size={32} />
+              </Link>
+            )}
+            <button
+              type="button"
+              className="p-2"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -273,21 +324,34 @@ export default function MarketingHeader() {
                 </a>
 
                 <div className="pt-4 mt-4 border-t border-gray-100 space-y-3">
-                  <Link
-                    href="/app/login"
-                    onClick={closeMobile}
-                    className="block px-3 py-3 text-base font-medium text-gray-600"
-                  >
-                    Log In
-                  </Link>
+                  {isLoggedIn ? (
+                    <Link
+                      href="/app"
+                      onClick={closeMobile}
+                      className="flex items-center gap-3 px-3 py-3 text-base font-medium text-gray-900"
+                    >
+                      <UserAvatar user={session.user} size={28} />
+                      Go to Dashboard
+                    </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href="/login"
+                        onClick={closeMobile}
+                        className="block px-3 py-3 text-base font-medium text-gray-600"
+                      >
+                        Log In
+                      </Link>
 
-                  <Link
-                    href="/signup"
-                    onClick={closeMobile}
-                    className="block text-center bg-gray-900 text-white px-4 py-3 rounded-full font-semibold"
-                  >
-                    Start Free Trial
-                  </Link>
+                      <Link
+                        href="/signup"
+                        onClick={closeMobile}
+                        className="block text-center bg-gray-900 text-white px-4 py-3 rounded-full font-semibold"
+                      >
+                        Start Free Trial
+                      </Link>
+                    </>
+                  )}
 
                   <div className="px-3">
                     <LanguageSwitcher />

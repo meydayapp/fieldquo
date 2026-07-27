@@ -1,0 +1,248 @@
+// app/api/cron/follow-ups/route.js
+//
+// Vercel Cron hits this on a schedule (same CRON_SECRET pattern as
+// large-quote-check) and executes every active FollowUpRule: for each,
+// find entities that crossed the rule's trigger + delay and haven't
+// already gotten this rule's email (FollowUpLog dedupe), render the
+// rule's template, send it, and log it.
+//
+// job_completed uses Job.updatedAt as a proxy for "when it was marked
+// complete" — there's no dedicated completedAt column on Job today. If a
+// job flips in and out of "completed" this could misfire; fine for v1.
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
+import { sendEmail } from "@/lib/email/resend";
+import {
+  renderTemplateSections,
+  renderSubject,
+} from "@/lib/email/renderTemplateSections";
+
+function cutoffFor(rule) {
+  const ms =
+    rule.delayUnit === "hours"
+      ? rule.delayValue * 60 * 60 * 1000
+      : rule.delayValue * 24 * 60 * 60 * 1000;
+  return new Date(Date.now() - ms);
+}
+
+async function alreadySentEntityIds(ruleId) {
+  const logs = await db.followUpLog.findMany({
+    where: { ruleId },
+    select: { entityId: true },
+  });
+  return logs.map((l) => l.entityId);
+}
+
+async function findQuoteNoResponse(rule) {
+  const excluded = await alreadySentEntityIds(rule.id);
+  return db.quote.findMany({
+    where: {
+      companyId: rule.companyId,
+      status: "sent",
+      sentAt: { not: null, lte: cutoffFor(rule) },
+      ...(excluded.length > 0 && { id: { notIn: excluded } }),
+    },
+    include: { client: true, company: true },
+  });
+}
+
+async function findInvoiceOverdue(rule) {
+  const excluded = await alreadySentEntityIds(rule.id);
+  return db.invoice.findMany({
+    where: {
+      companyId: rule.companyId,
+      status: { in: ["sent", "overdue"] },
+      dueDate: { not: null, lte: cutoffFor(rule) },
+      ...(excluded.length > 0 && { id: { notIn: excluded } }),
+    },
+    include: { client: true, company: true },
+  });
+}
+
+async function findJobCompleted(rule) {
+  const excluded = await alreadySentEntityIds(rule.id);
+  return db.job.findMany({
+    where: {
+      companyId: rule.companyId,
+      status: "completed",
+      updatedAt: { lte: cutoffFor(rule) },
+      ...(excluded.length > 0 && { id: { notIn: excluded } }),
+    },
+    include: { client: true, company: true },
+  });
+}
+
+function money(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return "";
+  return `$${n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+// Quote.lineItems / Invoice.lineItems are untyped `Json?` columns, so the key
+// names vary depending on which screen wrote them. Normalise to the shape the
+// "Itemized list" block expects, and drop anything unrecognisable rather than
+// rendering a row of blanks.
+function normalizeLineItems(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const name = item.name || item.description || item.title || "";
+      if (!name) return null;
+      const quantity = Number(item.quantity ?? item.qty ?? 1);
+      const unitPrice = Number(item.unitPrice ?? item.price ?? item.rate);
+      const total = Number(
+        item.total ??
+          item.amount ??
+          (Number.isFinite(unitPrice) ? unitPrice * quantity : NaN),
+      );
+      return {
+        name,
+        quantity: Number.isFinite(quantity) ? quantity : null,
+        unitPrice: Number.isFinite(unitPrice) ? unitPrice : null,
+        total: Number.isFinite(total) ? total : null,
+      };
+    })
+    .filter(Boolean);
+}
+
+// Which project-lifecycle stage a follow-up is sent at. Mirrors
+// LIFECYCLE_STAGES in app/data/emailTemplateBlocks.js:
+//   0 Quote · 1 Deposit & scheduling · 2 Project start · 3 Project complete
+function stageFor(entityType, entity) {
+  if (entityType === "quote") return 0;
+  if (entityType === "invoice") {
+    return Number(entity.amountPaid || 0) > 0 ? 1 : 0;
+  }
+  if (entityType === "job") {
+    return entity.status === "completed" ? 3 : 2;
+  }
+  return 0;
+}
+
+function mergeDataFor(entityType, entity) {
+  const base = {
+    clientName: entity.client?.contactName || entity.client?.name || "",
+    clientAddress: entity.client?.address || "",
+    clientPhone: entity.client?.phone || "",
+    companyName: entity.company?.name || "",
+    companyPhone: entity.company?.phone || "",
+    companyEmail: entity.company?.email || "",
+    progressStage: stageFor(entityType, entity),
+    lineItems: normalizeLineItems(entity.lineItems),
+    subtotal: money(entity.subtotal),
+    discount: money(entity.discount),
+    tax: money(entity.tax),
+  };
+  if (entityType === "quote") {
+    return {
+      ...base,
+      quoteNumber: entity.quoteNumber,
+      quoteTotal: money(entity.total),
+      jobTitle: entity.quoteType || "",
+      quoteUrl: entity.shareToken
+        ? `${process.env.NEXT_PUBLIC_APP_URL || ""}/q/${entity.shareToken}`
+        : "",
+    };
+  }
+  if (entityType === "invoice") {
+    const balanceDue = Number(entity.total || 0) - Number(entity.amountPaid || 0);
+    return {
+      ...base,
+      invoiceNumber: entity.invoiceNumber,
+      invoiceTotal: money(entity.total),
+      amountPaid: money(entity.amountPaid),
+      balanceDue: money(balanceDue),
+      dueDate: entity.dueDate
+        ? new Date(entity.dueDate).toLocaleDateString()
+        : "",
+      projectStartDate: entity.startDate
+        ? new Date(entity.startDate).toLocaleDateString()
+        : "",
+      projectEndDate: entity.endDate
+        ? new Date(entity.endDate).toLocaleDateString()
+        : "",
+    };
+  }
+  if (entityType === "job") {
+    return { ...base, jobTitle: entity.title };
+  }
+  return base;
+}
+
+const FINDERS = {
+  quote_no_response: { entityType: "quote", find: findQuoteNoResponse },
+  invoice_overdue: { entityType: "invoice", find: findInvoiceOverdue },
+  job_completed: { entityType: "job", find: findJobCompleted },
+};
+
+export async function GET(request) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rules = await db.followUpRule.findMany({
+    where: { active: true },
+    include: { template: true },
+  });
+
+  let sent = 0;
+  let skippedNoTemplate = 0;
+  let skippedNoEmail = 0;
+
+  for (const rule of rules) {
+    const finder = FINDERS[rule.triggerEvent];
+    if (!finder || !rule.template) {
+      if (!rule.template) skippedNoTemplate++;
+      continue;
+    }
+
+    const entities = await finder.find(rule);
+    for (const entity of entities) {
+      const to = entity.client?.email;
+      if (!to) {
+        skippedNoEmail++;
+        continue;
+      }
+
+      try {
+        // Claim this (rule, entity) pair first — the unique constraint
+        // means a concurrent cron run can't double-send even if two
+        // invocations overlap.
+        await db.followUpLog.create({
+          data: { ruleId: rule.id, entityType: finder.entityType, entityId: entity.id },
+        });
+      } catch {
+        continue; // already logged (race or already handled) — skip silently
+      }
+
+      const mergeData = mergeDataFor(finder.entityType, entity);
+      const html = renderTemplateSections(rule.template.sections, mergeData, {
+        company: entity.company || {},
+        theme: rule.template.theme || null,
+      });
+
+      await sendEmail({
+        to,
+        // template.name is the internal label ("Quote follow-up (default)") —
+        // only fall back to it if no client-facing subject is set.
+        subject: renderSubject(
+          rule.template.subject,
+          mergeData,
+          rule.template.name,
+        ),
+        html,
+        from: entity.company?.name ? `${entity.company.name} <onboarding@resend.dev>` : undefined,
+      });
+      sent++;
+    }
+  }
+
+  return NextResponse.json({ success: true, sent, skippedNoTemplate, skippedNoEmail });
+}
