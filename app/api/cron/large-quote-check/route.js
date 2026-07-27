@@ -7,16 +7,28 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Vercel Cron hits this on a schedule (e.g. every 15 min) — checks for quotes created
-// since the last run that exceed their company's configured threshold, and haven't
-// been flagged yet.
+// Vercel Cron hits this on a schedule and emails admins about quotes above
+// their company's threshold.
+//
+// CRITICAL — this lookback window MUST match the cron interval in
+// vercel.json. There is no per-quote "already notified" flag; the window is
+// the only thing preventing repeats. Too short and quotes created between
+// runs are missed entirely; too long and admins get the same quote emailed
+// every run. Change one, change the other.
+//
+// Currently daily, because Vercel's Hobby plan permits at most one cron run
+// per day. On Pro, drop both this and the schedule to something tighter —
+// LARGE_QUOTE_LOOKBACK_MINUTES=15 alongside a */15 schedule.
+const LOOKBACK_MINUTES =
+  Number(process.env.LARGE_QUOTE_LOOKBACK_MINUTES) || 24 * 60;
+
 export async function GET(request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+  const since = new Date(Date.now() - LOOKBACK_MINUTES * 60 * 1000);
 
   const rules = await db.notificationRule.findMany({
     where: { type: "large_quote", active: true },
@@ -31,7 +43,7 @@ export async function GET(request) {
     const largeQuotes = await db.quote.findMany({
       where: {
         companyId: rule.companyId,
-        createdAt: { gte: fifteenMinutesAgo },
+        createdAt: { gte: since },
         total: { gte: rule.threshold },
       },
       include: { client: true },
