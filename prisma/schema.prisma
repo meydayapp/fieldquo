@@ -146,6 +146,12 @@ model Company {
   // gets without touching a thing.
   brandColors            Json?
 
+  // Default interface language for everyone in this company, and the fallback
+  // for client-facing documents when a Client has no language of their own.
+  // Distinct from Quote.language, which records the language a specific quote
+  // was sent in — that must stay fixed even if the company later switches.
+  defaultLanguage        String            @default("en")
+
   // ── Per-company email sending domain (Resend) ──────────────────────────
   // Until emailDomainStatus is "verified", mail for this company goes out on
   // FieldQuo's shared domain under the company's display name. Once verified,
@@ -266,6 +272,11 @@ model User {
   email         String   @unique
   emailVerified Boolean  @default(false)
   image         String?
+  // Interface language for this person. Null means "follow the company
+  // default" — a crew member who never opens settings inherits whatever the
+  // company set, and changing the company default moves them with it.
+  // Storing "en" explicitly would freeze them, which is a different thing.
+  language      String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -436,6 +447,13 @@ model Client {
   city        String?
   province    String?
   notes       String?
+  // Language this client is written to in. Drives quote/invoice PDFs, emails
+  // and the client portal. Null falls back to Company.defaultLanguage.
+  //
+  // This is the field that makes translation worth building: a contractor
+  // whose crew works in English can still send a Punjabi-speaking homeowner a
+  // quote they can actually read.
+  language    String?
   portalToken String?  @unique
   createdAt   DateTime @default(now())
 

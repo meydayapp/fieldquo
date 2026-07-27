@@ -35,6 +35,7 @@ import {
   CalendarDays,
   ClipboardList,
   AtSign,
+  Globe,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -57,6 +58,7 @@ const BUSINESS_ITEMS = [
   // was typing the URL. It feeds the logo and accent colour used by every
   // email template.
   { label: "Branding", href: "/app/settings/branding", icon: Palette },
+  { label: "Language", href: "/app/settings/language", icon: Globe },
   { label: "Manage Team", href: "/app/settings/team", icon: Users },
   {
     label: "Products & Services",

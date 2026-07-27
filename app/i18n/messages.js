@@ -177,6 +177,12 @@ const en = {
   "footer.links.privacy": "Privacy Policy",
   "footer.links.terms": "Terms of Service",
 
+  // Theme switcher
+  "theme.label": "Theme",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "theme.system": "Match system",
+
   // Shared
   "common.loading": "Loading…",
   "common.learnMore": "Learn more",
@@ -348,6 +354,11 @@ const fr = {
   "footer.links.privacy": "Politique de confidentialité",
   "footer.links.terms": "Conditions d'utilisation",
 
+  "theme.label": "Thème",
+  "theme.light": "Clair",
+  "theme.dark": "Sombre",
+  "theme.system": "Selon le système",
+
   "common.loading": "Chargement…",
   "common.learnMore": "En savoir plus",
   "common.getStarted": "Commencer",
@@ -512,6 +523,11 @@ const es = {
   "footer.links.careers": "Empleo",
   "footer.links.privacy": "Política de privacidad",
   "footer.links.terms": "Términos del servicio",
+
+  "theme.label": "Tema",
+  "theme.light": "Claro",
+  "theme.dark": "Oscuro",
+  "theme.system": "Según el sistema",
 
   "common.loading": "Cargando…",
   "common.learnMore": "Saber más",
@@ -679,6 +695,11 @@ const uk = {
   "footer.links.privacy": "Політика конфіденційності",
   "footer.links.terms": "Умови використання",
 
+  "theme.label": "Тема",
+  "theme.light": "Світла",
+  "theme.dark": "Темна",
+  "theme.system": "Як у системі",
+
   "common.loading": "Завантаження…",
   "common.learnMore": "Дізнатися більше",
   "common.getStarted": "Почати",
@@ -843,6 +864,11 @@ const pa = {
   "footer.links.careers": "ਨੌਕਰੀਆਂ",
   "footer.links.privacy": "ਪਰਦੇਦਾਰੀ ਨੀਤੀ",
   "footer.links.terms": "ਸੇਵਾ ਦੀਆਂ ਸ਼ਰਤਾਂ",
+
+  "theme.label": "ਥੀਮ",
+  "theme.light": "ਹਲਕਾ",
+  "theme.dark": "ਗੂੜ੍ਹਾ",
+  "theme.system": "ਸਿਸਟਮ ਮੁਤਾਬਕ",
 
   "common.loading": "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…",
   "common.learnMore": "ਹੋਰ ਜਾਣੋ",
@@ -1013,6 +1039,11 @@ const tl = {
   "footer.links.careers": "Mga trabaho",
   "footer.links.privacy": "Patakaran sa privacy",
   "footer.links.terms": "Mga tuntunin ng serbisyo",
+
+  "theme.label": "Tema",
+  "theme.light": "Maliwanag",
+  "theme.dark": "Madilim",
+  "theme.system": "Sundan ang system",
 
   "common.loading": "Naglo-load…",
   "common.learnMore": "Alamin pa",
