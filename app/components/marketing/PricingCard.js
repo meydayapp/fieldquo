@@ -3,20 +3,32 @@
 
 import { CheckCircle2 } from "lucide-react";
 import { calculatePricing } from "@/lib/pricing";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
-function money(value) {
+// Locale-aware, not hardcoded to en-CA. Digit grouping differs by language —
+// French Canadian uses a space where English uses a comma (1 250 vs 1,250) —
+// and showing an English-formatted number inside French copy reads as a bug
+// to the people who notice.
+function money(value, locale) {
   const number = Number(value || 0);
-
-  if (Number.isNaN(number)) {
-    return "0";
-  }
-
-  return number.toLocaleString("en-CA", {
-    maximumFractionDigits: 0,
-  });
+  if (Number.isNaN(number)) return "0";
+  return number.toLocaleString(locale, { maximumFractionDigits: 0 });
 }
 
+// Maps a UI language onto a formatting locale. Punjabi and Tagalog default to
+// their most common regional formatting rather than the bare language tag.
+const NUMBER_LOCALES = {
+  en: "en-CA",
+  fr: "fr-CA",
+  es: "es-MX",
+  uk: "uk-UA",
+  pa: "pa-IN",
+  tl: "en-PH",
+};
+
 export default function PricingCard({ tier, plan, selected, onSelect }) {
+  const { t, language } = useTranslation();
+  const locale = NUMBER_LOCALES[language] || "en-CA";
   const isDbPlan = Boolean(plan);
 
   const label = isDbPlan ? plan.name : tier.label;
@@ -51,64 +63,72 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
     >
       {popular && (
         <span className="absolute -top-3 left-6 bg-gray-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
-          Most Popular
+          {t("pricing.popular")}
         </span>
       )}
 
       {selected && (
         <span className="absolute -top-3 right-6 bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center gap-1">
-          <CheckCircle2 size={12} /> Selected
+          <CheckCircle2 size={12} /> {t("pricing.selected")}
         </span>
       )}
 
       <h3 className="text-lg font-semibold text-gray-900">{label}</h3>
 
       <div className="mt-3">
-        <div className="text-sm text-gray-500">First month</div>
+        <div className="text-sm text-gray-500">{t("pricing.firstMonth")}</div>
 
         <div className="text-2xl font-bold text-gray-900">
-          ${money(trialTotal)}
+          ${money(trialTotal, locale)}
         </div>
       </div>
 
       <div className="mt-2 text-sm text-gray-600">
-        Then{" "}
+        {t("pricing.then")}{" "}
         <span className="font-semibold text-gray-900">
-          ${money(monthlyTotal)}/mo
+          ${money(monthlyTotal, locale)}
+          {t("pricing.perMonthShort")}
         </span>{" "}
-        {employeeCount ? `($${money(perLicense)}/license)` : ""}
+        {employeeCount
+          ? t("pricing.perLicense", { amount: money(perLicense, locale) })
+          : ""}
       </div>
 
       <ul className="mt-4 space-y-2 flex-1">
         <li className="flex items-center gap-2 text-sm text-gray-700">
           <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-          {employeeCount || "Unlimited"} employee account
-          {employeeCount !== 1 ? "s" : ""}
+          {/* Separate keys rather than appending "s" — most languages don't
+              pluralise by suffixing, and Ukrainian has three plural forms. */}
+          {!employeeCount
+            ? t("pricing.seatsUnlimited")
+            : employeeCount === 1
+              ? t("pricing.seatsOne")
+              : t("pricing.seatsMany", { count: employeeCount })}
         </li>
 
         {employeeCount > 1 && (
           <li className="flex items-center gap-2 text-sm text-gray-700">
-            <CheckCircle2 size={16} className="text-green-600 shrink-0" />1
-            master account + {employeeCount - 1} RBAC seats
+            <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+            {t("pricing.rbacSeats", { count: employeeCount - 1 })}
           </li>
         )}
 
         <li className="flex items-center gap-2 text-sm text-gray-700">
           <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-          Full access — quotes, invoicing, scheduling, analytics
+          {t("pricing.fullAccess")}
         </li>
 
         {isDbPlan && plan.maxQuotesPerMonth && (
           <li className="flex items-center gap-2 text-sm text-gray-700">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-            Up to {plan.maxQuotesPerMonth} quotes per month
+            {t("pricing.quoteLimit", { count: plan.maxQuotesPerMonth })}
           </li>
         )}
 
         {isDbPlan && plan.aiCopilotEnabled && (
           <li className="flex items-center gap-2 text-sm text-gray-700">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-            AI copilot included
+            {t("pricing.aiIncluded")}
           </li>
         )}
       </ul>

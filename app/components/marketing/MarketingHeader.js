@@ -9,28 +9,15 @@ import { ChevronDown, Menu, X, Phone } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { INDUSTRIES } from "@/app/data/industries";
 import { useSession } from "@/lib/auth-client";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
+// Only hrefs and keys live here — the visible strings come from the catalog,
+// so this array doesn't need duplicating per language.
 const PRODUCT_ITEMS = [
-  {
-    label: "Quotes & Invoicing",
-    href: "/product/quoting",
-    description: "Build and send professional quotes in minutes",
-  },
-  {
-    label: "Scheduling & Dispatch",
-    href: "/product/scheduling",
-    description: "Calendly-style booking, appointments, and job assignment",
-  },
-  {
-    label: "Team & Payroll",
-    href: "/product/team",
-    description: "Timesheets, contractor payouts, role-based access",
-  },
-  {
-    label: "Analytics & AI",
-    href: "/product/analytics",
-    description: "Know your numbers — and what to do about them",
-  },
+  { key: "quoting", href: "/product/quoting" },
+  { key: "scheduling", href: "/product/scheduling" },
+  { key: "team", href: "/product/team" },
+  { key: "analytics", href: "/product/analytics" },
 ];
 
 function UserAvatar({ user, size = 36 }) {
@@ -65,6 +52,7 @@ function UserAvatar({ user, size = 36 }) {
 
 export default function MarketingHeader() {
   const pathname = usePathname();
+  const { t } = useTranslation();
   const { data: session, isPending } = useSession();
   const isLoggedIn = !isPending && !!session?.user;
 
@@ -117,7 +105,7 @@ export default function MarketingHeader() {
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                Product <ChevronDown size={14} />
+                {t("nav.product")} <ChevronDown size={14} />
               </button>
 
               {productOpen && (
@@ -130,10 +118,10 @@ export default function MarketingHeader() {
                         className="block px-3 py-2.5 rounded-lg hover:bg-gray-50"
                       >
                         <div className="text-sm font-medium text-gray-900">
-                          {item.label}
+                          {t(`product.${item.key}.label`)}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
-                          {item.description}
+                          {t(`product.${item.key}.description`)}
                         </div>
                       </Link>
                     ))}
@@ -160,7 +148,7 @@ export default function MarketingHeader() {
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                Industries <ChevronDown size={14} />
+                {t("nav.industries")} <ChevronDown size={14} />
               </button>
 
               {industriesOpen && (
@@ -188,7 +176,7 @@ export default function MarketingHeader() {
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Pricing
+              {t("nav.pricing")}
             </Link>
 
             <Link
@@ -199,7 +187,7 @@ export default function MarketingHeader() {
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Resources
+              {t("nav.resources")}
             </Link>
           </nav>
 
@@ -226,14 +214,14 @@ export default function MarketingHeader() {
                   href="/login"
                   className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
                 >
-                  Log In
+                  {t("nav.login")}
                 </Link>
 
                 <Link
                   href="/signup"
                   className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-full hover:bg-gray-800"
                 >
-                  Start Free Trial
+                  {t("nav.signup")}
                 </Link>
               </>
             )}
@@ -289,7 +277,8 @@ export default function MarketingHeader() {
                   onClick={() => setMobilePanel("product")}
                   className="w-full flex items-center justify-between px-3 py-3 text-left text-base font-medium"
                 >
-                  Product <ChevronDown size={16} className="-rotate-90" />
+                  {t("nav.product")}{" "}
+                  <ChevronDown size={16} className="-rotate-90" />
                 </button>
 
                 <button
@@ -297,7 +286,8 @@ export default function MarketingHeader() {
                   onClick={() => setMobilePanel("industries")}
                   className="w-full flex items-center justify-between px-3 py-3 text-left text-base font-medium"
                 >
-                  Industries <ChevronDown size={16} className="-rotate-90" />
+                  {t("nav.industries")}{" "}
+                  <ChevronDown size={16} className="-rotate-90" />
                 </button>
 
                 <Link
@@ -305,7 +295,7 @@ export default function MarketingHeader() {
                   onClick={closeMobile}
                   className="block px-3 py-3 text-base font-medium"
                 >
-                  Pricing
+                  {t("nav.pricing")}
                 </Link>
 
                 <Link
@@ -313,7 +303,7 @@ export default function MarketingHeader() {
                   onClick={closeMobile}
                   className="block px-3 py-3 text-base font-medium"
                 >
-                  Resources
+                  {t("nav.resources")}
                 </Link>
 
                 <a
@@ -331,7 +321,7 @@ export default function MarketingHeader() {
                       className="flex items-center gap-3 px-3 py-3 text-base font-medium text-gray-900"
                     >
                       <UserAvatar user={session.user} size={28} />
-                      Go to Dashboard
+                      {t("nav.dashboard")}
                     </Link>
                   ) : (
                     <>
@@ -340,7 +330,7 @@ export default function MarketingHeader() {
                         onClick={closeMobile}
                         className="block px-3 py-3 text-base font-medium text-gray-600"
                       >
-                        Log In
+                        {t("nav.login")}
                       </Link>
 
                       <Link
@@ -348,7 +338,7 @@ export default function MarketingHeader() {
                         onClick={closeMobile}
                         className="block text-center bg-gray-900 text-white px-4 py-3 rounded-full font-semibold"
                       >
-                        Start Free Trial
+                        {t("nav.signup")}
                       </Link>
                     </>
                   )}

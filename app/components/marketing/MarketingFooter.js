@@ -1,46 +1,51 @@
 // app/components/marketing/MarketingFooter.js
+//
+// Now a client component. It has to be, because translation lives in React
+// context — the alternative is threading the active language down from the
+// server, which for a footer isn't worth the complexity.
+"use client";
+
 import Link from "next/link";
 import { INDUSTRIES } from "@/app/data/industries";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
+// Keys + hrefs only. Labels resolve from the catalog under footer.links.*,
+// reusing the product.* keys the header already defines rather than
+// duplicating the same four strings in six languages twice over.
 const FOOTER_COLUMNS = [
   {
-    title: "Product",
+    titleKey: "nav.product",
     links: [
-      { label: "Quotes & Invoicing", href: "/product/quoting" },
-      { label: "Scheduling & Dispatch", href: "/product/scheduling" },
-      { label: "Team & Payroll", href: "/product/team" },
-      { label: "Analytics & AI", href: "/product/analytics" },
-      { label: "Pricing", href: "/pricing" },
+      { key: "product.quoting.label", href: "/product/quoting" },
+      { key: "product.scheduling.label", href: "/product/scheduling" },
+      { key: "product.team.label", href: "/product/team" },
+      { key: "product.analytics.label", href: "/product/analytics" },
+      { key: "nav.pricing", href: "/pricing" },
     ],
   },
   {
-    title: "Industries",
-    links: INDUSTRIES.slice(0, 6).map((ind) => ({
-      label: ind.label,
-      href: `/industries/${ind.slug}`,
-    })),
-  },
-  {
-    title: "Resources",
+    titleKey: "nav.resources",
     links: [
-      { label: "Help Center", href: "/resources/help" },
-      { label: "FAQ", href: "/resources/faq" },
-      { label: "Blog", href: "/resources/blog" },
-      { label: "Contact Us", href: "/contact" },
+      { key: "footer.links.help", href: "/resources/help" },
+      { key: "footer.links.faq", href: "/resources/faq" },
+      { key: "footer.links.blog", href: "/resources/blog" },
+      { key: "footer.links.contact", href: "/contact" },
     ],
   },
   {
-    title: "Company",
+    titleKey: "footer.company",
     links: [
-      { label: "About", href: "/about" },
-      { label: "Careers", href: "/careers" },
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Terms of Service", href: "/terms" },
+      { key: "footer.links.about", href: "/about" },
+      { key: "footer.links.careers", href: "/careers" },
+      { key: "footer.links.privacy", href: "/privacy" },
+      { key: "footer.links.terms", href: "/terms" },
     ],
   },
 ];
 
 export default function MarketingFooter() {
+  const { t } = useTranslation();
+
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -50,15 +55,35 @@ export default function MarketingFooter() {
               FieldQuo
             </span>
             <p className="text-sm text-gray-400 mt-3 leading-relaxed">
-              The all-in-one platform for contractors and home service pros —
-              quotes, scheduling, invoicing, and payments in one place.
+              {t("footer.tagline")}
             </p>
           </div>
 
+          {/* Industries column is built from INDUSTRIES rather than the
+              catalog — those labels live in app/data/industries.js and are
+              still English-only. See the note in the commit. */}
+          <div>
+            <h4 className="text-sm font-semibold text-white mb-3">
+              {t("nav.industries")}
+            </h4>
+            <ul className="space-y-2">
+              {INDUSTRIES.slice(0, 6).map((ind) => (
+                <li key={ind.slug}>
+                  <Link
+                    href={`/industries/${ind.slug}`}
+                    className="text-sm text-gray-400 hover:text-white"
+                  >
+                    {ind.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {FOOTER_COLUMNS.map((col) => (
-            <div key={col.title}>
+            <div key={col.titleKey}>
               <h4 className="text-sm font-semibold text-white mb-3">
-                {col.title}
+                {t(col.titleKey)}
               </h4>
               <ul className="space-y-2">
                 {col.links.map((link) => (
@@ -67,7 +92,7 @@ export default function MarketingFooter() {
                       href={link.href}
                       className="text-sm text-gray-400 hover:text-white"
                     >
-                      {link.label}
+                      {t(link.key)}
                     </Link>
                   </li>
                 ))}
@@ -78,7 +103,7 @@ export default function MarketingFooter() {
 
         <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500">
-            © {new Date().getFullYear()} FieldQuo. All rights reserved.
+            © {new Date().getFullYear()} FieldQuo. {t("footer.rights")}
           </p>
           <div className="flex items-center gap-6">
             <a
@@ -91,13 +116,13 @@ export default function MarketingFooter() {
               href="/privacy"
               className="text-sm text-gray-400 hover:text-white"
             >
-              Privacy
+              {t("footer.privacy")}
             </Link>
             <Link
               href="/terms"
               className="text-sm text-gray-400 hover:text-white"
             >
-              Terms
+              {t("footer.terms")}
             </Link>
           </div>
         </div>
