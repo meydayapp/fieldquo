@@ -12,12 +12,29 @@
 // (there's no reset-by-email flow for platform accounts, deliberately —
 // fewer ways into an account that can read every tenant's data).
 
+import "dotenv/config";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 
-const db = new PrismaClient();
+// Prisma 7 requires a driver adapter — `new PrismaClient()` with no options
+// throws. Mirrors lib/db.js rather than importing it, because that module
+// memoises a client on globalThis for Next's dev server and a one-shot script
+// wants its own connection it can cleanly close.
+//
+// dotenv/config is imported first so DATABASE_URL is populated before the
+// Pool is constructed; without it the connection string is undefined and the
+// failure is a confusing timeout rather than a clear error.
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL isn't set. Check your .env.");
+  process.exit(1);
+}
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 const email = (process.argv[2] || "").trim().toLowerCase();
 
@@ -86,4 +103,5 @@ try {
 } finally {
   rl.close();
   await db.$disconnect();
+  await pool.end();
 }

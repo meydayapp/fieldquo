@@ -6,17 +6,39 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 
+// Next 16: params is a Promise and must be awaited. Reading params.id
+// synchronously resolves to undefined, which turns every lookup on this route
+// into a 404 that looks like missing data rather than a bug.
 export async function GET(request, { params }) {
+  const { id } = await params;
+
   const admin = await getCurrentPlatformAdmin(request);
   if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    requirePlatformPermission(admin.role, "company:view");
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status || 403 },
+    );
+  }
+
   const company = await db.company.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       subscription: { include: { plan: true } },
-      members: { include: { user: { select: { name: true, email: true } } } },
-      _count: { select: { quotes: true, invoices: true, jobs: true } },
+      members: {
+        include: { user: { select: { name: true, email: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+      // Client and quote counts only — not the records themselves. Aggregates
+      // give support the context they need without putting every homeowner's
+      // name and address in front of staff by default.
+      _count: {
+        select: { quotes: true, invoices: true, jobs: true, clients: true },
+      },
     },
   });
 
@@ -26,19 +48,37 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  const { id } = await params;
+
   const admin = await getCurrentPlatformAdmin(request);
   if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const existing = await db.company.findUnique({ where: { id: params.id } });
-  if (!existing)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-
   const body = await request.json();
   const { onboardingStatus, name } = body;
 
+  // Suspending a company cuts off a paying customer's access — a heavier
+  // action than renaming, and gated accordingly. Support can do neither.
+  const needed =
+    onboardingStatus === "churned" || onboardingStatus === "suspended"
+      ? "company:suspend"
+      : "company:manage";
+
+  try {
+    requirePlatformPermission(admin.role, needed);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status || 403 },
+    );
+  }
+
+  const existing = await db.company.findUnique({ where: { id } });
+  if (!existing)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const updated = await db.company.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(onboardingStatus !== undefined && { onboardingStatus }),
       ...(name !== undefined && { name }),
@@ -52,8 +92,10 @@ export async function PATCH(request, { params }) {
         onboardingStatus === "suspended"
           ? "company_suspended"
           : "company_updated",
-      targetCompanyId: params.id,
-      details: body,
+      targetCompanyId: id,
+      // Record what it was as well as what it became — an audit entry saying
+      // only "status changed to churned" can't answer "changed from what?".
+      details: { ...body, previousStatus: existing.onboardingStatus },
     },
   });
 
@@ -61,6 +103,8 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const { id } = await params;
+
   const admin = await getCurrentPlatformAdmin(request);
   if (!admin)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -74,7 +118,7 @@ export async function DELETE(request, { params }) {
     );
   }
 
-  const existing = await db.company.findUnique({ where: { id: params.id } });
+  const existing = await db.company.findUnique({ where: { id } });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -82,7 +126,7 @@ export async function DELETE(request, { params }) {
   // be one DELETE call away from gone. If you genuinely need permanent deletion later,
   // that should be a deliberate, separate, harder-to-trigger operation.
   await db.company.update({
-    where: { id: params.id },
+    where: { id },
     data: { onboardingStatus: "churned" },
   });
 
@@ -90,7 +134,8 @@ export async function DELETE(request, { params }) {
     data: {
       platformAdminId: admin.id,
       action: "company_deletion_requested",
-      targetCompanyId: params.id,
+      targetCompanyId: id,
+      details: { previousStatus: existing.onboardingStatus },
     },
   });
 

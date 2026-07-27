@@ -1,12 +1,12 @@
-// app/platform/companies/[id]/page.js — placeholder, see app/components/platform/NotBuilt.js
-import NotBuilt from "@/app/components/platform/NotBuilt";
+// app/platform/companies/[id]/page.js
+//
+// Server shell — resolves the route param and hands it to the client
+// component, which does the fetching and the actions.
 
-export default function PlatformCompanyDetailPage() {
-  return (
-    <NotBuilt
-      title="Company detail"
-      description="Inspect a single company, its subscription and its members. Not built yet."
-      apiRoute="/api/platform/companies/[id]"
-    />
-  );
+import CompanyDetail from "./CompanyDetail";
+
+export default async function PlatformCompanyDetailPage({ params }) {
+  // Next 16: params is a Promise.
+  const { id } = await params;
+  return <CompanyDetail companyId={id} />;
 }
