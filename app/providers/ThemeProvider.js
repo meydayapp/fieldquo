@@ -26,6 +26,22 @@ const ThemeContext = createContext(null);
 
 const STORAGE_KEY = "fieldquo-theme";
 
+// Dark mode is OFF until the component layer supports it.
+//
+// The mechanism here works — toggling `.dark` flips every shadcn variable in
+// globals.css. The problem is that almost nothing reads those variables:
+// there are ~700 hardcoded `bg-white`, `text-gray-900` and `border-gray-200`
+// classes across ~80 files, and a hardcoded colour ignores the theme entirely.
+//
+// The result was worse than having no dark mode: dark page background with
+// dark text, white cards with white text, and an invisible mobile drawer.
+//
+// Flip this to true once components use semantic tokens (bg-background,
+// bg-card, text-foreground, text-muted-foreground, border-border). Until
+// then the provider stays mounted and useTheme() keeps working — it just
+// never applies the class.
+const DARK_MODE_ENABLED = false;
+
 function systemPrefersDark() {
   return (
     typeof window !== "undefined" &&
@@ -34,6 +50,12 @@ function systemPrefersDark() {
 }
 
 function applyTheme(theme) {
+  if (!DARK_MODE_ENABLED) {
+    document.documentElement.classList.remove("dark");
+    document.documentElement.style.colorScheme = "light";
+    return false;
+  }
+
   const isDark = theme === "dark" || (theme === "system" && systemPrefersDark());
   document.documentElement.classList.toggle("dark", isDark);
   // Tells the browser which scrollbar and form-control colours to use, so

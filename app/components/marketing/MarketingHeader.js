@@ -7,7 +7,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, X, Phone } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
-import ThemeToggle from "@/app/components/ThemeToggle";
 import { INDUSTRIES } from "@/app/data/industries";
 import { useSession } from "@/lib/auth-client";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -194,7 +193,8 @@ export default function MarketingHeader() {
 
           {/* Desktop right side */}
           <div className="hidden lg:flex items-center gap-3">
-            <ThemeToggle compact />
+            {/* ThemeToggle is hidden until components use semantic colour
+                tokens — see DARK_MODE_ENABLED in ThemeProvider. */}
             <LanguageSwitcher compact />
 
             <a
@@ -345,9 +345,8 @@ export default function MarketingHeader() {
                     </>
                   )}
 
-                  <div className="px-3 flex flex-wrap items-center gap-3">
+                  <div className="px-3">
                     <LanguageSwitcher />
-                    <ThemeToggle />
                   </div>
                 </div>
               </div>

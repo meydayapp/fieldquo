@@ -4,23 +4,21 @@ import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { ThemeProvider } from "@/app/providers/ThemeProvider";
 import "./globals.css";
 
-// Runs before first paint, so the page never renders light and then snaps to
-// dark. Without this there's a visible white flash on every load for dark-mode
-// users — the class can only be applied after React hydrates, which is far too
-// late. Inlined deliberately: an external script would be another round trip
-// before paint, defeating the point.
+// Pre-paint theme script, currently disabled.
+//
+// When dark mode is enabled (see DARK_MODE_ENABLED in ThemeProvider), this
+// has to run before first paint — applying the class after React hydrates
+// produces a white flash on every load for dark-mode users. It's inlined
+// rather than an external file because a round trip before paint defeats the
+// purpose.
+//
+// It's a no-op today because ~700 hardcoded colour classes across the app
+// ignore the theme, so applying `.dark` breaks more than it fixes. Restore
+// the body of this function at the same time you flip DARK_MODE_ENABLED.
 const NO_FLASH = `
 (function () {
   try {
-    var stored = localStorage.getItem("fieldquo-theme");
-    var isDark =
-      stored === "dark" ||
-      ((!stored || stored === "system") &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-      document.documentElement.style.colorScheme = "dark";
-    }
+    document.documentElement.classList.remove("dark");
   } catch (e) {}
 })();
 `;
