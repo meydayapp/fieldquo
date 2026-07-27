@@ -14,7 +14,8 @@ import {
   renderTemplateSections,
   renderSubject,
 } from "@/lib/email/renderTemplateSections";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import { STAGE_INDEX } from "@/app/data/emailTemplateBlocks";
 
 // Sample values for the merge fields that don't exist until a real
@@ -96,8 +97,7 @@ export async function POST(request, { params }) {
   const company = await db.company.findUnique({
     where: { id: member.companyId },
     select: {
-      name: true,
-      email: true,
+      ...SENDER_SELECT,
       phone: true,
       website: true,
       address: true,
@@ -105,6 +105,7 @@ export async function POST(request, { params }) {
       province: true,
       logoUrl: true,
       brandColor: true,
+      brandColors: true,
     },
   });
 
@@ -128,6 +129,9 @@ export async function POST(request, { params }) {
     to: String(to).trim(),
     subject: `[Test] ${subject}`,
     html,
+    // Test sends use the real sender too, so a company can confirm its
+    // verified domain actually works before any client sees it.
+    ...(await resolveSender(company || {}, member.companyId)),
   });
 
   if (result?.error) {

@@ -51,6 +51,7 @@ import {
   newBlock,
 } from "@/app/data/emailTemplateBlocks";
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
+import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 
 const PREVIEW_MERGE_DATA = {
   clientName: "Jane Doe",
@@ -683,6 +684,13 @@ export default function EmailTemplateEditorPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      {/* Asks for a company email if none is set — otherwise client replies
+          to this template's emails go to an unmonitored address. */}
+      <ReplyToPromptModal
+        context="emails"
+        onSaved={(email) => setCompany((c) => ({ ...c, email }))}
+      />
+
       {/* Sticky header — always reachable on mobile while scrolling blocks */}
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="p-4 sm:px-6 flex items-center justify-between gap-3">

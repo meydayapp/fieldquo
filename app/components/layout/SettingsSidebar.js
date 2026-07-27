@@ -34,6 +34,7 @@ import {
   TrendingUp,
   CalendarDays,
   ClipboardList,
+  AtSign,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -76,6 +77,11 @@ const BUSINESS_ITEMS = [
     label: "Email Templates",
     href: "/app/settings/email-templates",
     icon: Mail,
+  },
+  {
+    label: "Email Domain",
+    href: "/app/settings/email-domain",
+    icon: AtSign,
   },
   { label: "Follow-ups", href: "/app/settings/follow-ups", icon: Clock },
   { label: "Payments", href: "/app/settings/payments", icon: Receipt },

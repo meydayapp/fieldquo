@@ -145,6 +145,22 @@ model Company {
   // sensible defaults from brandColor", which is what every existing company
   // gets without touching a thing.
   brandColors            Json?
+
+  // ── Per-company email sending domain (Resend) ──────────────────────────
+  // Until emailDomainStatus is "verified", mail for this company goes out on
+  // FieldQuo's shared domain under the company's display name. Once verified,
+  // it sends from emailFromLocal@emailDomain instead. See lib/email/resend.js
+  // senderFor() and lib/email/resendDomains.js.
+  emailDomain          String? // e.g. "send.northline.com"
+  emailDomainId        String? // Resend's domain id, needed to verify/delete
+  // not_started | pending | verified | failed
+  emailDomainStatus    String? @default("not_started")
+  // Local part of the sender address: "quotes" -> quotes@send.northline.com
+  emailFromLocal       String? @default("quotes")
+  // Cached DNS records Resend returned at creation, so the setup screen can
+  // show them without re-hitting the API on every page load.
+  emailDomainRecords   Json?
+  emailDomainCheckedAt DateTime?
   paymentTerms           String?
   taxRate                Decimal           @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]          @default(["cash", "e_transfer", "cheque"])

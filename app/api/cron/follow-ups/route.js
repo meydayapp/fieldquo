@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import {
   renderTemplateSections,
   renderSubject,
@@ -238,7 +239,11 @@ export async function GET(request) {
           rule.template.name,
         ),
         html,
-        from: entity.company?.name ? `${entity.company.name} <onboarding@resend.dev>` : undefined,
+        // Sends from the company's own verified domain when it has one,
+        // otherwise FieldQuo's shared domain under the company's name.
+        // Replies go to the company's inbox, falling back to the account
+        // owner's email so a reply is never silently lost.
+        ...(await resolveSender(entity.company || {}, entity.companyId)),
       });
       sent++;
     }

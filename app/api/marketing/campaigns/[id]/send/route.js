@@ -10,7 +10,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
-import { sendEmail } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import {
   renderTemplateSections,
   renderSubject,
@@ -38,15 +39,15 @@ export async function POST(request, { params }) {
       // Branding fields feed the themed header/footer, not just merge tokens.
       company: {
         select: {
-          name: true,
+          ...SENDER_SELECT,
           phone: true,
-          email: true,
           website: true,
           address: true,
           city: true,
           province: true,
           logoUrl: true,
           brandColor: true,
+          brandColors: true,
         },
       },
     },
@@ -83,6 +84,10 @@ export async function POST(request, { params }) {
     );
   }
 
+  // Resolved once, not per subscriber — the sender is identical for every
+  // recipient in a campaign.
+  const sender = await resolveSender(campaign.company || {}, campaign.companyId);
+
   let delivered = 0;
   for (const sub of subscribers) {
     const mergeData = {
@@ -104,7 +109,12 @@ export async function POST(request, { params }) {
       mergeData,
       campaign.name,
     );
-    const result = await sendEmail({ to: sub.email, subject, html });
+    const result = await sendEmail({
+      to: sub.email,
+      subject,
+      html,
+      ...sender,
+    });
     if (!result?.error) delivered++;
   }
 
