@@ -26,9 +26,19 @@ export default function PlatformDashboardPage() {
     setError("");
     try {
       const res = await fetch("/api/platform/analytics/overview");
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Couldn't load metrics.");
-      setData(json);
+
+      // A 500 from Next in dev returns an HTML error page, not JSON. Calling
+      // .json() on it throws a parser error ("The string did not match the
+      // expected pattern") which then surfaces as the user-facing message —
+      // hiding the real failure. Check status before parsing.
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(
+          detail?.error || `Request failed (${res.status}). Check server logs.`,
+        );
+      }
+
+      setData(await res.json());
     } catch (err) {
       setError(err.message);
     } finally {

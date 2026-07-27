@@ -207,6 +207,18 @@ model Company {
   stripeChargesEnabled Boolean @default(false)
 
   createdAt DateTime @default(now())
+  // Added because the platform churn metric queried it and the field didn't
+  // exist — every dashboard load 500'd. Note it changes on ANY edit, so
+  // "churned this month" derived from it is approximate: a churned company
+  // whose name is corrected months later re-enters the window. Good enough
+  // for a directional number; if churn ever drives a decision that matters,
+  // measure it off Subscription status changes or PlatformAuditLog instead.
+  //
+  // @default(now()) is required, not stylistic: without it Prisma can't add
+  // the column to a table that already has rows, and the only remedy it
+  // offers is --force-reset, which drops the database. The default backfills
+  // existing companies; @updatedAt keeps it current from then on.
+  updatedAt DateTime @default(now()) @updatedAt
 
   products Product[]
 

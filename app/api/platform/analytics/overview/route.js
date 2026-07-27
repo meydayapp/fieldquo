@@ -119,6 +119,8 @@ export async function GET(request) {
     db.company.count({
       where: { onboardingStatus: "pending", trialEndsAt: { gte: now } },
     }),
+    // Approximate — see the note on Company.updatedAt. Any edit to a churned
+    // company pulls it back into this window.
     db.company.count({
       where: { onboardingStatus: "churned", updatedAt: { gte: startOfMonth } },
     }),
