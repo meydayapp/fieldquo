@@ -63,6 +63,62 @@ model PlatformAuditLog {
   createdAt       DateTime      @default(now())
 }
 
+// Feedback and bug reports submitted by companies from inside the app.
+//
+// companyId/userId are plain ids rather than relations on purpose: feedback
+// must survive the company being deleted. "We deleted the account because of
+// a bug they reported" shouldn't also delete the bug report.
+model Feedback {
+  id        String         @id @default(cuid())
+  companyId String?
+  userId    String?
+  // Denormalised at submission time so a reply is still possible after the
+  // account is gone, and so triage doesn't need a join to show who reported it.
+  email     String?
+  companyName String?
+
+  type      FeedbackType   @default(other)
+  subject   String
+  body      String
+  // Which page they were on. The single most useful field for reproducing a
+  // bug, and the one users never think to include.
+  pageUrl   String?
+
+  status    FeedbackStatus @default(open)
+  // Internal triage notes — never shown to the company.
+  adminNotes String?
+  resolvedAt DateTime?
+
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// Publishable quotes from happy companies, for the marketing site.
+//
+// Separate from Feedback because they have opposite lifecycles: feedback is
+// triaged and closed, a testimonial is approved and published. Conflating them
+// means one accidental status change puts a bug report on your homepage.
+model Testimonial {
+  id          String   @id @default(cuid())
+  companyId   String?
+  // Captured at approval time — the person's name and role as it should
+  // appear publicly, which may differ from their account details.
+  authorName  String
+  authorTitle String?
+  companyLabel String?
+  quote       String
+  // Never published without an explicit approval step. Default false so a
+  // draft can't reach the public site by omission.
+  approved    Boolean  @default(false)
+  featured    Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([approved, sortOrder])
+}
+
 model CustomField {
   id         String                @id @default(cuid())
   companyId  String
@@ -1314,6 +1370,21 @@ enum SubscriptionStatus {
   active
   past_due
   canceled
+}
+
+enum FeedbackType {
+  bug
+  feature_request
+  billing
+  question
+  other
+}
+
+enum FeedbackStatus {
+  open
+  in_progress
+  resolved
+  wont_fix
 }
 
 enum MemberRole {
