@@ -553,42 +553,42 @@ export default function NewQuotePage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
   }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">New Quote</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">New Quote</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Build a quote from your enabled services.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Client selection */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Client</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-3">Client</h2>
 
         {selectedClient ? (
-          <div className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3">
             <div>
-              <div className="font-medium text-gray-900">
+              <div className="font-medium text-foreground">
                 {selectedClient.name}
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 {selectedClient.email || selectedClient.phone}
               </div>
             </div>
             <button
               onClick={() => setSelectedClient(null)}
-              className="text-sm text-gray-500 underline"
+              className="text-sm text-muted-foreground underline"
             >
               Change
             </button>
@@ -598,20 +598,20 @@ export default function NewQuotePage() {
             <div className="relative mb-2">
               <Search
                 size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 placeholder="Search clients..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
               />
             </div>
 
             {clientSearch && (
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto mb-2">
+              <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto mb-2">
                 {filteredClients.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-gray-500">No matches.</p>
+                  <p className="px-3 py-3 text-sm text-muted-foreground">No matches.</p>
                 )}
                 {filteredClients.map((c) => (
                   <button
@@ -624,10 +624,10 @@ export default function NewQuotePage() {
                       // language bar below.
                       if (c.language) setQuoteLanguage(c.language);
                     }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50"
+                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted"
                   >
-                    <div className="font-medium text-gray-900">{c.name}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="font-medium text-foreground">{c.name}</div>
+                    <div className="text-xs text-muted-foreground">
                       {c.email || c.phone}
                     </div>
                   </button>
@@ -637,7 +637,7 @@ export default function NewQuotePage() {
 
             <button
               onClick={() => setShowNewClient(true)}
-              className="text-sm font-medium text-gray-900 flex items-center gap-1"
+              className="text-sm font-medium text-foreground flex items-center gap-1"
             >
               <Plus size={14} /> Add new client
             </button>
@@ -658,10 +658,10 @@ export default function NewQuotePage() {
       )}
 
       {/* Service picker */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Add a service</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-3">Add a service</h2>
         {categories.length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             No services enabled yet — go to Settings → Services to turn some on.
           </p>
         ) : (
@@ -674,7 +674,7 @@ export default function NewQuotePage() {
                   <button
                     key={cat.id}
                     onClick={() => addScopeGroup(cat, cat.label)}
-                    className="border border-gray-300 rounded-full px-3 py-1.5 text-sm hover:bg-gray-50"
+                    className="border border-border rounded-full px-3 py-1.5 text-sm hover:bg-muted"
                   >
                     + {cat.label}
                   </button>
@@ -685,7 +685,7 @@ export default function NewQuotePage() {
               // grouped visually under the category name — no retyping, no generic label.
               return (
                 <div key={cat.id} className="w-full">
-                  <div className="text-xs font-medium text-gray-500 mb-1.5">
+                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
                     {cat.label}
                   </div>
                   <div className="flex flex-wrap gap-2 mb-3">
@@ -693,7 +693,7 @@ export default function NewQuotePage() {
                       <button
                         key={sectionLabel}
                         onClick={() => addScopeGroup(cat, sectionLabel)}
-                        className="border border-gray-300 rounded-full px-3 py-1.5 text-sm hover:bg-gray-50"
+                        className="border border-border rounded-full px-3 py-1.5 text-sm hover:bg-muted"
                       >
                         + {sectionLabel}
                       </button>
@@ -710,13 +710,13 @@ export default function NewQuotePage() {
       {scopeGroups.map((group) => (
         <div
           key={group.tempId}
-          className="bg-white border border-gray-200 rounded-xl p-5"
+          className="bg-card border border-border rounded-xl p-5"
         >
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">{group.label}</h3>
+            <h3 className="font-semibold text-foreground">{group.label}</h3>
             <button
               onClick={() => removeScopeGroup(group.tempId)}
-              className="text-gray-400"
+              className="text-muted-foreground"
             >
               <Trash2 size={16} />
             </button>
@@ -729,11 +729,11 @@ export default function NewQuotePage() {
               const finalPrice = finalUnitPrice(group);
               const iv = group.intakeValues || {};
               return (
-                <div className="mb-4 pb-4 border-b border-gray-100 space-y-4">
+                <div className="mb-4 pb-4 border-b border-border space-y-4">
                   {/* Doors / Drawers / Units */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-gray-500">Doors</label>
+                      <label className="text-xs text-muted-foreground">Doors</label>
                       <input
                         type="number"
                         min="0"
@@ -741,12 +741,12 @@ export default function NewQuotePage() {
                         onChange={(e) =>
                           updateIntakeValue(group.tempId, "doorCount", e.target.value)
                         }
-                        className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Drawers</label>
+                      <label className="text-xs text-muted-foreground">Drawers</label>
                       <input
                         type="number"
                         min="0"
@@ -754,13 +754,13 @@ export default function NewQuotePage() {
                         onChange={(e) =>
                           updateIntakeValue(group.tempId, "drawerCount", e.target.value)
                         }
-                        className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Total Units</label>
-                      <div className="mt-1 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm font-semibold text-center text-gray-900">
+                      <label className="text-xs text-muted-foreground">Total Units</label>
+                      <div className="mt-1 px-3 py-1.5 bg-muted border border-border rounded text-sm font-semibold text-center text-foreground">
                         {units}
                       </div>
                     </div>
@@ -768,7 +768,7 @@ export default function NewQuotePage() {
 
                   {/* Wood — feeds the internal primer-coats rule */}
                   <div>
-                    <label className="text-xs text-gray-500">
+                    <label className="text-xs text-muted-foreground">
                       Wood / Door Material
                     </label>
                     <select
@@ -776,7 +776,7 @@ export default function NewQuotePage() {
                       onChange={(e) =>
                         updateIntakeValue(group.tempId, "woodSpecies", e.target.value)
                       }
-                      className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
                     >
                       <option value="">—</option>
                       {["oak", "ash", "hickory", "pine", "maple", "mdf_prefinished", "thermofoil", "other"].map(
@@ -792,11 +792,11 @@ export default function NewQuotePage() {
                   {/* Base / Upcharge / Final */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-gray-500">
+                      <label className="text-xs text-muted-foreground">
                         Base Price / Unit
                       </label>
                       <div className="relative mt-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                           $
                         </span>
                         <input
@@ -809,21 +809,21 @@ export default function NewQuotePage() {
                               baseUnitPrice: e.target.value === "" ? 0 : Number(e.target.value),
                             })
                           }
-                          className="w-full border border-gray-300 rounded pl-5 pr-2 py-1.5 text-sm"
+                          className="w-full border border-border rounded pl-5 pr-2 py-1.5 text-sm"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Upcharge</label>
-                      <div className="mt-1 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded text-sm text-center text-gray-700">
+                      <label className="text-xs text-muted-foreground">Upcharge</label>
+                      <div className="mt-1 px-3 py-1.5 bg-muted border border-border rounded text-sm text-center text-foreground">
                         {group.complexityLevel === "custom"
                           ? `+$${Number(group.complexityUpcharge) || 0}`
                           : `+$${COMPLEXITY_LEVELS.find((l) => l.value === group.complexityLevel)?.upcharge || 0}`}
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Final / Unit</label>
-                      <div className="mt-1 px-3 py-1.5 bg-gray-900 rounded text-sm font-semibold text-center text-white">
+                      <label className="text-xs text-muted-foreground">Final / Unit</label>
+                      <div className="mt-1 px-3 py-1.5 bg-inverted rounded text-sm font-semibold text-center text-inverted-foreground">
                         ${finalPrice.toFixed(2)}
                       </div>
                     </div>
@@ -831,7 +831,7 @@ export default function NewQuotePage() {
 
                   {/* Complexity level */}
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1.5">
+                    <label className="text-xs text-muted-foreground block mb-1.5">
                       Project Complexity
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -846,8 +846,8 @@ export default function NewQuotePage() {
                           }
                           className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
                             group.complexityLevel === lvl.value
-                              ? "border-gray-900 bg-gray-900 text-white"
-                              : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                              ? "border-inverted bg-inverted text-inverted-foreground"
+                              : "border-border text-muted-foreground hover:bg-muted"
                           }`}
                         >
                           {lvl.label}
@@ -857,7 +857,7 @@ export default function NewQuotePage() {
                     </div>
                     {group.complexityLevel === "custom" && (
                       <div className="mt-2 w-40">
-                        <label className="text-xs text-gray-500">
+                        <label className="text-xs text-muted-foreground">
                           Custom upcharge / unit
                         </label>
                         <input
@@ -870,7 +870,7 @@ export default function NewQuotePage() {
                               complexityUpcharge: Number(e.target.value) || 0,
                             })
                           }
-                          className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                          className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                           placeholder="e.g. 60"
                         />
                       </div>
@@ -887,23 +887,23 @@ export default function NewQuotePage() {
                           [group.tempId]: !p[group.tempId],
                         }))
                       }
-                      className="text-xs font-medium text-gray-700 flex items-center gap-1"
+                      className="text-xs font-medium text-foreground flex items-center gap-1"
                     >
                       {reasonsOpen[group.tempId] ? "▾" : "▸"} Complexity Reasons
                       {(group.complexityReasons?.length || 0) > 0 && (
-                        <span className="bg-gray-900 text-white rounded-full px-1.5 text-[10px]">
+                        <span className="bg-inverted text-inverted-foreground rounded-full px-1.5 text-[10px]">
                           {group.complexityReasons.length}
                         </span>
                       )}
-                      <span className="text-gray-400 font-normal">
+                      <span className="text-muted-foreground font-normal">
                         — shown on quote &amp; PDF
                       </span>
                     </button>
                     {reasonsOpen[group.tempId] && (
-                      <div className="mt-2 border border-gray-200 rounded-lg p-3 space-y-3">
+                      <div className="mt-2 border border-border rounded-lg p-3 space-y-3">
                         {Object.entries(COMPLEXITY_REASONS).map(([cat, reasons]) => (
                           <div key={cat}>
-                            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                               {cat}
                             </p>
                             {reasons.map((r) => (
@@ -921,7 +921,7 @@ export default function NewQuotePage() {
                                     toggleComplexityReason(group.tempId, r.id)
                                   }
                                 />
-                                <span className="text-gray-700">{r.label}</span>
+                                <span className="text-foreground">{r.label}</span>
                               </label>
                             ))}
                           </div>
@@ -933,24 +933,24 @@ export default function NewQuotePage() {
                   {/* Finish details */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-gray-500">Color</label>
+                      <label className="text-xs text-muted-foreground">Color</label>
                       <input
                         value={group.color || ""}
                         onChange={(e) =>
                           updatePricing(group.tempId, { color: e.target.value })
                         }
-                        className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                         placeholder="e.g. BM Chantilly Lace"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Sheen</label>
+                      <label className="text-xs text-muted-foreground">Sheen</label>
                       <select
                         value={group.sheen || ""}
                         onChange={(e) =>
                           updatePricing(group.tempId, { sheen: e.target.value })
                         }
-                        className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
                       >
                         <option value="">Select…</option>
                         <option value="matte">Matte</option>
@@ -960,24 +960,24 @@ export default function NewQuotePage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-500">Door Style</label>
+                      <label className="text-xs text-muted-foreground">Door Style</label>
                       <input
                         value={group.doorStyle || ""}
                         onChange={(e) =>
                           updatePricing(group.tempId, { doorStyle: e.target.value })
                         }
-                        className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                         placeholder="e.g. Shaker"
                       />
                     </div>
                   </div>
 
                   {/* Base scope total */}
-                  <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
-                    <span className="text-sm text-gray-600">
+                  <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
+                    <span className="text-sm text-muted-foreground">
                       {units} unit{units === 1 ? "" : "s"} × ${finalPrice.toFixed(2)}
                     </span>
-                    <span className="text-base font-bold text-gray-900">
+                    <span className="text-base font-bold text-foreground">
                       ${(units * finalPrice).toFixed(2)}
                     </span>
                   </div>
@@ -990,10 +990,10 @@ export default function NewQuotePage() {
           {!group.isTiered &&
             !isUnitPriced(group.categoryKey) &&
             getGroupFields(group).length > 0 && (
-            <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-gray-100">
+            <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-border">
               {getGroupFields(group).map((field) => (
                 <div key={field.key}>
-                  <label className="text-xs text-gray-500">{field.label}</label>
+                  <label className="text-xs text-muted-foreground">{field.label}</label>
                   {field.type === "select" ? (
                     <select
                       value={group.intakeValues[field.key] || ""}
@@ -1004,7 +1004,7 @@ export default function NewQuotePage() {
                           e.target.value,
                         )
                       }
-                      className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
                     >
                       <option value="">—</option>
                       {field.options.map((opt) => (
@@ -1039,7 +1039,7 @@ export default function NewQuotePage() {
                           e.target.value,
                         )
                       }
-                      className="w-full mt-1 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
                     />
                   )}
                 </div>
@@ -1049,8 +1049,8 @@ export default function NewQuotePage() {
 
           {/* Tiered package selector — junk removal, auto detailing, chimney sweep, elevator */}
           {group.isTiered && (
-            <div className="mb-4 pb-4 border-b border-gray-100">
-              <div className="text-xs text-gray-500 mb-2">
+            <div className="mb-4 pb-4 border-b border-border">
+              <div className="text-xs text-muted-foreground mb-2">
                 {getTieredPackage(group.categoryKey)?.label}
               </div>
               <div className="space-y-2">
@@ -1063,13 +1063,13 @@ export default function NewQuotePage() {
                     }
                     className={`w-full text-left border rounded-lg px-3 py-2.5 text-sm ${
                       group.selectedTier === tier.key
-                        ? "border-gray-900 bg-gray-50 font-medium"
-                        : "border-gray-200"
+                        ? "border-inverted bg-muted font-medium"
+                        : "border-border"
                     }`}
                   >
                     {tier.label}
                     {tier.priceHint && (
-                      <span className="text-xs text-gray-400 ml-2">
+                      <span className="text-xs text-muted-foreground ml-2">
                         ({tier.priceHint})
                       </span>
                     )}
@@ -1093,7 +1093,7 @@ export default function NewQuotePage() {
                       e.target.value,
                     )
                   }
-                  className="col-span-5 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  className="col-span-5 border border-border rounded px-2 py-1.5 text-sm"
                 />
                 <input
                   type="number"
@@ -1106,7 +1106,7 @@ export default function NewQuotePage() {
                       Number(e.target.value),
                     )
                   }
-                  className="col-span-2 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
                 />
                 <input
                   type="number"
@@ -1120,14 +1120,14 @@ export default function NewQuotePage() {
                       Number(e.target.value),
                     )
                   }
-                  className="col-span-2 border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
                 />
-                <div className="col-span-2 text-sm font-medium text-gray-900 text-right">
+                <div className="col-span-2 text-sm font-medium text-foreground text-right">
                   ${Number(item.amount).toFixed(2)}
                 </div>
                 <button
                   onClick={() => removeLineItem(group.tempId, i)}
-                  className="col-span-1 text-gray-400"
+                  className="col-span-1 text-muted-foreground"
                 >
                   <X size={14} />
                 </button>
@@ -1138,7 +1138,7 @@ export default function NewQuotePage() {
           <div className="flex items-center gap-3 mt-3 flex-wrap">
             <button
               onClick={() => addLineItem(group.tempId)}
-              className="text-xs font-medium text-gray-900 flex items-center gap-1"
+              className="text-xs font-medium text-foreground flex items-center gap-1"
             >
               <Plus size={12} /> Add line item
             </button>
@@ -1153,7 +1153,7 @@ export default function NewQuotePage() {
                   if (product) addProductLineItem(group.tempId, product);
                   e.target.value = "";
                 }}
-                className="text-xs border border-gray-300 rounded-full px-3 py-1.5 bg-white"
+                className="text-xs border border-border rounded-full px-3 py-1.5 bg-card"
               >
                 <option value="">+ Add from Products & Services...</option>
                 {getProductsForCategory(group.categoryId).map((p) => (
@@ -1171,11 +1171,11 @@ export default function NewQuotePage() {
       {/* Internal Cost & Margin — only shown when at least one scope group is
           estimable. Never client-facing. */}
       {estimate.hasEstimable && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
               <TrendingUp size={16} /> Cost &amp; Margin
-              <span className="text-xs font-normal text-gray-400">
+              <span className="text-xs font-normal text-muted-foreground">
                 (internal — not shown to client)
               </span>
             </h2>
@@ -1183,10 +1183,10 @@ export default function NewQuotePage() {
               <span
                 className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
                   estimate.signal === "green"
-                    ? "bg-green-50 text-green-700"
+                    ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
                     : estimate.signal === "amber"
-                      ? "bg-amber-50 text-amber-700"
-                      : "bg-red-50 text-red-700"
+                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                      : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
                 }`}
               >
                 {estimate.signal === "red" && <AlertTriangle size={12} />}
@@ -1200,13 +1200,13 @@ export default function NewQuotePage() {
           {/* Labour rate source */}
           <div className="flex flex-wrap items-end gap-3 mt-3 mb-4">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">
+              <label className="text-xs text-muted-foreground block mb-1">
                 Assigned worker
               </label>
               <select
                 value={costWorkerId}
                 onChange={(e) => setCostWorkerId(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                className="border border-border rounded px-2 py-1.5 text-sm bg-card"
               >
                 <option value="">Use manual rate</option>
                 {workers.map((w) => (
@@ -1219,40 +1219,40 @@ export default function NewQuotePage() {
             </div>
             {(!selectedWorker || selectedWorker.hourlyRate == null) && (
               <div>
-                <label className="text-xs text-gray-500 block mb-1">
+                <label className="text-xs text-muted-foreground block mb-1">
                   Labour rate $/hr
                 </label>
                 <input
                   type="number"
                   value={fallbackRate}
                   onChange={(e) => setFallbackRate(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24"
+                  className="border border-border rounded px-2 py-1.5 text-sm w-24"
                 />
               </div>
             )}
             <div>
-              <label className="text-xs text-gray-500 block mb-1">
+              <label className="text-xs text-muted-foreground block mb-1">
                 Overhead % of price
               </label>
               <input
                 type="number"
                 value={overheadPct}
                 onChange={(e) => setOverheadPct(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1.5 text-sm w-20"
+                className="border border-border rounded px-2 py-1.5 text-sm w-20"
               />
             </div>
           </div>
 
           {/* Per-group material + labour breakdown */}
           {estimate.groups.map((g) => (
-            <div key={g.tempId} className="mb-3 border-t border-gray-100 pt-3">
-              <div className="text-sm font-medium text-gray-800 mb-1">
+            <div key={g.tempId} className="mb-3 border-t border-border pt-3">
+              <div className="text-sm font-medium text-foreground mb-1">
                 {g.label}{" "}
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   · {g.summaryParts.join(" · ")}
                 </span>
               </div>
-              <div className="text-xs text-gray-500 space-y-0.5">
+              <div className="text-xs text-muted-foreground space-y-0.5">
                 {g.materials.map((m, i) => (
                   <div key={i} className="flex justify-between">
                     <span>
@@ -1262,7 +1262,7 @@ export default function NewQuotePage() {
                   </div>
                 ))}
                 {g.labourBreakdown.map((l, i) => (
-                  <div key={`l${i}`} className="flex justify-between text-gray-600">
+                  <div key={`l${i}`} className="flex justify-between text-muted-foreground">
                     <span>
                       {l.name} — {l.hours} hrs
                     </span>
@@ -1274,31 +1274,31 @@ export default function NewQuotePage() {
           ))}
 
           {/* Estimate totals vs price */}
-          <div className="border-t border-gray-100 pt-3 space-y-1 text-sm">
-            <div className="flex justify-between text-gray-600">
+          <div className="border-t border-border pt-3 space-y-1 text-sm">
+            <div className="flex justify-between text-muted-foreground">
               <span>Materials</span>
               <span>${estimate.materialTotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-muted-foreground">
               <span>Labour</span>
               <span>${estimate.labourCost.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-muted-foreground">
               <span>Overhead ({overheadPct}%)</span>
               <span>${estimate.overhead.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t border-gray-100 mt-1">
+            <div className="flex justify-between font-semibold text-foreground pt-1 border-t border-border mt-1">
               <span>Estimated cost</span>
               <span>${estimate.estimatedCost.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
+            <div className="flex justify-between text-muted-foreground">
               <span>Quote price (pre-tax)</span>
               <span>${subtotal.toFixed(2)}</span>
             </div>
             {estimate.marginPct != null && (
               <div
                 className={`flex justify-between font-semibold pt-1 ${
-                  estimate.signal === "red" ? "text-red-600" : "text-gray-900"
+                  estimate.signal === "red" ? "text-red-600 dark:text-red-400" : "text-foreground"
                 }`}
               >
                 <span>Estimated profit</span>
@@ -1310,7 +1310,7 @@ export default function NewQuotePage() {
             )}
           </div>
           {estimate.groups.length < scopeGroups.length && (
-            <p className="text-xs text-gray-400 mt-3">
+            <p className="text-xs text-muted-foreground mt-3">
               Only quote types with a cost recipe are estimated (cabinet
               refinishing so far). Other line items aren't included in this
               estimate yet.
@@ -1320,19 +1320,19 @@ export default function NewQuotePage() {
       )}
 
       {/* Notes */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-2">Notes</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-2">Notes</h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           placeholder="Anything the client should know..."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
         />
       </div>
 
       {/* Totals + tax toggle */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <label className="flex items-center gap-2 text-sm mb-3">
           <input
             type="checkbox"
@@ -1342,15 +1342,15 @@ export default function NewQuotePage() {
           Apply tax ({taxRate}%)
         </label>
         <div className="space-y-1 text-sm">
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-muted-foreground">
             <span>Tax</span>
             <span>${tax.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-semibold text-gray-900 text-base pt-1 border-t border-gray-100 mt-1">
+          <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>Total</span>
             <span>${total.toFixed(2)}</span>
           </div>
@@ -1358,18 +1358,18 @@ export default function NewQuotePage() {
       </div>
 
       {/* Sticky action bar */}
-      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-white border-t border-gray-200 px-6 py-4 flex gap-3 justify-end">
+      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end">
         <button
           onClick={() => handleSave("draft")}
           disabled={saving}
-          className="border border-gray-300 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          className="border border-border px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           Save as Draft
         </button>
         <button
           onClick={() => handleSave("sent")}
           disabled={saving}
-          className="bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving ? "Saving..." : "Save & Send"}
         </button>
@@ -1377,7 +1377,7 @@ export default function NewQuotePage() {
 
       {showNewClient && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
+          <div className="bg-card rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">New Client</h2>
               <button onClick={() => setShowNewClient(false)}>
@@ -1393,8 +1393,8 @@ export default function NewQuotePage() {
                   }
                   className={`border rounded-lg px-3 py-2 text-sm ${
                     newClient.type !== "company"
-                      ? "border-gray-900 bg-gray-50 font-medium"
-                      : "border-gray-200"
+                      ? "border-inverted bg-muted font-medium"
+                      : "border-border"
                   }`}
                 >
                   Homeowner
@@ -1406,8 +1406,8 @@ export default function NewQuotePage() {
                   }
                   className={`border rounded-lg px-3 py-2 text-sm ${
                     newClient.type === "company"
-                      ? "border-gray-900 bg-gray-50 font-medium"
-                      : "border-gray-200"
+                      ? "border-inverted bg-muted font-medium"
+                      : "border-border"
                   }`}
                 >
                   Company / Contractor
@@ -1471,14 +1471,14 @@ export default function NewQuotePage() {
                   banner is behind it. Without this, a failed create showed
                   its message somewhere the user couldn't see. */}
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
                   {error}
                 </div>
               )}
               <button
                 type="submit"
                 disabled={creatingClient}
-                className="w-full bg-gray-900 text-white py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold disabled:opacity-60"
               >
                 {creatingClient ? "Creating…" : "Create Client"}
               </button>

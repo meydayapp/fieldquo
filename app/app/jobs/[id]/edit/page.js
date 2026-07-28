@@ -81,13 +81,13 @@ export default function EditJobPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   if (!job)
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
           {error || "Job not found."}
         </div>
       </div>
@@ -97,43 +97,43 @@ export default function EditJobPage() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <Link
         href={`/app/jobs/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} /> Back to job
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Edit job</h1>
-        <p className="text-sm text-gray-500 mt-1">{job.client?.name}</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit job</h1>
+        <p className="text-sm text-muted-foreground mt-1">{job.client?.name}</p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Title
           </label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Status
           </label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
           >
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -144,7 +144,7 @@ export default function EditJobPage() {
         </div>
 
         <div>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={recurring}
@@ -155,19 +155,19 @@ export default function EditJobPage() {
 
           {recurring && (
             <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 How often
               </label>
               <input
                 value={recurrenceRule}
                 onChange={(e) => setRecurrenceRule(e.target.value)}
                 placeholder="Every 2 weeks"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
               {/* Honest about what this does today. Nothing reads
                   recurrenceRule to generate visits automatically yet, so
                   promising a schedule would be a lie. */}
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 A note for your team — visits still get added by hand from the
                 job page.
               </p>
@@ -180,14 +180,14 @@ export default function EditJobPage() {
         <button
           onClick={save}
           disabled={saving || !title.trim()}
-          className="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           Save changes
         </button>
         <Link
           href={`/app/jobs/${id}`}
-          className="border border-gray-300 text-gray-700 px-5 py-2.5 rounded-full text-sm font-semibold"
+          className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
         >
           Cancel
         </Link>

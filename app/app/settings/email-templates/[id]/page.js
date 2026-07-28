@@ -107,7 +107,7 @@ const FONT_OPTIONS = [
 ];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 // ── Small reusable alignment segmented control ──────────────────────────
 function AlignControl({ value = "left", onChange }) {
@@ -117,7 +117,7 @@ function AlignControl({ value = "left", onChange }) {
     { v: "right", Icon: AlignRight },
   ];
   return (
-    <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+    <div className="inline-flex rounded-lg border border-border overflow-hidden">
       {opts.map(({ v, Icon }) => (
         <button
           key={v}
@@ -127,8 +127,8 @@ function AlignControl({ value = "left", onChange }) {
           aria-pressed={value === v}
           className={`px-2.5 py-1.5 ${
             value === v
-              ? "bg-gray-900 text-white"
-              : "bg-white text-gray-500 hover:bg-gray-50"
+              ? "bg-inverted text-inverted-foreground"
+              : "bg-card text-muted-foreground hover:bg-muted"
           }`}
         >
           <Icon size={14} />
@@ -159,7 +159,7 @@ function BlockFields({ block, update, setFocus }) {
           <select
             value={block.size || "large"}
             onChange={(e) => update("size", e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+            className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
           >
             <option value="small">Small</option>
             <option value="medium">Medium</option>
@@ -210,7 +210,7 @@ function BlockFields({ block, update, setFocus }) {
           <select
             value={block.width || "full"}
             onChange={(e) => update("width", e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+            className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
           >
             <option value="full">Full width</option>
             <option value="half">Half width</option>
@@ -242,22 +242,22 @@ function BlockFields({ block, update, setFocus }) {
             value={block.align}
             onChange={(v) => update("align", v)}
           />
-          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Button
             <input
               type="color"
               value={block.bg || "#111827"}
               onChange={(e) => update("bg", e.target.value)}
-              className="h-7 w-9 rounded border border-gray-300 bg-white p-0.5"
+              className="h-7 w-9 rounded border border-border bg-card p-0.5"
             />
           </label>
-          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Text
             <input
               type="color"
               value={block.color || "#ffffff"}
               onChange={(e) => update("color", e.target.value)}
-              className="h-7 w-9 rounded border border-gray-300 bg-white p-0.5"
+              className="h-7 w-9 rounded border border-border bg-card p-0.5"
             />
           </label>
         </div>
@@ -277,7 +277,7 @@ function BlockFields({ block, update, setFocus }) {
           onChange={(e) => update("height", Number(e.target.value))}
           className="flex-1 accent-gray-900"
         />
-        <span className="text-xs text-gray-500 w-12 text-right">
+        <span className="text-xs text-muted-foreground w-12 text-right">
           {block.height ?? 24}px
         </span>
       </div>
@@ -285,12 +285,12 @@ function BlockFields({ block, update, setFocus }) {
   }
 
   if (block.type === "divider") {
-    return <p className="text-xs text-gray-400">A horizontal divider line.</p>;
+    return <p className="text-xs text-muted-foreground">A horizontal divider line.</p>;
   }
 
   if (block.type === "summary") {
     return (
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-muted-foreground">
         Automatically shows the quote or invoice number and total — nothing to
         configure.
       </p>
@@ -316,19 +316,19 @@ function BlockFields({ block, update, setFocus }) {
           {toggles.map(([key, label]) => (
             <label
               key={key}
-              className="flex items-center gap-1.5 text-xs text-gray-600"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground"
             >
               <input
                 type="checkbox"
                 checked={block[key] !== false}
                 onChange={(e) => update(key, e.target.checked)}
-                className="rounded border-gray-300 accent-gray-900"
+                className="rounded border-border accent-gray-900"
               />
               {label}
             </label>
           ))}
         </div>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           Pulls the real line items from the quote or invoice this email is
           sent for. Hidden automatically when there aren&apos;t any.
         </p>
@@ -360,7 +360,7 @@ function BlockFields({ block, update, setFocus }) {
                     stages.filter((_, idx) => idx !== i),
                   )
                 }
-                className="text-gray-400 hover:text-red-500 p-1 shrink-0"
+                className="text-muted-foreground hover:text-red-500 p-1 shrink-0"
                 aria-label={`Remove stage ${i + 1}`}
               >
                 <Trash2 size={14} />
@@ -371,17 +371,17 @@ function BlockFields({ block, update, setFocus }) {
         <button
           type="button"
           onClick={() => update("stages", [...stages, "New stage"])}
-          className="text-xs text-gray-500 hover:text-gray-800 underline"
+          className="text-xs text-muted-foreground hover:text-foreground underline"
         >
           + Add stage
         </button>
 
-        <label className="flex items-start gap-2 text-xs text-gray-600">
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={block.useMergeField !== false}
             onChange={(e) => update("useMergeField", e.target.checked)}
-            className="mt-0.5 rounded border-gray-300 accent-gray-900"
+            className="mt-0.5 rounded border-border accent-gray-900"
           />
           <span>
             Set the current stage automatically from the project&apos;s status
@@ -391,13 +391,13 @@ function BlockFields({ block, update, setFocus }) {
 
         {block.useMergeField === false && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 shrink-0">
+            <span className="text-xs text-muted-foreground shrink-0">
               Current stage
             </span>
             <select
               value={block.activeStage ?? 0}
               onChange={(e) => update("activeStage", Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+              className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
             >
               {stages.map((s, i) => (
                 <option key={i} value={i}>
@@ -408,7 +408,7 @@ function BlockFields({ block, update, setFocus }) {
           </div>
         )}
         {block.useMergeField !== false && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             The preview shows the stage this template is normally sent at.
           </p>
         )}
@@ -443,8 +443,8 @@ function SortableBlock({ block, update, remove, setFocus }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white border border-gray-200 rounded-xl p-4 ${
-        isDragging ? "shadow-lg ring-2 ring-gray-900/10 opacity-90" : ""
+      className={`bg-card border border-border rounded-xl p-4 ${
+        isDragging ? "shadow-lg ring-2 ring-ring/10 opacity-90" : ""
       }`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -454,18 +454,18 @@ function SortableBlock({ block, update, remove, setFocus }) {
             {...attributes}
             {...listeners}
             aria-label="Drag to reorder"
-            className="touch-none cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-600 -ml-1 p-1 rounded"
+            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1 p-1 rounded"
           >
             <GripVertical size={18} />
           </button>
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide truncate">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
             {label}
           </span>
         </div>
         <button
           type="button"
           onClick={() => remove(block.id)}
-          className="text-gray-400 hover:text-red-500 p-1"
+          className="text-muted-foreground hover:text-red-500 p-1"
           aria-label="Remove block"
         >
           <Trash2 size={15} />
@@ -675,8 +675,8 @@ export default function EmailTemplateEditorPage() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-96 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-96 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -684,7 +684,7 @@ export default function EmailTemplateEditorPage() {
   if (!template) {
     return (
       <div className="p-6 max-w-5xl mx-auto">
-        <p className="text-sm text-gray-500">Template not found.</p>
+        <p className="text-sm text-muted-foreground">Template not found.</p>
       </div>
     );
   }
@@ -699,12 +699,12 @@ export default function EmailTemplateEditorPage() {
       />
 
       {/* Sticky header — always reachable on mobile while scrolling blocks */}
-      <div className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
+      <div className="sticky top-0 z-20 bg-card/90 backdrop-blur border-b border-border">
         <div className="p-4 sm:px-6 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Link
               href="/app/settings/email-templates"
-              className="text-gray-400 hover:text-gray-700 shrink-0"
+              className="text-muted-foreground hover:text-foreground shrink-0"
               aria-label="Back to templates"
             >
               <ArrowLeft size={18} />
@@ -712,7 +712,7 @@ export default function EmailTemplateEditorPage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="text-base sm:text-xl font-bold text-gray-900 border-none focus:outline-none focus:ring-0 px-0 min-w-0 w-full"
+              className="text-base sm:text-xl font-bold text-foreground border-none focus:outline-none focus:ring-0 px-0 min-w-0 w-full"
             />
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -721,22 +721,22 @@ export default function EmailTemplateEditorPage() {
               disabled={activating || isActive}
               className={`hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border ${
                 isActive
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 cursor-default"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 cursor-default"
+                  : "border-border text-foreground hover:bg-muted"
               }`}
             >
               <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
               {isActive ? "Active" : activating ? "Activating…" : "Set active"}
             </button>
             {savedFlash && (
-              <span className="text-xs text-emerald-600 hidden sm:inline">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 hidden sm:inline">
                 Saved
               </span>
             )}
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
+              className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
             >
               <Save size={14} />
               {saving ? "Saving…" : "Save"}
@@ -745,13 +745,13 @@ export default function EmailTemplateEditorPage() {
         </div>
 
         {/* Mobile Edit/Preview switch */}
-        <div className="lg:hidden flex border-t border-gray-100">
+        <div className="lg:hidden flex border-t border-border">
           <button
             onClick={() => setMobileView("edit")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium ${
               mobileView === "edit"
-                ? "text-gray-900 border-b-2 border-gray-900"
-                : "text-gray-400"
+                ? "text-foreground border-b-2 border-inverted"
+                : "text-muted-foreground"
             }`}
           >
             <Pencil size={14} /> Edit
@@ -760,8 +760,8 @@ export default function EmailTemplateEditorPage() {
             onClick={() => setMobileView("preview")}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium ${
               mobileView === "preview"
-                ? "text-gray-900 border-b-2 border-gray-900"
-                : "text-gray-400"
+                ? "text-foreground border-b-2 border-inverted"
+                : "text-muted-foreground"
             }`}
           >
             <Eye size={14} /> Preview
@@ -782,8 +782,8 @@ export default function EmailTemplateEditorPage() {
             disabled={activating || isActive}
             className={`sm:hidden w-full flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border ${
               isActive
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-gray-300 text-gray-700"
+                ? "border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                : "border-border text-foreground"
             }`}
           >
             <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
@@ -795,10 +795,10 @@ export default function EmailTemplateEditorPage() {
           </button>
 
           {/* Subject line */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="bg-card border border-border rounded-xl p-4">
             <label
               htmlFor="template-subject"
-              className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2"
+              className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2"
             >
               Subject line
             </label>
@@ -810,23 +810,23 @@ export default function EmailTemplateEditorPage() {
               onFocus={() => setLastFocused({ subject: true })}
               onChange={(e) => setSubject(e.target.value)}
             />
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-muted-foreground mt-1.5">
               Merge fields work here too. Left blank, the built-in subject for
               this template type is used.
             </p>
           </div>
 
           {/* Theme */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="bg-card border border-border rounded-xl p-4">
             <button
               type="button"
               onClick={() => setThemeOpen((v) => !v)}
               className="w-full flex items-center justify-between text-left"
             >
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Look &amp; feel
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 {theme ? "Customized" : "Using your branding"}
               </span>
             </button>
@@ -834,31 +834,31 @@ export default function EmailTemplateEditorPage() {
             {themeOpen && (
               <div className="mt-3 space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     Accent
                     <input
                       type="color"
                       value={theme?.accent || company.brandColor || "#bd9d60"}
                       onChange={(e) => updateTheme("accent", e.target.value)}
-                      className="h-7 w-9 rounded border border-gray-300 bg-white p-0.5"
+                      className="h-7 w-9 rounded border border-border bg-card p-0.5"
                     />
                   </label>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     Header
                     <input
                       type="color"
                       value={theme?.headerBg || "#1A1917"}
                       onChange={(e) => updateTheme("headerBg", e.target.value)}
-                      className="h-7 w-9 rounded border border-gray-300 bg-white p-0.5"
+                      className="h-7 w-9 rounded border border-border bg-card p-0.5"
                     />
                   </label>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     Background
                     <input
                       type="color"
                       value={theme?.bg || "#F8F4EF"}
                       onChange={(e) => updateTheme("bg", e.target.value)}
-                      className="h-7 w-9 rounded border border-gray-300 bg-white p-0.5"
+                      className="h-7 w-9 rounded border border-border bg-card p-0.5"
                     />
                   </label>
                 </div>
@@ -867,7 +867,7 @@ export default function EmailTemplateEditorPage() {
                   <select
                     value={theme?.font || "sans"}
                     onChange={(e) => updateTheme("font", e.target.value)}
-                    className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+                    className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
                   >
                     {FONT_OPTIONS.map((f) => (
                       <option key={f.value} value={f.value}>
@@ -875,25 +875,25 @@ export default function EmailTemplateEditorPage() {
                       </option>
                     ))}
                   </select>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
                       checked={theme?.showHeader !== false}
                       onChange={(e) =>
                         updateTheme("showHeader", e.target.checked)
                       }
-                      className="rounded border-gray-300 accent-gray-900"
+                      className="rounded border-border accent-gray-900"
                     />
                     Header
                   </label>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input
                       type="checkbox"
                       checked={theme?.showFooter !== false}
                       onChange={(e) =>
                         updateTheme("showFooter", e.target.checked)
                       }
-                      className="rounded border-gray-300 accent-gray-900"
+                      className="rounded border-border accent-gray-900"
                     />
                     Footer
                   </label>
@@ -903,13 +903,13 @@ export default function EmailTemplateEditorPage() {
                   <button
                     type="button"
                     onClick={() => setTheme(null)}
-                    className="text-xs text-gray-500 hover:text-gray-800 underline"
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
                     Reset to my company branding
                   </button>
                 )}
                 {!company.logoUrl && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     No logo uploaded — the header shows your company name
                     instead. Add one in Settings &gt; Branding.
                   </p>
@@ -919,8 +919,8 @@ export default function EmailTemplateEditorPage() {
           </div>
 
           {/* Merge fields */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Insert a merge field
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -934,7 +934,7 @@ export default function EmailTemplateEditorPage() {
                       ? "Insert into the field you last clicked"
                       : "Click into a text field first"
                   }
-                  className="text-xs bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:hover:bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
+                  className="text-xs bg-muted hover:bg-accent disabled:opacity-40 disabled:hover:bg-muted text-foreground px-2 py-1 rounded-full"
                 >
                   {f.label}
                 </button>
@@ -943,7 +943,7 @@ export default function EmailTemplateEditorPage() {
           </div>
 
           {sections.length === 0 && (
-            <p className="text-sm text-gray-400 px-1">
+            <p className="text-sm text-muted-foreground px-1">
               No blocks yet — add one below.
             </p>
           )}
@@ -976,17 +976,17 @@ export default function EmailTemplateEditorPage() {
           <div className="relative">
             <button
               onClick={() => setAddOpen((v) => !v)}
-              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl py-3 text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700"
+              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl py-3 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
             >
               <Plus size={14} /> Add block
             </button>
             {addOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
+              <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg p-1.5">
                 {BLOCK_TYPES.map((t) => (
                   <button
                     key={t.type}
                     onClick={() => addBlock(t.type)}
-                    className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
+                    className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-muted text-foreground"
                   >
                     {t.label}
                   </button>
@@ -996,8 +996,8 @@ export default function EmailTemplateEditorPage() {
           </div>
 
           {/* Send a test */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Send a test
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -1011,7 +1011,7 @@ export default function EmailTemplateEditorPage() {
               <button
                 onClick={handleSendTest}
                 disabled={sendingTest || !testEmail.trim()}
-                className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
+                className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
               >
                 <Send size={14} />
                 {sendingTest ? "Sending…" : "Send"}
@@ -1020,7 +1020,7 @@ export default function EmailTemplateEditorPage() {
             {testMsg && (
               <p
                 className={`text-xs mt-2 ${
-                  testMsg.ok ? "text-emerald-600" : "text-red-500"
+                  testMsg.ok ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
                 }`}
               >
                 {testMsg.text}
@@ -1037,18 +1037,18 @@ export default function EmailTemplateEditorPage() {
         >
           <div className="lg:sticky lg:top-32">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Preview (sample data)
               </div>
-              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+              <div className="inline-flex rounded-lg border border-border overflow-hidden">
                 <button
                   onClick={() => setPreviewDevice("mobile")}
                   aria-label="Mobile preview"
                   aria-pressed={previewDevice === "mobile"}
                   className={`px-2.5 py-1.5 ${
                     previewDevice === "mobile"
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
+                      ? "bg-inverted text-inverted-foreground"
+                      : "bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <Smartphone size={14} />
@@ -1059,22 +1059,22 @@ export default function EmailTemplateEditorPage() {
                   aria-pressed={previewDevice === "desktop"}
                   className={`px-2.5 py-1.5 ${
                     previewDevice === "desktop"
-                      ? "bg-gray-900 text-white"
-                      : "bg-white text-gray-500 hover:bg-gray-50"
+                      ? "bg-inverted text-inverted-foreground"
+                      : "bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <Monitor size={14} />
                 </button>
               </div>
             </div>
-            <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 flex justify-center">
+            <div className="bg-muted border border-border rounded-xl p-3 flex justify-center">
               <iframe
                 title="Email preview"
                 srcDoc={previewHtml}
                 // Belt-and-braces with the inert-link styles: no scripts, no
                 // form submits, no top-level navigation out of the editor.
                 sandbox=""
-                className="bg-white rounded-lg border border-gray-200 transition-all"
+                className="bg-card rounded-lg border border-border transition-all"
                 style={{
                   width: previewDevice === "mobile" ? 390 : "100%",
                   maxWidth: "100%",

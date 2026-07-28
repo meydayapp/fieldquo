@@ -21,9 +21,9 @@ export default function BenchmarkPage() {
     return (
       <div className="p-4 md:p-6 max-w-4xl mx-auto">
         <div className="animate-pulse space-y-3">
-          <div className="h-6 w-48 bg-gray-200 rounded" />
-          <div className="h-24 bg-gray-200 rounded-lg" />
-          <div className="h-24 bg-gray-200 rounded-lg" />
+          <div className="h-6 w-48 bg-accent rounded" />
+          <div className="h-24 bg-accent rounded-lg" />
+          <div className="h-24 bg-accent rounded-lg" />
         </div>
       </div>
     );
@@ -36,7 +36,7 @@ export default function BenchmarkPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-lg md:text-xl font-semibold">How You Compare</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Your average quote pricing vs. the anonymized platform average, by
           service category.
         </p>
@@ -59,7 +59,7 @@ export default function BenchmarkPage() {
       )}
 
       {optedIn && rows.length === 0 && (
-        <div className="glass-effect rounded-lg p-6 text-center text-sm text-gray-500">
+        <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           Not enough platform data yet for your region/category. Check back as
           more companies join.
         </div>
@@ -76,8 +76,8 @@ export default function BenchmarkPage() {
             pct > 3
               ? "text-[#2ea043]"
               : pct < -3
-                ? "text-amber-600"
-                : "text-gray-500";
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-muted-foreground";
 
           return (
             <div
@@ -86,20 +86,20 @@ export default function BenchmarkPage() {
             >
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{row.label}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
+                <div className="text-xs text-muted-foreground mt-0.5">
                   {row.sampleSize} quotes in your region this quarter
                 </div>
               </div>
 
               <div className="flex items-center gap-6 sm:gap-8">
                 <div>
-                  <div className="text-xs text-gray-500">Your average</div>
+                  <div className="text-xs text-muted-foreground">Your average</div>
                   <div className="font-semibold">
                     ${row.yourAvgPrice.toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500">Platform average</div>
+                  <div className="text-xs text-muted-foreground">Platform average</div>
                   <div className="font-semibold">
                     ${row.platformAvgPrice.toLocaleString()}
                   </div>

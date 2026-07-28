@@ -18,10 +18,10 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
-  draft: "bg-gray-100 text-gray-600",
-  sent: "bg-blue-50 text-blue-700",
-  paid: "bg-green-50 text-green-700",
-  overdue: "bg-red-50 text-red-700",
+  draft: "bg-muted text-muted-foreground",
+  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  paid: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  overdue: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
 export default function InvoiceDetailPage() {
@@ -143,11 +143,11 @@ export default function InvoiceDetailPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
   if (!invoice)
     return (
-      <div className="p-6 max-w-4xl mx-auto text-sm text-gray-500">
+      <div className="p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
         Invoice not found.
       </div>
     );
@@ -159,19 +159,19 @@ export default function InvoiceDetailPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-6 pb-10">
       <Link
         href="/app/invoices"
-        className="flex items-center gap-1 text-sm text-gray-500"
+        className="flex items-center gap-1 text-sm text-muted-foreground"
       >
         <ArrowLeft size={14} /> Back to Invoices
       </Link>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {requested && (
-        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 text-sm text-green-800 dark:text-green-300">
           <div className="flex items-start gap-2">
             <Check size={16} className="shrink-0 mt-0.5" />
             <div>
@@ -180,7 +180,7 @@ export default function InvoiceDetailPage() {
               {/* The email still goes out — the client just can't pay through
                   it. Better they hear from you than get a dead button. */}
               {requested.onlinePaymentsEnabled === false && (
-                <div className="mt-1 text-amber-800">
+                <div className="mt-1 text-amber-800 dark:text-amber-300">
                   Stripe isn&apos;t connected yet, so the email asks them to
                   contact you instead of offering a card payment. Finish setup
                   in Settings → Payments.
@@ -194,7 +194,7 @@ export default function InvoiceDetailPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-foreground">
               {invoice.invoiceNumber}
             </h1>
             <span
@@ -203,7 +203,7 @@ export default function InvoiceDetailPage() {
               {invoice.status}
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">{invoice.client?.name}</p>
+          <p className="text-sm text-muted-foreground mt-1">{invoice.client?.name}</p>
         </div>
 
         <div className="flex gap-2">
@@ -211,7 +211,7 @@ export default function InvoiceDetailPage() {
             <button
               onClick={() => updateStatus("sent")}
               disabled={actionLoading}
-              className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+              className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
               <Send size={14} /> Send
             </button>
@@ -230,7 +230,7 @@ export default function InvoiceDetailPage() {
             <button
               onClick={handleRequestPayment}
               disabled={requesting}
-              className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
               {requesting ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -243,7 +243,7 @@ export default function InvoiceDetailPage() {
           {["draft", "sent"].includes(invoice.status) && (
             <Link
               href={`/app/invoices/${id}/edit`}
-              className="border border-gray-300 px-4 py-2 rounded-full text-sm font-semibold"
+              className="border border-border px-4 py-2 rounded-full text-sm font-semibold"
             >
               Edit
             </Link>
@@ -251,25 +251,25 @@ export default function InvoiceDetailPage() {
           <button
             onClick={handleDownloadPdf}
             disabled={downloadingPdf}
-            className="border border-gray-300 text-gray-700 p-2 rounded-full disabled:opacity-60"
+            className="border border-border text-foreground p-2 rounded-full disabled:opacity-60"
           >
             <Download size={16} />
           </button>
           <button
             onClick={() => setShowDelete(true)}
-            className="border border-gray-300 text-gray-500 p-2 rounded-full"
+            className="border border-border text-muted-foreground p-2 rounded-full"
           >
             <Trash2 size={16} />
           </button>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
         <div>
           {(invoice.lineItems || []).map((item, i) => (
             <div
               key={i}
-              className="flex justify-between text-sm text-gray-700 py-1"
+              className="flex justify-between text-sm text-foreground py-1"
             >
               <span>
                 {item.description} {item.quantity > 1 && `× ${item.quantity}`}
@@ -280,33 +280,33 @@ export default function InvoiceDetailPage() {
         </div>
 
         {invoice.notes && (
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Notes</h3>
-            <p className="text-sm text-gray-600">{invoice.notes}</p>
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Notes</h3>
+            <p className="text-sm text-muted-foreground">{invoice.notes}</p>
           </div>
         )}
 
-        <div className="pt-4 border-t border-gray-100 space-y-1 text-sm">
-          <div className="flex justify-between text-gray-600">
+        <div className="pt-4 border-t border-border space-y-1 text-sm">
+          <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>${Number(invoice.subtotal).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-muted-foreground">
             <span>Tax</span>
             <span>${Number(invoice.tax).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-semibold text-gray-900 text-base">
+          <div className="flex justify-between font-semibold text-foreground text-base">
             <span>Total</span>
             <span>${Number(invoice.total).toFixed(2)}</span>
           </div>
           {amountPaid > 0 && (
             <>
-              <div className="flex justify-between text-green-600">
+              <div className="flex justify-between text-green-600 dark:text-green-400">
                 <span>Paid</span>
                 <span>-${amountPaid.toFixed(2)}</span>
               </div>
               <div
-                className={`flex justify-between font-semibold text-base ${amountDue > 0 ? "text-red-600" : "text-green-600"}`}
+                className={`flex justify-between font-semibold text-base ${amountDue > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
               >
                 <span>Balance Due</span>
                 <span>${amountDue.toFixed(2)}</span>
@@ -316,15 +316,15 @@ export default function InvoiceDetailPage() {
         </div>
 
         {invoice.payments?.length > 0 && (
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
               Payment History
             </h3>
             <div className="space-y-1">
               {invoice.payments.map((p) => (
                 <div
                   key={p.id}
-                  className="flex justify-between text-sm text-gray-600"
+                  className="flex justify-between text-sm text-muted-foreground"
                 >
                   <span>
                     {new Date(p.date).toLocaleDateString()} —{" "}
@@ -340,7 +340,7 @@ export default function InvoiceDetailPage() {
 
       {showPayment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-sm p-6">
+          <div className="bg-card rounded-xl w-full max-w-sm p-6">
             <h2 className="font-semibold mb-4">Record Payment</h2>
             <form onSubmit={handleAddPayment} className="space-y-3">
               <input
@@ -359,7 +359,7 @@ export default function InvoiceDetailPage() {
                 onChange={(e) =>
                   setPayment({ ...payment, method: e.target.value })
                 }
-                className="w-full border rounded px-3 py-2 text-sm bg-white"
+                className="w-full border rounded px-3 py-2 text-sm bg-card"
               >
                 <option value="cash">Cash</option>
                 <option value="e_transfer">E-Transfer</option>
@@ -377,13 +377,13 @@ export default function InvoiceDetailPage() {
                 <button
                   type="button"
                   onClick={() => setShowPayment(false)}
-                  className="flex-1 border border-gray-300 py-2 rounded-full text-sm font-semibold"
+                  className="flex-1 border border-border py-2 rounded-full text-sm font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-gray-900 text-white py-2 rounded-full text-sm font-semibold"
+                  className="flex-1 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
                 >
                   Record
                 </button>

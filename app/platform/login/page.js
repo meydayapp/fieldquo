@@ -43,15 +43,15 @@ export default function PlatformLoginPage() {
     <div className="min-h-screen bg-[#1A1917] flex items-center justify-center p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm bg-white rounded-2xl p-8"
+        className="w-full max-w-sm bg-card rounded-2xl p-8"
       >
         <div className="flex items-center gap-2 mb-1">
-          <ShieldCheck size={18} className="text-gray-400" />
-          <h1 className="text-lg font-bold text-gray-900">FieldQuo Platform</h1>
+          <ShieldCheck size={18} className="text-muted-foreground" />
+          <h1 className="text-lg font-bold text-foreground">FieldQuo Platform</h1>
         </div>
-        <p className="text-sm text-gray-500 mb-6">Staff access only.</p>
+        <p className="text-sm text-muted-foreground mb-6">Staff access only.</p>
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           Email
         </label>
         <input
@@ -60,10 +60,10 @@ export default function PlatformLoginPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
         />
 
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           Password
         </label>
         <input
@@ -72,15 +72,15 @@ export default function PlatformLoginPage() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
         />
 
-        {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400 mb-3">{error}</p>}
 
         <button
           type="submit"
           disabled={busy}
-          className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full bg-inverted text-inverted-foreground text-sm font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
           Sign in

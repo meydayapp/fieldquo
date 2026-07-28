@@ -22,10 +22,10 @@ const FILTERS = [
 ];
 
 const STATUS_STYLES = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  trialing: "bg-amber-50 text-amber-700 border-amber-200",
-  past_due: "bg-red-50 text-red-700 border-red-200",
-  canceled: "bg-gray-100 text-gray-600 border-gray-200",
+  active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  trialing: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  past_due: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
+  canceled: "bg-muted text-muted-foreground border-border",
 };
 
 function formatDate(value) {
@@ -69,8 +69,8 @@ export default function SubscriptionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Subscriptions</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Who&apos;s on what, and what needs attention.
         </p>
       </div>
@@ -108,8 +108,8 @@ export default function SubscriptionsPage() {
             onClick={() => setStatus(f.value)}
             className={`px-3 py-2 rounded-lg text-sm font-medium border ${
               status === f.value
-                ? "bg-gray-900 text-white border-gray-900"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                ? "bg-inverted text-inverted-foreground border-inverted"
+                : "border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             {f.label}
@@ -118,24 +118,24 @@ export default function SubscriptionsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} /> {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : !data?.rows?.length ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <CreditCard size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <CreditCard size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             No subscriptions{status ? ` with status "${status}"` : ""} yet.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {data.rows.map((r) => {
             const urgent =
               r.trialDaysLeft !== null &&
@@ -146,45 +146,45 @@ export default function SubscriptionsPage() {
               <Link
                 key={r.id}
                 href={`/platform/companies/${r.companyId}`}
-                className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50"
+                className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-muted"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-gray-900 truncate">
+                    <span className="font-medium text-foreground truncate">
                       {r.companyName}
                     </span>
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full border ${
                         STATUS_STYLES[r.status] ||
-                        "bg-gray-50 text-gray-600 border-gray-200"
+                        "bg-muted text-muted-foreground border-border"
                       }`}
                     >
                       {r.status}
                     </span>
                     {urgent && (
-                      <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                      <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                         Trial ends in {r.trialDaysLeft}d
                       </span>
                     )}
                     {r.status === "active" && !r.billable && (
                       <span
-                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200"
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900"
                         title="Active but no Stripe subscription — this company is not being charged"
                       >
                         <AlertTriangle size={10} /> Not billing
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 truncate">
+                  <div className="text-xs text-muted-foreground mt-1 truncate">
                     {r.companyEmail || "no email"} · since {formatDate(r.since)}
                   </div>
                 </div>
 
                 <div className="text-right shrink-0">
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-foreground">
                     {r.planName}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-muted-foreground">
                     {money(r.priceMonthly, { compact: true })}/mo
                   </div>
                 </div>

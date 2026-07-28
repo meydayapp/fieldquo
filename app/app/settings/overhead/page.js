@@ -81,26 +81,26 @@ export default function OverheadPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Overhead</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Overhead</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Salaries and debt payments feed your burn rate and minimum-price
           calculators.
         </p>
       </div>
 
       <div>
-        <h2 className="font-semibold text-gray-900 mb-3">Salaries</h2>
+        <h2 className="font-semibold text-foreground mb-3">Salaries</h2>
         <div className="space-y-2 mb-3">
           {salaries.map((s) => (
             <div
               key={s.id}
-              className="bg-white border border-gray-200 rounded-lg p-3 flex justify-between text-sm"
+              className="bg-card border border-border rounded-lg p-3 flex justify-between text-sm"
             >
               <span>{s.name}</span>
               <span className="font-semibold">
@@ -132,7 +132,7 @@ export default function OverheadPage() {
             onChange={(e) =>
               setSalaryForm({ ...salaryForm, frequency: e.target.value })
             }
-            className="border rounded px-2 py-2 text-sm bg-white"
+            className="border rounded px-2 py-2 text-sm bg-card"
           >
             <option value="weekly">weekly</option>
             <option value="monthly">monthly</option>
@@ -140,7 +140,7 @@ export default function OverheadPage() {
           </select>
           <button
             type="submit"
-            className="bg-gray-900 text-white px-4 rounded-full"
+            className="bg-inverted text-inverted-foreground px-4 rounded-full"
           >
             <Plus size={14} />
           </button>
@@ -148,12 +148,12 @@ export default function OverheadPage() {
       </div>
 
       <div>
-        <h2 className="font-semibold text-gray-900 mb-3">Debt</h2>
+        <h2 className="font-semibold text-foreground mb-3">Debt</h2>
         <div className="space-y-2 mb-3">
           {debts.map((d) => (
             <div
               key={d.id}
-              className="bg-white border border-gray-200 rounded-lg p-3 flex justify-between text-sm"
+              className="bg-card border border-border rounded-lg p-3 flex justify-between text-sm"
             >
               <span>{d.name}</span>
               <span className="font-semibold">
@@ -189,7 +189,7 @@ export default function OverheadPage() {
           />
           <button
             type="submit"
-            className="col-span-2 bg-gray-900 text-white py-2 rounded-full text-sm font-semibold"
+            className="col-span-2 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
           >
             Add Debt
           </button>

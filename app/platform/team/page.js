@@ -20,19 +20,19 @@ const ROLE_META = {
   superadmin: {
     label: "Superadmin",
     description: "Everything, including creating other staff accounts.",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
   },
   admin: {
     label: "Admin",
     description:
       "Manage and suspend companies, manage plans, impersonate, view analytics.",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   },
   support: {
     label: "Support",
     description:
       "View companies, impersonate, view analytics. Cannot change plans or suspend.",
-    className: "bg-blue-50 text-blue-700 border-blue-200",
+    className: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
   },
 };
 
@@ -133,8 +133,8 @@ export default function PlatformTeamPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Platform team</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Platform team</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             FieldQuo staff accounts. These can see across every company.
           </p>
         </div>
@@ -143,7 +143,7 @@ export default function PlatformTeamPage() {
             onClick={() =>
               setDraft({ email: "", password: "", role: "support" })
             }
-            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
           >
             <Plus size={14} /> Add staff
           </button>
@@ -151,24 +151,24 @@ export default function PlatformTeamPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
 
       {notice && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 rounded-xl p-4 text-sm text-emerald-800 dark:text-emerald-300">
           {notice}
         </div>
       )}
 
       {draft && (
-        <div className="bg-white border border-gray-900 rounded-xl p-5 space-y-4">
-          <h2 className="font-semibold text-gray-900">New staff account</h2>
+        <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
+          <h2 className="font-semibold text-foreground">New staff account</h2>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Email
               </label>
               <input
@@ -179,7 +179,7 @@ export default function PlatformTeamPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Password
               </label>
               <input
@@ -194,13 +194,13 @@ export default function PlatformTeamPage() {
               {/* Deliberately not a password input. There's no reset flow for
                   these accounts, so whoever creates it needs to read it back
                   to send it on. Hiding it just causes typos. */}
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Visible so you can copy it. There&apos;s no reset email for
                 platform accounts.
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Role
               </label>
               <select
@@ -212,7 +212,7 @@ export default function PlatformTeamPage() {
                 <option value="admin">Admin</option>
                 <option value="superadmin">Superadmin</option>
               </select>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {ROLE_META[draft.role]?.description}
               </p>
             </div>
@@ -224,14 +224,14 @@ export default function PlatformTeamPage() {
               disabled={
                 busy || !draft.email.trim() || draft.password.length < 12
               }
-              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Create
             </button>
             <button
               onClick={() => setDraft(null)}
-              className="border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
               Cancel
             </button>
@@ -240,11 +240,11 @@ export default function PlatformTeamPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {admins.map((a) => {
             const meta = ROLE_META[a.role] || {};
             // Never let the last active superadmin be switched off — there'd
@@ -261,20 +261,20 @@ export default function PlatformTeamPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
-                      className={`font-medium truncate ${a.active ? "text-gray-900" : "text-gray-400 line-through"}`}
+                      className={`font-medium truncate ${a.active ? "text-foreground" : "text-muted-foreground line-through"}`}
                     >
                       {a.email}
                     </span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full border ${meta.className || "bg-gray-50 text-gray-600 border-gray-200"}`}
+                      className={`text-xs px-2 py-0.5 rounded-full border ${meta.className || "bg-muted text-muted-foreground border-border"}`}
                     >
                       {meta.label || a.role}
                     </span>
                     {me?.id === a.id && (
-                      <span className="text-xs text-gray-400">you</span>
+                      <span className="text-xs text-muted-foreground">you</span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {meta.description}
                   </p>
                 </div>
@@ -288,7 +288,7 @@ export default function PlatformTeamPage() {
                         ? "The last superadmin can't be deactivated"
                         : undefined
                     }
-                    className="inline-flex items-center gap-1.5 border border-gray-300 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 shrink-0"
+                    className="inline-flex items-center gap-1.5 border border-border text-sm px-3 py-1.5 rounded-lg hover:bg-muted disabled:opacity-40 shrink-0"
                   >
                     {a.active ? (
                       <>
@@ -307,10 +307,10 @@ export default function PlatformTeamPage() {
         </div>
       )}
 
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-600 flex gap-2">
-        <ShieldCheck size={16} className="shrink-0 mt-0.5 text-gray-400" />
+      <div className="bg-muted border border-border rounded-xl p-4 text-sm text-muted-foreground flex gap-2">
+        <ShieldCheck size={16} className="shrink-0 mt-0.5 text-muted-foreground" />
         <div>
-          <p className="font-medium text-gray-800">
+          <p className="font-medium text-foreground">
             No self-signup, by design.
           </p>
           <p className="mt-1">
@@ -328,4 +328,4 @@ export default function PlatformTeamPage() {
 }
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";

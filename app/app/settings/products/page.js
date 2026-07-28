@@ -14,7 +14,7 @@ import {
 import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 const PAGE_SIZE_OPTIONS = [6, 10, 25, 50];
 
@@ -198,10 +198,10 @@ export default function ProductsPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Products & Services
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Add and update your products & services to stay organized when
           creating quotes, quote templates, jobs, and invoices.
         </p>
@@ -211,7 +211,7 @@ export default function ProductsPage() {
         <div className="relative flex-1 max-w-xs">
           <Search
             size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             placeholder="Search"
@@ -222,29 +222,29 @@ export default function ProductsPage() {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
+          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
         >
           <Plus size={14} /> Add Item
         </button>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           <span>Name</span>
           <span>Description</span>
           <span>Type</span>
           <span></span>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           {loading && (
             <div className="p-6 animate-pulse space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-4 bg-gray-100 rounded" />
+                <div key={i} className="h-4 bg-muted rounded" />
               ))}
             </div>
           )}
           {!loading && pageItems.length === 0 && (
-            <p className="px-5 py-8 text-sm text-gray-500 text-center">
+            <p className="px-5 py-8 text-sm text-muted-foreground text-center">
               No products or services yet.
             </p>
           )}
@@ -254,14 +254,14 @@ export default function ProductsPage() {
                 key={p.id}
                 className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 items-center"
               >
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium text-foreground">
                   {p.name}
                   {Array.isArray(p.categories) && p.categories.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {p.categories.map((c) => (
                         <span
                           key={c.id}
-                          className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full"
+                          className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
                         >
                           {c.label}
                         </span>
@@ -269,22 +269,22 @@ export default function ProductsPage() {
                     </div>
                   )}
                 </span>
-                <span className="text-sm text-gray-500 truncate">
+                <span className="text-sm text-muted-foreground truncate">
                   {p.description}
                 </span>
-                <span className="text-xs bg-gray-100 px-2.5 py-1 rounded-full capitalize w-fit">
+                <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize w-fit">
                   {p.type}
                 </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openEdit(p)}
-                    className="text-gray-400 hover:text-gray-700"
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(p.id)}
-                    className="text-gray-400 hover:text-red-500"
+                    className="text-muted-foreground hover:text-red-500"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -294,7 +294,7 @@ export default function ProductsPage() {
         </div>
 
         {!loading && products.length > 0 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
+          <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
             <span>
               Showing {startIdx}-{endIdx} of {products.length} items
             </span>
@@ -302,7 +302,7 @@ export default function ProductsPage() {
               <select
                 value={pageSize}
                 onChange={(e) => setPageSize(Number(e.target.value))}
-                className="border border-gray-300 rounded px-2 py-1"
+                className="border border-border rounded px-2 py-1"
               >
                 {PAGE_SIZE_OPTIONS.map((n) => (
                   <option key={n} value={n}>
@@ -314,7 +314,7 @@ export default function ProductsPage() {
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="px-2 py-1 border border-gray-300 rounded disabled:opacity-40"
+                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
                 >
                   Prev
                 </button>
@@ -324,7 +324,7 @@ export default function ProductsPage() {
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="px-2 py-1 border border-gray-300 rounded disabled:opacity-40"
+                  className="px-2 py-1 border border-border rounded disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -334,9 +334,9 @@ export default function ProductsPage() {
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="text-base font-semibold text-gray-900">Costs</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="text-base font-semibold text-foreground">Costs</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Add costs to your products and services on quotes and jobs — set a
           Cost Price alongside the sale price when you add or edit an item
           above, and job costing will pick it up automatically.
@@ -344,20 +344,20 @@ export default function ProductsPage() {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-base font-semibold text-foreground mb-1">
             Import products & services
           </h2>
-          <p className="text-sm text-gray-500 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Bulk import via a .csv exported from Excel, Google Sheets, or
             Numbers. Columns: name, description, type, unitPrice, costPrice,
             unit.
           </p>
           {importMessage && (
-            <p className="text-sm text-gray-700 mb-2">{importMessage}</p>
+            <p className="text-sm text-foreground mb-2">{importMessage}</p>
           )}
           <div className="flex flex-wrap gap-2">
-            <label className="flex items-center gap-2 text-sm font-medium border border-gray-300 rounded-full px-4 py-2 cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center gap-2 text-sm font-medium border border-border rounded-full px-4 py-2 cursor-pointer hover:bg-muted">
               <Upload size={14} />
               {importing ? "Importing..." : "Import CSV"}
               <input
@@ -371,23 +371,23 @@ export default function ProductsPage() {
             </label>
             <button
               onClick={downloadSample}
-              className="text-sm font-medium text-gray-600 px-4 py-2 rounded-full hover:bg-gray-50"
+              className="text-sm font-medium text-muted-foreground px-4 py-2 rounded-full hover:bg-muted"
             >
               Download sample file
             </button>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-base font-semibold text-foreground mb-1">
             Export products & services
           </h2>
-          <p className="text-sm text-gray-500 mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             Export everything in this list as a .csv file.
           </p>
           <a
             href="/api/products/export"
-            className="flex items-center gap-2 w-fit text-sm font-medium border border-gray-300 rounded-full px-4 py-2 hover:bg-gray-50"
+            className="flex items-center gap-2 w-fit text-sm font-medium border border-border rounded-full px-4 py-2 hover:bg-muted"
           >
             <Download size={14} /> Export CSV
           </a>
@@ -400,15 +400,15 @@ export default function ProductsPage() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6"
+            className="bg-card rounded-2xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-foreground">
                 {editing ? "Edit Item" : "Add Item"}
               </h2>
               <button onClick={() => setShowModal(false)}>
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -446,7 +446,7 @@ export default function ProductsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
+                  <label className="text-xs text-muted-foreground block mb-1">
                     Unit price
                   </label>
                   <input
@@ -460,7 +460,7 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
+                  <label className="text-xs text-muted-foreground block mb-1">
                     Cost price
                   </label>
                   <input
@@ -475,20 +475,20 @@ export default function ProductsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">
+                <label className="text-xs text-muted-foreground block mb-1">
                   Available on these quote types
                 </label>
                 {quoteTypes.length === 0 ? (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     No quote types enabled yet — go to Settings → Services to
                     turn some on first.
                   </p>
                 ) : (
-                  <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                  <div className="border border-border rounded-lg divide-y divide-border max-h-40 overflow-y-auto">
                     {quoteTypes.map((c) => (
                       <label
                         key={c.id}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-gray-50"
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-muted"
                       >
                         <input
                           type="checkbox"
@@ -500,7 +500,7 @@ export default function ProductsPage() {
                     ))}
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Leave all unchecked to make this available on every quote
                   type.
                 </p>
@@ -509,7 +509,7 @@ export default function ProductsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? "Saving..." : editing ? "Save Changes" : "Add Item"}
               </button>

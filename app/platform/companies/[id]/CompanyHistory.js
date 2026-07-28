@@ -15,10 +15,10 @@ import { Loader2, AlertCircle, Receipt, CreditCard } from "lucide-react";
 import { money, count } from "@/app/components/platform/MetricCard";
 
 const STATUS_STYLES = {
-  paid: "bg-emerald-50 text-emerald-700",
-  sent: "bg-blue-50 text-blue-700",
-  overdue: "bg-red-50 text-red-700",
-  draft: "bg-gray-100 text-gray-600",
+  paid: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
+  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  overdue: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
+  draft: "bg-muted text-muted-foreground",
 };
 
 function formatDate(value) {
@@ -59,8 +59,8 @@ export default function CompanyHistory({ companyId }) {
 
   if (loading) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 size={14} className="animate-spin" /> Loading history…
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function CompanyHistory({ companyId }) {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+      <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
         <AlertCircle size={16} /> {error}
       </div>
     );
@@ -78,8 +78,8 @@ export default function CompanyHistory({ companyId }) {
   const sub = data.billing.subscription;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex border-b border-gray-200">
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="flex border-b border-border">
         <TabButton
           active={tab === "billing"}
           onClick={() => setTab("billing")}
@@ -118,36 +118,36 @@ export default function CompanyHistory({ companyId }) {
               />
             </dl>
           ) : (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               No subscription record. They&apos;re on a trial, or the company
               was created manually before billing was set up.
             </p>
           )}
 
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Changes
             </h4>
-            <p className="text-xs text-gray-400 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Reconstructed from the audit log — Subscription is a single
               mutable row, so this is the only record of what changed and when.
             </p>
             {data.billing.changes.length === 0 ? (
-              <p className="text-sm text-gray-500">Nothing logged yet.</p>
+              <p className="text-sm text-muted-foreground">Nothing logged yet.</p>
             ) : (
-              <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg">
+              <div className="divide-y divide-border border border-border rounded-lg">
                 {data.billing.changes.map((c) => (
                   <div key={c.id} className="px-4 py-3 text-sm">
                     <div className="flex justify-between gap-3 flex-wrap">
-                      <span className="text-gray-900">
+                      <span className="text-foreground">
                         {c.action.replace(/_/g, " ")}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(c.at)} · {c.by}
                       </span>
                     </div>
                     {c.details && (
-                      <pre className="mt-1 text-xs text-gray-500 overflow-x-auto">
+                      <pre className="mt-1 text-xs text-muted-foreground overflow-x-auto">
                         {JSON.stringify(c.details)}
                       </pre>
                     )}
@@ -173,39 +173,39 @@ export default function CompanyHistory({ companyId }) {
               value={count(data.activity.invoiceCount)}
             />
           </dl>
-          <p className="text-xs text-gray-400 -mt-2">
+          <p className="text-xs text-muted-foreground -mt-2">
             Money this company billed and collected from its own clients. Not
             FieldQuo revenue.
           </p>
 
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Recent invoices
             </h4>
             {data.activity.invoices.length === 0 ? (
-              <p className="text-sm text-gray-500">No invoices yet.</p>
+              <p className="text-sm text-muted-foreground">No invoices yet.</p>
             ) : (
-              <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg">
+              <div className="divide-y divide-border border border-border rounded-lg">
                 {data.activity.invoices.slice(0, 15).map((i) => (
                   <div
                     key={i.id}
                     className="px-4 py-3 flex items-center justify-between gap-3 text-sm"
                   >
                     <div className="min-w-0">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-foreground">
                         {i.invoiceNumber}
                       </span>
-                      <span className="text-gray-500"> · {i.clientName}</span>
+                      <span className="text-muted-foreground"> · {i.clientName}</span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
-                          STATUS_STYLES[i.status] || "bg-gray-100 text-gray-600"
+                          STATUS_STYLES[i.status] || "bg-muted text-muted-foreground"
                         }`}
                       >
                         {i.status}
                       </span>
-                      <span className="text-gray-900 font-medium">
+                      <span className="text-foreground font-medium">
                         {money(i.total, { compact: true })}
                       </span>
                     </div>
@@ -216,30 +216,30 @@ export default function CompanyHistory({ companyId }) {
           </div>
 
           <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Recent payments
             </h4>
             {data.activity.payments.length === 0 ? (
-              <p className="text-sm text-gray-500">No payments recorded.</p>
+              <p className="text-sm text-muted-foreground">No payments recorded.</p>
             ) : (
-              <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg">
+              <div className="divide-y divide-border border border-border rounded-lg">
                 {data.activity.payments.slice(0, 15).map((p) => (
                   <div
                     key={p.id}
                     className="px-4 py-3 flex items-center justify-between gap-3 text-sm"
                   >
                     <div className="min-w-0">
-                      <span className="text-gray-900">{p.clientName}</span>
-                      <span className="text-gray-500">
+                      <span className="text-foreground">{p.clientName}</span>
+                      <span className="text-muted-foreground">
                         {" "}
                         · {p.invoiceNumber} · {p.method?.replace(/_/g, " ")}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(p.date)}
                       </span>
-                      <span className="text-emerald-700 font-medium">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-medium">
                         {money(p.amount, { compact: true })}
                       </span>
                     </div>
@@ -260,8 +260,8 @@ function TabButton({ active, onClick, icon: Icon, children }) {
       onClick={onClick}
       className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px ${
         active
-          ? "border-gray-900 text-gray-900"
-          : "border-transparent text-gray-500 hover:text-gray-700"
+          ? "border-inverted text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground"
       }`}
     >
       <Icon size={14} />
@@ -273,11 +273,11 @@ function TabButton({ active, onClick, icon: Icon, children }) {
 function Field({ label, value, mono }) {
   return (
     <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </dt>
       <dd
-        className={`mt-1 text-sm text-gray-900 ${mono ? "font-mono text-xs" : ""}`}
+        className={`mt-1 text-sm text-foreground ${mono ? "font-mono text-xs" : ""}`}
       >
         {value}
       </dd>

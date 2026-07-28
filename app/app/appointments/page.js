@@ -6,10 +6,10 @@ import { Plus, MapPin, User as UserIcon, ShieldAlert, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
-  scheduled: "bg-blue-50 text-blue-700",
-  needs_supervisor: "bg-amber-50 text-amber-700",
-  completed: "bg-green-50 text-green-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  needs_supervisor: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
+  completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 export default function AppointmentsPage() {
@@ -55,7 +55,7 @@ export default function AppointmentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-lg md:text-xl font-semibold">Appointments</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             In-person visits and site assignments.
           </p>
         </div>
@@ -75,8 +75,8 @@ export default function AppointmentsPage() {
               onClick={() => setFilter(s)}
               className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
                 filter === s
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "border-gray-200"
+                  ? "bg-inverted text-inverted-foreground border-inverted"
+                  : "border-border"
               }`}
             >
               {s.replace("_", " ")}
@@ -87,13 +87,13 @@ export default function AppointmentsPage() {
 
       {loading && (
         <div className="animate-pulse space-y-3">
-          <div className="h-20 bg-gray-200 rounded-lg" />
-          <div className="h-20 bg-gray-200 rounded-lg" />
+          <div className="h-20 bg-accent rounded-lg" />
+          <div className="h-20 bg-accent rounded-lg" />
         </div>
       )}
 
       {!loading && filtered.length === 0 && (
-        <div className="glass-effect rounded-lg p-6 text-center text-sm text-gray-500">
+        <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           No appointments in this view.
         </div>
       )}
@@ -113,12 +113,12 @@ export default function AppointmentsPage() {
                     {appt.status.replace("_", " ")}
                   </span>
                   {appt.requiresSupervisor && (
-                    <span className="flex items-center gap-1 text-xs text-amber-600 shrink-0">
+                    <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
                       <ShieldAlert size={12} /> Supervisor required
                     </span>
                   )}
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-muted-foreground mt-1">
                   {new Date(appt.scheduledAt).toLocaleString("en-US", {
                     weekday: "short",
                     month: "short",
@@ -128,7 +128,7 @@ export default function AppointmentsPage() {
                   })}
                 </div>
                 {appt.location && (
-                  <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
                     <MapPin size={13} className="shrink-0" />
                     <span className="truncate">{appt.location}</span>
                   </div>
@@ -136,11 +136,11 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <UserIcon size={14} className="text-gray-400" />
+                <UserIcon size={14} className="text-muted-foreground" />
                 <select
                   value={appt.assignedToId || ""}
                   onChange={(e) => assign(appt.id, e.target.value || null)}
-                  className="border rounded px-2 py-1.5 text-sm bg-white"
+                  className="border rounded px-2 py-1.5 text-sm bg-card"
                 >
                   <option value="">Unassigned</option>
                   {members.map((m) => (
@@ -203,17 +203,17 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">New Appointment</h2>
-          <button onClick={onClose} className="text-gray-400">
+          <button onClick={onClose} className="text-muted-foreground">
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <label className="text-sm text-gray-600">Client name</label>
+            <label className="text-sm text-muted-foreground">Client name</label>
             <input
               required
               value={form.clientName}
@@ -223,7 +223,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">Date & time</label>
+            <label className="text-sm text-muted-foreground">Date & time</label>
             <input
               required
               type="datetime-local"
@@ -236,7 +236,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">Location</label>
+            <label className="text-sm text-muted-foreground">Location</label>
             <input
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
@@ -257,13 +257,13 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           </label>
 
           <div>
-            <label className="text-sm text-gray-600">Assign to</label>
+            <label className="text-sm text-muted-foreground">Assign to</label>
             <select
               value={form.assignedToId}
               onChange={(e) =>
                 setForm({ ...form, assignedToId: e.target.value })
               }
-              className="w-full border rounded px-3 py-2 text-sm mt-1 bg-white"
+              className="w-full border rounded px-3 py-2 text-sm mt-1 bg-card"
             >
               <option value="">Unassigned</option>
               {members.map((m) => (

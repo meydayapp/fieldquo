@@ -143,8 +143,8 @@ export default function EmailTemplatesPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -153,18 +153,18 @@ export default function EmailTemplatesPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Email Templates</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Email Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Customize the emails your clients get. The template marked{" "}
             <strong>Active</strong> for each type is the one that's actually
             sent — build as many drafts and variations as you want.
           </p>
-          {seedMsg && <p className="text-xs text-gray-500 mt-2">{seedMsg}</p>}
+          {seedMsg && <p className="text-xs text-muted-foreground mt-2">{seedMsg}</p>}
         </div>
         <button
           onClick={handleSeedDefaults}
           disabled={seeding}
-          className="flex items-center gap-2 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-60 shrink-0"
+          className="flex items-center gap-2 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted disabled:opacity-60 shrink-0"
         >
           <Sparkles size={14} /> {seeding ? "Adding…" : "Add default templates"}
         </button>
@@ -174,7 +174,7 @@ export default function EmailTemplatesPage() {
         const typesInGroup = emailTypes.filter(([, meta]) => meta.group === group);
         return (
           <div key={group}>
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               {group}
             </h2>
             <div className="space-y-4">
@@ -183,33 +183,33 @@ export default function EmailTemplatesPage() {
                 return (
                   <div
                     key={type}
-                    className="bg-white border border-gray-200 rounded-xl p-5"
+                    className="bg-card border border-border rounded-xl p-5"
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900">{meta.label}</h3>
+                      <h3 className="font-semibold text-foreground">{meta.label}</h3>
                       <button
                         onClick={() => openCreate(type)}
-                        className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
+                        className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
                       >
                         <Plus size={14} /> New Template
                       </button>
                     </div>
 
                     {typeTemplates.length === 0 ? (
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-muted-foreground">
                         No templates yet — using the built-in default.
                       </p>
                     ) : (
-                      <div className="divide-y divide-gray-100">
+                      <div className="divide-y divide-border">
                         {typeTemplates.map((t) => (
                           <div
                             key={t.id}
                             className="flex items-center justify-between py-2.5"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-900">{t.name}</span>
+                              <span className="text-sm text-foreground">{t.name}</span>
                               {t.isDefault && (
-                                <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                                <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                                   <Star size={11} className="fill-emerald-700" />
                                   Active
                                 </span>
@@ -220,14 +220,14 @@ export default function EmailTemplatesPage() {
                                 <button
                                   onClick={() => handleActivate(t.id)}
                                   disabled={busyId === t.id}
-                                  className="text-xs font-medium text-gray-500 hover:text-gray-900"
+                                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
                                 >
                                   Set Active
                                 </button>
                               )}
                               <Link
                                 href={`/app/settings/email-templates/${t.id}`}
-                                className="text-gray-400 hover:text-gray-700"
+                                className="text-muted-foreground hover:text-foreground"
                                 aria-label={`Edit ${t.name}`}
                               >
                                 <Pencil size={14} />
@@ -235,7 +235,7 @@ export default function EmailTemplatesPage() {
                               <button
                                 onClick={() => handleDuplicate(t)}
                                 disabled={busyId === t.id}
-                                className="text-gray-400 hover:text-gray-700"
+                                className="text-muted-foreground hover:text-foreground"
                                 aria-label={`Duplicate ${t.name}`}
                               >
                                 <Copy size={14} />
@@ -243,7 +243,7 @@ export default function EmailTemplatesPage() {
                               <button
                                 onClick={() => handleDelete(t.id)}
                                 disabled={busyId === t.id}
-                                className="text-gray-400 hover:text-red-500"
+                                className="text-muted-foreground hover:text-red-500"
                                 aria-label={`Delete ${t.name}`}
                               >
                                 <Trash2 size={14} />
@@ -267,14 +267,14 @@ export default function EmailTemplatesPage() {
           onClick={() => setCreatingType(null)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               New {TEMPLATE_TYPE_META[creatingType]?.label} template
             </h2>
             {createError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-3">
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2 mb-3">
                 {createError}
               </div>
             )}
@@ -285,12 +285,12 @@ export default function EmailTemplatesPage() {
                 placeholder="Template name"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
               />
               <button
                 type="submit"
                 disabled={creating}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {creating ? "Creating…" : "Create & edit"}
               </button>

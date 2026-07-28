@@ -6,10 +6,10 @@ import Link from "next/link";
 import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
 
 const STATUS_STYLES = {
-  scheduled: "bg-blue-50 text-blue-700",
-  in_progress: "bg-amber-50 text-amber-700",
-  completed: "bg-green-50 text-green-700",
-  cancelled: "bg-gray-100 text-gray-500",
+  scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  in_progress: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
+  completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  cancelled: "bg-muted text-muted-foreground",
 };
 
 export default function JobsPage() {
@@ -37,8 +37,8 @@ export default function JobsPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-40 bg-gray-200 rounded" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-8 w-40 bg-accent rounded" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -47,14 +47,14 @@ export default function JobsPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Jobs</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Scheduled and in-progress work.
           </p>
         </div>
         <Link
           href="/app/jobs/new"
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
           <Plus size={16} /> New Job
         </Link>
@@ -69,8 +69,8 @@ export default function JobsPage() {
                 onClick={() => setFilter(s)}
                 className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
                   filter === s
-                    ? "bg-gray-900 text-white border-gray-900"
-                    : "border-gray-200 text-gray-600"
+                    ? "bg-inverted text-inverted-foreground border-inverted"
+                    : "border-border text-muted-foreground"
                 }`}
               >
                 {s.replace("_", " ")}
@@ -81,37 +81,37 @@ export default function JobsPage() {
         <div className="relative max-w-xs w-full sm:w-auto">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search jobs..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
           />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <Briefcase size={40} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm text-gray-500">No jobs in this view.</p>
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <Briefcase size={40} className="mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No jobs in this view.</p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {filtered.map((job) => (
             <Link
               key={job.id}
               href={`/app/jobs/${job.id}`}
-              className="flex items-center justify-between px-5 py-4 hover:bg-gray-50"
+              className="flex items-center justify-between px-5 py-4 hover:bg-muted"
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                  <Briefcase size={18} className="text-gray-500" />
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <Briefcase size={18} className="text-muted-foreground" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 truncate">
+                    <span className="font-medium text-foreground truncate">
                       {job.title}
                     </span>
                     <span
@@ -120,24 +120,24 @@ export default function JobsPage() {
                       {job.status.replace("_", " ")}
                     </span>
                     {job.recurring && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 shrink-0">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">
                         Recurring
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-gray-500 truncate">
+                  <div className="text-sm text-muted-foreground truncate">
                     {job.client?.name || "Unknown client"}
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 {job.visits?.length > 0 && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     {job.visits.length} visit
                     {job.visits.length !== 1 ? "s" : ""}
                   </span>
                 )}
-                <ArrowRight size={16} className="text-gray-400" />
+                <ArrowRight size={16} className="text-muted-foreground" />
               </div>
             </Link>
           ))}

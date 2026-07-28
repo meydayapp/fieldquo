@@ -80,10 +80,10 @@ export default function ServiceCategoriesPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-foreground">
             Service categories
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             The global list every company picks from during onboarding.
           </p>
         </div>
@@ -97,31 +97,31 @@ export default function ServiceCategoriesPage() {
               keyTouched: false,
             })
           }
-          className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
         >
           <Plus size={14} /> New category
         </button>
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
         Adding a category makes it available to <strong>every</strong> company.
         Keys are referenced in code (add-on seeding, quote types), so they
         can&apos;t be renamed afterwards without a migration.
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
 
       {draft && (
-        <div className="bg-white border border-gray-900 rounded-xl p-5 space-y-4">
-          <h2 className="font-semibold text-gray-900">New category</h2>
+        <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
+          <h2 className="font-semibold text-foreground">New category</h2>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Label
               </label>
               <input
@@ -130,13 +130,13 @@ export default function ServiceCategoriesPage() {
                 placeholder="Cabinet Refinishing"
                 className={inputClass}
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 What companies see.
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Key
               </label>
               <input
@@ -151,13 +151,13 @@ export default function ServiceCategoriesPage() {
                 placeholder="cabinet_refinishing"
                 className={`${inputClass} font-mono text-xs`}
               />
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Permanent. Lowercase, underscores only.
               </p>
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Description
               </label>
               <input
@@ -170,7 +170,7 @@ export default function ServiceCategoriesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Sort order
               </label>
               <input
@@ -188,14 +188,14 @@ export default function ServiceCategoriesPage() {
             <button
               onClick={create}
               disabled={busy || !draft.label.trim() || !draft.key.trim()}
-              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Create
             </button>
             <button
               onClick={() => setDraft(null)}
-              className="border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
               Cancel
             </button>
@@ -204,32 +204,32 @@ export default function ServiceCategoriesPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : categories.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <Tags size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <Tags size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             No categories yet. Companies will have nothing to pick during
             onboarding.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
           {categories.map((c) => (
             <div
               key={c.id}
               className="flex items-center justify-between gap-4 px-5 py-4"
             >
               <div className="min-w-0">
-                <div className="font-medium text-gray-900">{c.label}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
+                <div className="font-medium text-foreground">{c.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">
                   <span className="font-mono">{c.key}</span>
                   {c.description && ` · ${c.description}`}
                 </div>
               </div>
-              <span className="text-xs text-gray-400 shrink-0">
+              <span className="text-xs text-muted-foreground shrink-0">
                 #{c.sortOrder}
               </span>
             </div>
@@ -241,4 +241,4 @@ export default function ServiceCategoriesPage() {
 }
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";

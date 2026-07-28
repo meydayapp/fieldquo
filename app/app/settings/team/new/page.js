@@ -27,7 +27,7 @@ const LANGUAGES = [
 ];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function emptyPermissionValues() {
   const values = {};
@@ -161,28 +161,28 @@ export default function NewUserPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6 pb-16">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">New User</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">New User</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           They'll get an email invite to set up their own login. Everything
           below is saved now and applied automatically once they accept.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Personal information */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h2 className="text-base font-semibold text-foreground">
             Personal Information
           </h2>
 
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
               {personal.imageUrl ? (
                 <img
                   src={personal.imageUrl}
@@ -190,10 +190,10 @@ export default function NewUserPage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <UserIcon size={24} className="text-gray-400" />
+                <UserIcon size={24} className="text-muted-foreground" />
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-full px-4 py-2 cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground border border-border rounded-full px-4 py-2 cursor-pointer hover:bg-muted">
               <Upload size={14} />
               {uploading ? "Uploading..." : "Upload image"}
               <input
@@ -208,7 +208,7 @@ export default function NewUserPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Full name
               </label>
               <input
@@ -221,7 +221,7 @@ export default function NewUserPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Email address
               </label>
               <input
@@ -235,7 +235,7 @@ export default function NewUserPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Mobile phone number
               </label>
               <input
@@ -251,7 +251,7 @@ export default function NewUserPage() {
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Street address
               </label>
               <AddressAutocomplete
@@ -262,7 +262,7 @@ export default function NewUserPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 City
               </label>
               <input
@@ -274,7 +274,7 @@ export default function NewUserPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Province
               </label>
               <input
@@ -286,7 +286,7 @@ export default function NewUserPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Postal code
               </label>
               <input
@@ -298,7 +298,7 @@ export default function NewUserPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Country
               </label>
               <input
@@ -312,16 +312,16 @@ export default function NewUserPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5 mb-1">
+            <label className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-1">
               Labour cost
               <Info
                 size={13}
-                className="text-gray-400"
+                className="text-muted-foreground"
                 title="Their true hourly cost to the business (wage + burden) — used for job costing, not shown to clients."
               />
             </label>
             <div className="relative w-40">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                 $
               </span>
               <input
@@ -337,10 +337,10 @@ export default function NewUserPage() {
         </div>
 
         {/* Permissions */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">Permissions</h2>
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h2 className="text-base font-semibold text-foreground">Permissions</h2>
 
-          <label className="flex items-start gap-2.5 text-sm bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <label className="flex items-start gap-2.5 text-sm bg-muted border border-border rounded-lg p-3">
             <input
               type="checkbox"
               className="mt-0.5"
@@ -348,11 +348,11 @@ export default function NewUserPage() {
               onChange={(e) => setIsAdministrator(e.target.checked)}
             />
             <span>
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-foreground">
                 Make administrator
               </span>
               <br />
-              <span className="text-gray-500">
+              <span className="text-muted-foreground">
                 This allows them access to everything within the account —
                 including billing, reports, client list editing, and all user
                 permissions.
@@ -363,7 +363,7 @@ export default function NewUserPage() {
           {!isAdministrator && (
             <>
               <div>
-                <p className="text-sm text-gray-500 mb-2">
+                <p className="text-sm text-muted-foreground mb-2">
                   Start with a preset permission level, and customize further as
                   needed.
                 </p>
@@ -375,14 +375,14 @@ export default function NewUserPage() {
                       onClick={() => applyPreset(key)}
                       className={`text-left p-3 rounded-lg border text-sm ${
                         activePreset === key
-                          ? "border-gray-900 bg-gray-50"
-                          : "border-gray-200 hover:bg-gray-50"
+                          ? "border-inverted bg-muted"
+                          : "border-border hover:bg-muted"
                       }`}
                     >
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-foreground">
                         {preset.label}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {preset.description}
                       </div>
                     </button>
@@ -390,12 +390,12 @@ export default function NewUserPage() {
                   <div
                     className={`text-left p-3 rounded-lg border text-sm ${
                       activePreset === null
-                        ? "border-gray-900 bg-gray-50"
-                        : "border-gray-200 text-gray-400"
+                        ? "border-inverted bg-muted"
+                        : "border-border text-muted-foreground"
                     }`}
                   >
-                    <div className="font-medium text-gray-900">Custom</div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="font-medium text-foreground">Custom</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       Set each permission below individually.
                     </div>
                   </div>
@@ -405,7 +405,7 @@ export default function NewUserPage() {
               <div className="grid sm:grid-cols-2 gap-4 pt-2">
                 {Object.entries(PERMISSION_CATEGORIES).map(([key, cat]) => (
                   <div key={key}>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                    <label className="text-sm font-medium text-foreground block mb-1">
                       {cat.label}
                     </label>
                     <select
@@ -423,7 +423,7 @@ export default function NewUserPage() {
                 ))}
               </div>
 
-              <div className="space-y-3 pt-2 border-t border-gray-100">
+              <div className="space-y-3 pt-2 border-t border-border">
                 {Object.entries(PERMISSION_TOGGLES).map(
                   ([key, description]) => (
                     <label
@@ -437,18 +437,18 @@ export default function NewUserPage() {
                         onChange={(e) => setPermission(key, e.target.checked)}
                       />
                       <span>
-                        <span className="font-medium text-gray-900 capitalize">
+                        <span className="font-medium text-foreground capitalize">
                           {key.replace(/([A-Z])/g, " $1")}
                         </span>
                         <br />
-                        <span className="text-gray-500">{description}</span>
+                        <span className="text-muted-foreground">{description}</span>
                       </span>
                     </label>
                   ),
                 )}
               </div>
 
-              <div className="space-y-2 pt-2 border-t border-gray-100 text-xs text-gray-400">
+              <div className="space-y-2 pt-2 border-t border-border text-xs text-muted-foreground">
                 {Object.entries(PERMISSION_DERIVED_NOTES).map(([key, note]) => (
                   <p key={key}>
                     <span className="font-medium capitalize">
@@ -463,8 +463,8 @@ export default function NewUserPage() {
         </div>
 
         {/* Communications */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">
+        <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+          <h2 className="text-base font-semibold text-foreground">
             Communications
           </h2>
 
@@ -476,21 +476,21 @@ export default function NewUserPage() {
               onChange={(e) => setEmailSubscribed(e.target.checked)}
             />
             <span>
-              <span className="font-medium text-gray-900">
+              <span className="font-medium text-foreground">
                 Email subscriptions
               </span>
               <br />
-              <span className="text-gray-500">
+              <span className="text-muted-foreground">
                 Receive occasional surveys to tell us how we're doing.
               </span>
             </span>
           </label>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Invitation language
             </label>
-            <p className="text-xs text-gray-400 mb-1.5">
+            <p className="text-xs text-muted-foreground mb-1.5">
               The chosen language only applies to the invitation and can't be
               changed once sent.
             </p>
@@ -512,14 +512,14 @@ export default function NewUserPage() {
           <button
             type="button"
             onClick={() => router.push("/app/settings/team")}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+            className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {saving ? "Sending invite..." : "Send Invite"}
           </button>

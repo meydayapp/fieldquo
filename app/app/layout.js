@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
       <div className="flex">

@@ -47,7 +47,7 @@ const FIELD_TYPES = [
 ];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function CustomFieldsPage() {
   const [fields, setFields] = useState([]);
@@ -122,12 +122,12 @@ export default function CustomFieldsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Custom Fields</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Custom Fields</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Track additional information specific to your business with custom
           fields.
         </p>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           This is unrelated to emails — for that, see{" "}
           <a href="/app/settings/email-templates" className="underline">
             Email Templates
@@ -139,7 +139,7 @@ export default function CustomFieldsPage() {
       {loading ? (
         <div className="space-y-4 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-gray-200 rounded-xl" />
+            <div key={i} className="h-20 bg-accent rounded-xl" />
           ))}
         </div>
       ) : (
@@ -151,45 +151,45 @@ export default function CustomFieldsPage() {
             return (
               <div
                 key={section.entityType}
-                className="bg-white border border-gray-200 rounded-xl p-5"
+                className="bg-card border border-border rounded-xl p-5"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-base font-semibold text-gray-900">
+                  <h2 className="text-base font-semibold text-foreground">
                     {section.label}
                   </h2>
                   <button
                     onClick={() => openAdd(section.entityType)}
-                    className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
+                    className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
                   >
                     <Plus size={14} /> Add Field
                   </button>
                 </div>
 
                 {sectionFields.length === 0 ? (
-                  <p className="text-sm text-gray-400 mt-2">{section.empty}</p>
+                  <p className="text-sm text-muted-foreground mt-2">{section.empty}</p>
                 ) : (
-                  <div className="divide-y divide-gray-100 mt-2">
+                  <div className="divide-y divide-border mt-2">
                     {sectionFields.map((f) => (
                       <div
                         key={f.id}
                         className="flex items-center justify-between py-2"
                       >
                         <div>
-                          <span className="text-sm text-gray-900">
+                          <span className="text-sm text-foreground">
                             {f.label}
                           </span>
-                          <span className="ml-2 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize">
+                          <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full capitalize">
                             {f.fieldType}
                           </span>
                           {f.required && (
-                            <span className="ml-2 text-xs text-amber-600">
+                            <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
                               Required
                             </span>
                           )}
                         </div>
                         <button
                           onClick={() => handleDelete(f.id)}
-                          className="text-gray-400 hover:text-red-500"
+                          className="text-muted-foreground hover:text-red-500"
                           aria-label={`Delete ${f.label}`}
                         >
                           <Trash2 size={14} />
@@ -210,16 +210,16 @@ export default function CustomFieldsPage() {
           onClick={() => setModalEntityType(null)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-foreground">
                 Add{" "}
                 {SECTIONS.find((s) => s.entityType === modalEntityType)?.label}
               </h2>
               <button onClick={() => setModalEntityType(null)}>
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -253,7 +253,7 @@ export default function CustomFieldsPage() {
                   className={inputClass}
                 />
               )}
-              <label className="flex items-center gap-2 text-sm text-gray-600">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={form.required}
@@ -266,7 +266,7 @@ export default function CustomFieldsPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Add Field"}
               </button>

@@ -34,41 +34,41 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-muted px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link
             href="/"
-            className="text-2xl font-bold tracking-tight text-gray-900"
+            className="text-2xl font-bold tracking-tight text-foreground"
           >
             FieldQuo
           </Link>
-          <p className="text-sm text-gray-500 mt-2">Log in to your account</p>
+          <p className="text-sm text-muted-foreground mt-2">Log in to your account</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white border border-gray-200 rounded-xl p-6 space-y-4"
+          className="bg-card border border-border rounded-xl p-6 space-y-4"
         >
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
               {error}
             </div>
           )}
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
+            <label className="text-sm font-medium text-foreground">Email</label>
             <input
               required
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full mt-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm"
+              className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-foreground">
               Password
             </label>
             <input
@@ -76,22 +76,22 @@ export default function LoginPage() {
               type="password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full mt-1 border border-gray-300 rounded-lg px-4 py-2.5 text-sm"
+              className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm"
             />
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {submitting ? "Logging in..." : "Log In"}
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-6">
           Don't have an account?{" "}
-          <Link href="/signup" className="font-medium text-gray-900 underline">
+          <Link href="/signup" className="font-medium text-foreground underline">
             Start your free trial
           </Link>
         </p>

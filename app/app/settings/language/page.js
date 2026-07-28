@@ -66,8 +66,8 @@ export default function LanguageSettingsPage() {
   if (loading) {
     return (
       <div className="max-w-3xl p-4 sm:p-6 space-y-4 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -77,26 +77,26 @@ export default function LanguageSettingsPage() {
   return (
     <div className="max-w-3xl p-4 sm:p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Globe size={20} className="text-gray-400" />
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Globe size={20} className="text-muted-foreground" />
           Language
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           What you read the app in, and what your team and clients get by
           default.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Personal */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Your language</h2>
-        <p className="text-sm text-gray-500 mt-1 mb-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Your language</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-4">
           Only affects what you see. Your teammates and clients are unaffected.
         </p>
 
@@ -106,20 +106,20 @@ export default function LanguageSettingsPage() {
             disabled={saving}
             className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-left ${
               personal === null
-                ? "border-gray-900 bg-gray-50"
-                : "border-gray-200 hover:border-gray-300"
+                ? "border-inverted bg-muted"
+                : "border-border hover:border-border"
             }`}
           >
-            <span className="text-sm text-gray-800">
+            <span className="text-sm text-foreground">
               Match company default
-              <span className="text-gray-500">
+              <span className="text-muted-foreground">
                 {" "}
                 —{" "}
                 {LANGUAGES.find((l) => l.code === companyDefault)?.nativeName ||
                   companyDefault}
               </span>
             </span>
-            {personal === null && <Check size={16} className="text-gray-900" />}
+            {personal === null && <Check size={16} className="text-foreground" />}
           </button>
 
           {LANGUAGES.map((l) => (
@@ -129,16 +129,16 @@ export default function LanguageSettingsPage() {
               disabled={saving}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border text-left ${
                 personal === l.code
-                  ? "border-gray-900 bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-inverted bg-muted"
+                  : "border-border hover:border-border"
               }`}
             >
-              <span className="text-sm text-gray-800">
+              <span className="text-sm text-foreground">
                 {l.nativeName}
-                <span className="text-gray-500"> — {l.name}</span>
+                <span className="text-muted-foreground"> — {l.name}</span>
               </span>
               {personal === l.code && (
-                <Check size={16} className="text-gray-900" />
+                <Check size={16} className="text-foreground" />
               )}
             </button>
           ))}
@@ -146,9 +146,9 @@ export default function LanguageSettingsPage() {
       </div>
 
       {/* Company default */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Company default</h2>
-        <p className="text-sm text-gray-500 mt-1 mb-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Company default</h2>
+        <p className="text-sm text-muted-foreground mt-1 mb-4">
           Used for team members who haven&apos;t picked a language, and for
           quotes and invoices to clients who don&apos;t have one set. Owners and
           admins only.
@@ -162,8 +162,8 @@ export default function LanguageSettingsPage() {
               disabled={saving}
               className={`px-4 py-2 rounded-full border text-sm ${
                 companyDefault === l.code
-                  ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  ? "border-inverted bg-inverted text-inverted-foreground"
+                  : "border-border text-foreground hover:bg-muted"
               }`}
             >
               {l.nativeName}
@@ -171,7 +171,7 @@ export default function LanguageSettingsPage() {
           ))}
         </div>
 
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-muted-foreground mt-4">
           Changing this moves everyone who hasn&apos;t set their own language.
           It does not change quotes already sent — those keep the language they
           were sent in.
@@ -180,12 +180,12 @@ export default function LanguageSettingsPage() {
 
       <div className="flex items-center gap-3 text-sm">
         {saving && (
-          <span className="text-gray-500 flex items-center gap-1.5">
+          <span className="text-muted-foreground flex items-center gap-1.5">
             <Loader2 size={14} className="animate-spin" /> Saving…
           </span>
         )}
-        {savedFlash && <span className="text-emerald-600">Saved</span>}
-        <span className="text-gray-400">
+        {savedFlash && <span className="text-emerald-600 dark:text-emerald-400">Saved</span>}
+        <span className="text-muted-foreground">
           Currently showing:{" "}
           {LANGUAGES.find((l) => l.code === effective)?.nativeName || effective}
         </span>

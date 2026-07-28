@@ -57,14 +57,14 @@ export default function MaterialsPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Materials</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Materials</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Track material costs to see price trends and get low-stock flags in
           your AI digest.
         </p>
@@ -72,7 +72,7 @@ export default function MaterialsPage() {
 
       <form
         onSubmit={handleCreate}
-        className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-2 gap-3"
+        className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 gap-3"
       >
         <input
           placeholder="Material name"
@@ -112,7 +112,7 @@ export default function MaterialsPage() {
         />
         <button
           type="submit"
-          className="col-span-2 bg-gray-900 text-white py-2 rounded-full text-sm font-semibold"
+          className="col-span-2 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
         >
           Add Material
         </button>
@@ -122,15 +122,15 @@ export default function MaterialsPage() {
         {materials.map((m) => (
           <div
             key={m.id}
-            className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between"
+            className="bg-card border border-border rounded-xl p-4 flex items-center justify-between"
           >
             <div>
-              <div className="font-medium text-gray-900">{m.name}</div>
-              <div className="text-xs text-gray-500">
+              <div className="font-medium text-foreground">{m.name}</div>
+              <div className="text-xs text-muted-foreground">
                 {m.category} · {m.unit}
               </div>
             </div>
-            <div className="text-sm font-semibold text-gray-900">
+            <div className="text-sm font-semibold text-foreground">
               {m.currentAvgCost
                 ? `$${Number(m.currentAvgCost).toFixed(2)}`
                 : "—"}

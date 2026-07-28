@@ -73,13 +73,13 @@ export default function ReplyToPromptModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md p-6">
+      <div className="bg-card rounded-2xl w-full max-w-md p-6">
         <div className="flex items-start justify-between gap-3 mb-1">
           <div className="flex items-center gap-2">
-            <span className="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-              <Mail size={16} className="text-amber-600" />
+            <span className="w-9 h-9 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0">
+              <Mail size={16} className="text-amber-600 dark:text-amber-400" />
             </span>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-foreground">
               Where should client replies go?
             </h2>
           </div>
@@ -88,13 +88,13 @@ export default function ReplyToPromptModal({
           <button
             onClick={() => setOpen(false)}
             aria-label="Dismiss"
-            className="text-gray-400 hover:text-gray-600 shrink-0"
+            className="text-muted-foreground hover:text-foreground shrink-0"
           >
             <X size={18} />
           </button>
         </div>
 
-        <p className="text-sm text-gray-500 mt-2 mb-4">
+        <p className="text-sm text-muted-foreground mt-2 mb-4">
           You haven&apos;t set a company email yet. When a client replies to
           one of your {context}, that&apos;s the inbox it lands in — use an
           address you actually read. Nothing new gets created; this is just
@@ -108,21 +108,21 @@ export default function ReplyToPromptModal({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
         />
         {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
 
         <div className="flex gap-3 mt-5">
           <button
             onClick={() => setOpen(false)}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50"
+            className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold hover:bg-muted"
           >
             Later
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save"}
           </button>

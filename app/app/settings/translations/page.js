@@ -95,8 +95,8 @@ export default function TranslationsPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Translations</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Translations</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           The wording clients see on quotes and invoices written in another
           language. Drafts are generated for you — but nothing here is used with
           confidence until you&apos;ve read it.
@@ -104,11 +104,11 @@ export default function TranslationsPage() {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap">
-        <Languages size={16} className="text-gray-400" />
+        <Languages size={16} className="text-muted-foreground" />
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-card"
         >
           {LANGUAGES.filter((l) => l.code !== data?.sourceLanguage).map((l) => (
             <option key={l.code} value={l.code}>
@@ -118,13 +118,13 @@ export default function TranslationsPage() {
         </select>
 
         {data && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {data.missing > 0 ? (
-              <span className="text-amber-700 font-medium">
+              <span className="text-amber-700 dark:text-amber-300 font-medium">
                 {data.missing} still missing
               </span>
             ) : (
-              <span className="text-green-700 font-medium">
+              <span className="text-green-700 dark:text-green-300 font-medium">
                 All {data.total} translated
               </span>
             )}
@@ -134,16 +134,16 @@ export default function TranslationsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="animate-pulse h-72 bg-gray-200 rounded-xl" />
+        <div className="animate-pulse h-72 bg-accent rounded-xl" />
       ) : rows.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center text-sm text-muted-foreground">
           No services yet. Add them under Settings → Products &amp; Services and
           drafts will appear here.
         </div>
@@ -158,24 +158,24 @@ export default function TranslationsPage() {
             return (
               <div
                 key={item.id}
-                className={`bg-white border rounded-xl p-5 ${
-                  item.missing ? "border-amber-300" : "border-gray-200"
+                className={`bg-card border rounded-xl p-5 ${
+                  item.missing ? "border-amber-300" : "border-border"
                 }`}
               >
                 <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {item.type === "product" ? "Product" : "Service"}
                   </div>
                   {item.missing ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-amber-700">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
                       <AlertTriangle size={12} /> Not translated
                     </span>
                   ) : item.reviewed ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs text-green-700">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-300">
                       <Check size={12} /> Reviewed
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       Drafted — not read yet
                     </span>
                   )}
@@ -186,21 +186,21 @@ export default function TranslationsPage() {
                       belongs on the product itself, not on a translation
                       screen. */}
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                       {sourceName}
                     </div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-foreground">
                       {item.source.name}
                     </div>
                     {item.source.description && (
-                      <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">
+                      <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                         {item.source.description}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
                       {LANGUAGES.find((l) => l.code === language)?.nativeName}
                     </div>
                     <input
@@ -212,7 +212,7 @@ export default function TranslationsPage() {
                         }))
                       }
                       placeholder="Name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm"
                     />
                     {item.source.description && (
                       <textarea
@@ -228,7 +228,7 @@ export default function TranslationsPage() {
                         }
                         rows={2}
                         placeholder="Description"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm mt-2"
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm mt-2"
                       />
                     )}
 
@@ -236,7 +236,7 @@ export default function TranslationsPage() {
                       <button
                         onClick={() => save(item)}
                         disabled={savingId === item.id || !draft.name.trim()}
-                        className="inline-flex items-center gap-1.5 bg-gray-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50"
                       >
                         {savingId === item.id && (
                           <Loader2 size={11} className="animate-spin" />
@@ -244,7 +244,7 @@ export default function TranslationsPage() {
                         {item.reviewed && !dirty ? "Saved" : "Mark reviewed"}
                       </button>
                       {savedId === item.id && (
-                        <span className="text-xs text-green-700">Saved</span>
+                        <span className="text-xs text-green-700 dark:text-green-300">Saved</span>
                       )}
                     </div>
                   </div>

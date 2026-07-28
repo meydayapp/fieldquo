@@ -18,26 +18,26 @@ import { Construction } from "lucide-react";
 
 export default function NotBuilt({ title, description, apiRoute }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="max-w-lg w-full bg-white border border-gray-200 rounded-2xl p-8 text-center">
-        <span className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
-          <Construction size={22} className="text-amber-600" />
+    <div className="min-h-screen bg-muted flex items-center justify-center p-6">
+      <div className="max-w-lg w-full bg-card border border-border rounded-2xl p-8 text-center">
+        <span className="w-12 h-12 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center mx-auto mb-4">
+          <Construction size={22} className="text-amber-600 dark:text-amber-400" />
         </span>
 
-        <h1 className="text-xl font-bold text-gray-900">{title}</h1>
-        <p className="text-sm text-gray-500 mt-2">{description}</p>
+        <h1 className="text-xl font-bold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground mt-2">{description}</p>
 
         {apiRoute && (
-          <p className="text-xs text-gray-400 mt-4">
+          <p className="text-xs text-muted-foreground mt-4">
             The API behind this page already exists at{" "}
-            <span className="font-mono text-gray-600">{apiRoute}</span> — only
+            <span className="font-mono text-muted-foreground">{apiRoute}</span> — only
             the UI is missing.
           </p>
         )}
 
         <Link
           href="/app"
-          className="inline-block mt-6 text-sm font-semibold text-gray-700 underline"
+          className="inline-block mt-6 text-sm font-semibold text-foreground underline"
         >
           Back to the app
         </Link>

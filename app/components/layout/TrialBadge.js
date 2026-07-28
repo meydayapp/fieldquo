@@ -33,7 +33,7 @@ export default function TrialBadge({ collapsed = false }) {
         href="/app/settings/account-billing"
         title={`Trial: ${remaining} day${remaining === 1 ? "" : "s"} left`}
         className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold mx-auto ${
-          urgent ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"
+          urgent ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400" : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
         }`}
       >
         {remaining}
@@ -45,7 +45,7 @@ export default function TrialBadge({ collapsed = false }) {
     <Link
       href="/app/settings/account-billing"
       className={`block rounded-lg px-3 py-2 text-xs font-medium ${
-        urgent ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"
+        urgent ? "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300" : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
       }`}
     >
       Trial started · {remaining} day{remaining === 1 ? "" : "s"} left

@@ -144,28 +144,28 @@ export default function PlatformPlansPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Plans</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Plans</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             What companies can buy. The public pricing page reads these live.
           </p>
         </div>
         <button
           onClick={() => setDraft({ ...BLANK })}
-          className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg"
         >
           <Plus size={14} /> New plan
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" /> {error}
         </div>
       )}
 
       {draft && (
-        <div className="bg-white border border-gray-900 rounded-xl p-5 space-y-4">
-          <h2 className="font-semibold text-gray-900">
+        <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
+          <h2 className="font-semibold text-foreground">
             {draft.id ? `Edit ${draft.name}` : "New plan"}
           </h2>
 
@@ -234,14 +234,14 @@ export default function PlatformPlansPage() {
             </Field>
 
             <Field label="AI Copilot">
-              <label className="flex items-center gap-2 text-sm text-gray-700 pt-2">
+              <label className="flex items-center gap-2 text-sm text-foreground pt-2">
                 <input
                   type="checkbox"
                   checked={!!draft.aiCopilotEnabled}
                   onChange={(e) =>
                     setDraft({ ...draft, aiCopilotEnabled: e.target.checked })
                   }
-                  className="rounded border-gray-300 accent-gray-900"
+                  className="rounded border-border accent-gray-900"
                 />
                 Included in this plan
               </label>
@@ -252,14 +252,14 @@ export default function PlatformPlansPage() {
             <button
               onClick={save}
               disabled={busy || !draft.name.trim()}
-              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Save
             </button>
             <button
               onClick={() => setDraft(null)}
-              className="border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
               Cancel
             </button>
@@ -268,13 +268,13 @@ export default function PlatformPlansPage() {
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : plans.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <CreditCard size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <CreditCard size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             No plans yet. The public pricing page shows its empty state until
             you add one.
           </p>
@@ -286,10 +286,10 @@ export default function PlatformPlansPage() {
             return (
               <div
                 key={p.id}
-                className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col"
+                className="bg-card border border-border rounded-xl p-5 flex flex-col"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-900">{p.name}</h3>
+                  <h3 className="font-semibold text-foreground">{p.name}</h3>
                   {p.aiCopilotEnabled && (
                     <span
                       className="text-[#bd9d60]"
@@ -300,12 +300,12 @@ export default function PlatformPlansPage() {
                   )}
                 </div>
 
-                <div className="mt-2 text-2xl font-bold text-gray-900">
+                <div className="mt-2 text-2xl font-bold text-foreground">
                   {money(p.priceMonthly, { compact: true })}
-                  <span className="text-sm font-normal text-gray-500">/mo</span>
+                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </div>
 
-                <dl className="mt-3 space-y-1 text-sm text-gray-600 flex-1">
+                <dl className="mt-3 space-y-1 text-sm text-muted-foreground flex-1">
                   <div>{p.maxUsers ? `${p.maxUsers} users` : "Unlimited users"}</div>
                   <div>
                     {p.maxQuotesPerMonth
@@ -314,14 +314,14 @@ export default function PlatformPlansPage() {
                   </div>
                   <div
                     className={
-                      subscribers > 0 ? "text-gray-900 font-medium" : ""
+                      subscribers > 0 ? "text-foreground font-medium" : ""
                     }
                   >
                     {count(subscribers)}{" "}
                     {subscribers === 1 ? "company" : "companies"}
                   </div>
                   {!p.stripePriceId && (
-                    <div className="text-amber-700 text-xs">
+                    <div className="text-amber-700 dark:text-amber-300 text-xs">
                       No Stripe price ID — checkout will fail
                     </div>
                   )}
@@ -340,7 +340,7 @@ export default function PlatformPlansPage() {
                         aiCopilotEnabled: p.aiCopilotEnabled,
                       })
                     }
-                    className="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50"
+                    className="flex-1 border border-border text-foreground text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
                   >
                     Edit
                   </button>
@@ -352,7 +352,7 @@ export default function PlatformPlansPage() {
                         ? "Companies are on this plan"
                         : "Delete plan"
                     }
-                    className="border border-gray-300 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
+                    className="border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-red-50 dark:bg-red-950/40 hover:text-red-600 dark:text-red-400 disabled:opacity-40"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -367,16 +367,16 @@ export default function PlatformPlansPage() {
 }
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function Field({ label, hint, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
+      <label className="block text-sm font-medium text-foreground mb-1">
         {label}
       </label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </div>
   );
 }

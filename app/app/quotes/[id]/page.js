@@ -9,10 +9,10 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
-  draft: "bg-gray-100 text-gray-600",
-  sent: "bg-blue-50 text-blue-700",
-  accepted: "bg-green-50 text-green-700",
-  declined: "bg-red-50 text-red-700",
+  draft: "bg-muted text-muted-foreground",
+  sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
+  accepted: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  declined: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
 export default function QuoteDetailPage() {
@@ -76,11 +76,11 @@ export default function QuoteDetailPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
   if (!quote)
     return (
-      <div className="p-6 max-w-4xl mx-auto text-sm text-gray-500">
+      <div className="p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
         Quote not found.
       </div>
     );
@@ -89,13 +89,13 @@ export default function QuoteDetailPage() {
     <div className="p-6 max-w-4xl mx-auto space-y-6 pb-10">
       <Link
         href="/app/quotes"
-        className="flex items-center gap-1 text-sm text-gray-500"
+        className="flex items-center gap-1 text-sm text-muted-foreground"
       >
         <ArrowLeft size={14} /> Back to Quotes
       </Link>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
@@ -103,7 +103,7 @@ export default function QuoteDetailPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-foreground">
               {quote.quoteNumber}
             </h1>
             <span
@@ -112,7 +112,7 @@ export default function QuoteDetailPage() {
               {quote.status}
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">{quote.client?.name}</p>
+          <p className="text-sm text-muted-foreground mt-1">{quote.client?.name}</p>
         </div>
 
         <div className="flex gap-2">
@@ -120,7 +120,7 @@ export default function QuoteDetailPage() {
             <button
               onClick={() => updateStatus("sent")}
               disabled={actionLoading}
-              className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+              className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
               <Send size={14} /> Send
             </button>
@@ -137,20 +137,20 @@ export default function QuoteDetailPage() {
             <button
               onClick={handleConvert}
               disabled={actionLoading}
-              className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+              className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
               <RefreshCw size={14} /> Convert to Invoice
             </button>
           )}
           <Link
             href={`/app/quotes/${id}/edit`}
-            className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold"
+            className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
           >
             <Pencil size={14} /> Edit
           </Link>
           <button
             onClick={() => setShowDelete(true)}
-            className="border border-gray-300 text-gray-500 p-2 rounded-full"
+            className="border border-border text-muted-foreground p-2 rounded-full"
           >
             <Trash2 size={16} />
           </button>
@@ -158,7 +158,7 @@ export default function QuoteDetailPage() {
       </div>
 
       {quote.invoices?.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-800">
+        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
           Already converted to invoice{" "}
           <Link
             href={`/app/invoices/${quote.invoices[0].id}`}
@@ -169,15 +169,15 @@ export default function QuoteDetailPage() {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
+      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
         {quote.scopeGroups?.map((group) => (
           <div key={group.id}>
-            <h3 className="font-semibold text-gray-900 mb-2">{group.label}</h3>
+            <h3 className="font-semibold text-foreground mb-2">{group.label}</h3>
             <div className="space-y-1">
               {(group.lineItems || []).map((item, i) => (
                 <div
                   key={i}
-                  className="flex justify-between text-sm text-gray-700"
+                  className="flex justify-between text-sm text-foreground"
                 >
                   <span>
                     {item.description}{" "}
@@ -191,22 +191,22 @@ export default function QuoteDetailPage() {
         ))}
 
         {quote.notes && (
-          <div className="pt-4 border-t border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Notes</h3>
-            <p className="text-sm text-gray-600">{quote.notes}</p>
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Notes</h3>
+            <p className="text-sm text-muted-foreground">{quote.notes}</p>
           </div>
         )}
 
-        <div className="pt-4 border-t border-gray-100 space-y-1 text-sm">
-          <div className="flex justify-between text-gray-600">
+        <div className="pt-4 border-t border-border space-y-1 text-sm">
+          <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
             <span>${Number(quote.subtotal).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-gray-600">
+          <div className="flex justify-between text-muted-foreground">
             <span>Tax</span>
             <span>${Number(quote.tax).toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-semibold text-gray-900 text-base">
+          <div className="flex justify-between font-semibold text-foreground text-base">
             <span>Total</span>
             <span>${Number(quote.total).toFixed(2)}</span>
           </div>

@@ -83,8 +83,8 @@ export default function PaymentsPage() {
     return (
       <div className="p-6 max-w-2xl mx-auto">
         <div className="animate-pulse space-y-4">
-          <div className="h-6 w-40 bg-gray-200 rounded" />
-          <div className="h-32 bg-gray-200 rounded-xl" />
+          <div className="h-6 w-40 bg-accent rounded" />
+          <div className="h-32 bg-accent rounded-xl" />
         </div>
       </div>
     );
@@ -97,36 +97,36 @@ export default function PaymentsPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Payments</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Payments</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Connect Stripe so your clients can pay invoices online, directly to
           your bank account.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
+      <div className="bg-card border border-border rounded-xl p-6">
         {active && (
           <div className="flex items-start gap-3">
             <CheckCircle2
               size={22}
-              className="text-green-600 shrink-0 mt-0.5"
+              className="text-green-600 dark:text-green-400 shrink-0 mt-0.5"
             />
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="font-semibold text-gray-900">
+                <h2 className="font-semibold text-foreground">
                   Stripe connected
                 </h2>
-                <span className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                <span className="text-xs bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
                   Active
                 </span>
               </div>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Your clients can pay invoices online, and payments go directly
                 to your bank account via Stripe Express.
               </p>
@@ -136,7 +136,7 @@ export default function PaymentsPage() {
                   type="button"
                   onClick={handleManageInStripe}
                   disabled={openingDashboard}
-                  className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+                  className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
                 >
                   <ExternalLink size={14} />
                   {openingDashboard ? "Opening..." : "Manage in Stripe"}
@@ -144,7 +144,7 @@ export default function PaymentsPage() {
                 <button
                   type="button"
                   onClick={() => setShowDisconnectConfirm(true)}
-                  className="text-sm font-medium text-red-600 px-4 py-2 rounded-full hover:bg-red-50"
+                  className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
                 >
                   Disconnect
                 </button>
@@ -157,10 +157,10 @@ export default function PaymentsPage() {
           <div className="flex items-start gap-3">
             <AlertCircle size={22} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <h2 className="font-semibold text-gray-900">
+              <h2 className="font-semibold text-foreground">
                 Onboarding incomplete
               </h2>
-              <p className="text-sm text-gray-500 mt-1 mb-4">
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
                 You started connecting Stripe but haven't finished — Stripe
                 needs a bit more information before you can accept payments.
               </p>
@@ -168,7 +168,7 @@ export default function PaymentsPage() {
                 type="button"
                 onClick={handleConnect}
                 disabled={connecting}
-                className="bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
                 {connecting ? "Redirecting..." : "Finish Setup"}
               </button>
@@ -178,10 +178,10 @@ export default function PaymentsPage() {
 
         {notStarted && (
           <div className="flex items-start gap-3">
-            <CreditCard size={22} className="text-gray-400 shrink-0 mt-0.5" />
+            <CreditCard size={22} className="text-muted-foreground shrink-0 mt-0.5" />
             <div>
-              <h2 className="font-semibold text-gray-900">Not connected yet</h2>
-              <p className="text-sm text-gray-500 mt-1 mb-4">
+              <h2 className="font-semibold text-foreground">Not connected yet</h2>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
                 Stripe handles the actual payment processing — you'll enter your
                 bank details on Stripe's own secure page, not here.
               </p>
@@ -189,7 +189,7 @@ export default function PaymentsPage() {
                 type="button"
                 onClick={handleConnect}
                 disabled={connecting}
-                className="bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
                 {connecting ? "Redirecting..." : "Connect with Stripe"}
               </button>
@@ -198,7 +198,7 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-muted-foreground">
         FieldQuo never sees or stores your bank account details — that
         information goes directly to Stripe.
       </p>
@@ -209,16 +209,16 @@ export default function PaymentsPage() {
           onClick={() => setShowDisconnectConfirm(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={26} className="text-amber-500" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 text-center">
+            <h2 className="text-lg font-semibold text-foreground text-center">
               Disconnect Stripe?
             </h2>
-            <p className="text-sm text-gray-500 text-center mt-1.5">
+            <p className="text-sm text-muted-foreground text-center mt-1.5">
               Clients won't be able to pay invoices online until you reconnect.
               This only unlinks Stripe from FieldQuo — it does not delete or
               close your actual Stripe account, and nothing about your past
@@ -227,7 +227,7 @@ export default function PaymentsPage() {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowDisconnectConfirm(false)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+                className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
               >
                 Cancel
               </button>

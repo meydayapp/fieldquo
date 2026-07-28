@@ -72,14 +72,14 @@ export default function PlatformReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           CSV exports for growth analysis and board updates.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} /> {error}
         </div>
       )}
@@ -88,16 +88,16 @@ export default function PlatformReportsPage() {
         {REPORTS.map((r) => (
           <div
             key={r.key}
-            className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col"
+            className="bg-card border border-border rounded-xl p-5 flex flex-col"
           >
             <FileSpreadsheet size={20} className="text-[#bd9d60]" />
-            <h2 className="mt-3 font-semibold text-gray-900">{r.title}</h2>
-            <p className="mt-1 text-sm text-gray-600 flex-1">{r.description}</p>
-            <p className="mt-3 text-xs text-gray-400">{r.columns}</p>
+            <h2 className="mt-3 font-semibold text-foreground">{r.title}</h2>
+            <p className="mt-1 text-sm text-muted-foreground flex-1">{r.description}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{r.columns}</p>
             <button
               onClick={() => download(r.key)}
               disabled={busy === r.key}
-              className="mt-4 inline-flex items-center justify-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="mt-4 inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {busy === r.key ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -110,9 +110,9 @@ export default function PlatformReportsPage() {
         ))}
       </div>
 
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+      <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-4 text-sm text-amber-900 dark:text-amber-200">
         <p className="font-medium">These files contain customer data.</p>
-        <p className="mt-1 text-amber-800">
+        <p className="mt-1 text-amber-800 dark:text-amber-300">
           Company names, contact emails and revenue figures. Treat them the way
           you&apos;d treat a database dump — they&apos;re fine on your machine,
           less fine in a shared drive or an email thread.

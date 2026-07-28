@@ -25,26 +25,26 @@ const STATUSES = [
 ];
 
 const TYPE_META = {
-  bug: { label: "Bug", Icon: Bug, className: "text-red-600 bg-red-50" },
+  bug: { label: "Bug", Icon: Bug, className: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40" },
   feature_request: {
     label: "Feature request",
     Icon: Lightbulb,
-    className: "text-amber-600 bg-amber-50",
+    className: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40",
   },
   billing: {
     label: "Billing",
     Icon: CreditCard,
-    className: "text-purple-600 bg-purple-50",
+    className: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40",
   },
   question: {
     label: "Question",
     Icon: HelpCircle,
-    className: "text-blue-600 bg-blue-50",
+    className: "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40",
   },
   other: {
     label: "Other",
     Icon: MessageSquare,
-    className: "text-gray-600 bg-gray-50",
+    className: "text-muted-foreground bg-muted",
   },
 };
 
@@ -107,13 +107,13 @@ export default function PlatformFeedbackPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Feedback</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Feedback</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Bug reports and requests from companies using FieldQuo.
           {openCount > 0 && (
             <>
               {" "}
-              <span className="font-medium text-gray-700">
+              <span className="font-medium text-foreground">
                 {openCount} open.
               </span>
             </>
@@ -128,15 +128,15 @@ export default function PlatformFeedbackPage() {
             onClick={() => setStatus(s.value)}
             className={`px-3 py-2 rounded-lg text-sm font-medium border ${
               status === s.value
-                ? "bg-gray-900 text-white border-gray-900"
-                : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                ? "bg-inverted text-inverted-foreground border-inverted"
+                : "border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             {s.label}
             {data?.counts?.[s.value] > 0 && (
               <span
                 className={
-                  status === s.value ? "text-gray-300" : "text-gray-400"
+                  status === s.value ? "text-muted-foreground" : "text-muted-foreground"
                 }
               >
                 {" "}
@@ -148,19 +148,19 @@ export default function PlatformFeedbackPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} /> {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : !data?.rows?.length ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <MessageSquare size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <MessageSquare size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             Nothing {STATUSES.find((s) => s.value === status)?.label.toLowerCase()}.
           </p>
         </div>
@@ -175,8 +175,8 @@ export default function PlatformFeedbackPage() {
             return (
               <div
                 key={row.id}
-                className={`bg-white border rounded-xl p-5 ${
-                  stale ? "border-amber-300" : "border-gray-200"
+                className={`bg-card border rounded-xl p-5 ${
+                  stale ? "border-amber-300" : "border-border"
                 }`}
               >
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -190,24 +190,24 @@ export default function PlatformFeedbackPage() {
                       {/* Age is the thing that turns a queue into a problem,
                           so it's called out rather than buried in a date. */}
                       <span
-                        className={`text-xs ${stale ? "text-amber-700 font-medium" : "text-gray-400"}`}
+                        className={`text-xs ${stale ? "text-amber-700 dark:text-amber-300 font-medium" : "text-muted-foreground"}`}
                       >
                         {days === 0 ? "today" : `${days}d ago`}
                       </span>
                     </div>
 
-                    <h3 className="mt-2 font-semibold text-gray-900">
+                    <h3 className="mt-2 font-semibold text-foreground">
                       {row.subject}
                     </h3>
-                    <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap">
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
                       {row.body}
                     </p>
 
-                    <div className="mt-3 text-xs text-gray-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <div className="mt-3 text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                       {row.companyId ? (
                         <Link
                           href={`/platform/companies/${row.companyId}`}
-                          className="underline hover:text-gray-700"
+                          className="underline hover:text-foreground"
                         >
                           {row.companyName || "Company"}
                         </Link>
@@ -217,7 +217,7 @@ export default function PlatformFeedbackPage() {
                       {row.email && (
                         <a
                           href={`mailto:${row.email}?subject=Re: ${encodeURIComponent(row.subject)}`}
-                          className="underline hover:text-gray-700"
+                          className="underline hover:text-foreground"
                         >
                           {row.email}
                         </a>
@@ -238,7 +238,7 @@ export default function PlatformFeedbackPage() {
                     value={row.status}
                     disabled={busyId === row.id}
                     onChange={(e) => update(row.id, { status: e.target.value })}
-                    className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white shrink-0 disabled:opacity-60"
+                    className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card shrink-0 disabled:opacity-60"
                   >
                     {STATUSES.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -249,7 +249,7 @@ export default function PlatformFeedbackPage() {
                 </div>
 
                 <details className="mt-3">
-                  <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                  <summary className="text-xs text-muted-foreground cursor-pointer hover:text-muted-foreground">
                     Internal notes
                   </summary>
                   <textarea
@@ -261,7 +261,7 @@ export default function PlatformFeedbackPage() {
                       }
                     }}
                     rows={3}
-                    className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+                    className="mt-2 w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10"
                   />
                 </details>
               </div>

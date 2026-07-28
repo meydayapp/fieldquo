@@ -168,13 +168,13 @@ export default function EditQuotePage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
 
   if (!quote)
     return (
       <div className="p-6 max-w-lg mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
           {error || "Quote not found."}
         </div>
       </div>
@@ -184,20 +184,20 @@ export default function EditQuotePage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
       <Link
         href={`/app/quotes/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} /> Back to {quote.quoteNumber}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-foreground">
           Edit {quote.quoteNumber}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">{quote.client?.name}</p>
+        <p className="text-sm text-muted-foreground mt-1">{quote.client?.name}</p>
       </div>
 
       {quote.status === "accepted" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-900">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           This quote has already been accepted. Changing the price now means the
           client agreed to different numbers than the ones on record — send a
           revised copy if you change anything material.
@@ -205,21 +205,21 @@ export default function EditQuotePage() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
       {groups.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
           This quote has no scope groups. Rebuild it from the quote builder.
         </div>
       ) : (
         groups.map((g, gi) => (
           <div
             key={g.id || gi}
-            className="bg-white border border-gray-200 rounded-xl p-5"
+            className="bg-card border border-border rounded-xl p-5"
           >
             <div className="flex items-center justify-between gap-3 mb-4">
               <input
@@ -231,9 +231,9 @@ export default function EditQuotePage() {
                     ),
                   )
                 }
-                className="font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-gray-400 focus:outline-none py-0.5 min-w-0 flex-1"
+                className="font-semibold text-foreground border-b border-transparent hover:border-border focus:border-border focus:outline-none py-0.5 min-w-0 flex-1"
               />
-              <span className="text-sm font-semibold text-gray-500 shrink-0">
+              <span className="text-sm font-semibold text-muted-foreground shrink-0">
                 ${totals.groupSubtotals[gi].toFixed(2)}
               </span>
             </div>
@@ -247,7 +247,7 @@ export default function EditQuotePage() {
                       updateItem(gi, li, "description", e.target.value)
                     }
                     placeholder="Description"
-                    className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
                     type="number"
@@ -257,10 +257,10 @@ export default function EditQuotePage() {
                     onChange={(e) =>
                       updateItem(gi, li, "quantity", e.target.value)
                     }
-                    className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    className="w-20 border border-border rounded-lg px-3 py-2 text-sm"
                   />
                   <div className="relative w-32 shrink-0">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                       $
                     </span>
                     <input
@@ -271,13 +271,13 @@ export default function EditQuotePage() {
                       onChange={(e) =>
                         updateItem(gi, li, "amount", e.target.value)
                       }
-                      className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm"
+                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2 text-sm"
                     />
                   </div>
                   <button
                     onClick={() => removeItem(gi, li)}
                     aria-label="Remove line"
-                    className="text-gray-400 hover:text-red-600 p-2 shrink-0"
+                    className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -287,7 +287,7 @@ export default function EditQuotePage() {
 
             <button
               onClick={() => addItem(gi)}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <Plus size={14} /> Add line
             </button>
@@ -295,22 +295,22 @@ export default function EditQuotePage() {
         ))
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Notes
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Discount
             </label>
             <input
@@ -319,11 +319,11 @@ export default function EditQuotePage() {
               step="0.01"
               value={discount}
               onChange={(e) => setDiscount(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Tax rate (%)
             </label>
             <input
@@ -333,9 +333,9 @@ export default function EditQuotePage() {
               value={taxRate}
               disabled={!taxEnabled}
               onChange={(e) => setTaxRate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
             />
-            <label className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+            <label className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={taxEnabled}
@@ -345,25 +345,25 @@ export default function EditQuotePage() {
             </label>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Valid until
             </label>
             <input
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm"
             />
           </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-100 space-y-1 text-sm">
+        <div className="pt-4 border-t border-border space-y-1 text-sm">
           <Row label="Subtotal" value={totals.subtotal} />
           {money(discount) > 0 && (
             <Row label="Discount" value={-money(discount)} />
           )}
           <Row label="Tax" value={totals.tax} />
-          <div className="flex justify-between font-semibold text-gray-900 text-base pt-1">
+          <div className="flex justify-between font-semibold text-foreground text-base pt-1">
             <span>Total</span>
             <span>${totals.total.toFixed(2)}</span>
           </div>
@@ -374,14 +374,14 @@ export default function EditQuotePage() {
         <button
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           Save changes
         </button>
         <Link
           href={`/app/quotes/${id}`}
-          className="border border-gray-300 text-gray-700 px-5 py-2.5 rounded-full text-sm font-semibold"
+          className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
         >
           Cancel
         </Link>
@@ -392,7 +392,7 @@ export default function EditQuotePage() {
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between text-gray-600">
+    <div className="flex justify-between text-muted-foreground">
       <span>{label}</span>
       <span>${value.toFixed(2)}</span>
     </div>

@@ -52,7 +52,7 @@ const PAINT_TIERS = [
 ];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function setPath(obj, path, value) {
   const next = { ...obj };
@@ -132,8 +132,8 @@ export default function MaterialCostsPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -141,8 +141,8 @@ export default function MaterialCostsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Material Costs</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Material Costs</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           These numbers drive the internal Cost &amp; Margin estimate on every
           quote — what you actually pay for materials and labour, separate
           from the price you charge the client. Leave anything you're not
@@ -159,17 +159,17 @@ export default function MaterialCostsPage() {
         return (
           <div
             key={categoryKey}
-            className="bg-white border border-gray-200 rounded-xl p-6"
+            className="bg-card border border-border rounded-xl p-6"
           >
             <div className="flex items-start justify-between mb-1">
               <div className="flex items-center gap-2">
-                <Droplet size={16} className="text-gray-400" />
-                <h2 className="font-semibold text-gray-900">{meta.label}</h2>
+                <Droplet size={16} className="text-muted-foreground" />
+                <h2 className="font-semibold text-foreground">{meta.label}</h2>
                 <span
                   className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     hasOverrides
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-gray-100 text-gray-500"
+                      ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {hasOverrides ? "Custom" : "Default"}
@@ -179,18 +179,18 @@ export default function MaterialCostsPage() {
                 <button
                   onClick={() => handleReset(categoryKey)}
                   disabled={savingKey === categoryKey}
-                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                 >
                   <RotateCcw size={12} /> Reset to defaults
                 </button>
               )}
             </div>
-            <p className="text-xs text-gray-400 mb-4">{meta.note}</p>
+            <p className="text-xs text-muted-foreground mb-4">{meta.note}</p>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {fields.map((f) => (
                 <div key={f.key}>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
                     {f.label}
                   </label>
                   <input
@@ -207,20 +207,20 @@ export default function MaterialCostsPage() {
             </div>
 
             {meta.model === "cabinet_unit" && draft.consumables && (
-              <div className="mt-5 pt-5 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              <div className="mt-5 pt-5 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground mb-3">
                   Consumables
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {Object.entries(CONSUMABLE_EDITABLE_FIELDS).map(([subKey, subFields]) => (
                     <div key={subKey}>
-                      <div className="text-xs font-medium text-gray-600 mb-1.5">
+                      <div className="text-xs font-medium text-muted-foreground mb-1.5">
                         {CONSUMABLE_LABELS[subKey] || subKey}
                       </div>
                       <div className="space-y-2">
                         {subFields.map((f) => (
                           <div key={f.key}>
-                            <label className="text-[11px] text-gray-400 block mb-0.5">
+                            <label className="text-[11px] text-muted-foreground block mb-0.5">
                               {f.label}
                             </label>
                             <input
@@ -246,14 +246,14 @@ export default function MaterialCostsPage() {
             )}
 
             {meta.model === "production_rate" && draft.paintTiers && (
-              <div className="mt-5 pt-5 border-t border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+              <div className="mt-5 pt-5 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground mb-3">
                   Wall paint cost by tier ($/gal)
                 </h3>
                 <div className="grid grid-cols-3 gap-4">
                   {PAINT_TIERS.map((t) => (
                     <div key={t.key}>
-                      <label className="text-xs font-medium text-gray-600 block mb-1">
+                      <label className="text-xs font-medium text-muted-foreground block mb-1">
                         {t.label}
                       </label>
                       <input
@@ -279,13 +279,13 @@ export default function MaterialCostsPage() {
               <button
                 onClick={() => handleSave(categoryKey)}
                 disabled={savingKey === categoryKey}
-                className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
+                className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
               >
                 <Save size={14} />
                 {savingKey === categoryKey ? "Saving…" : "Save"}
               </button>
               {savedFlash === categoryKey && (
-                <span className="text-xs text-emerald-600">Saved</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>
               )}
             </div>
           </div>

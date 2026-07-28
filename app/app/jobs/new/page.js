@@ -7,7 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function NewJobPage() {
   const router = useRouter();
@@ -81,36 +81,36 @@ export default function NewJobPage() {
       <div>
         <Link
           href="/app/jobs"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-2"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
           <ArrowLeft size={14} /> Back to Jobs
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">New Job</h1>
+        <h1 className="text-2xl font-bold text-foreground">New Job</h1>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       <form
         onSubmit={handleSubmit}
-        className="bg-white border border-gray-200 rounded-xl p-5 space-y-4"
+        className="bg-card border border-border rounded-xl p-5 space-y-4"
       >
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
+          <label className="text-sm font-medium text-foreground block mb-1">
             Client <span className="text-red-500">*</span>
           </label>
           {selectedClient ? (
-            <div className="flex items-center justify-between border border-gray-300 rounded-lg px-3 py-2.5">
-              <span className="text-sm font-medium text-gray-900">
+            <div className="flex items-center justify-between border border-border rounded-lg px-3 py-2.5">
+              <span className="text-sm font-medium text-foreground">
                 {selectedClient.name}
               </span>
               <button
                 type="button"
                 onClick={() => setSelectedClientId("")}
-                className="text-xs text-gray-500 hover:text-gray-900"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
                 Change
               </button>
@@ -120,7 +120,7 @@ export default function NewJobPage() {
               <div className="relative">
                 <Search
                   size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
                 <input
                   value={clientSearch}
@@ -129,23 +129,23 @@ export default function NewJobPage() {
                   className={`${inputClass} pl-9`}
                 />
               </div>
-              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 mt-2 max-h-48 overflow-y-auto">
+              <div className="border border-border rounded-lg divide-y divide-border mt-2 max-h-48 overflow-y-auto">
                 {filteredClients.map((c) => (
                   <button
                     type="button"
                     key={c.id}
                     onClick={() => setSelectedClientId(c.id)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-muted"
                   >
                     {c.name}
                   </button>
                 ))}
                 {filteredClients.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-gray-400">
+                  <p className="px-3 py-3 text-sm text-muted-foreground">
                     No clients found.{" "}
                     <Link
                       href="/app/clients/new"
-                      className="text-gray-900 underline"
+                      className="text-foreground underline"
                     >
                       Add one
                     </Link>
@@ -157,7 +157,7 @@ export default function NewJobPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
+          <label className="text-sm font-medium text-foreground block mb-1">
             Job title <span className="text-red-500">*</span>
           </label>
           <input
@@ -168,7 +168,7 @@ export default function NewJobPage() {
           />
         </div>
 
-        <label className="flex items-center gap-2.5 text-sm text-gray-700">
+        <label className="flex items-center gap-2.5 text-sm text-foreground">
           <input
             type="checkbox"
             checked={recurring}
@@ -179,7 +179,7 @@ export default function NewJobPage() {
 
         {recurring && (
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Recurrence
             </label>
             <select
@@ -198,14 +198,14 @@ export default function NewJobPage() {
         <div className="flex items-center justify-end gap-3 pt-2">
           <Link
             href="/app/jobs"
-            className="text-sm font-medium text-gray-600 px-4 py-2.5"
+            className="text-sm font-medium text-muted-foreground px-4 py-2.5"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="bg-gray-900 text-white px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+            className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
           >
             {saving ? "Creating..." : "Create Job"}
           </button>

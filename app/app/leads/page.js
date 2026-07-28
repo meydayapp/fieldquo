@@ -14,14 +14,14 @@ import { Inbox, Mail, Phone, ArrowRight, AlertCircle } from "lucide-react";
 
 // Mirrors the LeadStatus enum. Order is the pipeline order, not alphabetical.
 const COLUMNS = [
-  { key: "new", label: "New", tone: "bg-blue-50 border-blue-200" },
-  { key: "contacted", label: "Contacted", tone: "bg-amber-50 border-amber-200" },
+  { key: "new", label: "New", tone: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900" },
+  { key: "contacted", label: "Contacted", tone: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900" },
   {
     key: "converted",
     label: "Converted",
-    tone: "bg-emerald-50 border-emerald-200",
+    tone: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
   },
-  { key: "lost", label: "Lost", tone: "bg-gray-50 border-gray-200" },
+  { key: "lost", label: "Lost", tone: "bg-muted border-border" },
 ];
 
 const NEXT_STATUS = { new: "contacted", contacted: "converted" };
@@ -84,30 +84,30 @@ export default function LeadsPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-6xl mx-auto animate-pulse h-96 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Enquiries from your booking page and contact forms.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
       {leads.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <Inbox size={30} className="text-gray-300 mx-auto" />
-          <p className="mt-3 font-medium text-gray-900">No leads yet</p>
-          <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <Inbox size={30} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 font-medium text-foreground">No leads yet</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
             Enquiries land here when someone fills in your public booking page.
           </p>
         </div>
@@ -116,17 +116,17 @@ export default function LeadsPage() {
           {COLUMNS.map((col) => (
             <div key={col.key}>
               <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-sm font-semibold text-gray-900">
+                <h2 className="text-sm font-semibold text-foreground">
                   {col.label}
                 </h2>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground">
                   {grouped[col.key].length}
                 </span>
               </div>
 
               <div className="space-y-3">
                 {grouped[col.key].length === 0 && (
-                  <div className="border border-dashed border-gray-200 rounded-xl px-4 py-6 text-center text-xs text-gray-400">
+                  <div className="border border-dashed border-border rounded-xl px-4 py-6 text-center text-xs text-muted-foreground">
                     Nothing here
                   </div>
                 )}
@@ -138,13 +138,13 @@ export default function LeadsPage() {
                       busyId === lead.id ? "opacity-60" : ""
                     }`}
                   >
-                    <div className="font-medium text-gray-900">{lead.name}</div>
+                    <div className="font-medium text-foreground">{lead.name}</div>
 
-                    <div className="mt-2 space-y-1 text-xs text-gray-600">
+                    <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                       {lead.email && (
                         <a
                           href={`mailto:${lead.email}`}
-                          className="flex items-center gap-1.5 hover:text-gray-900 break-all"
+                          className="flex items-center gap-1.5 hover:text-foreground break-all"
                         >
                           <Mail size={11} className="shrink-0" />
                           {lead.email}
@@ -153,7 +153,7 @@ export default function LeadsPage() {
                       {lead.phone && (
                         <a
                           href={`tel:${lead.phone}`}
-                          className="flex items-center gap-1.5 hover:text-gray-900"
+                          className="flex items-center gap-1.5 hover:text-foreground"
                         >
                           <Phone size={11} className="shrink-0" />
                           {lead.phone}
@@ -162,19 +162,19 @@ export default function LeadsPage() {
                     </div>
 
                     {lead.category?.label && (
-                      <div className="mt-2 inline-block text-[11px] px-2 py-0.5 rounded-full bg-white/70 text-gray-600">
+                      <div className="mt-2 inline-block text-[11px] px-2 py-0.5 rounded-full bg-card/70 text-muted-foreground">
                         {lead.category.label}
                       </div>
                     )}
 
                     {lead.message && (
-                      <p className="mt-2 text-xs text-gray-600 whitespace-pre-wrap">
+                      <p className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap">
                         {lead.message}
                       </p>
                     )}
 
                     <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[11px] text-gray-400">
+                      <span className="text-[11px] text-muted-foreground">
                         {new Date(lead.createdAt).toLocaleDateString("en-CA", {
                           month: "short",
                           day: "numeric",
@@ -187,7 +187,7 @@ export default function LeadsPage() {
                           <button
                             onClick={() => move(lead, NEXT_STATUS[lead.status])}
                             disabled={Boolean(busyId)}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 hover:text-gray-900 disabled:opacity-50"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-foreground disabled:opacity-50"
                           >
                             {NEXT_STATUS[lead.status] === "contacted"
                               ? "Contacted"
@@ -199,7 +199,7 @@ export default function LeadsPage() {
                           <button
                             onClick={() => move(lead, "lost")}
                             disabled={Boolean(busyId)}
-                            className="text-xs text-gray-400 hover:text-gray-700 disabled:opacity-50"
+                            className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                           >
                             Lost
                           </button>
@@ -210,7 +210,7 @@ export default function LeadsPage() {
                     {lead.status === "converted" && (
                       <Link
                         href="/app/quotes/new"
-                        className="mt-3 flex items-center justify-center gap-1.5 bg-white border border-emerald-300 text-emerald-800 text-xs font-semibold py-2 rounded-lg"
+                        className="mt-3 flex items-center justify-center gap-1.5 bg-card border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-semibold py-2 rounded-lg"
                       >
                         Start a quote
                       </Link>

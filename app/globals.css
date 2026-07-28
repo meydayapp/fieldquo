@@ -40,6 +40,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* The app's primary buttons are a near-black slab with white text
+   * (`bg-gray-900 text-white`), which is neither shadcn's --primary (gold) nor
+   * any existing surface token. Rather than repaint every button gold — a
+   * bigger visual change than dark mode itself — this names what was already
+   * there: a surface deliberately inverted against the page. In dark mode it
+   * flips, so the button stays the highest-contrast thing on screen. */
+  --color-inverted: var(--inverted);
+  --color-inverted-foreground: var(--inverted-foreground);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -96,6 +104,9 @@
   --sidebar-accent-foreground: #2d2520;
   --sidebar-border: #e8dcc8;
   --sidebar-ring: #bd9d60;
+  /* Near-black slab, white text — what `bg-gray-900 text-white` already was. */
+  --inverted: #1a1614;
+  --inverted-foreground: #fafaf9;
 }
 
 /* Dark surfaces carry a brown undertone rather than neutral grey — grey next
@@ -127,6 +138,10 @@
   --chart-3: oklch(0.438 0.017 39.3);
   --chart-4: oklch(0.367 0.016 35.7);
   --chart-5: oklch(0.268 0.011 36.5);
+  /* Flipped: a light slab on a dark page, so a primary button is still the
+   * highest-contrast element rather than disappearing into the background. */
+  --inverted: #f5f0e8;
+  --inverted-foreground: #12100e;
   --sidebar: #1a1614;
   --sidebar-foreground: #f5f0e8;
   --sidebar-primary: #d1b87d;

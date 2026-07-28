@@ -75,7 +75,7 @@ export default function NotificationsPage() {
 
   if (loading)
     return (
-      <div className="animate-pulse h-72 bg-gray-200 rounded-xl max-w-2xl" />
+      <div className="animate-pulse h-72 bg-accent rounded-xl max-w-2xl" />
     );
 
   const existing = rules.find((r) => r.type === "large_quote");
@@ -83,33 +83,33 @@ export default function NotificationsPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           When FieldQuo should email you about something happening in your
           account.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-start gap-3">
-          <Bell size={18} className="text-gray-400 mt-0.5 shrink-0" />
+          <Bell size={18} className="text-muted-foreground mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <h2 className="font-semibold text-gray-900">Large quote created</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="font-semibold text-foreground">Large quote created</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Emails everyone with an owner or admin role when someone on your
               team writes a quote above this amount.
             </p>
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={active}
@@ -119,11 +119,11 @@ export default function NotificationsPage() {
         </label>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Alert me above
           </label>
           <div className="relative w-48">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
               $
             </span>
             <input
@@ -134,7 +134,7 @@ export default function NotificationsPage() {
               onChange={(e) => setThreshold(e.target.value)}
               placeholder="10000"
               disabled={!active}
-              className="w-full border border-gray-300 rounded-lg pl-7 pr-3 py-2 text-sm disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full border border-border rounded-lg pl-7 pr-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
             />
           </div>
         </div>
@@ -142,7 +142,7 @@ export default function NotificationsPage() {
         {/* The check runs on a schedule, not on quote creation. Saying so
             prevents "I made a big quote and nothing happened" twenty minutes
             later. */}
-        <p className="text-xs text-gray-400 border-t border-gray-100 pt-3">
+        <p className="text-xs text-muted-foreground border-t border-border pt-3">
           This runs on a daily schedule rather than the instant a quote is
           saved, so expect the email within a day.
         </p>
@@ -151,27 +151,27 @@ export default function NotificationsPage() {
           <button
             onClick={save}
             disabled={saving || (active && !(Number(threshold) > 0))}
-            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
             Save
           </button>
           {saved && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-green-700">
+            <span className="inline-flex items-center gap-1.5 text-sm text-green-700 dark:text-green-300">
               <Check size={14} /> Saved
             </span>
           )}
           {!existing && !saved && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted-foreground">
               Not set up yet — no alerts are being sent.
             </span>
           )}
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Client-facing emails</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Client-facing emails</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Quote, receipt and follow-up emails are configured separately — what
           they say lives in{" "}
           <Link href="/app/settings/email-templates" className="underline">

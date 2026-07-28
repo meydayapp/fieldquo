@@ -53,27 +53,27 @@ export default function PlatformDashboardPage() {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-48" />
+        <div className="h-8 bg-accent rounded w-48" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="h-28 bg-gray-200 rounded-xl" />
+            <div key={i} className="h-28 bg-accent rounded-xl" />
           ))}
         </div>
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-lg bg-red-50 border border-red-200 rounded-xl p-5">
-        <div className="flex items-center gap-2 text-red-700 font-semibold">
+      <div className="max-w-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5">
+        <div className="flex items-center gap-2 text-red-700 dark:text-red-300 font-semibold">
           <AlertCircle size={18} /> Couldn&apos;t load metrics
         </div>
-        <p className="text-sm text-red-600 mt-1">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400 mt-1">{error}</p>
         <button
           onClick={load}
-          className="mt-3 text-sm font-semibold text-red-700 underline"
+          className="mt-3 text-sm font-semibold text-red-700 dark:text-red-300 underline"
         >
           Try again
         </button>
@@ -90,14 +90,14 @@ export default function PlatformDashboardPage() {
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             How FieldQuo itself is doing.
           </p>
         </div>
         <button
           onClick={load}
-          className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
         >
           <RefreshCw size={14} /> Refresh
         </button>
@@ -105,7 +105,7 @@ export default function PlatformDashboardPage() {
 
       {/* FieldQuo's own revenue */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Your revenue
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -134,10 +134,10 @@ export default function PlatformDashboardPage() {
 
       {/* Platform volume — explicitly not revenue */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
           Flowing through FieldQuo
         </h2>
-        <p className="text-xs text-gray-500 mb-3">
+        <p className="text-xs text-muted-foreground mb-3">
           What your customers&apos; clients paid <em>them</em>. Product health,
           not your income.
         </p>
@@ -167,7 +167,7 @@ export default function PlatformDashboardPage() {
 
       {/* Growth */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Growth
         </h2>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -191,18 +191,18 @@ export default function PlatformDashboardPage() {
           />
         </div>
 
-        <div className="mt-4 bg-white border border-gray-200 rounded-xl p-5">
+        <div className="mt-4 bg-card border border-border rounded-xl p-5">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">
+            <h3 className="font-semibold text-foreground">
               Companies signed up, by month
             </h3>
-            <span className="text-xs text-gray-400">Last 12 months</span>
+            <span className="text-xs text-muted-foreground">Last 12 months</span>
           </div>
           <Sparkline
             points={data.monthly.companies.map((m) => m.count)}
             height={90}
           />
-          <div className="flex justify-between mt-2 text-xs text-gray-400">
+          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
             <span>{data.monthly.companies[0]?.month}</span>
             <span>
               {data.monthly.companies[data.monthly.companies.length - 1]?.month}
@@ -213,12 +213,12 @@ export default function PlatformDashboardPage() {
 
       {/* Plan mix */}
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Plan mix
         </h2>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
+        <div className="bg-card border border-border rounded-xl p-5">
           {Object.keys(data.planMix || {}).length === 0 ? (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               No active subscriptions yet.
             </p>
           ) : (
@@ -232,12 +232,12 @@ export default function PlatformDashboardPage() {
                   return (
                     <div key={plan}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="text-gray-700">{plan}</span>
-                        <span className="text-gray-500">
+                        <span className="text-foreground">{plan}</span>
+                        <span className="text-muted-foreground">
                           {count(n)} · {pct}%
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
                         <div
                           className="h-full rounded-full bg-[#bd9d60]"
                           style={{ width: `${pct}%` }}
@@ -254,12 +254,12 @@ export default function PlatformDashboardPage() {
       {/* Trials — the number most worth acting on */}
       {data.trialCompanies > 0 && (
         <section>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-start justify-between gap-4 flex-wrap">
+          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl p-5 flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <div className="font-semibold text-amber-900">
+              <div className="font-semibold text-amber-900 dark:text-amber-200">
                 {count(data.trialCompanies)} companies on trial
               </div>
-              <p className="text-sm text-amber-800 mt-1">
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
                 {trialShare}% of all companies. These are the ones worth calling.
               </p>
             </div>
@@ -278,12 +278,12 @@ export default function PlatformDashboardPage() {
 
 function TrendCard({ title, subtitle, total, points }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-baseline justify-between">
-        <h3 className="font-semibold text-gray-900">{title}</h3>
-        <span className="text-xs text-gray-400">{subtitle}</span>
+        <h3 className="font-semibold text-foreground">{title}</h3>
+        <span className="text-xs text-muted-foreground">{subtitle}</span>
       </div>
-      <div className="mt-1 text-2xl font-bold text-gray-900">
+      <div className="mt-1 text-2xl font-bold text-foreground">
         {count(total)}
       </div>
       <div className="mt-3">

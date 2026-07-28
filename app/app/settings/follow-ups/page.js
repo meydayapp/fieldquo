@@ -17,7 +17,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 const ELIGIBLE_TEMPLATE_TYPES = ["follow_up_email", "marketing_email", "custom_email"];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function FollowUpsPage() {
   const [rules, setRules] = useState([]);
@@ -126,8 +126,8 @@ export default function FollowUpsPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -136,8 +136,8 @@ export default function FollowUpsPage() {
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Follow-ups</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Follow-ups</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Automatically send a template a set time after a quote, invoice,
             or job hits a certain state — no manual reminders.
           </p>
@@ -150,14 +150,14 @@ export default function FollowUpsPage() {
               ? "Create a Follow-up, Marketing, or Custom email template first"
               : ""
           }
-          className="flex items-center gap-1.5 bg-gray-900 text-white text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-40 shrink-0"
+          className="flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-40 shrink-0"
         >
           <Plus size={14} /> New Rule
         </button>
       </div>
 
       {eligibleTemplates.length === 0 && (
-        <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+        <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3">
           You need at least one Follow-up, Marketing, or Custom email template
           before you can create a rule — head to{" "}
           <a href="/app/settings/email-templates" className="underline">
@@ -168,21 +168,21 @@ export default function FollowUpsPage() {
       )}
 
       {rules.length === 0 ? (
-        <p className="text-sm text-gray-400">No follow-up rules yet.</p>
+        <p className="text-sm text-muted-foreground">No follow-up rules yet.</p>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {rules.map((rule) => (
             <div key={rule.id} className="p-4 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+                  <span className="text-sm font-medium text-foreground">{rule.name}</span>
                   {!rule.active && (
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                       Paused
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {rule.delayValue} {rule.delayUnit} after{" "}
                   {TRIGGER_META[rule.triggerEvent]?.label || rule.triggerEvent} →{" "}
                   {rule.template?.name || "(template deleted)"}
@@ -192,14 +192,14 @@ export default function FollowUpsPage() {
                 <button
                   onClick={() => toggleActive(rule)}
                   disabled={busyId === rule.id}
-                  className="text-xs font-medium text-gray-500 hover:text-gray-900"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   {rule.active ? "Pause" : "Activate"}
                 </button>
                 <button
                   onClick={() => handleDelete(rule.id)}
                   disabled={busyId === rule.id}
-                  className="text-gray-400 hover:text-red-500"
+                  className="text-muted-foreground hover:text-red-500"
                   aria-label={`Delete ${rule.name}`}
                 >
                   <Trash2 size={14} />
@@ -216,18 +216,18 @@ export default function FollowUpsPage() {
           onClick={() => setShowNew(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">New Follow-up Rule</h2>
+              <h2 className="text-lg font-semibold text-foreground">New Follow-up Rule</h2>
               <button onClick={() => setShowNew(false)}>
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
                   Rule name (optional)
                 </label>
                 <input
@@ -239,7 +239,7 @@ export default function FollowUpsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
                   Trigger
                 </label>
                 <select
@@ -253,14 +253,14 @@ export default function FollowUpsPage() {
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {TRIGGER_META[form.triggerEvent].description}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
                     Delay
                   </label>
                   <input
@@ -272,7 +272,7 @@ export default function FollowUpsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 block mb-1">
+                  <label className="text-xs font-medium text-muted-foreground block mb-1">
                     Unit
                   </label>
                   <select
@@ -287,7 +287,7 @@ export default function FollowUpsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1">
+                <label className="text-xs font-medium text-muted-foreground block mb-1">
                   Template to send
                 </label>
                 <select
@@ -310,7 +310,7 @@ export default function FollowUpsPage() {
               <button
                 type="submit"
                 disabled={saving || !form.templateId}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? "Creating…" : "Create Rule"}
               </button>

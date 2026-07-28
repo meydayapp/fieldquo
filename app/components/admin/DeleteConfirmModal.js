@@ -19,28 +19,28 @@ export default function DeleteConfirmModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-sm p-6"
+        className="bg-card rounded-2xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+        <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
           <AlertTriangle size={26} className="text-red-500" />
         </div>
 
-        <h2 className="text-lg font-semibold text-gray-900 text-center">
+        <h2 className="text-lg font-semibold text-foreground text-center">
           {title}
         </h2>
-        <p className="text-sm text-gray-500 text-center mt-1.5">{message}</p>
+        <p className="text-sm text-muted-foreground text-center mt-1.5">{message}</p>
 
         {itemName && (
-          <div className="bg-red-50 rounded-lg px-4 py-2.5 mt-4 text-center">
-            <strong className="text-sm text-gray-900">{itemName}</strong>
+          <div className="bg-red-50 dark:bg-red-950/40 rounded-lg px-4 py-2.5 mt-4 text-center">
+            <strong className="text-sm text-foreground">{itemName}</strong>
           </div>
         )}
 
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+            className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
           >
             Cancel
           </button>

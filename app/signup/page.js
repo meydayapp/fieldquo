@@ -252,16 +252,16 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-muted px-4 py-12">
       <div className="w-full max-w-5xl">
         <div className="text-center mb-8">
           <Link
             href="/"
-            className="text-2xl font-bold tracking-tight text-gray-900"
+            className="text-2xl font-bold tracking-tight text-foreground"
           >
             FieldQuo
           </Link>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Start your free trial — $1 for the first month
           </p>
         </div>
@@ -270,7 +270,7 @@ export default function SignupPage() {
             setting up a second business — but they need to know the referral
             can't apply, and the useful thing to offer is their OWN link. */}
         {alreadyOnFieldquo && (
-          <div className="max-w-md mx-auto mb-6 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-900">
+          <div className="max-w-md mx-auto mb-6 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
             <p>
               You&apos;re signed in as <strong>{alreadyOnFieldquo.name}</strong>.
               {referrer
@@ -308,28 +308,28 @@ export default function SignupPage() {
           </div>
         )}
         {error && (
-          <div className="max-w-md mx-auto mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+          <div className="max-w-md mx-auto mb-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
             {error}
           </div>
         )}
         {step === "plan" && (
           <div>
             <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-foreground">
                 Choose your plan
               </h1>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 Select the number of employees you need — you'll create your
                 account next.
               </p>
             </div>
 
             {plansLoading ? (
-              <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+              <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
                 Loading plans...
               </div>
             ) : plans.length === 0 ? (
-              <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+              <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
                 No plans are available right now. Please{" "}
                 <Link href="/contact" className="underline">
                   contact us
@@ -348,10 +348,10 @@ export default function SignupPage() {
                 ))}
 
                 <div
-                  className={`text-left border rounded-2xl p-6 flex flex-col relative bg-white transition-all duration-150 ease-out hover:scale-[1.03] hover:shadow-lg ${
+                  className={`text-left border rounded-2xl p-6 flex flex-col relative bg-card transition-all duration-150 ease-out hover:scale-[1.03] hover:shadow-lg ${
                     isCustom
-                      ? "border-gray-900 ring-2 ring-gray-900 scale-[1.02] bg-gray-50"
-                      : "border-gray-200 hover:border-gray-300"
+                      ? "border-inverted ring-2 ring-ring scale-[1.02] bg-muted"
+                      : "border-border hover:border-border"
                   }`}
                 >
                   <button
@@ -359,10 +359,10 @@ export default function SignupPage() {
                     onClick={selectCustom}
                     className="text-left"
                   >
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-foreground">
                       Custom
                     </h3>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Tell us how many employees you need, and we'll calculate
                       your rate.
                     </p>
@@ -370,7 +370,7 @@ export default function SignupPage() {
 
                   {isCustom && (
                     <div className="mt-4">
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-foreground">
                         Number of employees
                       </label>
                       <input
@@ -380,10 +380,10 @@ export default function SignupPage() {
                         onChange={(e) =>
                           setCustomCount(Number(e.target.value || 1))
                         }
-                        className="w-full mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        className="w-full mt-1 border border-border rounded-lg px-3 py-2 text-sm"
                       />
                       {pricing.contactSalesRequired ? (
-                        <p className="mt-4 text-sm text-gray-700">
+                        <p className="mt-4 text-sm text-foreground">
                           For more than 40 employees, pricing is custom —{" "}
                           <Link
                             href="/contact"
@@ -394,7 +394,7 @@ export default function SignupPage() {
                           .
                         </p>
                       ) : (
-                        <p className="mt-4 text-sm text-gray-700">
+                        <p className="mt-4 text-sm text-foreground">
                           ${pricing.trialTotal} first month, then{" "}
                           <span className="font-semibold">
                             ${pricing.monthlyTotal}/mo
@@ -407,18 +407,18 @@ export default function SignupPage() {
               </div>
             )}
 
-            <div className="max-w-md mx-auto mt-8 bg-white border border-gray-200 rounded-xl p-5">
-              <div className="text-sm text-gray-600">
+            <div className="max-w-md mx-auto mt-8 bg-card border border-border rounded-xl p-5">
+              <div className="text-sm text-muted-foreground">
                 Selected plan:{" "}
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   {hasSelection ? selectedPlanName : "None yet"}
                 </span>
               </div>
 
               {hasSelection && !pricing.contactSalesRequired && (
-                <div className="text-sm text-gray-600 mt-1">
+                <div className="text-sm text-muted-foreground mt-1">
                   ${pricing.trialTotal} first month, then{" "}
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-foreground">
                     ${pricing.monthlyTotal}/mo
                   </span>
                 </div>
@@ -430,7 +430,7 @@ export default function SignupPage() {
                 disabled={
                   !hasSelection || (isCustom && pricing.contactSalesRequired)
                 }
-                className="w-full mt-4 bg-gray-900 text-white py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+                className="w-full mt-4 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
               >
                 Continue
               </button>
@@ -440,9 +440,9 @@ export default function SignupPage() {
         {step === "account" && (
           <form
             onSubmit={handleAccountSubmit}
-            className="max-w-lg mx-auto bg-white border border-gray-200 rounded-xl p-6 space-y-4"
+            className="max-w-lg mx-auto bg-card border border-border rounded-xl p-6 space-y-4"
           >
-            <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700">
+            <div className="bg-muted rounded-lg px-4 py-3 text-sm text-foreground">
               <strong>{selectedPlanName}</strong>
               <br />${pricing.trialTotal} first month, then $
               {pricing.monthlyTotal}/mo
@@ -450,7 +450,7 @@ export default function SignupPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   First name
                 </label>
                 <input
@@ -459,17 +459,17 @@ export default function SignupPage() {
                     setForm({ ...form, firstName: e.target.value })
                   }
                   className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.firstName ? "border-red-400" : "border-gray-300"
+                    fieldErrors.firstName ? "border-red-400" : "border-border"
                   }`}
                 />
                 {fieldErrors.firstName && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                     {fieldErrors.firstName}
                   </p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Last name
                 </label>
                 <input
@@ -478,11 +478,11 @@ export default function SignupPage() {
                     setForm({ ...form, lastName: e.target.value })
                   }
                   className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.lastName ? "border-red-400" : "border-gray-300"
+                    fieldErrors.lastName ? "border-red-400" : "border-border"
                   }`}
                 />
                 {fieldErrors.lastName && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                     {fieldErrors.lastName}
                   </p>
                 )}
@@ -490,7 +490,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-foreground">
                 Company name
               </label>
               <input
@@ -499,11 +499,11 @@ export default function SignupPage() {
                   setForm({ ...form, companyName: e.target.value })
                 }
                 className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.companyName ? "border-red-400" : "border-gray-300"
+                  fieldErrors.companyName ? "border-red-400" : "border-border"
                 }`}
               />
               {fieldErrors.companyName && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                   {fieldErrors.companyName}
                 </p>
               )}
@@ -511,7 +511,7 @@ export default function SignupPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Email
                 </label>
                 <input
@@ -520,17 +520,17 @@ export default function SignupPage() {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="you@company.com"
                   className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.email ? "border-red-400" : "border-gray-300"
+                    fieldErrors.email ? "border-red-400" : "border-border"
                   }`}
                 />
                 {fieldErrors.email && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                     {fieldErrors.email}
                   </p>
                 )}
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Phone
                 </label>
                 <input
@@ -544,11 +544,11 @@ export default function SignupPage() {
                   }
                   placeholder="555-123-4567"
                   className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.phone ? "border-red-400" : "border-gray-300"
+                    fieldErrors.phone ? "border-red-400" : "border-border"
                   }`}
                 />
                 {fieldErrors.phone && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                     {fieldErrors.phone}
                   </p>
                 )}
@@ -556,7 +556,7 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-foreground">
                 Address
               </label>
               <AddressAutocomplete
@@ -567,11 +567,11 @@ export default function SignupPage() {
                 }
                 placeholder="Start typing your address..."
                 className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.address ? "border-red-400" : "border-gray-300"
+                  fieldErrors.address ? "border-red-400" : "border-border"
                 }`}
               />
               {fieldErrors.address && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                   {fieldErrors.address}
                 </p>
               )}
@@ -579,31 +579,31 @@ export default function SignupPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   City
                 </label>
                 <input
                   value={form.city}
                   readOnly
                   placeholder="Auto-filled from address"
-                  className="w-full mt-1 border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-600"
+                  className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Province
                 </label>
                 <input
                   value={form.province}
                   readOnly
                   placeholder="Auto-filled from address"
-                  className="w-full mt-1 border border-gray-200 bg-gray-50 rounded-lg px-4 py-2.5 text-sm text-gray-600"
+                  className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-foreground">
                 Password
               </label>
               <input
@@ -611,11 +611,11 @@ export default function SignupPage() {
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.password ? "border-red-400" : "border-gray-300"
+                  fieldErrors.password ? "border-red-400" : "border-border"
                 }`}
               />
               {fieldErrors.password && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                   {fieldErrors.password}
                 </p>
               )}
@@ -624,7 +624,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
             >
               {submitting ? "Creating your account..." : "Continue"}
             </button>
@@ -632,7 +632,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setStep("plan")}
-              className="w-full text-sm text-gray-500"
+              className="w-full text-sm text-muted-foreground"
             >
               ← Back to plans
             </button>
@@ -641,10 +641,10 @@ export default function SignupPage() {
         // replace the industry step's button grid and Continue condition
         {step === "industry" && (
           <div className="max-w-md mx-auto">
-            <h2 className="font-semibold text-gray-900 mb-1">
+            <h2 className="font-semibold text-foreground mb-1">
               What trades does your company work in?
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Select all that apply — this narrows down which quote types you'll
               see.
             </p>
@@ -656,8 +656,8 @@ export default function SignupPage() {
                   onClick={() => toggleIndustry(ind.slug)}
                   className={`text-left border rounded-lg px-4 py-3 text-sm ${
                     selectedIndustries.includes(ind.slug)
-                      ? "border-gray-900 bg-gray-50 font-medium"
-                      : "border-gray-200 bg-white"
+                      ? "border-inverted bg-muted font-medium"
+                      : "border-border bg-card"
                   }`}
                 >
                   {ind.label}
@@ -684,7 +684,7 @@ export default function SignupPage() {
                 setStep("services");
               }}
               disabled={selectedIndustries.length === 0}
-              className="w-full mt-6 bg-gray-900 text-white py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+              className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
             >
               Continue
             </button>
@@ -692,7 +692,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setStep("account")}
-              className="w-full mt-2 text-sm text-gray-500"
+              className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back
             </button>
@@ -700,10 +700,10 @@ export default function SignupPage() {
         )}
         {step === "services" && (
           <div className="max-w-md mx-auto">
-            <h2 className="font-semibold text-gray-900 mb-1">
+            <h2 className="font-semibold text-foreground mb-1">
               Which services do you offer?
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {showAllServices
                 ? "Browsing every quote type — turn on the ones you offer. You can change this anytime."
                 : "We've preselected the usual quote types for your trade. Adjust as needed — you can change this anytime."}
@@ -723,15 +723,15 @@ export default function SignupPage() {
                       onClick={() => toggleCategory(cat.id)}
                       className={`text-left border rounded-lg px-4 py-3 text-sm ${
                         selectedCategoryIds.includes(cat.id)
-                          ? "border-gray-900 bg-gray-50 font-medium"
-                          : "border-gray-200 bg-white"
+                          ? "border-inverted bg-muted font-medium"
+                          : "border-border bg-card"
                       }`}
                     >
                       {cat.label}
                     </button>
                   ))}
                   {categories.length === 0 && (
-                    <p className="col-span-2 text-sm text-gray-500">
+                    <p className="col-span-2 text-sm text-muted-foreground">
                       Loading services...
                     </p>
                   )}
@@ -743,7 +743,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => setShowAllServices((v) => !v)}
-                className="w-full mt-3 text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="w-full mt-3 text-sm font-medium text-muted-foreground hover:text-foreground"
               >
                 {showAllServices
                   ? "← Show just my trade's quote types"
@@ -755,7 +755,7 @@ export default function SignupPage() {
               type="button"
               onClick={handleFinish}
               disabled={submitting || selectedCategoryIds.length === 0}
-              className="w-full mt-6 bg-gray-900 text-white py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+              className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
             >
               {submitting ? "Setting up..." : "Continue to Payment"}
             </button>
@@ -763,15 +763,15 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setStep("industry")}
-              className="w-full mt-2 text-sm text-gray-500"
+              className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back
             </button>
           </div>
         )}
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-gray-900 underline">
+          <Link href="/login" className="font-medium text-foreground underline">
             Log in
           </Link>
         </p>

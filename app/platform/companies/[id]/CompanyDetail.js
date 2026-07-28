@@ -34,9 +34,9 @@ import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
 
 const STATUS_STYLES = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  churned: "bg-red-50 text-red-700 border-red-200",
+  active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  churned: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
 };
 
 function formatDate(value) {
@@ -133,21 +133,21 @@ export default function CompanyDetail({ companyId }) {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-64" />
-        <div className="h-40 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-64" />
+        <div className="h-40 bg-accent rounded-xl" />
       </div>
     );
   }
 
   if (error && !company) {
     return (
-      <div className="max-w-lg bg-red-50 border border-red-200 rounded-xl p-5">
-        <div className="flex items-center gap-2 text-red-700 font-semibold">
+      <div className="max-w-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5">
+        <div className="flex items-center gap-2 text-red-700 dark:text-red-300 font-semibold">
           <AlertCircle size={18} /> {error}
         </div>
         <Link
           href="/platform/companies"
-          className="mt-3 inline-block text-sm text-red-700 underline"
+          className="mt-3 inline-block text-sm text-red-700 dark:text-red-300 underline"
         >
           Back to companies
         </Link>
@@ -162,7 +162,7 @@ export default function CompanyDetail({ companyId }) {
     <div className="space-y-6">
       <Link
         href="/platform/companies"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} /> Companies
       </Link>
@@ -170,17 +170,17 @@ export default function CompanyDetail({ companyId }) {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{company.name}</h1>
             <span
               className={`text-xs px-2.5 py-1 rounded-full border ${
                 STATUS_STYLES[company.onboardingStatus] ||
-                "bg-gray-50 text-gray-600 border-gray-200"
+                "bg-muted text-muted-foreground border-border"
               }`}
             >
               {company.onboardingStatus}
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Joined {formatDate(company.createdAt)} · /{company.slug}
           </p>
         </div>
@@ -189,7 +189,7 @@ export default function CompanyDetail({ companyId }) {
           <button
             onClick={impersonate}
             disabled={busy}
-            className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-60"
+            className="inline-flex items-center gap-2 border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:bg-muted disabled:opacity-60"
           >
             {busy ? (
               <Loader2 size={14} className="animate-spin" />
@@ -205,7 +205,7 @@ export default function CompanyDetail({ companyId }) {
             className={`inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60 ${
               isChurned
                 ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "border border-red-300 text-red-700 hover:bg-red-50"
+                : "border border-red-300 text-red-700 dark:text-red-300 hover:bg-red-50 dark:bg-red-950/40"
             }`}
           >
             <Ban size={14} />
@@ -215,14 +215,14 @@ export default function CompanyDetail({ companyId }) {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
 
       {/* Billing */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-4">Billing</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-4">Billing</h2>
         {sub ? (
           <dl className="grid gap-4 sm:grid-cols-4">
             <Field label="Plan" value={sub.plan?.name || "—"} />
@@ -237,7 +237,7 @@ export default function CompanyDetail({ companyId }) {
             />
           </dl>
         ) : (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             No subscription. This company is on a trial or was created
             manually.
             {company.trialEndsAt &&
@@ -247,9 +247,9 @@ export default function CompanyDetail({ companyId }) {
       </div>
 
       {/* Usage */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-1">Usage</h2>
-        <p className="text-xs text-gray-500 mb-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">Usage</h2>
+        <p className="text-xs text-muted-foreground mb-4">
           Counts only — individual client records aren&apos;t shown here. If you
           need to see their data, &ldquo;View account&rdquo; opens a 30-minute
           read-only session, logged against your name.
@@ -270,14 +270,14 @@ export default function CompanyDetail({ companyId }) {
           Read-only by design. Support diagnoses and talks the customer through
           the fix; there is no write path here, so there is nothing to get
           wrong on someone else's live account. */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
-          <h2 className="font-semibold text-gray-900">Company record</h2>
-          <span className="inline-flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 rounded-full px-2.5 py-1">
+          <h2 className="font-semibold text-foreground">Company record</h2>
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-full px-2.5 py-1">
             <Lock size={11} /> Read-only
           </span>
         </div>
-        <p className="text-xs text-gray-500 mb-5">
+        <p className="text-xs text-muted-foreground mb-5">
           Everything they see under Settings → Company. To change any of it,
           walk them through it on their side.
         </p>
@@ -372,7 +372,7 @@ export default function CompanyDetail({ companyId }) {
                   href={company.logoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline text-gray-900"
+                  className="underline text-foreground"
                 >
                   View
                 </a>
@@ -447,34 +447,34 @@ export default function CompanyDetail({ companyId }) {
       <CompanyHistory companyId={companyId} />
 
       {/* Team */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Users size={16} className="text-gray-400" />
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Users size={16} className="text-muted-foreground" />
           Team ({count(company.members?.length)})
         </h2>
         {company.members?.length ? (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {company.members.map((m) => (
               <div
                 key={m.id}
                 className="flex items-center justify-between py-3 gap-4"
               >
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">
+                  <div className="text-sm font-medium text-foreground truncate">
                     {m.user?.name || "Unnamed"}
                   </div>
-                  <div className="text-xs text-gray-500 truncate">
+                  <div className="text-xs text-muted-foreground truncate">
                     {m.user?.email}
                   </div>
                 </div>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 shrink-0">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground shrink-0">
                   {m.role}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             No members yet — the owner hasn&apos;t completed signup.
           </p>
         )}
@@ -485,8 +485,8 @@ export default function CompanyDetail({ companyId }) {
 
 function Group({ title, children }) {
   return (
-    <div className="py-4 border-t border-gray-100 first:border-t-0 first:pt-0">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
+    <div className="py-4 border-t border-border first:border-t-0 first:pt-0">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
         {title}
       </h3>
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{children}</dl>
@@ -516,20 +516,20 @@ function Field({ label, value, icon: Icon, muted, mono, copyable }) {
 
   return (
     <div className="min-w-0">
-      <dt className="text-xs font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
         {Icon && <Icon size={12} />}
         {label}
       </dt>
       <dd
         className={`mt-1 text-sm flex items-center gap-2 ${
-          empty || muted ? "text-gray-400" : "text-gray-900"
+          empty || muted ? "text-muted-foreground" : "text-foreground"
         } ${mono && !empty ? "font-mono text-xs" : ""}`}
       >
         <span className="truncate">{empty ? "Not set" : value}</span>
         {copyable && !empty && typeof value === "string" && (
           <button
             onClick={copy}
-            className="text-gray-300 hover:text-gray-700 shrink-0"
+            className="text-muted-foreground hover:text-foreground shrink-0"
             aria-label={`Copy ${label}`}
           >
             {copied ? <Check size={12} /> : <Copy size={12} />}

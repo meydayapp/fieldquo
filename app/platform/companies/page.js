@@ -20,9 +20,9 @@ const STATUS_FILTERS = [
 ];
 
 const STATUS_STYLES = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  churned: "bg-red-50 text-red-700 border-red-200",
+  active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  churned: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
 };
 
 function trialDaysLeft(trialEndsAt) {
@@ -65,8 +65,8 @@ export default function PlatformCompaniesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Companies</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Companies</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Every company on FieldQuo.
         </p>
       </div>
@@ -75,13 +75,13 @@ export default function PlatformCompaniesPage() {
         <div className="relative flex-1">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by company name…"
-            className="w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+            className="w-full border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
           />
         </div>
 
@@ -92,8 +92,8 @@ export default function PlatformCompaniesPage() {
               onClick={() => setStatus(f.value)}
               className={`px-3 py-2 rounded-lg text-sm font-medium border ${
                 status === f.value
-                  ? "bg-gray-900 text-white border-gray-900"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  ? "bg-inverted text-inverted-foreground border-inverted"
+                  : "border-border text-muted-foreground hover:bg-muted"
               }`}
             >
               {f.label}
@@ -103,19 +103,19 @@ export default function PlatformCompaniesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} /> {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : companies.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <Building2 size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <Building2 size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             {query || status
               ? "No companies match that."
               : "No companies yet."}
@@ -123,12 +123,12 @@ export default function PlatformCompaniesPage() {
         </div>
       ) : (
         <>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             {count(companies.length)}{" "}
             {companies.length === 1 ? "company" : "companies"}
           </p>
 
-          <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+          <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {companies.map((c) => {
               const daysLeft = trialDaysLeft(c.trialEndsAt);
               const plan = c.subscription?.plan?.name;
@@ -137,17 +137,17 @@ export default function PlatformCompaniesPage() {
                 <Link
                   key={c.id}
                   href={`/platform/companies/${c.id}`}
-                  className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-gray-50"
+                  className="flex items-center justify-between gap-4 px-5 py-4 hover:bg-muted"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-gray-900 truncate">
+                      <span className="font-medium text-foreground truncate">
                         {c.name}
                       </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full border ${
                           STATUS_STYLES[c.onboardingStatus] ||
-                          "bg-gray-50 text-gray-600 border-gray-200"
+                          "bg-muted text-muted-foreground border-border"
                         }`}
                       >
                         {c.onboardingStatus}
@@ -155,23 +155,23 @@ export default function PlatformCompaniesPage() {
                       {/* Expiring trials are the single most actionable thing
                           on this screen, so they get called out inline. */}
                       {daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && (
-                        <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                        <span className="text-xs px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
                           Trial ends in {daysLeft}d
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1 truncate">
+                    <div className="text-xs text-muted-foreground mt-1 truncate">
                       {c.email || "no email"} · {count(c._count?.members)}{" "}
                       members · {count(c._count?.quotes)} quotes
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-foreground">
                       {plan || "No plan"}
                     </div>
                     {c.subscription?.status && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {c.subscription.status}
                       </div>
                     )}

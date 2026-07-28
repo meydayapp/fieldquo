@@ -67,21 +67,21 @@ export default function BookingPageSettings() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Booking Page</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Booking Page</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Event types clients can book directly from your public page.
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm font-semibold"
+          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold"
         >
           <Plus size={14} /> New Event Type
         </button>
@@ -89,18 +89,18 @@ export default function BookingPageSettings() {
 
       <div className="space-y-2">
         {eventTypes.length === 0 && (
-          <div className="bg-white border border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
+          <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
             No event types yet — clients can't book anything until you add one.
           </div>
         )}
         {eventTypes.map((et) => (
           <div
             key={et.id}
-            className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between"
+            className="bg-card border border-border rounded-xl p-4 flex items-center justify-between"
           >
             <div>
-              <div className="font-medium text-gray-900">{et.name}</div>
-              <div className="text-xs text-gray-500">
+              <div className="font-medium text-foreground">{et.name}</div>
+              <div className="text-xs text-muted-foreground">
                 {et.durationMinutes} min{et.location ? ` · ${et.location}` : ""}
               </div>
             </div>
@@ -118,7 +118,7 @@ export default function BookingPageSettings() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
+          <div className="bg-card rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">New Event Type</h2>
               <button onClick={() => setShowForm(false)}>
@@ -173,7 +173,7 @@ export default function BookingPageSettings() {
               />
               <button
                 type="submit"
-                className="w-full bg-gray-900 text-white py-2 rounded-full text-sm font-semibold"
+                className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
               >
                 Create
               </button>

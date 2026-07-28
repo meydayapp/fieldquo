@@ -13,14 +13,14 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
   if (!status?.steps?.length || status.complete) return null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-start gap-4">
         <CircularProgress percent={status.percent} />
         <div>
-          <h2 className="font-semibold text-gray-900">
+          <h2 className="font-semibold text-foreground">
             Finish setting up FieldQuo
           </h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-0.5">
             {status.plan
               ? `${status.plan.name} — ${status.seatsUsed}/${status.plan.maxUsers} licenses in use`
               : "A few steps left before you're fully up and running."}
@@ -34,19 +34,19 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
             return (
               <div
                 key={step.key}
-                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50"
+                className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg hover:bg-muted"
               >
                 <div className="flex items-center gap-3">
                   {step.done ? (
                     <CheckCircle2
                       size={18}
-                      className="text-green-600 shrink-0"
+                      className="text-green-600 dark:text-green-400 shrink-0"
                     />
                   ) : (
-                    <Circle size={18} className="text-gray-300 shrink-0" />
+                    <Circle size={18} className="text-muted-foreground shrink-0" />
                   )}
                   <span
-                    className={`text-sm ${step.done ? "text-gray-400 line-through" : "text-gray-900 font-medium"}`}
+                    className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
                   >
                     {step.label}
                   </span>
@@ -55,7 +55,7 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
                   <button
                     type="button"
                     onClick={() => setShowAddEmployee(true)}
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-900 border border-gray-300 rounded-full px-3 py-1.5 shrink-0"
+                    className="flex items-center gap-1 text-xs font-semibold text-foreground border border-border rounded-full px-3 py-1.5 shrink-0"
                   >
                     <UserPlus size={13} /> Add Employee
                   </button>
@@ -68,15 +68,15 @@ export default function OnboardingProgress({ status, onEmployeeAdded }) {
             <Link
               key={step.key}
               href={step.href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted"
             >
               {step.done ? (
-                <CheckCircle2 size={18} className="text-green-600 shrink-0" />
+                <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 shrink-0" />
               ) : (
-                <Circle size={18} className="text-gray-300 shrink-0" />
+                <Circle size={18} className="text-muted-foreground shrink-0" />
               )}
               <span
-                className={`text-sm ${step.done ? "text-gray-400 line-through" : "text-gray-900 font-medium"}`}
+                className={`text-sm ${step.done ? "text-muted-foreground line-through" : "text-foreground font-medium"}`}
               >
                 {step.label}
               </span>

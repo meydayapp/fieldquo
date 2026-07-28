@@ -52,7 +52,7 @@ export default function OnboardingTour({ steps, storageKey, onFinish }) {
       )}
 
       <div
-        className="absolute bg-white rounded-xl p-4 w-72 shadow-xl"
+        className="absolute bg-card rounded-xl p-4 w-72 shadow-xl"
         style={{
           top: rect
             ? Math.min(rect.bottom + 12, window.innerHeight - 180)
@@ -61,20 +61,20 @@ export default function OnboardingTour({ steps, storageKey, onFinish }) {
         }}
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             {stepIndex + 1} of {steps.length}
           </span>
           <button onClick={finish}>
-            <X size={14} className="text-gray-400" />
+            <X size={14} className="text-muted-foreground" />
           </button>
         </div>
-        <h4 className="font-semibold text-gray-900 text-sm">{step.title}</h4>
-        <p className="text-sm text-gray-600 mt-1">{step.body}</p>
+        <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
+        <p className="text-sm text-muted-foreground mt-1">{step.body}</p>
         <button
           onClick={() =>
             stepIndex + 1 < steps.length ? setStepIndex((i) => i + 1) : finish()
           }
-          className="w-full mt-3 bg-gray-900 text-white py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
+          className="w-full mt-3 bg-inverted text-inverted-foreground py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
         >
           {stepIndex + 1 < steps.length ? "Next" : "Done"}{" "}
           <ArrowRight size={13} />

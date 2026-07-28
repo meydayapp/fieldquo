@@ -110,12 +110,12 @@ export default function QuoteApprovalPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse h-80 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-3xl mx-auto animate-pulse h-80 bg-accent rounded-xl" />
     );
 
   if (!quote)
     return (
-      <div className="p-6 max-w-lg mx-auto text-sm text-gray-500">
+      <div className="p-6 max-w-lg mx-auto text-sm text-muted-foreground">
         Quote not found.
       </div>
     );
@@ -126,27 +126,27 @@ export default function QuoteApprovalPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <Link
         href={`/app/quotes/${id}`}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} /> Back to {quote.quoteNumber}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Get this approved</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Get this approved</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           {quote.quoteNumber} · {quote.client?.name} · {money(quote.total)}
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
       {quote.status === "draft" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-900">
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
           This quote is still a draft. The public link stays closed until it&apos;s
           marked as sent — clients can&apos;t open a quote you&apos;re still
           working on.
@@ -154,11 +154,11 @@ export default function QuoteApprovalPage() {
       )}
 
       {/* Share link */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-          <Link2 size={16} className="text-gray-400" /> Client link
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <Link2 size={16} className="text-muted-foreground" /> Client link
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Anyone with this link can see the quote and approve it. Send it only to
           the client.
         </p>
@@ -170,15 +170,15 @@ export default function QuoteApprovalPage() {
                 readOnly
                 value={share.url}
                 onFocus={(e) => e.target.select()}
-                className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 text-gray-700"
+                className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm font-mono bg-muted text-foreground"
               />
               <button
                 onClick={copy}
-                className="inline-flex items-center gap-1.5 border border-gray-300 px-3 py-2 rounded-lg text-sm font-semibold text-gray-700 shrink-0"
+                className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-lg text-sm font-semibold text-foreground shrink-0"
               >
                 {copied ? (
                   <>
-                    <Check size={14} className="text-green-600" /> Copied
+                    <Check size={14} className="text-green-600 dark:text-green-400" /> Copied
                   </>
                 ) : (
                   <>
@@ -193,14 +193,14 @@ export default function QuoteApprovalPage() {
                 href={share.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
               >
                 <ExternalLink size={13} /> Preview what they see
               </a>
               <button
                 onClick={() => createLink(true)}
                 disabled={busy === "rotate"}
-                className="inline-flex items-center gap-1.5 text-gray-600 hover:text-gray-900 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground disabled:opacity-60"
               >
                 {busy === "rotate" ? (
                   <Loader2 size={13} className="animate-spin" />
@@ -210,7 +210,7 @@ export default function QuoteApprovalPage() {
                 Replace link
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Replacing the link kills the old one. Use it if the wrong person
               got a copy — but any email already sent will stop working.
             </p>
@@ -219,7 +219,7 @@ export default function QuoteApprovalPage() {
           <button
             onClick={() => createLink(false)}
             disabled={busy === "create"}
-            className="mt-4 inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="mt-4 inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {busy === "create" && <Loader2 size={14} className="animate-spin" />}
             Create client link
@@ -228,33 +228,33 @@ export default function QuoteApprovalPage() {
       </div>
 
       {/* Where it stands */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Where it stands</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Where it stands</h2>
 
         <dl className="mt-4 grid gap-4 sm:grid-cols-3 text-sm">
           <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-400">
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               Status
             </dt>
-            <dd className="mt-1 font-medium text-gray-900 capitalize">
+            <dd className="mt-1 font-medium text-foreground capitalize">
               {quote.status}
             </dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-400">
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               Sent
             </dt>
-            <dd className="mt-1 text-gray-900">
+            <dd className="mt-1 text-foreground">
               {quote.sentAt
                 ? new Date(quote.sentAt).toLocaleDateString("en-CA")
                 : "Not yet"}
             </dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-400">
+            <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               Valid until
             </dt>
-            <dd className="mt-1 text-gray-900">
+            <dd className="mt-1 text-foreground">
               {quote.validUntil
                 ? new Date(quote.validUntil).toLocaleDateString("en-CA")
                 : "No expiry"}
@@ -264,17 +264,17 @@ export default function QuoteApprovalPage() {
       </div>
 
       {/* Record a decision made elsewhere */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Record their answer</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Record their answer</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           If they told you over the phone or in person, log it here so the
           pipeline stays accurate.
         </p>
 
         {decided ? (
-          <div className="mt-4 text-sm text-gray-600">
+          <div className="mt-4 text-sm text-muted-foreground">
             Already marked{" "}
-            <span className="font-semibold text-gray-900">{quote.status}</span>.
+            <span className="font-semibold text-foreground">{quote.status}</span>.
             Change it from the quote page if that was wrong.
           </div>
         ) : (
@@ -292,7 +292,7 @@ export default function QuoteApprovalPage() {
             <button
               onClick={() => record("declined")}
               disabled={Boolean(busy) || quote.status === "draft"}
-              className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              className="inline-flex items-center gap-2 border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
             >
               {busy === "declined" && (
                 <Loader2 size={14} className="animate-spin" />

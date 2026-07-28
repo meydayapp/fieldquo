@@ -14,7 +14,7 @@ import PlatformSidebar from "@/app/components/platform/PlatformSidebar";
 
 export default function PlatformLayout({ children }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-muted">
       <PlatformSidebar />
       <main className="flex-1 min-w-0 p-6 sm:p-8">{children}</main>
     </div>

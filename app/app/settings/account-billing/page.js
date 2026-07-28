@@ -95,9 +95,9 @@ export default function AccountBillingPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-56 bg-gray-200 rounded" />
-        <div className="h-40 bg-gray-200 rounded-xl" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-8 w-56 bg-accent rounded" />
+        <div className="h-40 bg-accent rounded-xl" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -109,34 +109,34 @@ export default function AccountBillingPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Account & Billing</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Account & Billing</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Your plan, seats, and payment details.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Current plan */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-gray-900">
+              <h2 className="text-base font-semibold text-foreground">
                 {subscription?.plan?.name || "No active plan"}
               </h2>
               {subscription?.status && (
                 <span
                   className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${
                     isTrialing
-                      ? "bg-amber-50 text-amber-700"
+                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                       : subscription.status === "active"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-gray-100 text-gray-600"
+                        ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                        : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {subscription.status}
@@ -144,7 +144,7 @@ export default function AccountBillingPage() {
               )}
             </div>
             {subscription?.plan && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 {money(subscription.plan.priceMonthly)}/month
                 {subscription.plan.maxUsers
                   ? ` · up to ${subscription.plan.maxUsers} users`
@@ -152,12 +152,12 @@ export default function AccountBillingPage() {
               </p>
             )}
             {isTrialing && trialDays !== null && (
-              <p className="text-sm text-amber-700 mt-2 font-medium">
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 font-medium">
                 Trial ends in {trialDays} day{trialDays === 1 ? "" : "s"}
               </p>
             )}
             {!isTrialing && subscription?.currentPeriodEnd && (
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Next billing date{" "}
                 {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
               </p>
@@ -169,7 +169,7 @@ export default function AccountBillingPage() {
           <button
             onClick={handleManageBilling}
             disabled={openingPortal}
-            className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+            className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
           >
             <ExternalLink size={14} />
             {openingPortal ? "Opening..." : "Manage billing & payment method"}
@@ -177,7 +177,7 @@ export default function AccountBillingPage() {
           {subscription?.status && subscription.status !== "canceled" && (
             <button
               onClick={() => setShowCancelConfirm(true)}
-              className="text-sm font-medium text-red-600 px-4 py-2 rounded-full hover:bg-red-50"
+              className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
             >
               Cancel plan
             </button>
@@ -187,7 +187,7 @@ export default function AccountBillingPage() {
 
       {/* Available plans */}
       <div>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Plans</h2>
+        <h2 className="text-base font-semibold text-foreground mb-3">Plans</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map((plan) => {
             const isCurrent = plan.id === currentPlanId;
@@ -195,21 +195,21 @@ export default function AccountBillingPage() {
               <div
                 key={plan.id}
                 className={`border rounded-xl p-4 ${
-                  isCurrent ? "border-gray-900" : "border-gray-200"
+                  isCurrent ? "border-inverted" : "border-border"
                 }`}
               >
-                <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <h3 className="font-semibold text-foreground">{plan.name}</h3>
+                <p className="text-2xl font-bold text-foreground mt-1">
                   {money(plan.priceMonthly)}
-                  <span className="text-sm font-normal text-gray-400">/mo</span>
+                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
                 </p>
                 {plan.maxUsers && (
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Up to {plan.maxUsers} users
                   </p>
                 )}
                 {plan.aiCopilotEnabled && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     AI Copilot included
                   </p>
                 )}
@@ -218,8 +218,8 @@ export default function AccountBillingPage() {
                   disabled={isCurrent || busyPlanId === plan.id}
                   className={`w-full mt-3 py-2 rounded-full text-sm font-semibold disabled:opacity-60 ${
                     isCurrent
-                      ? "bg-gray-100 text-gray-500"
-                      : "bg-gray-900 text-white"
+                      ? "bg-muted text-muted-foreground"
+                      : "bg-inverted text-inverted-foreground"
                   }`}
                 >
                   {isCurrent
@@ -232,7 +232,7 @@ export default function AccountBillingPage() {
             );
           })}
           {plans.length === 0 && (
-            <p className="text-sm text-gray-400 col-span-3">
+            <p className="text-sm text-muted-foreground col-span-3">
               No plans configured yet.
             </p>
           )}
@@ -245,23 +245,23 @@ export default function AccountBillingPage() {
           onClick={() => setShowCancelConfirm(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={26} className="text-red-500" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 text-center">
+            <h2 className="text-lg font-semibold text-foreground text-center">
               Cancel your plan?
             </h2>
-            <p className="text-sm text-gray-500 text-center mt-1.5">
+            <p className="text-sm text-muted-foreground text-center mt-1.5">
               You'll keep access until the end of your current billing period,
               then your account will be downgraded.
             </p>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+                className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
               >
                 Keep plan
               </button>

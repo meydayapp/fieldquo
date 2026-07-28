@@ -67,11 +67,11 @@ export default function CopilotPage() {
   return (
     <div className="max-w-3xl mx-auto flex flex-col h-[calc(100vh-6rem)]">
       <div className="mb-4">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Sparkles size={20} className="text-gray-400" />
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Sparkles size={20} className="text-muted-foreground" />
           Copilot
         </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Ask about your own quotes, invoices, clients and material costs. It
           looks up real numbers rather than guessing.
         </p>
@@ -80,14 +80,14 @@ export default function CopilotPage() {
       <div className="flex-1 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Try asking
             </p>
             {SUGGESTIONS.map((s) => (
               <button
                 key={s}
                 onClick={() => send(s)}
-                className="block w-full text-left text-sm text-gray-700 border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50"
+                className="block w-full text-left text-sm text-foreground border border-border rounded-xl px-4 py-3 hover:bg-muted"
               >
                 {s}
               </button>
@@ -103,8 +103,8 @@ export default function CopilotPage() {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "bg-gray-900 text-white"
-                  : "bg-white border border-gray-200 text-gray-800"
+                  ? "bg-inverted text-inverted-foreground"
+                  : "bg-card border border-border text-foreground"
               }`}
             >
               {m.content}
@@ -114,8 +114,8 @@ export default function CopilotPage() {
 
         {sending && (
           <div className="flex justify-start">
-            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-2.5">
-              <Loader2 size={15} className="animate-spin text-gray-400" />
+            <div className="bg-card border border-border rounded-2xl px-4 py-2.5">
+              <Loader2 size={15} className="animate-spin text-muted-foreground" />
             </div>
           </div>
         )}
@@ -124,19 +124,19 @@ export default function CopilotPage() {
         <div ref={endRef} />
       </div>
 
-      <div className="border-t border-gray-200 pt-3">
+      <div className="border-t border-border pt-3">
         <div className="flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
             placeholder="Ask about your business…"
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+            className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
           />
           <button
             onClick={() => send()}
             disabled={sending || !input.trim()}
-            className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
+            className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
           >
             {sending ? (
               <Loader2 size={14} className="animate-spin" />

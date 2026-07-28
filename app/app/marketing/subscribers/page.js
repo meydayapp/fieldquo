@@ -11,7 +11,7 @@ import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function SubscribersPage() {
   const [subscribers, setSubscribers] = useState([]);
@@ -103,8 +103,8 @@ export default function SubscribersPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -114,14 +114,14 @@ export default function SubscribersPage() {
       <div>
         <Link
           href="/app/marketing"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-2"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
           <ArrowLeft size={14} /> Back to Marketing
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Subscribers</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Subscribers</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               {subscribedCount} subscribed of {subscribers.length} total — this
               is who an Email blast campaign sends to.
             </p>
@@ -130,62 +130,62 @@ export default function SubscribersPage() {
             <button
               onClick={handleImport}
               disabled={importing}
-              className="flex items-center gap-2 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-60"
+              className="flex items-center gap-2 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted disabled:opacity-60"
             >
               <Download size={14} /> {importing ? "Importing…" : "Import from Clients"}
             </button>
             <button
               onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-semibold"
+              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-2 rounded-lg text-sm font-semibold"
             >
               <Plus size={14} /> Add
             </button>
           </div>
         </div>
-        {importMsg && <p className="text-xs text-gray-500 mt-2">{importMsg}</p>}
+        {importMsg && <p className="text-xs text-muted-foreground mt-2">{importMsg}</p>}
       </div>
 
       {subscribers.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <p className="text-sm text-muted-foreground">
             No subscribers yet — import your clients or add someone manually.
           </p>
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+        <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {subscribers.map((s) => (
             <div key={s.id} className="p-4 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-foreground">
                     {s.name || s.email}
                   </span>
-                  {s.name && <span className="text-xs text-gray-400">{s.email}</span>}
+                  {s.name && <span className="text-xs text-muted-foreground">{s.email}</span>}
                   {!s.subscribed && (
-                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                       Unsubscribed
                     </span>
                   )}
                   {s.source === "client_import" && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
                       From clients
                     </span>
                   )}
                 </div>
-                {s.phone && <p className="text-xs text-gray-400 mt-0.5">{s.phone}</p>}
+                {s.phone && <p className="text-xs text-muted-foreground mt-0.5">{s.phone}</p>}
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => toggleSubscribed(s)}
                   disabled={busyId === s.id}
-                  className="text-xs font-medium text-gray-500 hover:text-gray-900"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   {s.subscribed ? "Unsubscribe" : "Resubscribe"}
                 </button>
                 <button
                   onClick={() => handleDelete(s.id)}
                   disabled={busyId === s.id}
-                  className="text-gray-400 hover:text-red-500"
+                  className="text-muted-foreground hover:text-red-500"
                   aria-label={`Remove ${s.email}`}
                 >
                   <Trash2 size={14} />
@@ -202,12 +202,12 @@ export default function SubscribersPage() {
           onClick={() => setShowAdd(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-sm p-6"
+            className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Subscriber</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Add Subscriber</h2>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-3">
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2 mb-3">
                 {error}
               </div>
             )}
@@ -236,7 +236,7 @@ export default function SubscribersPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? "Adding…" : "Add Subscriber"}
               </button>

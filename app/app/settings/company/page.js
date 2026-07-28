@@ -73,11 +73,11 @@ function Toggle({ checked, onChange, disabled = false }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 ${
-        checked ? "bg-gray-900" : "bg-gray-200"
+        checked ? "bg-inverted" : "bg-accent"
       }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition-transform ${
           checked ? "translate-x-5" : "translate-x-1"
         }`}
       />
@@ -87,11 +87,11 @@ function Toggle({ checked, onChange, disabled = false }) {
 
 function SectionCard({ title, description, children }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+    <div className="bg-card border border-border rounded-xl p-5 space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-base font-semibold text-foreground">{title}</h2>
         {description && (
-          <p className="text-sm text-gray-500 mt-1">{description}</p>
+          <p className="text-sm text-muted-foreground mt-1">{description}</p>
         )}
       </div>
       {children}
@@ -100,7 +100,7 @@ function SectionCard({ title, description, children }) {
 }
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function CompanySettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -263,9 +263,9 @@ export default function CompanySettingsPage() {
   if (loading || !form) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-56 bg-gray-200 rounded" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 w-56 bg-accent rounded" />
+        <div className="h-64 bg-accent rounded-xl" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -273,8 +273,8 @@ export default function CompanySettingsPage() {
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Company Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Company Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Your business details, hours, taxes, and regional preferences.
         </p>
       </div>
@@ -289,17 +289,17 @@ export default function CompanySettingsPage() {
         description="What you told us your business does, and which quote types that unlocked."
       >
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+          <h3 className="text-sm font-semibold text-foreground mb-2">
             Industries
           </h3>
           {industries.length === 0 ? (
-            <p className="text-sm text-gray-400">None selected.</p>
+            <p className="text-sm text-muted-foreground">None selected.</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {industries.map((slug) => (
                 <span
                   key={slug}
-                  className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full"
+                  className="text-xs bg-muted text-foreground px-2.5 py-1 rounded-full"
                 >
                   {industryLabel(slug)}
                 </span>
@@ -310,18 +310,18 @@ export default function CompanySettingsPage() {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-foreground">
               Enabled quote types
             </h3>
             <Link
               href="/app/settings/services"
-              className="text-xs font-medium text-gray-600 hover:text-gray-900"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               Manage
             </Link>
           </div>
           {quoteTypes.length === 0 ? (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-muted-foreground">
               None turned on yet — go to Settings → Services.
             </p>
           ) : (
@@ -329,11 +329,11 @@ export default function CompanySettingsPage() {
               {quoteTypes.map((c) => (
                 <span
                   key={c.id}
-                  className="text-xs bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full"
+                  className="text-xs bg-muted text-foreground px-2.5 py-1 rounded-full"
                 >
                   {c.label}
                   {!c.isSystem && (
-                    <span className="text-amber-600"> · custom</span>
+                    <span className="text-amber-600 dark:text-amber-400"> · custom</span>
                   )}
                 </span>
               ))}
@@ -346,7 +346,7 @@ export default function CompanySettingsPage() {
       <SectionCard title="Company Details">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Company name
             </label>
             <input
@@ -356,7 +356,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Phone number
             </label>
             <input
@@ -366,7 +366,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Email address
             </label>
             <input
@@ -377,7 +377,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Website URL
             </label>
             <input
@@ -390,14 +390,14 @@ export default function CompanySettingsPage() {
         </div>
 
         {/* Auto-hosted subdomain — UI only for now, see note below */}
-        <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-3">
           <div className="flex items-start gap-2.5">
-            <Globe size={16} className="text-gray-400 mt-0.5 shrink-0" />
+            <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
             <div>
-              <div className="text-sm font-medium text-gray-900">
+              <div className="text-sm font-medium text-foreground">
                 {slug ? `${slug}.fieldquo.com` : "Your subdomain"}
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">
+              <div className="text-xs text-muted-foreground mt-0.5">
                 A public site FieldQuo can host for you at this address.{" "}
                 {form.sitePublished
                   ? "Currently published."
@@ -412,7 +412,7 @@ export default function CompanySettingsPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">
+          <label className="text-sm font-medium text-foreground block mb-1">
             Street address
           </label>
           <AddressAutocomplete
@@ -426,7 +426,7 @@ export default function CompanySettingsPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               City
             </label>
             <input
@@ -436,7 +436,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Province
             </label>
             <input
@@ -446,7 +446,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Postal code
             </label>
             <input
@@ -456,7 +456,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Country
             </label>
             <input
@@ -476,21 +476,21 @@ export default function CompanySettingsPage() {
         description="Sets your default availability for online booking, team members, and request forms."
       >
         <div className="flex items-start justify-between gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Manage your weekly open/closed hours for each day.
           </p>
           <button
             onClick={() => setHoursModalOpen(true)}
-            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50 shrink-0"
+            className="border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted shrink-0"
           >
             Edit
           </button>
         </div>
 
         {hours === null ? (
-          <div className="mt-4 h-40 bg-gray-100 rounded-xl animate-pulse" />
+          <div className="mt-4 h-40 bg-muted rounded-xl animate-pulse" />
         ) : (
-          <dl className="mt-4 border border-gray-200 rounded-xl divide-y divide-gray-100">
+          <dl className="mt-4 border border-border rounded-xl divide-y divide-border">
             {WEEKDAYS.map((label, dayOfWeek) => {
               const day = hours.find((h) => h.dayOfWeek === dayOfWeek);
               return (
@@ -498,10 +498,10 @@ export default function CompanySettingsPage() {
                   key={dayOfWeek}
                   className="flex items-center justify-between px-4 py-2.5"
                 >
-                  <dt className="text-sm text-gray-700">{label}</dt>
+                  <dt className="text-sm text-foreground">{label}</dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      day ? "text-gray-900 font-medium" : "text-gray-400"
+                      day ? "text-foreground font-medium" : "text-muted-foreground"
                     }`}
                   >
                     {day
@@ -515,7 +515,7 @@ export default function CompanySettingsPage() {
         )}
 
         {hours?.length === 0 && (
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs text-muted-foreground">
             No hours set yet — every day is treated as closed for online
             booking. Choose Edit to set them.
           </p>
@@ -525,7 +525,7 @@ export default function CompanySettingsPage() {
       {/* Discoverability */}
       <SectionCard title="Help clients find my business">
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Allow your public business information (like name, services, and
             contact details) to be used by automated systems that help clients
             find and compare local service providers.
@@ -541,7 +541,7 @@ export default function CompanySettingsPage() {
       <SectionCard title="Tax Settings">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Tax ID name
             </label>
             <input
@@ -552,7 +552,7 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Tax ID number
             </label>
             <input
@@ -562,47 +562,47 @@ export default function CompanySettingsPage() {
             />
           </div>
         </div>
-        <p className="text-xs text-gray-400 -mt-2">
+        <p className="text-xs text-muted-foreground -mt-2">
           Tax ID name and number will appear on invoices.
         </p>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-gray-900">Tax Rates</h3>
+            <h3 className="text-sm font-semibold text-foreground">Tax Rates</h3>
             <button
               onClick={() => setShowNewRate((v) => !v)}
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900"
+              className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
             >
               <Plus size={14} /> Create tax rate
             </button>
           </div>
 
           {taxRates.length === 0 && !showNewRate && (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-muted-foreground">
               No tax rates yet — create one or more to apply them to quotes and
               invoices.
             </p>
           )}
 
           {taxRates.length > 0 && (
-            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 mb-2">
+            <div className="border border-border rounded-lg divide-y divide-border mb-2">
               {taxRates.map((r) => (
                 <div
                   key={r.id}
                   className="flex items-center justify-between px-3 py-2"
                 >
-                  <div className="text-sm text-gray-900">
+                  <div className="text-sm text-foreground">
                     {r.name}{" "}
-                    <span className="text-gray-400">— {Number(r.rate)}%</span>
+                    <span className="text-muted-foreground">— {Number(r.rate)}%</span>
                     {r.isDefault && (
-                      <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                         Default
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleDeleteTaxRate(r.id)}
-                    className="text-gray-400 hover:text-red-500"
+                    className="text-muted-foreground hover:text-red-500"
                     aria-label={`Delete ${r.name}`}
                   >
                     <Trash2 size={14} />
@@ -615,7 +615,7 @@ export default function CompanySettingsPage() {
           {showNewRate && (
             <form
               onSubmit={handleCreateTaxRate}
-              className="flex flex-wrap items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3"
+              className="flex flex-wrap items-center gap-2 bg-muted border border-border rounded-lg p-3"
             >
               <input
                 required
@@ -624,7 +624,7 @@ export default function CompanySettingsPage() {
                 onChange={(e) =>
                   setNewRate({ ...newRate, name: e.target.value })
                 }
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[120px]"
+                className="border border-border rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[120px]"
               />
               <input
                 required
@@ -635,9 +635,9 @@ export default function CompanySettingsPage() {
                 onChange={(e) =>
                   setNewRate({ ...newRate, rate: e.target.value })
                 }
-                className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-24"
+                className="border border-border rounded-lg px-3 py-1.5 text-sm w-24"
               />
-              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={newRate.isDefault}
@@ -649,7 +649,7 @@ export default function CompanySettingsPage() {
               </label>
               <button
                 type="submit"
-                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
+                className="bg-inverted text-inverted-foreground px-3 py-1.5 rounded-lg text-sm font-semibold"
               >
                 Add
               </button>
@@ -657,7 +657,7 @@ export default function CompanySettingsPage() {
           )}
         </div>
 
-        <label className="flex items-start gap-2.5 text-sm text-gray-700">
+        <label className="flex items-start gap-2.5 text-sm text-foreground">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -675,7 +675,7 @@ export default function CompanySettingsPage() {
       <SectionCard title="Regional Settings">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Country
             </label>
             <input
@@ -683,14 +683,14 @@ export default function CompanySettingsPage() {
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
             />
-            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <Info size={11} /> Filled in automatically from your address
               above.
             </p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Time zone
             </label>
             <select
@@ -707,7 +707,7 @@ export default function CompanySettingsPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Date format
             </label>
             <select
@@ -724,7 +724,7 @@ export default function CompanySettingsPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               First day of the week
             </label>
             <select
@@ -746,12 +746,12 @@ export default function CompanySettingsPage() {
           need to account for both the AdminSidebar and SettingsSidebar widths,
           which vary with the AdminSidebar's collapsed state. Keeping it in
           normal flow avoids that fragility. */}
-      <div className="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
-        {saved && <span className="text-sm text-green-600">Saved</span>}
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+        {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-gray-900 text-white px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+          className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving ? "Saving..." : "Update Settings"}
         </button>

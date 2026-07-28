@@ -31,6 +31,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import ThemeToggle from "@/app/components/ThemeToggle";
 
 // Main nav, in the order they should render below the "+" quick-add button.
 const NAV_ITEMS = [
@@ -136,7 +137,7 @@ export default function AdminSidebar() {
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
           showLabel ? "" : "justify-center"
         } ${
-          active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+          active ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:bg-muted"
         }`}
       >
         <Icon size={18} className="shrink-0" />
@@ -151,10 +152,10 @@ export default function AdminSidebar() {
     return (
       <div className="flex flex-col h-full">
         {/* Logo -> Dashboard/Home */}
-        <div className="px-5 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-5 border-b border-border flex items-center justify-between">
           <Link
             href="/app"
-            className="text-lg font-bold text-gray-900 truncate"
+            className="text-lg font-bold text-foreground truncate"
           >
             {showLabel ? "FieldQuo" : "FQ"}
           </Link>
@@ -162,7 +163,7 @@ export default function AdminSidebar() {
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Close menu"
-            className="lg:hidden text-gray-400 hover:text-gray-600"
+            className="lg:hidden text-muted-foreground hover:text-foreground"
           >
             <X size={20} />
           </button>
@@ -181,7 +182,7 @@ export default function AdminSidebar() {
               type="button"
               onClick={() => setQuickAddOpen((v) => !v)}
               title={showLabel ? undefined : "New"}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium border border-dashed border-gray-300 text-gray-600 hover:bg-gray-100 ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium border border-dashed border-border text-muted-foreground hover:bg-muted ${
                 showLabel ? "" : "justify-center"
               }`}
             >
@@ -193,7 +194,7 @@ export default function AdminSidebar() {
               <div
                 className={`absolute z-50 top-0 ${
                   showLabel ? "left-full ml-2" : "left-full ml-2"
-                } w-52 bg-white rounded-xl shadow-lg border border-gray-100 p-2`}
+                } w-52 bg-card rounded-xl shadow-lg border border-border p-2`}
               >
                 {QUICK_ADD_ITEMS.map((item) => {
                   const Icon = item.icon;
@@ -202,7 +203,7 @@ export default function AdminSidebar() {
                       key={item.label}
                       href={item.href}
                       onClick={() => setQuickAddOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted"
                     >
                       <Icon size={16} className="shrink-0" />
                       {item.label}
@@ -222,13 +223,25 @@ export default function AdminSidebar() {
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-gray-100 space-y-1">
+        <div className="px-3 py-4 border-t border-border space-y-1">
+          {/* Theme control. Lives here rather than in the marketing header
+              because /app and /platform are the only themeable surfaces —
+              offering the choice on a page that can't honour it is worse than
+              not offering it. Hidden when the rail is collapsed; the segmented
+              control needs its three targets to be legible. */}
+          {showLabel && (
+            <div className="px-3 pb-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Appearance</span>
+              <ThemeToggle compact />
+            </div>
+          )}
+
           {/* Profile + trial countdown */}
           {session?.user && (
             <Link
               href="/app/settings/account-billing"
               title={showLabel ? undefined : session.user.name}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-100 ${
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-muted ${
                 showLabel ? "" : "justify-center"
               }`}
             >
@@ -239,7 +252,7 @@ export default function AdminSidebar() {
                   className="w-7 h-7 rounded-full object-cover shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-gray-900 text-white flex items-center justify-center text-xs font-semibold shrink-0">
+                <div className="w-7 h-7 rounded-full bg-inverted text-inverted-foreground flex items-center justify-center text-xs font-semibold shrink-0">
                   {(session.user.name || session.user.email || "?")
                     .trim()
                     .split(/\s+/)
@@ -249,7 +262,7 @@ export default function AdminSidebar() {
                 </div>
               )}
               {showLabel && (
-                <span className="text-sm font-medium text-gray-900 truncate">
+                <span className="text-sm font-medium text-foreground truncate">
                   {session.user.name}
                 </span>
               )}
@@ -268,7 +281,7 @@ export default function AdminSidebar() {
           <button
             onClick={handleLogout}
             title={showLabel ? undefined : "Log Out"}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted ${
               showLabel ? "" : "justify-center"
             }`}
           >
@@ -280,7 +293,7 @@ export default function AdminSidebar() {
           <button
             onClick={() => setCollapsed((v) => !v)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 ${
+            className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground ${
               showLabel ? "" : "justify-center"
             }`}
           >
@@ -305,14 +318,14 @@ export default function AdminSidebar() {
         type="button"
         onClick={() => setMobileOpen(true)}
         aria-label="Open menu"
-        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-full bg-white border border-gray-200 shadow-sm text-gray-700"
+        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-full bg-card border border-border shadow-sm text-foreground"
       >
         <Menu size={20} />
       </button>
 
       {/* Desktop sidebar */}
       <aside
-        className={`hidden lg:flex shrink-0 bg-white border-r border-gray-200 h-screen sticky top-0 flex-col transition-all duration-200 ${
+        className={`hidden lg:flex shrink-0 bg-card border-r border-border h-screen sticky top-0 flex-col transition-all duration-200 ${
           collapsed ? "w-[76px]" : "w-64"
         }`}
       >
@@ -326,7 +339,7 @@ export default function AdminSidebar() {
             className="absolute inset-0 bg-black/30"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl flex flex-col">
+          <aside className="absolute left-0 top-0 h-full w-72 bg-card shadow-xl flex flex-col">
             <SidebarContent forceExpanded />
           </aside>
         </div>

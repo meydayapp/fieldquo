@@ -30,7 +30,7 @@ export default function LanguagePicker({
   return (
     <div>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           {label}
         </label>
       )}
@@ -38,7 +38,7 @@ export default function LanguagePicker({
         value={value || ""}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value || null)}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white disabled:bg-gray-50"
+        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:bg-muted"
       >
         {includeInherit && (
           <option value="">Company default ({defaultName})</option>
@@ -50,7 +50,7 @@ export default function LanguagePicker({
           </option>
         ))}
       </select>
-      <p className="text-xs text-gray-400 mt-1">
+      <p className="text-xs text-muted-foreground mt-1">
         {hint ??
           "Quotes, invoices and emails to this client are written in this language."}
       </p>

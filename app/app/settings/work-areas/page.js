@@ -65,14 +65,14 @@ export default function WorkAreasPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Work Areas</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Work Areas</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Group tasks by project or zone and assign your team.
         </p>
       </div>
@@ -86,7 +86,7 @@ export default function WorkAreasPage() {
         />
         <button
           type="submit"
-          className="bg-gray-900 text-white px-4 rounded-full"
+          className="bg-inverted text-inverted-foreground px-4 rounded-full"
         >
           <Plus size={14} />
         </button>
@@ -98,9 +98,9 @@ export default function WorkAreasPage() {
           return (
             <div
               key={wa.id}
-              className="bg-white border border-gray-200 rounded-xl p-4"
+              className="bg-card border border-border rounded-xl p-4"
             >
-              <div className="font-medium text-gray-900 mb-2">{wa.name}</div>
+              <div className="font-medium text-foreground mb-2">{wa.name}</div>
               <div className="flex flex-wrap gap-2">
                 {members.map((m) => {
                   const assigned = assignedIds.includes(m.userId);
@@ -112,8 +112,8 @@ export default function WorkAreasPage() {
                       }
                       className={`text-xs px-3 py-1.5 rounded-full border ${
                         assigned
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "border-gray-200 text-gray-600"
+                          ? "bg-inverted text-inverted-foreground border-inverted"
+                          : "border-border text-muted-foreground"
                       }`}
                     >
                       {m.user.name}

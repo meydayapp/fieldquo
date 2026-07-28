@@ -20,14 +20,14 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import EmailCampaignDetail from "@/app/components/marketing/EmailCampaignDetail";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 const STATUS_META = {
-  pending: { label: "Pending", cls: "bg-gray-100 text-gray-600" },
-  delivered: { label: "Delivered", cls: "bg-green-50 text-green-700" },
-  spoke: { label: "Spoke to owner", cls: "bg-blue-50 text-blue-700" },
-  not_home: { label: "Not home", cls: "bg-amber-50 text-amber-700" },
-  skipped: { label: "Skipped", cls: "bg-gray-100 text-gray-400" },
+  pending: { label: "Pending", cls: "bg-muted text-muted-foreground" },
+  delivered: { label: "Delivered", cls: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300" },
+  spoke: { label: "Spoke to owner", cls: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" },
+  not_home: { label: "Not home", cls: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" },
+  skipped: { label: "Skipped", cls: "bg-muted text-muted-foreground" },
 };
 
 // Static Maps route preview — numbered markers in route order plus a path
@@ -39,7 +39,7 @@ function RouteMap({ stops }) {
   );
   if (pts.length === 0) {
     return (
-      <div className="w-full h-48 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
+      <div className="w-full h-48 rounded-xl bg-muted border border-border flex items-center justify-center text-xs text-muted-foreground">
         Add addresses to see the route
       </div>
     );
@@ -65,7 +65,7 @@ function RouteMap({ stops }) {
   params.append("path", `color:0x111827aa|weight:3|${path}`);
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-200">
+    <div className="rounded-xl overflow-hidden border border-border">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`}
@@ -173,8 +173,8 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-56 bg-gray-200 rounded" />
-        <div className="h-48 bg-gray-200 rounded-xl" />
+        <div className="h-8 w-56 bg-accent rounded" />
+        <div className="h-48 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -182,8 +182,8 @@ export default function CampaignDetailPage() {
   if (!campaign) {
     return (
       <div className="p-6 max-w-3xl mx-auto">
-        <p className="text-sm text-gray-500">Campaign not found.</p>
-        <Link href="/app/marketing" className="text-sm text-gray-900 underline">
+        <p className="text-sm text-muted-foreground">Campaign not found.</p>
+        <Link href="/app/marketing" className="text-sm text-foreground underline">
           Back to Marketing
         </Link>
       </div>
@@ -199,11 +199,11 @@ export default function CampaignDetailPage() {
         <div>
           <Link
             href="/app/marketing"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-2"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
           >
             <ArrowLeft size={14} /> Back to Marketing
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">{campaign.name}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
         </div>
         <EmailCampaignDetail
           campaign={campaign}
@@ -223,25 +223,25 @@ export default function CampaignDetailPage() {
       <div>
         <Link
           href="/app/marketing"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-2"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
           <ArrowLeft size={14} /> Back to Marketing
         </Link>
         <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">{campaign.name}</h1>
-          <span className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
+          <span className="text-sm text-muted-foreground">
             {visited}/{stops.length} visited
           </span>
         </div>
         {campaign.assignedTo && (
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Assigned to {campaign.assignedTo.name}
           </p>
         )}
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
@@ -251,10 +251,10 @@ export default function CampaignDetailPage() {
       {/* Add address */}
       <form
         onSubmit={handleAddStop}
-        className="bg-white border border-gray-200 rounded-xl p-4 flex items-end gap-3"
+        className="bg-card border border-border rounded-xl p-4 flex items-end gap-3"
       >
         <div className="flex-1">
-          <label className="text-xs text-gray-500 block mb-1">
+          <label className="text-xs text-muted-foreground block mb-1">
             Add an address to the route
           </label>
           <AddressAutocomplete
@@ -270,32 +270,32 @@ export default function CampaignDetailPage() {
         <button
           type="submit"
           disabled={addingStop}
-          className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60 shrink-0"
+          className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60 shrink-0"
         >
           <Plus size={14} /> {addingStop ? "Adding..." : "Add"}
         </button>
       </form>
 
       {/* Ordered stop list */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
         {stops.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-gray-500 text-center">
+          <p className="px-5 py-8 text-sm text-muted-foreground text-center">
             No addresses yet. Add some above and they'll be ordered into an
             efficient route automatically.
           </p>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {stops.map((stop, i) => {
               const meta = STATUS_META[stop.status] || STATUS_META.pending;
               return (
                 <div key={stop.id} className="px-4 py-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-6 h-6 rounded-full bg-inverted text-inverted-foreground text-xs flex items-center justify-center shrink-0 mt-0.5">
                       {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-foreground">
                           {stop.address}
                         </span>
                         <span
@@ -304,13 +304,13 @@ export default function CampaignDetailPage() {
                           {meta.label}
                         </span>
                         {stop.client && (
-                          <span className="text-xs text-blue-600">
+                          <span className="text-xs text-blue-600 dark:text-blue-400">
                             → {stop.client.name}
                           </span>
                         )}
                       </div>
                       {stop.notes && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {stop.notes}
                         </p>
                       )}
@@ -321,7 +321,7 @@ export default function CampaignDetailPage() {
                           onClick={() =>
                             updateStop(stop.id, { status: "delivered" })
                           }
-                          className="flex items-center gap-1 text-xs border border-gray-300 rounded-full px-2.5 py-1 hover:bg-gray-50"
+                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <Check size={12} /> Delivered
                         </button>
@@ -329,19 +329,19 @@ export default function CampaignDetailPage() {
                           onClick={() =>
                             updateStop(stop.id, { status: "not_home" })
                           }
-                          className="flex items-center gap-1 text-xs border border-gray-300 rounded-full px-2.5 py-1 hover:bg-gray-50"
+                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <UserX size={12} /> Not home
                         </button>
                         <button
                           onClick={() => openConvert(stop)}
-                          className="flex items-center gap-1 text-xs border border-gray-300 rounded-full px-2.5 py-1 hover:bg-gray-50"
+                          className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
                           <MessageSquare size={12} /> Spoke to owner
                         </button>
                         <button
                           onClick={() => deleteStop(stop.id)}
-                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 px-1.5 py-1"
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 px-1.5 py-1"
                           aria-label="Remove stop"
                         >
                           <Trash2 size={12} />
@@ -355,7 +355,7 @@ export default function CampaignDetailPage() {
                         <div className="flex items-center gap-3 mt-2">
                           <Link
                             href={`/app/quotes/new?clientId=${stop.client.id}`}
-                            className="flex items-center gap-1 text-xs font-medium text-gray-900"
+                            className="flex items-center gap-1 text-xs font-medium text-foreground"
                           >
                             <FileText size={12} /> Create quote
                           </Link>
@@ -377,18 +377,18 @@ export default function CampaignDetailPage() {
           onClick={() => setConvertStop(null)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6"
+            className="bg-card rounded-2xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-foreground">
                 Spoke to owner
               </h2>
               <button onClick={() => setConvertStop(null)}>
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               {convertStop.address} — save them as a client, and optionally book
               a visit right now.
             </p>
@@ -415,7 +415,7 @@ export default function CampaignDetailPage() {
                 className={inputClass}
               />
               <div>
-                <label className="text-xs text-gray-500 block mb-1 flex items-center gap-1">
+                <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1">
                   <CalendarPlus size={12} /> Schedule a visit (optional)
                 </label>
                 <input
@@ -429,7 +429,7 @@ export default function CampaignDetailPage() {
                   }
                   className={inputClass}
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Booking a visit needs appointment permissions — if you don't
                   have them, leave this blank and just save the client.
                 </p>
@@ -438,7 +438,7 @@ export default function CampaignDetailPage() {
               <button
                 type="submit"
                 disabled={converting}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {converting ? "Saving..." : "Save"}
               </button>

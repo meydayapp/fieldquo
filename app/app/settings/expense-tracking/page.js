@@ -34,7 +34,7 @@ const CATEGORY_PRESETS = [
 ];
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -50,26 +50,26 @@ function monthParam(date) {
 
 function KpiCard({ label, value, sub, icon: Icon, tone = "gray" }) {
   const toneClasses = {
-    gray: "text-gray-900",
-    red: "text-red-600",
-    green: "text-green-600",
+    gray: "text-foreground",
+    red: "text-red-600 dark:text-red-400",
+    green: "text-green-600 dark:text-green-400",
   };
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
-      <div className="flex items-center gap-2 text-gray-500 text-sm">
+    <div className="bg-card border border-border rounded-xl p-5">
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
         {Icon && <Icon size={16} />} {label}
       </div>
       <div className={`text-2xl font-bold mt-2 ${toneClasses[tone]}`}>
         {value}
       </div>
-      {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
+      {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
     </div>
   );
 }
 
 function BreakdownBars({ items, total }) {
   if (!items.length) {
-    return <p className="text-sm text-gray-400">No expenses recorded yet.</p>;
+    return <p className="text-sm text-muted-foreground">No expenses recorded yet.</p>;
   }
   const max = Math.max(...items.map((i) => i.total), 1);
   return (
@@ -77,20 +77,20 @@ function BreakdownBars({ items, total }) {
       {items.map((item) => (
         <div key={item.category || item.label}>
           <div className="flex items-center justify-between text-sm mb-1">
-            <span className="text-gray-700">{item.category || item.label}</span>
-            <span className="font-medium text-gray-900">
+            <span className="text-foreground">{item.category || item.label}</span>
+            <span className="font-medium text-foreground">
               {money(item.total)}
               {total ? (
-                <span className="text-gray-400 font-normal">
+                <span className="text-muted-foreground font-normal">
                   {" "}
                   ({Math.round((item.total / total) * 100)}%)
                 </span>
               ) : null}
             </span>
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-gray-900 rounded-full"
+              className="h-full bg-inverted rounded-full"
               style={{ width: `${(item.total / max) * 100}%` }}
             />
           </div>
@@ -111,12 +111,12 @@ function TrendChart({ trend }) {
         >
           <div className="w-full flex items-end justify-center h-24">
             <div
-              className="w-full max-w-[28px] bg-gray-900 rounded-t-md"
+              className="w-full max-w-[28px] bg-inverted rounded-t-md"
               style={{ height: `${Math.max((t.total / max) * 100, 2)}%` }}
               title={money(t.total)}
             />
           </div>
-          <span className="text-[11px] text-gray-400">{t.month}</span>
+          <span className="text-[11px] text-muted-foreground">{t.month}</span>
         </div>
       ))}
     </div>
@@ -248,13 +248,13 @@ export default function ExpenseTrackingPage() {
   if (loading || !summary) {
     return (
       <div className="p-6 max-w-5xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-56 bg-gray-200 rounded" />
+        <div className="h-8 w-56 bg-accent rounded" />
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 bg-gray-200 rounded-xl" />
+            <div key={i} className="h-24 bg-accent rounded-xl" />
           ))}
         </div>
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -272,15 +272,15 @@ export default function ExpenseTrackingPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Expense Tracking</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Expense Tracking</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Where your money goes — by job, overhead, and category — plus your
             monthly burn rate.
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
           <Plus size={14} /> Add Expense
         </button>
@@ -294,12 +294,12 @@ export default function ExpenseTrackingPage() {
               new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1),
             )
           }
-          className="p-1.5 rounded-full hover:bg-gray-100"
+          className="p-1.5 rounded-full hover:bg-muted"
           aria-label="Previous month"
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="text-sm font-medium text-gray-900 w-40 text-center">
+        <span className="text-sm font-medium text-foreground w-40 text-center">
           {monthLabel(monthDate)}
         </span>
         <button
@@ -308,7 +308,7 @@ export default function ExpenseTrackingPage() {
               new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1),
             )
           }
-          className="p-1.5 rounded-full hover:bg-gray-100"
+          className="p-1.5 rounded-full hover:bg-muted"
           aria-label="Next month"
         >
           <ChevronRight size={18} />
@@ -347,18 +347,18 @@ export default function ExpenseTrackingPage() {
       </div>
 
       {/* AI Summary */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles size={16} className="text-gray-400" />
-            <h2 className="text-base font-semibold text-gray-900">
+            <Sparkles size={16} className="text-muted-foreground" />
+            <h2 className="text-base font-semibold text-foreground">
               AI Summary
             </h2>
           </div>
           <button
             onClick={handleGenerateAiSummary}
             disabled={aiLoading}
-            className="text-sm font-medium border border-gray-300 px-3 py-1.5 rounded-full hover:bg-gray-50 disabled:opacity-60"
+            className="text-sm font-medium border border-border px-3 py-1.5 rounded-full hover:bg-muted disabled:opacity-60"
           >
             {aiLoading
               ? "Thinking..."
@@ -367,12 +367,12 @@ export default function ExpenseTrackingPage() {
                 : "Generate summary"}
           </button>
         </div>
-        {aiError && <p className="text-sm text-red-600 mt-3">{aiError}</p>}
+        {aiError && <p className="text-sm text-red-600 dark:text-red-400 mt-3">{aiError}</p>}
         {aiSummary && (
           <div className="mt-3 space-y-2">
-            <p className="text-sm text-gray-700">{aiSummary.summaryText}</p>
+            <p className="text-sm text-foreground">{aiSummary.summaryText}</p>
             {aiSummary.flags?.length > 0 && (
-              <ul className="text-xs text-gray-500 list-disc list-inside space-y-0.5">
+              <ul className="text-xs text-muted-foreground list-disc list-inside space-y-0.5">
                 {aiSummary.flags.map((f, i) => (
                   <li key={i}>{f}</li>
                 ))}
@@ -381,7 +381,7 @@ export default function ExpenseTrackingPage() {
           </div>
         )}
         {!aiSummary && !aiError && (
-          <p className="text-sm text-gray-400 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Get a plain-language read on this month's spending and burn rate.
           </p>
         )}
@@ -389,8 +389,8 @@ export default function ExpenseTrackingPage() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Burn rate breakdown */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-base font-semibold text-foreground mb-4">
             Monthly Burn Breakdown
           </h2>
           <BreakdownBars
@@ -403,15 +403,15 @@ export default function ExpenseTrackingPage() {
           />
           <Link
             href="/app/settings/overhead"
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 mt-4"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mt-4"
           >
             Manage salaries & debt <ArrowRight size={14} />
           </Link>
         </div>
 
         {/* Category breakdown */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="text-base font-semibold text-foreground mb-4">
             Spend by Category
           </h2>
           <BreakdownBars items={categoryBreakdown} total={totalThisMonth} />
@@ -419,10 +419,10 @@ export default function ExpenseTrackingPage() {
       </div>
 
       {/* 6-month trend */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-4">
-          <TrendingUp size={16} className="text-gray-400" />
-          <h2 className="text-base font-semibold text-gray-900">
+          <TrendingUp size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold text-foreground">
             6-Month Trend
           </h2>
         </div>
@@ -430,15 +430,15 @@ export default function ExpenseTrackingPage() {
       </div>
 
       {/* Recent expenses */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">
             Recent Expenses
           </h2>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           {recent.length === 0 && (
-            <p className="px-5 py-6 text-sm text-gray-500">
+            <p className="px-5 py-6 text-sm text-muted-foreground">
               No expenses logged yet.
             </p>
           )}
@@ -448,31 +448,31 @@ export default function ExpenseTrackingPage() {
               className="flex items-center justify-between px-5 py-3"
             >
               <div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-foreground">
                   {e.category}
                   {e.isOverhead && (
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                       Overhead
                     </span>
                   )}
                   {e.projectId && (
-                    <span className="ml-2 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-2 text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
                       Job-linked
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground">
                   {new Date(e.date).toLocaleDateString()}
                   {e.notes ? ` · ${e.notes}` : ""}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-foreground">
                   {money(e.amount)}
                 </span>
                 <button
                   onClick={() => handleDeleteExpense(e.id)}
-                  className="text-gray-400 hover:text-red-500"
+                  className="text-muted-foreground hover:text-red-500"
                   aria-label="Delete expense"
                 >
                   <Trash2 size={14} />
@@ -490,15 +490,15 @@ export default function ExpenseTrackingPage() {
           onClick={() => setShowAddModal(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
+            className="bg-card rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <h2 className="text-lg font-semibold text-foreground mb-4">
               Add Expense
             </h2>
             <form onSubmit={handleAddExpense} className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
+                <label className="text-sm font-medium text-foreground block mb-1">
                   Category
                 </label>
                 <select
@@ -528,7 +528,7 @@ export default function ExpenseTrackingPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                  <label className="text-sm font-medium text-foreground block mb-1">
                     Amount
                   </label>
                   <input
@@ -543,7 +543,7 @@ export default function ExpenseTrackingPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">
+                  <label className="text-sm font-medium text-foreground block mb-1">
                     Date
                   </label>
                   <input
@@ -557,7 +557,7 @@ export default function ExpenseTrackingPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
+                <label className="text-sm font-medium text-foreground block mb-1">
                   Associate with
                 </label>
                 <div className="flex gap-2 mb-2">
@@ -574,8 +574,8 @@ export default function ExpenseTrackingPage() {
                       }
                       className={`flex-1 text-sm py-2 rounded-lg border ${
                         form.association === opt.value
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "border-gray-300 text-gray-600"
+                          ? "bg-inverted text-inverted-foreground border-inverted"
+                          : "border-border text-muted-foreground"
                       }`}
                     >
                       {opt.label}
@@ -599,7 +599,7 @@ export default function ExpenseTrackingPage() {
                   </select>
                 )}
                 {form.association === "overhead" && (
-                  <label className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                     <input
                       type="checkbox"
                       checked={form.recurring}
@@ -610,7 +610,7 @@ export default function ExpenseTrackingPage() {
                     Recurring (feeds burn rate below)
                     {form.recurring && (
                       <select
-                        className="border border-gray-300 rounded px-2 py-1 text-xs ml-2"
+                        className="border border-border rounded px-2 py-1 text-xs ml-2"
                         value={form.frequency}
                         onChange={(e) =>
                           setForm({ ...form, frequency: e.target.value })
@@ -626,7 +626,7 @@ export default function ExpenseTrackingPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-gray-700 block mb-1">
+                <label className="text-sm font-medium text-foreground block mb-1">
                   Notes
                 </label>
                 <textarea
@@ -641,14 +641,14 @@ export default function ExpenseTrackingPage() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+                  className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                  className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Add Expense"}
                 </button>

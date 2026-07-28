@@ -96,26 +96,26 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
+        className="bg-card rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Business Hours
           </h2>
           <button onClick={onClose} aria-label="Close">
-            <X size={18} className="text-gray-400" />
+            <X size={18} className="text-muted-foreground" />
           </button>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Sets your default availability for online booking, team members, and
           request forms.
         </p>
 
         {loading ? (
-          <div className="h-64 bg-gray-100 rounded-xl animate-pulse" />
+          <div className="h-64 bg-muted rounded-xl animate-pulse" />
         ) : (
-          <div className="border border-gray-200 rounded-xl divide-y divide-gray-100">
+          <div className="border border-border rounded-xl divide-y divide-border">
             {DAYS.map((label, dayOfWeek) => {
               const day = getDay(dayOfWeek);
               return (
@@ -130,42 +130,42 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
                       aria-checked={!!day}
                       onClick={() => toggleDay(dayOfWeek)}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
-                        day ? "bg-gray-900" : "bg-gray-200"
+                        day ? "bg-inverted" : "bg-accent"
                       }`}
                     >
                       <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition-transform ${
                           day ? "translate-x-5" : "translate-x-1"
                         }`}
                       />
                     </button>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-foreground">
                       {label}
                     </span>
                   </label>
 
                   {day ? (
-                    <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+                    <div className="flex items-center gap-2 bg-muted border border-border rounded-lg px-2 py-1.5">
                       <input
                         type="time"
                         value={day.startTime}
                         onChange={(e) =>
                           updateTime(dayOfWeek, "startTime", e.target.value)
                         }
-                        className="bg-transparent text-sm text-gray-900 outline-none"
+                        className="bg-transparent text-sm text-foreground outline-none"
                       />
-                      <span className="text-gray-400 text-sm">to</span>
+                      <span className="text-muted-foreground text-sm">to</span>
                       <input
                         type="time"
                         value={day.endTime}
                         onChange={(e) =>
                           updateTime(dayOfWeek, "endTime", e.target.value)
                         }
-                        className="bg-transparent text-sm text-gray-900 outline-none"
+                        className="bg-transparent text-sm text-foreground outline-none"
                       />
                     </div>
                   ) : (
-                    <span className="text-xs text-gray-400">Closed</span>
+                    <span className="text-xs text-muted-foreground">Closed</span>
                   )}
                 </div>
               );
@@ -174,7 +174,7 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
         )}
 
         {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+          <div className="mt-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
             {error}
           </div>
         )}
@@ -182,14 +182,14 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
         <div className="flex gap-3 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold"
+            className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="flex-1 bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {saving ? "Saving..." : "Save"}
           </button>

@@ -28,14 +28,14 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
     <div>
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <div>
-          <span className="text-sm font-medium text-gray-900">{label}</span>
-          <p className="text-xs text-gray-500 mt-0.5">{hint}</p>
+          <span className="text-sm font-medium text-foreground">{label}</span>
+          <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
         </div>
         {onReset && isSet && (
           <button
             type="button"
             onClick={onReset}
-            className="text-xs text-gray-500 hover:text-gray-800 underline shrink-0"
+            className="text-xs text-muted-foreground hover:text-foreground underline shrink-0"
           >
             Reset
           </button>
@@ -49,7 +49,7 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
             type="button"
             onClick={() => onChange(color)}
             className={`w-9 h-9 rounded-full border-2 transition-transform ${
-              value === color ? "border-gray-900 scale-110" : "border-transparent"
+              value === color ? "border-inverted scale-110" : "border-transparent"
             }`}
             style={{ backgroundColor: color }}
             aria-label={`${label} ${color}`}
@@ -61,10 +61,10 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
             type="color"
             value={shown}
             onChange={(e) => onChange(e.target.value)}
-            className="w-9 h-9 rounded-lg border border-gray-200 cursor-pointer"
+            className="w-9 h-9 rounded-lg border border-border cursor-pointer"
             aria-label={`${label} custom colour`}
           />
-          <span className="text-sm text-gray-500 font-mono">
+          <span className="text-sm text-muted-foreground font-mono">
             {isSet ? value : `${placeholder} (default)`}
           </span>
         </div>
@@ -173,8 +173,8 @@ export default function BrandingPage() {
     return (
       <div className="p-6 max-w-2xl mx-auto">
         <div className="animate-pulse space-y-4">
-          <div className="h-6 w-40 bg-gray-200 rounded" />
-          <div className="h-40 bg-gray-200 rounded-xl" />
+          <div className="h-6 w-40 bg-accent rounded" />
+          <div className="h-40 bg-accent rounded-xl" />
         </div>
       </div>
     );
@@ -183,26 +183,26 @@ export default function BrandingPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Branding</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Branding</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Your logo and brand color appear on every quote, invoice, and email
           your clients see.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Logo */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-1">Logo</h2>
-        <p className="text-sm text-gray-500 mb-4">PNG or JPG, up to 10MB.</p>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">Logo</h2>
+        <p className="text-sm text-muted-foreground mb-4">PNG or JPG, up to 10MB.</p>
 
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+          <div className="w-20 h-20 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -211,7 +211,7 @@ export default function BrandingPage() {
                 className="w-full h-full object-contain"
               />
             ) : (
-              <span className="text-xs text-gray-400">No logo</span>
+              <span className="text-xs text-muted-foreground">No logo</span>
             )}
           </div>
 
@@ -227,7 +227,7 @@ export default function BrandingPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="flex items-center gap-2 border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+              className="flex items-center gap-2 border border-border rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
             >
               {uploading ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -245,9 +245,9 @@ export default function BrandingPage() {
       </div>
 
       {/* Brand colors */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-1">Brand Colors</h2>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">Brand Colors</h2>
+        <p className="text-sm text-muted-foreground mb-4">
           Used across your emails, quotes and invoices. Only the primary is
           required — leave the others alone and they follow sensible defaults.
         </p>
@@ -279,13 +279,13 @@ export default function BrandingPage() {
       </div>
 
       {/* Preview */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Preview</h2>
-        <p className="text-sm text-gray-500 mb-3">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-3">Preview</h2>
+        <p className="text-sm text-muted-foreground mb-3">
           Roughly how the top of your emails will look.
         </p>
 
-        <div className="border border-gray-200 rounded-lg overflow-hidden max-w-md">
+        <div className="border border-border rounded-lg overflow-hidden max-w-md">
           {/* Header bar — neutral role */}
           <div
             className="px-5 py-4"
@@ -308,14 +308,14 @@ export default function BrandingPage() {
             )}
           </div>
 
-          <div className="p-5 bg-white">
+          <div className="p-5 bg-card">
             <p
               className="text-[11px] font-bold uppercase tracking-wider mb-2"
               style={{ color: secondary || brandColor }}
             >
               What&apos;s included
             </p>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Your quote is ready to review.
             </p>
             <span
@@ -332,7 +332,7 @@ export default function BrandingPage() {
         type="button"
         onClick={handleSave}
         disabled={saving}
-        className="bg-gray-900 text-white px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+        className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
       >
         {saving ? "Saving..." : saved ? "Saved ✓" : "Save Branding"}
       </button>

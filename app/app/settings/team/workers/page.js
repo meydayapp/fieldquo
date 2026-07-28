@@ -34,44 +34,44 @@ export default function WorkersPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-gray-200 rounded-xl" />
+      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Workers</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Employees and contractors, and their payout status.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
+      <div className="bg-card border border-border rounded-xl divide-y divide-border">
         {workers.map((w) => (
           <div
             key={w.id}
             className="flex items-center justify-between px-5 py-3"
           >
             <div>
-              <div className="text-sm font-medium text-gray-900">{w.name}</div>
-              <div className="text-xs text-gray-500 capitalize">
+              <div className="text-sm font-medium text-foreground">{w.name}</div>
+              <div className="text-xs text-muted-foreground capitalize">
                 {w.type}
                 {w.hourlyRate ? ` · $${w.hourlyRate}/hr` : ""}
               </div>
             </div>
             {w.type === "contractor" &&
               (w.stripeConnectedAccountId ? (
-                <span className="text-xs text-green-600">Stripe connected</span>
+                <span className="text-xs text-green-600 dark:text-green-400">Stripe connected</span>
               ) : (
                 <button
                   onClick={() => connectStripe(w.id)}
-                  className="text-xs border border-gray-300 rounded-full px-3 py-1.5"
+                  className="text-xs border border-border rounded-full px-3 py-1.5"
                 >
                   Connect Stripe
                 </button>

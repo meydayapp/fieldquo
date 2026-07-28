@@ -121,43 +121,43 @@ export default function ChecklistsPage() {
 
   if (loading)
     return (
-      <div className="animate-pulse h-80 bg-gray-200 rounded-xl max-w-3xl" />
+      <div className="animate-pulse h-80 bg-accent rounded-xl max-w-3xl" />
     );
 
   return (
     <div className="max-w-3xl space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Checklists</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Standard steps your crew works through on site. Attach one to a job
             visit and it comes across as a fresh, tickable copy.
           </p>
         </div>
         <button
           onClick={() => setDraft(blankDraft())}
-          className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg shrink-0"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg shrink-0"
         >
           <Plus size={14} /> New checklist
         </button>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
       {draft && (
-        <div className="bg-white border border-gray-900 rounded-xl p-5 space-y-4">
+        <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="font-semibold text-foreground">
               {draft.id ? "Edit checklist" : "New checklist"}
             </h2>
             <button
               onClick={() => setDraft(null)}
-              className="text-gray-400 hover:text-gray-700"
+              className="text-muted-foreground hover:text-foreground"
               aria-label="Close"
             >
               <X size={16} />
@@ -166,7 +166,7 @@ export default function ChecklistsPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Name
               </label>
               <input
@@ -178,7 +178,7 @@ export default function ChecklistsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 For which service
               </label>
               <select
@@ -199,13 +199,13 @@ export default function ChecklistsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Steps
             </label>
             <div className="space-y-2">
               {draft.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <GripVertical size={14} className="text-gray-300 shrink-0" />
+                  <GripVertical size={14} className="text-muted-foreground shrink-0" />
                   <input
                     value={item}
                     onChange={(e) =>
@@ -241,7 +241,7 @@ export default function ChecklistsPage() {
                         items: draft.items.filter((_, j) => j !== i),
                       })
                     }
-                    className="text-gray-400 hover:text-red-600 p-1 shrink-0"
+                    className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-1 shrink-0"
                     aria-label="Remove step"
                   >
                     <Trash2 size={14} />
@@ -251,7 +251,7 @@ export default function ChecklistsPage() {
             </div>
             <button
               onClick={() => setDraft({ ...draft, items: [...draft.items, ""] })}
-              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <Plus size={13} /> Add step
             </button>
@@ -261,14 +261,14 @@ export default function ChecklistsPage() {
             <button
               onClick={save}
               disabled={saving}
-              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {draft.id ? "Save changes" : "Create"}
             </button>
             <button
               onClick={() => setDraft(null)}
-              className="border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg"
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
               Cancel
             </button>
@@ -277,10 +277,10 @@ export default function ChecklistsPage() {
       )}
 
       {templates.length === 0 && !draft ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <ClipboardList size={30} className="text-gray-300 mx-auto" />
-          <p className="mt-3 font-medium text-gray-900">No checklists yet</p>
-          <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <ClipboardList size={30} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 font-medium text-foreground">No checklists yet</p>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
             Write down the steps your crew repeats on every job once, and stop
             relying on people remembering them.
           </p>
@@ -292,14 +292,14 @@ export default function ChecklistsPage() {
             return (
               <div
                 key={t.id}
-                className={`bg-white border border-gray-200 rounded-xl p-5 ${
+                className={`bg-card border border-border rounded-xl p-5 ${
                   busyId === t.id ? "opacity-60" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-semibold text-gray-900">{t.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="font-semibold text-foreground">{t.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {items.length} step{items.length === 1 ? "" : "s"}
                       {t.category?.label && ` · ${t.category.label}`}
                     </div>
@@ -307,14 +307,14 @@ export default function ChecklistsPage() {
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => edit(t)}
-                      className="text-sm font-semibold text-gray-600 hover:text-gray-900"
+                      className="text-sm font-semibold text-muted-foreground hover:text-foreground"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => remove(t)}
                       disabled={Boolean(busyId)}
-                      className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                      className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
                       aria-label="Delete checklist"
                     >
                       <Trash2 size={15} />
@@ -322,17 +322,17 @@ export default function ChecklistsPage() {
                   </div>
                 </div>
 
-                <ol className="mt-3 space-y-1 text-sm text-gray-600">
+                <ol className="mt-3 space-y-1 text-sm text-muted-foreground">
                   {items.slice(0, 6).map((item, i) => (
                     <li key={i} className="flex gap-2">
-                      <span className="text-gray-300 tabular-nums">
+                      <span className="text-muted-foreground tabular-nums">
                         {i + 1}.
                       </span>
                       {item?.label || item?.text || String(item)}
                     </li>
                   ))}
                   {items.length > 6 && (
-                    <li className="text-gray-400 pl-5">
+                    <li className="text-muted-foreground pl-5">
                       and {items.length - 6} more
                     </li>
                   )}
@@ -347,4 +347,4 @@ export default function ChecklistsPage() {
 }
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";

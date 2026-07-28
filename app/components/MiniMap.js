@@ -21,7 +21,7 @@
 export default function MiniMap({ lat, lng, zoom = 15 }) {
   if (typeof lat !== "number" || typeof lng !== "number") {
     return (
-      <div className="w-full h-40 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
+      <div className="w-full h-40 rounded-xl bg-muted border border-border flex items-center justify-center text-xs text-muted-foreground">
         Enter an address to preview it on the map
       </div>
     );
@@ -37,7 +37,7 @@ export default function MiniMap({ lat, lng, zoom = 15 }) {
   });
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-200">
+    <div className="rounded-xl overflow-hidden border border-border">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`}

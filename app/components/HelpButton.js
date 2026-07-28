@@ -6,7 +6,7 @@ export default function HelpButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-gray-900 text-white flex items-center justify-center shadow-lg"
+      className="fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-inverted text-inverted-foreground flex items-center justify-center shadow-lg"
       aria-label="Help"
     >
       <HelpCircle size={20} />

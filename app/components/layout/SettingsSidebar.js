@@ -156,7 +156,7 @@ export default function SettingsSidebar() {
         key={item.href}
         href={item.href}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
-          active ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+          active ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:bg-muted"
         }`}
       >
         <Icon size={16} className="shrink-0" />
@@ -166,17 +166,17 @@ export default function SettingsSidebar() {
   }
 
   return (
-    <aside className="w-64 shrink-0 border-r border-gray-200 bg-white min-h-full px-3 py-6">
-      <h1 className="px-3 text-lg font-bold text-gray-900 mb-4">Settings</h1>
+    <aside className="w-64 shrink-0 border-r border-border bg-card min-h-full px-3 py-6">
+      <h1 className="px-3 text-lg font-bold text-foreground mb-4">Settings</h1>
 
       <nav className="space-y-1">{TOP_ITEMS.map(renderItem)}</nav>
 
-      <div className="mt-6 mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+      <div className="mt-6 mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         Business Management
       </div>
       <nav className="space-y-1">{BUSINESS_ITEMS.map(renderItem)}</nav>
 
-      <div className="mt-6 mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+      <div className="mt-6 mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         Client-Facing
       </div>
       <nav className="space-y-1">{CLIENT_ITEMS.map(renderItem)}</nav>

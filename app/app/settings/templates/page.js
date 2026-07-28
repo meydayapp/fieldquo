@@ -136,14 +136,14 @@ export default function PdfTemplatesPage() {
 
   if (loading)
     return (
-      <div className="animate-pulse h-80 bg-gray-200 rounded-xl max-w-3xl" />
+      <div className="animate-pulse h-80 bg-accent rounded-xl max-w-3xl" />
     );
 
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">PDF Templates</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">PDF Templates</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           The layout of the quote and invoice PDFs your clients receive. Looking
           for the emails themselves?{" "}
           <Link href="/app/settings/email-templates" className="underline">
@@ -154,7 +154,7 @@ export default function PdfTemplatesPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
@@ -167,38 +167,38 @@ export default function PdfTemplatesPage() {
         return (
           <div
             key={meta.type}
-            className="bg-white border border-gray-200 rounded-xl p-5"
+            className="bg-card border border-border rounded-xl p-5"
           >
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-semibold text-gray-900">{meta.label}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">{meta.blurb}</p>
+                <h2 className="font-semibold text-foreground">{meta.label}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{meta.blurb}</p>
               </div>
               <button
                 onClick={() => {
                   setCreating(meta.type);
                   setName("");
                 }}
-                className="inline-flex items-center gap-1.5 border border-gray-300 text-sm font-semibold px-3 py-1.5 rounded-lg shrink-0"
+                className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg shrink-0"
               >
                 <Plus size={13} /> New
               </button>
             </div>
 
             {creating === meta.type && (
-              <div className="mt-4 border border-gray-900 rounded-lg p-4 space-y-3">
+              <div className="mt-4 border border-inverted rounded-lg p-4 space-y-3">
                 <input
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="What should this layout be called?"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm"
                 />
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => create(meta.type)}
                     disabled={busyId === "create"}
-                    className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                    className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                   >
                     {busyId === "create" && (
                       <Loader2 size={13} className="animate-spin" />
@@ -214,14 +214,14 @@ export default function PdfTemplatesPage() {
                         )
                       }
                       disabled={busyId === "create"}
-                      className="inline-flex items-center gap-1.5 border border-gray-300 text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                     >
                       <Copy size={13} /> Copy the current one
                     </button>
                   )}
                   <button
                     onClick={() => setCreating(null)}
-                    className="text-sm font-semibold text-gray-500 px-2"
+                    className="text-sm font-semibold text-muted-foreground px-2"
                   >
                     Cancel
                   </button>
@@ -230,16 +230,16 @@ export default function PdfTemplatesPage() {
             )}
 
             {mine.length === 0 ? (
-              <div className="mt-4 border border-dashed border-gray-200 rounded-lg px-4 py-6 text-center">
-                <FileText size={22} className="text-gray-300 mx-auto" />
+              <div className="mt-4 border border-dashed border-border rounded-lg px-4 py-6 text-center">
+                <FileText size={22} className="text-muted-foreground mx-auto" />
                 {/* Reassurance, not a warning. Nothing is broken here. */}
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-muted-foreground mt-2">
                   Using the standard layout. Your PDFs already work — make one
                   only if you want to change the order or drop a section.
                 </p>
               </div>
             ) : (
-              <div className="mt-4 divide-y divide-gray-100 border border-gray-100 rounded-lg">
+              <div className="mt-4 divide-y divide-border border border-border rounded-lg">
                 {mine.map((t) => (
                   <div
                     key={t.id}
@@ -249,16 +249,16 @@ export default function PdfTemplatesPage() {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900 truncate">
+                        <span className="font-medium text-foreground truncate">
                           {t.name}
                         </span>
                         {t.isDefault && (
-                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-900 text-white shrink-0">
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-inverted text-inverted-foreground shrink-0">
                             <Star size={9} /> In use
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-400 mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {(Array.isArray(t.sections) ? t.sections : []).length}{" "}
                         sections
                       </div>
@@ -269,14 +269,14 @@ export default function PdfTemplatesPage() {
                         <button
                           onClick={() => makeDefault(t)}
                           disabled={Boolean(busyId)}
-                          className="text-sm font-semibold text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                          className="text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           Use this
                         </button>
                       )}
                       <Link
                         href={`/app/settings/templates/${t.id}/edit`}
-                        className="text-gray-400 hover:text-gray-900"
+                        className="text-muted-foreground hover:text-foreground"
                         aria-label="Edit template"
                       >
                         <Pencil size={15} />
@@ -284,7 +284,7 @@ export default function PdfTemplatesPage() {
                       <button
                         onClick={() => remove(t)}
                         disabled={Boolean(busyId)}
-                        className="text-gray-400 hover:text-red-600 disabled:opacity-50"
+                        className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
                         aria-label="Delete template"
                       >
                         <Trash2 size={15} />
@@ -296,7 +296,7 @@ export default function PdfTemplatesPage() {
             )}
 
             {mine.length > 0 && !hasDefault && (
-              <p className="text-xs text-amber-700 mt-3">
+              <p className="text-xs text-amber-700 dark:text-amber-300 mt-3">
                 None of these is marked as in use, so PDFs are still coming out
                 on the standard layout. Pick one with &ldquo;Use this&rdquo;.
               </p>

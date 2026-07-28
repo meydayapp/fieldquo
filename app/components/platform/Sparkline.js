@@ -15,7 +15,7 @@ export default function Sparkline({
   if (values.length < 2) {
     return (
       <div
-        className="flex items-center justify-center text-xs text-gray-400"
+        className="flex items-center justify-center text-xs text-muted-foreground"
         style={{ height }}
       >
         Not enough data yet

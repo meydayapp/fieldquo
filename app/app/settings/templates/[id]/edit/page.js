@@ -118,12 +118,12 @@ export default function EditPdfTemplatePage() {
   }
 
   if (loading)
-    return <div className="animate-pulse h-80 bg-gray-200 rounded-xl max-w-2xl" />;
+    return <div className="animate-pulse h-80 bg-accent rounded-xl max-w-2xl" />;
 
   if (!template)
     return (
       <div className="max-w-2xl">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
           {error || "Template not found."}
         </div>
       </div>
@@ -139,45 +139,45 @@ export default function EditPdfTemplatePage() {
     <div className="max-w-2xl space-y-6">
       <Link
         href="/app/settings/templates"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} /> PDF Templates
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Edit layout</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Edit layout</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           {template.type === "invoice_pdf" ? "Invoice" : "Quote"} PDF
           {template.isDefault && " · currently in use"}
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <label className="block text-sm font-medium text-foreground mb-1">
           Name
         </label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           For your reference only — clients never see this.
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900">Sections, top to bottom</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground">Sections, top to bottom</h2>
 
         {missingRecommended.length > 0 && (
-          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-900">
+          <div className="mt-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
             You&apos;ve removed{" "}
             {missingRecommended
               .map((t) => SECTION_META[t].label.toLowerCase())
@@ -188,12 +188,12 @@ export default function EditPdfTemplatePage() {
         )}
 
         {sections.length === 0 ? (
-          <p className="text-sm text-gray-500 mt-3">
+          <p className="text-sm text-muted-foreground mt-3">
             No sections. Add at least one below, or this template produces a
             blank page.
           </p>
         ) : (
-          <div className="mt-4 divide-y divide-gray-100 border border-gray-100 rounded-lg">
+          <div className="mt-4 divide-y divide-border border border-border rounded-lg">
             {sections.map((s, i) => {
               const meta = SECTION_META[s.type];
               return (
@@ -201,15 +201,15 @@ export default function EditPdfTemplatePage() {
                   key={`${s.type}-${i}`}
                   className="flex items-center gap-3 px-4 py-3"
                 >
-                  <span className="text-xs text-gray-300 tabular-nums w-4 shrink-0">
+                  <span className="text-xs text-muted-foreground tabular-nums w-4 shrink-0">
                     {i + 1}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-gray-900 text-sm">
+                    <div className="font-medium text-foreground text-sm">
                       {meta?.label || s.type}
                     </div>
                     {meta?.description && (
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-muted-foreground mt-0.5">
                         {meta.description}
                       </div>
                     )}
@@ -218,7 +218,7 @@ export default function EditPdfTemplatePage() {
                     <button
                       onClick={() => move(i, -1)}
                       disabled={i === 0}
-                      className="p-1.5 text-gray-400 hover:text-gray-900 disabled:opacity-25"
+                      className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
                       aria-label="Move up"
                     >
                       <ArrowUp size={14} />
@@ -226,7 +226,7 @@ export default function EditPdfTemplatePage() {
                     <button
                       onClick={() => move(i, 1)}
                       disabled={i === sections.length - 1}
-                      className="p-1.5 text-gray-400 hover:text-gray-900 disabled:opacity-25"
+                      className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
                       aria-label="Move down"
                     >
                       <ArrowDown size={14} />
@@ -235,7 +235,7 @@ export default function EditPdfTemplatePage() {
                       onClick={() =>
                         setSections(sections.filter((_, j) => j !== i))
                       }
-                      className="p-1.5 text-gray-400 hover:text-red-600"
+                      className="p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-400"
                       aria-label="Remove section"
                     >
                       <Trash2 size={14} />
@@ -249,7 +249,7 @@ export default function EditPdfTemplatePage() {
 
         {addable.length > 0 && (
           <div className="mt-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
               Add a section
             </div>
             <div className="flex flex-wrap gap-2">
@@ -262,7 +262,7 @@ export default function EditPdfTemplatePage() {
                       { type, sortOrder: sections.length },
                     ])
                   }
-                  className="inline-flex items-center gap-1.5 border border-gray-300 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-gray-50"
+                  className="inline-flex items-center gap-1.5 border border-border text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-muted"
                 >
                   <Plus size={12} /> {SECTION_META[type].label}
                 </button>
@@ -276,7 +276,7 @@ export default function EditPdfTemplatePage() {
         <button
           onClick={save}
           disabled={saving || !name.trim()}
-          className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
+          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
           Save
@@ -284,7 +284,7 @@ export default function EditPdfTemplatePage() {
         <button
           onClick={preview}
           disabled={testing || sections.length === 0}
-          className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
+          className="inline-flex items-center gap-2 border border-border text-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
         >
           {testing ? (
             <Loader2 size={14} className="animate-spin" />
@@ -295,7 +295,7 @@ export default function EditPdfTemplatePage() {
         </button>
         <Link
           href="/app/settings/templates"
-          className="text-sm font-semibold text-gray-500 px-2 py-2.5"
+          className="text-sm font-semibold text-muted-foreground px-2 py-2.5"
         >
           Cancel
         </Link>

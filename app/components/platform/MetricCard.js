@@ -24,18 +24,18 @@ export function count(value) {
 export default function MetricCard({ label, value, note, tone = "default" }) {
   const toneClass =
     tone === "positive"
-      ? "text-emerald-700"
+      ? "text-emerald-700 dark:text-emerald-300"
       : tone === "warning"
-        ? "text-amber-700"
-        : "text-gray-900";
+        ? "text-amber-700 dark:text-amber-300"
+        : "text-foreground";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
-      <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <div className="bg-card border border-border rounded-xl p-5">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className={`mt-2 text-2xl font-bold ${toneClass}`}>{value}</div>
-      {note && <div className="mt-1 text-xs text-gray-500">{note}</div>}
+      {note && <div className="mt-1 text-xs text-muted-foreground">{note}</div>}
     </div>
   );
 }

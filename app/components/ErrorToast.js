@@ -49,15 +49,15 @@ export default function ErrorToast() {
         <div
           key={m.id}
           role="alert"
-          className="bg-white border border-red-200 shadow-lg rounded-xl px-4 py-3 flex items-start gap-2.5"
+          className="bg-card border border-red-200 dark:border-red-900 shadow-lg rounded-xl px-4 py-3 flex items-start gap-2.5"
         >
-          <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-gray-800 flex-1">{m.message}</p>
+          <AlertCircle size={17} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-foreground flex-1">{m.message}</p>
           <button
             onClick={() =>
               setMessages((prev) => prev.filter((x) => x.id !== m.id))
             }
-            className="text-gray-300 hover:text-gray-600 shrink-0"
+            className="text-muted-foreground hover:text-foreground shrink-0"
             aria-label="Dismiss"
           >
             <X size={15} />

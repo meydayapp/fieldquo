@@ -59,24 +59,24 @@ export default function ImportClientsPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Import Clients</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Import Clients</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Upload a CSV exported from another system. Expected columns: name,
           email, phone, address, city, province.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {!result ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <label className="flex flex-col items-center gap-2 border-2 border-dashed border-gray-300 rounded-lg py-10 cursor-pointer">
-            <Upload size={24} className="text-gray-400" />
-            <span className="text-sm text-gray-600">
+        <div className="bg-card border border-border rounded-xl p-6">
+          <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg py-10 cursor-pointer">
+            <Upload size={24} className="text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
               {fileName || "Click to choose a CSV file"}
             </span>
             <input
@@ -89,15 +89,15 @@ export default function ImportClientsPage() {
 
           {rows.length > 0 && (
             <div className="mt-5">
-              <p className="text-sm text-gray-700 mb-3">
+              <p className="text-sm text-foreground mb-3">
                 Found <strong>{rows.length}</strong> rows. Preview of the first
                 3:
               </p>
-              <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+              <div className="border border-border rounded-lg overflow-hidden mb-4">
                 {rows.slice(0, 3).map((r, i) => (
                   <div
                     key={i}
-                    className="px-3 py-2 text-xs text-gray-600 border-b border-gray-100 last:border-0"
+                    className="px-3 py-2 text-xs text-muted-foreground border-b border-border last:border-0"
                   >
                     {r.name} — {r.email || r.phone || "no contact info"}
                   </div>
@@ -106,7 +106,7 @@ export default function ImportClientsPage() {
               <button
                 onClick={handleImport}
                 disabled={importing}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
                 {importing ? "Importing..." : `Import ${rows.length} Clients`}
               </button>
@@ -114,8 +114,8 @@ export default function ImportClientsPage() {
           )}
         </div>
       ) : (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center">
-          <p className="text-sm text-green-800">
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-xl p-6 text-center">
+          <p className="text-sm text-green-800 dark:text-green-300">
             Imported <strong>{result.imported}</strong> clients
             {result.skipped > 0 &&
               ` (${result.skipped} skipped — missing a name)`}
@@ -123,7 +123,7 @@ export default function ImportClientsPage() {
           </p>
           <button
             onClick={() => router.push("/app/clients")}
-            className="mt-4 bg-gray-900 text-white px-5 py-2 rounded-full text-sm font-semibold"
+            className="mt-4 bg-inverted text-inverted-foreground px-5 py-2 rounded-full text-sm font-semibold"
           >
             View Clients
           </button>

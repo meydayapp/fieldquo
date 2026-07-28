@@ -82,14 +82,14 @@ export default function ReferPage() {
   if (loading)
     return (
       <div className="max-w-2xl animate-pulse space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded" />
-        <div className="h-32 bg-gray-200 rounded-xl" />
+        <div className="h-8 w-48 bg-accent rounded" />
+        <div className="h-32 bg-accent rounded-xl" />
       </div>
     );
 
   if (!data)
     return (
-      <div className="max-w-lg bg-red-50 border border-red-200 rounded-xl p-5 text-sm text-red-700">
+      <div className="max-w-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
         {error || "Couldn't load your referral details."}
       </div>
     );
@@ -99,8 +99,8 @@ export default function ReferPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Refer &amp; Earn</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Refer &amp; Earn</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Send another business owner your link. They get {months} months free
           when they sign up — and you get {months} months free once they become
           a paying customer.
@@ -108,14 +108,14 @@ export default function ReferPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <label className="text-sm font-medium text-gray-700 block mb-2">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <label className="text-sm font-medium text-foreground block mb-2">
           Your link
         </label>
         <div className="flex items-center gap-2">
@@ -123,11 +123,11 @@ export default function ReferPage() {
             readOnly
             value={data.referralUrl || ""}
             onFocus={(e) => e.target.select()}
-            className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700"
+            className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-muted text-foreground"
           />
           <button
             onClick={copy}
-            className="flex items-center gap-1.5 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold shrink-0"
+            className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold shrink-0"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
             {copied ? "Copied" : "Copy"}
@@ -135,14 +135,14 @@ export default function ReferPage() {
         </div>
         {/* The link is your company name on purpose — it survives being read
             down a phone or printed on a van. */}
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-muted-foreground mt-2">
           Short enough to say out loud. Put it on a business card, an invoice
           footer, or a van.
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Send an invite</h2>
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-3">Send an invite</h2>
 
         <form onSubmit={invite} className="space-y-3">
           <div className="flex gap-2">
@@ -161,8 +161,8 @@ export default function ReferPage() {
                   }}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border ${
                     channel === c.key
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "border-gray-300 text-gray-600"
+                      ? "bg-inverted text-inverted-foreground border-inverted"
+                      : "border-border text-muted-foreground"
                   }`}
                 >
                   <Icon size={13} /> {c.label}
@@ -177,7 +177,7 @@ export default function ReferPage() {
               send button inexplicably greyed out. */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 {channel === "email" ? "Their email" : "Their mobile number"}
               </label>
               <input
@@ -194,19 +194,19 @@ export default function ReferPage() {
                     ? "them@theircompany.com"
                     : "(416) 555-0142"
                 }
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Their name{" "}
-                <span className="text-gray-400 font-normal">(optional)</span>
+                <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Dave"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -215,52 +215,52 @@ export default function ReferPage() {
             <button
               type="submit"
               disabled={sending || !contact.trim()}
-              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+              className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {sending && <Loader2 size={14} className="animate-spin" />}
               Send invite
             </button>
             {/* Say why it's greyed out rather than leaving someone to guess. */}
             {!contact.trim() && !sending && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 Enter their {channel === "email" ? "email" : "number"} to send.
               </span>
             )}
           </div>
 
-          {sent && <p className="text-sm text-green-700">{sent}</p>}
+          {sent && <p className="text-sm text-green-700 dark:text-green-300">{sent}</p>}
         </form>
 
         {/* Stated plainly rather than discovered at the limit. The cap exists
             so this can't be used as a bulk channel. */}
-        <p className="text-xs text-gray-400 mt-3">
+        <p className="text-xs text-muted-foreground mt-3">
           We send one message and don&apos;t follow up. Up to 20 invites a day.
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Gift size={16} className="text-gray-400" />
-          <h2 className="text-base font-semibold text-gray-900">
+          <Gift size={16} className="text-muted-foreground" />
+          <h2 className="text-base font-semibold text-foreground">
             {data.monthsEarned || 0} free month
             {data.monthsEarned === 1 ? "" : "s"} earned
           </h2>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Added to your account automatically when a business you referred makes
           their first payment.
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">
             Businesses you&apos;ve referred
           </h2>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-border">
           {data.referred?.length === 0 && (
-            <p className="px-5 py-8 text-sm text-gray-500 text-center">
+            <p className="px-5 py-8 text-sm text-muted-foreground text-center">
               None yet — send an invite above, or share your link.
             </p>
           )}
@@ -269,15 +269,15 @@ export default function ReferPage() {
               key={c.id}
               className="flex items-center justify-between px-5 py-3 gap-3"
             >
-              <span className="text-sm font-medium text-gray-900 truncate">
+              <span className="text-sm font-medium text-foreground truncate">
                 {c.name}
               </span>
               {c.rewarded ? (
-                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 text-green-700 shrink-0">
+                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 shrink-0">
                   <Check size={11} /> {months} months earned
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-gray-100 text-gray-600 shrink-0">
+                <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-muted text-muted-foreground shrink-0">
                   <Clock size={11} /> Signed up — not yet paying
                 </span>
               )}
@@ -287,22 +287,22 @@ export default function ReferPage() {
       </div>
 
       {data.invites?.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-gray-900">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-base font-semibold text-foreground">
               Invites sent
             </h2>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {data.invites.map((i) => (
               <div
                 key={i.id}
                 className="flex items-center justify-between px-5 py-2.5 gap-3 text-sm"
               >
-                <span className="text-gray-700 truncate">
+                <span className="text-foreground truncate">
                   {i.email || i.phone}
                 </span>
-                <span className="text-xs text-gray-400 shrink-0">
+                <span className="text-xs text-muted-foreground shrink-0">
                   {i.channel === "sms" ? "Text" : "Email"} ·{" "}
                   {i.status === "redeemed"
                     ? "Signed up"

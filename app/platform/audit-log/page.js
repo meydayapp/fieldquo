@@ -29,27 +29,27 @@ const ACTION_META = {
   impersonate: {
     label: "Signed in as company",
     Icon: LogIn,
-    className: "bg-amber-50 text-amber-800 border-amber-200",
+    className: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-900",
   },
   company_suspended: {
     label: "Suspended company",
     Icon: Ban,
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
   },
   company_deletion_requested: {
     label: "Requested deletion",
     Icon: Ban,
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
   },
   company_updated: {
     label: "Updated company",
     Icon: Pencil,
-    className: "bg-gray-50 text-gray-700 border-gray-200",
+    className: "bg-muted text-foreground border-border",
   },
   company_created: {
     label: "Created company",
     Icon: Plus,
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   },
 };
 
@@ -58,7 +58,7 @@ function meta(action) {
     ACTION_META[action] || {
       label: action.replace(/_/g, " "),
       Icon: ScrollText,
-      className: "bg-gray-50 text-gray-700 border-gray-200",
+      className: "bg-muted text-foreground border-border",
     }
   );
 }
@@ -117,8 +117,8 @@ export default function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit log</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Audit log</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Every action platform staff have taken, and who took it.
         </p>
       </div>
@@ -127,7 +127,7 @@ export default function AuditLogPage() {
         <select
           value={action}
           onChange={(e) => changeFilter(setAction, e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-card"
         >
           <option value="">All actions</option>
           {data?.filters?.actions?.map((a) => (
@@ -140,7 +140,7 @@ export default function AuditLogPage() {
         <select
           value={adminId}
           onChange={(e) => changeFilter(setAdminId, e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-card"
         >
           <option value="">All staff</option>
           {data?.filters?.admins?.map((a) => (
@@ -157,7 +157,7 @@ export default function AuditLogPage() {
               setAdminId("");
               setPage(1);
             }}
-            className="text-sm text-gray-500 hover:text-gray-900 underline"
+            className="text-sm text-muted-foreground hover:text-foreground underline"
           >
             Clear
           </button>
@@ -165,19 +165,19 @@ export default function AuditLogPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-4 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
           <AlertCircle size={16} /> {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 py-8">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8">
           <Loader2 size={16} className="animate-spin" /> Loading…
         </div>
       ) : !data?.rows?.length ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center">
-          <ScrollText size={28} className="text-gray-300 mx-auto" />
-          <p className="mt-3 text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-10 text-center">
+          <ScrollText size={28} className="text-muted-foreground mx-auto" />
+          <p className="mt-3 text-sm text-muted-foreground">
             {action || adminId
               ? "No entries match those filters."
               : "Nothing logged yet."}
@@ -185,7 +185,7 @@ export default function AuditLogPage() {
         </div>
       ) : (
         <>
-          <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+          <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
             {data.rows.map((row) => {
               const m = meta(row.action);
               const Icon = m.Icon;
@@ -199,18 +199,18 @@ export default function AuditLogPage() {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-foreground">
                         {m.label}
                       </span>
-                      <span className="text-xs text-gray-400 shrink-0">
+                      <span className="text-xs text-muted-foreground shrink-0">
                         {formatWhen(row.createdAt)}
                       </span>
                     </div>
 
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {row.platformAdmin?.email || "unknown staff"}
                       {row.platformAdmin?.role && (
-                        <span className="text-gray-400">
+                        <span className="text-muted-foreground">
                           {" "}
                           ({row.platformAdmin.role})
                         </span>
@@ -221,7 +221,7 @@ export default function AuditLogPage() {
                           {row.targetCompanyId ? (
                             <Link
                               href={`/platform/companies/${row.targetCompanyId}`}
-                              className="underline hover:text-gray-700"
+                              className="underline hover:text-foreground"
                             >
                               {row.targetCompanyName}
                             </Link>
@@ -237,10 +237,10 @@ export default function AuditLogPage() {
                         churned", which is what you actually need. */}
                     {row.details && Object.keys(row.details).length > 0 && (
                       <details className="mt-2">
-                        <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                        <summary className="text-xs text-muted-foreground cursor-pointer hover:text-muted-foreground">
                           Details
                         </summary>
-                        <pre className="mt-1 text-xs bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto text-gray-600">
+                        <pre className="mt-1 text-xs bg-muted border border-border rounded p-2 overflow-x-auto text-muted-foreground">
                           {JSON.stringify(row.details, null, 2)}
                         </pre>
                       </details>
@@ -252,25 +252,25 @@ export default function AuditLogPage() {
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">
+            <span className="text-muted-foreground">
               {data.total.toLocaleString("en-CA")} entries
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="p-2 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50"
+                className="p-2 rounded-lg border border-border disabled:opacity-40 hover:bg-muted"
                 aria-label="Previous page"
               >
                 <ChevronLeft size={14} />
               </button>
-              <span className="text-gray-500">
+              <span className="text-muted-foreground">
                 {data.page} / {data.pageCount}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(data.pageCount, p + 1))}
                 disabled={page >= data.pageCount}
-                className="p-2 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50"
+                className="p-2 rounded-lg border border-border disabled:opacity-40 hover:bg-muted"
                 aria-label="Next page"
               >
                 <ChevronRight size={14} />

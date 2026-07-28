@@ -54,7 +54,7 @@ export default function PlatformSidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 bg-[#1A1917] text-gray-300 min-h-screen px-3 py-6 flex flex-col">
+    <aside className="w-60 shrink-0 bg-[#1A1917] text-muted-foreground min-h-screen px-3 py-6 flex flex-col">
       <div className="px-3 mb-6 flex items-center gap-2">
         <ShieldCheck size={16} className="text-[#bd9d60]" />
         <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#bd9d60]">
@@ -71,8 +71,8 @@ export default function PlatformSidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
                 isActive(item)
-                  ? "bg-white/10 text-white"
-                  : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                  ? "bg-card/10 text-white"
+                  : "text-muted-foreground hover:bg-card/5 hover:text-muted-foreground"
               }`}
             >
               <Icon size={16} className="shrink-0" />
@@ -84,7 +84,7 @@ export default function PlatformSidebar() {
 
       <button
         onClick={signOut}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 hover:text-gray-200"
+        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-card/5 hover:text-muted-foreground"
       >
         <LogOut size={16} />
         Sign out

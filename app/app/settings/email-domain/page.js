@@ -24,27 +24,27 @@ import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 const STATUS_META = {
   verified: {
     label: "Verified",
-    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    className: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
     Icon: CheckCircle2,
   },
   pending: {
     label: "Waiting on DNS",
-    className: "bg-amber-50 text-amber-700 border-amber-200",
+    className: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
     Icon: Clock,
   },
   failed: {
     label: "Verification failed",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
     Icon: AlertCircle,
   },
   not_started: {
     label: "Not set up",
-    className: "bg-gray-50 text-gray-600 border-gray-200",
+    className: "bg-muted text-muted-foreground border-border",
     Icon: AlertCircle,
   },
 };
@@ -59,10 +59,10 @@ function CopyButton({ value }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="text-gray-400 hover:text-gray-700 shrink-0"
+      className="text-muted-foreground hover:text-foreground shrink-0"
       aria-label="Copy value"
     >
-      {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+      {copied ? <Check size={14} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={14} />}
     </button>
   );
 }
@@ -192,8 +192,8 @@ export default function EmailDomainPage() {
   if (loading) {
     return (
       <div className="max-w-3xl space-y-4 animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/3" />
-        <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="h-8 bg-accent rounded w-1/3" />
+        <div className="h-64 bg-accent rounded-xl" />
       </div>
     );
   }
@@ -214,8 +214,8 @@ export default function EmailDomainPage() {
       />
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Email Domain</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Email Domain</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Send client emails from your own domain instead of ours. Better
           deliverability, and no &ldquo;via fieldquo.com&rdquo; next to your
           name.
@@ -223,19 +223,19 @@ export default function EmailDomainPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
         </div>
       )}
 
       {/* Current status */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="font-semibold text-gray-900">
+            <h2 className="font-semibold text-foreground">
               {isConnected ? data.emailDomain : "No domain connected"}
             </h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {isConnected
                 ? `Emails will send from ${data.emailFromLocal || "quotes"}@${data.emailDomain}`
                 : "Your emails currently send from FieldQuo's shared address, using your company name."}
@@ -255,7 +255,7 @@ export default function EmailDomainPage() {
               <button
                 onClick={() => recheck()}
                 disabled={busy}
-                className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
+                className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
               >
                 {busy && <Loader2 size={14} className="animate-spin" />}
                 Check verification
@@ -264,7 +264,7 @@ export default function EmailDomainPage() {
             <button
               onClick={disconnect}
               disabled={busy}
-              className="border border-gray-300 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 disabled:opacity-60"
+              className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-muted disabled:opacity-60"
             >
               <Trash2 size={14} />
               Disconnect
@@ -275,11 +275,11 @@ export default function EmailDomainPage() {
 
       {/* Connect a domain */}
       {!isConnected && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-1">Connect a domain</h2>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">Connect a domain</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             Use a subdomain like{" "}
-            <span className="font-mono text-gray-700">
+            <span className="font-mono text-foreground">
               send.yourcompany.com
             </span>{" "}
             rather than your root domain. It keeps this separate from your
@@ -295,7 +295,7 @@ export default function EmailDomainPage() {
             <button
               onClick={connect}
               disabled={busy || !domainInput.trim()}
-              className="bg-gray-900 text-white text-sm font-semibold px-5 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
+              className="bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
               Connect
@@ -306,9 +306,9 @@ export default function EmailDomainPage() {
 
       {/* DNS records */}
       {isConnected && records.length > 0 && status !== "verified" && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-1">Add these DNS records</h2>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">Add these DNS records</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             Add them wherever your domain is managed (Cloudflare, GoDaddy,
             Namecheap...). Changes usually apply within an hour, but can take up
             to 24. This page rechecks itself every 30 seconds.
@@ -318,14 +318,14 @@ export default function EmailDomainPage() {
             {records.map((r, i) => (
               <div
                 key={i}
-                className="border border-gray-200 rounded-lg p-3 text-sm bg-gray-50/50"
+                className="border border-border rounded-lg p-3 text-sm bg-muted/50"
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {r.record || r.type}
                   </span>
                   {r.status && (
-                    <span className="text-xs text-gray-400">({r.status})</span>
+                    <span className="text-xs text-muted-foreground">({r.status})</span>
                   )}
                 </div>
                 <dl className="space-y-1.5">
@@ -339,10 +339,10 @@ export default function EmailDomainPage() {
                     .filter(([, v]) => v !== undefined && v !== null && v !== "")
                     .map(([label, value]) => (
                       <div key={label} className="flex items-start gap-2">
-                        <dt className="w-16 shrink-0 text-xs text-gray-500 pt-0.5">
+                        <dt className="w-16 shrink-0 text-xs text-muted-foreground pt-0.5">
                           {label}
                         </dt>
-                        <dd className="flex-1 font-mono text-xs text-gray-800 break-all">
+                        <dd className="flex-1 font-mono text-xs text-foreground break-all">
                           {String(value)}
                         </dd>
                         <CopyButton value={String(value)} />
@@ -357,9 +357,9 @@ export default function EmailDomainPage() {
 
       {/* Sender address */}
       {isConnected && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-1">Sender address</h2>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">Sender address</h2>
+          <p className="text-sm text-muted-foreground mb-4">
             The address clients see. This doesn&apos;t need to be a real
             mailbox — verifying the domain is what lets us send as it.
           </p>
@@ -370,14 +370,14 @@ export default function EmailDomainPage() {
                 value={localInput}
                 onChange={(e) => setLocalInput(e.target.value)}
               />
-              <span className="border border-l-0 border-gray-300 rounded-r-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 whitespace-nowrap">
+              <span className="border border-l-0 border-border rounded-r-lg px-3 py-2 text-sm text-muted-foreground bg-muted whitespace-nowrap">
                 @{data.emailDomain}
               </span>
             </div>
             <button
               onClick={saveLocal}
               disabled={busy || localInput === data.emailFromLocal}
-              className="bg-gray-900 text-white text-sm font-semibold px-5 py-2 rounded-lg disabled:opacity-60 shrink-0"
+              className="bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2 rounded-lg disabled:opacity-60 shrink-0"
             >
               Save
             </button>
@@ -386,14 +386,14 @@ export default function EmailDomainPage() {
       )}
 
       {/* Replies */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-1">Replies</h2>
-        <p className="text-sm text-gray-500">
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">Replies</h2>
+        <p className="text-sm text-muted-foreground">
           When a client replies to a quote or invoice, it goes to{" "}
           {data?.email ? (
-            <span className="font-medium text-gray-900">{data.email}</span>
+            <span className="font-medium text-foreground">{data.email}</span>
           ) : (
-            <span className="text-amber-700">
+            <span className="text-amber-700 dark:text-amber-300">
               your account owner&apos;s email, because no company email is set
             </span>
           )}

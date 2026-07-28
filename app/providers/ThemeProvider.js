@@ -26,21 +26,26 @@ const ThemeContext = createContext(null);
 
 const STORAGE_KEY = "fieldquo-theme";
 
-// Dark mode is OFF until the component layer supports it.
+// Dark mode is ON.
 //
-// The mechanism here works — toggling `.dark` flips every shadcn variable in
-// globals.css. The problem is that almost nothing reads those variables:
-// there are ~700 hardcoded `bg-white`, `text-gray-900` and `border-gray-200`
-// classes across ~80 files, and a hardcoded colour ignores the theme entirely.
+// It was off because the mechanism worked but nothing read it: 3,069
+// hardcoded `bg-white` / `text-gray-900` / `border-gray-200` classes across
+// 122 files, and a hardcoded colour ignores the theme entirely. The result
+// was worse than no dark mode — dark page, dark text, white cards with white
+// text, an invisible mobile drawer.
 //
-// The result was worse than having no dark mode: dark page background with
-// dark text, white cards with white text, and an invisible mobile drawer.
+// 2,576 of those are now semantic tokens across the authenticated app. What's
+// deliberately NOT tokenised, and why it doesn't block this:
 //
-// Flip this to true once components use semantic tokens (bg-background,
-// bg-card, text-foreground, text-muted-foreground, border-border). Until
-// then the provider stays mounted and useTheme() keeps working — it just
-// never applies the class.
-const DARK_MODE_ENABLED = false;
+//   * Client-facing pages (/q, /portal, /refer, /book) are fixed light. A
+//     homeowner opening a quote must not get a dark document because the
+//     contractor who sent it runs a dark laptop. Those pages carry the
+//     CONTRACTOR's branding, not the viewer's theme.
+//   * The platform console keeps its near-black chrome in both themes; that's
+//     its identity, not a missing token.
+//   * Semantic colours (red danger, green success, amber warning) stay put —
+//     they read correctly on either background.
+const DARK_MODE_ENABLED = true;
 
 function systemPrefersDark() {
   return (
@@ -49,8 +54,22 @@ function systemPrefersDark() {
   );
 }
 
+// Allow-list, mirroring the pre-paint script in app/layout.js (which has to
+// duplicate this because it runs before any module loads).
+//
+// Only the authenticated surfaces are themeable. Everything else — marketing,
+// and the quote/portal/booking pages the contractor's clients see — stays
+// light. An allow-list means a page added tomorrow is light by default rather
+// than accidentally themeable and half-converted, which is how dark mode
+// broke here the first time.
+function isThemeablePath(pathname) {
+  return ["/app", "/platform"].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
+
 function applyTheme(theme) {
-  if (!DARK_MODE_ENABLED) {
+  if (!DARK_MODE_ENABLED || !isThemeablePath(window.location.pathname)) {
     document.documentElement.classList.remove("dark");
     document.documentElement.style.colorScheme = "light";
     return false;

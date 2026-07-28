@@ -59,16 +59,16 @@ export default function QuoteLanguageBar({
   const mismatch = clientPrefers && clientPrefers !== effective;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <Languages size={16} className="text-gray-400 shrink-0" />
-        <span className="text-sm font-medium text-gray-900">
+        <Languages size={16} className="text-muted-foreground shrink-0" />
+        <span className="text-sm font-medium text-foreground">
           Write this quote in
         </span>
         <select
           value={effective}
           onChange={(e) => onChange(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white"
+          className="border border-border rounded-lg px-3 py-1.5 text-sm bg-card"
         >
           {LANGUAGES.map((l) => (
             <option key={l.code} value={l.code}>
@@ -82,7 +82,7 @@ export default function QuoteLanguageBar({
           may be quoting a Punjabi-speaking homeowner's English-speaking son.
           But the mismatch should be visible. */}
       {mismatch && (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-amber-700 dark:text-amber-300">
           {client.name} is set to receive documents in{" "}
           {LANGUAGES.find((l) => l.code === clientPrefers)?.nativeName ||
             clientPrefers}
@@ -98,7 +98,7 @@ export default function QuoteLanguageBar({
       )}
 
       {gaps?.missing > 0 && (
-        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900">
+        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <div>
             {gaps.missing} of your {gaps.total} services don&apos;t have{" "}

@@ -22,13 +22,13 @@ const TYPE_LABELS = {
 };
 
 const STATUS_STYLES = {
-  draft: "bg-gray-100 text-gray-600",
-  active: "bg-green-50 text-green-700",
-  completed: "bg-blue-50 text-blue-700",
+  draft: "bg-muted text-muted-foreground",
+  active: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  completed: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
 };
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function emptyForm() {
   return {
@@ -114,10 +114,10 @@ export default function MarketingPage() {
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Megaphone size={22} /> Marketing
           </h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-xl">
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
             Run and track your campaigns — paid ads, email blasts, and
             door-to-door pamphlet distribution, with routes, assignments, and
             doorstep follow-ups in one place.
@@ -126,13 +126,13 @@ export default function MarketingPage() {
         <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/app/marketing/subscribers"
-            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-gray-50"
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
           >
             <Contact size={14} /> Subscribers
           </Link>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold"
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
           >
             <Plus size={14} /> New Campaign
           </button>
@@ -142,13 +142,13 @@ export default function MarketingPage() {
       {loading ? (
         <div className="grid sm:grid-cols-2 gap-4 animate-pulse">
           {[1, 2].map((i) => (
-            <div key={i} className="h-36 bg-gray-100 rounded-xl" />
+            <div key={i} className="h-36 bg-muted rounded-xl" />
           ))}
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
-          <Megaphone size={40} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-sm text-gray-500">
+        <div className="bg-card border border-border rounded-xl p-12 text-center">
+          <Megaphone size={40} className="mx-auto text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">
             No campaigns yet. Create one to start tracking your marketing.
           </p>
         </div>
@@ -160,42 +160,42 @@ export default function MarketingPage() {
                 ? Math.round((c.visitedCount / c.stopCount) * 100)
                 : 0;
             const inner = (
-              <div className="bg-white border border-gray-200 rounded-xl p-5 h-full hover:border-gray-300 transition-colors">
+              <div className="bg-card border border-border rounded-xl p-5 h-full hover:border-border transition-colors">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-semibold text-gray-900">{c.name}</h2>
+                  <h2 className="font-semibold text-foreground">{c.name}</h2>
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || "bg-gray-100 text-gray-600"}`}
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status] || "bg-muted text-muted-foreground"}`}
                   >
                     {c.status}
                   </span>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {TYPE_LABELS[c.type] || c.type}
                 </p>
 
                 {c.type === "pamphlet" ? (
                   <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span className="flex items-center gap-1">
                         <MapPin size={12} /> {c.visitedCount}/{c.stopCount}{" "}
                         stops
                       </span>
                       <span>{c.spokeCount} spoke</span>
                     </div>
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-gray-900"
+                        className="h-full bg-inverted"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
                 ) : c.type === "email" ? (
-                  <div className="mt-4 flex items-center gap-3 text-xs text-gray-500">
+                  <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Mail size={12} /> {c.template?.name || "no template"}
                     </span>
                     {c.sentAt ? (
-                      <span className="text-emerald-700">
+                      <span className="text-emerald-700 dark:text-emerald-300">
                         Sent to {c.recipientCount ?? 0}
                       </span>
                     ) : (
@@ -203,7 +203,7 @@ export default function MarketingPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="mt-4 flex items-center gap-3 text-xs text-gray-500">
+                  <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                     {c.budget != null && (
                       <span>Budget ${Number(c.budget).toLocaleString()}</span>
                     )}
@@ -216,7 +216,7 @@ export default function MarketingPage() {
                 )}
 
                 {c.assignedTo && (
-                  <p className="text-xs text-gray-400 mt-3 flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
                     <Users size={12} /> {c.assignedTo.name}
                   </p>
                 )}
@@ -242,20 +242,20 @@ export default function MarketingPage() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-md p-6"
+            className="bg-card rounded-2xl w-full max-w-md p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-foreground">
                 New Campaign
               </h2>
               <button onClick={() => setShowModal(false)}>
-                <X size={18} className="text-gray-400" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2 mb-3">
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2 mb-3">
                 {error}
               </div>
             )}
@@ -281,7 +281,7 @@ export default function MarketingPage() {
               </select>
 
               <div>
-                <label className="text-xs text-gray-500 block mb-1">
+                <label className="text-xs text-muted-foreground block mb-1">
                   Assign to
                 </label>
                 <select
@@ -302,7 +302,7 @@ export default function MarketingPage() {
 
               {isEmail && (
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
+                  <label className="text-xs text-muted-foreground block mb-1">
                     Template to send
                   </label>
                   <select
@@ -323,7 +323,7 @@ export default function MarketingPage() {
                     ))}
                   </select>
                   {templates.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                       No marketing/custom templates yet — create one in{" "}
                       <a href="/app/settings/email-templates" className="underline">
                         Email Templates
@@ -360,7 +360,7 @@ export default function MarketingPage() {
               <button
                 type="submit"
                 disabled={saving || (isEmail && !form.templateId)}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
                 {saving ? "Creating..." : "Create Campaign"}
               </button>
