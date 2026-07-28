@@ -168,6 +168,9 @@ model Plan {
   maxUsers          Int?
   maxQuotesPerMonth Int?
   aiCopilotEnabled  Boolean  @default(false)
+  // Monthly AI token allowance for companies on this plan. Null = unlimited,
+  // which should be used sparingly: FieldQuo pays for every token.
+  aiMonthlyTokenCap Int?
   features          Json?
   createdAt         DateTime @default(now())
 
@@ -263,6 +266,12 @@ model Company {
 
   referralInvitesSent  ReferralInvite[] @relation("ReferralInvitesSent")
   referralCredits      ReferralCredit[] @relation("ReferralCreditsEarned")
+
+  aiUsage AiUsage[]
+  // Per-company override of the plan's monthly AI token allowance. Null means
+  // "use the plan's". 0 means "no AI at all" — distinct from null, which is
+  // why this is nullable rather than defaulted.
+  aiMonthlyTokenCap Int?
 
   // Stripe Connect — for this company to receive payments from ITS clients
   stripeAccountId      String?
@@ -1631,4 +1640,53 @@ enum ReferralInviteStatus {
 enum ReferralRole {
   referrer
   referred
+}
+
+// ============================================================
+// AI USAGE & QUOTA
+// ============================================================
+//
+// Every model call is metered. Two reasons, and the second is the important
+// one:
+//
+//   1. Cost visibility. FieldQuo pays OpenAI, not the company, so without a
+//      per-tenant record there is no way to know whether AI costs $4/month or
+//      $400 — or which company is responsible.
+//   2. Abuse containment. A scripted loop against /api/ai/copilot is an
+//      unmetered spend on FieldQuo's card. A cap turns a potentially unbounded
+//      bill into a known maximum.
+//
+// Recorded AFTER the call, from the provider's own usage numbers rather than
+// an estimate — a tool-use loop can make several round trips for one question,
+// and counting the question rather than the tokens would understate it badly.
+
+model AiUsage {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Which part of the product spent this: "copilot", "expense_summary",
+  // "monthly_digest", "translation". Lets a spike be traced to a feature
+  // rather than just a company.
+  feature String
+  model   String
+
+  promptTokens     Int @default(0)
+  completionTokens Int @default(0)
+  totalTokens      Int @default(0)
+
+  // Cost in millionths of a dollar (micros). Integers, not floats — a
+  // single call can cost $0.0004, and summing floats over thousands of rows
+  // accumulates error into a number people will compare against an invoice.
+  costMicros Int @default(0)
+
+  // Null for background jobs (digests, cron). Set for anything a person
+  // triggered, so "who is generating all this" is answerable.
+  userId String?
+
+  createdAt DateTime @default(now())
+
+  // Every read is "this company, this month", so the index matches.
+  @@index([companyId, createdAt])
+  @@index([createdAt])
 }

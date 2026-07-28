@@ -71,7 +71,7 @@ export default function CopilotPage() {
       <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Sparkles size={20} className="text-muted-foreground" />
-          Copilot
+          FieldQuo AI
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Ask about your own quotes, invoices, clients and material costs. It

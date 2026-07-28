@@ -17,6 +17,7 @@ import {
   LogOut,
   ShieldCheck,
   FileSpreadsheet,
+  Sparkles,
 } from "lucide-react";
 
 const ITEMS = [
@@ -30,6 +31,7 @@ const ITEMS = [
   },
   { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
   { label: "Reports", href: "/platform/reports", icon: FileSpreadsheet },
+  { label: "AI usage", href: "/platform/ai-usage", icon: Sparkles },
   {
     label: "Service categories",
     href: "/platform/service-categories",
