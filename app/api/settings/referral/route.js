@@ -4,14 +4,18 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { getAppOrigin } from "@/lib/appUrl";
+import { referralCodeFor, REWARD_MONTHS } from "@/lib/referrals";
 
-function generateCode(companyName) {
-  const base = (companyName || "fq")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 10);
-  const suffix = Math.random().toString(36).slice(2, 7);
-  return `${base || "fq"}-${suffix}`;
+// Plain company name, no random suffix: this becomes /refer/sunsetinc, which
+// gets read aloud, typed off a business card and printed on a van. A suffix
+// like "sunsetinc-k3f9a" is unshareable in exactly those situations. Collisions
+// fall back to a suffix in the retry loop below.
+function generateCode(companyName, attempt = 0) {
+  const base = referralCodeFor(companyName);
+  return attempt === 0
+    ? base
+    : `${base}${Math.random().toString(36).slice(2, 5)}`;
 }
 
 async function getOrCreateReferralCode(company) {
@@ -19,7 +23,7 @@ async function getOrCreateReferralCode(company) {
 
   // Small retry loop in the unlikely event of a collision on the unique code.
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateCode(company.name);
+    const code = generateCode(company.name, attempt);
     try {
       const updated = await db.company.update({
         where: { id: company.id },
@@ -49,13 +53,43 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  const rewardedCount = referred.filter(
-    (c) => c.onboardingStatus === "active",
-  ).length;
+  // Credits are the truth about what was actually granted — `referred` alone
+  // can't distinguish "signed up" from "paid, and you got your three months".
+  const [credits, invites] = await Promise.all([
+    db.referralCredit.findMany({
+      where: { companyId: company.id, role: "referrer" },
+      select: { counterpartyCompanyId: true, months: true, createdAt: true },
+    }),
+    db.referralInvite.findMany({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        channel: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const creditedIds = new Set(credits.map((c) => c.counterpartyCompanyId));
 
   return NextResponse.json({
     referralCode,
-    referred,
-    rewardedCount,
+    referralUrl: `${getAppOrigin(request)}/refer/${referralCode}`,
+    rewardMonths: REWARD_MONTHS,
+    referred: referred.map((c) => ({
+      ...c,
+      // The distinction the old page couldn't make: a referral that signed up
+      // but hasn't paid earns nothing yet, and saying otherwise sets up a
+      // support conversation about a reward that never arrived.
+      rewarded: creditedIds.has(c.id),
+    })),
+    monthsEarned: credits.reduce((sum, c) => sum + (c.months || 0), 0),
+    rewardedCount: credits.length,
+    invites,
   });
 }

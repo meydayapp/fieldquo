@@ -256,6 +256,13 @@ model Company {
 
   referralCode   String? @unique
   referredByCode String?
+  // When the referral was actually redeemed. Null on a company that arrived
+  // organically, and also on one that arrived via a link but was blocked from
+  // redeeming (see lib/referrals/grantCredit.js).
+  referredAt     DateTime?
+
+  referralInvitesSent  ReferralInvite[] @relation("ReferralInvitesSent")
+  referralCredits      ReferralCredit[] @relation("ReferralCreditsEarned")
 
   // Stripe Connect — for this company to receive payments from ITS clients
   stripeAccountId      String?
@@ -1530,4 +1537,98 @@ enum CurveType {
   linear
   log
   exp
+}
+// ============================================================
+// REFERRALS (company → company)
+// ============================================================
+//
+// Distinct from ReferralLink above, which is a company's CLIENT referring
+// another homeowner to that company. This is FieldQuo's own growth loop: one
+// contractor telling another contractor about the product.
+//
+// Reward rules, encoded here so they aren't scattered across route handlers:
+//
+//   * The new company's 3 months are granted at signup. That's their trial —
+//     it costs nothing if they churn, and it's the thing that makes the offer
+//     worth clicking.
+//   * The referrer's 3 months are granted on the referred company's FIRST
+//     PAYMENT, not their signup. Paying out on signup alone makes this a
+//     fraud target: twenty throwaway emails would earn five free years.
+//   * A company that already exists can refer but can never redeem. The offer
+//     acquires new customers; letting existing ones redeem just discounts
+//     revenue you already had.
+
+model ReferralInvite {
+  id        String  @id @default(cuid())
+  // Who sent it.
+  companyId String
+  company   Company @relation("ReferralInvitesSent", fields: [companyId], references: [id], onDelete: Cascade)
+
+  // Exactly one of these is set. Kept as plain strings rather than a Contact
+  // relation because the recipient is, by definition, not in the system yet.
+  email String?
+  phone String?
+
+  channel ReferralChannel
+  status  ReferralInviteStatus @default(sent)
+
+  // Set when a company signs up carrying this invite's referral code and
+  // matching contact details. Not a hard link — someone can forward the link
+  // to a colleague, and that referral should still count for the sender.
+  redeemedByCompanyId String?  @unique
+  redeemedAt          DateTime?
+
+  // Twilio/Resend id, so a delivery complaint can be traced to a send.
+  providerMessageId String?
+  error             String?
+
+  sentByUserId String?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+}
+
+// A granted "3 free months". One row per grant so the reason and the source
+// are auditable — a support question about a company's billing date should be
+// answerable without reading application logs.
+model ReferralCredit {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation("ReferralCreditsEarned", fields: [companyId], references: [id], onDelete: Cascade)
+
+  // The other company in the relationship: for a referrer's credit this is
+  // the company they referred; for a new company's credit it's their referrer.
+  counterpartyCompanyId String?
+
+  role   ReferralRole
+  months Int          @default(3)
+
+  // The trial end date this credit produced, captured at grant time. Storing
+  // it means a later change to the reward size can't retroactively rewrite
+  // what a company was actually given.
+  appliedTrialEndsAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  // One credit per company per role per counterparty. Without this, a webhook
+  // retry or a double-clicked button grants the reward twice.
+  @@unique([companyId, role, counterpartyCompanyId])
+  @@index([companyId])
+}
+
+enum ReferralChannel {
+  email
+  sms
+  link
+}
+
+enum ReferralInviteStatus {
+  sent
+  failed
+  redeemed
+}
+
+enum ReferralRole {
+  referrer
+  referred
 }

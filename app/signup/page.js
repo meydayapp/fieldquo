@@ -16,6 +16,32 @@ import { formatPhoneInput, isValidPhone, isValidEmail } from "@/lib/validation";
 export default function SignupPage() {
   const [step, setStep] = useState("plan");
 
+  // Referral code from /refer/<code>, which links here as ?ref=<code>.
+  //
+  // Read from window.location rather than useSearchParams() to avoid needing a
+  // Suspense boundary around this whole page — see the note in
+  // app/app/layout.js about prerender failures from client-only hooks.
+  //
+  // Held in state and posted with the company, NOT stored in a cookie: a stale
+  // referral cookie from a link someone clicked last month shouldn't silently
+  // attach itself to an unrelated signup.
+  const [referralCode, setReferralCode] = useState("");
+  const [referrer, setReferrer] = useState(null);
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("ref");
+    if (!code) return;
+    setReferralCode(code);
+
+    // Confirm the code is real before promising anything. A typo'd link
+    // should not produce a banner claiming three free months that the API
+    // then silently declines to grant.
+    fetch(`/api/public/refer/${encodeURIComponent(code)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.valid && setReferrer(d))
+      .catch(() => {});
+  }, []);
+
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
@@ -188,6 +214,7 @@ export default function SignupPage() {
           planId: isCustom ? null : selectedPlanId,
           employeeCount,
           serviceCategoryIds: selectedCategoryIds,
+          referralCode: referralCode || undefined,
         }),
       });
 
@@ -225,6 +252,18 @@ export default function SignupPage() {
             Start your free trial — $1 for the first month
           </p>
         </div>
+
+        {/* Only shown once the code has been confirmed real. Carried through
+            every step so someone who reaches the payment screen still sees
+            what they were promised on the landing page. */}
+        {referrer && (
+          <div className="max-w-md mx-auto mb-6 bg-[#faf6ee] border border-[#bd9d60]/40 rounded-xl px-4 py-3 text-center">
+            <p className="text-sm text-[#2d2520]">
+              <strong>{referrer.referrerName}</strong> referred you —{" "}
+              <strong>{referrer.months} months free</strong> added to your trial.
+            </p>
+          </div>
+        )}
         {error && (
           <div className="max-w-md mx-auto mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
             {error}

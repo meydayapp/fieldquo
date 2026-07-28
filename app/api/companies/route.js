@@ -17,6 +17,7 @@ import { calculatePricing } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin } from "@/lib/appUrl";
+import { applySignupReferral } from "@/lib/referrals";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -34,6 +35,8 @@ export async function POST(request) {
     planId,
     employeeCount,
     serviceCategoryIds,
+    // Carried through from /refer/<code> or ?ref=<code>. See lib/referrals.
+    referralCode,
   } = await request.json();
 
   if (!name) {
@@ -123,6 +126,13 @@ export async function POST(request) {
     data: { userId: session.user.id, companyId: company.id, role: "owner" },
   });
 
+  // Grant the new company its three free months and record who sent them.
+  // Deliberately after the company and member rows exist, and deliberately
+  // non-fatal — a bad or expired referral code must never be the reason
+  // someone can't finish signing up. applySignupReferral swallows its own
+  // errors and returns null.
+  const referral = await applySignupReferral({ company, code: referralCode });
+
   // Better Auth generates its OWN id for the organization — it is NOT the same
   // as company.id, even though we pass company.id in as the slug. We capture
   // org.id here and store it on Company.authOrgId so getCurrentMember() can
@@ -199,5 +209,17 @@ export async function POST(request) {
     cancelUrl: `${baseUrl}/signup`,
   });
 
-  return NextResponse.json({ checkoutUrl: checkoutSession.url });
+  return NextResponse.json({
+    checkoutUrl: checkoutSession.url,
+    // Null unless a referral was actually redeemed, so the client can show
+    // "3 free months from Sunset Inc" rather than guessing from the code it
+    // sent — which may have been rejected as self-referral or unknown.
+    referral: referral
+      ? {
+          referrerName: referral.referrer.name,
+          trialEndsAt: referral.trialEndsAt,
+          months: 3,
+        }
+      : null,
+  });
 }

@@ -1,0 +1,113 @@
+// app/refer/[code]/page.js
+//
+// fieldquo.com/refer/sunsetinc — where a referral link lands.
+//
+// Server-rendered rather than fetched on the client, because this page's job
+// is to be persuasive in the first half-second on a phone with one bar of
+// signal. A skeleton that resolves into "Sunset Inc referred you" has already
+// lost the visitor it was built for.
+//
+// The code is a slug, not a random token, on purpose: it's read aloud, typed
+// off a business card, and printed on a van. Enumerability is fine — the worst
+// case is discovering that a company uses FieldQuo, which their own link
+// broadcasts anyway.
+
+export const dynamic = "force-dynamic";
+
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { findReferrer, REWARD_MONTHS } from "@/lib/referrals";
+
+export async function generateMetadata({ params }) {
+  const { code } = await params;
+  const referrer = await findReferrer(code);
+
+  if (!referrer) return { title: "FieldQuo" };
+
+  // Open Graph matters more here than on most pages — this link gets pasted
+  // into WhatsApp and Facebook groups, where the preview card IS the pitch.
+  const title = `${referrer.name} thinks you'd like FieldQuo`;
+  const description = `Quotes, invoices and scheduling for field-service businesses. ${REWARD_MONTHS} months free when you sign up through ${referrer.name}.`;
+
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
+
+export default async function ReferralLandingPage({ params }) {
+  const { code } = await params;
+  const referrer = await findReferrer(code);
+
+  if (!referrer || referrer.onboardingStatus === "churned") notFound();
+
+  return (
+    <div className="min-h-screen bg-[#f5f2ec] flex items-center justify-center px-4 py-12">
+      <div className="max-w-lg w-full">
+        <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
+          <div className="px-7 py-8 text-center">
+            {referrer.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={referrer.logoUrl}
+                alt={referrer.name}
+                className="h-12 w-auto object-contain mx-auto mb-5"
+              />
+            ) : (
+              <div
+                className="h-12 w-12 rounded-xl mx-auto mb-5 flex items-center justify-center text-lg font-bold text-[#2d2520]"
+                style={{ backgroundColor: referrer.brandColor || "#bd9d60" }}
+              >
+                {referrer.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            <p className="text-sm text-[#2d2520]/60">
+              {referrer.name} uses FieldQuo
+            </p>
+            <h1 className="text-2xl font-bold text-[#2d2520] mt-2 leading-tight">
+              Get your first {REWARD_MONTHS} months free
+            </h1>
+            <p className="text-sm text-[#2d2520]/70 mt-3">
+              Quotes, invoices, scheduling and payments for field-service
+              businesses — built for people who&apos;d rather be on site than in
+              a spreadsheet.
+            </p>
+
+            <Link
+              href={`/signup?ref=${encodeURIComponent(referrer.referralCode)}`}
+              className="mt-6 inline-block w-full bg-[#bd9d60] text-[#2d2520] font-bold py-3.5 rounded-full"
+            >
+              Claim {REWARD_MONTHS} months free
+            </Link>
+
+            <p className="text-xs text-[#2d2520]/40 mt-3">
+              No card charged during your trial. Cancel any time.
+            </p>
+          </div>
+
+          <div className="px-7 py-5 bg-[#faf8f4] border-t border-black/5">
+            <ul className="space-y-2 text-sm text-[#2d2520]/70">
+              <li>Build a quote on site and send it before you leave</li>
+              <li>Get paid online — straight to your own bank account</li>
+              <li>Send quotes in your client&apos;s language</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Says the quiet part out loud so nobody wastes a signup finding out.
+            The offer acquires new customers; it isn't a discount for people
+            already paying. */}
+        <p className="text-center text-xs text-[#2d2520]/40 mt-5">
+          For businesses new to FieldQuo. Already have an account?{" "}
+          <Link href="/login" className="underline">
+            Sign in
+          </Link>
+          .
+        </p>
+      </div>
+    </div>
+  );
+}
