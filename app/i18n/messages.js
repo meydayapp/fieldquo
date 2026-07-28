@@ -104,11 +104,11 @@ const en = {
   "features.everything": "Everything your business needs, in one place",
   "features.anyTrade": "Built for any trade",
 
-  // AI Copilot section
-  "ai.badge": "AI Copilot",
+  // FieldQuo AI section
+  "ai.badge": "FieldQuo AI",
   "ai.title": "Ask your business a question, get a real answer",
   "ai.body":
-    "Copilot reads your own quotes, invoices, and expenses — not generic advice. Ask how your quote conversion rate is doing this month, or whether materials were cheaper last month, and get an answer grounded in your actual numbers.",
+    "FieldQuo AI reads your own quotes, invoices, and expenses — not generic advice. Ask how your quote conversion rate is doing this month, or whether materials were cheaper last month, and get an answer grounded in your actual numbers.",
   "ai.samples.pricing": "“Am I pricing too low compared to last quarter?”",
   "ai.samples.topClients":
     "“Which of my clients have paid the most this year?”",
@@ -283,7 +283,7 @@ const fr = {
     "Tout ce dont votre entreprise a besoin, au même endroit",
   "features.anyTrade": "Conçu pour tous les métiers",
 
-  "ai.badge": "Copilote IA",
+  "ai.badge": "IA FieldQuo",
   "ai.title": "Posez une question à votre entreprise, obtenez une vraie réponse",
   "ai.body":
     "Le copilote lit vos propres soumissions, factures et dépenses — pas des conseils génériques. Demandez où en est votre taux de conversion ce mois-ci, ou si les matériaux coûtaient moins cher le mois dernier, et obtenez une réponse fondée sur vos vrais chiffres.",
@@ -316,7 +316,7 @@ const fr = {
   "pricing.fullAccess":
     "Accès complet — soumissions, facturation, planification, analytique",
   "pricing.quoteLimit": "Jusqu'à {count} soumissions par mois",
-  "pricing.aiIncluded": "Copilote IA inclus",
+  "pricing.aiIncluded": "IA FieldQuo incluse",
 
   "faq.title": "Questions fréquentes",
   "faq.items.install.q": "Dois-je installer quelque chose?",
@@ -455,7 +455,7 @@ const es = {
   "features.everything": "Todo lo que tu negocio necesita, en un solo lugar",
   "features.anyTrade": "Hecho para cualquier oficio",
 
-  "ai.badge": "Copiloto IA",
+  "ai.badge": "IA de FieldQuo",
   "ai.title": "Hazle una pregunta a tu negocio y obtén una respuesta real",
   "ai.body":
     "El copiloto lee tus propios presupuestos, facturas y gastos — no consejos genéricos. Pregunta cómo va tu tasa de conversión este mes, o si los materiales estaban más baratos el mes pasado, y recibe una respuesta basada en tus números reales.",
@@ -487,7 +487,7 @@ const es = {
   "pricing.fullAccess":
     "Acceso completo — presupuestos, facturación, agenda, analítica",
   "pricing.quoteLimit": "Hasta {count} presupuestos por mes",
-  "pricing.aiIncluded": "Copiloto de IA incluido",
+  "pricing.aiIncluded": "IA de FieldQuo incluida",
 
   "faq.title": "Preguntas frecuentes",
   "faq.items.install.q": "¿Necesito instalar algo?",
@@ -936,10 +936,10 @@ const tl = {
     "Lahat ng kailangan ng negosyo mo, sa iisang lugar",
   "features.anyTrade": "Ginawa para sa anumang trabaho",
 
-  "ai.badge": "AI Copilot",
+  "ai.badge": "FieldQuo AI",
   "ai.title": "Magtanong sa negosyo mo, makakuha ng totoong sagot",
   "ai.body":
-    "Binabasa ng Copilot ang sarili mong mga quote, invoice at gastos — hindi generic na payo. Itanong kung kumusta ang conversion rate mo ngayong buwan, o kung mas mura ba ang materyales noong isang buwan, at makakuha ng sagot base sa totoo mong numero.",
+    "Binabasa ng FieldQuo AI ang sarili mong mga quote, invoice at gastos — hindi generic na payo. Itanong kung kumusta ang conversion rate mo ngayong buwan, o kung mas mura ba ang materyales noong isang buwan, at makakuha ng sagot base sa totoo mong numero.",
   "ai.samples.pricing":
     "“Masyado ba akong mababa magpresyo kumpara noong nakaraang quarter?”",
   "ai.samples.topClients":

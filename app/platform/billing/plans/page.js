@@ -233,7 +233,7 @@ export default function PlatformPlansPage() {
               />
             </Field>
 
-            <Field label="AI Copilot">
+            <Field label="FieldQuo AI">
               <label className="flex items-center gap-2 text-sm text-foreground pt-2">
                 <input
                   type="checkbox"
@@ -293,7 +293,7 @@ export default function PlatformPlansPage() {
                   {p.aiCopilotEnabled && (
                     <span
                       className="text-[#ff5a00]"
-                      title="AI Copilot included"
+                      title="FieldQuo AI included"
                     >
                       <Sparkles size={14} />
                     </span>

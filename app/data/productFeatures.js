@@ -45,7 +45,7 @@ export const PRODUCT_FEATURES = {
       "Burn rate and minimum price, calculated from your real expenses",
       "Marketing spend broken down by channel — Facebook, Google, TikTok, and more",
       "See how your pricing compares, anonymously, to others in your trade",
-      'Ask Copilot questions like "is my conversion rate normal?"',
+      'Ask FieldQuo AI questions like "is my conversion rate normal?"',
     ],
   },
 };

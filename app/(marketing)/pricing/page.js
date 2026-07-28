@@ -83,7 +83,7 @@ export default async function PricingPage() {
                         size={16}
                         className="text-green-600 shrink-0"
                       />
-                      AI business Copilot
+                      FieldQuo AI
                     </li>
                   )}
                   {Object.entries(features).map(([key, val]) =>

@@ -210,7 +210,7 @@ export default function AccountBillingPage() {
                 )}
                 {plan.aiCopilotEnabled && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    AI Copilot included
+                    FieldQuo AI included
                   </p>
                 )}
                 <button

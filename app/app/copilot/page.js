@@ -1,6 +1,6 @@
 // app/app/copilot/page.js
 //
-// Chat UI for FieldQuo Copilot. The interesting work happens server-side in
+// Chat UI for FieldQuo AI. The interesting work happens server-side in
 // lib/ai/copilotClient.js, which runs a tool-use loop over read-only lookups
 // against this company's own quotes, invoices, clients and material costs —
 // this file just collects messages and renders the replies.
@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Sparkles } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 
 const SUGGESTIONS = [
   "Which clients haven't been invoiced yet?",
@@ -45,13 +46,14 @@ export default function CopilotPage() {
     setSending(true);
 
     try {
-      const res = await fetch("/api/ai/copilot", {
+      // fetchJson, not res.json() — a 500 returns an HTML error page, and
+      // parsing that as JSON produced "The string did not match the expected
+      // pattern", which named neither the cause nor the fix.
+      const data = await fetchJson("/api/ai/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Copilot couldn't answer.");
       setMessages((m) => [...m, { role: "assistant", content: data.text }]);
     } catch (err) {
       setError(err.message);

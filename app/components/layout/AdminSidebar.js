@@ -34,19 +34,58 @@ import {
 import ThemeToggle from "@/app/components/ThemeToggle";
 import Logo from "@/app/components/Logo";
 
-// Main nav, in the order they should render below the "+" quick-add button.
-const NAV_ITEMS = [
-  { label: "Calendar", href: "/app/appointments", icon: Calendar },
-  { label: "Clients", href: "/app/clients", icon: Users },
-  { label: "Requests", href: "/app/leads", icon: ClipboardList },
-  { label: "Quotes", href: "/app/quotes", icon: FileText },
-  { label: "Jobs", href: "/app/jobs", icon: Briefcase },
-  { label: "Invoices", href: "/app/invoices", icon: Receipt },
-  { label: "Marketing", href: "/app/marketing", icon: Megaphone },
-  { label: "Receptionist", href: "/app/receptionist", icon: Headset },
-  { label: "Timesheets", href: "/app/settings/team/timesheets", icon: Clock },
-  { label: "Expenses", href: "/app/settings/expense-tracking", icon: Wallet },
-  { label: "Refer & Earn", href: "/app/settings/refer", icon: Gift },
+// Grouped, not flat.
+//
+// Eleven items in one list is past the point where anyone scans — you read it
+// top to bottom every time, which is slower than it looks when you do it fifty
+// times a day. Four short groups can be scanned by shape.
+//
+// The order inside "Work" is the order work actually moves:
+//
+//   Requests -> Quotes -> Jobs -> Invoices
+//
+// A request becomes a quote, an accepted quote becomes a job, a finished job
+// becomes an invoice. The old list opened with Calendar and buried Requests in
+// third — which is neither the pipeline order nor the order anyone thinks in.
+// Calendar sits at the end of Work because it's where scheduled jobs land, not
+// where work starts.
+//
+// Timesheets and Expenses moved OUT of the nav and into Money; they were
+// pointing at /app/settings/* URLs anyway, which is a decent sign they were
+// never top-level concerns.
+const NAV_GROUPS = [
+  {
+    label: "Work",
+    items: [
+      { label: "Requests", href: "/app/leads", icon: ClipboardList },
+      { label: "Quotes", href: "/app/quotes", icon: FileText },
+      { label: "Jobs", href: "/app/jobs", icon: Briefcase },
+      { label: "Invoices", href: "/app/invoices", icon: Receipt },
+      { label: "Calendar", href: "/app/appointments", icon: Calendar },
+    ],
+  },
+  {
+    label: "People",
+    items: [
+      { label: "Clients", href: "/app/clients", icon: Users },
+      { label: "Timesheets", href: "/app/settings/team/timesheets", icon: Clock },
+    ],
+  },
+  {
+    label: "Money",
+    items: [
+      { label: "Expenses", href: "/app/settings/expense-tracking", icon: Wallet },
+      { label: "Insights", href: "/app/analytics/benchmark", icon: Compass },
+    ],
+  },
+  {
+    label: "Grow",
+    items: [
+      { label: "Marketing", href: "/app/marketing", icon: Megaphone },
+      { label: "Receptionist", href: "/app/receptionist", icon: Headset },
+      { label: "Refer & Earn", href: "/app/settings/refer", icon: Gift },
+    ],
+  },
 ];
 
 // The floating "+" popup — quick-create shortcuts.
@@ -60,8 +99,6 @@ const QUICK_ADD_ITEMS = [
 
 // Bottom-of-sidebar items, above Log Out.
 const BOTTOM_ITEMS = [
-  { label: "AI Assist", href: "/app/copilot", icon: Sparkles },
-  { label: "Optimize Guide", href: "/app/analytics/benchmark", icon: Compass },
   { label: "Plan", href: "/app/settings/account-billing", icon: CreditCard },
   { label: "Settings", href: "/app/settings", icon: Settings },
 ];
@@ -222,16 +259,39 @@ export default function AdminSidebar() {
             )}
           </div>
 
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              forceExpanded={forceExpanded}
-            />
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} className="pt-3 first:pt-1">
+              {/* Headings only when the rail is expanded. Collapsed, the
+                  groups still read as groups because of the gap between
+                  them — a heading squeezed into 76px would be truncated
+                  noise. */}
+              {showLabel && (
+                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/40">
+                  {group.label}
+                </div>
+              )}
+              <div className="space-y-1">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.href}
+                    item={item}
+                    forceExpanded={forceExpanded}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
         <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
+          {/* Its own slot, above the divider. FieldQuo AI is a different mode
+              of using the app rather than another section of it, and it's the
+              feature most worth people noticing. */}
+          <NavLink
+            item={{ label: "FieldQuo AI", href: "/app/copilot", icon: Sparkles }}
+            forceExpanded={forceExpanded}
+          />
+
           {/* Theme control. Lives here rather than in the marketing header
               because /app and /platform are the only themeable surfaces —
               offering the choice on a page that can't honour it is worse than
