@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -35,6 +40,18 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Granular check. Previously this route trusted the coarse role alone, so a
+  // member configured as "Quotes: view only" could still create quotes —
+  // PERMISSIONS.employee includes "quote:create". The grid said no; the API
+  // said yes.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "quotes", "view_create_edit", "create quotes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   try {
     await requireWithinLimit(member.companyId, "quotes");

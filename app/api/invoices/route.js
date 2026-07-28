@@ -5,6 +5,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  requireToggle,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -43,6 +49,18 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Invoices carry pricing, so two checks: the category level, and the
+  // showPricing toggle. A member who can't see prices shouldn't be able to
+  // create a document that consists mostly of them.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "invoices", "view_create_edit", "create invoices");
+    requireToggle(full, "showPricing", "create invoices");
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 
   const body = await request.json();
   const {

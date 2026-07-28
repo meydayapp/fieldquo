@@ -5,7 +5,14 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Clock, Mail } from "lucide-react";
 
-const ROLE_OPTIONS = ["owner", "admin", "supervisor", "employee"];
+const ROLE_LABELS = {
+  owner: "Owner",
+  admin: "Admin",
+  supervisor: "Supervisor",
+  employee: "Employee",
+};
+
+const ROLE_RANK = { owner: 3, admin: 2, supervisor: 1, employee: 0 };
 
 function timeAgo(date) {
   if (!date) return "Never";
@@ -26,6 +33,15 @@ export default function TeamOverviewPage() {
   const [seats, setSeats] = useState({ used: 0, limit: null });
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
+  const [error, setError] = useState("");
+
+  // What THIS user is allowed to assign. Comes from the server rather than
+  // being inferred client-side: the UI should offer exactly what the API will
+  // accept, so a supervisor never picks a role that then bounces with a 403.
+  const [grants, setGrants] = useState({
+    assignableRoles: [],
+    yourRole: null,
+  });
 
   const load = useCallback(() => {
     return Promise.all([
@@ -33,10 +49,16 @@ export default function TeamOverviewPage() {
       fetch("/api/settings/members/pending").then((r) =>
         r.ok ? r.json() : { pending: [], seats: {} },
       ),
-    ]).then(([memberData, pendingData]) => {
+      // The id in this path is ignored by the GET handler — it returns the
+      // caller's own grants, not the target's.
+      fetch("/api/settings/members/self/role").then((r) =>
+        r.ok ? r.json() : { assignableRoles: [] },
+      ),
+    ]).then(([memberData, pendingData, grantData]) => {
       setMembers(Array.isArray(memberData) ? memberData : []);
       setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
       setSeats(pendingData.seats || { used: 0, limit: null });
+      setGrants(grantData);
     });
   }, []);
 
@@ -44,18 +66,56 @@ export default function TeamOverviewPage() {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  // Non-role fields (active, profile) still go through the general endpoint.
   async function updateMember(userId, patch) {
     setSavingUserId(userId);
+    setError("");
     try {
       const res = await fetch("/api/settings/members", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, ...patch }),
       });
-      if (res.ok) await load();
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error || "Couldn't save.");
+      }
+      await load();
+    } catch (err) {
+      setError(err.message);
     } finally {
       setSavingUserId(null);
     }
+  }
+
+  // Role changes go to the dedicated endpoint, which enforces the hierarchy
+  // rules (no self-edits, no editing peers or superiors, no granting beyond
+  // your own level, last owner protected).
+  async function updateRole(member, role) {
+    setSavingUserId(member.userId);
+    setError("");
+    try {
+      const res = await fetch(`/api/settings/members/${member.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Couldn't change role.");
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  // Mirrors canManageMember on the server. Duplicated deliberately — the
+  // server is the authority, this only decides whether to render a control.
+  function canEdit(member) {
+    const mine = ROLE_RANK[grants.yourRole] ?? -1;
+    const theirs = ROLE_RANK[member.role] ?? -1;
+    return mine > theirs;
   }
 
   if (loading)
@@ -81,6 +141,12 @@ export default function TeamOverviewPage() {
           <Plus size={14} /> Add User
         </Link>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <span className="font-medium text-gray-900">
@@ -137,22 +203,40 @@ export default function TeamOverviewPage() {
                 <div className="text-xs text-gray-500">{m.user.email}</div>
               </div>
 
-              {m.role === "owner" ? (
-                <span className="text-xs bg-gray-100 px-2.5 py-1 rounded-full capitalize w-fit">
-                  Owner
+              {/* Read-only badge when this member is at or above the viewer's
+                  rank — including their own row. Showing a dropdown that then
+                  403s is worse than showing none. */}
+              {!canEdit(m) ? (
+                <span
+                  className="text-xs bg-gray-100 px-2.5 py-1 rounded-full w-fit"
+                  title={
+                    m.role === "owner"
+                      ? "Owners can only be changed by another owner"
+                      : "You can only change roles below your own"
+                  }
+                >
+                  {ROLE_LABELS[m.role] || m.role}
                 </span>
               ) : (
                 <select
                   value={m.role}
                   disabled={savingUserId === m.userId}
-                  onChange={(e) =>
-                    updateMember(m.userId, { role: e.target.value })
-                  }
-                  className="text-xs border border-gray-300 rounded-full px-2.5 py-1 capitalize bg-white"
+                  onChange={(e) => updateRole(m, e.target.value)}
+                  className="text-xs border border-gray-300 rounded-full px-2.5 py-1 bg-white"
                 >
-                  {ROLE_OPTIONS.filter((r) => r !== "owner").map((r) => (
-                    <option key={r} value={r}>
-                      {r}
+                  {/* Their current role is always listed even if it's not
+                      assignable, so the select has a valid selected value. */}
+                  {Array.from(
+                    new Set([m.role, ...(grants.assignableRoles || [])]),
+                  ).map((r) => (
+                    <option
+                      key={r}
+                      value={r}
+                      disabled={
+                        r !== m.role && !grants.assignableRoles?.includes(r)
+                      }
+                    >
+                      {ROLE_LABELS[r] || r}
                     </option>
                   ))}
                 </select>
@@ -166,7 +250,15 @@ export default function TeamOverviewPage() {
                 <input
                   type="checkbox"
                   checked={m.active}
-                  disabled={m.role === "owner" || savingUserId === m.userId}
+                  // Same rank rule as the role dropdown. Previously only
+                  // owners were protected, which meant a supervisor could
+                  // deactivate an admin — locking out someone senior to them.
+                  disabled={!canEdit(m) || savingUserId === m.userId}
+                  title={
+                    canEdit(m)
+                      ? undefined
+                      : "You can only deactivate members below your own role"
+                  }
                   onChange={(e) =>
                     updateMember(m.userId, { active: e.target.checked })
                   }

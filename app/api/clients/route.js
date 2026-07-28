@@ -4,6 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -34,6 +39,16 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // "Clients and Properties: view client name and address only" is the
+  // narrowest level and must not permit creating client records.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "clientsProperties", "full_edit", "add clients");
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 
   const body = await request.json();
   const { name, type, contactName, email, phone, address, city, province, notes } =
