@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/check-imports.mjs && prisma generate && next build",
+    "check:imports": "node scripts/check-imports.mjs",
     "start": "next start",
     "lint": "eslint"
   },

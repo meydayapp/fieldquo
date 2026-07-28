@@ -51,10 +51,22 @@ export async function POST(request) {
       );
     sections = source.sections;
   } else {
-    // Falls back to the built-in default section set for this type
-    const { getDefaultSections } = type.includes("email")
-      ? await import("@/app/admin/lib/email/defaultSections")
-      : await import("@/app/admin/lib/pdf/defaultSections");
+    // Falls back to the built-in default section set for this type.
+    //
+    // This used to branch to a separate `email/defaultSections` module for
+    // email types. That module was an EMPTY FILE, so `getDefaultSections`
+    // came back undefined and creating any email template threw
+    // "getDefaultSections is not a function" — a runtime failure nobody hit
+    // because it only fires on the create-template path. Deleting the empty
+    // file turned that latent crash into a build error, which is how it
+    // surfaced.
+    //
+    // There was never a second module to reach: getDefaultSections below
+    // already handles quote_email and invoice_email alongside the PDF types.
+    // One import, no branch.
+    const { getDefaultSections } = await import(
+      "@/app/admin/lib/pdf/defaultSections"
+    );
     sections = getDefaultSections(type);
   }
 
