@@ -410,8 +410,11 @@ export default function CompanySettingsPage() {
               {slug ? `${slug}.fieldquo.com` : "Your subdomain"}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Reserved for you. Website hosting isn&apos;t available yet —
-              we&apos;ll let you know when this address goes live.
+              Build and publish a one-page site under Settings →{" "}
+              <Link href="/app/settings/website" className="underline">
+                Your website
+              </Link>
+              .
             </div>
           </div>
         </div>

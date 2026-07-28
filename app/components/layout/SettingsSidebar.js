@@ -143,6 +143,7 @@ const CLIENT_ITEMS = [
     href: "/app/settings/lead-form",
     icon: ClipboardList,
   },
+  { label: "Your website", href: "/app/settings/website", icon: Globe },
 ];
 
 export default function SettingsSidebar() {

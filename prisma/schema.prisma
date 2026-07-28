@@ -282,6 +282,7 @@ model Company {
   referralInvitesSent  ReferralInvite[] @relation("ReferralInvitesSent")
   referralCredits      ReferralCredit[] @relation("ReferralCreditsEarned")
 
+  site    CompanySite?
   aiUsage AiUsage[]
   // Per-company override of the plan's monthly AI token allowance. Null means
   // "use the plan's". 0 means "no AI at all" — distinct from null, which is
@@ -1807,4 +1808,53 @@ model AiUsage {
   // Every read is "this company, this month", so the index matches.
   @@index([companyId, createdAt])
   @@index([createdAt])
+}
+
+// A company's public website.
+//
+// ── Why its own table ───────────────────────────────────────────────────────
+//
+// `blocks` is the whole page and gets read on every public page view. Putting
+// it on Company would drag it into every getCurrentMember(), every settings
+// screen and every quote render — a few kilobytes of marketing copy loaded
+// hundreds of times a day by code that will never look at it.
+//
+// ── Why the subdomain is stored here and not reused from Company.slug ───────
+//
+// It's SEEDED from Company.slug, which is what the company already knows
+// themselves as, so there's nothing to invent at setup. But once a site is
+// live the address is in print, on a van, and in Google's index — it must not
+// move because someone renamed their company in Settings. Copying it once and
+// letting them change it deliberately is the difference between a URL and an
+// accident.
+model CompanySite {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  // The subdomain: <subdomain>.fieldquo.com. Unique across the platform and
+  // checked against RESERVED_SUBDOMAINS in lib/site/subdomain.js.
+  subdomain String @unique
+
+  // The page itself: an ordered array of typed blocks. See
+  // app/data/siteBlocks.js for the shapes. Json rather than a Block table
+  // because the whole page is always read and written together — a relational
+  // split would buy queryability nobody needs and cost a join per section.
+  blocks Json?
+
+  // Nothing is public until this is true. Distinct from having blocks: a
+  // company can generate, edit and preview for a week before going live.
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+
+  // Answers to the setup interview, kept so regenerating doesn't ask again.
+  interview Json?
+
+  seoTitle       String?
+  seoDescription String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published])
 }

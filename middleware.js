@@ -21,6 +21,7 @@ import {
   verifyImpersonationToken,
   isReadOnlyMethod,
 } from "@/lib/platform/impersonationToken";
+import { subdomainFromHost } from "@/lib/site/subdomain";
 
 const PLATFORM_SECRET = new TextEncoder().encode(
   process.env.PLATFORM_JWT_SECRET,
@@ -38,6 +39,34 @@ const PLATFORM_BILLING_PASSTHROUGH = [
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // ── Tenant websites on subdomains ──────────────────────────────────────
+  //
+  // sunset.fieldquo.com serves that company's public site. Runs FIRST and
+  // returns immediately, ahead of every auth gate below, because a stranger
+  // reading a contractor's website has no session and must never be asked
+  // for one.
+  //
+  // A REWRITE, not a redirect: the visitor's address bar keeps saying
+  // sunset.fieldquo.com while Next renders /site/sunset. A redirect would
+  // bounce every visitor to a fieldquo.com URL, which defeats the entire
+  // point of giving them their own address.
+  //
+  // subdomainFromHost returns null for the apex, www, every reserved name,
+  // Vercel preview hosts and bare IPs — see lib/site/subdomain.js, where the
+  // reserved list is a security boundary rather than a naming preference.
+  const subdomain = subdomainFromHost(request.headers.get("host"));
+  if (subdomain) {
+    // /api and /_next still have to work on a subdomain: the rendered page
+    // loads its own assets from the host it was served on. Only page routes
+    // get rewritten.
+    if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
+      return NextResponse.next();
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(url);
+  }
 
   // ── Read-only support session ("Sign in as") ────────────────────────────
   //
@@ -170,5 +199,10 @@ export const config = {
     // routes (/api/public/*, /api/portal/*, webhooks) are unaffected — they
     // carry no impersonation cookie and fall straight through.
     "/api/:path*",
+    // The subdomain check above needs to see the root path, and every path
+    // on a tenant host. This matcher excludes Next's own internals and
+    // anything with a file extension, so static assets never pay for a
+    // middleware invocation.
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.[a-zA-Z0-9]+$).*)",
   ],
 };
