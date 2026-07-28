@@ -23,6 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 import { count, money } from "@/app/components/platform/MetricCard";
+import CompanyHistory from "./CompanyHistory";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -279,6 +280,9 @@ export default function CompanyDetail({ companyId }) {
           />
         </dl>
       </div>
+
+      {/* Financial history — subscription and their own client billing */}
+      <CompanyHistory companyId={companyId} />
 
       {/* Team */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
