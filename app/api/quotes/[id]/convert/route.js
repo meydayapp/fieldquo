@@ -24,7 +24,12 @@ export async function POST(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    include: { scopeGroups: true },
+    include: {
+      scopeGroups: { orderBy: { sortOrder: "asc" } },
+      // Only the ones the client actually ticked. An offered-but-declined
+      // extra must never reach the invoice.
+      addOns: { where: { selected: true }, orderBy: { sortOrder: "asc" } },
+    },
   });
 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -55,6 +60,40 @@ export async function POST(request, { params }) {
   });
   const nextNumber = getNextInvoiceNumber(lastInvoice?.invoiceNumber);
 
+  // Flattened from the scope groups, NOT from quote.lineItems.
+  //
+  // That top-level column is only populated by the older single-list quote
+  // path; every quote built through the scope-group builder leaves it null.
+  // Reading it here meant those invoices were created with no line items at
+  // all — a total with nothing itemised behind it, which is exactly the
+  // document a client disputes. The group label is prefixed so a flattened
+  // invoice still reads like the quote it came from.
+  const scopeItems = quote.scopeGroups.flatMap((g) => {
+    const items = Array.isArray(g.lineItems) ? g.lineItems : [];
+    return items.map((li) => ({
+      ...li,
+      description: g.label ? `${g.label}: ${li.description}` : li.description,
+    }));
+  });
+
+  const addOnItems = quote.addOns.map((a) => ({
+    description: a.description,
+    quantity: 1,
+    amount: Number(a.amount),
+  }));
+
+  const lineItems = [
+    ...(scopeItems.length ? scopeItems : Array.isArray(quote.lineItems) ? quote.lineItems : []),
+    ...addOnItems,
+  ];
+
+  // acceptedTotal is what the client agreed to, extras included. It's set the
+  // moment they approve, so preferring it here is what makes the invoice match
+  // the number on the page they clicked. Falling back to the quote's own total
+  // covers quotes accepted before this existed, and ones marked accepted by
+  // hand in the office rather than through the client link.
+  const useAccepted = quote.acceptedTotal !== null;
+
   const invoice = await db.invoice.create({
     data: {
       companyId: member.companyId,
@@ -62,11 +101,11 @@ export async function POST(request, { params }) {
       clientId: quote.clientId,
       quoteId: quote.id,
       createdById: member.userId,
-      lineItems: quote.lineItems,
-      subtotal: quote.subtotal,
+      lineItems,
+      subtotal: useAccepted ? quote.acceptedSubtotal : quote.subtotal,
       discount: quote.discount,
-      tax: quote.tax,
-      total: quote.total,
+      tax: useAccepted ? quote.acceptedTax : quote.tax,
+      total: useAccepted ? quote.acceptedTotal : quote.total,
       language: quote.language,
     },
     include: { client: true },

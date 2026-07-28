@@ -83,11 +83,17 @@ export async function POST(request) {
     );
   }
 
-  const lastQuote = await db.quote.findFirst({
-    where: { companyId: member.companyId },
-    orderBy: { createdAt: "desc" },
-    select: { quoteNumber: true },
-  });
+  const [lastQuote, company] = await Promise.all([
+    db.quote.findFirst({
+      where: { companyId: member.companyId },
+      orderBy: { createdAt: "desc" },
+      select: { quoteNumber: true },
+    }),
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { defaultProcessNotes: true },
+    }),
+  ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
 
   const quote = await db.quote.create({
@@ -102,6 +108,11 @@ export async function POST(request) {
       tax: tax || 0,
       total,
       notes: notes || null,
+      // COPIED onto the quote, not referenced from the company. A quote sent
+      // in March must keep saying what it said in March even after the terms
+      // change — reading the live company record would silently rewrite the
+      // history of every document ever sent.
+      processNotes: company?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
       ...(scopeGroups?.length && {

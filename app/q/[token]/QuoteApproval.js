@@ -8,8 +8,8 @@
 // bright sun; an accidental tap shouldn't create a contract.
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, X, Loader2, Building2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, X, Loader2, Building2, Plus } from "lucide-react";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -27,6 +27,14 @@ export default function QuoteApproval({ token }) {
   const [actionError, setActionError] = useState("");
   const [decided, setDecided] = useState(null);
 
+  // Ids of the optional extras ticked. Ids only — the amounts live on the
+  // server and the total below is for the client's benefit, not the
+  // server's. See priceWithAddOns in the API route: what gets charged is
+  // recalculated there from these ids, so editing anything in this page
+  // changes what you see and nothing else.
+  const [picked, setPicked] = useState([]);
+  const [settledTotal, setSettledTotal] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -36,7 +44,13 @@ export default function QuoteApproval({ token }) {
         if (cancelled) return;
         if (!res.ok) throw new Error(data?.error || "This link isn't valid.");
         setQuote(data);
-        if (data.status !== "sent") setDecided(data.status);
+        if (data.status !== "sent") {
+          setDecided(data.status);
+          // Reopening a decided quote should show what was agreed, extras
+          // included — not the figure before they were added.
+          setSettledTotal(data.acceptedTotal ?? null);
+          setPicked((data.addOns || []).filter((a) => a.selected).map((a) => a.id));
+        }
       } catch (err) {
         if (!cancelled) setLoadError(err.message);
       } finally {
@@ -55,7 +69,11 @@ export default function QuoteApproval({ token }) {
       const res = await fetch(`/api/public/quotes/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
+        // No total is sent. Deliberate — the server prices it.
+        body: JSON.stringify({
+          decision,
+          addOnIds: decision === "accepted" ? picked : [],
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -70,6 +88,10 @@ export default function QuoteApproval({ token }) {
         throw new Error(data?.error || "Something went wrong. Try again.");
       }
       setDecided(data.status);
+      // The server's figure, not the one computed in this page. If they ever
+      // disagreed, the client sees the truth here rather than discovering it
+      // when the invoice lands.
+      setSettledTotal(data.total ?? null);
       setConfirming(null);
     } catch (err) {
       setActionError(err.message);
@@ -77,6 +99,39 @@ export default function QuoteApproval({ token }) {
       setSubmitting(false);
     }
   }
+
+  /**
+   * The figures shown on screen.
+   *
+   * This mirrors priceWithAddOns on the server and exists purely so the total
+   * moves the instant a box is ticked — a client who has to submit to find out
+   * what they'd pay won't tick anything. It is NOT what gets charged: the
+   * server recalculates from its own stored prices and ignores everything this
+   * page might claim. If the two ever drift, the server's number is the real
+   * one and `settledTotal` overwrites this on approval.
+   */
+  const pricing = useMemo(() => {
+    if (!quote) return { subtotal: 0, tax: 0, total: 0, extras: 0 };
+
+    const chosen = (quote.addOns || []).filter((a) => picked.includes(a.id));
+    const extras = chosen.reduce((s, a) => s + Number(a.amount || 0), 0);
+    const taxableExtras = chosen
+      .filter((a) => a.taxable)
+      .reduce((s, a) => s + Number(a.amount || 0), 0);
+
+    const rate = Number(quote.taxRate || 0);
+    const subtotal = Number(quote.subtotal || 0) + extras;
+    const tax = Number(quote.tax || 0) + taxableExtras * rate;
+    const total = subtotal - Number(quote.discount || 0) + tax;
+
+    return {
+      extras,
+      subtotal,
+      tax,
+      // After a decision, show what the server actually recorded.
+      total: settledTotal ?? total,
+    };
+  }, [quote, picked, settledTotal]);
 
   if (loading) {
     return (
@@ -107,6 +162,18 @@ export default function QuoteApproval({ token }) {
   const accent = c.brandColor || "#06356b";
   const expired =
     quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
+
+  const addOns = quote.addOns || [];
+  // Once decided or expired the extras are a record of what was agreed, not
+  // a menu. Nothing here is a security boundary — the server refuses a second
+  // decision regardless — it's just not being misleading about what's still
+  // available.
+  const locked = Boolean(decided) || expired;
+
+  const toggle = (id) =>
+    setPicked((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
 
   return (
     <Shell>
@@ -204,6 +271,86 @@ export default function QuoteApproval({ token }) {
             </div>
           ))}
 
+          {addOns.length > 0 && (
+            <div className="pt-4 border-t border-black/5">
+              <h2
+                className="text-sm font-bold uppercase tracking-wide pb-2 mb-1 border-b"
+                style={{ color: accent, borderColor: `${accent}44` }}
+              >
+                Optional extras
+              </h2>
+              <p className="text-xs text-[#2d2520]/50 mt-2 mb-3">
+                {locked
+                  ? "Chosen when this quote was approved."
+                  : "Tick anything you'd like added. The total updates as you go — nothing is charged until you approve."}
+              </p>
+
+              <div className="space-y-2">
+                {addOns.map((a) => {
+                  const on = picked.includes(a.id);
+                  // After a decision the list is a record, not a control.
+                  // Unchosen extras disappear rather than sitting there
+                  // implying they could still be added.
+                  if (locked && !on) return null;
+
+                  return (
+                    <label
+                      key={a.id}
+                      className={`flex gap-3 items-start rounded-xl border px-4 py-3 transition-colors ${
+                        locked ? "" : "cursor-pointer"
+                      } ${
+                        on
+                          ? "bg-[#faf8f4] border-black/20"
+                          : "bg-white border-black/10 hover:border-black/25"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        disabled={locked}
+                        onChange={() => toggle(a.id)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-current"
+                        style={{ accentColor: accent }}
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span className="flex justify-between gap-3">
+                          <span className="text-sm font-medium text-[#2d2520]">
+                            {a.description}
+                          </span>
+                          <span className="text-sm tabular-nums shrink-0 text-[#2d2520]">
+                            {!locked && !on && (
+                              <Plus
+                                size={11}
+                                className="inline -mt-0.5 mr-0.5 opacity-50"
+                              />
+                            )}
+                            {money(a.amount)}
+                          </span>
+                        </span>
+                        {a.detail && (
+                          <span className="block text-xs text-[#2d2520]/60 mt-1">
+                            {a.detail}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {quote.processNotes && (
+            <div className="pt-4 border-t border-black/5">
+              <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
+                What happens next
+              </h3>
+              <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
+                {quote.processNotes}
+              </p>
+            </div>
+          )}
+
           {quote.notes && (
             <div className="pt-4 border-t border-black/5">
               <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
@@ -216,14 +363,20 @@ export default function QuoteApproval({ token }) {
           )}
 
           <div className="pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label="Subtotal" value={quote.subtotal} />
+            <Row label="Subtotal" value={pricing.subtotal} />
             {quote.discount > 0 && (
               <Row label="Discount" value={-quote.discount} />
             )}
-            <Row label="Tax" value={quote.tax} />
+            <Row label="Tax" value={pricing.tax} />
+            {pricing.extras > 0 && (
+              <div className="flex justify-between text-[#2d2520]/70">
+                <span>Includes optional extras</span>
+                <span className="tabular-nums">{money(pricing.extras)}</span>
+              </div>
+            )}
             <div className="flex justify-between pt-2 text-lg font-bold text-[#2d2520]">
               <span>Total</span>
-              <span className="tabular-nums">{money(quote.total)}</span>
+              <span className="tabular-nums">{money(pricing.total)}</span>
             </div>
           </div>
         </div>
@@ -251,12 +404,14 @@ export default function QuoteApproval({ token }) {
             <div className="text-center">
               <p className="font-semibold text-[#2d2520]">
                 {confirming === "accepted"
-                  ? `Approve this quote for ${money(quote.total)}?`
+                  ? `Approve this quote for ${money(pricing.total)}?`
                   : "Decline this quote?"}
               </p>
               <p className="text-sm text-[#2d2520]/60 mt-1">
                 {confirming === "accepted"
-                  ? "This tells them to go ahead."
+                  ? pricing.extras > 0
+                    ? `Including ${money(pricing.extras)} of optional extras. This tells them to go ahead.`
+                    : "This tells them to go ahead."
                   : "You can always ask for a revised quote."}
               </p>
               <div className="flex gap-3 justify-center mt-4 flex-wrap">

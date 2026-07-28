@@ -27,6 +27,7 @@ export async function GET(request, { params }) {
         include: { category: true },
         orderBy: { sortOrder: "asc" },
       },
+      addOns: { orderBy: { sortOrder: "asc" } },
       invoices: { select: { id: true, invoiceNumber: true, status: true } },
     },
   });
@@ -66,6 +67,7 @@ export async function PATCH(request, { params }) {
     tax,
     total,
     notes,
+    processNotes,
     validUntil,
     scopeGroups,
   } = body;
@@ -82,6 +84,7 @@ export async function PATCH(request, { params }) {
       ...(tax !== undefined && { tax }),
       ...(total !== undefined && { total }),
       ...(notes !== undefined && { notes }),
+      ...(processNotes !== undefined && { processNotes }),
       ...(validUntil !== undefined && {
         validUntil: validUntil ? new Date(validUntil) : null,
       }),

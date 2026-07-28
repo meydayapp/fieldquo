@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle } from "lucide-react";
+import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 
@@ -27,6 +28,7 @@ export default function EditQuotePage() {
   const [quote, setQuote] = useState(null);
   const [groups, setGroups] = useState([]);
   const [notes, setNotes] = useState("");
+  const [processNotes, setProcessNotes] = useState("");
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
   const [taxEnabled, setTaxEnabled] = useState(true);
@@ -55,6 +57,7 @@ export default function EditQuotePage() {
           })),
         );
         setNotes(q.notes || "");
+        setProcessNotes(q.processNotes || "");
         setDiscount(money(q.discount));
         setTaxEnabled(q.taxEnabled !== false);
         setValidUntil(
@@ -138,6 +141,7 @@ export default function EditQuotePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           notes,
+          processNotes,
           discount: money(discount),
           subtotal: totals.subtotal,
           tax: totals.tax,
@@ -369,6 +373,33 @@ export default function EditQuotePage() {
           </div>
         </div>
       </div>
+
+      {/* Sits below the totals because that's where it sits on the client's
+          copy too — the extras are the last thing they read before deciding. */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">
+          What happens next
+        </label>
+        <p className="text-xs text-muted-foreground mb-2">
+          Timeline, site access, payment schedule, warranty. Shown to the
+          client above the approve button.
+        </p>
+        <textarea
+          value={processNotes}
+          onChange={(e) => setProcessNotes(e.target.value)}
+          rows={5}
+          placeholder={
+            "We'll confirm a start date within 2 business days of approval.\nWork typically takes 3-4 days.\n50% on approval, balance on completion.\nLabour warranted for 2 years."
+          }
+          className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+        />
+      </div>
+
+      <SuggestAddOns
+        quoteId={id}
+        readOnly={["accepted", "declined"].includes(quote.status)}
+        onProcessNotes={setProcessNotes}
+      />
 
       <div className="flex gap-3">
         <button

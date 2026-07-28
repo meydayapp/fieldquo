@@ -254,6 +254,13 @@ model Company {
   trialEndsAt            DateTime?
   shareAnonymizedPricing Boolean           @default(false)
 
+  // Boilerplate "what happens next" copied onto every new quote — timelines,
+  // site access, payment schedule, warranty, who to call. Written once in
+  // Settings, then editable per quote. Seeding it rather than rendering it
+  // from the company record on the fly is deliberate: a quote sent last March
+  // must keep saying what it said in March, even after the terms change.
+  defaultProcessNotes String?
+
   pendingTeamProfiles PendingTeamProfile[]
   customFields CustomField[]
 
@@ -621,6 +628,74 @@ model Quote {
 
   tierGroupId String?     // shared ID linking Good/Better/Best variants together
   tierLabel   String?      // "good" | "better" | "best"
+
+  // ── Optional extras the client can add at approval time ────────────────
+  addOns QuoteAddOn[]
+
+  // What the client ACTUALLY approved, including any add-ons they ticked.
+  // Deliberately separate from `total`: total is what the company quoted, and
+  // overwriting it would destroy the record of what was originally offered.
+  // The invoice is built from this when it's set.
+  //
+  // Null until someone accepts. A quote accepted with no add-ons still sets
+  // it — "accepted at the quoted price" and "never accepted" are different
+  // facts and shouldn't share a representation.
+  acceptedTotal    Decimal? @db.Decimal(12, 2)
+  acceptedSubtotal Decimal? @db.Decimal(12, 2)
+  acceptedTax      Decimal? @db.Decimal(12, 2)
+
+  // "What happens next" — timelines, access, payment schedule, warranty. The
+  // single most common gap in a quote that doesn't get signed: the price was
+  // fine, the client just didn't know what they were committing to. Seeded
+  // from Company.defaultProcessNotes so it's written once, then editable per
+  // quote because a two-day repair and a three-week reno need different words.
+  processNotes String?
+
+  // Last AI review. Stored rather than recomputed so reopening the quote
+  // doesn't spend tokens again, and so a review can be dismissed item by item
+  // without re-running. Shape: see lib/ai/quoteReview.js.
+  aiReview     Json?
+  aiReviewedAt DateTime?
+}
+
+// An optional extra offered at the bottom of a quote.
+//
+// A separate table rather than a Json column on Quote, for one reason: the
+// price has to be trustworthy. When a client ticks "add gutter guards", the
+// server recomputes the total from THESE rows — never from a figure the
+// browser sent. A Json blob would work equally well for display and equally
+// badly for that, since the whole point is having a server-side record of
+// what each option costs that the client cannot influence.
+model QuoteAddOn {
+  id      String @id @default(cuid())
+  quoteId String
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  description String
+  // One line on why it's worth having. Optional, but an add-on without it
+  // converts noticeably worse — "Gutter guards $340" is a cost, "Gutter
+  // guards $340 — stops the autumn clean-out you're paying for every year"
+  // is a saving.
+  detail String?
+  amount Decimal @default(0) @db.Decimal(12, 2)
+
+  // Whether tax applies. Most extras are taxed like the rest of the job, but
+  // a permit fee or a disbursement isn't, and getting that wrong on an
+  // accepted total is a real invoice problem rather than a cosmetic one.
+  taxable   Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // "manual" | "history" | "ai" — where the suggestion came from. Kept so the
+  // platform can answer whether the AI suggestions are worth their tokens:
+  // if nobody ever accepts an "ai" add-on, the feature isn't earning its cost.
+  source String @default("manual")
+
+  selected   Boolean   @default(false)
+  selectedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([quoteId])
 }
 
 model Invoice {

@@ -14,7 +14,12 @@ import { fetchJson } from "@/lib/fetchJson";
 
 export default function PaymentsPage() {
   const [company, setCompany] = useState(null);
+  // What Stripe itself says, as opposed to what our database last heard. See
+  // the comment on loadStatus below — these disagreeing is the normal case,
+  // not the exception.
+  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [rechecking, setRechecking] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [openingDashboard, setOpeningDashboard] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
@@ -28,8 +33,50 @@ export default function PaymentsPage() {
       .catch(() => setError("Could not load payment settings"));
   }
 
+  /**
+   * Ask Stripe directly.
+   *
+   * The company row's stripeChargesEnabled is only ever written by the
+   * account.updated webhook. If that webhook isn't wired up — no Connect
+   * endpoint, wrong secret, or an endpoint not listening for events on
+   * connected accounts — the column stays false permanently even though
+   * Stripe has approved the account. The page then tells the user to finish
+   * something they already finished, and no amount of clicking "Finish Setup"
+   * can ever clear it.
+   *
+   * So the badge is driven by this call, and the webhook is just the
+   * background path for when nobody has the page open.
+   */
+  async function loadStatus() {
+    try {
+      setStatus(await fetchJson("/api/stripe/connect/status"));
+    } catch (err) {
+      setError(err.message || "Couldn't check the Stripe connection.");
+    }
+  }
+
+  async function recheck() {
+    setError("");
+    setRechecking(true);
+    await Promise.all([loadStatus(), loadCompany()]);
+    setRechecking(false);
+  }
+
   useEffect(() => {
-    loadCompany().finally(() => setLoading(false));
+    Promise.all([loadCompany(), loadStatus()]).finally(() => setLoading(false));
+  }, []);
+
+  // Coming back from Stripe's hosted flow. The account was almost certainly
+  // updated seconds ago, and the webhook may not have landed yet — so check
+  // rather than render whatever the database happened to hold. The parameter
+  // is then stripped so a refresh doesn't repeat it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get("connected")) return;
+
+    loadStatus();
+    window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
   async function handleConnect() {
@@ -90,9 +137,25 @@ export default function PaymentsPage() {
     );
   }
 
-  const notStarted = !company?.stripeAccountId;
-  const inProgress = company?.stripeAccountId && !company?.stripeChargesEnabled;
-  const active = company?.stripeChargesEnabled;
+  // Stripe's answer wins whenever we have one; the column is only a fallback
+  // for the moment before the status call returns.
+  const hasAccount = status?.connected ?? Boolean(company?.stripeAccountId);
+  const chargesEnabled =
+    status?.chargesEnabled ?? Boolean(company?.stripeChargesEnabled);
+
+  const requirements = status?.requirements || [];
+  // Submitted and waiting on Stripe's review. Distinct from "incomplete":
+  // there is nothing for the user to do, and prompting them to provide more
+  // information is how the same document gets uploaded four times.
+  const awaitingReview =
+    hasAccount &&
+    !chargesEnabled &&
+    requirements.length === 0 &&
+    (status?.pendingVerification || status?.detailsSubmitted);
+
+  const notStarted = !hasAccount;
+  const inProgress = hasAccount && !chargesEnabled && !awaitingReview;
+  const active = chargesEnabled;
 
   return (
     <div className="p-6 max-w-2xl mx-auto space-y-6">
@@ -153,25 +216,89 @@ export default function PaymentsPage() {
           </div>
         )}
 
+        {awaitingReview && (
+          <div className="flex items-start gap-3">
+            <AlertCircle size={22} className="text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <h2 className="font-semibold text-foreground">
+                Stripe is reviewing your details
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                Everything Stripe asked for has been submitted — they&apos;re
+                verifying it now. Nothing more is needed from you. This usually
+                takes minutes, occasionally a day or two.
+              </p>
+              <button
+                type="button"
+                onClick={recheck}
+                disabled={rechecking}
+                className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+              >
+                {rechecking ? "Checking..." : "Check again"}
+              </button>
+            </div>
+          </div>
+        )}
+
         {inProgress && (
           <div className="flex items-start gap-3">
             <AlertCircle size={22} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
               <h2 className="font-semibold text-foreground">
-                Onboarding incomplete
+                Stripe still needs a few things
               </h2>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                You started connecting Stripe but haven't finished — Stripe
-                needs a bit more information before you can accept payments.
-              </p>
-              <button
-                type="button"
-                onClick={handleConnect}
-                disabled={connecting}
-                className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-              >
-                {connecting ? "Redirecting..." : "Finish Setup"}
-              </button>
+
+              {requirements.length > 0 ? (
+                <>
+                  <p className="text-sm text-muted-foreground mt-1 mb-3">
+                    Stripe won&apos;t enable payments until these are done:
+                  </p>
+                  {/* Naming the actual outstanding items rather than saying "a
+                      bit more information". Stripe's hosted flow sometimes
+                      shows a clean summary while still holding a requirement
+                      open — with the list here, at least the two screens can
+                      be compared. */}
+                  <ul className="text-sm text-muted-foreground mb-4 space-y-1.5 list-disc pl-5">
+                    {requirements.map((r) => (
+                      <li key={r.key}>{r.label}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  You started connecting Stripe but haven&apos;t finished —
+                  Stripe needs a bit more information before you can accept
+                  payments.
+                </p>
+              )}
+
+              {status?.disabledReason && (
+                <p className="text-xs text-muted-foreground mb-4">
+                  Stripe&apos;s reason:{" "}
+                  <span className="font-mono">{status.disabledReason}</span>
+                </p>
+              )}
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                >
+                  {connecting ? "Redirecting..." : "Finish Setup"}
+                </button>
+                {/* For the case this whole route exists to fix: they finished
+                    on Stripe's side and FieldQuo hadn't caught up. */}
+                <button
+                  type="button"
+                  onClick={recheck}
+                  disabled={rechecking}
+                  className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+                >
+                  {rechecking ? "Checking..." : "I've already done this"}
+                </button>
+              </div>
             </div>
           </div>
         )}

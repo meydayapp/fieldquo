@@ -36,8 +36,52 @@ async function loadQuote(token) {
         orderBy: { sortOrder: "asc" },
         include: { category: { select: { label: true } } },
       },
+      addOns: { orderBy: { sortOrder: "asc" } },
     },
   });
+}
+
+// The rate actually applied to THIS quote, recovered from its own stored
+// figures rather than read off the company record.
+//
+// Those two can differ — a company that changed its tax rate last month must
+// not have that change silently reprice a quote sent before it, and a quote
+// with tax switched off must stay that way when an extra is added. Deriving
+// it from what's on the document keeps the maths consistent with the numbers
+// the client is already looking at.
+function effectiveTaxRate(quote) {
+  if (!quote.taxEnabled) return 0;
+  const base = num(quote.subtotal) - num(quote.discount);
+  if (base <= 0) return 0;
+  return num(quote.tax) / base;
+}
+
+const round = (n) => Math.round(n * 100) / 100;
+
+/**
+ * Recomputes the document total for a set of chosen extras.
+ *
+ * THE ONLY PLACE a total involving add-ons is ever produced. The browser
+ * shows a figure so the client can see what they're agreeing to, but that
+ * figure is never sent back and never trusted — this function recalculates
+ * from the prices stored on the server, using only the ids that were ticked.
+ * Someone editing the page can change what they SEE; they cannot change what
+ * they are charged.
+ */
+function priceWithAddOns(quote, selectedIds) {
+  const chosen = quote.addOns.filter((a) => selectedIds.includes(a.id));
+
+  const extras = chosen.reduce((s, a) => s + num(a.amount), 0);
+  const taxableExtras = chosen
+    .filter((a) => a.taxable)
+    .reduce((s, a) => s + num(a.amount), 0);
+
+  const rate = effectiveTaxRate(quote);
+  const subtotal = round(num(quote.subtotal) + extras);
+  const tax = round(num(quote.tax) + taxableExtras * rate);
+  const total = round(subtotal - num(quote.discount) + tax);
+
+  return { chosen, extras: round(extras), subtotal, tax, total };
 }
 
 function present(quote) {
@@ -46,12 +90,28 @@ function present(quote) {
     status: quote.status,
     language: quote.language,
     notes: quote.notes,
+    processNotes: quote.processNotes,
     validUntil: quote.validUntil,
     sentAt: quote.sentAt,
     subtotal: num(quote.subtotal),
     discount: num(quote.discount),
     tax: num(quote.tax),
     total: num(quote.total),
+    // Present once decided, so a client reopening the link sees the figure
+    // they actually agreed to rather than the pre-add-on quote total.
+    acceptedTotal:
+      quote.acceptedTotal === null ? null : num(quote.acceptedTotal),
+    // The rate is sent so the page can show a live total as boxes are ticked.
+    // It's display only — see priceWithAddOns.
+    taxRate: effectiveTaxRate(quote),
+    addOns: quote.addOns.map((a) => ({
+      id: a.id,
+      description: a.description,
+      detail: a.detail,
+      amount: num(a.amount),
+      taxable: a.taxable,
+      selected: a.selected,
+    })),
     client: { name: quote.client?.name || "" },
     company: quote.company,
     scopeGroups: quote.scopeGroups.map((g) => ({
@@ -137,6 +197,24 @@ export async function POST(request, { params }) {
     );
   }
 
+  // Which extras they ticked. Ids only — deliberately not amounts, not a
+  // total. Anything the client could edit in the page is discarded here and
+  // re-derived from the database below.
+  const requestedIds = Array.isArray(body?.addOnIds)
+    ? body.addOnIds.filter((id) => typeof id === "string")
+    : [];
+
+  // Intersected with what's actually on this quote, so an id copied from
+  // another quote (or invented) simply doesn't appear in `chosen` and costs
+  // nothing. No error is raised: a stranger fiddling with the page shouldn't
+  // get a message confirming which ids exist.
+  const validIds = quote.addOns.map((a) => a.id);
+  const selectedIds = requestedIds.filter((id) => validIds.includes(id));
+
+  const priced = priceWithAddOns(quote, selectedIds);
+
+  const accepted = decision === "accepted";
+
   const updated = await db.quote.update({
     where: { shareToken: token },
     data: {
@@ -144,22 +222,47 @@ export async function POST(request, { params }) {
       // Reuse the existing timestamp field rather than adding a new one; the
       // internal approval screen reads this to show when the client acted.
       clientDesignAt: new Date(),
+      // Only on acceptance. A declined quote has no agreed figure, and
+      // writing one would make "declined" and "accepted at $0 of extras"
+      // indistinguishable later.
+      ...(accepted
+        ? {
+            acceptedSubtotal: priced.subtotal,
+            acceptedTax: priced.tax,
+            acceptedTotal: priced.total,
+          }
+        : {}),
     },
     select: { id: true, status: true, companyId: true, quoteNumber: true },
   });
 
+  // Record which extras were taken, so the invoice can be built from them and
+  // the company can see what the upsell actually earned.
+  if (accepted && selectedIds.length) {
+    await db.quoteAddOn.updateMany({
+      where: { id: { in: selectedIds }, quoteId: quote.id },
+      data: { selected: true, selectedAt: new Date() },
+    });
+  }
+
   // Tell the people who need to act on it. Best-effort: a mail failure must
   // not make the client think their approval didn't register.
   try {
-    await notifyCompany(updated, quote, decision);
+    await notifyCompany(updated, quote, decision, priced);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
   }
 
-  return NextResponse.json({ status: updated.status });
+  // The total is echoed back so the confirmation the client sees is the same
+  // number the server committed — if the two ever disagreed, they'd find out
+  // here rather than when the invoice arrived.
+  return NextResponse.json({
+    status: updated.status,
+    total: accepted ? priced.total : null,
+  });
 }
 
-async function notifyCompany(updated, quote, decision) {
+async function notifyCompany(updated, quote, decision, priced) {
   const { Resend } = await import("resend");
   const { lazyClient } = await import("@/lib/lazyClient");
   const { senderFor, SENDER_SELECT } = await import("@/lib/email/resend");
@@ -188,15 +291,51 @@ async function notifyCompany(updated, quote, decision) {
   const { from } = senderFor(company || {});
   const base = getAppOrigin();
   const verb = decision === "accepted" ? "approved" : "declined";
+  const fmt = (n) =>
+    Number(n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+
+  // Extras go in the subject line, not buried in the body. Someone skimming
+  // notifications on a phone should see that this approval is worth more than
+  // the quote they sent — that's the whole return on offering them.
+  const tookExtras = decision === "accepted" && priced?.chosen?.length > 0;
+  const subject = tookExtras
+    ? `${quote.client?.name || "A client"} approved ${updated.quoteNumber} — plus ${fmt(priced.extras)} in extras`
+    : `${quote.client?.name || "A client"} ${verb} ${updated.quoteNumber}`;
+
+  const extrasBlock = tookExtras
+    ? `<p style="margin-top:16px"><strong>They also added:</strong></p>
+       <ul style="padding-left:18px">
+         ${priced.chosen
+           .map(
+             (a) =>
+               `<li>${escapeHtml(a.description)} — ${fmt(Number(a.amount))}</li>`,
+           )
+           .join("")}
+       </ul>
+       <p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
+    : decision === "accepted" && priced
+      ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
+      : "";
 
   await resend.emails.send({
     from,
     to,
-    subject: `${quote.client?.name || "A client"} ${verb} ${updated.quoteNumber}`,
+    subject,
     html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
-      <p><strong>${quote.client?.name || "A client"}</strong> ${verb} quote
+      <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong> ${verb} quote
       <strong>${updated.quoteNumber}</strong>.</p>
+      ${extrasBlock}
       <p><a href="${base}/app/quotes/${updated.id}">Open the quote →</a></p>
     </div>`,
   });
+}
+
+// Client names and add-on text are typed by people and land in an HTML email.
+// An apostrophe is the common case; a stray tag is the reason this exists.
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

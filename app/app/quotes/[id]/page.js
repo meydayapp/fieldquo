@@ -197,6 +197,44 @@ export default function QuoteDetailPage() {
           </div>
         )}
 
+        {quote.addOns?.length > 0 && (
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              Optional extras
+            </h3>
+            <div className="space-y-1">
+              {quote.addOns.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex justify-between text-sm gap-3"
+                >
+                  <span
+                    className={
+                      a.selected
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground"
+                    }
+                  >
+                    {a.description}
+                    {a.selected && (
+                      <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300">
+                        added by client
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={
+                      a.selected ? "text-foreground" : "text-muted-foreground"
+                    }
+                  >
+                    ${Number(a.amount).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>
@@ -207,9 +245,21 @@ export default function QuoteDetailPage() {
             <span>${Number(quote.tax).toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base">
-            <span>Total</span>
+            <span>Quoted total</span>
             <span>${Number(quote.total).toFixed(2)}</span>
           </div>
+
+          {/* Shown only when it differs, so it reads as news rather than as
+              a second total to reconcile. This is the figure the invoice is
+              built from. */}
+          {quote.acceptedTotal !== null &&
+            quote.acceptedTotal !== undefined &&
+            Number(quote.acceptedTotal) !== Number(quote.total) && (
+              <div className="flex justify-between font-semibold text-green-700 dark:text-green-400 text-base pt-1">
+                <span>Approved with extras</span>
+                <span>${Number(quote.acceptedTotal).toFixed(2)}</span>
+              </div>
+            )}
         </div>
       </div>
 
