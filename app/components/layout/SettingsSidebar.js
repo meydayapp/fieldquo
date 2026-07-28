@@ -137,7 +137,9 @@ const CLIENT_ITEMS = [
   },
   { label: "Availability", href: "/app/settings/availability", icon: Clock },
   {
-    label: "Lead Capture Form",
+    // Renamed: the page now hands out two links (request-a-quote and
+    // book-a-visit), not one embeddable form.
+    label: "Share your links",
     href: "/app/settings/lead-form",
     icon: ClipboardList,
   },
