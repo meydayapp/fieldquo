@@ -121,10 +121,13 @@ export async function POST(request) {
       );
     }
 
+    // Never echo a raw Prisma message. When `member.id` was undefined this
+    // returned a 900-character `prisma.member.findUnique()` dump listing every
+    // column on the Member model, rendered verbatim in the UI. That tells the
+    // user nothing, and tells anyone reading over their shoulder the shape of
+    // the database. The detail belongs in the server log.
     return NextResponse.json(
-      {
-        error: `Could not create client: ${err.message || "unknown error"}`,
-      },
+      { error: "Could not create client. Support has been sent the details." },
       { status: 500 },
     );
   }
