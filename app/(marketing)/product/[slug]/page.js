@@ -8,8 +8,14 @@ export function generateStaticParams() {
   return Object.keys(PRODUCT_FEATURES).map((slug) => ({ slug }));
 }
 
-export default function ProductFeaturePage({ params }) {
-  const feature = PRODUCT_FEATURES[params.slug];
+export default async function ProductFeaturePage({ params }) {
+  // Next 16: params is a Promise. Read synchronously it's undefined, so every
+  // /product/* page hit notFound() and returned a 404 — the content was there
+  // the whole time. Same bug class as the API routes, but pages weren't in
+  // that sweep.
+  const { slug } = await params;
+
+  const feature = PRODUCT_FEATURES[slug];
   if (!feature) return notFound();
 
   return (
