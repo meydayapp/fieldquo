@@ -52,6 +52,7 @@ import {
 } from "@/app/data/emailTemplateBlocks";
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const PREVIEW_MERGE_DATA = {
   clientName: "Jane Doe",
@@ -626,6 +627,9 @@ export default function EmailTemplateEditorPage() {
     if (res.ok) {
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2000);
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
     setSaving(false);
   }
@@ -637,7 +641,10 @@ export default function EmailTemplateEditorPage() {
       `/api/settings/document-templates/${id}/activate`,
       { method: "POST" },
     );
-    if (res.ok) setIsActive(true);
+    if (res.ok) setIsActive(true); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setActivating(false);
   }
 

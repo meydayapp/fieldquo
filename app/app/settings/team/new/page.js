@@ -13,6 +13,7 @@ import {
   PERMISSION_PRESETS,
   PRESET_TO_ROLE,
 } from "@/lib/permissions";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -91,7 +92,10 @@ export default function NewUserPage() {
         body: formData,
       });
       const data = await res.json();
-      if (res.ok) setPersonal((p) => ({ ...p, imageUrl: data.url }));
+      if (res.ok) setPersonal((p) => ({ ...p, imageUrl: data.url })); else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
+      }
     } finally {
       setUploading(false);
     }

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const SECTIONS = [
   {
@@ -101,6 +102,9 @@ export default function CustomFieldsPage() {
       if (res.ok) {
         setModalEntityType(null);
         load();
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setSaving(false);
@@ -109,7 +113,10 @@ export default function CustomFieldsPage() {
 
   async function handleDelete(id) {
     const res = await fetch(`/api/custom-fields/${id}`, { method: "DELETE" });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   return (

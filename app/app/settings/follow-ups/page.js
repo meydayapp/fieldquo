@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
+import { reportResponseError } from "@/lib/clientErrors";
 
 // Rules should point at a template meant for this kind of automated send —
 // not a one-off quote/instructions/receipt template.
@@ -90,6 +91,9 @@ export default function FollowUpsPage() {
     if (res.ok) {
       setShowNew(false);
       load();
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 
@@ -100,7 +104,10 @@ export default function FollowUpsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ active: !rule.active }),
     });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 
@@ -109,7 +116,10 @@ export default function FollowUpsPage() {
     const res = await fetch(`/api/settings/follow-up-rules/${id}`, {
       method: "DELETE",
     });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 

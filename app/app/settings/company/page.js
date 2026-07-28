@@ -8,6 +8,7 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { INDUSTRIES } from "@/app/data/industries";
+import { reportResponseError } from "@/lib/clientErrors";
 
 function industryLabel(slug) {
   return INDUSTRIES.find((i) => i.slug === slug)?.label || slug;
@@ -212,6 +213,9 @@ export default function CompanySettingsPage() {
       if (res.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setSaving(false);
@@ -240,6 +244,9 @@ export default function CompanySettingsPage() {
       ]);
       setNewRate({ name: "", rate: "", isDefault: false });
       setShowNewRate(false);
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 
@@ -247,7 +254,10 @@ export default function CompanySettingsPage() {
     const res = await fetch(`/api/settings/tax-rate/${id}`, {
       method: "DELETE",
     });
-    if (res.ok) setTaxRates((prev) => prev.filter((r) => r.id !== id));
+    if (res.ok) setTaxRates((prev) => prev.filter((r) => r.id !== id)); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   if (loading || !form) {

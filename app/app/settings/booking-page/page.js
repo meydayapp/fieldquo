@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, X } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function BookingPageSettings() {
   const [eventTypes, setEventTypes] = useState([]);
@@ -41,6 +42,9 @@ export default function BookingPageSettings() {
         bufferAfter: 0,
         location: "",
       });
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 
@@ -55,6 +59,9 @@ export default function BookingPageSettings() {
       setEventTypes((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e)),
       );
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

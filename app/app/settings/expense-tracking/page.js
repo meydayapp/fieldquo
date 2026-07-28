@@ -13,6 +13,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
@@ -208,6 +209,9 @@ export default function ExpenseTrackingPage() {
           frequency: "monthly",
         });
         loadSummary();
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setSaving(false);
@@ -216,7 +220,10 @@ export default function ExpenseTrackingPage() {
 
   async function handleDeleteExpense(id) {
     const res = await fetch(`/api/expenses/${id}`, { method: "DELETE" });
-    if (res.ok) loadSummary();
+    if (res.ok) loadSummary(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   async function handleGenerateAiSummary() {

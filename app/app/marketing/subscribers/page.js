@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
@@ -80,14 +81,20 @@ export default function SubscribersPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ subscribed: !sub.subscribed }),
     });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 
   async function handleDelete(id) {
     setBusyId(id);
     const res = await fetch(`/api/marketing/subscribers/${id}`, { method: "DELETE" });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function OverheadPage() {
   const [salaries, setSalaries] = useState([]);
@@ -45,6 +46,9 @@ export default function OverheadPage() {
       const created = await res.json();
       setSalaries((prev) => [...prev, created]);
       setSalaryForm({ name: "", amount: "", frequency: "monthly" });
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 
@@ -69,6 +73,9 @@ export default function OverheadPage() {
         monthlyPayment: "",
         interestRate: "",
       });
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

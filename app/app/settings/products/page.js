@@ -11,6 +11,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
@@ -134,6 +135,9 @@ export default function ProductsPage() {
       if (res.ok) {
         setShowModal(false);
         load();
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setSaving(false);
@@ -142,7 +146,10 @@ export default function ProductsPage() {
 
   async function handleDelete(id) {
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   async function handleImport(e) {
@@ -163,7 +170,10 @@ export default function ProductsPage() {
           ? `Imported ${data.imported} items.`
           : data.error || "Import failed",
       );
-      if (res.ok) load();
+      if (res.ok) load(); else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
+      }
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

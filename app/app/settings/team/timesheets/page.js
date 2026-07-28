@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function TimesheetsPage() {
   const [entries, setEntries] = useState([]);
@@ -25,6 +26,9 @@ export default function TimesheetsPage() {
       setEntries((prev) =>
         prev.map((e) => (e.id === updated.id ? updated : e)),
       );
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

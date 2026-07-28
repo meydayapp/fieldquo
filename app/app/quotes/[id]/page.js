@@ -6,6 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Send, RefreshCw, Pencil, Link2 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
@@ -38,7 +39,17 @@ export default function QuoteDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    if (res.ok) setQuote(await res.json());
+    if (res.ok) {
+      setQuote(await res.json());
+    } else {
+      // Marking a quote sent or accepted is a status change the whole
+      // pipeline depends on. Failing at it silently means the board is wrong
+      // and nobody knows why.
+      setError(
+        (await res.json().catch(() => null))?.error ||
+          "Couldn't update the quote's status.",
+      );
+    }
     setActionLoading(false);
   }
 
@@ -57,7 +68,10 @@ export default function QuoteDetailPage() {
 
   async function handleDelete() {
     const res = await fetch(`/api/quotes/${id}`, { method: "DELETE" });
-    if (res.ok) router.push("/app/quotes");
+    if (res.ok) router.push("/app/quotes"); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   if (loading)

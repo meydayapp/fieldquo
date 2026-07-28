@@ -20,6 +20,7 @@ import {
   RECIPE_EDITABLE_FIELDS,
   CONSUMABLE_EDITABLE_FIELDS,
 } from "@/app/data/materialRecipes";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const CATEGORY_META = {
   cabinet_refinishing: {
@@ -104,6 +105,9 @@ export default function MaterialCostsPage() {
       setDrafts((prev) => ({ ...prev, [categoryKey]: JSON.parse(JSON.stringify(updated)) }));
       setSavedFlash(categoryKey);
       setTimeout(() => setSavedFlash(null), 2000);
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
     setSavingKey(null);
   }
@@ -118,6 +122,9 @@ export default function MaterialCostsPage() {
       const reset = await res.json();
       setRecipes((prev) => ({ ...prev, [categoryKey]: reset }));
       setDrafts((prev) => ({ ...prev, [categoryKey]: JSON.parse(JSON.stringify(reset)) }));
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
     setSavingKey(null);
   }

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function PayrollPage() {
   const [payouts, setPayouts] = useState([]);
@@ -28,6 +29,9 @@ export default function PayrollPage() {
     if (res.ok) {
       const data = await fetch("/api/payouts").then((r) => r.json());
       setPayouts(data);
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
   draft: "bg-gray-100 text-gray-600",
@@ -56,7 +57,14 @@ export default function InvoiceDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    if (res.ok) setInvoice(await res.json());
+    if (res.ok) {
+      setInvoice(await res.json());
+    } else {
+      setError(
+        (await res.json().catch(() => null))?.error ||
+          "Couldn't update the invoice's status.",
+      );
+    }
     setActionLoading(false);
   }
 
@@ -118,13 +126,19 @@ export default function InvoiceDetailPage() {
       a.download = `invoice-${invoice.invoiceNumber}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
     setDownloadingPdf(false);
   }
 
   async function handleDelete() {
     const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-    if (res.ok) router.push("/app/invoices");
+    if (res.ok) router.push("/app/invoices"); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
   }
 
   if (loading)

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState([]);
@@ -48,6 +49,9 @@ export default function MaterialsPage() {
         currentAvgCost: "",
         reorderThreshold: "",
       });
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

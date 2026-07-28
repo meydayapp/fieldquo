@@ -1,6 +1,7 @@
 // app/app/layout.js
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
+import ErrorToast from "@/app/components/ErrorToast";
 
 // Everything under /app is per-user and behind the session check in
 // middleware.js, so there is nothing meaningful to statically prerender —
@@ -27,6 +28,10 @@ export default function AppLayout({ children }) {
         <AdminSidebar />
         <main className="flex-1 min-w-0">{children}</main>
       </div>
+      {/* Renders nothing until something calls showError(). Mounted here so
+          no individual page needs its own error state and banner — see
+          lib/clientErrors.js. */}
+      <ErrorToast />
     </div>
   );
 }

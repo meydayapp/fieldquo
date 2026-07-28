@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function WorkAreasPage() {
   const [workAreas, setWorkAreas] = useState([]);
@@ -33,6 +34,9 @@ export default function WorkAreasPage() {
       const created = await res.json();
       setWorkAreas((prev) => [...prev, created]);
       setName("");
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 
@@ -53,6 +57,9 @@ export default function WorkAreasPage() {
       setWorkAreas((prev) =>
         prev.map((w) => (w.id === updated.id ? updated : w)),
       );
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   }
 

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Star, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const GROUPS = ["Automated", "Marketing", "Custom"];
 
@@ -108,6 +109,9 @@ export default function EmailTemplatesPage() {
         body: JSON.stringify({ sections: t.sections }),
       });
       load();
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
     setBusyId(null);
   }
@@ -117,7 +121,10 @@ export default function EmailTemplatesPage() {
     const res = await fetch(`/api/settings/document-templates/${id}`, {
       method: "DELETE",
     });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 
@@ -126,7 +133,10 @@ export default function EmailTemplatesPage() {
     const res = await fetch(`/api/settings/document-templates/${id}/activate`, {
       method: "POST",
     });
-    if (res.ok) load();
+    if (res.ok) load(); else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
+    }
     setBusyId(null);
   }
 

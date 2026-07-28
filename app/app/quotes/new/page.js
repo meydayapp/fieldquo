@@ -29,6 +29,7 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { fetchJson } from "@/lib/fetchJson";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import { formatPhoneInput } from "@/lib/validation";
+import { reportResponseError } from "@/lib/clientErrors";
 
 export default function NewQuotePage() {
   const router = useRouter();
@@ -442,10 +443,10 @@ export default function NewQuotePage() {
       return;
     }
 
-    // This used to be `if (res.ok) { ... }` with no else — so when the request
-    // failed, the button did nothing at all: no error, no close, no clue. The
-    // most common failure here is a permission or schema error that the user
-    // can act on the moment they can read it.
+    // This used to check the response for success and do nothing whatsoever
+    // on failure — no error, no close, no clue. The most common failure here
+    // is a permission or schema error that the user can act on the moment
+    // they can read it.
     setCreatingClient(true);
     try {
       const created = await fetchJson("/api/clients", {

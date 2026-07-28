@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
+import { reportResponseError } from "@/lib/clientErrors";
 
 function emptyCustomForm() {
   return { label: "", fieldKeys: [] };
@@ -104,6 +105,9 @@ export default function ServiceSettingsPage() {
         setCustomForm(emptyCustomForm());
         setFieldSearch("");
         setShowCustomModal(false);
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setCreatingCustom(false);

@@ -21,6 +21,7 @@ import {
   Trash2,
 } from "lucide-react";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
@@ -130,7 +131,15 @@ export default function EmailDomainPage() {
         body: JSON.stringify({}),
       });
       const json = await res.json();
-      if (res.ok) setData(json);
+      if (res.ok) {
+        setData(json);
+      } else if (!silent) {
+        // `silent` is the background poll that runs while DNS propagates —
+        // surfacing an error on every one of those would bury the page in
+        // messages about a check the user never asked for. A check they
+        // clicked, though, has to say what happened.
+        setError(json?.error || "Couldn't check your domain just now.");
+      }
     } finally {
       if (!silent) setBusy(false);
     }
@@ -171,6 +180,9 @@ export default function EmailDomainPage() {
       if (res.ok) {
         setData(json);
         setDomainInput("");
+      } else {
+        // Was silent: a failed request did nothing visible at all.
+        await reportResponseError(res);
       }
     } finally {
       setBusy(false);

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, MapPin, User as UserIcon, ShieldAlert, X } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const STATUS_STYLES = {
   scheduled: "bg-blue-50 text-blue-700",
@@ -43,6 +44,9 @@ export default function AppointmentsPage() {
     if (res.ok) {
       const updated = await res.json();
       setAppointments((prev) => prev.map((a) => (a.id === id ? updated : a)));
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   };
 
@@ -191,6 +195,9 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
     setSaving(false);
     if (res.ok) {
       onCreated(await res.json());
+    } else {
+      // Was silent: a failed request did nothing visible at all.
+      await reportResponseError(res);
     }
   };
 
