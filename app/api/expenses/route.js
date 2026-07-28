@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -16,9 +17,14 @@ export async function GET(request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
+  // Scope to their own expenses unless they hold the "everyone's" level.
+  const full = await loadEnforceableMember(db, member.id);
+  const seesEveryone = hasLevel(full, "expenses", "view_record_edit_all");
+
   const expenses = await db.expense.findMany({
     where: {
       companyId: member.companyId,
+      ...(seesEveryone ? {} : { createdById: member.userId }),
       ...(projectId && { projectId }),
       ...(isOverhead !== null &&
         isOverhead !== undefined && { isOverhead: isOverhead === "true" }),
@@ -66,6 +72,9 @@ export async function POST(request) {
   const expense = await db.expense.create({
     data: {
       companyId: member.companyId,
+      // Stamped so the "their own" permission level has something to filter
+      // on. Without this the level is unenforceable.
+      createdById: member.userId,
       category,
       amount,
       date: date ? new Date(date) : new Date(),

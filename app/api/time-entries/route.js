@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -17,9 +18,20 @@ export async function GET(request) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
+  // "View and record their own" is a filter, not a gate — the list endpoint
+  // should return their rows, not 403. TimeEntry links to a Worker rather
+  // than a User, so the scope goes on the nested relation.
+  const full = await loadEnforceableMember(db, member.id);
+  const seesEveryone = hasLevel(full, "timeTracking", "view_record_edit_all");
+
   const entries = await db.timeEntry.findMany({
     where: {
-      worker: { companyId: member.companyId },
+      worker: {
+        companyId: member.companyId,
+        ...(seesEveryone ? {} : { userId: member.userId }),
+      },
+      // A restricted member asking for someone else's workerId gets an empty
+      // list rather than an error — the nested scope above wins.
       ...(workerId && { workerId }),
       ...(jobId && { jobId }),
       ...(status && { status }),

@@ -4,14 +4,23 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request, { params }) {
+  // Next 16: params is a Promise. Read synchronously it's undefined, so every
+  // lookup on this route returned "not found".
+  const { id } = await params;
+
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const quote = await db.quote.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
     include: {
       client: true,
       scopeGroups: {
@@ -29,12 +38,22 @@ export async function GET(request, { params }) {
 // Quotes are edited directly, not versioned — unlike invoices, there's no signed
 // commitment yet before acceptance, so a straight PATCH is the right model.
 export async function PATCH(request, { params }) {
+  const { id } = await params;
+
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "quotes", "view_create_edit", "edit quotes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.quote.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -86,12 +105,24 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const { id } = await params;
+
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Delete is a distinct level above edit — someone trusted to revise a quote
+  // isn't automatically trusted to make it disappear.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "quotes", "view_create_edit_delete", "delete quotes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.quote.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
     include: { invoices: true },
   });
   if (!existing)

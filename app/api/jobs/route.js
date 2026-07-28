@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -31,13 +36,16 @@ export async function POST(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Coarse role gate, then the granular level on top. The role answers "may
+  // you create jobs at all"; the grid answers "has this member been narrowed
+  // to view-only".
   try {
     requirePermission(member.role, "job:create");
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "jobs", "view_create_edit", "create jobs");
   } catch (err) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: err.status || 403 },
-    );
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const body = await request.json();

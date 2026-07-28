@@ -5,14 +5,29 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission } from "@/lib/permissions";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Schedule scoping. "View their own schedule" means the calendar shows
+  // only their jobs — a filter, not a 403. Unassigned appointments stay
+  // visible to everyone: an unclaimed job nobody can see is a job nobody
+  // does.
+  const full = await loadEnforceableMember(db, member.id);
+  const seesEveryone = hasLevel(full, "schedule", "edit_all");
+
   const appointments = await db.appointment.findMany({
-    where: { companyId: member.companyId },
+    where: {
+      companyId: member.companyId,
+      ...(seesEveryone
+        ? {}
+        : {
+            OR: [{ assignedToId: member.userId }, { assignedToId: null }],
+          }),
+    },
     include: { client: true, assignedTo: { select: { id: true, name: true } } },
     orderBy: { scheduledAt: "asc" },
   });

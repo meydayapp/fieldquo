@@ -4,14 +4,21 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
+// Next 16: params is a Promise.
 export async function GET(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const job = await db.job.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: id, companyId: member.companyId },
     include: {
       client: true,
       quote: { select: { id: true, quoteNumber: true } },
@@ -27,12 +34,21 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "jobs", "view_create_edit", "edit jobs");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.job.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -41,7 +57,7 @@ export async function PATCH(request, { params }) {
   const { title, status, recurring, recurrenceRule } = body;
 
   const updated = await db.job.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...(title !== undefined && { title }),
       ...(status !== undefined && { status }),
@@ -55,16 +71,25 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "jobs", "view_create_edit_delete", "delete jobs");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.job.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.job.delete({ where: { id: params.id } });
+  await db.job.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

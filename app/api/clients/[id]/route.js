@@ -4,14 +4,21 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
+// Next 16: params is a Promise.
 export async function GET(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const client = await db.client.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: id, companyId: member.companyId },
     include: {
       quotes: { orderBy: { createdAt: "desc" } },
       invoices: { orderBy: { createdAt: "desc" } },
@@ -25,12 +32,21 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "clientsProperties", "full_edit", "edit clients");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.client.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -40,7 +56,7 @@ export async function PATCH(request, { params }) {
     body;
 
   const updated = await db.client.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...(name !== undefined && { name }),
       ...(type !== undefined && {
@@ -64,20 +80,34 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(
+      full,
+      "clientsProperties",
+      "full_edit_delete",
+      "delete clients",
+    );
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.client.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Guard: don't silently orphan financial records
   const [quoteCount, invoiceCount] = await Promise.all([
-    db.quote.count({ where: { clientId: params.id } }),
-    db.invoice.count({ where: { clientId: params.id } }),
+    db.quote.count({ where: { clientId: id } }),
+    db.invoice.count({ where: { clientId: id } }),
   ]);
 
   if (quoteCount > 0 || invoiceCount > 0) {
@@ -87,6 +117,6 @@ export async function DELETE(request, { params }) {
     );
   }
 
-  await db.client.delete({ where: { id: params.id } });
+  await db.client.delete({ where: { id: id } });
   return NextResponse.json({ success: true });
 }

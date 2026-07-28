@@ -4,14 +4,22 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  requireToggle,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
+// Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const invoice = await db.invoice.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: id, companyId: member.companyId },
     include: {
       client: true,
       quote: true,
@@ -30,12 +38,22 @@ export async function GET(request, { params }) {
 // been sent — this preserves the changeLog pattern from TrueFinish. Draft invoices
 // (never sent) can just be edited directly.
 export async function PATCH(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "invoices", "view_create_edit", "edit invoices");
+    requireToggle(full, "showPricing", "edit invoices");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.invoice.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -57,7 +75,7 @@ export async function PATCH(request, { params }) {
 
   if (isDraft) {
     const updated = await db.invoice.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         ...(lineItems !== undefined && { lineItems }),
         ...(subtotal !== undefined && { subtotal }),
@@ -112,12 +130,26 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(
+      full,
+      "invoices",
+      "view_create_edit_delete",
+      "delete invoices",
+    );
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const existing = await db.invoice.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -129,6 +161,6 @@ export async function DELETE(request, { params }) {
     );
   }
 
-  await db.invoice.delete({ where: { id: params.id } });
+  await db.invoice.delete({ where: { id: id } });
   return NextResponse.json({ success: true });
 }

@@ -1203,9 +1203,21 @@ model Expense {
   frequency  ExpenseFrequency @default(one_time)
   materialId String?
   material   Material?        @relation(fields: [materialId], references: [id])
+  // Who recorded it. Added because the permission grid offers "Expenses:
+  // view, record, and edit THEIR OWN" and there was no way to tell whose an
+  // expense was — the level was unenforceable, so everyone saw everything
+  // regardless of what was configured.
+  //
+  // Nullable: rows that predate this have no owner, and a restricted member
+  // won't see them. That's the honest outcome — we genuinely don't know who
+  // entered them — but it means existing expenses effectively become
+  // admin-only.
+  createdById String?
   createdAt  DateTime         @default(now())
 
   priceEntries MaterialPriceEntry[]
+
+  @@index([companyId, createdById])
 }
 
 model MarketingSpend {

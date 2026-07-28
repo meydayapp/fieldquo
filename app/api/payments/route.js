@@ -4,6 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireToggle,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -33,6 +38,18 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Recording a payment is the highest-trust action in the app — it marks
+  // money as received. Gated on the dedicated `payments` toggle rather than
+  // an invoice level, since the two are independent: someone who edits
+  // invoices isn't automatically someone who should confirm cash arrived.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireToggle(full, "payments", "record payments");
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 
   const body = await request.json();
   const { invoiceId, amount, method, notes, date } = body;
