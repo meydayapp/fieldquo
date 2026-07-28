@@ -9,12 +9,14 @@ import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { uploadBuffer } from "@/lib/cloudinary";
 
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const quote = await db.quote.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
     include: { client: true, scopeGroups: { include: { category: true } } },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });

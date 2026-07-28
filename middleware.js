@@ -16,6 +16,11 @@
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { jwtVerify } from "jose";
+import {
+  IMPERSONATION_COOKIE,
+  verifyImpersonationToken,
+  isReadOnlyMethod,
+} from "@/lib/platform/impersonationToken";
 
 const PLATFORM_SECRET = new TextEncoder().encode(
   process.env.PLATFORM_JWT_SECRET,
@@ -33,6 +38,62 @@ const PLATFORM_BILLING_PASSTHROUGH = [
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+
+  // ── Read-only support session ("Sign in as") ────────────────────────────
+  //
+  // A platform superadmin viewing a customer's account carries only the
+  // impersonation cookie — no Better Auth session — so both gates below would
+  // otherwise turn them away. This runs first and does two jobs:
+  //
+  //   1. lets them through to /app and the company APIs;
+  //   2. rejects anything that could write, before it reaches a handler.
+  //
+  // Enforcing it here rather than per-route is the whole point. There are
+  // ~135 API routes; a check each one has to remember is a check that will be
+  // forgotten the next time someone adds a route.
+  //
+  // Scoped to the COMPANY surface only. /api/platform and /platform are
+  // excluded deliberately: without that exclusion, holding an impersonation
+  // cookie would satisfy this block and return next() before the
+  // platform-token check below ever ran — turning a support token into read
+  // access to the platform console's own APIs. Only superadmins can obtain
+  // one today, so it isn't currently exploitable, but "not exploitable yet"
+  // is not the same as correct.
+  const isPlatformSurface =
+    pathname.startsWith("/platform") || pathname.startsWith("/api/platform");
+
+  const impersonationToken = request.cookies.get(IMPERSONATION_COOKIE)?.value;
+  if (impersonationToken && !isPlatformSurface) {
+    const claims = await verifyImpersonationToken(impersonationToken);
+
+    if (claims && (pathname.startsWith("/app") || pathname.startsWith("/api"))) {
+      if (!isReadOnlyMethod(request.method)) {
+        return NextResponse.json(
+          {
+            error:
+              "You're viewing this account read-only. Support access can't change a customer's data — talk them through the change, or ask them to make it.",
+            readOnly: true,
+          },
+          { status: 403 },
+        );
+      }
+
+      // Let route handlers know without re-verifying the JWT.
+      const headers = new Headers(request.headers);
+      headers.set("x-impersonating-company", claims.companyId);
+      headers.set("x-impersonating-admin", claims.platformAdminId);
+      return NextResponse.next({ request: { headers } });
+    }
+
+    if (!claims && pathname.startsWith("/app")) {
+      // Expired mid-session. Clear it so they aren't stuck in a half-state.
+      const response = NextResponse.redirect(
+        new URL("/platform/companies", request.url),
+      );
+      response.cookies.set(IMPERSONATION_COOKIE, "", { maxAge: 0, path: "/" });
+      return response;
+    }
+  }
 
   // ── Platform API routes (JSON 401, not a redirect — these are fetch() calls) ──
   if (pathname.startsWith("/api/platform")) {
@@ -100,6 +161,14 @@ export const config = {
     "/app/:path*",
     "/platform",
     "/platform/:path*",
-    "/api/platform/:path*",
+    // Widened from /api/platform/* to all of /api. The read-only support gate
+    // above has to sit in front of every company API route, not just the
+    // platform ones — otherwise a support session could POST to /api/quotes.
+    //
+    // Cost is one cookie lookup per API request: without an impersonation
+    // cookie the block exits immediately, and no JWT is verified. Public
+    // routes (/api/public/*, /api/portal/*, webhooks) are unaffected — they
+    // carry no impersonation cookie and fall straight through.
+    "/api/:path*",
   ],
 };

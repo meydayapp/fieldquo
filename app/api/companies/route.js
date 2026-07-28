@@ -16,6 +16,7 @@ import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -183,7 +184,7 @@ export async function POST(request) {
     console.error("[companies POST] default template seeding failed", err);
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const checkoutSession = await createTrialCheckoutSession({
     company,

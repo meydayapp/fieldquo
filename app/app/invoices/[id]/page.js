@@ -4,7 +4,16 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Send, DollarSign, Download } from "lucide-react";
+import {
+  ArrowLeft,
+  Trash2,
+  Send,
+  DollarSign,
+  Download,
+  Mail,
+  Loader2,
+  Check,
+} from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 
 const STATUS_STYLES = {
@@ -29,6 +38,8 @@ export default function InvoiceDetailPage() {
   });
   const [actionLoading, setActionLoading] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [requested, setRequested] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -70,6 +81,30 @@ export default function InvoiceDetailPage() {
     setInvoice(refreshed);
     setShowPayment(false);
     setPayment({ amount: "", method: "e_transfer", notes: "" });
+  }
+
+  // Emails the client a link to their portal, where they can pay the balance
+  // with the company's own Stripe account. Deliberately does NOT email a raw
+  // Stripe Checkout URL — those expire in 24 hours and would be dead by the
+  // time most people get round to paying.
+  async function handleRequestPayment() {
+    setRequesting(true);
+    setError("");
+    setRequested(null);
+    try {
+      const res = await fetch(`/api/invoices/${id}/request-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Could not send the request");
+      setRequested(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRequesting(false);
+    }
   }
 
   async function handleDownloadPdf() {
@@ -121,6 +156,27 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
+      {requested && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-800">
+          <div className="flex items-start gap-2">
+            <Check size={16} className="shrink-0 mt-0.5" />
+            <div>
+              Payment request sent to <strong>{requested.to}</strong> for $
+              {Number(requested.balance).toFixed(2)}.
+              {/* The email still goes out — the client just can't pay through
+                  it. Better they hear from you than get a dead button. */}
+              {requested.onlinePaymentsEnabled === false && (
+                <div className="mt-1 text-amber-800">
+                  Stripe isn&apos;t connected yet, so the email asks them to
+                  contact you instead of offering a card payment. Finish setup
+                  in Settings → Payments.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -152,6 +208,22 @@ export default function InvoiceDetailPage() {
               className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
             >
               <DollarSign size={14} /> Record Payment
+            </button>
+          )}
+          {/* Only meaningful once the invoice has left the office and there's
+              still something owing on it. */}
+          {invoice.status !== "draft" && amountDue > 0.005 && (
+            <button
+              onClick={handleRequestPayment}
+              disabled={requesting}
+              className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+            >
+              {requesting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Mail size={14} />
+              )}
+              Request Payment
             </button>
           )}
           {["draft", "sent"].includes(invoice.status) && (

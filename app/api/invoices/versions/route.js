@@ -6,12 +6,14 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const invoice = await db.invoice.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -4,8 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const { invoiceId } = await request.json();
   if (!invoiceId)
     return NextResponse.json(
@@ -14,7 +17,7 @@ export async function POST(request, { params }) {
     );
 
   const client = await db.client.findUnique({
-    where: { portalToken: params.token },
+    where: { portalToken: _params.token },
   });
   if (!client)
     return NextResponse.json(
@@ -41,13 +44,13 @@ export async function POST(request, { params }) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const session = await createInvoiceCheckoutSession({
     invoice,
     company,
-    successUrl: `${baseUrl}/portal/${params.token}?paid=true`,
-    cancelUrl: `${baseUrl}/portal/${params.token}`,
+    successUrl: `${baseUrl}/portal/${_params.token}?paid=true`,
+    cancelUrl: `${baseUrl}/portal/${_params.token}`,
   });
 
   return NextResponse.json({ checkoutUrl: session.url });

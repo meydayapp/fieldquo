@@ -6,10 +6,9 @@
 // render as normal links so the nav reads correctly, they just 404 until
 // those pages exist.
 //
-// Deliberately NOT linked, because their page.js files are empty stubs with
-// no default export — linking them would put items in the nav that crash on
-// click: /app/settings/templates, /app/settings/checklists,
-// /app/settings/notifications. Add them here once they render something.
+// /app/settings/templates, /checklists and /notifications were previously
+// left out of this nav because their page.js files were empty stubs that
+// would crash on click. They render now, so they're linked below.
 "use client";
 
 import Link from "next/link";
@@ -36,6 +35,9 @@ import {
   ClipboardList,
   AtSign,
   Globe,
+  FileText,
+  Bell,
+  ListChecks,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -81,11 +83,26 @@ const BUSINESS_ITEMS = [
     icon: Mail,
   },
   {
+    label: "PDF Templates",
+    href: "/app/settings/templates",
+    icon: FileText,
+  },
+  {
     label: "Email Domain",
     href: "/app/settings/email-domain",
     icon: AtSign,
   },
   { label: "Follow-ups", href: "/app/settings/follow-ups", icon: Clock },
+  {
+    label: "Notifications",
+    href: "/app/settings/notifications",
+    icon: Bell,
+  },
+  {
+    label: "Checklists",
+    href: "/app/settings/checklists",
+    icon: ListChecks,
+  },
   { label: "Payments", href: "/app/settings/payments", icon: Receipt },
   {
     label: "Expense Tracking",

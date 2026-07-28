@@ -1,5 +1,6 @@
 // app/app/layout.js
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
+import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 
 // Everything under /app is per-user and behind the session check in
 // middleware.js, so there is nothing meaningful to statically prerender —
@@ -19,9 +20,13 @@ export const dynamic = "force-dynamic";
 
 export default function AppLayout({ children }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <AdminSidebar />
-      <main className="flex-1 min-w-0">{children}</main>
+    <div className="min-h-screen bg-gray-50">
+      {/* Renders nothing unless a read-only support session is active. */}
+      <ImpersonationBanner />
+      <div className="flex">
+        <AdminSidebar />
+        <main className="flex-1 min-w-0">{children}</main>
+      </div>
     </div>
   );
 }

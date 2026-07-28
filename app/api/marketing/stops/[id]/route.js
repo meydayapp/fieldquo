@@ -24,11 +24,13 @@ const STOP_STATUSES = ["pending", "delivered", "spoke", "not_home", "skipped"];
 // person walking the route is often an employee without user:manage. Manager-
 // only concerns (reassigning the stop to someone else) are still gated.
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const stop = await loadOwnedStop(member.companyId, params.id);
+  const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
@@ -46,7 +48,7 @@ export async function PATCH(request, { params }) {
   }
 
   const updated = await db.pamphletStop.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(status !== undefined && { status }),
       ...(spokeToOwner !== undefined && { spokeToOwner: !!spokeToOwner }),
@@ -72,11 +74,13 @@ export async function PATCH(request, { params }) {
 // A full quote isn't built here (it needs scope/line items) — the UI instead
 // deep-links to the quote builder pre-scoped to the new client.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const stop = await loadOwnedStop(member.companyId, params.id);
+  const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
@@ -119,7 +123,7 @@ export async function POST(request, { params }) {
   }
 
   const updated = await db.pamphletStop.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       clientId,
       appointmentId,
@@ -133,13 +137,15 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const stop = await loadOwnedStop(member.companyId, params.id);
+  const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.pamphletStop.delete({ where: { id: params.id } });
+  await db.pamphletStop.delete({ where: { id: _params.id } });
   return NextResponse.json({ ok: true });
 }

@@ -5,14 +5,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { createInvoiceCheckoutSession } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const invoice = await db.invoice.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
     include: { client: true },
   });
   if (!invoice)
@@ -32,7 +35,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const session = await createInvoiceCheckoutSession({
     invoice,

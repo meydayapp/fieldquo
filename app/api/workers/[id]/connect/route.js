@@ -5,18 +5,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { createConnectOnboardingLink } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Generates a Stripe Express onboarding link for a CONTRACTOR worker (not the
 // company itself — that's app/api/stripe/connect/route.js). Same underlying Stripe
 // mechanism, different subject: here the connected account belongs to an individual
 // worker getting paid BY their company, not the company getting paid by clients.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const worker = await db.worker.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!worker)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -31,7 +34,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const { accountId, url } = await createConnectOnboardingLink({
     companyId: member.companyId, // used as metadata on the Stripe account for traceability

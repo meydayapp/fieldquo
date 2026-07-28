@@ -7,6 +7,8 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -21,7 +23,7 @@ export async function PATCH(request, { params }) {
   }
 
   const existing = await db.customField.findUnique({
-    where: { id: params.id },
+    where: { id: _params.id },
   });
   if (!existing || existing.companyId !== member.companyId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -31,7 +33,7 @@ export async function PATCH(request, { params }) {
   const { label, options, required, sortOrder } = body;
 
   const updated = await db.customField.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(label !== undefined && { label }),
       ...(options !== undefined && { options }),
@@ -44,6 +46,8 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,14 +62,14 @@ export async function DELETE(request, { params }) {
   }
 
   const existing = await db.customField.findUnique({
-    where: { id: params.id },
+    where: { id: _params.id },
   });
   if (!existing || existing.companyId !== member.companyId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Cascades to CustomFieldValue via the schema's onDelete: Cascade.
-  await db.customField.delete({ where: { id: params.id } });
+  await db.customField.delete({ where: { id: _params.id } });
 
   return NextResponse.json({ ok: true });
 }

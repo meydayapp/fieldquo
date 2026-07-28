@@ -7,12 +7,14 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const worker = await db.worker.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
     include: {
       timeEntries: { orderBy: { clockIn: "desc" }, take: 20 },
       payouts: { orderBy: { createdAt: "desc" }, take: 10 },
@@ -25,6 +27,8 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -39,7 +43,7 @@ export async function PATCH(request, { params }) {
   }
 
   const existing = await db.worker.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -51,7 +55,7 @@ export async function PATCH(request, { params }) {
   // legal/tax implications and shouldn't be a casual field update. Treat it as
   // "deactivate this worker record, create a new one" if that's genuinely needed.
   const updated = await db.worker.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(name !== undefined && { name }),
       ...(email !== undefined && { email }),
@@ -64,6 +68,8 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -78,7 +84,7 @@ export async function DELETE(request, { params }) {
   }
 
   const existing = await db.worker.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
     include: { payouts: true },
   });
   if (!existing)
@@ -88,12 +94,12 @@ export async function DELETE(request, { params }) {
     // Same principle as everywhere else in this app: don't let a payment history
     // record disappear. Deactivate instead.
     await db.worker.update({
-      where: { id: params.id },
+      where: { id: _params.id },
       data: { active: false },
     });
     return NextResponse.json({ success: true, deactivated: true });
   }
 
-  await db.worker.delete({ where: { id: params.id } });
+  await db.worker.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true, deleted: true });
 }

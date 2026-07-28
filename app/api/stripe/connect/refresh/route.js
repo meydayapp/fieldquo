@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createConnectOnboardingLink } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Stripe redirects here if an onboarding link expired mid-flow — regenerates a fresh
 // one and immediately redirects back into it. No auth check needed beyond the
@@ -26,7 +27,7 @@ export async function GET(request) {
     );
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const { url } = await createConnectOnboardingLink({
     companyId,

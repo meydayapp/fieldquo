@@ -8,14 +8,16 @@ import { sendSms } from "@/lib/sms/twilioClient";
 import { onMyWayText } from "@/lib/sms/templates";
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const visit = await db.jobVisit.findFirst({
     where: {
-      id: params.visitId,
-      jobId: params.id,
+      id: _params.visitId,
+      jobId: _params.id,
       job: { companyId: member.companyId },
     },
     include: { job: { include: { client: true, company: true } } },
@@ -26,7 +28,7 @@ export async function PATCH(request, { params }) {
   const { status, checklistItems, photos, notes, scheduledAt } = body;
 
   const updated = await db.jobVisit.update({
-    where: { id: params.visitId },
+    where: { id: _params.visitId },
     data: {
       ...(status !== undefined && { status }),
       ...(checklistItems !== undefined && { checklistItems }),

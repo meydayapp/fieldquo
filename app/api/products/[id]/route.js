@@ -12,11 +12,13 @@ async function assertOwnership(companyId, id) {
 }
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const existing = await assertOwnership(member.companyId, params.id);
+  const existing = await assertOwnership(member.companyId, _params.id);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -33,7 +35,7 @@ export async function PATCH(request, { params }) {
   } = body;
 
   const updated = await db.product.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description }),
@@ -57,14 +59,16 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const existing = await assertOwnership(member.companyId, params.id);
+  const existing = await assertOwnership(member.companyId, _params.id);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.product.delete({ where: { id: params.id } });
+  await db.product.delete({ where: { id: _params.id } });
   return NextResponse.json({ ok: true });
 }

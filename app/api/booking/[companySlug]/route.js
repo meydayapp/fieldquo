@@ -6,8 +6,10 @@ import { db } from "@/lib/db";
 
 // Public — company branding + bookable event types for the public booking page
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const company = await db.company.findUnique({
-    where: { slug: params.companySlug },
+    where: { slug: _params.companySlug },
     select: {
       id: true,
       name: true,

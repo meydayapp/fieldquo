@@ -14,6 +14,8 @@ import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 //  3. Reconcile the PendingTeamProfile (phone/labour/permissions captured at
 //     invite time) onto that Member.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const session = await auth.api.getSession({ headers: request.headers });
   if (!session?.user) {
     return NextResponse.json(
@@ -23,7 +25,7 @@ export async function POST(request, { params }) {
   }
 
   const invitation = await db.invitation.findUnique({
-    where: { id: params.id },
+    where: { id: _params.id },
   });
   if (!invitation) {
     return NextResponse.json({ error: "Invitation not found" }, { status: 404 });
@@ -41,7 +43,7 @@ export async function POST(request, { params }) {
   // 1. Better Auth acceptance (idempotent-ish; ignore "already accepted").
   try {
     await auth.api.acceptInvitation({
-      body: { invitationId: params.id },
+      body: { invitationId: _params.id },
       headers: request.headers,
     });
   } catch (err) {

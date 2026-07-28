@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember"; // company-side session — the company owner initiates this
 import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -30,7 +31,7 @@ export async function POST(request) {
   if (!plan)
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   const session = await createBillingCheckoutSession({
     company,

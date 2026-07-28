@@ -5,8 +5,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const client = await db.client.findUnique({
-    where: { portalToken: params.token },
+    where: { portalToken: _params.token },
     include: {
       company: {
         select: {

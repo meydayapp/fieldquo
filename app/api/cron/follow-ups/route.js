@@ -19,6 +19,7 @@ import {
   renderTemplateSections,
   renderSubject,
 } from "@/lib/email/renderTemplateSections";
+import { getAppOrigin } from "@/lib/appUrl";
 
 function cutoffFor(rule) {
   const ms =
@@ -147,7 +148,7 @@ function mergeDataFor(entityType, entity) {
       quoteTotal: money(entity.total),
       jobTitle: entity.quoteType || "",
       quoteUrl: entity.shareToken
-        ? `${process.env.NEXT_PUBLIC_APP_URL || ""}/q/${entity.shareToken}`
+        ? `${getAppOrigin(request)}/q/${entity.shareToken}`
         : "",
     };
   }

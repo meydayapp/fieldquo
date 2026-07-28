@@ -6,12 +6,14 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await db.eventType.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -28,7 +30,7 @@ export async function PATCH(request, { params }) {
   } = body;
 
   const updated = await db.eventType.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(name !== undefined && { name }),
       ...(durationMinutes !== undefined && { durationMinutes }),
@@ -44,19 +46,21 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await db.eventType.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const futureBookings = await db.booking.count({
     where: {
-      eventTypeId: params.id,
+      eventTypeId: _params.id,
       status: "confirmed",
       startTime: { gte: new Date() },
     },
@@ -65,7 +69,7 @@ export async function DELETE(request, { params }) {
   if (futureBookings > 0) {
     // Deactivate instead of delete — don't orphan a client's upcoming booking
     await db.eventType.update({
-      where: { id: params.id },
+      where: { id: _params.id },
       data: { active: false },
     });
     return NextResponse.json({
@@ -75,6 +79,6 @@ export async function DELETE(request, { params }) {
     });
   }
 
-  await db.eventType.delete({ where: { id: params.id } });
+  await db.eventType.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true, deleted: true });
 }

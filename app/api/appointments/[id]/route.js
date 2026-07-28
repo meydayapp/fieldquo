@@ -7,12 +7,14 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { can } from "@/lib/permissions";
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const appt = await db.appointment.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
     include: { client: true, assignedTo: { select: { id: true, name: true } } },
   });
 
@@ -21,12 +23,14 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await db.appointment.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -74,7 +78,7 @@ export async function PATCH(request, { params }) {
   }
 
   const updated = await db.appointment.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(body.scheduledAt && { scheduledAt: new Date(body.scheduledAt) }),
       ...(body.location !== undefined && { location: body.location }),
@@ -94,16 +98,18 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await db.appointment.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  await db.appointment.delete({ where: { id: params.id } });
+  await db.appointment.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true });
 }

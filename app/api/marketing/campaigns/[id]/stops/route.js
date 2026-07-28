@@ -47,6 +47,8 @@ async function reorderCampaign(companyId, campaignId) {
 // longitude } or { stops: [...] } for bulk paste. Coordinates are optional —
 // a stop without them still lists, it just sorts to the end of the route.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -60,7 +62,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const campaign = await loadOwned(member.companyId, params.id);
+  const campaign = await loadOwned(member.companyId, _params.id);
   if (!campaign)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -74,7 +76,7 @@ export async function POST(request, { params }) {
   const clean = incoming
     .filter((s) => s.address?.trim())
     .map((s) => ({
-      campaignId: params.id,
+      campaignId: _params.id,
       address: s.address.trim(),
       latitude: s.latitude != null ? Number(s.latitude) : null,
       longitude: s.longitude != null ? Number(s.longitude) : null,
@@ -88,10 +90,10 @@ export async function POST(request, { params }) {
   }
 
   await db.pamphletStop.createMany({ data: clean });
-  await reorderCampaign(member.companyId, params.id);
+  await reorderCampaign(member.companyId, _params.id);
 
   const stops = await db.pamphletStop.findMany({
-    where: { campaignId: params.id },
+    where: { campaignId: _params.id },
     orderBy: { sortOrder: "asc" },
     include: {
       assignedTo: { select: { id: true, name: true } },

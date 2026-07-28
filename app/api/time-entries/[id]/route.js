@@ -7,12 +7,14 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 
 export async function PATCH(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const existing = await db.timeEntry.findFirst({
-    where: { id: params.id, worker: { companyId: member.companyId } },
+    where: { id: _params.id, worker: { companyId: member.companyId } },
     include: { worker: true },
   });
   if (!existing)
@@ -50,7 +52,7 @@ export async function PATCH(request, { params }) {
   }
 
   const updated = await db.timeEntry.update({
-    where: { id: params.id },
+    where: { id: _params.id },
     data: {
       ...(clockOut !== undefined && { clockOut: resolvedClockOut, hours }),
       ...(status !== undefined && {
@@ -66,6 +68,8 @@ export async function PATCH(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -80,7 +84,7 @@ export async function DELETE(request, { params }) {
   }
 
   const existing = await db.timeEntry.findFirst({
-    where: { id: params.id, worker: { companyId: member.companyId } },
+    where: { id: _params.id, worker: { companyId: member.companyId } },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -95,6 +99,6 @@ export async function DELETE(request, { params }) {
     );
   }
 
-  await db.timeEntry.delete({ where: { id: params.id } });
+  await db.timeEntry.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true });
 }

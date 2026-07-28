@@ -8,12 +8,14 @@ import { getCurrentMember } from "@/lib/currentMember";
 // Marks this template as the active one for its type — unsets any other default
 // of the same type for this company, so exactly one default exists per type at a time.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const template = await db.documentTemplate.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!template)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -24,7 +26,7 @@ export async function POST(request, { params }) {
       data: { isDefault: false },
     }),
     db.documentTemplate.update({
-      where: { id: params.id },
+      where: { id: _params.id },
       data: { isDefault: true },
     }),
   ]);

@@ -8,8 +8,10 @@ import { db } from "@/lib/db";
 // role to render before the invited person has logged in. Only non-sensitive
 // display fields are returned.
 export async function GET(_request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const invitation = await db.invitation.findUnique({
-    where: { id: params.id },
+    where: { id: _params.id },
     include: { organization: { select: { name: true } } },
   });
 

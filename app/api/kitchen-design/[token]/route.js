@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Resend } from "resend";
 import { lazyClient } from "@/lib/lazyClient";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Lazy — see lib/lazyClient.js. A module-scope `new Resend()` breaks the
 // production build when RESEND_API_KEY isn't present at build time.
@@ -89,7 +90,7 @@ export async function PATCH(request, { params }) {
   const recipients = notifyMembers.map((m) => m.user.email).filter(Boolean);
 
   if (recipients.length > 0) {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const siteUrl = getAppOrigin(request);
     const adminLink = `${siteUrl}/app/quotes/${quote.id}`;
     const savedAt = new Date().toLocaleString("en-CA", {
       timeZone: "America/Toronto",

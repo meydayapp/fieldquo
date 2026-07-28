@@ -3,14 +3,17 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getAppOrigin } from "@/lib/appUrl";
 
 function generateReferralCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const client = await db.client.findUnique({
-    where: { portalToken: params.token },
+    where: { portalToken: _params.token },
     include: { referralLinks: true },
   });
   if (!client)
@@ -27,7 +30,7 @@ export async function GET(request, { params }) {
     });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const baseUrl = getAppOrigin(request);
 
   return NextResponse.json({
     code: referral.code,

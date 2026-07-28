@@ -71,7 +71,7 @@ export async function PATCH(request, { params }) {
   } = body;
 
   const updated = await db.quote.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(status !== undefined && {
         status,
@@ -135,6 +135,6 @@ export async function DELETE(request, { params }) {
     );
   }
 
-  await db.quote.delete({ where: { id: params.id } });
+  await db.quote.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }

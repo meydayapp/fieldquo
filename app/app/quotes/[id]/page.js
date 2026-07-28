@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Send, RefreshCw } from "lucide-react";
+import { ArrowLeft, Trash2, Send, RefreshCw, Pencil, Link2 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 
 const STATUS_STYLES = {
@@ -111,14 +111,13 @@ export default function QuoteDetailPage() {
               <Send size={14} /> Send
             </button>
           )}
-          {quote.status === "sent" && (
-            <button
-              onClick={() => updateStatus("accepted")}
-              disabled={actionLoading}
-              className="bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+          {["sent", "draft"].includes(quote.status) && (
+            <Link
+              href={`/app/quote-approval/${id}`}
+              className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
             >
-              Mark Accepted
-            </button>
+              <Link2 size={14} /> Get approved
+            </Link>
           )}
           {quote.status === "accepted" && !quote.invoices?.length && (
             <button
@@ -129,6 +128,12 @@ export default function QuoteDetailPage() {
               <RefreshCw size={14} /> Convert to Invoice
             </button>
           )}
+          <Link
+            href={`/app/quotes/${id}/edit`}
+            className="flex items-center gap-1.5 border border-gray-300 text-gray-700 px-4 py-2 rounded-full text-sm font-semibold"
+          >
+            <Pencil size={14} /> Edit
+          </Link>
           <button
             onClick={() => setShowDelete(true)}
             className="border border-gray-300 text-gray-500 p-2 rounded-full"

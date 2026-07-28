@@ -8,8 +8,10 @@ import { db } from "@/lib/db";
 // pipeline as the public embeddable form, just pre-filled since we already know
 // who they are.
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const client = await db.client.findUnique({
-    where: { portalToken: params.token },
+    where: { portalToken: _params.token },
   });
   if (!client)
     return NextResponse.json(

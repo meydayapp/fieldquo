@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   X,
 } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 
 export default function PaymentsPage() {
   const [company, setCompany] = useState(null);
@@ -35,11 +36,12 @@ export default function PaymentsPage() {
     setError("");
     setConnecting(true);
     try {
-      const res = await fetch("/api/stripe/connect", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Could not start Stripe onboarding");
-      }
+      // fetchJson rather than res.json() — see lib/fetchJson.js. This call
+      // was reporting "The string did not match the expected pattern" for
+      // weeks, which was Safari's JSON parser choking on a 500 HTML page
+      // caused by an unset NEXT_PUBLIC_APP_URL.
+      const data = await fetchJson("/api/stripe/connect", { method: "POST" });
+      if (!data?.url) throw new Error("Stripe didn't return an onboarding link.");
       window.location.href = data.url;
     } catch (err) {
       setError(err.message || "Could not connect Stripe");
@@ -51,13 +53,10 @@ export default function PaymentsPage() {
     setError("");
     setOpeningDashboard(true);
     try {
-      const res = await fetch("/api/stripe/connect/login-link", {
+      const data = await fetchJson("/api/stripe/connect/login-link", {
         method: "POST",
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Could not open the Stripe dashboard");
-      }
+      if (!data?.url) throw new Error("Stripe didn't return a dashboard link.");
       window.open(data.url, "_blank", "noopener,noreferrer");
     } catch (err) {
       setError(err.message || "Could not open the Stripe dashboard");
@@ -70,13 +69,7 @@ export default function PaymentsPage() {
     setError("");
     setDisconnecting(true);
     try {
-      const res = await fetch("/api/stripe/connect/disconnect", {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Could not disconnect Stripe");
-      }
+      await fetchJson("/api/stripe/connect/disconnect", { method: "POST" });
       await loadCompany();
     } catch (err) {
       setError(err.message || "Could not disconnect Stripe");

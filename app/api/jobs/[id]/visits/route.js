@@ -7,17 +7,19 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const job = await db.job.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const visits = await db.jobVisit.findMany({
-    where: { jobId: params.id },
+    where: { jobId: _params.id },
     include: { assignedTo: { select: { id: true, name: true } } },
     orderBy: { scheduledAt: "asc" },
   });
@@ -26,12 +28,14 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  // Next 16: `params` is a Promise; reading it synchronously gives undefined.
+  const _params = await params;
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const job = await db.job.findFirst({
-    where: { id: params.id, companyId: member.companyId },
+    where: { id: _params.id, companyId: member.companyId },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -58,7 +62,7 @@ export async function POST(request, { params }) {
 
   const visit = await db.jobVisit.create({
     data: {
-      jobId: params.id,
+      jobId: _params.id,
       scheduledAt: new Date(scheduledAt),
       assignedToId: assignedToId || null,
       checklistItems: checklistItems || null,
