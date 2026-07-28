@@ -4,7 +4,17 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2, Send, RefreshCw, Pencil, Link2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Trash2,
+  Send,
+  RefreshCw,
+  Pencil,
+  Link2,
+  Mail,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 
@@ -24,6 +34,8 @@ export default function QuoteDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
+  const [justSent, setJustSent] = useState("");
 
   useEffect(() => {
     fetch(`/api/quotes/${id}`)
@@ -31,6 +43,40 @@ export default function QuoteDetailPage() {
       .then(setQuote)
       .finally(() => setLoading(false));
   }, [id]);
+
+  /**
+   * Actually emails the client.
+   *
+   * This button used to call updateStatus("sent"), which changed a word on
+   * screen and then hid itself because the status was no longer draft. Every
+   * signal said the quote had gone out; nothing had been sent. It now calls a
+   * route that emails, and only reports success once Resend has accepted the
+   * message.
+   */
+  async function sendQuote(kind) {
+    setSending(kind);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Couldn't send the email.");
+
+      // Merge rather than refetch: the response carries exactly the fields
+      // that changed, and a refetch would blank the page for a moment on the
+      // one action the user most wants confirmation of.
+      setQuote((q) => ({ ...q, ...data }));
+      setJustSent(data.to);
+      setTimeout(() => setJustSent(""), 6000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending("");
+    }
+  }
 
   async function updateStatus(status) {
     setActionLoading(true);
@@ -116,13 +162,36 @@ export default function QuoteDetailPage() {
         </div>
 
         <div className="flex gap-2">
-          {quote.status === "draft" && (
+          {/* Shown while the quote is still live, not only while it's a draft.
+              Re-sending a quote a client says they never received is one of
+              the most common things anyone needs to do, and the old button
+              vanished the moment the status changed. */}
+          {["draft", "sent"].includes(quote.status) && (
             <button
-              onClick={() => updateStatus("sent")}
-              disabled={actionLoading}
+              onClick={() => sendQuote("quote")}
+              disabled={Boolean(sending)}
               className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
-              <Send size={14} /> Send
+              {sending === "quote" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
+              {quote.sentAt ? "Send again" : "Send"}
+            </button>
+          )}
+          {quote.status === "sent" && quote.sentAt && (
+            <button
+              onClick={() => sendQuote("follow_up")}
+              disabled={Boolean(sending)}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+            >
+              {sending === "follow_up" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Mail size={14} />
+              )}
+              Follow up
             </button>
           )}
           {["sent", "draft"].includes(quote.status) && (
@@ -156,6 +225,49 @@ export default function QuoteDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* The email trail. Every banner here is written only after Resend
+          accepted the message, so "Emailed 3 July" is a fact rather than an
+          intention — which is what the old sentAt recorded, since the Send
+          button never sent anything. */}
+      {justSent && (
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
+          <CheckCircle2 size={16} className="shrink-0" />
+          Sent to <span className="font-medium">{justSent}</span>.
+        </div>
+      )}
+
+      {(quote.sentAt || quote.followUpSentAt) && (
+        <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-1.5">
+          {quote.sentAt && (
+            <TrailRow
+              label="Emailed"
+              at={quote.sentAt}
+              detail={quote.sentToEmail}
+            />
+          )}
+          {quote.followUpSentAt && (
+            <TrailRow
+              label={
+                quote.followUpCount > 1
+                  ? `Followed up (${quote.followUpCount}×)`
+                  : "Followed up"
+              }
+              at={quote.followUpSentAt}
+            />
+          )}
+          {/* clientDesignAt is reused by the public approval endpoint to
+              record when the client decided — see the comment there. */}
+          {["accepted", "declined"].includes(quote.status) &&
+            quote.clientDesignAt && (
+              <TrailRow
+                label={quote.status === "accepted" ? "Approved" : "Declined"}
+                at={quote.clientDesignAt}
+                tone={quote.status === "accepted" ? "positive" : "muted"}
+              />
+            )}
+        </div>
+      )}
 
       {quote.invoices?.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
@@ -271,6 +383,47 @@ export default function QuoteDetailPage() {
         message="This quote and its line items will be permanently removed."
         itemName={quote.quoteNumber}
       />
+    </div>
+  );
+}
+
+/**
+ * One line of the email trail.
+ *
+ * Absolute date AND relative age, because they answer different questions:
+ * "when exactly" matters when a client disputes it, "how long ago" is what
+ * tells you whether it's time to chase.
+ */
+function TrailRow({ label, at, detail, tone }) {
+  const when = new Date(at);
+  const days = Math.floor((Date.now() - when.getTime()) / 86400000);
+  const ago =
+    days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+
+  return (
+    <div className="flex items-baseline justify-between gap-3 flex-wrap text-sm">
+      <span
+        className={
+          tone === "positive"
+            ? "font-medium text-green-700 dark:text-green-400"
+            : "font-medium text-foreground"
+        }
+      >
+        {label}
+        {detail && (
+          <span className="font-normal text-muted-foreground"> → {detail}</span>
+        )}
+      </span>
+      <span className="text-muted-foreground tabular-nums">
+        {when.toLocaleString("en-CA", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })}
+        <span className="text-muted-foreground/60"> · {ago}</span>
+      </span>
     </div>
   );
 }

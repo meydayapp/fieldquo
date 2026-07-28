@@ -17,6 +17,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import {
   createDomain,
+  findDomainByName,
   getDomain,
   verifyDomain,
   deleteDomain,
@@ -114,7 +115,45 @@ export async function POST(request) {
       await deleteDomain(company.emailDomainId).catch(() => {});
     }
 
-    const created = await createDomain(requested);
+    let created;
+    try {
+      created = await createDomain(requested);
+    } catch (err) {
+      // "Already registered" is not really a failure — it's Resend telling us
+      // the domain exists on the account, which is a state we can adopt. This
+      // is the ONLY path out of the contradiction users hit: the screen saying
+      // the domain is registered while also saying nothing is connected.
+      if (!/already/i.test(err.message || "")) throw err;
+
+      const existing = await findDomainByName(requested);
+      if (!existing) {
+        // Resend says it exists but won't show it to us. Nothing to adopt.
+        throw err;
+      }
+
+      // ── The guard that makes adoption safe ────────────────────────────
+      // Resend has no tenants: adopting a domain blindly would let company B
+      // claim a domain company A verified, and then send mail as them. Only
+      // adopt a registration that no other company on this platform holds.
+      const heldByAnother = await db.company.findFirst({
+        where: {
+          emailDomainId: existing.id,
+          NOT: { id: member.companyId },
+        },
+        select: { id: true },
+      });
+
+      if (heldByAnother) {
+        return NextResponse.json(
+          {
+            error: `${requested} is already connected to another account on FieldQuo. Get in touch if you believe this domain is yours.`,
+          },
+          { status: 409 },
+        );
+      }
+
+      created = existing;
+    }
 
     const updated = await db.company.update({
       where: { id: member.companyId },

@@ -620,7 +620,21 @@ model Quote {
   clientDesignAt      DateTime?
   clientKitchenConfig Json?
 
-  sentAt    DateTime?
+  // ── Email trail ─────────────────────────────────────────────────────────
+  // What was actually sent, to whom, and when.
+  //
+  // sentAt used to be set by the "Send" button, which only changed the status
+  // and never sent anything — so the field recorded an intention, not an
+  // event. These are written only after Resend accepts the message, which
+  // makes them safe to show a client-facing claim like "Emailed 3 July".
+  sentAt         DateTime?
+  // The address it went to, captured at send time. A client whose email is
+  // corrected later must not make an old record claim the quote went
+  // somewhere it didn't.
+  sentToEmail    String?
+  followUpSentAt DateTime?
+  followUpCount  Int       @default(0)
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 

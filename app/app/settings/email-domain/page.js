@@ -309,10 +309,54 @@ export default function EmailDomainPage() {
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="font-semibold text-foreground mb-1">Add these DNS records</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Add them wherever your domain is managed (Cloudflare, GoDaddy,
-            Namecheap...). Changes usually apply within an hour, but can take up
-            to 24. This page rechecks itself every 30 seconds.
+            This proves you own the domain, which is what lets us send email as
+            you. Nothing sends from your domain until it&apos;s done.
           </p>
+
+          {/* Written because "add these DNS records" assumes knowledge most
+              contractors have no reason to have. The two lines that cause
+              nearly every failed attempt are the name-suffix gotcha and the
+              quotes-around-values one — both are called out explicitly. */}
+          <ol className="text-sm text-muted-foreground space-y-2 mb-5 list-decimal pl-5">
+            <li>
+              Sign in wherever you bought the domain — GoDaddy, Namecheap,
+              Cloudflare, Google Domains. That&apos;s your{" "}
+              <span className="text-foreground font-medium">DNS host</span>. If
+              you&apos;re not sure, it&apos;s usually whoever bills you yearly
+              for the domain name.
+            </li>
+            <li>
+              Find <span className="text-foreground font-medium">DNS</span>,{" "}
+              <span className="text-foreground font-medium">DNS records</span>{" "}
+              or <span className="text-foreground font-medium">Manage DNS</span>
+              . Add a new record for each block below, matching Type, Name and
+              Value exactly.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">
+                Watch the Name field.
+              </span>{" "}
+              Most hosts add your domain automatically. If the Name below is{" "}
+              <code className="font-mono text-xs">send._domainkey.example.com</code>{" "}
+              you usually enter only{" "}
+              <code className="font-mono text-xs">send._domainkey</code> — if
+              your host shows the full name after saving, you did it right.
+              Ending up with{" "}
+              <code className="font-mono text-xs">
+                send._domainkey.example.com.example.com
+              </code>{" "}
+              is the most common mistake.
+            </li>
+            <li>
+              Paste values exactly, with no quotes added and no line breaks. TXT
+              values are long — copy them rather than typing.
+            </li>
+            <li>
+              Save, then leave it. Most hosts apply changes within an hour;
+              some take up to 24. This page rechecks every 30 seconds on its
+              own — you don&apos;t need to sit here.
+            </li>
+          </ol>
 
           <div className="space-y-3">
             {records.map((r, i) => (
