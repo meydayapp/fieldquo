@@ -26,6 +26,7 @@ import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -72,6 +73,8 @@ export async function POST(request, { params }) {
       brandColor: true,
       phone: true,
       paymentTerms: true,
+      paymentMethods: true,
+      defaultLanguage: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
     },
@@ -98,6 +101,11 @@ export async function POST(request, { params }) {
     company: company || {},
     url: portalUrl(token, request),
     canTakeCard,
+    language: resolveClientLanguage({
+      document: invoice,
+      client: invoice.client,
+      company,
+    }),
   });
 
   const result = await sendEmail({ to, subject, html, text, from, replyTo });

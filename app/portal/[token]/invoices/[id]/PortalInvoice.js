@@ -13,7 +13,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CreditCard, Loader2, Check, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  CreditCard,
+  Loader2,
+  Check,
+  AlertCircle,
+  Building2,
+} from "lucide-react";
+import { readableForeground } from "@/lib/brand/colour";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -98,40 +106,81 @@ export default function PortalInvoice({ token, invoiceId }) {
 
   const c = data.company || {};
   const accent = c.brandColor || "#06356b";
+  // Measured, not assumed white — see the quote page for why.
+  const accentOn = readableForeground(accent);
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
   const due = Math.max(
     0,
     Number(invoice.total || 0) - Number(invoice.amountPaid || 0),
   );
+  const overdue =
+    invoice.dueDate && due > 0.005 && new Date(invoice.dueDate) < new Date();
 
   return (
     <Shell token={token}>
-      <div className="bg-white border border-black/10 rounded-2xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-black/5 flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-xs uppercase tracking-wider text-[#2d2520]/40">
-              Invoice
-            </div>
-            <div className="text-lg font-bold text-[#2d2520]">
-              {invoice.invoiceNumber}
-            </div>
-            {invoice.dueDate && (
-              <div className="text-sm text-[#2d2520]/60 mt-1">
-                Due {date(invoice.dueDate)}
+      <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
+        {/* Same brand rule as the quote page. A client who approved a quote
+            and then lands here should recognise it as the same company —
+            previously these two pages shared no visual language at all. */}
+        <div className="flex h-1.5">
+          <div className="flex-[2]" style={{ backgroundColor: accent }} />
+          <div className="flex-1" style={{ backgroundColor: `${accent}99` }} />
+        </div>
+
+        <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              {c.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={c.logoUrl}
+                  alt={c.name}
+                  className="h-11 w-auto max-w-[180px] object-contain"
+                />
+              ) : (
+                <div
+                  className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: accent, color: accentOn }}
+                >
+                  <Building2 size={20} />
+                </div>
+              )}
+              <div className="min-w-0">
+                <div className="font-semibold text-[#2d2520] truncate">
+                  {c.name}
+                </div>
+                {c.phone && (
+                  <a
+                    href={`tel:${c.phone}`}
+                    className="text-xs text-[#2d2520]/55 hover:text-[#2d2520]"
+                  >
+                    {c.phone}
+                  </a>
+                )}
               </div>
-            )}
-          </div>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-wider text-[#2d2520]/40">
-              {due > 0.005 ? "Amount due" : "Total"}
             </div>
-            <div className="text-2xl font-bold text-[#2d2520] tabular-nums">
-              {money(due > 0.005 ? due : invoice.total)}
+            <div className="text-right shrink-0">
+              <div
+                className="text-lg font-bold tracking-[0.15em] leading-none"
+                style={{ color: accent }}
+              >
+                INVOICE
+              </div>
+              <div className="font-mono text-sm text-[#2d2520] mt-1">
+                {invoice.invoiceNumber}
+              </div>
+              {invoice.dueDate && (
+                <div
+                  className={`text-xs mt-1 ${overdue ? "text-red-700" : "text-[#2d2520]/55"}`}
+                >
+                  {overdue ? "Was due" : "Due"} {date(invoice.dueDate)}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="px-6 sm:px-8 py-5">
           {items.length === 0 ? (
             <p className="text-sm text-[#2d2520]/50">
               No itemised breakdown on this invoice.
@@ -179,18 +228,27 @@ export default function PortalInvoice({ token, invoiceId }) {
               <span className="tabular-nums">{money(invoice.total)}</span>
             </div>
             {Number(invoice.amountPaid) > 0 && (
-              <>
-                <Row label="Paid" value={-Number(invoice.amountPaid)} />
-                <div className="flex justify-between pt-1 font-bold text-[#2d2520] text-base">
-                  <span>Balance</span>
-                  <span className="tabular-nums">{money(due)}</span>
-                </div>
-              </>
+              <Row label="Paid" value={-Number(invoice.amountPaid)} />
             )}
+          </div>
+
+          {/* The one figure that matters, in their colour — same treatment as
+              the quote's total. Reading three similar numbers to find the one
+              you owe is the opposite of helpful on a payment page. */}
+          <div
+            className="mt-4 flex items-center justify-between rounded-xl px-4 py-3.5"
+            style={{ backgroundColor: accent, color: accentOn }}
+          >
+            <span className="text-sm font-bold tracking-wide">
+              {due > 0.005 ? "BALANCE DUE" : "PAID IN FULL"}
+            </span>
+            <span className="text-2xl font-bold tabular-nums">
+              {money(due > 0.005 ? due : invoice.total)}
+            </span>
           </div>
         </div>
 
-        <div className="px-6 py-5 bg-[#faf8f4] border-t border-black/5">
+        <div className="px-6 sm:px-8 py-5 bg-[#faf8f4] border-t border-black/5">
           {error && (
             <div className="mb-3 flex items-start gap-2 text-sm text-red-700">
               <AlertCircle size={15} className="shrink-0 mt-0.5" />

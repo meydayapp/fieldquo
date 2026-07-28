@@ -17,6 +17,8 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
+import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -24,12 +26,6 @@ import {
 } from "@/lib/permissions/enforce";
 
 const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
-
-const money = (n) =>
-  Number(n || 0).toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -80,6 +76,9 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       phone: true,
+      paymentTerms: true,
+      paymentMethods: true,
+      defaultLanguage: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
     },
@@ -99,48 +98,37 @@ export async function POST(request, { params }) {
   }
 
   const url = portalUrl(token, request);
-  const accent = company?.brandColor || "#06356b";
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
   const body = await request.json().catch(() => ({}));
   const note = String(body?.note || "").trim();
+
+  // Was a second, hand-rolled English template with its own layout and a
+  // hardcoded dark button colour that vanished on a dark brand. A client
+  // chasing one invoice would receive two emails that looked like they came
+  // from different companies. Same builder now, in the client's language,
+  // with `kind: "reminder"` changing only the framing.
+  const { subject, html, text } = buildInvoiceEmail({
+    invoice,
+    client: invoice.client,
+    company: company || {},
+    url,
+    canTakeCard,
+    note,
+    kind: "reminder",
+    language: resolveClientLanguage({
+      document: invoice,
+      client: invoice.client,
+      company,
+    }),
+  });
 
   await resend.emails.send({
     from,
     replyTo,
     to: invoice.client.email,
-    subject: `${money(balance)} due — invoice ${invoice.invoiceNumber}`,
-    html: `
-      <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#2d2520">
-        ${
-          company?.logoUrl
-            ? `<img src="${company.logoUrl}" alt="${company.name}" style="height:40px;margin-bottom:20px" />`
-            : `<div style="font-size:18px;font-weight:bold;margin-bottom:20px">${company?.name || ""}</div>`
-        }
-        <p>Hi ${invoice.client.name},</p>
-        <p>
-          Invoice <strong>${invoice.invoiceNumber}</strong> has a balance of
-          <strong>${money(balance)}</strong>${
-            Number(invoice.amountPaid || 0) > 0
-              ? ` (${money(invoice.amountPaid)} already received — thank you)`
-              : ""
-          }.
-        </p>
-        ${note ? `<p>${note.replace(/</g, "&lt;")}</p>` : ""}
-        <p style="margin:28px 0">
-          <a href="${url}" style="background:${accent};color:#2d2520;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:bold;display:inline-block">
-            ${canTakeCard ? "View and pay online" : "View your invoice"}
-          </a>
-        </p>
-        ${
-          canTakeCard
-            ? ""
-            : `<p style="font-size:13px;color:#6b6257">Please get in touch to arrange payment.</p>`
-        }
-        <p style="font-size:13px;color:#6b6257">
-          Questions? Just reply to this email${company?.phone ? ` or call ${company.phone}` : ""}.
-        </p>
-      </div>
-    `,
+    subject,
+    html,
+    text,
   });
 
   return NextResponse.json({

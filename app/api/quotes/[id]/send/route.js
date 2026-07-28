@@ -38,6 +38,7 @@ import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -90,6 +91,7 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       phone: true,
+      defaultLanguage: true,
     },
   });
 
@@ -111,6 +113,13 @@ export async function POST(request, { params }) {
     company: company || {},
     url,
     kind: isFollowUp ? "follow_up" : "quote",
+    // The quote's own language wins — the covering note must match the
+    // document it's carrying. See lib/i18n/clientLanguage.js.
+    language: resolveClientLanguage({
+      document: quote,
+      client: quote.client,
+      company,
+    }),
   });
 
   const result = await sendEmail({ to, subject, html, text, from, replyTo });

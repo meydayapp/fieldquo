@@ -40,7 +40,23 @@ export async function POST(request, { params }) {
     // Written-in language, fixed at creation. Falls back to the
     // company default for records created before this existed.
     language: invoice.language || company?.defaultLanguage || "en",
-    data: { client: invoice.client, scopeGroups: [], ...invoice },
+    // scopeGroups was [], so ScopeGroupsSection fell to the flat lineItems
+    // path and rendered an unlabelled card. Invoices genuinely are one flat
+    // list — they're not grouped by service — so give that list a heading
+    // rather than pretending it has structure it doesn't.
+    data: {
+      ...invoice,
+      client: invoice.client,
+      scopeGroups: Array.isArray(invoice.lineItems) && invoice.lineItems.length
+        ? [
+            {
+              label: "Work completed",
+              lineItems: invoice.lineItems,
+              subtotal: invoice.subtotal,
+            },
+          ]
+        : [],
+    },
     company,
   });
 
