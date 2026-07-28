@@ -36,6 +36,7 @@ const ITEMS = [
     icon: Tags,
   },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
+  { label: "Platform team", href: "/platform/team", icon: ShieldCheck },
 ];
 
 export default function PlatformSidebar() {
