@@ -7,7 +7,7 @@ import { requirePermission } from "@/lib/permissions";
 import { generateExpenseSummary } from "@/lib/ai/expenseSummary";
 
 // Gated to user:manage — same bar as other financial settings pages (Company
-// Settings, Overhead) — since this calls the Anthropic API on every click and
+// Settings, Overhead) — since this calls a paid model API on every click and
 // surfaces burn-rate/runway numbers that are sensitive by nature.
 export async function POST(request) {
   const member = await getCurrentMember(request);

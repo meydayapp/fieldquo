@@ -53,7 +53,7 @@ export async function POST(request) {
   // the company saves a service, sees nothing, and has to come back later.
   //
   // Never blocks creation: translateFields returns {} on failure, so a missing
-  // ANTHROPIC_API_KEY or a bad response costs the company nothing.
+  // missing API key or a bad response costs the company nothing.
   const company = await db.company.findUnique({
     where: { id: member.companyId },
     select: { defaultLanguage: true, sendLanguages: true },
