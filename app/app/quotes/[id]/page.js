@@ -44,6 +44,19 @@ export default function QuoteDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Carried over from the builder when "Save & Send" saved the quote but the
+  // email failed. Without this the user lands on a draft with no explanation
+  // of why it isn't sent — which is how you get someone pressing Send four
+  // more times.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sendError = params.get("sendError");
+    if (!sendError) return;
+    setError(sendError);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   /**
    * Actually emails the client.
    *

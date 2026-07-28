@@ -3,9 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Trash2, Search, TrendingUp, AlertTriangle } from "lucide-react";
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
-import { hasRecipe } from "@/app/data/materialRecipes";
 import {
   isUnitPriced,
   COMPLEXITY_LEVELS,
@@ -14,7 +12,6 @@ import {
   groupUnits,
   unitPricingSubtotal,
 } from "@/app/data/cabinetPricing";
-import { getSectionPresets } from "@/app/data/sectionPresets";
 
 // app/app/quotes/new/page.js — updated imports
 import { getIntakeFields } from "@/app/data/quoteIntakeFields";
@@ -25,11 +22,17 @@ import {
 
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
-import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { fetchJson } from "@/lib/fetchJson";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
-import { formatPhoneInput } from "@/lib/validation";
-import { reportResponseError } from "@/lib/clientErrors";
+import ServiceTiles from "@/app/components/quotes/builder/ServiceTiles";
+import ScopeGroupCard from "@/app/components/quotes/builder/ScopeGroupCard";
+import UnitPricingFields from "@/app/components/quotes/builder/UnitPricingFields";
+import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
+import TierSelector from "@/app/components/quotes/builder/TierSelector";
+import LineItemsTable from "@/app/components/quotes/builder/LineItemsTable";
+import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
+import QuoteTotalsBar from "@/app/components/quotes/builder/QuoteTotalsBar";
+import ClientPicker from "@/app/components/quotes/builder/ClientPicker";
 
 export default function NewQuotePage() {
   const router = useRouter();
@@ -78,7 +81,9 @@ export default function NewQuotePage() {
   // Which cabinet groups have their complexity-reasons panel expanded.
   const [reasonsOpen, setReasonsOpen] = useState({});
 
-  const [saving, setSaving] = useState(false);
+  // "" | "draft" | "sent" — which action is in flight, not merely that one is.
+  // The totals bar spins only the button that was pressed.
+  const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [showTour, setShowTour] = useState(false);
@@ -189,57 +194,8 @@ export default function NewQuotePage() {
     c.name?.toLowerCase().includes(clientSearch.toLowerCase()),
   );
 
-  function addScopeGroup(category) {
-    setScopeGroups((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        categoryId: category.id,
-        label: category.label,
-        lineItems: [
-          {
-            description: category.label,
-            quantity: 1,
-            unit: category.unit || "flat",
-            rate: Number(category.defaultRate || 0),
-            amount: Number(category.defaultRate || 0),
-          },
-        ],
-      },
-    ]);
-  }
-
   function removeScopeGroup(tempId) {
     setScopeGroups((prev) => prev.filter((g) => g.tempId !== tempId));
-  }
-
-  function addScopeGroup(category) {
-    const isTiered = isTieredPackageCategory(category.key);
-    const fields = getIntakeFields(category.key);
-
-    setScopeGroups((prev) => [
-      ...prev,
-      {
-        tempId: crypto.randomUUID(),
-        categoryId: category.id,
-        categoryKey: category.key,
-        label: category.label,
-        isTiered,
-        selectedTier: null,
-        intakeValues: {},
-        lineItems: isTiered
-          ? [] // tiered categories build their line item once a tier is selected
-          : [
-              {
-                description: category.label,
-                quantity: 1,
-                unit: category.unit || "flat",
-                rate: Number(category.defaultRate || 0),
-                amount: Number(category.defaultRate || 0),
-              },
-            ],
-      },
-    ]);
   }
 
   function updateIntakeValue(groupTempId, fieldKey, value) {
@@ -486,7 +442,7 @@ export default function NewQuotePage() {
       return;
     }
 
-    setSaving(true);
+    setSaving(status);
 
     const res = await fetch("/api/quotes", {
       method: "POST",
@@ -534,20 +490,53 @@ export default function NewQuotePage() {
         tax,
         total,
         notes,
-        status,
+        // Always created as a draft. Only a confirmed send promotes it,
+        // in app/api/quotes/[id]/send.
+        status: "draft",
         language: quoteLanguage || companyLanguage,
       }),
     });
 
-    setSaving(false);
-
     if (!res.ok) {
       const data = await res.json();
+      setSaving("");
       setError(data.error || "Could not create quote");
       return;
     }
 
     const quote = await res.json();
+
+    // "Save & Send" used to mean "create it with status: sent" — the third
+    // place in this app where a Send control changed a word and emailed
+    // nothing. The quote is created as a DRAFT and then sent through the real
+    // route, which flips the status itself once Resend accepts the message.
+    //
+    // A failed send therefore leaves a draft the user can retry from, rather
+    // than a quote marked sent that never left the building.
+    if (status === "sent") {
+      const sendRes = await fetch(`/api/quotes/${quote.id}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "quote" }),
+      });
+      if (!sendRes.ok) {
+        const data = await sendRes.json().catch(() => null);
+        setSaving("");
+        // Land them on the quote regardless — it exists and their work is
+        // saved. The reason is carried through so the detail page can say why
+        // it's still a draft instead of leaving them to guess.
+        router.push(
+          `/app/quotes/${quote.id}?sendError=${encodeURIComponent(
+            data?.error || "The quote was saved but the email didn't send.",
+          )}`,
+        );
+        return;
+      }
+    }
+
+    // Deliberately still "saving" here: the router push is about to unmount
+    // this page. Clearing it first flashes an enabled button for a frame,
+    // which is long enough to double-submit on a slow connection.
     router.push(`/app/quotes/${quote.id}`);
   }
 
@@ -572,78 +561,30 @@ export default function NewQuotePage() {
         </div>
       )}
 
-      {/* Client selection */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Client</h2>
-
-        {selectedClient ? (
-          <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3">
-            <div>
-              <div className="font-medium text-foreground">
-                {selectedClient.name}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {selectedClient.email || selectedClient.phone}
-              </div>
-            </div>
-            <button
-              onClick={() => setSelectedClient(null)}
-              className="text-sm text-muted-foreground underline"
-            >
-              Change
-            </button>
-          </div>
-        ) : (
-          <div>
-            <div className="relative mb-2">
-              <Search
-                size={15}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-                placeholder="Search clients..."
-                className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
-              />
-            </div>
-
-            {clientSearch && (
-              <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto mb-2">
-                {filteredClients.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">No matches.</p>
-                )}
-                {filteredClients.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setSelectedClient(c);
-                      setClientSearch("");
-                      // Adopt their saved preference automatically — the
-                      // whole point of storing it. Still overridable in the
-                      // language bar below.
-                      if (c.language) setQuoteLanguage(c.language);
-                    }}
-                    className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted"
-                  >
-                    <div className="font-medium text-foreground">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.email || c.phone}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowNewClient(true)}
-              className="text-sm font-medium text-foreground flex items-center gap-1"
-            >
-              <Plus size={14} /> Add new client
-            </button>
-          </div>
-        )}
-      </div>
+      <ClientPicker
+        clients={filteredClients}
+        selectedClient={selectedClient}
+        onSelect={(c) => {
+          setSelectedClient(c);
+          setClientSearch("");
+          // Adopt their saved preference automatically — the whole point of
+          // storing it. Still overridable in the language bar below.
+          if (c.language) setQuoteLanguage(c.language);
+        }}
+        onClear={() => setSelectedClient(null)}
+        search={clientSearch}
+        onSearchChange={setClientSearch}
+        showNewClient={showNewClient}
+        onOpenNewClient={() => setShowNewClient(true)}
+        onCloseNewClient={() => setShowNewClient(false)}
+        newClient={newClient}
+        onNewClientChange={(patch) =>
+          setNewClient((prev) => ({ ...prev, ...patch }))
+        }
+        onCreateClient={handleCreateClient}
+        creating={creatingClient}
+        error={error}
+      />
 
       {/* Language is chosen once, here, and baked into the saved quote. It is
           deliberately not a viewer toggle: the PDF and the emailed copy must
@@ -657,667 +598,91 @@ export default function NewQuotePage() {
         />
       )}
 
-      {/* Service picker */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Add a service</h2>
-        {categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No services enabled yet — go to Settings → Services to turn some on.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => {
-              const presets = getSectionPresets(cat.key);
-
-              if (!presets) {
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => addScopeGroup(cat, cat.label)}
-                    className="border border-border rounded-full px-3 py-1.5 text-sm hover:bg-muted"
-                  >
-                    + {cat.label}
-                  </button>
-                );
-              }
-
-              // Trades with known sections show them as their own one-click buttons,
-              // grouped visually under the category name — no retyping, no generic label.
-              return (
-                <div key={cat.id} className="w-full">
-                  <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                    {cat.label}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {presets.map((sectionLabel) => (
-                      <button
-                        key={sectionLabel}
-                        onClick={() => addScopeGroup(cat, sectionLabel)}
-                        className="border border-border rounded-full px-3 py-1.5 text-sm hover:bg-muted"
-                      >
-                        + {sectionLabel}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Service picker. The tile grid, the section-preset expansion and the
+          per-trade accent all live in ServiceTiles — this page keeps the
+          state and the pricing rules. */}
+      <ServiceTiles categories={categories} onAdd={addScopeGroup} />
 
       {/* Scope groups */}
-      {scopeGroups.map((group) => (
-        <div
+      {scopeGroups.map((group, groupIndex) => (
+        <ScopeGroupCard
           key={group.tempId}
-          className="bg-card border border-border rounded-xl p-5"
+          group={group}
+          index={groupIndex}
+          showIndex={scopeGroups.length > 1}
+          subtotal={groupTotal(group)}
+          onRemove={() => removeScopeGroup(group.tempId)}
         >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-foreground">{group.label}</h3>
-            <button
-              onClick={() => removeScopeGroup(group.tempId)}
-              className="text-muted-foreground"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
 
-          {/* Client-facing unit pricing — cabinet refinishing / refacing */}
-          {isUnitPriced(group.categoryKey) &&
-            (() => {
-              const units = groupUnits(group);
-              const finalPrice = finalUnitPrice(group);
-              const iv = group.intakeValues || {};
-              return (
-                <div className="mb-4 pb-4 border-b border-border space-y-4">
-                  {/* Doors / Drawers / Units */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Doors</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={iv.doorCount || ""}
-                        onChange={(e) =>
-                          updateIntakeValue(group.tempId, "doorCount", e.target.value)
-                        }
-                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Drawers</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={iv.drawerCount || ""}
-                        onChange={(e) =>
-                          updateIntakeValue(group.tempId, "drawerCount", e.target.value)
-                        }
-                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Total Units</label>
-                      <div className="mt-1 px-3 py-1.5 bg-muted border border-border rounded text-sm font-semibold text-center text-foreground">
-                        {units}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Wood — feeds the internal primer-coats rule */}
-                  <div>
-                    <label className="text-xs text-muted-foreground">
-                      Wood / Door Material
-                    </label>
-                    <select
-                      value={iv.woodSpecies || ""}
-                      onChange={(e) =>
-                        updateIntakeValue(group.tempId, "woodSpecies", e.target.value)
-                      }
-                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
-                    >
-                      <option value="">—</option>
-                      {["oak", "ash", "hickory", "pine", "maple", "mdf_prefinished", "thermofoil", "other"].map(
-                        (w) => (
-                          <option key={w} value={w}>
-                            {w.replace(/_/g, " ")}
-                          </option>
-                        ),
-                      )}
-                    </select>
-                  </div>
-
-                  {/* Base / Upcharge / Final */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground">
-                        Base Price / Unit
-                      </label>
-                      <div className="relative mt-1">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="5"
-                          value={group.baseUnitPrice ?? ""}
-                          onChange={(e) =>
-                            updatePricing(group.tempId, {
-                              baseUnitPrice: e.target.value === "" ? 0 : Number(e.target.value),
-                            })
-                          }
-                          className="w-full border border-border rounded pl-5 pr-2 py-1.5 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Upcharge</label>
-                      <div className="mt-1 px-3 py-1.5 bg-muted border border-border rounded text-sm text-center text-foreground">
-                        {group.complexityLevel === "custom"
-                          ? `+$${Number(group.complexityUpcharge) || 0}`
-                          : `+$${COMPLEXITY_LEVELS.find((l) => l.value === group.complexityLevel)?.upcharge || 0}`}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Final / Unit</label>
-                      <div className="mt-1 px-3 py-1.5 bg-inverted rounded text-sm font-semibold text-center text-inverted-foreground">
-                        ${finalPrice.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Complexity level */}
-                  <div>
-                    <label className="text-xs text-muted-foreground block mb-1.5">
-                      Project Complexity
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {COMPLEXITY_LEVELS.map((lvl) => (
-                        <button
-                          key={lvl.value}
-                          type="button"
-                          onClick={() =>
-                            updatePricing(group.tempId, {
-                              complexityLevel: lvl.value,
-                            })
-                          }
-                          className={`px-3 py-1.5 rounded-full text-xs font-semibold border ${
-                            group.complexityLevel === lvl.value
-                              ? "border-inverted bg-inverted text-inverted-foreground"
-                              : "border-border text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          {lvl.label}
-                          {lvl.upcharge ? ` (+$${lvl.upcharge})` : ""}
-                        </button>
-                      ))}
-                    </div>
-                    {group.complexityLevel === "custom" && (
-                      <div className="mt-2 w-40">
-                        <label className="text-xs text-muted-foreground">
-                          Custom upcharge / unit
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="5"
-                          value={group.complexityUpcharge || ""}
-                          onChange={(e) =>
-                            updatePricing(group.tempId, {
-                              complexityUpcharge: Number(e.target.value) || 0,
-                            })
-                          }
-                          className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                          placeholder="e.g. 60"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Complexity reasons */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setReasonsOpen((p) => ({
-                          ...p,
-                          [group.tempId]: !p[group.tempId],
-                        }))
-                      }
-                      className="text-xs font-medium text-foreground flex items-center gap-1"
-                    >
-                      {reasonsOpen[group.tempId] ? "▾" : "▸"} Complexity Reasons
-                      {(group.complexityReasons?.length || 0) > 0 && (
-                        <span className="bg-inverted text-inverted-foreground rounded-full px-1.5 text-[10px]">
-                          {group.complexityReasons.length}
-                        </span>
-                      )}
-                      <span className="text-muted-foreground font-normal">
-                        — shown on quote &amp; PDF
-                      </span>
-                    </button>
-                    {reasonsOpen[group.tempId] && (
-                      <div className="mt-2 border border-border rounded-lg p-3 space-y-3">
-                        {Object.entries(COMPLEXITY_REASONS).map(([cat, reasons]) => (
-                          <div key={cat}>
-                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                              {cat}
-                            </p>
-                            {reasons.map((r) => (
-                              <label
-                                key={r.id}
-                                className="flex items-start gap-2 text-sm py-0.5 cursor-pointer"
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="mt-0.5"
-                                  checked={
-                                    group.complexityReasons?.includes(r.id) || false
-                                  }
-                                  onChange={() =>
-                                    toggleComplexityReason(group.tempId, r.id)
-                                  }
-                                />
-                                <span className="text-foreground">{r.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Finish details */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Color</label>
-                      <input
-                        value={group.color || ""}
-                        onChange={(e) =>
-                          updatePricing(group.tempId, { color: e.target.value })
-                        }
-                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                        placeholder="e.g. BM Chantilly Lace"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Sheen</label>
-                      <select
-                        value={group.sheen || ""}
-                        onChange={(e) =>
-                          updatePricing(group.tempId, { sheen: e.target.value })
-                        }
-                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
-                      >
-                        <option value="">Select…</option>
-                        <option value="matte">Matte</option>
-                        <option value="satin">Satin</option>
-                        <option value="semi-gloss">Semi-Gloss</option>
-                        <option value="gloss">Gloss</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Door Style</label>
-                      <input
-                        value={group.doorStyle || ""}
-                        onChange={(e) =>
-                          updatePricing(group.tempId, { doorStyle: e.target.value })
-                        }
-                        className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                        placeholder="e.g. Shaker"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Base scope total */}
-                  <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
-                    <span className="text-sm text-muted-foreground">
-                      {units} unit{units === 1 ? "" : "s"} × ${finalPrice.toFixed(2)}
-                    </span>
-                    <span className="text-base font-bold text-foreground">
-                      ${(units * finalPrice).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-
-          {/* Structured intake fields — formula-driven categories, or a
-              custom quote type's chosen fields */}
-          {!group.isTiered &&
-            !isUnitPriced(group.categoryKey) &&
-            getGroupFields(group).length > 0 && (
-            <div className="grid grid-cols-2 gap-3 mb-4 pb-4 border-b border-border">
-              {getGroupFields(group).map((field) => (
-                <div key={field.key}>
-                  <label className="text-xs text-muted-foreground">{field.label}</label>
-                  {field.type === "select" ? (
-                    <select
-                      value={group.intakeValues[field.key] || ""}
-                      onChange={(e) =>
-                        updateIntakeValue(
-                          group.tempId,
-                          field.key,
-                          e.target.value,
-                        )
-                      }
-                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm bg-card"
-                    >
-                      <option value="">—</option>
-                      {field.options.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt.replace(/_/g, " ")}
-                        </option>
-                      ))}
-                    </select>
-                  ) : field.type === "boolean" ? (
-                    <label className="flex items-center gap-2 mt-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={!!group.intakeValues[field.key]}
-                        onChange={(e) =>
-                          updateIntakeValue(
-                            group.tempId,
-                            field.key,
-                            e.target.checked,
-                          )
-                        }
-                      />
-                      Yes
-                    </label>
-                  ) : (
-                    <input
-                      type="number"
-                      value={group.intakeValues[field.key] || ""}
-                      onChange={(e) =>
-                        updateIntakeValue(
-                          group.tempId,
-                          field.key,
-                          e.target.value,
-                        )
-                      }
-                      className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
+          {isUnitPriced(group.categoryKey) && (
+            <UnitPricingFields
+              group={group}
+              reasonsOpen={Boolean(reasonsOpen[group.tempId])}
+              onToggleReasons={() =>
+                setReasonsOpen((p) => ({
+                  ...p,
+                  [group.tempId]: !p[group.tempId],
+                }))
+              }
+              onIntakeChange={(key, value) =>
+                updateIntakeValue(group.tempId, key, value)
+              }
+              onPricingChange={(patch) => updatePricing(group.tempId, patch)}
+              onToggleReason={(reasonId) =>
+                toggleComplexityReason(group.tempId, reasonId)
+              }
+            />
           )}
 
-          {/* Tiered package selector — junk removal, auto detailing, chimney sweep, elevator */}
+          {!group.isTiered && !isUnitPriced(group.categoryKey) && (
+            <IntakeFields
+              fields={getGroupFields(group)}
+              values={group.intakeValues || {}}
+              onChange={(key, value) =>
+                updateIntakeValue(group.tempId, key, value)
+              }
+            />
+          )}
+
           {group.isTiered && (
-            <div className="mb-4 pb-4 border-b border-border">
-              <div className="text-xs text-muted-foreground mb-2">
-                {getTieredPackage(group.categoryKey)?.label}
-              </div>
-              <div className="space-y-2">
-                {getTieredPackage(group.categoryKey)?.tiers.map((tier) => (
-                  <button
-                    key={tier.key}
-                    type="button"
-                    onClick={() =>
-                      selectTier(group.tempId, tier.key, tier.label)
-                    }
-                    className={`w-full text-left border rounded-lg px-3 py-2.5 text-sm ${
-                      group.selectedTier === tier.key
-                        ? "border-inverted bg-muted font-medium"
-                        : "border-border"
-                    }`}
-                  >
-                    {tier.label}
-                    {tier.priceHint && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({tier.priceHint})
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <TierSelector
+              group={group}
+              onSelect={(tierKey, tierLabel) =>
+                selectTier(group.tempId, tierKey, tierLabel)
+              }
+            />
           )}
 
-          {/* Line items — same editable table regardless of how the group started */}
-          <div className="space-y-2">
-            {group.lineItems.map((item, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                <input
-                  value={item.description}
-                  onChange={(e) =>
-                    updateLineItem(
-                      group.tempId,
-                      i,
-                      "description",
-                      e.target.value,
-                    )
-                  }
-                  className="col-span-5 border border-border rounded px-2 py-1.5 text-sm"
-                />
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateLineItem(
-                      group.tempId,
-                      i,
-                      "quantity",
-                      Number(e.target.value),
-                    )
-                  }
-                  className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={item.rate}
-                  onChange={(e) =>
-                    updateLineItem(
-                      group.tempId,
-                      i,
-                      "rate",
-                      Number(e.target.value),
-                    )
-                  }
-                  className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
-                />
-                <div className="col-span-2 text-sm font-medium text-foreground text-right">
-                  ${Number(item.amount).toFixed(2)}
-                </div>
-                <button
-                  onClick={() => removeLineItem(group.tempId, i)}
-                  className="col-span-1 text-muted-foreground"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 mt-3 flex-wrap">
-            <button
-              onClick={() => addLineItem(group.tempId)}
-              className="text-xs font-medium text-foreground flex items-center gap-1"
-            >
-              <Plus size={12} /> Add line item
-            </button>
-
-            {getProductsForCategory(group.categoryId).length > 0 && (
-              <select
-                value=""
-                onChange={(e) => {
-                  const product = products.find(
-                    (p) => p.id === e.target.value,
-                  );
-                  if (product) addProductLineItem(group.tempId, product);
-                  e.target.value = "";
-                }}
-                className="text-xs border border-border rounded-full px-3 py-1.5 bg-card"
-              >
-                <option value="">+ Add from Products & Services...</option>
-                {getProductsForCategory(group.categoryId).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                    {p.unitPrice != null ? ` — $${Number(p.unitPrice).toFixed(2)}` : ""}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
+          <LineItemsTable
+            items={group.lineItems}
+            products={getProductsForCategory(group.categoryId)}
+            onChange={(i, field, value) =>
+              updateLineItem(group.tempId, i, field, value)
+            }
+            onAdd={() => addLineItem(group.tempId)}
+            onRemove={(i) => removeLineItem(group.tempId, i)}
+            onAddProduct={(product) =>
+              addProductLineItem(group.tempId, product)
+            }
+          />
+        </ScopeGroupCard>
       ))}
 
-      {/* Internal Cost & Margin — only shown when at least one scope group is
-          estimable. Never client-facing. */}
-      {estimate.hasEstimable && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <TrendingUp size={16} /> Cost &amp; Margin
-              <span className="text-xs font-normal text-muted-foreground">
-                (internal — not shown to client)
-              </span>
-            </h2>
-            {estimate.marginPct != null && (
-              <span
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 ${
-                  estimate.signal === "green"
-                    ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
-                    : estimate.signal === "amber"
-                      ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
-                      : "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300"
-                }`}
-              >
-                {estimate.signal === "red" && <AlertTriangle size={12} />}
-                {estimate.marginPct}% margin
-                {estimate.signal !== "green" &&
-                  ` · below ${MARGIN_TARGET}% target`}
-              </span>
-            )}
-          </div>
-
-          {/* Labour rate source */}
-          <div className="flex flex-wrap items-end gap-3 mt-3 mb-4">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                Assigned worker
-              </label>
-              <select
-                value={costWorkerId}
-                onChange={(e) => setCostWorkerId(e.target.value)}
-                className="border border-border rounded px-2 py-1.5 text-sm bg-card"
-              >
-                <option value="">Use manual rate</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                    {w.hourlyRate != null ? ` — $${Number(w.hourlyRate)}/hr` : " — no rate set"}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {(!selectedWorker || selectedWorker.hourlyRate == null) && (
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">
-                  Labour rate $/hr
-                </label>
-                <input
-                  type="number"
-                  value={fallbackRate}
-                  onChange={(e) => setFallbackRate(e.target.value)}
-                  className="border border-border rounded px-2 py-1.5 text-sm w-24"
-                />
-              </div>
-            )}
-            <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                Overhead % of price
-              </label>
-              <input
-                type="number"
-                value={overheadPct}
-                onChange={(e) => setOverheadPct(e.target.value)}
-                className="border border-border rounded px-2 py-1.5 text-sm w-20"
-              />
-            </div>
-          </div>
-
-          {/* Per-group material + labour breakdown */}
-          {estimate.groups.map((g) => (
-            <div key={g.tempId} className="mb-3 border-t border-border pt-3">
-              <div className="text-sm font-medium text-foreground mb-1">
-                {g.label}{" "}
-                <span className="text-xs text-muted-foreground">
-                  · {g.summaryParts.join(" · ")}
-                </span>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-0.5">
-                {g.materials.map((m, i) => (
-                  <div key={i} className="flex justify-between">
-                    <span>
-                      {m.name} — {m.qty} {m.unit}
-                    </span>
-                    <span>${m.cost.toFixed(2)}</span>
-                  </div>
-                ))}
-                {g.labourBreakdown.map((l, i) => (
-                  <div key={`l${i}`} className="flex justify-between text-muted-foreground">
-                    <span>
-                      {l.name} — {l.hours} hrs
-                    </span>
-                    <span>${l.cost.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Estimate totals vs price */}
-          <div className="border-t border-border pt-3 space-y-1 text-sm">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Materials</span>
-              <span>${estimate.materialTotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Labour</span>
-              <span>${estimate.labourCost.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Overhead ({overheadPct}%)</span>
-              <span>${estimate.overhead.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-semibold text-foreground pt-1 border-t border-border mt-1">
-              <span>Estimated cost</span>
-              <span>${estimate.estimatedCost.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Quote price (pre-tax)</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-            {estimate.marginPct != null && (
-              <div
-                className={`flex justify-between font-semibold pt-1 ${
-                  estimate.signal === "red" ? "text-red-600 dark:text-red-400" : "text-foreground"
-                }`}
-              >
-                <span>Estimated profit</span>
-                <span>
-                  ${(subtotal - estimate.estimatedCost).toFixed(2)} (
-                  {estimate.marginPct}%)
-                </span>
-              </div>
-            )}
-          </div>
-          {estimate.groups.length < scopeGroups.length && (
-            <p className="text-xs text-muted-foreground mt-3">
-              Only quote types with a cost recipe are estimated (cabinet
-              refinishing so far). Other line items aren't included in this
-              estimate yet.
-            </p>
-          )}
-        </div>
-      )}
+      {/* Internal cost & margin. Never client-facing — see the component. */}
+      <CostMarginPanel
+        estimate={estimate}
+        workers={workers}
+        costWorkerId={costWorkerId}
+        onWorkerChange={setCostWorkerId}
+        selectedWorker={selectedWorker}
+        fallbackRate={fallbackRate}
+        onFallbackRateChange={setFallbackRate}
+        overheadPct={overheadPct}
+        onOverheadChange={setOverheadPct}
+        subtotal={subtotal}
+        totalGroupCount={scopeGroups.length}
+        marginTarget={MARGIN_TARGET}
+      />
 
       {/* Notes */}
       <div className="bg-card border border-border rounded-xl p-5">
@@ -1331,161 +696,19 @@ export default function NewQuotePage() {
         />
       </div>
 
-      {/* Totals + tax toggle */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <label className="flex items-center gap-2 text-sm mb-3">
-          <input
-            type="checkbox"
-            checked={taxEnabled}
-            onChange={(e) => setTaxEnabled(e.target.checked)}
-          />
-          Apply tax ({taxRate}%)
-        </label>
-        <div className="space-y-1 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Tax</span>
-            <span>${tax.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
+      <QuoteTotalsBar
+        subtotal={subtotal}
+        tax={tax}
+        taxRate={taxRate}
+        total={total}
+        taxEnabled={taxEnabled}
+        onTaxToggle={setTaxEnabled}
+        saving={saving}
+        disabled={!selectedClient || scopeGroups.length === 0}
+        onSaveDraft={() => handleSave("draft")}
+        onSaveAndSend={() => handleSave("sent")}
+      />
 
-      {/* Sticky action bar */}
-      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end">
-        <button
-          onClick={() => handleSave("draft")}
-          disabled={saving}
-          className="border border-border px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-        >
-          Save as Draft
-        </button>
-        <button
-          onClick={() => handleSave("sent")}
-          disabled={saving}
-          className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-        >
-          {saving ? "Saving..." : "Save & Send"}
-        </button>
-      </div>
-
-      {showNewClient && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">New Client</h2>
-              <button onClick={() => setShowNewClient(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <form onSubmit={handleCreateClient} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNewClient({ ...newClient, type: "individual" })
-                  }
-                  className={`border rounded-lg px-3 py-2 text-sm ${
-                    newClient.type !== "company"
-                      ? "border-inverted bg-muted font-medium"
-                      : "border-border"
-                  }`}
-                >
-                  Homeowner
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNewClient({ ...newClient, type: "company" })
-                  }
-                  className={`border rounded-lg px-3 py-2 text-sm ${
-                    newClient.type === "company"
-                      ? "border-inverted bg-muted font-medium"
-                      : "border-border"
-                  }`}
-                >
-                  Company / Contractor
-                </button>
-              </div>
-              <input
-                required
-                placeholder={
-                  newClient.type === "company" ? "Company name" : "Name"
-                }
-                value={newClient.name}
-                onChange={(e) =>
-                  setNewClient({ ...newClient, name: e.target.value })
-                }
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              {newClient.type === "company" && (
-                <input
-                  placeholder="Contact person"
-                  value={newClient.contactName}
-                  onChange={(e) =>
-                    setNewClient({ ...newClient, contactName: e.target.value })
-                  }
-                  className="w-full border rounded px-3 py-2 text-sm"
-                />
-              )}
-              <input
-                type="email"
-                placeholder="Email"
-                value={newClient.email}
-                onChange={(e) =>
-                  setNewClient({ ...newClient, email: e.target.value })
-                }
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <input
-                placeholder="555-123-4567"
-                value={newClient.phone}
-                onChange={(e) =>
-                  setNewClient({
-                    ...newClient,
-                    phone: formatPhoneInput(e.target.value),
-                  })
-                }
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              <AddressAutocomplete
-                value={newClient.address}
-                onChange={(v) => setNewClient({ ...newClient, address: v })}
-                onPlaceSelected={({ address }) =>
-                  setNewClient((prev) => ({ ...prev, address }))
-                }
-                placeholder={
-                  newClient.type === "company"
-                    ? "Business address (optional)"
-                    : "Address"
-                }
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-              {/* The panel is a modal over the page, so the page-level error
-                  banner is behind it. Without this, a failed create showed
-                  its message somewhere the user couldn't see. */}
-              {error && (
-                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
-                  {error}
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={creatingClient}
-                className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold disabled:opacity-60"
-              >
-                {creatingClient ? "Creating…" : "Create Client"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
       {/* Onboarding tour — add these two lines right here */}
       <HelpButton onClick={() => setShowTour(true)} />
       {showTour && (
