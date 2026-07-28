@@ -33,6 +33,7 @@ import LineItemsTable from "@/app/components/quotes/builder/LineItemsTable";
 import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
 import QuoteTotalsBar from "@/app/components/quotes/builder/QuoteTotalsBar";
 import ClientPicker from "@/app/components/quotes/builder/ClientPicker";
+import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
 
 export default function NewQuotePage() {
   const router = useRouter();
@@ -65,6 +66,11 @@ export default function NewQuotePage() {
   const [notes, setNotes] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
+  // The company's tax setup, kept raw so the rate can be re-resolved when the
+  // selected client changes. See lib/tax/resolveTaxRate.js — it only ever
+  // picks between rates the company created themselves.
+  const [taxConfig, setTaxConfig] = useState(null);
+  const [taxNote, setTaxNote] = useState("");
 
   // Internal cost & margin estimate (not client-facing). Workers carry an
   // hourlyRate; the estimate uses the selected worker's rate, or a manual
@@ -135,6 +141,13 @@ export default function NewQuotePage() {
             : [],
         );
         setTaxRate(Number(businessInfo?.taxRate || 0));
+        setTaxConfig({
+          taxRate: Number(businessInfo?.taxRate || 0),
+          autoApplyLocalTax: Boolean(businessInfo?.autoApplyLocalTax),
+          taxRates: Array.isArray(businessInfo?.taxRates)
+            ? businessInfo.taxRates
+            : [],
+        });
         setCompanyLanguage(businessInfo?.defaultLanguage || "en");
         setProducts(Array.isArray(productsData) ? productsData : []);
         setWorkers(Array.isArray(workersData) ? workersData : []);
@@ -148,6 +161,28 @@ export default function NewQuotePage() {
   // generic "Rush Fee"); otherwise it only shows up for a scope group whose
   // category is one of the ones it's linked to (e.g. Flooring never offers
   // cabinet hinges).
+  // Re-resolve the tax rate whenever the client changes.
+  //
+  // Only fires when Settings → Tax has "apply the client's local rate" switched
+  // on; otherwise the company's single default stands, which is what every
+  // quote did before this setting was honoured. The reason is surfaced beside
+  // the tax line rather than left implicit — a tax figure that moves on its own
+  // with no explanation is worse than one the user picked.
+  useEffect(() => {
+    if (!taxConfig) return;
+    const result = resolveTaxRate({
+      company: taxConfig,
+      taxRates: taxConfig.taxRates,
+      client: selectedClient,
+    });
+    setTaxRate(result.rate);
+    setTaxNote(
+      taxConfig.autoApplyLocalTax && selectedClient
+        ? explainTaxSource(result, selectedClient) || ""
+        : "",
+    );
+  }, [taxConfig, selectedClient]);
+
   function getProductsForCategory(categoryId) {
     return products.filter(
       (p) =>
@@ -731,6 +766,7 @@ export default function NewQuotePage() {
       </div>
 
       <QuoteTotalsBar
+        taxNote={taxNote}
         subtotal={subtotal}
         tax={tax}
         taxRate={taxRate}

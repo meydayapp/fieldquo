@@ -665,12 +665,14 @@ export default function CompanySettingsPage() {
           <span>
             Automatically apply the local tax rate of the client, instead of
             manually picking one of the rates above on every quote/invoice.
-            {/* Saved, but nothing reads it yet: the quote builder still takes
-                the rate from the client's province. Said out loud rather than
-                left as a checkbox that appears to change how tax is charged. */}
+            {/* Honoured by the quote builder via lib/tax/resolveTaxRate.js.
+                It only ever selects between the rates listed above — nothing
+                is invented, and an unmatched province falls back to your
+                default. */}
             <span className="block text-xs text-muted-foreground mt-1">
-              Not applied yet — quotes still use the client&apos;s provincial
-              rate. We&apos;ll honour this setting when it ships.
+              Matches the client&apos;s province against the rates above. If
+              there&apos;s no match, your default rate is used and the quote
+              says so.
             </span>
           </span>
         </label>
@@ -726,10 +728,12 @@ export default function CompanySettingsPage() {
                 </option>
               ))}
             </select>
-            {/* Stored but not consulted — dates across the app are formatted
-                with a fixed en-CA locale. */}
+            {/* Applies to YOUR screens only. Client-facing quotes, invoices
+                and emails format dates in the client's own language — see
+                lib/format/companyDate.js. */}
             <p className="text-xs text-muted-foreground mt-1">
-              Not applied yet.
+              Used on your screens. Client documents follow the client&apos;s
+              language.
             </p>
           </div>
 
@@ -748,9 +752,7 @@ export default function CompanySettingsPage() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground mt-1">
-              Not applied yet.
-            </p>
+
           </div>
         </div>
       </SectionCard>

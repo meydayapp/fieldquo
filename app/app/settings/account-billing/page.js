@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle } from "lucide-react";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
@@ -17,6 +18,7 @@ function daysLeft(date) {
 }
 
 export default function AccountBillingPage() {
+  const { formatDate } = useCompanyPreferences();
   const [subscription, setSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +161,7 @@ export default function AccountBillingPage() {
             {!isTrialing && subscription?.currentPeriodEnd && (
               <p className="text-xs text-muted-foreground mt-2">
                 Next billing date{" "}
-                {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                {formatDate(subscription.currentPeriodEnd)}
               </p>
             )}
           </div>

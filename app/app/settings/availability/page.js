@@ -2,18 +2,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+import { orderedWeekdays } from "@/lib/format/companyDate";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function AvailabilityPage() {
+  const { weekStartsOn } = useCompanyPreferences();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -79,7 +72,7 @@ export default function AvailabilityPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl divide-y divide-border">
-        {DAYS.map((label, dayOfWeek) => {
+        {orderedWeekdays(weekStartsOn).map(({ label, index: dayOfWeek }) => {
           const day = getDay(dayOfWeek);
           return (
             <div key={dayOfWeek} className="flex items-center gap-4 px-5 py-3">

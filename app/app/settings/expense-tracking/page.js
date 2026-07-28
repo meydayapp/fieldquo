@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
@@ -124,6 +125,7 @@ function TrendChart({ trend }) {
 }
 
 export default function ExpenseTrackingPage() {
+  const { formatDate } = useCompanyPreferences();
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -462,7 +464,7 @@ export default function ExpenseTrackingPage() {
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {new Date(e.date).toLocaleDateString()}
+                  {formatDate(e.date)}
                   {e.notes ? ` · ${e.notes}` : ""}
                 </div>
               </div>

@@ -24,8 +24,10 @@ import {
   Clock,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function ReferPage() {
+  const { formatDate } = useCompanyPreferences();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -308,7 +310,7 @@ export default function ReferPage() {
                     ? "Signed up"
                     : i.status === "failed"
                       ? "Failed"
-                      : new Date(i.createdAt).toLocaleDateString("en-CA")}
+                      : formatDate(i.createdAt)}
                 </span>
               </div>
             ))}

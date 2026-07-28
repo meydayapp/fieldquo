@@ -4,6 +4,7 @@ import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import ErrorToast from "@/app/components/ErrorToast";
 import BrandTheme from "@/app/components/BrandTheme";
+import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 
@@ -60,10 +61,17 @@ export default async function AppLayout({ children }) {
       />
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
-      <div className="flex">
-        <AdminSidebar />
-        <main className="flex-1 min-w-0">{children}</main>
-      </div>
+      {/* Mounted HERE, not at the root layout. Date format and week start are
+          the COMPANY's preference and apply to their own screens; everything
+          client-facing (/q, /portal, /book, /quote) formats by the client's
+          locale instead. Scoping the provider to /app makes that boundary
+          structural rather than a rule someone has to remember. */}
+      <CompanyPreferencesProvider>
+        <div className="flex">
+          <AdminSidebar />
+          <main className="flex-1 min-w-0">{children}</main>
+        </div>
+      </CompanyPreferencesProvider>
       {/* Renders nothing until something calls showError(). Mounted here so
           no individual page needs its own error state and banner — see
           lib/clientErrors.js. */}

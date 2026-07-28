@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -25,6 +26,7 @@ const STATUS_STYLES = {
 };
 
 export default function InvoiceDetailPage() {
+  const { formatDate } = useCompanyPreferences();
   const router = useRouter();
   const { id } = useParams();
 
@@ -395,7 +397,7 @@ export default function InvoiceDetailPage() {
                   className="flex justify-between text-sm text-muted-foreground"
                 >
                   <span>
-                    {new Date(p.date).toLocaleDateString()} —{" "}
+                    {formatDate(p.date)} —{" "}
                     {p.method.replace("_", " ")}
                   </span>
                   <span>${Number(p.amount).toFixed(2)}</span>

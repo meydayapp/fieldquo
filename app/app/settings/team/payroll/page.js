@@ -3,8 +3,10 @@
 
 import { useState, useEffect } from "react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function PayrollPage() {
+  const { formatDate } = useCompanyPreferences();
   const [payouts, setPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -98,8 +100,8 @@ export default function PayrollPage() {
                 {p.worker?.name}
               </div>
               <div className="text-xs text-muted-foreground">
-                {new Date(p.periodStart).toLocaleDateString()} –{" "}
-                {new Date(p.periodEnd).toLocaleDateString()}
+                {formatDate(p.periodStart)} –{" "}
+                {formatDate(p.periodEnd)}
               </div>
             </div>
             <div className="text-right">

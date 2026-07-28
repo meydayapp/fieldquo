@@ -23,6 +23,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from "lucide-react";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -31,6 +32,7 @@ const money = (n) =>
   });
 
 export default function QuoteApprovalPage() {
+  const { formatDate } = useCompanyPreferences();
   const { id } = useParams();
 
   const [quote, setQuote] = useState(null);
@@ -246,7 +248,7 @@ export default function QuoteApprovalPage() {
             </dt>
             <dd className="mt-1 text-foreground">
               {quote.sentAt
-                ? new Date(quote.sentAt).toLocaleDateString("en-CA")
+                ? formatDate(quote.sentAt)
                 : "Not yet"}
             </dd>
           </div>
@@ -256,7 +258,7 @@ export default function QuoteApprovalPage() {
             </dt>
             <dd className="mt-1 text-foreground">
               {quote.validUntil
-                ? new Date(quote.validUntil).toLocaleDateString("en-CA")
+                ? formatDate(quote.validUntil)
                 : "No expiry"}
             </dd>
           </div>

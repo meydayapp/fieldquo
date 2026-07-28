@@ -4,6 +4,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Clock, Mail } from "lucide-react";
+import { formatCompanyDate } from "@/lib/format/companyDate";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 const ROLE_LABELS = {
   owner: "Owner",
@@ -14,7 +16,7 @@ const ROLE_LABELS = {
 
 const ROLE_RANK = { owner: 3, admin: 2, supervisor: 1, employee: 0 };
 
-function timeAgo(date) {
+function timeAgo(date, dateFormat) {
   if (!date) return "Never";
   const diffMs = Date.now() - new Date(date).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -24,10 +26,11 @@ function timeAgo(date) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+  return formatCompanyDate(date, dateFormat);
 }
 
 export default function TeamOverviewPage() {
+  const { dateFormat } = useCompanyPreferences();
   const [members, setMembers] = useState([]);
   const [pending, setPending] = useState([]);
   const [seats, setSeats] = useState({ used: 0, limit: null });
@@ -243,7 +246,7 @@ export default function TeamOverviewPage() {
               )}
 
               <span className="text-xs text-muted-foreground flex items-center gap-1 whitespace-nowrap">
-                <Clock size={12} /> {timeAgo(m.lastLoginAt)}
+                <Clock size={12} /> {timeAgo(m.lastLoginAt, dateFormat)}
               </span>
 
               <label className="flex items-center">

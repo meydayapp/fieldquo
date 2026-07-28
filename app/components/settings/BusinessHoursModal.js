@@ -9,18 +9,11 @@
 
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-
-const DAYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
+import { orderedWeekdays } from "@/lib/format/companyDate";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
+  const { weekStartsOn } = useCompanyPreferences();
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -116,7 +109,7 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
           <div className="h-64 bg-muted rounded-xl animate-pulse" />
         ) : (
           <div className="border border-border rounded-xl divide-y divide-border">
-            {DAYS.map((label, dayOfWeek) => {
+            {orderedWeekdays(weekStartsOn).map(({ label, index: dayOfWeek }) => {
               const day = getDay(dayOfWeek);
               return (
                 <div

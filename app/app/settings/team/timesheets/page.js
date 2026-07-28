@@ -3,8 +3,10 @@
 
 import { useState, useEffect } from "react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 export default function TimesheetsPage() {
+  const { formatDate } = useCompanyPreferences();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,7 @@ export default function TimesheetsPage() {
                 {e.worker?.name}
               </div>
               <div className="text-xs text-muted-foreground">
-                {new Date(e.clockIn).toLocaleDateString()} ·{" "}
+                {formatDate(e.clockIn)} ·{" "}
                 {e.hours ? `${e.hours}h` : "In progress"}
               </div>
             </div>

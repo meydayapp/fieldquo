@@ -28,6 +28,10 @@ export default function QuoteTotalsBar({
   subtotal,
   tax,
   taxRate,
+  // Why THIS rate. Empty unless the company opted into per-client tax and a
+  // client is selected. A tax figure that changes on its own with no
+  // explanation is worse than one the user picked, however correct it is.
+  taxNote = "",
   total,
   taxEnabled,
   onTaxToggle,
@@ -47,6 +51,10 @@ export default function QuoteTotalsBar({
           />
           Apply tax ({taxRate}%)
         </label>
+
+        {taxNote && (
+          <p className="text-xs text-muted-foreground -mt-1 mb-3">{taxNote}</p>
+        )}
 
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
