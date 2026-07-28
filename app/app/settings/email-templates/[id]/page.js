@@ -275,7 +275,7 @@ function BlockFields({ block, update, setFocus }) {
           step={4}
           value={block.height ?? 24}
           onChange={(e) => update("height", Number(e.target.value))}
-          className="flex-1 accent-gray-900"
+          className="flex-1 accent-primary"
         />
         <span className="text-xs text-muted-foreground w-12 text-right">
           {block.height ?? 24}px
@@ -322,7 +322,7 @@ function BlockFields({ block, update, setFocus }) {
                 type="checkbox"
                 checked={block[key] !== false}
                 onChange={(e) => update(key, e.target.checked)}
-                className="rounded border-border accent-gray-900"
+                className="rounded border-border accent-primary"
               />
               {label}
             </label>
@@ -381,7 +381,7 @@ function BlockFields({ block, update, setFocus }) {
             type="checkbox"
             checked={block.useMergeField !== false}
             onChange={(e) => update("useMergeField", e.target.checked)}
-            className="mt-0.5 rounded border-border accent-gray-900"
+            className="mt-0.5 rounded border-border accent-primary"
           />
           <span>
             Set the current stage automatically from the project&apos;s status
@@ -838,7 +838,7 @@ export default function EmailTemplateEditorPage() {
                     Accent
                     <input
                       type="color"
-                      value={theme?.accent || company.brandColor || "#bd9d60"}
+                      value={theme?.accent || company.brandColor || "#06356b"}
                       onChange={(e) => updateTheme("accent", e.target.value)}
                       className="h-7 w-9 rounded border border-border bg-card p-0.5"
                     />
@@ -882,7 +882,7 @@ export default function EmailTemplateEditorPage() {
                       onChange={(e) =>
                         updateTheme("showHeader", e.target.checked)
                       }
-                      className="rounded border-border accent-gray-900"
+                      className="rounded border-border accent-primary"
                     />
                     Header
                   </label>
@@ -893,7 +893,7 @@ export default function EmailTemplateEditorPage() {
                       onChange={(e) =>
                         updateTheme("showFooter", e.target.checked)
                       }
-                      className="rounded border-border accent-gray-900"
+                      className="rounded border-border accent-primary"
                     />
                     Footer
                   </label>

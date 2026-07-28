@@ -10,6 +10,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { INDUSTRIES } from "@/app/data/industries";
 import { useSession } from "@/lib/auth-client";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import Logo from "@/app/components/Logo";
 
 // Only hrefs and keys live here — the visible strings come from the catalog,
 // so this array doesn't need duplicating per language.
@@ -43,7 +44,7 @@ function UserAvatar({ user, size = 36 }) {
   return (
     <div
       style={{ width: size, height: size }}
-      className="rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold shrink-0"
+      className="rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold shrink-0"
     >
       {initials || "?"}
     </div>
@@ -81,13 +82,13 @@ export default function MarketingHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-100">
+    <header className="sticky top-0 z-50 bg-card border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <span className="text-xl font-bold tracking-tight">FieldQuo</span>
-          </Link>
+          {/* The real mark. The horizontal lockup already contains the
+              wordmark, so no text beside it. */}
+          <Logo variant="horizontal" href="/" height={30} priority />
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1">
@@ -101,8 +102,8 @@ export default function MarketingHeader() {
                 type="button"
                 className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-md ${
                   isActivePrefix("/product")
-                    ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t("nav.product")} <ChevronDown size={14} />
@@ -110,17 +111,17 @@ export default function MarketingHeader() {
 
               {productOpen && (
                 <div className="absolute top-full left-0 pt-2 w-80">
-                  <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-3">
+                  <div className="bg-card rounded-xl shadow-lg border border-border p-3">
                     {PRODUCT_ITEMS.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="block px-3 py-2.5 rounded-lg hover:bg-gray-50"
+                        className="block px-3 py-2.5 rounded-lg hover:bg-muted"
                       >
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-foreground">
                           {t(`product.${item.key}.label`)}
                         </div>
-                        <div className="text-xs text-gray-500 mt-0.5">
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {t(`product.${item.key}.description`)}
                         </div>
                       </Link>
@@ -144,8 +145,8 @@ export default function MarketingHeader() {
                 type="button"
                 className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-md ${
                   isActivePrefix("/industries")
-                    ? "text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t("nav.industries")} <ChevronDown size={14} />
@@ -153,12 +154,12 @@ export default function MarketingHeader() {
 
               {industriesOpen && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-lg">
-                  <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-4 grid grid-cols-2 gap-1">
+                  <div className="bg-card rounded-xl shadow-lg border border-border p-4 grid grid-cols-2 gap-1">
                     {INDUSTRIES.map((ind) => (
                       <Link
                         key={ind.slug}
                         href={`/industries/${ind.slug}`}
-                        className="px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                        className="px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted hover:text-foreground"
                       >
                         {ind.label}
                       </Link>
@@ -172,8 +173,8 @@ export default function MarketingHeader() {
               href="/pricing"
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 pathname === "/pricing"
-                  ? "text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("nav.pricing")}
@@ -183,8 +184,8 @@ export default function MarketingHeader() {
               href="/resources"
               className={`px-4 py-2 text-sm font-medium rounded-md ${
                 isActivePrefix("/resources")
-                  ? "text-gray-900"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("nav.resources")}
@@ -199,13 +200,13 @@ export default function MarketingHeader() {
 
             <a
               href="tel:+18195551234"
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
               <Phone size={14} /> (819) 555-1234
             </a>
 
             {isPending ? (
-              <div className="w-9 h-9 rounded-full bg-gray-100 animate-pulse" />
+              <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />
             ) : isLoggedIn ? (
               <Link href="/app" aria-label="Go to dashboard">
                 <UserAvatar user={session.user} />
@@ -214,14 +215,14 @@ export default function MarketingHeader() {
               <>
                 <Link
                   href="/login"
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground px-3 py-2"
                 >
                   {t("nav.login")}
                 </Link>
 
                 <Link
                   href="/signup"
-                  className="text-sm font-semibold bg-gray-900 text-white px-4 py-2.5 rounded-full hover:bg-gray-800"
+                  className="text-sm font-semibold bg-brand-accent text-brand-accent-foreground px-4 py-2.5 rounded-full hover:brightness-95 transition"
                 >
                   {t("nav.signup")}
                 </Link>
@@ -250,13 +251,13 @@ export default function MarketingHeader() {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-white lg:hidden overflow-y-auto">
-          <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 bg-card lg:hidden overflow-y-auto">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-border">
             {mobilePanel ? (
               <button
                 type="button"
                 onClick={() => setMobilePanel(null)}
-                className="text-sm font-medium text-gray-600"
+                className="text-sm font-medium text-muted-foreground"
               >
                 ← Back
               </button>
@@ -310,17 +311,17 @@ export default function MarketingHeader() {
 
                 <a
                   href="tel:+18195551234"
-                  className="flex items-center gap-2 px-3 py-3 text-base font-medium text-gray-600"
+                  className="flex items-center gap-2 px-3 py-3 text-base font-medium text-muted-foreground"
                 >
                   <Phone size={16} /> (819) 555-1234
                 </a>
 
-                <div className="pt-4 mt-4 border-t border-gray-100 space-y-3">
+                <div className="pt-4 mt-4 border-t border-border space-y-3">
                   {isLoggedIn ? (
                     <Link
                       href="/app"
                       onClick={closeMobile}
-                      className="flex items-center gap-3 px-3 py-3 text-base font-medium text-gray-900"
+                      className="flex items-center gap-3 px-3 py-3 text-base font-medium text-foreground"
                     >
                       <UserAvatar user={session.user} size={28} />
                       {t("nav.dashboard")}
@@ -330,7 +331,7 @@ export default function MarketingHeader() {
                       <Link
                         href="/login"
                         onClick={closeMobile}
-                        className="block px-3 py-3 text-base font-medium text-gray-600"
+                        className="block px-3 py-3 text-base font-medium text-muted-foreground"
                       >
                         {t("nav.login")}
                       </Link>
@@ -338,7 +339,7 @@ export default function MarketingHeader() {
                       <Link
                         href="/signup"
                         onClick={closeMobile}
-                        className="block text-center bg-gray-900 text-white px-4 py-3 rounded-full font-semibold"
+                        className="block text-center bg-brand-accent text-brand-accent-foreground px-4 py-3 rounded-full font-semibold"
                       >
                         {t("nav.signup")}
                       </Link>
@@ -362,7 +363,7 @@ export default function MarketingHeader() {
                     className="block px-3 py-3"
                   >
                     <div className="text-base font-medium">{item.label}</div>
-                    <div className="text-sm text-gray-500 mt-0.5">
+                    <div className="text-sm text-muted-foreground mt-0.5">
                       {item.description}
                     </div>
                   </Link>

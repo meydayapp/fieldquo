@@ -58,7 +58,7 @@ export default async function ReferralLandingPage({ params }) {
             ) : (
               <div
                 className="h-12 w-12 rounded-xl mx-auto mb-5 flex items-center justify-center text-lg font-bold text-[#2d2520]"
-                style={{ backgroundColor: referrer.brandColor || "#bd9d60" }}
+                style={{ backgroundColor: referrer.brandColor || "#06356b" }}
               >
                 {referrer.name.charAt(0).toUpperCase()}
               </div>
@@ -78,7 +78,7 @@ export default async function ReferralLandingPage({ params }) {
 
             <Link
               href={`/signup?ref=${encodeURIComponent(referrer.referralCode)}`}
-              className="mt-6 inline-block w-full bg-[#bd9d60] text-[#2d2520] font-bold py-3.5 rounded-full"
+              className="mt-6 inline-block w-full bg-brand-accent text-brand-accent-foreground font-bold py-3.5 rounded-full"
             >
               Claim {REWARD_MONTHS} months free
             </Link>

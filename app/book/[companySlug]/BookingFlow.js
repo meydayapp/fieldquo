@@ -189,7 +189,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     );
   }
 
-  const accent = company.brandColor || "#bd9d60";
+  const accent = company.brandColor || "#06356b";
 
   if (confirmed) {
     return (

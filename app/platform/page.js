@@ -239,7 +239,7 @@ export default function PlatformDashboardPage() {
                       </div>
                       <div className="h-2 rounded-full bg-muted overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-[#bd9d60]"
+                          className="h-full rounded-full bg-[#ff5a00]"
                           style={{ width: `${pct}%` }}
                         />
                       </div>

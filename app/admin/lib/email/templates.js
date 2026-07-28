@@ -70,7 +70,7 @@ export async function sendBookingConfirmationEmail({
       <tr><td align="center">
         <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #eadfd4;border-radius:10px;overflow:hidden;">
           <tr><td style="background:#1A1917;padding:22px 30px;">
-            <span style="color:#bd9d60;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">${esc(companyName)}</span>
+            <span style="color:#ff5a00;font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">${esc(companyName)}</span>
           </td></tr>
           <tr><td style="padding:30px;">
             <h1 style="margin:0 0 12px;font-size:25px;line-height:1.3;font-weight:700;color:#2d2520;">You&rsquo;re booked in</h1>

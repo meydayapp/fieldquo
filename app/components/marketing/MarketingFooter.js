@@ -47,14 +47,14 @@ export default function MarketingFooter() {
   const { t } = useTranslation();
 
   return (
-    <footer className="bg-gray-900 text-gray-300">
+    <footer className="bg-primary text-muted-foreground">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
           <div className="col-span-2 md:col-span-1">
             <span className="text-xl font-bold text-white tracking-tight">
               FieldQuo
             </span>
-            <p className="text-sm text-gray-400 mt-3 leading-relaxed">
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
               {t("footer.tagline")}
             </p>
           </div>
@@ -71,7 +71,7 @@ export default function MarketingFooter() {
                 <li key={ind.slug}>
                   <Link
                     href={`/industries/${ind.slug}`}
-                    className="text-sm text-gray-400 hover:text-white"
+                    className="text-sm text-muted-foreground hover:text-white"
                   >
                     {ind.label}
                   </Link>
@@ -90,7 +90,7 @@ export default function MarketingFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-gray-400 hover:text-white"
+                      className="text-sm text-muted-foreground hover:text-white"
                     >
                       {t(link.key)}
                     </Link>
@@ -101,26 +101,26 @@ export default function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-12 pt-8 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-gray-500">
+        <div className="mt-12 pt-8 border-t border-primary flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} FieldQuo. {t("footer.rights")}
           </p>
           <div className="flex items-center gap-6">
             <a
               href="tel:+18195551234"
-              className="text-sm text-gray-400 hover:text-white"
+              className="text-sm text-muted-foreground hover:text-white"
             >
               (819) 555-1234
             </a>
             <Link
               href="/privacy"
-              className="text-sm text-gray-400 hover:text-white"
+              className="text-sm text-muted-foreground hover:text-white"
             >
               {t("footer.privacy")}
             </Link>
             <Link
               href="/terms"
-              className="text-sm text-gray-400 hover:text-white"
+              className="text-sm text-muted-foreground hover:text-white"
             >
               {t("footer.terms")}
             </Link>

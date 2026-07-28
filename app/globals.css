@@ -48,6 +48,18 @@
    * flips, so the button stays the highest-contrast thing on screen. */
   --color-inverted: var(--inverted);
   --color-inverted-foreground: var(--inverted-foreground);
+  /* The orange from the logo. Separate from --secondary, which is shadcn's
+   * neutral surface token — putting the accent there would make every
+   * secondary button orange, which is louder than any of them should be.
+   * This is for the things that should catch the eye: active indicators,
+   * the one CTA on a page, a progress bar, a highlighted number. */
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+  /* Orange has two jobs and needs two values. As a FILL (#ff5a00 with dark
+   * text on it) it's 5.6:1 and fine. As TEXT on a light page it's 2.9:1 —
+   * well under the floor. This is the darkened version for the text case, so
+   * `text-brand-accent-text` is always safe to reach for. */
+  --color-brand-accent-text: var(--brand-accent-text);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -57,99 +69,129 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* FieldQuo brand palette.
- *
- * These were shadcn's defaults — --primary was a teal (hue 223), which is why
- * nothing ever looked gold. Values are hex rather than oklch so they match
- * app/components/theme.js literally; that file supplies the same colours to
- * HTML emails and PDFs, where CSS variables can't reach, and two sources of
- * truth are easier to keep in sync when they're the same strings.
- *
- * Note --secondary here is shadcn's NEUTRAL SURFACE token, not "the brand's
- * secondary colour". The brown (#6c2f1d) is a brand accent for illustration
- * and email chrome — putting it on every secondary button would be shouty.
- */
 :root {
-  --background: #fafaf9;
-  --foreground: #2d2520;
+  /* FieldQuo's palette, taken from the logo: navy #06356b and orange #ff5a00.
+   *
+   * The neutrals are not grey. Every surface here is a very low-saturation
+   * tint of the navy hue, so white space reads as "cool and deliberate"
+   * rather than "default". A truly neutral grey beside a saturated navy is
+   * what made the old palette feel flat.
+   *
+   * Values are hex rather than oklch so they match app/components/theme.js
+   * literally — that file supplies the same colours to HTML emails and PDFs,
+   * where CSS variables can't reach. */
+  --background: #f6f8fb;
+  --foreground: #0b1a2e;
   --card: #ffffff;
-  --card-foreground: #2d2520;
+  --card-foreground: #0b1a2e;
   --popover: #ffffff;
-  --popover-foreground: #2d2520;
-  --primary: #bd9d60;
-  /* Dark text on gold, not white. #bd9d60 against white text is roughly 3:1 —
-   * below the 4.5:1 needed for body copy. Against #2d2520 it's about 5.5:1. */
-  --primary-foreground: #2d2520;
-  --secondary: #f5f0e8;
-  --secondary-foreground: #2d2520;
-  --muted: #f5f0e8;
-  --muted-foreground: #6b5d52;
-  --accent: #e8dcc8;
-  --accent-foreground: #2d2520;
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: #e8dcc8;
-  --input: #e8dcc8;
-  --ring: #bd9d60;
-  --chart-1: oklch(0.868 0.007 39.5);
-  --chart-2: oklch(0.547 0.021 43.1);
-  --chart-3: oklch(0.438 0.017 39.3);
-  --chart-4: oklch(0.367 0.016 35.7);
-  --chart-5: oklch(0.268 0.011 36.5);
+  --popover-foreground: #0b1a2e;
+
+  /* Navy — structure. Buttons, chrome, anything load-bearing. */
+  --primary: #06356b;
+  --primary-foreground: #ffffff;
+
+  /* Orange — emphasis, used sparingly. Note the dark foreground: white on
+   * #ff5a00 is about 3.1:1, under the 4.5:1 floor for body text. Navy-black
+   * on it is 5.6:1. */
+  --brand-accent: #ff5a00;
+  --brand-accent-foreground: #0b1a2e;
+  /* 4.8:1 on the page, 5.1:1 on a card. */
+  --brand-accent-text: #c34300;
+
+  --secondary: #eaf0f7;
+  --secondary-foreground: #0b1a2e;
+  --muted: #eef3f9;
+  --muted-foreground: #4d6076;
+  --accent: #dfe8f3;
+  --accent-foreground: #0b1a2e;
+  --destructive: #c62828;
+  --border: #d7e2ef;
+  --input: #d7e2ef;
+  --ring: #06356b;
+  --chart-1: #06356b;
+  --chart-2: #ff5a00;
+  --chart-3: #2f6fb5;
+  --chart-4: #ff8c47;
+  --chart-5: #8aa9cc;
   --radius: 0;
-  --sidebar: #f5f0e8;
-  --sidebar-foreground: #2d2520;
-  --sidebar-primary: #bd9d60;
-  --sidebar-primary-foreground: #2d2520;
-  --sidebar-accent: #e8dcc8;
-  --sidebar-accent-foreground: #2d2520;
-  --sidebar-border: #e8dcc8;
-  --sidebar-ring: #bd9d60;
-  /* Near-black slab, white text — what `bg-gray-900 text-white` already was. */
-  --inverted: #1a1614;
-  --inverted-foreground: #fafaf9;
+  --sidebar: #06356b;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ff5a00;
+  --sidebar-primary-foreground: #0b1a2e;
+  --sidebar-accent: #0d4a90;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #114a8f;
+  --sidebar-ring: #ff5a00;
+  /* The chrome slab: primary buttons and the sidebar. Navy, not near-black. */
+  --inverted: #06356b;
+  --inverted-foreground: #ffffff;
 }
 
-/* Dark surfaces carry a brown undertone rather than neutral grey — grey next
- * to a gold accent reads as cheap. Surfaces get lighter with elevation so
- * stacked cards stay distinguishable. */
+/* Dark theme.
+ *
+ * Derived from the light theme rather than invented separately: same navy hue
+ * throughout, lightness inverted, saturation held. That's what keeps it
+ * recognisably the same product at 2am instead of a different app that happens
+ * to share a logo.
+ *
+ * Three rules it follows:
+ *
+ *   1. Surfaces get LIGHTER with elevation (background → card → muted), the
+ *      opposite of light mode where cards sit brighter than the page. Stacked
+ *      panels stay distinguishable either way.
+ *   2. Navy lifts. #06356b on a near-black page is legible but muddy; raising
+ *      the lightness keeps the hue and recovers the contrast.
+ *   3. Orange does NOT lift. It's already bright enough to carry, and
+ *      shifting it would break the one colour people recognise the brand by.
+ */
 .dark {
-  --background: #12100e;
-  --foreground: #f5f0e8;
-  --card: #2d2520;
-  --card-foreground: #f5f0e8;
-  --popover: #2d2520;
-  --popover-foreground: #f5f0e8;
-  /* Lighter gold on dark. The light-mode #bd9d60 against #12100e is legible
-   * but muddy; lifting it keeps the same hue readable. */
-  --primary: #d1b87d;
-  --primary-foreground: #12100e;
-  --secondary: #3e342b;
-  --secondary-foreground: #f5f0e8;
-  --muted: #3e342b;
-  --muted-foreground: #c4b5a0;
-  --accent: #4a3428;
-  --accent-foreground: #f5f0e8;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: #4a3428;
-  --input: #4a3428;
-  --ring: #bd9d60;
-  --chart-1: oklch(0.868 0.007 39.5);
-  --chart-2: oklch(0.547 0.021 43.1);
-  --chart-3: oklch(0.438 0.017 39.3);
-  --chart-4: oklch(0.367 0.016 35.7);
-  --chart-5: oklch(0.268 0.011 36.5);
-  /* Flipped: a light slab on a dark page, so a primary button is still the
-   * highest-contrast element rather than disappearing into the background. */
-  --inverted: #f5f0e8;
-  --inverted-foreground: #12100e;
-  --sidebar: #1a1614;
-  --sidebar-foreground: #f5f0e8;
-  --sidebar-primary: #d1b87d;
-  --sidebar-primary-foreground: #12100e;
-  --sidebar-accent: #3e342b;
-  --sidebar-accent-foreground: #f5f0e8;
-  --sidebar-border: #4a3428;
-  --sidebar-ring: #bd9d60;
+  --background: #0a1220;
+  --foreground: #e9eef6;
+  --card: #111d31;
+  --card-foreground: #e9eef6;
+  --popover: #111d31;
+  --popover-foreground: #e9eef6;
+
+  /* Lifted navy — same hue, readable against #0a1220. */
+  --primary: #4a8fd8;
+  --primary-foreground: #06182e;
+
+  --brand-accent: #ff5a00;
+  --brand-accent-foreground: #0b1a2e;
+  /* On the dark page #ff5a00 is already 6.0:1, so text uses it directly. */
+  --brand-accent-text: #ff7a2e;
+
+  --secondary: #1a2942;
+  --secondary-foreground: #e9eef6;
+  --muted: #1a2942;
+  --muted-foreground: #9fb2c8;
+  --accent: #24354f;
+  --accent-foreground: #e9eef6;
+  --destructive: #ef5350;
+  --border: #27384f;
+  --input: #27384f;
+  --ring: #4a8fd8;
+  --chart-1: #4a8fd8;
+  --chart-2: #ff5a00;
+  --chart-3: #7fb0e8;
+  --chart-4: #ff8c47;
+  --chart-5: #3a5878;
+
+  /* The chrome slab stays navy in both themes — a sidebar that flips to
+   * near-white in dark mode is the single most jarring thing a dark theme can
+   * do. It lifts just enough to separate from the page behind it. */
+  --inverted: #0d3d78;
+  --inverted-foreground: #ffffff;
+
+  --sidebar: #081729;
+  --sidebar-foreground: #e9eef6;
+  --sidebar-primary: #ff5a00;
+  --sidebar-primary-foreground: #0b1a2e;
+  --sidebar-accent: #16294a;
+  --sidebar-accent-foreground: #e9eef6;
+  --sidebar-border: #1c3050;
+  --sidebar-ring: #ff5a00;
 }
 
 @layer base {

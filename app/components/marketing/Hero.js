@@ -44,12 +44,12 @@ export default function Hero() {
   };
 
   return (
-    <section className="bg-linear-to-b from-gray-50 to-white">
+    <section className="bg-linear-to-b from-muted to-card">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12 text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 leading-tight">
+        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground leading-tight">
           {t("hero.title")}
         </h1>
-        <p className="mt-5 text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="mt-5 text-lg text-muted-foreground max-w-2xl mx-auto">
           {t("hero.subtitle")}
         </p>
 
@@ -65,12 +65,12 @@ export default function Hero() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t("hero.emailPlaceholder")}
-              className="flex-1 px-4 py-3 rounded-full border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="flex-1 px-4 py-3 rounded-full border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button
               type="submit"
               disabled={submitting}
-              className="flex items-center justify-center gap-2 bg-gray-900 text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 bg-brand-accent text-brand-accent-foreground px-6 py-3 rounded-full text-sm font-semibold hover:brightness-95 transition disabled:opacity-60"
             >
               {submitting ? t("hero.sending") : t("hero.requestDemo")}
               <ArrowRight size={16} />
@@ -95,8 +95,8 @@ export default function Hero() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:border-gray-300"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground border border-border hover:border-primary/40"
                 }`}
               >
                 <Icon size={16} />
@@ -106,18 +106,18 @@ export default function Hero() {
           })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 sm:p-12 grid sm:grid-cols-2 gap-8 items-center">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-8 sm:p-12 grid sm:grid-cols-2 gap-8 items-center">
           <div>
-            <h3 className="text-2xl font-semibold text-gray-900">
+            <h3 className="text-2xl font-semibold text-foreground">
               {t(`hero.tabs.${active.key}.headline`)}
             </h3>
-            <p className="mt-3 text-gray-600 leading-relaxed">
+            <p className="mt-3 text-muted-foreground leading-relaxed">
               {t(`hero.tabs.${active.key}.body`)}
             </p>
           </div>
           {/* Placeholder visual — swap for a real screenshot/illustration per tab once the app UI exists */}
-          <div className="aspect-video bg-linear-to-br from-gray-100 to-gray-50 rounded-xl border border-gray-200 flex items-center justify-center">
-            <active.icon size={48} className="text-gray-300" />
+          <div className="aspect-video bg-linear-to-br from-primary/10 via-muted to-brand-accent/10 rounded-xl border border-border flex items-center justify-center">
+            <active.icon size={48} className="text-muted-foreground" />
           </div>
         </div>
       </div>

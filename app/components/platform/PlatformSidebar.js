@@ -56,8 +56,8 @@ export default function PlatformSidebar() {
   return (
     <aside className="w-60 shrink-0 bg-[#1A1917] text-muted-foreground min-h-screen px-3 py-6 flex flex-col">
       <div className="px-3 mb-6 flex items-center gap-2">
-        <ShieldCheck size={16} className="text-[#bd9d60]" />
-        <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#bd9d60]">
+        <ShieldCheck size={16} className="text-[#ff5a00]" />
+        <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ff5a00]">
           Platform
         </span>
       </div>

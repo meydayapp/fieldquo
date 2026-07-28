@@ -20,9 +20,9 @@ export default function FeaturesIndustries() {
   const { t } = useTranslation();
 
   return (
-    <section className="bg-white border-t border-gray-100">
+    <section className="bg-card border-t border-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center mb-10">
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground text-center mb-10">
           {t("features.everything")}
         </h2>
 
@@ -31,17 +31,17 @@ export default function FeaturesIndustries() {
             <Link
               key={f.href}
               href={f.href}
-              className="border border-gray-200 rounded-xl p-6 hover:border-gray-300 hover:shadow-sm transition-all"
+              className="border border-border rounded-xl p-6 hover:border-border hover:shadow-sm transition-all"
             >
-              <f.icon size={24} className="text-gray-700 mb-3" />
-              <div className="font-medium text-gray-900">
+              <f.icon size={24} className="text-foreground mb-3" />
+              <div className="font-medium text-foreground">
                 {t(`product.${f.key}.label`)}
               </div>
             </Link>
           ))}
         </div>
 
-        <h3 className="text-lg font-semibold text-gray-900 text-center mb-6">
+        <h3 className="text-lg font-semibold text-foreground text-center mb-6">
           {t("features.anyTrade")}
         </h3>
         <div className="flex flex-wrap justify-center gap-2">
@@ -49,7 +49,7 @@ export default function FeaturesIndustries() {
             <Link
               key={ind.slug}
               href={`/industries/${ind.slug}`}
-              className="text-sm bg-gray-50 border border-gray-200 px-4 py-2 rounded-full hover:border-gray-300 hover:bg-gray-100"
+              className="text-sm bg-muted border border-border px-4 py-2 rounded-full hover:border-border hover:bg-muted"
             >
               {ind.label}
             </Link>

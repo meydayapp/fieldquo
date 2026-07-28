@@ -53,26 +53,26 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
         </div>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Mail size={16} className="text-gray-400" />
-            <span className="text-sm font-medium text-gray-900">
+            <Mail size={16} className="text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">
               {campaign.template?.name || "No template selected"}
             </span>
           </div>
           {campaign.template && (
             <Link
               href={`/app/settings/email-templates/${campaign.template.id}`}
-              className="text-xs text-gray-500 hover:text-gray-900 underline"
+              className="text-xs text-muted-foreground hover:text-foreground underline"
             >
               Edit template
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Users size={14} className="text-gray-400" />
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Users size={14} className="text-muted-foreground" />
           {subscribedCount == null ? (
             "Loading subscribers…"
           ) : (
@@ -101,14 +101,14 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
               <button
                 onClick={handleSend}
                 disabled={sending || !subscribedCount}
-                className="bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                className="bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
               >
                 {sending ? "Sending…" : "Yes, send now"}
               </button>
               <button
                 onClick={() => setConfirming(false)}
                 disabled={sending}
-                className="text-sm text-gray-600 px-3 py-2"
+                className="text-sm text-muted-foreground px-3 py-2"
               >
                 Cancel
               </button>
@@ -125,7 +125,7 @@ export default function EmailCampaignDetail({ campaign, onSent }) {
                   ? "No subscribed recipients yet"
                   : ""
             }
-            className="flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2.5 rounded-lg disabled:opacity-40"
+            className="flex items-center gap-2 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2.5 rounded-lg disabled:opacity-40"
           >
             <Send size={14} /> Send Campaign
           </button>

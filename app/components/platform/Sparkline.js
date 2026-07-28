@@ -8,7 +8,7 @@
 export default function Sparkline({
   points = [],
   height = 48,
-  stroke = "#bd9d60",
+  stroke = "#ff5a00",
   fill = "rgba(189,157,96,0.12)",
 }) {
   const values = points.map((p) => Number(p ?? 0));

@@ -224,9 +224,9 @@ function explainSendFailure(channel, raw) {
 function inviteHtml({ companyName, url, recipientName }) {
   const safe = (s) => String(s || "").replace(/[<>&"]/g, "");
   return `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#2d2520">
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#0b1a2e">
     <div style="background:#1A1917;padding:22px 28px;border-radius:14px 14px 0 0">
-      <span style="color:#bd9d60;font-weight:bold;letter-spacing:.16em;font-size:12px;text-transform:uppercase">FieldQuo</span>
+      <span style="color:#ff5a00;font-weight:bold;letter-spacing:.16em;font-size:12px;text-transform:uppercase">FieldQuo</span>
     </div>
     <div style="border:1px solid #e8e2d6;border-top:none;border-radius:0 0 14px 14px;padding:28px">
       <p style="margin:0 0 14px">${recipientName ? `Hi ${safe(recipientName)},` : "Hi,"}</p>
@@ -239,7 +239,7 @@ function inviteHtml({ companyName, url, recipientName }) {
         <strong>${REWARD_MONTHS} months are free</strong>.
       </p>
       <p style="margin:0 0 22px">
-        <a href="${url}" style="background:#bd9d60;color:#2d2520;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:bold;display:inline-block">
+        <a href="${url}" style="background:#ff5a00;color:#0b1a2e;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:bold;display:inline-block">
           See what it does
         </a>
       </p>

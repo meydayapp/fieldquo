@@ -300,7 +300,7 @@ export default function SignupPage() {
             every step so someone who reaches the payment screen still sees
             what they were promised on the landing page. */}
         {referrer && !alreadyOnFieldquo && (
-          <div className="max-w-md mx-auto mb-6 bg-[#faf6ee] border border-[#bd9d60]/40 rounded-xl px-4 py-3 text-center">
+          <div className="max-w-md mx-auto mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
             <p className="text-sm text-[#2d2520]">
               <strong>{referrer.referrerName}</strong> referred you —{" "}
               <strong>{referrer.months} months free</strong> added to your trial.

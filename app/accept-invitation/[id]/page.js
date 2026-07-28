@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { signIn, signUp } from "@/lib/auth-client";
 
 const inputClass =
-  "w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400";
+  "w-full border border-border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function AcceptInvitationPage() {
   const { id } = useParams();
@@ -88,20 +88,20 @@ export default function AcceptInvitationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-pulse text-sm text-gray-400">Loading…</div>
+      <div className="min-h-screen flex items-center justify-center bg-muted">
+        <div className="animate-pulse text-sm text-muted-foreground">Loading…</div>
       </div>
     );
   }
 
   if (!invite || invite.error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-sm text-center">
-          <h1 className="text-lg font-semibold text-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-muted px-4">
+        <div className="bg-card border border-border rounded-xl p-8 max-w-sm text-center">
+          <h1 className="text-lg font-semibold text-foreground">
             Invitation not found
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             This invitation link is invalid or has been removed.
           </p>
         </div>
@@ -111,12 +111,12 @@ export default function AcceptInvitationPage() {
 
   if (invite.expired || invite.status === "canceled") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 max-w-sm text-center">
-          <h1 className="text-lg font-semibold text-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-muted px-4">
+        <div className="bg-card border border-border rounded-xl p-8 max-w-sm text-center">
+          <h1 className="text-lg font-semibold text-foreground">
             Invitation expired
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Ask {invite.orgName} to send you a new invite.
           </p>
         </div>
@@ -125,13 +125,13 @@ export default function AcceptInvitationPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-muted px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="text-2xl font-bold tracking-tight text-gray-900">
+          <div className="text-2xl font-bold tracking-tight text-foreground">
             FieldQuo
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             Join <strong>{invite.orgName}</strong>
             {invite.role ? ` as ${invite.role}` : ""}
           </p>
@@ -145,14 +145,14 @@ export default function AcceptInvitationPage() {
 
         <form
           onSubmit={handleSubmit}
-          className="bg-white border border-gray-200 rounded-xl p-6 space-y-3"
+          className="bg-card border border-border rounded-xl p-6 space-y-3"
         >
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               Email
             </label>
             <input
-              className={`${inputClass} bg-gray-50 text-gray-500`}
+              className={`${inputClass} bg-muted text-muted-foreground`}
               value={invite.email}
               readOnly
             />
@@ -160,7 +160,7 @@ export default function AcceptInvitationPage() {
 
           {mode === "signup" && (
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">
+              <label className="text-sm font-medium text-foreground block mb-1">
                 Your name
               </label>
               <input
@@ -173,7 +173,7 @@ export default function AcceptInvitationPage() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1">
+            <label className="text-sm font-medium text-foreground block mb-1">
               {mode === "signup" ? "Create a password" : "Password"}
             </label>
             <input
@@ -189,7 +189,7 @@ export default function AcceptInvitationPage() {
           <button
             type="submit"
             disabled={busy}
-            className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+            className="w-full bg-primary text-primary-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {busy
               ? "Joining…"
@@ -204,7 +204,7 @@ export default function AcceptInvitationPage() {
               setMode(mode === "signup" ? "signin" : "signup");
               setError("");
             }}
-            className="w-full text-sm text-gray-500"
+            className="w-full text-sm text-muted-foreground"
           >
             {mode === "signup"
               ? "I already have a FieldQuo account"

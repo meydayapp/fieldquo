@@ -51,18 +51,18 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`text-left border rounded-2xl p-6 flex flex-col relative bg-white
+      className={`text-left border rounded-2xl p-6 flex flex-col relative bg-card
         transition-all duration-150 ease-out
         hover:scale-[1.03] hover:shadow-lg
         active:scale-[0.99]
         ${
           selected
-            ? "border-gray-900 shadow-md ring-2 ring-gray-900 scale-[1.02] bg-gray-50"
-            : "border-gray-200 hover:border-gray-300"
+            ? "border-primary shadow-md ring-2 ring-ring scale-[1.02] bg-muted"
+            : "border-border hover:border-primary/40"
         }`}
     >
       {popular && (
-        <span className="absolute -top-3 left-6 bg-gray-900 text-white text-xs font-semibold px-3 py-1 rounded-full">
+        <span className="absolute -top-3 left-6 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
           {t("pricing.popular")}
         </span>
       )}
@@ -73,19 +73,19 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
         </span>
       )}
 
-      <h3 className="text-lg font-semibold text-gray-900">{label}</h3>
+      <h3 className="text-lg font-semibold text-foreground">{label}</h3>
 
       <div className="mt-3">
-        <div className="text-sm text-gray-500">{t("pricing.firstMonth")}</div>
+        <div className="text-sm text-muted-foreground">{t("pricing.firstMonth")}</div>
 
-        <div className="text-2xl font-bold text-gray-900">
+        <div className="text-2xl font-bold text-foreground">
           ${money(trialTotal, locale)}
         </div>
       </div>
 
-      <div className="mt-2 text-sm text-gray-600">
+      <div className="mt-2 text-sm text-muted-foreground">
         {t("pricing.then")}{" "}
-        <span className="font-semibold text-gray-900">
+        <span className="font-semibold text-foreground">
           ${money(monthlyTotal, locale)}
           {t("pricing.perMonthShort")}
         </span>{" "}
@@ -95,7 +95,7 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
       </div>
 
       <ul className="mt-4 space-y-2 flex-1">
-        <li className="flex items-center gap-2 text-sm text-gray-700">
+        <li className="flex items-center gap-2 text-sm text-foreground">
           <CheckCircle2 size={16} className="text-green-600 shrink-0" />
           {/* Separate keys rather than appending "s" — most languages don't
               pluralise by suffixing, and Ukrainian has three plural forms. */}
@@ -107,26 +107,26 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
         </li>
 
         {employeeCount > 1 && (
-          <li className="flex items-center gap-2 text-sm text-gray-700">
+          <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
             {t("pricing.rbacSeats", { count: employeeCount - 1 })}
           </li>
         )}
 
-        <li className="flex items-center gap-2 text-sm text-gray-700">
+        <li className="flex items-center gap-2 text-sm text-foreground">
           <CheckCircle2 size={16} className="text-green-600 shrink-0" />
           {t("pricing.fullAccess")}
         </li>
 
         {isDbPlan && plan.maxQuotesPerMonth && (
-          <li className="flex items-center gap-2 text-sm text-gray-700">
+          <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
             {t("pricing.quoteLimit", { count: plan.maxQuotesPerMonth })}
           </li>
         )}
 
         {isDbPlan && plan.aiCopilotEnabled && (
-          <li className="flex items-center gap-2 text-sm text-gray-700">
+          <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
             {t("pricing.aiIncluded")}
           </li>

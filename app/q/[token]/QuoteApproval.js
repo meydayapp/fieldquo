@@ -104,7 +104,7 @@ export default function QuoteApproval({ token }) {
   }
 
   const c = quote.company || {};
-  const accent = c.brandColor || "#bd9d60";
+  const accent = c.brandColor || "#06356b";
   const expired =
     quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
 

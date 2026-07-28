@@ -9,7 +9,7 @@ export default function LanguageSwitcher({ compact = false }) {
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-full border border-gray-200 px-1 py-1"
+      className="flex items-center gap-0.5 rounded-full border border-border px-1 py-1"
       role="group"
       aria-label="Language"
     >
@@ -24,8 +24,8 @@ export default function LanguageSwitcher({ compact = false }) {
           title={nativeName}
           className={`rounded-full py-1 text-xs font-semibold tracking-wide transition-colors ${
             language === code
-              ? "bg-gray-900 text-white"
-              : "text-gray-500 hover:text-gray-900"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           } ${compact ? "px-1.5" : "px-2.5"}`}
           aria-label={`Switch to ${name}`}
         >

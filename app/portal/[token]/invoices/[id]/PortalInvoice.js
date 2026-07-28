@@ -97,7 +97,7 @@ export default function PortalInvoice({ token, invoiceId }) {
     );
 
   const c = data.company || {};
-  const accent = c.brandColor || "#bd9d60";
+  const accent = c.brandColor || "#06356b";
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
   const due = Math.max(
     0,

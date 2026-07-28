@@ -14,13 +14,13 @@ export default function ProductFeaturePage({ params }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+      <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
         {feature.label}
       </p>
-      <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-gray-900">
+      <h1 className="mt-2 text-3xl sm:text-4xl font-bold text-foreground">
         {feature.headline}
       </h1>
-      <p className="mt-4 text-lg text-gray-600 max-w-2xl">
+      <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
         {feature.description}
       </p>
 
@@ -31,7 +31,7 @@ export default function ProductFeaturePage({ params }) {
               size={20}
               className="text-green-600 shrink-0 mt-0.5"
             />
-            <span className="text-gray-700">{b}</span>
+            <span className="text-foreground">{b}</span>
           </li>
         ))}
       </ul>
@@ -39,13 +39,13 @@ export default function ProductFeaturePage({ params }) {
       <div className="mt-10 flex gap-3">
         <Link
           href="/signup"
-          className="bg-gray-900 text-white px-6 py-3 rounded-full text-sm font-semibold"
+          className="bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold"
         >
           Start Free Trial
         </Link>
         <Link
           href="/pricing"
-          className="border border-gray-300 px-6 py-3 rounded-full text-sm font-semibold"
+          className="border border-border px-6 py-3 rounded-full text-sm font-semibold"
         >
           See Pricing
         </Link>

@@ -22,8 +22,8 @@ export default function ContactPage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Contact Us</h1>
-      <p className="text-gray-600 mb-8">
+      <h1 className="text-3xl font-bold text-foreground mb-2">Contact Us</h1>
+      <p className="text-muted-foreground mb-8">
         Have a question, or want a demo? Send us a message.
       </p>
 
@@ -38,7 +38,7 @@ export default function ContactPage() {
             placeholder="Your name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
+            className="w-full border border-border rounded-lg px-4 py-3 text-sm"
           />
           <input
             required
@@ -46,7 +46,7 @@ export default function ContactPage() {
             placeholder="Your email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"
+            className="w-full border border-border rounded-lg px-4 py-3 text-sm"
           />
           <textarea
             required
@@ -54,12 +54,12 @@ export default function ContactPage() {
             rows={5}
             value={form.message}
             onChange={(e) => setForm({ ...form, message: e.target.value })}
-            className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm resize-none"
+            className="w-full border border-border rounded-lg px-4 py-3 text-sm resize-none"
           />
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gray-900 text-white py-3 rounded-full text-sm font-semibold disabled:opacity-60"
+            className="w-full bg-primary text-primary-foreground py-3 rounded-full text-sm font-semibold disabled:opacity-60"
           >
             {submitting ? "Sending..." : "Send Message"}
           </button>

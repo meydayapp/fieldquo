@@ -98,7 +98,7 @@ export async function POST(request, { params }) {
   }
 
   const url = portalUrl(token, request);
-  const accent = company?.brandColor || "#bd9d60";
+  const accent = company?.brandColor || "#06356b";
   const { from, replyTo } = senderFor(company || {});
   const body = await request.json().catch(() => ({}));
   const note = String(body?.note || "").trim();

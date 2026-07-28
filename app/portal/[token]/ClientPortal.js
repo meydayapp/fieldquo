@@ -117,7 +117,7 @@ export default function ClientPortal({ token }) {
     );
 
   const c = data.company || {};
-  const accent = c.brandColor || "#bd9d60";
+  const accent = c.brandColor || "#06356b";
 
   const invoices = data.invoices || [];
   const balance = invoices.reduce(

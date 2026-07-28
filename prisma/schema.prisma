@@ -207,7 +207,7 @@ model Company {
   // Kept as the canonical PRIMARY colour. Everything that read brandColor
   // before still works; brandColors below layers secondary/neutral on top
   // rather than replacing it, so there's no migration of existing values.
-  brandColor             String?           @default("#bd9d60")
+  brandColor             String?           @default("#06356b")
   // { secondary, neutral } — see lib/email/emailTheme.js. Null means "derive
   // sensible defaults from brandColor", which is what every existing company
   // gets without touching a thing.

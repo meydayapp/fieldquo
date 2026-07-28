@@ -15,47 +15,65 @@
 //   * generated PDFs
 //   * chart libraries that take colours as JS props
 //
-// Keep it in sync with the --brand-* variables in globals.css. Two sources of
-// truth here by necessity, not by choice.
+// Keep it in sync with :root and .dark in globals.css. Two sources of truth
+// here by necessity, not by choice — an HTML email has no stylesheet to read.
 
 export const colors = {
-  // Primary — warm gold. Matches Company.brandColor's schema default, so a
-  // company that never touches branding still gets FieldQuo's own accent.
-  primary: "#bd9d60",
-  primaryDark: "#a68850",
-  primaryLight: "#d1b87d",
+  // Navy — the logo's structural colour. Matches Company.brandColor's schema
+  // default, so a company that never touches branding still gets FieldQuo's.
+  primary: "#06356b",
+  primaryDark: "#04264d",
+  primaryLight: "#0d4a90",
 
-  // Secondary — rich brown, for supporting accents.
-  secondary: "#6c2f1d",
-  secondaryDark: "#4a2013",
-  secondaryLight: "#8d4427",
+  // Orange — the logo's accent. Used for the one thing on a page that should
+  // be clicked, and nothing else.
+  //
+  // Two values because it has two jobs: as a FILL it carries dark text at
+  // 5.6:1; as TEXT on a light background it's only 2.9:1, under the floor.
+  // accentText is the darkened version for the second case.
+  accent: "#ff5a00",
+  accentDark: "#c34300",
+  accentLight: "#ff8c47",
+  accentText: "#c34300",
 
-  // Neutrals — the "paper and ink" that make the accent read as deliberate.
-  cream: "#f5f0e8",
-  sand: "#e8dcc8",
-  terracotta: "#c85a3c",
-  forest: "#4a3428",
-  charcoal: "#2d2520",
+  // Kept under the old names so existing email/PDF code doesn't break.
+  secondary: "#ff5a00",
+  secondaryDark: "#c34300",
+  secondaryLight: "#ff8c47",
+
+  // Neutrals. Not grey — every one is a low-saturation tint of the navy hue,
+  // which is what stops the palette reading as a default template.
+  paper: "#f6f8fb",
+  mist: "#eef3f9",
+  steel: "#d7e2ef",
+  slate: "#4d6076",
+  ink: "#0b1a2e",
+
+  // Old names, same role, so nothing that imported them has to change.
+  cream: "#f6f8fb",
+  sand: "#d7e2ef",
+  terracotta: "#ff5a00",
+  forest: "#06356b",
+  charcoal: "#0b1a2e",
 
   light: {
-    bg: "#fafaf9",
+    bg: "#f6f8fb",
     surface: "#ffffff",
-    surfaceElevated: "#f5f0e8",
-    text: "#2d2520",
-    textMuted: "#6b5d52",
-    border: "#e8dcc8",
+    surfaceElevated: "#eef3f9",
+    text: "#0b1a2e",
+    textMuted: "#4d6076",
+    border: "#d7e2ef",
   },
 
-  // Dark surfaces carry a brown undertone rather than pure grey — neutral grey
-  // next to a gold accent reads as cheap. Elevation gets lighter, per
-  // Material's convention, so stacked cards stay distinguishable.
+  // Mirrors the .dark block in globals.css: same navy hue, lightness
+  // inverted, surfaces getting lighter with elevation.
   dark: {
-    bg: "#12100e",
-    surface: "#2d2520",
-    surfaceElevated: "#3e342b",
-    text: "#f5f0e8",
-    textMuted: "#c4b5a0",
-    border: "#4a3428",
+    bg: "#0a1220",
+    surface: "#111d31",
+    surfaceElevated: "#1a2942",
+    text: "#e9eef6",
+    textMuted: "#9fb2c8",
+    border: "#27384f",
   },
 };
 

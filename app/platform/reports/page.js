@@ -90,7 +90,7 @@ export default function PlatformReportsPage() {
             key={r.key}
             className="bg-card border border-border rounded-xl p-5 flex flex-col"
           >
-            <FileSpreadsheet size={20} className="text-[#bd9d60]" />
+            <FileSpreadsheet size={20} className="text-[#ff5a00]" />
             <h2 className="mt-3 font-semibold text-foreground">{r.title}</h2>
             <p className="mt-1 text-sm text-muted-foreground flex-1">{r.description}</p>
             <p className="mt-3 text-xs text-muted-foreground">{r.columns}</p>

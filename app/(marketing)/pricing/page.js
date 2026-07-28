@@ -22,17 +22,17 @@ export default async function PricingPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
+        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
           Simple, transparent pricing
         </h1>
-        <p className="mt-4 text-lg text-gray-600">
+        <p className="mt-4 text-lg text-muted-foreground">
           Every plan includes quotes, invoicing, and scheduling. Pick the plan
           that matches the size of your team.
         </p>
       </div>
 
       {plans.length === 0 ? (
-        <div className="text-center text-gray-500 border border-gray-200 rounded-xl p-12">
+        <div className="text-center text-muted-foreground border border-border rounded-xl p-12">
           Pricing plans are being finalized — check back shortly, or{" "}
           <Link href="/contact" className="underline">
             contact us
@@ -46,21 +46,21 @@ export default async function PricingPage() {
             return (
               <div
                 key={plan.id}
-                className="border border-gray-200 rounded-2xl p-8 flex flex-col hover:border-gray-300 transition-colors"
+                className="border border-border rounded-2xl p-8 flex flex-col hover:border-border transition-colors"
               >
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-foreground">
                   {plan.name}
                 </h3>
                 <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-gray-900">
+                  <span className="text-3xl font-bold text-foreground">
                     ${Number(plan.priceMonthly).toLocaleString()}
                   </span>
-                  <span className="text-sm text-gray-500">/month</span>
+                  <span className="text-sm text-muted-foreground">/month</span>
                 </div>
 
                 <ul className="mt-6 space-y-2.5 flex-1">
                   {plan.maxUsers && (
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-foreground">
                       <CheckCircle2
                         size={16}
                         className="text-green-600 shrink-0"
@@ -69,7 +69,7 @@ export default async function PricingPage() {
                     </li>
                   )}
                   {plan.maxQuotesPerMonth && (
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-foreground">
                       <CheckCircle2
                         size={16}
                         className="text-green-600 shrink-0"
@@ -78,7 +78,7 @@ export default async function PricingPage() {
                     </li>
                   )}
                   {plan.aiCopilotEnabled && (
-                    <li className="flex items-center gap-2 text-sm text-gray-700">
+                    <li className="flex items-center gap-2 text-sm text-foreground">
                       <CheckCircle2
                         size={16}
                         className="text-green-600 shrink-0"
@@ -90,7 +90,7 @@ export default async function PricingPage() {
                     val ? (
                       <li
                         key={key}
-                        className="flex items-center gap-2 text-sm text-gray-700"
+                        className="flex items-center gap-2 text-sm text-foreground"
                       >
                         <CheckCircle2
                           size={16}
@@ -104,7 +104,7 @@ export default async function PricingPage() {
 
                 <Link
                   href={`/signup?plan=${plan.id}`}
-                  className="mt-8 text-center bg-gray-900 text-white px-6 py-3 rounded-full text-sm font-semibold hover:bg-gray-800"
+                  className="mt-8 text-center bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary"
                 >
                   Start Free Trial
                 </Link>

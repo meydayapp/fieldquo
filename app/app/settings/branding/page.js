@@ -3,9 +3,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, Loader2 } from "lucide-react";
+import BrandPreview from "@/app/components/settings/BrandPreview";
 
 const PRESET_COLORS = [
-  "#bd9d60",
+  "#06356b",
   "#2ea043",
   "#0969da",
   "#cf222e",
@@ -77,7 +78,7 @@ export default function BrandingPage() {
   const fileInputRef = useRef(null);
 
   const [logoUrl, setLogoUrl] = useState("");
-  const [brandColor, setBrandColor] = useState("#bd9d60");
+  const [brandColor, setBrandColor] = useState("#06356b");
   // "" means unset — the renderer derives a default rather than storing one,
   // so a company that later changes its primary gets the secondary following
   // along instead of being stuck on a stale copy.
@@ -94,7 +95,7 @@ export default function BrandingPage() {
       .then((r) => r.json())
       .then((data) => {
         setLogoUrl(data.logoUrl || "");
-        setBrandColor(data.brandColor || "#bd9d60");
+        setBrandColor(data.brandColor || "#06356b");
         setSecondary(data.brandColors?.secondary || "");
         setNeutral(data.brandColors?.neutral || "");
       })
@@ -248,8 +249,10 @@ export default function BrandingPage() {
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-1">Brand Colors</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Used across your emails, quotes and invoices. Only the primary is
-          required — leave the others alone and they follow sensible defaults.
+          Used across your emails, quotes and invoices —{" "}
+          <strong className="text-foreground">and across this app</strong>. Your
+          primary colour becomes the sidebar and buttons your whole team sees.
+          Only the primary is required; the others follow sensible defaults.
         </p>
 
         <div className="space-y-5">
@@ -267,6 +270,24 @@ export default function BrandingPage() {
             onReset={() => setSecondary("")}
             placeholder={brandColor}
           />
+          {/* Live, before save. The colour now drives the whole app chrome,
+              so "pick and find out after a reload" is no longer acceptable. */}
+          <div className="pt-2">
+            <div className="text-sm font-medium text-foreground mb-2">
+              How the app will look
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1.5">Light</div>
+                <BrandPreview brandColor={brandColor} secondary={secondary} />
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1.5">Dark</div>
+                <BrandPreview brandColor={brandColor} secondary={secondary} dark />
+              </div>
+            </div>
+          </div>
+
           <ColorRow
             label="Neutral"
             hint="The email header bar. Dark tones read as more premium than a saturated brand colour."

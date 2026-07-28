@@ -241,7 +241,7 @@ export default function PlatformPlansPage() {
                   onChange={(e) =>
                     setDraft({ ...draft, aiCopilotEnabled: e.target.checked })
                   }
-                  className="rounded border-border accent-gray-900"
+                  className="rounded border-border accent-primary"
                 />
                 Included in this plan
               </label>
@@ -292,7 +292,7 @@ export default function PlatformPlansPage() {
                   <h3 className="font-semibold text-foreground">{p.name}</h3>
                   {p.aiCopilotEnabled && (
                     <span
-                      className="text-[#bd9d60]"
+                      className="text-[#ff5a00]"
                       title="AI Copilot included"
                     >
                       <Sparkles size={14} />
