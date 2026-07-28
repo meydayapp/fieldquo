@@ -12,16 +12,29 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
+import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
+import {
+  resolveServiceContent,
+  dominantProcessSteps,
+} from "@/lib/documents/serviceContent";
+// From lib/documents, NOT from the PDF section that also uses it — that
+// module imports @react-pdf/renderer, and a public endpoint a stranger hits
+// on a phone has no business loading a PDF engine to format a percentage.
+import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 
 const num = (v) => Number(v ?? 0);
 
 async function loadQuote(token) {
   if (!token) return null;
-  return db.quote.findUnique({
+
+  const quote = await db.quote.findUnique({
     where: { shareToken: token },
     include: {
       client: { select: { name: true, email: true, address: true } },
       company: {
+        // No id. `present()` returns this object wholesale to an
+        // unauthenticated caller, and quote.companyId below covers the one
+        // place the id is actually needed.
         select: {
           name: true,
           logoUrl: true,
@@ -30,15 +43,31 @@ async function loadQuote(token) {
           phone: true,
           website: true,
           address: true,
+          paymentTerms: true,
+          paymentMethods: true,
         },
       },
       scopeGroups: {
         orderBy: { sortOrder: "asc" },
-        include: { category: { select: { label: true } } },
+        include: { category: { select: { key: true, label: true } } },
       },
       addOns: { orderBy: { sortOrder: "asc" } },
     },
   });
+
+  if (!quote) return null;
+
+  // Per-service wording this company has customised, if any. Attached before
+  // present() so the page and the PDF resolve identical content — a client who
+  // reads the web quote and then opens the attachment should not find two
+  // different documents.
+  quote.scopeGroups = await attachServiceSettings(
+    db,
+    quote.companyId,
+    quote.scopeGroups,
+  );
+
+  return quote;
 }
 
 // The rate actually applied to THIS quote, recovered from its own stored
@@ -114,15 +143,40 @@ function present(quote) {
     })),
     client: { name: quote.client?.name || "" },
     company: quote.company,
-    scopeGroups: quote.scopeGroups.map((g) => ({
-      label: g.label || g.category?.label || "Scope",
-      subtotal: num(g.subtotal),
-      lineItems: (Array.isArray(g.lineItems) ? g.lineItems : []).map((li) => ({
-        description: li.description || "",
-        quantity: li.quantity ?? 1,
-        amount: num(li.amount),
+    scopeGroups: quote.scopeGroups.map((g) => {
+      // Resolved server-side rather than sent as a category key for the page
+      // to look up. The client bundle then carries no copy of the trade
+      // content at all — it's several kilobytes of prose that a stranger's
+      // phone has no reason to download sixty trades of.
+      const content = resolveServiceContent(
+        g.category?.key,
+        g.companySettings || null,
+      );
+      return {
+        label: g.label || g.category?.label || "Scope",
+        subtotal: num(g.subtotal),
+        accent: content.accent,
+        included: content.included,
+        lineItems: (Array.isArray(g.lineItems) ? g.lineItems : []).map(
+          (li) => ({
+            description: li.description || "",
+            quantity: li.quantity ?? 1,
+            amount: num(li.amount),
+          }),
+        ),
+      };
+    }),
+    // Shown once at the bottom, from the largest scope group — see
+    // dominantProcessSteps for why this isn't per-service.
+    processSteps: dominantProcessSteps(
+      quote.scopeGroups.map((g) => ({
+        categoryKey: g.category?.key || null,
+        override: g.companySettings || null,
+        subtotal: num(g.subtotal),
       })),
-    })),
+    ),
+    paymentTerms: quote.company?.paymentTerms || null,
+    paymentSchedule: parsePaymentSchedule(quote.company?.paymentTerms),
   };
 }
 

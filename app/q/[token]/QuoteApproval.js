@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
+import { readableForeground } from "@/lib/brand/colour";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -160,6 +161,10 @@ export default function QuoteApproval({ token }) {
 
   const c = quote.company || {};
   const accent = c.brandColor || "#06356b";
+  // Measured, not assumed white. A contractor whose brand is yellow would
+  // otherwise get white numerals on a yellow bubble — invisible, on the one
+  // element whose whole job is being countable.
+  const accentOn = readableForeground(accent);
   const expired =
     quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
 
@@ -178,44 +183,56 @@ export default function QuoteApproval({ token }) {
   return (
     <Shell>
       <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
-        <div
-          className="px-6 sm:px-8 py-6 text-white"
-          style={{ backgroundColor: "#1A1917" }}
-        >
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
+        {/* The brand rule, before anything else. Same device as the PDF —
+            it reads as the document being on their letterhead rather than
+            having their logo pasted into a generic one. */}
+        <div className="flex h-1.5">
+          <div className="flex-[2]" style={{ backgroundColor: accent }} />
+          <div className="flex-1" style={{ backgroundColor: `${accent}99` }} />
+        </div>
+
+        <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
               {c.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={c.logoUrl}
                   alt={c.name}
-                  className="h-10 w-auto object-contain"
+                  className="h-11 w-auto max-w-[180px] object-contain"
                 />
               ) : (
                 <div
-                  className="h-10 w-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: accent }}
+                  className="h-11 w-11 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: accent, color: accentOn }}
                 >
-                  <Building2 size={18} className="text-[#1A1917]" />
+                  <Building2 size={20} />
                 </div>
               )}
-              <div>
-                <div className="font-semibold">{c.name}</div>
+              <div className="min-w-0">
+                <div className="font-semibold text-[#2d2520] truncate">
+                  {c.name}
+                </div>
                 {c.phone && (
                   <a
                     href={`tel:${c.phone}`}
-                    className="text-xs text-white/60 hover:text-white"
+                    className="text-xs text-[#2d2520]/55 hover:text-[#2d2520]"
                   >
                     {c.phone}
                   </a>
                 )}
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-xs uppercase tracking-wider text-white/50">
-                Quote
+            <div className="text-right shrink-0">
+              <div
+                className="text-lg font-bold tracking-[0.15em] leading-none"
+                style={{ color: accent }}
+              >
+                QUOTE
               </div>
-              <div className="font-mono text-sm">{quote.quoteNumber}</div>
+              <div className="font-mono text-sm text-[#2d2520] mt-1">
+                {quote.quoteNumber}
+              </div>
             </div>
           </div>
         </div>
@@ -239,37 +256,94 @@ export default function QuoteApproval({ token }) {
         </div>
 
         <div className="px-6 sm:px-8 pb-6 space-y-6">
-          {quote.scopeGroups?.map((g, i) => (
-            <div key={i}>
-              <h2
-                className="text-sm font-bold uppercase tracking-wide pb-2 mb-3 border-b"
-                style={{ color: accent, borderColor: `${accent}44` }}
+          {/* One card per service, matching the PDF exactly — a client who
+              reads this page and then opens the attachment must not find two
+              different documents. The per-service accent is the card's left
+              border only; the page's own accent stays the company's. */}
+          {quote.scopeGroups?.map((g, i) => {
+            const groupAccent = g.accent || accent;
+            const multi = (quote.scopeGroups || []).length > 1;
+
+            return (
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden border border-black/10"
+                style={{ borderLeft: `3px solid ${groupAccent}` }}
               >
-                {g.label}
-              </h2>
-              <div className="space-y-2">
-                {g.lineItems.map((li, j) => (
-                  <div
-                    key={j}
-                    className="flex justify-between gap-4 text-sm text-[#2d2520]"
-                  >
-                    <span>
-                      {li.description}
-                      {Number(li.quantity) > 1 && (
-                        <span className="text-[#2d2520]/50">
-                          {" "}
-                          × {li.quantity}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 tabular-nums">
-                      {money(li.amount)}
-                    </span>
+                <div
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  style={{ backgroundColor: `${groupAccent}0f` }}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {multi && (
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white shrink-0"
+                        style={{ backgroundColor: groupAccent }}
+                      >
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                    )}
+                    <h2 className="font-semibold text-[#2d2520] truncate">
+                      {g.label}
+                    </h2>
                   </div>
-                ))}
+                  {g.subtotal > 0 && (
+                    <span className="font-semibold tabular-nums text-[#2d2520] shrink-0">
+                      {money(g.subtotal)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="px-4 py-3">
+                  <div className="space-y-1.5">
+                    {g.lineItems.map((li, j) => (
+                      <div
+                        key={j}
+                        className="flex justify-between gap-4 text-sm text-[#2d2520]"
+                      >
+                        <span>
+                          {li.description}
+                          {Number(li.quantity) > 1 && (
+                            <span className="text-[#2d2520]/50">
+                              {" "}
+                              × {li.quantity}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 tabular-nums">
+                          {money(li.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {g.included?.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-black/5">
+                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5">
+                        WHAT&apos;S INCLUDED
+                      </p>
+                      <ul className="space-y-1">
+                        {g.included.map((line, k) => (
+                          <li
+                            key={k}
+                            className="text-xs text-[#2d2520]/70 flex gap-2 leading-relaxed"
+                          >
+                            <span
+                              className="shrink-0"
+                              style={{ color: groupAccent }}
+                            >
+                              •
+                            </span>
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {addOns.length > 0 && (
             <div className="pt-4 border-t border-black/5">
@@ -340,14 +414,103 @@ export default function QuoteApproval({ token }) {
             </div>
           )}
 
-          {quote.processNotes && (
-            <div className="pt-4 border-t border-black/5">
-              <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
-                What happens next
+          {/* The steps, then the company's own notes for this job. Placed
+              after the total because the client's eye goes to the price
+              first no matter what we do — this is the answer to the question
+              that follows it. */}
+          {quote.processSteps?.length > 0 && (
+            <div className="pt-5 border-t border-black/5">
+              <h3
+                className="text-xs font-bold tracking-wider mb-3"
+                style={{ color: accent }}
+              >
+                HOW THE WORK RUNS
               </h3>
-              <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
+              <ol className="space-y-0">
+                {quote.processSteps.map((s, i) => {
+                  const last = i === quote.processSteps.length - 1;
+                  return (
+                    <li key={i} className="flex gap-3">
+                      <div className="flex flex-col items-center shrink-0">
+                        <span
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+                          style={{
+                            backgroundColor: accent,
+                            color: accentOn,
+                          }}
+                        >
+                          {s.num}
+                        </span>
+                        {!last && (
+                          <span
+                            className="w-px flex-1 my-1"
+                            style={{ backgroundColor: `${accent}33` }}
+                          />
+                        )}
+                      </div>
+                      <div className={last ? "pb-0" : "pb-4"}>
+                        <p className="text-sm font-semibold text-[#2d2520]">
+                          {s.title}
+                        </p>
+                        <p className="text-xs text-[#2d2520]/65 leading-relaxed mt-0.5">
+                          {s.body}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+
+          {quote.processNotes && (
+            <div
+              className="rounded-lg px-4 py-3"
+              style={{
+                backgroundColor: `${accent}0d`,
+                borderLeft: `3px solid ${accent}`,
+              }}
+            >
+              <p className="text-sm text-[#2d2520] whitespace-pre-wrap leading-relaxed">
                 {quote.processNotes}
               </p>
+            </div>
+          )}
+
+          {quote.paymentTerms && (
+            <div className="pt-4 border-t border-black/5">
+              <h3
+                className="text-xs font-bold tracking-wider mb-2.5"
+                style={{ color: accent }}
+              >
+                PAYMENT TERMS
+              </h3>
+              {quote.paymentSchedule?.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {quote.paymentSchedule.map((s, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg px-3 py-2.5 border"
+                      style={{
+                        backgroundColor: `${accent}0d`,
+                        borderColor: `${accent}33`,
+                      }}
+                    >
+                      <div
+                        className="text-xl font-bold leading-none"
+                        style={{ color: accent }}
+                      >
+                        {s.pct}
+                      </div>
+                      <div className="text-xs font-semibold text-[#2d2520] mt-1">
+                        {s.label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[#2d2520]/70">{quote.paymentTerms}</p>
+              )}
             </div>
           )}
 
@@ -374,10 +537,20 @@ export default function QuoteApproval({ token }) {
                 <span className="tabular-nums">{money(pricing.extras)}</span>
               </div>
             )}
-            <div className="flex justify-between pt-2 text-lg font-bold text-[#2d2520]">
-              <span>Total</span>
-              <span className="tabular-nums">{money(pricing.total)}</span>
-            </div>
+          </div>
+
+          {/* The headline figure in a filled band in their colour. Previously
+              subtotal, tax and total sat one line apart at similar weight, so
+              the eye had to read three numbers to find the one that matters —
+              on the single most-looked-at line of the document. */}
+          <div
+            className="flex items-center justify-between rounded-xl px-4 py-3.5 -mt-1"
+            style={{ backgroundColor: accent, color: accentOn }}
+          >
+            <span className="text-sm font-bold tracking-wide">TOTAL</span>
+            <span className="text-2xl font-bold tabular-nums">
+              {money(pricing.total)}
+            </span>
           </div>
         </div>
 

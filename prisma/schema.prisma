@@ -826,6 +826,20 @@ model CompanyServiceCategory {
 
   crewRate1Person Decimal? @db.Decimal(10, 2)
   crewRate2Person Decimal? @db.Decimal(10, 2)
+
+  // ── Document content overrides ──────────────────────────────────────────
+  // What this company's quotes SAY about this service, beyond the price.
+  // All null on a company that hasn't customised anything, which is the
+  // normal case — the defaults in lib/documents/serviceContent.js are good
+  // enough to send, and a company that never opens this screen still gets a
+  // quote that reads like they've done the job before.
+  //
+  // Null rather than a copy of the default on purpose: a company that hasn't
+  // edited theirs keeps inheriting improvements to the default wording, and
+  // one that has is never overwritten by them.
+  accentColor   String? // hex, tints the scope card for this service
+  includedItems Json? // string[] — the "what's included" list
+  processSteps  Json? // { title, body }[] — numbered at render time
 }
 
 model QuoteScopeGroup {
