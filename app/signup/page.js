@@ -27,6 +27,19 @@ export default function SignupPage() {
   // attach itself to an unrelated signup.
   const [referralCode, setReferralCode] = useState("");
   const [referrer, setReferrer] = useState(null);
+  // Set when someone opens a signup link while already signed in to a company.
+  // Referral offers are for businesses new to FieldQuo, so they can't redeem —
+  // and being told that here beats filling in the whole form first.
+  const [alreadyOnFieldquo, setAlreadyOnFieldquo] = useState(null);
+
+  useEffect(() => {
+    // A logged-in session means an existing account. business-info is
+    // company-scoped and 401s when there's no session, so a 200 is the signal.
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.name && setAlreadyOnFieldquo(d))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("ref");
@@ -253,10 +266,40 @@ export default function SignupPage() {
           </p>
         </div>
 
+        {/* Already signed in. Redirect would be wrong — they may genuinely be
+            setting up a second business — but they need to know the referral
+            can't apply, and the useful thing to offer is their OWN link. */}
+        {alreadyOnFieldquo && (
+          <div className="max-w-md mx-auto mb-6 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-900">
+            <p>
+              You&apos;re signed in as <strong>{alreadyOnFieldquo.name}</strong>.
+              {referrer
+                ? " Referral offers are for businesses new to FieldQuo, so this link won't apply to your account."
+                : ""}
+            </p>
+            <p className="mt-2">
+              <a href="/app" className="underline font-semibold">
+                Go to your dashboard
+              </a>
+              {referrer && (
+                <>
+                  {" · "}
+                  <a
+                    href="/app/settings/refer"
+                    className="underline font-semibold"
+                  >
+                    Share your own referral link
+                  </a>
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
         {/* Only shown once the code has been confirmed real. Carried through
             every step so someone who reaches the payment screen still sees
             what they were promised on the landing page. */}
-        {referrer && (
+        {referrer && !alreadyOnFieldquo && (
           <div className="max-w-md mx-auto mb-6 bg-[#faf6ee] border border-[#bd9d60]/40 rounded-xl px-4 py-3 text-center">
             <p className="text-sm text-[#2d2520]">
               <strong>{referrer.referrerName}</strong> referred you —{" "}

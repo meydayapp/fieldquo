@@ -93,16 +93,37 @@ export async function POST(request) {
 
     return NextResponse.json(client, { status: 201 });
   } catch (err) {
-    // Most likely cause in dev: the `type`/`contactName` columns don't exist
-    // yet because `npx prisma db push` hasn't been run since the schema
-    // changed. Return JSON so the client sees a real message instead of
-    // "Unexpected end of JSON input".
     console.error("[clients POST]", err);
+
+    // Name the actual fault. The old message said "if you just changed the
+    // schema, run prisma db push" for EVERY failure, which is unhelpful in
+    // production where nobody is changing a schema — and it buried the real
+    // cause behind a generic sentence.
+    //
+    // P2022 is Prisma's "column does not exist": the deployed schema is ahead
+    // of the database. That's the one failure here worth naming precisely,
+    // because the fix is a single command and nothing else looks like it.
+    if (err.code === "P2022") {
+      return NextResponse.json(
+        {
+          error:
+            `The database is missing a column this app expects (${err.meta?.column || "unknown"}). ` +
+            "Run `npx prisma db push` against this environment to bring it up to date.",
+        },
+        { status: 500 },
+      );
+    }
+
+    if (err.code === "P2002") {
+      return NextResponse.json(
+        { error: "A client with those details already exists." },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json(
       {
-        error:
-          "Could not create client. If you just changed the schema, run `npx prisma db push` and restart the dev server.",
-        detail: process.env.NODE_ENV === "development" ? err.message : undefined,
+        error: `Could not create client: ${err.message || "unknown error"}`,
       },
       { status: 500 },
     );

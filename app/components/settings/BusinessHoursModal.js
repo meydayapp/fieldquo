@@ -24,6 +24,7 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -72,10 +73,18 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedules }),
       });
-      if (res.ok) {
-        onSaved?.(schedules);
-        onClose();
+      // Previously `if (res.ok)` with no else: a failed save closed nothing,
+      // said nothing, and left the user believing their hours were saved.
+      // Silently discarding someone's input is worse than any error message.
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Couldn't save your business hours.");
       }
+      setError("");
+      onSaved?.(schedules);
+      onClose();
+    } catch (err) {
+      setError(err.message);
     } finally {
       setSaving(false);
     }
@@ -161,6 +170,12 @@ export default function BusinessHoursModal({ isOpen, onClose, onSaved }) {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-700">
+            {error}
           </div>
         )}
 

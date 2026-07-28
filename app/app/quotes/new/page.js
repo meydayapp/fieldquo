@@ -26,6 +26,7 @@ import {
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import { fetchJson } from "@/lib/fetchJson";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import { formatPhoneInput } from "@/lib/validation";
 
@@ -41,6 +42,7 @@ export default function NewQuotePage() {
   const [quoteLanguage, setQuoteLanguage] = useState(null);
   const [companyLanguage, setCompanyLanguage] = useState("en");
   const [showNewClient, setShowNewClient] = useState(false);
+  const [creatingClient, setCreatingClient] = useState(false);
   const [newClient, setNewClient] = useState({
     type: "individual",
     name: "",
@@ -429,16 +431,31 @@ export default function NewQuotePage() {
 
   async function handleCreateClient(e) {
     e.preventDefault();
-    if (!newClient.name.trim()) return;
-    const res = await fetch("/api/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newClient),
-    });
-    if (res.ok) {
-      const created = await res.json();
+    setError("");
+
+    if (!newClient.name.trim()) {
+      setError(
+        newClient.type === "company"
+          ? "Enter the company name."
+          : "Enter the client's name.",
+      );
+      return;
+    }
+
+    // This used to be `if (res.ok) { ... }` with no else — so when the request
+    // failed, the button did nothing at all: no error, no close, no clue. The
+    // most common failure here is a permission or schema error that the user
+    // can act on the moment they can read it.
+    setCreatingClient(true);
+    try {
+      const created = await fetchJson("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newClient),
+      });
       setClients((prev) => [created, ...prev]);
       setSelectedClient(created);
+      if (created.language) setQuoteLanguage(created.language);
       setShowNewClient(false);
       setNewClient({
         type: "individual",
@@ -448,6 +465,12 @@ export default function NewQuotePage() {
         phone: "",
         address: "",
       });
+    } catch (err) {
+      // Keep the panel open with whatever they typed still in it — losing a
+      // filled-in form to an error is worse than the error.
+      setError(err.message);
+    } finally {
+      setCreatingClient(false);
     }
   }
 
@@ -1443,11 +1466,20 @@ export default function NewQuotePage() {
                 }
                 className="w-full border rounded px-3 py-2 text-sm"
               />
+              {/* The panel is a modal over the page, so the page-level error
+                  banner is behind it. Without this, a failed create showed
+                  its message somewhere the user couldn't see. */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">
+                  {error}
+                </div>
+              )}
               <button
                 type="submit"
-                className="w-full bg-gray-900 text-white py-2 rounded-full text-sm font-semibold"
+                disabled={creatingClient}
+                className="w-full bg-gray-900 text-white py-2 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                Create Client
+                {creatingClient ? "Creating…" : "Create Client"}
               </button>
             </form>
           </div>

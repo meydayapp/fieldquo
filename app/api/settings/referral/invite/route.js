@@ -170,10 +170,13 @@ export async function POST(request) {
 
   if (error) {
     console.error("[referral invite] send failed:", error);
-    return NextResponse.json(
-      { error: "Couldn't send that invite. Check the details and try again." },
-      { status: 502 },
-    );
+    // Report what actually went wrong. The generic "check the details and try
+    // again" this used to return was useless — the details were fine; the
+    // provider wasn't configured. Telling someone to re-check their own input
+    // when the fault is ours wastes their time and hides the real fix.
+    return NextResponse.json({ error: explainSendFailure(channel, error) }, {
+      status: 502,
+    });
   }
 
   return NextResponse.json({
@@ -182,6 +185,40 @@ export async function POST(request) {
     to: email || phone,
     remainingToday: DAILY_LIMIT - sentToday - 1,
   });
+}
+
+// Turns a provider error into something the person reading it can act on.
+//
+// Most failures here are configuration, not user input: no Twilio number set,
+// an unverified trial number, a missing Resend key. Those need a specific
+// message so the fix is obvious instead of being mistaken for a typo.
+function explainSendFailure(channel, raw) {
+  const text = String(raw || "").toLowerCase();
+
+  if (channel === "sms") {
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_PHONE_NUMBER) {
+      return "Text invites aren't set up on this deployment yet. Use email, or share your link directly.";
+    }
+    // Twilio 21608: trial accounts can only text verified numbers.
+    if (text.includes("21608") || text.includes("unverified")) {
+      return "This FieldQuo account's Twilio number is still in trial mode and can only text verified numbers. Use email for now.";
+    }
+    if (text.includes("21211") || text.includes("not a valid phone")) {
+      return "Twilio rejected that number. Check it and try again.";
+    }
+    if (text.includes("21610") || text.includes("blacklist") || text.includes("opted out")) {
+      return "That number has opted out of messages from us and can't be texted.";
+    }
+    return `Couldn't send the text: ${raw}`;
+  }
+
+  if (!process.env.RESEND_API_KEY) {
+    return "Email invites aren't set up on this deployment yet (RESEND_API_KEY is missing).";
+  }
+  if (text.includes("domain") || text.includes("not verified")) {
+    return "Our sending domain isn't verified for invites yet. Share your link directly for now.";
+  }
+  return `Couldn't send the email: ${raw}`;
 }
 
 function inviteHtml({ companyName, url, recipientName }) {

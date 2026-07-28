@@ -2,10 +2,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { fetchJson } from "@/lib/fetchJson";
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/workers")
@@ -15,11 +17,19 @@ export default function WorkersPage() {
   }, []);
 
   async function connectStripe(workerId) {
-    const res = await fetch(`/api/workers/${workerId}/connect`, {
-      method: "POST",
-    });
-    const data = await res.json();
-    if (res.ok) window.location.href = data.url;
+    // Was `if (res.ok) window.location.href = data.url` — on failure the
+    // button did nothing at all, which reads as a broken page rather than a
+    // configuration problem the owner can fix.
+    setError("");
+    try {
+      const data = await fetchJson(`/api/workers/${workerId}/connect`, {
+        method: "POST",
+      });
+      if (!data?.url) throw new Error("Stripe didn't return an onboarding link.");
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   if (loading)
@@ -35,6 +45,12 @@ export default function WorkersPage() {
           Employees and contractors, and their payout status.
         </p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 rounded-xl divide-y divide-gray-100">
         {workers.map((w) => (

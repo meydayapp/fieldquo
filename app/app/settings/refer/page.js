@@ -171,32 +171,62 @@ export default function ReferPage() {
             })}
           </div>
 
+          {/* Required field first and explicitly labelled. These were two
+              identical unlabelled boxes with the OPTIONAL one on top, so it
+              was easy to type an email into the name field and then find the
+              send button inexplicably greyed out. */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Their name (optional)"
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
-            <input
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              type={channel === "email" ? "email" : "tel"}
-              placeholder={
-                channel === "email" ? "them@theircompany.com" : "(416) 555-0142"
-              }
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                {channel === "email" ? "Their email" : "Their mobile number"}
+              </label>
+              <input
+                // Remounts when the channel changes. Swapping `type` on a live
+                // input can leave the browser's value and React's state out of
+                // step, which shows up as a field that looks filled but reads
+                // as empty.
+                key={channel}
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                type={channel === "email" ? "email" : "tel"}
+                placeholder={
+                  channel === "email"
+                    ? "them@theircompany.com"
+                    : "(416) 555-0142"
+                }
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Their name{" "}
+                <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Dave"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={sending || !contact.trim()}
-            className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
-          >
-            {sending && <Loader2 size={14} className="animate-spin" />}
-            Send invite
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="submit"
+              disabled={sending || !contact.trim()}
+              className="inline-flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+            >
+              {sending && <Loader2 size={14} className="animate-spin" />}
+              Send invite
+            </button>
+            {/* Say why it's greyed out rather than leaving someone to guess. */}
+            {!contact.trim() && !sending && (
+              <span className="text-xs text-gray-400">
+                Enter their {channel === "email" ? "email" : "number"} to send.
+              </span>
+            )}
+          </div>
 
           {sent && <p className="text-sm text-green-700">{sent}</p>}
         </form>
