@@ -16,6 +16,7 @@ import {
   BarChart3,
   LogOut,
   ShieldCheck,
+  FileSpreadsheet,
 } from "lucide-react";
 
 const ITEMS = [
@@ -28,6 +29,7 @@ const ITEMS = [
     icon: BarChart3,
   },
   { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
+  { label: "Reports", href: "/platform/reports", icon: FileSpreadsheet },
   {
     label: "Service categories",
     href: "/platform/service-categories",
