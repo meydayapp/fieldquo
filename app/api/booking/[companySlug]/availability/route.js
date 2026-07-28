@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 
 // Public — open slots for a given event type over a date range
 // GET /api/booking/acme-cabinets/availability?eventTypeSlug=in-home-consult&from=2026-07-05&to=2026-07-12
@@ -22,9 +23,7 @@ export async function GET(request, { params }) {
     );
   }
 
-  const company = await db.company.findUnique({
-    where: { slug: _params.companySlug },
-  });
+  const company = await findBookingCompany(_params.companySlug);
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 

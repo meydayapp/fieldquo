@@ -38,6 +38,7 @@ import {
   FileText,
   Bell,
   ListChecks,
+  Languages,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -81,6 +82,11 @@ const BUSINESS_ITEMS = [
     label: "Email Templates",
     href: "/app/settings/email-templates",
     icon: Mail,
+  },
+  {
+    label: "Translations",
+    href: "/app/settings/translations",
+    icon: Languages,
   },
   {
     label: "PDF Templates",

@@ -9,6 +9,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { isSupported } from "@/app/i18n/languages";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -51,8 +52,18 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { name, type, contactName, email, phone, address, city, province, notes } =
-    body;
+  const {
+    name,
+    type,
+    contactName,
+    email,
+    phone,
+    address,
+    city,
+    province,
+    notes,
+    language,
+  } = body;
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
@@ -72,6 +83,11 @@ export async function POST(request) {
         city: city || null,
         province: province || null,
         notes: notes || null,
+        // Null means "use the company default". Storing the company's own
+        // language explicitly would freeze this client's documents to it,
+        // so a company that later switches default would keep sending old-
+        // language quotes to everyone already on file.
+        language: isSupported(language) ? language : null,
       },
     });
 

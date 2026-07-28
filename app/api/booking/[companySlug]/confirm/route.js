@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -24,9 +25,7 @@ export async function POST(request, { params }) {
     );
   }
 
-  const company = await db.company.findUnique({
-    where: { slug: companySlug },
-  });
+  const company = await findBookingCompany(companySlug);
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 

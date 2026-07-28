@@ -1,11 +1,12 @@
 // app/app/clients/new/page.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import LanguagePicker from "@/app/components/LanguagePicker";
 import { formatPhoneInput } from "@/lib/validation";
 
 const inputClass =
@@ -23,7 +24,21 @@ export default function NewClientPage() {
     city: "",
     province: "",
     notes: "",
+    // Null = follow the company default. See LanguagePicker for why this
+    // isn't pre-filled with the company's current language.
+    language: null,
   });
+
+  // The company's own default, shown in the picker's inherit option so the
+  // operator can see what "default" actually means without leaving the page.
+  const [companyLanguage, setCompanyLanguage] = useState("en");
+
+  useEffect(() => {
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.defaultLanguage && setCompanyLanguage(d.defaultLanguage))
+      .catch(() => {});
+  }, []);
 
   const isCompany = form.type === "company";
   const [saving, setSaving] = useState(false);
@@ -219,6 +234,12 @@ export default function NewClientPage() {
             />
           </div>
         </div>
+
+        <LanguagePicker
+          value={form.language}
+          onChange={(v) => set("language", v)}
+          companyDefault={companyLanguage}
+        />
 
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">

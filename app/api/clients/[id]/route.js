@@ -9,6 +9,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { isSupported } from "@/app/i18n/languages";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -52,8 +53,18 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, type, contactName, email, phone, address, city, province, notes } =
-    body;
+  const {
+    name,
+    type,
+    contactName,
+    email,
+    phone,
+    address,
+    city,
+    province,
+    notes,
+    language,
+  } = body;
 
   const updated = await db.client.update({
     where: { id: id },
@@ -73,6 +84,12 @@ export async function PATCH(request, { params }) {
       ...(city !== undefined && { city }),
       ...(province !== undefined && { province }),
       ...(notes !== undefined && { notes }),
+      // "" clears it back to the company default; an unsupported code is
+      // ignored rather than written, so a stale value from an older client
+      // build can't quietly set a language nothing can render.
+      ...(language !== undefined && {
+        language: isSupported(language) ? language : null,
+      }),
     },
   });
 

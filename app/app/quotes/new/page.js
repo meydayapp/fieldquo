@@ -26,6 +26,7 @@ import {
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import { formatPhoneInput } from "@/lib/validation";
 
 export default function NewQuotePage() {
@@ -34,6 +35,11 @@ export default function NewQuotePage() {
   const [clients, setClients] = useState([]);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState(null);
+  // The language this quote is WRITTEN in, fixed at creation. Not a display
+  // preference — the stored line items and the PDF are produced in it, and it
+  // never changes afterwards. See QuoteLanguageBar.
+  const [quoteLanguage, setQuoteLanguage] = useState(null);
+  const [companyLanguage, setCompanyLanguage] = useState("en");
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClient, setNewClient] = useState({
     type: "individual",
@@ -121,6 +127,7 @@ export default function NewQuotePage() {
             : [],
         );
         setTaxRate(Number(businessInfo?.taxRate || 0));
+        setCompanyLanguage(businessInfo?.defaultLanguage || "en");
         setProducts(Array.isArray(productsData) ? productsData : []);
         setWorkers(Array.isArray(workersData) ? workersData : []);
         setRecipeOverrides(recipesData && typeof recipesData === "object" ? recipesData : {});
@@ -504,6 +511,7 @@ export default function NewQuotePage() {
         total,
         notes,
         status,
+        language: quoteLanguage || companyLanguage,
       }),
     });
 
@@ -587,6 +595,10 @@ export default function NewQuotePage() {
                     onClick={() => {
                       setSelectedClient(c);
                       setClientSearch("");
+                      // Adopt their saved preference automatically — the
+                      // whole point of storing it. Still overridable in the
+                      // language bar below.
+                      if (c.language) setQuoteLanguage(c.language);
                     }}
                     className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50"
                   >
@@ -608,6 +620,18 @@ export default function NewQuotePage() {
           </div>
         )}
       </div>
+
+      {/* Language is chosen once, here, and baked into the saved quote. It is
+          deliberately not a viewer toggle: the PDF and the emailed copy must
+          say the same thing as what was approved. */}
+      {selectedClient && (
+        <QuoteLanguageBar
+          language={quoteLanguage}
+          onChange={setQuoteLanguage}
+          companyDefault={companyLanguage}
+          client={selectedClient}
+        />
+      )}
 
       {/* Service picker */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">

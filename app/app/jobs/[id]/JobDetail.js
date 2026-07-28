@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Loader2,
+  Pencil,
   AlertCircle,
   Calendar,
   User,
@@ -164,18 +164,26 @@ export default function JobDetail({ jobId }) {
           )}
         </div>
 
-        <select
-          value={job.status}
-          disabled={busy}
-          onChange={(e) => setStatus(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white disabled:opacity-60"
-        >
-          {JOB_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s.replace(/_/g, " ")}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-2 shrink-0">
+          <select
+            value={job.status}
+            disabled={busy}
+            onChange={(e) => setStatus(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white disabled:opacity-60"
+          >
+            {JOB_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+          <Link
+            href={`/app/jobs/${jobId}/edit`}
+            className="inline-flex items-center gap-1.5 border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-semibold"
+          >
+            <Pencil size={13} /> Edit
+          </Link>
+        </div>
       </div>
 
       {error && (

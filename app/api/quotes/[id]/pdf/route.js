@@ -32,6 +32,9 @@ export async function POST(request, { params }) {
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
+    // Written-in language, fixed at creation. Falls back to the
+    // company default for records created before this existed.
+    language: quote.language || company?.defaultLanguage || "en",
     data: { client: quote.client, scopeGroups: quote.scopeGroups, ...quote },
     company,
   });

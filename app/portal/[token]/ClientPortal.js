@@ -202,8 +202,11 @@ export default function ClientPortal({ token }) {
                 key={inv.id}
                 className="flex items-center justify-between gap-4 py-4 flex-wrap"
               >
-                <div className="min-w-0">
-                  <div className="font-medium text-[#2d2520]">
+                <a
+                  href={`/portal/${token}/invoices/${inv.id}`}
+                  className="min-w-0 group"
+                >
+                  <div className="font-medium text-[#2d2520] group-hover:underline">
                     {inv.invoiceNumber}
                   </div>
                   <div className="text-xs text-[#2d2520]/50 mt-0.5">
@@ -212,7 +215,7 @@ export default function ClientPortal({ token }) {
                       ` · ${money(inv.amountPaid)} paid`}
                     {inv.dueDate && ` · due ${date(inv.dueDate)}`}
                   </div>
-                </div>
+                </a>
 
                 {due > 0.005 ? (
                   <button
