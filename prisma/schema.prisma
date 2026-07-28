@@ -765,7 +765,14 @@ model Invoice {
   amountPaid Decimal   @default(0) @db.Decimal(12, 2)
   amountDue  Decimal   @default(0) @db.Decimal(12, 2)
   paidDate   DateTime?
-  sentAt     DateTime?
+
+  // ── Email trail ─────────────────────────────────────────────────────────
+  // sentAt existed but was written by a button that only changed the status
+  // and never sent anything — so it recorded an intention, not an event. It's
+  // now written only after Resend accepts the message, which makes it safe to
+  // show as "Emailed 3 July" in front of a client dispute.
+  sentAt      DateTime?
+  sentToEmail String?
 }
 
 model Payment {

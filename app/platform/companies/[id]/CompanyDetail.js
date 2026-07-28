@@ -422,10 +422,11 @@ export default function CompanyDetail({ companyId }) {
             label="Booking page"
             value={company.bookingSlug ? `/book/${company.bookingSlug}` : null}
           />
-          <Field
-            label="Public site"
-            value={company.sitePublished ? "Published" : "Not published"}
-          />
+          {/* Was "Published"/"Not published", read off a flag with no site
+              behind it — so this console told FieldQuo staff a company had a
+              live website that has never existed. Says what's true instead:
+              the address is reserved, the feature isn't built. */}
+          <Field label="Public site" value="Not available yet" />
           <Field
             label="In the directory"
             value={company.discoverable ? "Yes" : "No"}

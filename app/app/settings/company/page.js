@@ -64,6 +64,11 @@ function getTimezones() {
   ];
 }
 
+// Currently unused: both switches on this page (the public site and the
+// directory listing) were removed because nothing read what they saved.
+// Kept rather than deleted — the website builder brings the first one back,
+// and re-deriving this is pointless churn.
+// eslint-disable-next-line no-unused-vars
 function Toggle({ checked, onChange, disabled = false }) {
   return (
     <button
@@ -389,26 +394,26 @@ export default function CompanySettingsPage() {
           </div>
         </div>
 
-        {/* Auto-hosted subdomain — UI only for now, see note below */}
-        <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-3">
-          <div className="flex items-start gap-2.5">
-            <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
-            <div>
-              <div className="text-sm font-medium text-foreground">
-                {slug ? `${slug}.fieldquo.com` : "Your subdomain"}
-              </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
-                A public site FieldQuo can host for you at this address.{" "}
-                {form.sitePublished
-                  ? "Currently published."
-                  : "Not published yet."}
-              </div>
+        {/* Auto-hosted subdomain.
+            The toggle is GONE, not disabled-looking-enabled. There is no
+            /site route, no page renderer and no hostname handling in
+            middleware — nothing is served at this address by anything.
+            Leaving a switch here let a company turn it on, see "Currently
+            published", and believe they had a website. The platform console
+            then repeated the claim back to FieldQuo staff.
+            Restore the toggle in the same commit that makes the address
+            resolve, not before. */}
+        <div className="flex items-start gap-2.5 bg-muted border border-border rounded-lg px-4 py-3">
+          <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+          <div>
+            <div className="text-sm font-medium text-foreground">
+              {slug ? `${slug}.fieldquo.com` : "Your subdomain"}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Reserved for you. Website hosting isn&apos;t available yet —
+              we&apos;ll let you know when this address goes live.
             </div>
           </div>
-          <Toggle
-            checked={form.sitePublished}
-            onChange={(v) => set("sitePublished", v)}
-          />
         </div>
 
         <div>
@@ -522,20 +527,13 @@ export default function CompanySettingsPage() {
         )}
       </SectionCard>
 
-      {/* Discoverability */}
-      <SectionCard title="Help clients find my business">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
-            Allow your public business information (like name, services, and
-            contact details) to be used by automated systems that help clients
-            find and compare local service providers.
-          </p>
-          <Toggle
-            checked={form.discoverable}
-            onChange={(v) => set("discoverable", v)}
-          />
-        </div>
-      </SectionCard>
+      {/* Discoverability.
+          Removed rather than disabled. `discoverable` was written by this
+          toggle and read by nothing anywhere in the codebase — there is no
+          directory, no feed, no listing. The copy went further than most dead
+          controls by promising the one thing a contractor most wants: that
+          turning it on helps clients find them. Nothing happened either way.
+          Bring it back with the listing it refers to. */}
 
       {/* Tax settings */}
       <SectionCard title="Tax Settings">
@@ -667,6 +665,13 @@ export default function CompanySettingsPage() {
           <span>
             Automatically apply the local tax rate of the client, instead of
             manually picking one of the rates above on every quote/invoice.
+            {/* Saved, but nothing reads it yet: the quote builder still takes
+                the rate from the client's province. Said out loud rather than
+                left as a checkbox that appears to change how tax is charged. */}
+            <span className="block text-xs text-muted-foreground mt-1">
+              Not applied yet — quotes still use the client&apos;s provincial
+              rate. We&apos;ll honour this setting when it ships.
+            </span>
           </span>
         </label>
       </SectionCard>
@@ -721,6 +726,11 @@ export default function CompanySettingsPage() {
                 </option>
               ))}
             </select>
+            {/* Stored but not consulted — dates across the app are formatted
+                with a fixed en-CA locale. */}
+            <p className="text-xs text-muted-foreground mt-1">
+              Not applied yet.
+            </p>
           </div>
 
           <div>
@@ -738,6 +748,9 @@ export default function CompanySettingsPage() {
                 </option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Not applied yet.
+            </p>
           </div>
         </div>
       </SectionCard>

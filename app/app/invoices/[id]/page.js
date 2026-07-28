@@ -42,6 +42,8 @@ export default function InvoiceDetailPage() {
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(null);
   const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [justSent, setJustSent] = useState("");
 
   useEffect(() => {
     fetch(`/api/invoices/${id}`)
@@ -49,6 +51,31 @@ export default function InvoiceDetailPage() {
       .then(setInvoice)
       .finally(() => setLoading(false));
   }, [id]);
+
+  /**
+   * Actually emails the invoice.
+   *
+   * This button used to call updateStatus("sent") — it changed a word on
+   * screen and then hid itself, and no email was ever constructed. Identical
+   * bug to the one quotes had. sentAt is now written only after Resend
+   * accepts the message.
+   */
+  async function sendInvoice() {
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Couldn't send the email.");
+      setInvoice((inv) => ({ ...inv, ...data }));
+      setJustSent(data.to);
+      setTimeout(() => setJustSent(""), 6000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function updateStatus(status) {
     setActionLoading(true);
@@ -170,6 +197,39 @@ export default function InvoiceDetailPage() {
         </div>
       )}
 
+      {justSent && (
+        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
+          <Check size={16} className="shrink-0" />
+          Invoice emailed to <span className="font-medium">{justSent}</span>.
+        </div>
+      )}
+
+      {/* The email trail. Written only after Resend accepted the message, so
+          "Emailed 3 July" is an event rather than the intention the old
+          sentAt recorded. */}
+      {invoice.sentAt && (
+        <div className="bg-card border border-border rounded-lg px-4 py-3 flex items-baseline justify-between gap-3 flex-wrap text-sm">
+          <span className="font-medium text-foreground">
+            Emailed
+            {invoice.sentToEmail && (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                → {invoice.sentToEmail}
+              </span>
+            )}
+          </span>
+          <span className="text-muted-foreground tabular-nums">
+            {new Date(invoice.sentAt).toLocaleString("en-CA", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+      )}
+
       {requested && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 text-sm text-green-800 dark:text-green-300">
           <div className="flex items-start gap-2">
@@ -207,13 +267,21 @@ export default function InvoiceDetailPage() {
         </div>
 
         <div className="flex gap-2">
-          {invoice.status === "draft" && (
+          {/* Available while anything is still owed, not only on a draft —
+              re-sending an invoice a client mislaid is routine, and the old
+              button vanished the instant it was pressed. */}
+          {invoice.status !== "paid" && (
             <button
-              onClick={() => updateStatus("sent")}
-              disabled={actionLoading}
+              onClick={sendInvoice}
+              disabled={sending}
               className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
-              <Send size={14} /> Send
+              {sending ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
+              {invoice.sentAt ? "Send again" : "Send"}
             </button>
           )}
           {invoice.status !== "paid" && (
