@@ -12,12 +12,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, RefreshCw, MailWarning } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 
 export default function PlatformDashboardPage() {
   const [data, setData] = useState(null);
+  // Deliberately separate from the overview fetch: an email-health failure
+  // must never take the dashboard down, and the dashboard being slow must
+  // never delay this warning.
+  const [emailHealth, setEmailHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -48,6 +52,16 @@ export default function PlatformDashboardPage() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    // Failure is swallowed on purpose. If the check itself can't run we show
+    // no banner rather than a scary one — a false alarm here would send
+    // someone chasing a DNS problem that doesn't exist.
+    fetch("/api/platform/email-health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setEmailHealth)
+      .catch(() => {});
   }, []);
 
   if (loading) {
@@ -88,6 +102,43 @@ export default function PlatformDashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Loudest thing on the page when it fires, because the failure it
+          describes is silent everywhere else: mail is accepted by Resend,
+          recorded as sent, and thrown away. No tenant can see this and every
+          tenant is affected at once. */}
+      {emailHealth && !emailHealth.healthy && emailHealth.problem && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <MailWarning
+              size={20}
+              className="text-red-600 dark:text-red-400 shrink-0 mt-0.5"
+            />
+            <div className="min-w-0">
+              <h2 className="font-semibold text-red-800 dark:text-red-200">
+                Client email isn&apos;t being delivered
+              </h2>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                {emailHealth.problem}
+              </p>
+              <p className="text-xs text-red-700/70 dark:text-red-300/70 mt-2 font-mono">
+                Sending as {emailHealth.from}
+              </p>
+              {/* Three different causes produce the same sentence above, and
+                  one of them — a verified domain excluded because a tenant
+                  claims it — is not guessable. This shows the raw list. */}
+              <a
+                href="/api/platform/email-health/domains"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-red-800 dark:text-red-200 underline mt-2 inline-block"
+              >
+                See what Resend reports
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>

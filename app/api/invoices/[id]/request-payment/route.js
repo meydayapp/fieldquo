@@ -14,7 +14,8 @@ import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { lazyClient } from "@/lib/lazyClient";
 import { getCurrentMember } from "@/lib/currentMember";
-import { senderFor, SENDER_SELECT } from "@/lib/email/resend";
+import { SENDER_SELECT } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import {
   loadEnforceableMember,
@@ -99,7 +100,7 @@ export async function POST(request, { params }) {
 
   const url = portalUrl(token, request);
   const accent = company?.brandColor || "#06356b";
-  const { from, replyTo } = senderFor(company || {});
+  const { from, replyTo } = await resolveSender(company || {}, member.companyId);
   const body = await request.json().catch(() => ({}));
   const note = String(body?.note || "").trim();
 

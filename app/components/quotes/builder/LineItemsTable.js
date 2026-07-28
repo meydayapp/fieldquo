@@ -16,16 +16,31 @@
 // guessing.
 "use client";
 
+import { useState } from "react";
 import { Plus, X } from "lucide-react";
+import { getDefaultLineItems } from "@/app/data/defaultLineItems";
 
 export default function LineItemsTable({
   items = [],
   products = [],
+  categoryKey,
   onChange,
   onAdd,
   onRemove,
   onAddProduct,
+  onAddSuggested,
 }) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Anything already on the quote drops out of the suggestions — offering
+  // "Disposal fee" when it's the line directly above is noise.
+  const present = new Set(
+    items.map((i) => String(i.description || "").trim().toLowerCase()),
+  );
+  const suggestions = getDefaultLineItems(categoryKey).filter(
+    (s) => !present.has(s.description.toLowerCase()),
+  );
+
   return (
     <div>
       {items.length > 0 && (
@@ -91,6 +106,17 @@ export default function LineItemsTable({
           <Plus size={12} /> Add line item
         </button>
 
+        {suggestions.length > 0 && onAddSuggested && (
+          <button
+            type="button"
+            onClick={() => setShowSuggestions((v) => !v)}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground flex items-center gap-1"
+          >
+            <Plus size={12} />
+            {showSuggestions ? "Hide" : "Common for this trade"}
+          </button>
+        )}
+
         {/* Only the products linked to this group's category — a flooring
             group shouldn't offer cabinet hardware. */}
         {products.length > 0 && (
@@ -115,6 +141,31 @@ export default function LineItemsTable({
           </select>
         )}
       </div>
+
+      {/* Offered, never added automatically. An unwanted line on a quote is
+          worse than a missing one, because the client reads it. Prices are
+          blank on purpose — see app/data/defaultLineItems.js. */}
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="mt-3 border border-dashed border-border rounded-lg p-3">
+          <p className="text-[11px] text-muted-foreground mb-2">
+            Tap to add. You&apos;ll need to fill in the price — these are the
+            things this trade usually bills for, not what to charge.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => (
+              <button
+                key={s.description}
+                type="button"
+                onClick={() => onAddSuggested(s)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+              >
+                <Plus size={11} />
+                {s.description}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,9 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { getAppOrigin } from "@/lib/appUrl";
-import { sendEmail, senderFor, SENDER_SELECT } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
+import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
 
 export async function POST(request, { params }) {
@@ -101,7 +103,7 @@ export async function POST(request, { params }) {
   }
 
   const url = `${getAppOrigin(request)}/q/${shareToken}`;
-  const { from, replyTo } = senderFor(company || {});
+  const { from, replyTo } = await resolveSender(company || {}, member.companyId);
 
   const { subject, html, text } = buildQuoteEmail({
     quote,
@@ -173,19 +175,17 @@ function explainSendError(error, from) {
   const message =
     typeof error === "string" ? error : error?.message || "Send failed";
 
-  if (/domain is not verified|not verified/i.test(message)) {
-    return (
-      `Resend won't send from ${from} because that domain isn't verified. ` +
-      "Either verify it under Settings → Email Domain, or set EMAIL_FROM to a domain that is."
-    );
-  }
+  // Whether this deployment is on Resend's sandbox sender. It changes WHO the
+  // message is for: on the sandbox nothing about the company's own setup is
+  // wrong, and telling them to go verify a domain sends them to configure
+  // something that won't help. That's a platform problem wearing a tenant's
+  // error message.
+  const onSandbox = String(from || "").includes(SANDBOX_ADDRESS);
 
-  if (/testing emails|own email address|can only send/i.test(message)) {
-    return (
-      "Resend is in test mode: until a domain is verified it only delivers to " +
-      "the address that owns the Resend account. Verify a domain under " +
-      "Settings → Email Domain to send to clients."
-    );
+  if (/testing emails|own email address|can only send|not verified/i.test(message)) {
+    return onSandbox
+      ? "Emails can't reach clients yet — FieldQuo's own sending domain isn't verified, so nothing is delivered beyond the account owner. This is on us, not your setup; support has been alerted."
+      : `Resend won't send from ${from} — that domain isn't verified yet. Finish the DNS records under Settings → Email Domain.`;
   }
 
   if (/api key|unauthorized|invalid.*key/i.test(message)) {

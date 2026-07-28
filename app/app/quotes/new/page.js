@@ -342,6 +342,36 @@ export default function NewQuotePage() {
     );
   }
 
+  /**
+   * Adds one of the trade's habitual extras.
+   *
+   * Rate deliberately 0: app/data/defaultLineItems.js ships the LIST, not
+   * prices. Knowing a countertop job bills a disposal fee is the part people
+   * forget; what to charge for it is the part they already know, and a
+   * plausible-looking default would end up on a client's quote unread.
+   */
+  function addSuggestedLineItem(groupTempId, suggestion) {
+    setScopeGroups((prev) =>
+      prev.map((g) =>
+        g.tempId === groupTempId
+          ? {
+              ...g,
+              lineItems: [
+                ...g.lineItems,
+                {
+                  description: suggestion.description,
+                  quantity: 1,
+                  unit: suggestion.unit || "flat",
+                  rate: 0,
+                  amount: 0,
+                },
+              ],
+            }
+          : g,
+      ),
+    );
+  }
+
   function removeLineItem(groupTempId, itemIndex) {
     setScopeGroups((prev) =>
       prev.map((g) =>
@@ -656,6 +686,7 @@ export default function NewQuotePage() {
           <LineItemsTable
             items={group.lineItems}
             products={getProductsForCategory(group.categoryId)}
+            categoryKey={group.categoryKey}
             onChange={(i, field, value) =>
               updateLineItem(group.tempId, i, field, value)
             }
@@ -663,6 +694,9 @@ export default function NewQuotePage() {
             onRemove={(i) => removeLineItem(group.tempId, i)}
             onAddProduct={(product) =>
               addProductLineItem(group.tempId, product)
+            }
+            onAddSuggested={(suggestion) =>
+              addSuggestedLineItem(group.tempId, suggestion)
             }
           />
         </ScopeGroupCard>

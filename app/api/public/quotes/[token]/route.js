@@ -319,7 +319,8 @@ export async function POST(request, { params }) {
 async function notifyCompany(updated, quote, decision, priced) {
   const { Resend } = await import("resend");
   const { lazyClient } = await import("@/lib/lazyClient");
-  const { senderFor, SENDER_SELECT } = await import("@/lib/email/resend");
+  const { SENDER_SELECT } = await import("@/lib/email/resend");
+  const { resolveSender } = await import("@/lib/email/companySender");
 
   const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
@@ -342,7 +343,7 @@ async function notifyCompany(updated, quote, decision, priced) {
   const to = members.map((m) => m.user?.email).filter(Boolean);
   if (!to.length) return;
 
-  const { from } = senderFor(company || {});
+  const { from } = await resolveSender(company || {}, updated.companyId);
   const base = getAppOrigin();
   const verb = decision === "accepted" ? "approved" : "declined";
   const fmt = (n) =>

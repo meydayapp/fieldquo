@@ -22,7 +22,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { sendEmail, senderFor, SENDER_SELECT } from "@/lib/email/resend";
+import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import {
@@ -90,7 +91,7 @@ export async function POST(request, { params }) {
     company?.stripeAccountId && company?.stripeChargesEnabled,
   );
 
-  const { from, replyTo } = senderFor(company || {});
+  const { from, replyTo } = await resolveSender(company || {}, member.companyId);
   const { subject, html, text } = buildInvoiceEmail({
     invoice,
     client: invoice.client,
