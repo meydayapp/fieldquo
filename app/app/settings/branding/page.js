@@ -78,6 +78,9 @@ export default function BrandingPage() {
   const fileInputRef = useRef(null);
 
   const [logoUrl, setLogoUrl] = useState("");
+  // Kept alongside the URL so replacing a logo can delete the old asset
+  // rather than orphaning it on the Cloudinary account.
+  const [logoPublicId, setLogoPublicId] = useState("");
   const [brandColor, setBrandColor] = useState("#06356b");
   // "" means unset — the renderer derives a default rather than storing one,
   // so a company that later changes its primary gets the secondary following
@@ -95,6 +98,7 @@ export default function BrandingPage() {
       .then((r) => r.json())
       .then((data) => {
         setLogoUrl(data.logoUrl || "");
+        setLogoPublicId(data.logoPublicId || "");
         setBrandColor(data.brandColor || "#06356b");
         setSecondary(data.brandColors?.secondary || "");
         setNeutral(data.brandColors?.neutral || "");
@@ -125,6 +129,7 @@ export default function BrandingPage() {
       }
 
       setLogoUrl(data.url);
+      setLogoPublicId(data.publicId || "");
     } catch (err) {
       setError(err.message || "Could not upload logo");
     } finally {
@@ -145,6 +150,7 @@ export default function BrandingPage() {
         // an empty object so "reset to defaults" round-trips correctly.
         body: JSON.stringify({
           logoUrl,
+          logoPublicId,
           brandColor,
           brandColors:
             secondary || neutral
@@ -200,7 +206,11 @@ export default function BrandingPage() {
       {/* Logo */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-1">Logo</h2>
-        <p className="text-sm text-muted-foreground mb-4">PNG or JPG, up to 10MB.</p>
+        {/* 8 MB, not 10 — the API route rejects anything larger, so the old
+            copy invited a failure and then blamed the file. */}
+        <p className="text-sm text-muted-foreground mb-4">
+          PNG, JPG, WebP or SVG, up to 8 MB.
+        </p>
 
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-lg border border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">

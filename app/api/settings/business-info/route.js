@@ -30,6 +30,7 @@ export async function GET(request) {
       longitude: true,
       website: true,
       logoUrl: true,
+      logoPublicId: true,
       brandColor: true,
       brandColors: true,
       paymentTerms: true,
@@ -94,6 +95,7 @@ export async function PATCH(request) {
     longitude,
     website,
     logoUrl,
+    logoPublicId,
     brandColor,
     brandColors,
     paymentTerms,
@@ -111,6 +113,31 @@ export async function PATCH(request) {
     sitePublished,
   } = body;
 
+  // Replacing a logo used to leave the old file on Cloudinary forever. On a
+  // shared account that's storage nobody is using and everybody is paying for,
+  // and it compounds — a company fiddling with its branding for an afternoon
+  // leaves a dozen dead images behind.
+  //
+  // Deliberately fired before the update and NOT awaited into the response
+  // path: if Cloudinary is down or the asset is already gone, the company's
+  // branding still saves. A failed cleanup is a housekeeping problem; a failed
+  // save is the user's problem.
+  if (logoPublicId !== undefined) {
+    const current = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { logoPublicId: true },
+    });
+
+    if (current?.logoPublicId && current.logoPublicId !== logoPublicId) {
+      const stale = current.logoPublicId;
+      import("@/lib/cloudinary")
+        .then(({ deleteAsset }) => deleteAsset(stale))
+        .catch((err) =>
+          console.error("[branding] couldn't remove old logo:", err?.message),
+        );
+    }
+  }
+
   const updated = await db.company.update({
     where: { id: member.companyId },
     data: {
@@ -126,6 +153,7 @@ export async function PATCH(request) {
       ...(longitude !== undefined && { longitude }),
       ...(website !== undefined && { website }),
       ...(logoUrl !== undefined && { logoUrl }),
+      ...(logoPublicId !== undefined && { logoPublicId }),
       ...(brandColor !== undefined && { brandColor }),
       ...(brandColors !== undefined && { brandColors }),
       ...(paymentTerms !== undefined && { paymentTerms }),

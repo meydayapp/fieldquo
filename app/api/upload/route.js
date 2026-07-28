@@ -85,8 +85,48 @@ export async function POST(request) {
   } catch (err) {
     console.error("[upload] Cloudinary error:", err?.message);
     return NextResponse.json(
-      { error: err?.message || "Upload failed" },
+      { error: explainCloudinaryError(err) },
       { status: 500 },
     );
   }
+}
+
+/**
+ * Turn Cloudinary's message into one naming the fix.
+ *
+ * "Invalid cloud_name fieldquo" is accurate and useless: it repeats the value
+ * back without saying what a cloud name IS or where to find the right one.
+ * The trap is specific and easy to fall into — Cloudinary lets you NAME an API
+ * key, so an account with a key called "fieldquo" makes "fieldquo" look like
+ * the obvious cloud name. It isn't; the cloud name is the product environment,
+ * and on a free account it's usually an auto-generated string like `dq3x9k2mv`.
+ */
+function explainCloudinaryError(err) {
+  const message = err?.message || "";
+
+  if (/invalid cloud_name/i.test(message)) {
+    return (
+      `Cloudinary rejected the cloud name "${process.env.CLOUDINARY_CLOUD_NAME}". ` +
+      "That's the product environment name, not the name you gave your API key — " +
+      "find it at the top left of the Cloudinary console, or in Settings → API Keys " +
+      "as the last part of the CLOUDINARY_URL (cloudinary://key:secret@CLOUD_NAME). " +
+      "Update CLOUDINARY_CLOUD_NAME and redeploy."
+    );
+  }
+
+  // 401 from Cloudinary means the key/secret pair doesn't match the cloud —
+  // most often a secret copied from a different product environment.
+  if (/invalid signature|unknown api_key|disabled account/i.test(message)) {
+    return (
+      "Cloudinary rejected the API credentials. Check CLOUDINARY_API_KEY and " +
+      "CLOUDINARY_API_SECRET belong to the same product environment as " +
+      "CLOUDINARY_CLOUD_NAME."
+    );
+  }
+
+  if (/file size too large|maximum/i.test(message)) {
+    return "Cloudinary rejected the file as too large for this plan.";
+  }
+
+  return message || "Upload failed";
 }

@@ -207,6 +207,14 @@ model Company {
   province               String?
   website                String?
   logoUrl                String?
+  // Cloudinary's own id for the logo asset, not just its URL.
+  //
+  // The upload route has always returned this and the app has always thrown it
+  // away, which cost two things: a replaced logo left the old file on the
+  // account forever (storage nobody is using but everybody is paying for), and
+  // moving to a different Cloudinary account meant reverse-engineering ids out
+  // of URLs. Both are cheap to avoid by keeping the id at upload time.
+  logoPublicId           String?
   // Kept as the canonical PRIMARY colour. Everything that read brandColor
   // before still works; brandColors below layers secondary/neutral on top
   // rather than replacing it, so there's no migration of existing values.
