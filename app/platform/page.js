@@ -12,7 +12,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, ArrowRight, RefreshCw, MailWarning } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  RefreshCw,
+  MailWarning,
+  Sparkles,
+} from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 
@@ -22,6 +28,10 @@ export default function PlatformDashboardPage() {
   // must never take the dashboard down, and the dashboard being slow must
   // never delay this warning.
   const [emailHealth, setEmailHealth] = useState(null);
+  // Same reasoning. Also the only place the AI key can be checked at all: it's
+  // marked Sensitive in Vercel, so it can't be read back or pulled locally —
+  // the check has to run where the key already is.
+  const [aiHealth, setAiHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -61,6 +71,11 @@ export default function PlatformDashboardPage() {
     fetch("/api/platform/email-health")
       .then((r) => (r.ok ? r.json() : null))
       .then(setEmailHealth)
+      .catch(() => {});
+
+    fetch("/api/platform/ai-health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setAiHealth)
       .catch(() => {});
   }, []);
 
@@ -134,6 +149,35 @@ export default function PlatformDashboardPage() {
               >
                 See what Resend reports
               </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Amber rather than red: unlike undelivered mail, nothing here is lost.
+          Every AI feature degrades to a working non-AI result. It is still the
+          only place this is visible — a retired model produces no error
+          anywhere, because provider.js catches it and returns "". */}
+      {aiHealth && !aiHealth.healthy && aiHealth.problem && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-900 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <Sparkles
+              size={20}
+              className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+            />
+            <div className="min-w-0">
+              <h2 className="font-semibold text-amber-900 dark:text-amber-200">
+                FieldQuo AI isn&apos;t answering
+              </h2>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-1">
+                {aiHealth.problem}
+              </p>
+              <p className="text-xs text-amber-800/70 dark:text-amber-300/70 mt-2 font-mono">
+                OPENAI_MODEL={aiHealth.model}
+                {aiHealth.usable?.length
+                  ? ` · available: ${aiHealth.usable.join(", ")}`
+                  : ""}
+              </p>
             </div>
           </div>
         </div>
