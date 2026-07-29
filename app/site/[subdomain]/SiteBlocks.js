@@ -47,23 +47,32 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain }) 
 
   return (
     <>
-      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} />
+      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} />
       <main>
         {visible.map((block) => {
-          const props = { key: block.id, block, company, theme, fill, subdomain, accent2 };
+          const props = { block, company, theme, fill, subdomain, accent2 };
+          let el = null;
           switch (block.type) {
-            case "hero": return <Hero {...props} />;
-            case "services": return <Services {...props} />;
-            case "about": return <About {...props} />;
-            case "gallery": return <Gallery {...props} />;
-            case "testimonials": return <Testimonials {...props} />;
-            case "faq": return <Faq {...props} />;
-            case "quoteform": return <QuoteForm {...props} />;
-            case "booking": return <BookingBlock {...props} />;
-            case "hours": return <Hours {...props} />;
-            case "contact": return <Contact {...props} />;
+            case "hero": el = <Hero {...props} />; break;
+            case "services": el = <Services {...props} />; break;
+            case "about": el = <About {...props} />; break;
+            case "gallery": el = <Gallery {...props} />; break;
+            case "testimonials": el = <Testimonials {...props} />; break;
+            case "faq": el = <Faq {...props} />; break;
+            case "quoteform": el = <QuoteForm {...props} />; break;
+            case "booking": el = <BookingBlock {...props} />; break;
+            case "hours": el = <Hours {...props} />; break;
+            case "contact": el = <Contact {...props} />; break;
             default: return null;
           }
+          // The anchor the header nav scrolls to. scroll-mt clears the sticky
+          // header so the section heading isn't hidden under it.
+          const anchorId = NAV_FOR[block.type]?.id;
+          return (
+            <div key={block.id} id={anchorId} className={anchorId ? "scroll-mt-20" : undefined}>
+              {el}
+            </div>
+          );
         })}
       </main>
       <SiteFooter company={company} theme={theme} accent2={accent2} />
@@ -118,9 +127,22 @@ const Intro = ({ children, theme, center, onWash }) =>
     </p>
   ) : null;
 
-function SiteHeader({ company, theme, fill }) {
+// Which sections exist → anchor nav, so the single scrolling page navigates
+// like a multi-page site (Services / Our Work / Book / FAQ). Order follows the
+// page. IDs match the id= passed to each Section.
+const NAV_FOR = {
+  services: { id: "services", label: "Services" },
+  gallery: { id: "work", label: "Our Work" },
+  about: { id: "about", label: "About" },
+  booking: { id: "book", label: "Book" },
+  faq: { id: "faq", label: "FAQ" },
+  contact: { id: "contact", label: "Contact" },
+};
+
+function SiteHeader({ company, theme, fill, blocks = [] }) {
   const state = openState(company.businessHours, company.timezone);
   const neutral = neutralPair(theme);
+  const nav = blocks.map((b) => NAV_FOR[b.type]).filter(Boolean);
 
   return (
     <header
@@ -128,7 +150,7 @@ function SiteHeader({ company, theme, fill }) {
       style={{ borderColor: theme.border, backgroundColor: `color-mix(in srgb, ${theme.paper || "#ffffff"} 82%, transparent)` }}
     >
       <div className="max-w-6xl mx-auto px-5 sm:px-8 h-[68px] flex items-center justify-between gap-4">
-        <a href="#" className="flex items-center gap-3 min-w-0">
+        <a href="#" className="flex items-center gap-3 min-w-0 shrink-0">
           {company.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logoUrl} alt={company.name} className="h-9 w-auto max-w-[170px] object-contain" />
@@ -151,9 +173,22 @@ function SiteHeader({ company, theme, fill }) {
             </span>
           )}
         </a>
-        <div className="flex items-center gap-3">
+
+        {/* Anchor nav — makes the page navigate like a multi-page site. Hidden
+            on small screens where the scroll + CTA are enough. */}
+        {nav.length > 0 && (
+          <nav className="hidden md:flex items-center gap-6 mx-auto">
+            {nav.map((n) => (
+              <a key={n.id} href={`#${n.id}`} className="text-sm font-medium transition-colors hover:opacity-70" style={{ color: theme.inkMuted }}>
+                {n.label}
+              </a>
+            ))}
+          </nav>
+        )}
+
+        <div className="flex items-center gap-3 shrink-0">
           {company.phone && (
-            <a href={`tel:${company.phone}`} className="hidden sm:inline text-sm font-semibold whitespace-nowrap" style={{ color: theme.accentText }}>
+            <a href={`tel:${company.phone}`} className="hidden lg:inline text-sm font-semibold whitespace-nowrap" style={{ color: theme.accentText }}>
               {company.phone}
             </a>
           )}

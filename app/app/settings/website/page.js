@@ -34,6 +34,10 @@ import {
   AlertCircle,
   ImagePlus,
   X,
+  Monitor,
+  Smartphone,
+  RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { BLOCK_TYPES } from "@/app/data/siteBlocks";
@@ -57,6 +61,8 @@ export default function WebsiteSettingsPage() {
   const [note, setNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [device, setDevice] = useState("desktop"); // desktop | mobile
+  const [aiOpen, setAiOpen] = useState(true);
 
   const load = useCallback(async () => {
     try {
@@ -163,271 +169,281 @@ export default function WebsiteSettingsPage() {
   const hasBlocks = blocks.length > 0;
   const isLive = Boolean(site?.published);
   const url = `https://${subdomain}.fieldquo.com`;
+  const previewUrl = site ? `/site/${site.subdomain}${isLive ? "" : "?preview=1"}` : null;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6 pb-24">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Your website</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          A one-page site at your own address, using your logo and brand colour.
-          Free, and it links straight to your quote form.
-        </p>
+    <div className="flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden">
+      {/* ── Top toolbar: identity, status, actions ─────────────────────── */}
+      <div className="shrink-0 border-b border-border bg-card px-4 sm:px-6 py-3 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <Globe size={18} className="text-foreground shrink-0" />
+          <h1 className="text-base font-bold text-foreground">Website builder</h1>
+          <span
+            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              isLive
+                ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {isLive ? "Live" : hasBlocks ? "Draft" : "Not built"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          {hasBlocks && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-1">
+              <span className="hidden sm:inline">{subdomain}.fieldquo.com</span>
+            </div>
+          )}
+          {previewUrl && (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <ExternalLink size={13} /> <span className="hidden sm:inline">Open</span>
+            </a>
+          )}
+          {hasBlocks && (
+            <>
+              <button
+                type="button"
+                onClick={() => save()}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 border border-border rounded-full px-3.5 py-2 text-xs font-semibold disabled:opacity-60"
+              >
+                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => save({ published: true })}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-xs font-bold disabled:opacity-60"
+              >
+                <Eye size={13} /> {isLive ? "Update site" : "Publish"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
+        <div className="shrink-0 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900 px-4 sm:px-6 py-2.5 flex items-center gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={15} className="shrink-0" /> {error}
         </div>
       )}
 
-      {isLive && (
-        <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-xl px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-300 min-w-0">
-            <Globe size={16} className="shrink-0" />
-            <span className="font-medium truncate">{url}</span>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(url);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="inline-flex items-center gap-1.5 border border-green-300 dark:border-green-800 rounded-full px-3 py-1.5 text-xs font-semibold text-green-800 dark:text-green-300"
-            >
-              {copied ? <Check size={12} /> : <Copy size={12} />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 border border-green-300 dark:border-green-800 rounded-full px-3 py-1.5 text-xs font-semibold text-green-800 dark:text-green-300"
-            >
-              <ExternalLink size={12} /> Open
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* ── Interview ─────────────────────────────────────────────────── */}
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">
-          Tell us about the business
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Skip any of these — we&apos;ll still build the site from your
-          services, hours and contact details, it&apos;ll just read plainer.
-        </p>
-
-        <div className="space-y-4">
-          {(data?.questions || []).map((q) => (
-            <div key={q.key}>
-              <label className="text-sm font-medium text-foreground block mb-1">
-                {q.label}
-              </label>
-
-              {/* Presets write text into the field rather than setting a hidden
-                  parameter, so the company can see exactly what's being asked
-                  for and edit it. A preset with an invisible effect is a
-                  control nobody can reason about. */}
-              {q.key === "style" && (data?.stylePresets || []).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {data.stylePresets.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() =>
-                        setInterview((p) => ({ ...p, style: preset.text }))
-                      }
-                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                        interview.style === preset.text
-                          ? "border-foreground bg-inverted text-inverted-foreground"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <textarea
-                value={interview[q.key] || ""}
-                onChange={(e) =>
-                  setInterview((p) => ({ ...p, [q.key]: e.target.value }))
-                }
-                rows={q.long ? 3 : 2}
-                placeholder={q.placeholder}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
-              />
-
-              {q.key === "style" && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Changes the wording and the layout. Colours and your logo
-                  always come from Settings → Branding.
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          onClick={generate}
-          disabled={generating}
-          className="mt-4 inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-        >
-          {generating ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : (
-            <Sparkles size={15} />
-          )}
-          {hasBlocks ? "Rewrite the page" : "Build my site"}
-        </button>
-
-        {hasBlocks && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Rewriting replaces the text below. Your photos and any services you
-            added stay.
-          </p>
-        )}
-
-        {note && (
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">{note}</p>
-        )}
-      </div>
-
-      {/* ── Blocks ────────────────────────────────────────────────────── */}
-      {hasBlocks && (
-        <>
-          {blocks.map((block) => (
-            <BlockEditor
-              key={block.id}
-              block={block}
-              onChange={(patch) => patchBlock(block.id, patch)}
-              onToggle={() => toggleBlock(block.id)}
-              onError={setError}
-            />
-          ))}
-
-          <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-            <h2 className="font-semibold text-foreground">Your web address</h2>
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                value={subdomain}
-                onChange={(e) =>
-                  setSubdomain(e.target.value.toLowerCase().replace(/\s+/g, "-"))
-                }
-                className="flex-1 min-w-[10rem] border border-border rounded-lg px-3 py-2 text-sm bg-card"
-              />
-              <span className="text-sm text-muted-foreground">.fieldquo.com</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Lowercase letters, numbers and dashes. Choose carefully — once
-              it&apos;s printed on a van, changing it breaks every link.
-            </p>
-
-            <div className="pt-2 space-y-2">
-              <input
-                value={seo.title}
-                onChange={(e) => setSeo((s) => ({ ...s, title: e.target.value }))}
-                placeholder="Title shown in Google results"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
-              />
-              <textarea
-                value={seo.description}
-                onChange={(e) =>
-                  setSeo((s) => ({ ...s, description: e.target.value }))
-                }
-                rows={2}
-                placeholder="The sentence under the title in Google results"
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
-              />
-            </div>
-          </div>
-
-          {/* The real route in an iframe — see the note at the top of this
-              file. Only meaningful once something is saved. */}
-          {site && (
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-foreground">Preview</h2>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">
-                    {isLive ? "Live" : "Saved but not published"}
-                  </span>
-                  {/* Full-screen preview in a new tab — easier to read and edit
-                      against on a phone or a big screen than the boxed iframe. */}
-                  <a
-                    href={`/site/${site.subdomain}${isLive ? "" : "?preview=1"}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1.5"
-                  >
-                    <ExternalLink size={12} /> Open in new tab
-                  </a>
-                </div>
-              </div>
-              {/* `?preview=1` renders an unpublished page for a signed-in
-                  member of this company — see app/site/[subdomain]/page.js.
-                  Without it the only way to see your own site was to publish
-                  it, which is the opposite of what a preview is for.
-
-                  Still the real route in an iframe, so this is literally what
-                  a visitor gets. */}
-              <iframe
-                key={previewKey}
-                src={`/site/${site.subdomain}${isLive ? "" : "?preview=1"}`}
-                title="Website preview"
-                className="w-full h-[520px] bg-white"
-              />
-              <p className="px-5 py-2.5 text-xs text-muted-foreground border-t border-border">
-                {isLive
-                  ? "This is your live site."
-                  : "Nobody else can see this until you publish. Save to refresh the preview."}
-              </p>
-            </div>
-          )}
-
-          <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-end gap-2 z-40">
-            {isLive && (
+      {/* ── Two panes: editor (left) + live preview (right) ────────────── */}
+      <div className="flex-1 min-h-0 grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+        {/* Editor */}
+        <div className="min-h-0 overflow-y-auto border-r border-border bg-background">
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* AI panel */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <button
                 type="button"
-                onClick={async () => {
-                  await fetchJson("/api/settings/website", { method: "DELETE" });
-                  load();
-                }}
-                className="inline-flex items-center gap-1.5 border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
+                onClick={() => setAiOpen((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-3.5 text-left"
               >
-                <EyeOff size={14} /> Unpublish
+                <span className="flex items-center gap-2 font-semibold text-foreground text-sm">
+                  <Sparkles size={16} style={{ color: "var(--brand,#7c3aed)" }} />
+                  {hasBlocks ? "Rewrite with AI" : "Build my site with AI"}
+                </span>
+                <ChevronDown size={16} className={`text-muted-foreground transition-transform ${aiOpen ? "rotate-180" : ""}`} />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => save()}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 border border-border px-4 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
+
+              {aiOpen && (
+                <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Answer what you can — the rest fills from your services, hours,
+                    photos and contact details. Colours and logo come from Branding.
+                  </p>
+                  {(data?.questions || []).map((q) => (
+                    <div key={q.key}>
+                      <label className="text-xs font-semibold text-foreground block mb-1">{q.label}</label>
+                      {q.key === "style" && (data?.stylePresets || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {data.stylePresets.map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setInterview((p) => ({ ...p, style: preset.text }))}
+                              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                                interview.style === preset.text
+                                  ? "border-foreground bg-inverted text-inverted-foreground"
+                                  : "border-border text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <textarea
+                        value={interview[q.key] || ""}
+                        onChange={(e) => setInterview((p) => ({ ...p, [q.key]: e.target.value }))}
+                        rows={q.long ? 3 : 2}
+                        placeholder={q.placeholder}
+                        className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                      />
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={generate}
+                    disabled={generating}
+                    className="w-full inline-flex items-center justify-center gap-2 text-white rounded-full px-5 py-2.5 text-sm font-bold disabled:opacity-60"
+                    style={{ background: "linear-gradient(135deg,#7c3aed,#4f46e5)" }}
+                  >
+                    {generating ? <Loader2 size={15} className="animate-spin" /> : hasBlocks ? <RefreshCw size={15} /> : <Sparkles size={15} />}
+                    {generating ? "Writing your site…" : hasBlocks ? "Regenerate site" : "Generate my site"}
+                  </button>
+                  {hasBlocks && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Regenerating rewrites the copy. Your photos and services stay. ~3¢ per generation.
+                    </p>
+                  )}
+                  {note && <p className="text-[11px] text-amber-700 dark:text-amber-400">{note}</p>}
+                </div>
               )}
-              Save draft
-            </button>
-            <button
-              type="button"
-              onClick={() => save({ published: true })}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
-            >
-              <Eye size={14} /> {isLive ? "Update site" : "Publish"}
-            </button>
+            </div>
+
+            {/* Blocks */}
+            {hasBlocks ? (
+              <>
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sections</h2>
+                  <span className="text-[11px] text-muted-foreground">Click a section to edit</span>
+                </div>
+                {blocks.map((block) => (
+                  <BlockEditor
+                    key={block.id}
+                    block={block}
+                    onChange={(patch) => patchBlock(block.id, patch)}
+                    onToggle={() => toggleBlock(block.id)}
+                    onError={setError}
+                  />
+                ))}
+
+                {/* Address + SEO */}
+                <details className="bg-card border border-border rounded-2xl">
+                  <summary className="px-4 py-3.5 font-semibold text-foreground text-sm cursor-pointer list-none flex items-center justify-between">
+                    Web address &amp; SEO
+                    <ChevronDown size={16} className="text-muted-foreground" />
+                  </summary>
+                  <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={subdomain}
+                        onChange={(e) => setSubdomain(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+                        className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                      />
+                      <span className="text-sm text-muted-foreground shrink-0">.fieldquo.com</span>
+                    </div>
+                    {isLive && (
+                      <button
+                        type="button"
+                        onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Copied" : "Copy live URL"}
+                      </button>
+                    )}
+                    <input
+                      value={seo.title}
+                      onChange={(e) => setSeo((s) => ({ ...s, title: e.target.value }))}
+                      placeholder="Title shown in Google results"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    />
+                    <textarea
+                      value={seo.description}
+                      onChange={(e) => setSeo((s) => ({ ...s, description: e.target.value }))}
+                      rows={2}
+                      placeholder="The sentence under the title in Google results"
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    />
+                    {isLive && (
+                      <button
+                        type="button"
+                        onClick={async () => { await fetchJson("/api/settings/website", { method: "DELETE" }); load(); }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700"
+                      >
+                        <EyeOff size={13} /> Unpublish site
+                      </button>
+                    )}
+                  </div>
+                </details>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground px-1">
+                Answer a few questions above and hit <strong>Generate my site</strong> — we&apos;ll build a full
+                page from your brand, services, hours and photos in seconds.
+              </p>
+            )}
           </div>
-        </>
+        </div>
+
+        {/* Live preview */}
+        <div className="min-h-0 hidden lg:flex flex-col bg-muted/40">
+          <div className="shrink-0 px-4 py-2.5 border-b border-border flex items-center justify-between gap-3 bg-card">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {isLive ? "Live preview" : hasBlocks ? "Draft preview" : "Preview"}
+            </span>
+            <div className="flex items-center gap-1 bg-muted rounded-full p-0.5">
+              <button
+                type="button"
+                onClick={() => setDevice("desktop")}
+                className={`p-1.5 rounded-full ${device === "desktop" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+                aria-label="Desktop preview"
+              >
+                <Monitor size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDevice("mobile")}
+                className={`p-1.5 rounded-full ${device === "mobile" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+                aria-label="Mobile preview"
+              >
+                <Smartphone size={15} />
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-auto grid place-items-center p-4">
+            {previewUrl ? (
+              <div
+                className={`bg-white shadow-2xl overflow-hidden transition-all ${device === "mobile" ? "rounded-[2rem] border-[6px] border-neutral-800" : "rounded-xl border border-border w-full h-full"}`}
+                style={device === "mobile" ? { width: 390, height: 780, maxHeight: "100%" } : undefined}
+              >
+                <iframe
+                  key={previewKey}
+                  src={previewUrl}
+                  title="Website preview"
+                  className="w-full h-full bg-white"
+                  style={device === "mobile" ? { width: 390, height: 780 } : { minHeight: "100%" }}
+                />
+              </div>
+            ) : (
+              <div className="text-center text-sm text-muted-foreground">
+                <Sparkles size={28} className="mx-auto mb-3 opacity-40" />
+                Your site preview appears here once you generate it.
+              </div>
+            )}
+          </div>
+          <p className="shrink-0 px-4 py-2 text-[11px] text-muted-foreground border-t border-border bg-card">
+            {isLive ? "This is your live site." : "Only you can see this until you publish. Save to refresh."}
+          </p>
+        </div>
+      </div>
+
+      {/* Mobile: preview lives in a new tab (the pane is desktop-only) */}
+      {previewUrl && (
+        <div className="lg:hidden shrink-0 border-t border-border bg-card px-4 py-2.5">
+          <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+            <ExternalLink size={14} /> Open preview
+          </a>
+        </div>
       )}
     </div>
   );
