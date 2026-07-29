@@ -34,6 +34,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
+import { recentJobPhotos } from "@/lib/site/jobPhotos";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -132,7 +133,25 @@ export default async function CompanySitePage({ params, searchParams }) {
   const theme = documentTheme(company);
   const fill = fillPair(theme);
 
-  const blocks = Array.isArray(site.blocks) ? site.blocks : [];
+  let blocks = Array.isArray(site.blocks) ? site.blocks : [];
+
+  // Auto-fill an empty gallery with real before/after job photos. A gallery the
+  // company has curated (uploaded its own images) always wins; this only fills
+  // one they left empty, turning their crews' on-site photos into a portfolio
+  // with zero effort. Best-effort — recentJobPhotos never throws.
+  const emptyGallery = blocks.some(
+    (b) => b.type === "gallery" && b.visible !== false && !(b.content?.images?.length),
+  );
+  if (emptyGallery) {
+    const photos = await recentJobPhotos(site.companyId, 8);
+    if (photos.length) {
+      blocks = blocks.map((b) =>
+        b.type === "gallery" && !(b.content?.images?.length)
+          ? { ...b, content: { ...b.content, images: photos } }
+          : b,
+      );
+    }
+  }
 
   return (
     <div style={{ backgroundColor: "#ffffff", color: theme.ink }}>
