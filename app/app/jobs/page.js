@@ -6,6 +6,9 @@ import Link from "next/link";
 import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
 
 const STATUS_STYLES = {
+  // Purple/attention — an unscheduled job (usually auto-created from an
+  // accepted quote) is a to-do: it needs a date.
+  unscheduled: "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300",
   scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   in_progress: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
@@ -62,7 +65,7 @@ export default function JobsPage() {
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {["all", "scheduled", "in_progress", "completed", "cancelled"].map(
+          {["all", "unscheduled", "scheduled", "in_progress", "completed", "cancelled"].map(
             (s) => (
               <button
                 key={s}

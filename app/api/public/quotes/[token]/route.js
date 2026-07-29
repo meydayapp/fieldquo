@@ -13,6 +13,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
+import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
+import { recordActivity } from "@/lib/activity/log";
 import {
   resolveServiceContent,
   dominantProcessSteps,
@@ -305,6 +307,28 @@ export async function POST(request, { params }) {
     await notifyCompany(updated, quote, decision, priced);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
+  }
+
+  // On acceptance, turn the won work into a schedulable job and log it. Both
+  // are best-effort and must never make the client's approval appear to fail —
+  // the acceptance is already committed above.
+  if (accepted) {
+    try {
+      const job = await ensureJobForAcceptedQuote(updated.id);
+      await recordActivity(
+        { companyId: updated.companyId },
+        {
+          action: "quote.accepted",
+          entityType: "quote",
+          entityId: updated.id,
+          actorName: "Client (approval link)",
+          summary: `Quote ${updated.quoteNumber} accepted by the client${job ? " — job created, ready to schedule" : ""}`,
+          metadata: { total: priced.total, jobId: job?.id || null },
+        },
+      );
+    } catch (err) {
+      console.error("[public quote] job/activity failed:", err);
+    }
   }
 
   // The total is echoed back so the confirmation the client sees is the same

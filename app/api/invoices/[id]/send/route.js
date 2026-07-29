@@ -25,7 +25,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
-import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
+import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import {
@@ -100,7 +100,9 @@ export async function POST(request, { params }) {
     invoice,
     client: invoice.client,
     company: company || {},
-    url: portalUrl(token, request),
+    // Deep-link to the invoice itself (the page with the Pay button), not the
+    // portal home — one click to pay instead of hunting through a list.
+    url: portalInvoiceUrl(token, invoice.id, request),
     canTakeCard,
     language: resolveClientLanguage({
       document: invoice,
