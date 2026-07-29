@@ -12,12 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
 import SignaturePad from "@/app/components/SignaturePad";
-
-const money = (n) =>
-  Number(n ?? 0).toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
+import { formatMoney } from "@/lib/currency";
 
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
@@ -42,6 +37,11 @@ export default function QuoteApproval({ token }) {
   const [sigDataUrl, setSigDataUrl] = useState("");
   const [sigConsent, setSigConsent] = useState(false);
   const canSign = sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
+
+  // Format in the COMPANY's billing currency (falls back to CAD until loaded /
+  // if unset). quote is null on the first renders, but money() is only called
+  // in the loaded quote view, so the optional chain is safe.
+  const money = (n) => formatMoney(n, quote?.company?.currency);
 
   useEffect(() => {
     let cancelled = false;

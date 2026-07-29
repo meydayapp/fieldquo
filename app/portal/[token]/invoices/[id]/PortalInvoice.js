@@ -22,12 +22,7 @@ import {
   Building2,
 } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
-
-const money = (n) =>
-  Number(n ?? 0).toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
+import { formatMoney } from "@/lib/currency";
 
 const date = (d) =>
   d
@@ -108,6 +103,8 @@ export default function PortalInvoice({ token, invoiceId }) {
   const accent = c.brandColor || "#06356b";
   // Measured, not assumed white — see the quote page for why.
   const accentOn = readableForeground(accent);
+  // Show amounts in the company's billing currency (falls back to CAD).
+  const money = (n) => formatMoney(n, c.currency);
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
   const due = Math.max(
     0,
@@ -218,17 +215,17 @@ export default function PortalInvoice({ token, invoiceId }) {
           )}
 
           <div className="mt-5 pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label="Subtotal" value={invoice.subtotal} />
+            <Row label="Subtotal" value={invoice.subtotal} currency={c.currency} />
             {Number(invoice.discount) > 0 && (
-              <Row label="Discount" value={-Number(invoice.discount)} />
+              <Row label="Discount" value={-Number(invoice.discount)} currency={c.currency} />
             )}
-            <Row label="Tax" value={invoice.tax} />
+            <Row label="Tax" value={invoice.tax} currency={c.currency} />
             <div className="flex justify-between pt-1 font-semibold text-[#2d2520]">
               <span>Total</span>
               <span className="tabular-nums">{money(invoice.total)}</span>
             </div>
             {Number(invoice.amountPaid) > 0 && (
-              <Row label="Paid" value={-Number(invoice.amountPaid)} />
+              <Row label="Paid" value={-Number(invoice.amountPaid)} currency={c.currency} />
             )}
           </div>
 
@@ -297,11 +294,11 @@ function Shell({ token, children }) {
   );
 }
 
-function Row({ label, value }) {
+function Row({ label, value, currency }) {
   return (
     <div className="flex justify-between text-[#2d2520]/70">
       <span>{label}</span>
-      <span className="tabular-nums">{money(value)}</span>
+      <span className="tabular-nums">{formatMoney(value, currency)}</span>
     </div>
   );
 }

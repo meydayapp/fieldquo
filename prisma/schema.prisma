@@ -351,6 +351,12 @@ model Company {
   timezone     String? @default("America/Toronto")
   dateFormat   String? @default("MM/DD/YYYY")
   weekStartsOn Int?    @default(0) // 0 = Sunday, 1 = Monday
+  // The currency this company BILLS ITS CLIENTS in — quotes, invoices, the
+  // client pay flow. ISO 4217 code (USD, CAD, EUR, GBP…). Defaults to CAD to
+  // preserve the behaviour of every row that predates this column (the app was
+  // hardcoded CAD). Distinct from FieldQuo's own subscription currency.
+  // See lib/currency.js for the supported set and Stripe mapping.
+  currency     String? @default("CAD")
 
   // When the business is OPEN — deliberately not AvailabilitySchedule, which
   // hangs off a user and answers "when can this person be booked". The two

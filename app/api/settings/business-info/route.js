@@ -57,6 +57,7 @@ export async function GET(request) {
       timezone: true,
       dateFormat: true,
       weekStartsOn: true,
+      currency: true,
       // When the business is open. Feeds the website's hours block, the
       // "Open now" pill, and openingHoursSpecification in the LocalBusiness
       // JSON-LD — which is what puts opening hours in a Google result.
@@ -113,6 +114,7 @@ export async function PATCH(request) {
     taxIdName,
     taxIdNumber,
     autoApplyLocalTax,
+    currency,
     timezone,
     dateFormat,
     weekStartsOn,
@@ -175,6 +177,7 @@ export async function PATCH(request) {
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),
       ...(weekStartsOn !== undefined && { weekStartsOn }),
+      ...(currency !== undefined && { currency }),
       // Normalised on the way in, not trusted. This column is read by the
       // public website and by the structured data a search engine indexes, so
       // a close time earlier than the open time would become a Google listing

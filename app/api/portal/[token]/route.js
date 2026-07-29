@@ -17,6 +17,7 @@ export async function GET(request, { params }) {
           brandColor: true,
           phone: true,
           email: true,
+          currency: true,
         },
       },
       quotes: { orderBy: { createdAt: "desc" } },

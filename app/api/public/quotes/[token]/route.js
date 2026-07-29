@@ -56,6 +56,7 @@ async function loadQuote(token) {
           address: true,
           paymentTerms: true,
           paymentMethods: true,
+          currency: true,
         },
       },
       scopeGroups: {

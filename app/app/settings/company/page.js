@@ -9,6 +9,7 @@ import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
+import { CURRENCIES } from "@/lib/currency";
 import { reportResponseError } from "@/lib/clientErrors";
 
 function industryLabel(slug) {
@@ -164,6 +165,7 @@ export default function CompanySettingsPage() {
           timezone: data?.timezone || "America/Toronto",
           dateFormat: data?.dateFormat || "MM/DD/YYYY",
           weekStartsOn: data?.weekStartsOn ?? 0,
+          currency: data?.currency || "CAD",
           // Left as null when never set, NOT defaulted to a schedule. A
           // company that has said nothing about its hours must not have a
           // guess published on its website and in its search listing.
@@ -718,6 +720,27 @@ export default function CompanySettingsPage() {
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <Info size={11} /> Filled in automatically from your address
               above.
+            </p>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground block mb-1">
+              Billing currency
+            </label>
+            <select
+              className={inputClass}
+              value={form.currency}
+              onChange={(e) => set("currency", e.target.value)}
+            >
+              {CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.code} — {c.label} ({c.symbol})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <Info size={11} /> The currency your quotes, invoices and client
+              payments are shown and charged in.
             </p>
           </div>
 
