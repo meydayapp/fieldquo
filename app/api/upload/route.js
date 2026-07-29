@@ -27,6 +27,10 @@ const ALLOWED = new Set([
   "image/webp",
   "image/gif",
   "image/svg+xml",
+  // iPhones shoot HEIC/HEIF by default — the single most common "why won't my
+  // photo upload" on a contractor's phone. Cloudinary converts it server-side.
+  "image/heic",
+  "image/heif",
 ]);
 
 export async function POST(request) {

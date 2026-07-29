@@ -284,13 +284,15 @@ export function siteFromCompany({ company = {}, services = [], testimonials = []
   // hours, is a control that does nothing — the exact failure this codebase
   // has been swept for twice. Absent is better than empty.
 
-  if (company.bookingSlug) {
-    blocks.push(
-      makeBlock("booking", {
-        intro: "Pick a time that suits you and we'll confirm by email.",
-      }),
-    );
-  }
+  // Always offered — booking works off the company slug even without a custom
+  // bookingSlug, and the renderer degrades gracefully to "no times yet" if
+  // nobody has set availability. A booking CTA is core to the pipeline the
+  // whole product serves, so it shouldn't be silently dropped.
+  blocks.push(
+    makeBlock("booking", {
+      intro: "Pick a time that suits you and we'll confirm by email.",
+    }),
+  );
 
   if (hasHours(company.businessHours)) {
     blocks.push(makeBlock("hours"));

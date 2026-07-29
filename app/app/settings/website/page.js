@@ -96,10 +96,13 @@ export default function WebsiteSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ interview }),
       });
-      setBlocks(result.blocks || []);
-      if (result.seoTitle) setSeo((s) => ({ ...s, title: result.seoTitle }));
-      if (result.seoDescription)
-        setSeo((s) => ({ ...s, description: result.seoDescription }));
+      const newBlocks = result.blocks || [];
+      const newSeo = {
+        title: result.seoTitle || seo.title,
+        description: result.seoDescription || seo.description,
+      };
+      setBlocks(newBlocks);
+      setSeo(newSeo);
       // Said plainly when the factual fallback was used. Passing a
       // non-generated draft off as AI output is how trust in the button dies.
       setNote(
@@ -108,6 +111,29 @@ export default function WebsiteSettingsPage() {
             ? ""
             : "This draft is built from your saved details — the writing assistant wasn't available."),
       );
+
+      // Persist the draft immediately. The preview iframe renders the SAVED
+      // row, not this page's state — so without this, a company generates,
+      // sees the preview unchanged, and concludes nothing happened. Saving
+      // also keeps any newly-added block types (FAQ, booking). Best-effort:
+      // if the subdomain is taken the manual Save still works.
+      try {
+        const saved = await fetchJson("/api/settings/website", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subdomain,
+            blocks: newBlocks,
+            interview,
+            seoTitle: newSeo.title,
+            seoDescription: newSeo.description,
+          }),
+        });
+        setData((d) => ({ ...d, site: saved }));
+        setPreviewKey((k) => k + 1);
+      } catch {
+        setNote((n) => n || "Generated — pick an available address and press Save to see it in the preview.");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -550,7 +576,7 @@ function BlockEditor({ block, onChange, onToggle, onError }) {
           {def.repeats === "items" && (
             <div className="space-y-2">
               {(block.content.items || []).map((item, i) => (
-                <div key={i} className="border border-border rounded-lg p-3 space-y-2">
+                <div key={i} className="border border-border rounded-lg p-3 space-y-2 relative">
                   {(def.itemEditable || []).map((k) => (
                     <input
                       key={k}
@@ -561,18 +587,38 @@ function BlockEditor({ block, onChange, onToggle, onError }) {
                         onChange({ items });
                       }}
                       placeholder={labelFor(k)}
-                      className="w-full border border-border rounded px-2 py-1.5 text-sm bg-card"
+                      className="w-full border border-border rounded px-2 py-1.5 text-sm bg-background"
                     />
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => onChange({ items: block.content.items.filter((_, j) => j !== i) })}
+                    className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
+                    aria-label="Remove"
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
               ))}
-              {(block.content.items || []).length === 0 && (
+              {(block.content.items || []).length === 0 && block.type === "testimonials" && (
                 <p className="text-xs text-muted-foreground">
-                  {block.type === "testimonials"
-                    ? "Approved testimonials appear here automatically."
-                    : "Your enabled services appear here automatically."}
+                  Approved testimonials appear here automatically — or add one below.
                 </p>
               )}
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    items: [
+                      ...(block.content.items || []),
+                      Object.fromEntries((def.itemEditable || []).map((k) => [k, ""])),
+                    ],
+                  })
+                }
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                <ImagePlus size={13} className="rotate-45" /> Add {block.type === "faq" ? "question" : "item"}
+              </button>
             </div>
           )}
         </div>
@@ -731,6 +777,8 @@ function labelFor(field) {
       description: "What this involves",
       quote: "What they said",
       author: "Who said it",
+      question: "Question",
+      answer: "Answer",
     }[field] || field
   );
 }

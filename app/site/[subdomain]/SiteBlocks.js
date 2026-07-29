@@ -134,6 +134,7 @@ const NAV_FOR = {
   services: { id: "services", label: "Services" },
   gallery: { id: "work", label: "Our Work" },
   about: { id: "about", label: "About" },
+  quoteform: { id: "quote", label: "Get a Quote" },
   booking: { id: "book", label: "Book" },
   faq: { id: "faq", label: "FAQ" },
   contact: { id: "contact", label: "Contact" },
@@ -494,21 +495,36 @@ function QuoteForm({ block, company, theme, accent2 }) {
 
 function BookingBlock({ block, company, theme, accent2 }) {
   const { heading, intro } = block.content;
-  if (!company.bookingSlug) return null;
+  // Works off the company slug even without a custom bookingSlug — findBooking
+  // Company resolves either. The BookingFlow degrades to a friendly message if
+  // no one has set availability yet, so this is never a dead calendar.
+  const slug = company.bookingSlug || company.slug;
+  if (!slug) return null;
   return (
     <Section theme={theme} wide>
       <Heading theme={theme} center eyebrow="Book a visit" accent2={accent2}>{heading}</Heading>
       <Intro theme={theme} center>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
-        <BookingFlow companySlug={company.bookingSlug} />
+        <BookingFlow companySlug={slug} />
       </div>
       <noscript>
         <p className="text-sm mt-4 text-center" style={{ color: theme.inkMuted }}>
-          <a href={`/book/${company.bookingSlug}`} className="underline">Open the booking calendar</a>
+          <a href={`/book/${slug}`} className="underline">Open the booking calendar</a>
         </p>
       </noscript>
     </Section>
   );
+}
+
+// Google Static Map for the contact section — a real map reads as a real
+// business. Centres on the address string (no geocoding needed) when the
+// public Maps key is set. An <img>, so the key only ever appears in a src
+// (referrer-restrict it to fieldquo.com).
+function staticMapUrl(address) {
+  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!key || !address) return null;
+  const c = encodeURIComponent(address);
+  return `https://maps.googleapis.com/maps/api/staticmap?center=${c}&zoom=14&size=640x260&scale=2&markers=color:0x33333300%7C${c}&key=${key}`;
 }
 
 function Hours({ block, company, theme, accent2 }) {
@@ -544,7 +560,11 @@ function Hours({ block, company, theme, accent2 }) {
 
 function Contact({ block, company, theme, fill, accent2 }) {
   const { heading, intro, showQuoteLink, showBookingLink } = block.content;
-  const place = [company.address, company.city, company.province].filter(Boolean).join(", ");
+  // The address field already holds the full formatted address from signup, so
+  // appending city/province again produced "…Scarborough, ON…, Toronto, ON".
+  // Use the address as-is; fall back to city/province only when it's absent.
+  const place = company.address || [company.city, company.province].filter(Boolean).join(", ");
+  const mapUrl = staticMapUrl(place);
   return (
     <Section theme={theme}>
       <div className="text-center">
@@ -556,8 +576,8 @@ function Contact({ block, company, theme, fill, accent2 }) {
               <FileText size={16} /> Request a quote
             </a>
           )}
-          {showBookingLink !== false && company.bookingSlug && (
-            <a href={`/book/${company.bookingSlug}`} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold border-2" style={{ borderColor: theme.border, color: theme.accentText }}>
+          {showBookingLink !== false && (
+            <a href={`/book/${company.bookingSlug || company.slug}`} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold border-2" style={{ borderColor: theme.border, color: theme.accentText }}>
               <CalendarDays size={16} /> Book a visit
             </a>
           )}
@@ -567,6 +587,18 @@ function Contact({ block, company, theme, fill, accent2 }) {
           {company.email && <a href={`mailto:${company.email}`} className="inline-flex items-center gap-2"><Mail size={15} /> {company.email}</a>}
           {place && <span className="inline-flex items-center gap-2"><MapPin size={15} /> {place}</span>}
         </div>
+        {mapUrl && (
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(place)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="block mt-8 rounded-2xl overflow-hidden border max-w-3xl mx-auto"
+            style={{ borderColor: theme.border }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={mapUrl} alt={`Map of ${place}`} className="w-full h-auto" loading="lazy" />
+          </a>
+        )}
       </div>
     </Section>
   );
