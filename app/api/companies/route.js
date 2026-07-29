@@ -196,10 +196,23 @@ export async function POST(request) {
 
   const baseUrl = getAppOrigin(request);
 
+  // Trial length Stripe should honour = however long this company is actually
+  // free for. applySignupReferral may have just extended trialEndsAt by 3
+  // months; `company` in memory still holds the base 30-day date, so read the
+  // referral's returned value when present. This is what makes a referred
+  // signup's FIRST Stripe trial the full 30 + referral, not 30 with the extra
+  // months stranded in a column Stripe never sees.
+  const effectiveTrialEnd = referral?.trialEndsAt || company.trialEndsAt;
+  const trialDays = Math.max(
+    1,
+    Math.ceil((effectiveTrialEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+  );
+
   const checkoutSession = await createTrialCheckoutSession({
     company,
     pricing,
     planId: resolvedPlanId,
+    trialDays,
     // {CHECKOUT_SESSION_ID} is a literal Stripe template placeholder — Stripe
     // substitutes it with the real session id before redirecting the
     // browser. /app reads it and calls /api/platform/billing/reconcile-session
