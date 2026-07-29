@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { can } from "@/lib/permissions";
+import { ensureConsultationEventType } from "@/lib/booking/bookableMembers";
 
 // GET — the current user's own weekly availability
 export async function GET(request) {
@@ -48,6 +50,22 @@ export async function PATCH(request) {
         timezone: s.timezone || "America/Toronto",
       })),
     });
+
+    // Setting availability is how a member says "book me" — so make them
+    // bookable now by ensuring their consultation event exists. Only if their
+    // role can quote; a field-only member setting hours for their own schedule
+    // shouldn't become a public estimator. Best-effort — never fail the save.
+    if (can(member.role, "quote:create")) {
+      try {
+        const user = await db.user.findUnique({
+          where: { id: member.userId },
+          select: { name: true },
+        });
+        await ensureConsultationEventType(member.companyId, member.userId, user?.name);
+      } catch (err) {
+        console.error("[availability] ensure consultation event failed:", err?.message);
+      }
+    }
   }
 
   const updated = await db.availabilitySchedule.findMany({
