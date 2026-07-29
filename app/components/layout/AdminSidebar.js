@@ -71,6 +71,7 @@ const NAV_GROUPS = [
     label: "People",
     items: [
       { label: "Clients", href: "/app/clients", icon: Users },
+      { label: "Team Schedule", href: "/app/schedule", icon: Calendar },
       { label: "Timesheets", href: "/app/settings/team/timesheets", icon: Clock },
     ],
   },
