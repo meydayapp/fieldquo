@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
 
 export async function GET(request) {
@@ -189,6 +190,16 @@ export async function PATCH(request) {
       }),
       ...(sitePublished !== undefined && { sitePublished }),
     },
+  });
+
+  // Record which fields changed — enough for support to answer "who changed
+  // the tax rate / branding / hours", without dumping full before/after values.
+  const changed = Object.keys(body).filter((k) => body[k] !== undefined);
+  await recordActivity(member, {
+    action: "settings.business_info_updated",
+    entityType: "settings",
+    summary: `Updated business settings: ${changed.join(", ") || "—"}`,
+    metadata: { fields: changed },
   });
 
   return NextResponse.json(updated);

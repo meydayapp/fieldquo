@@ -40,6 +40,7 @@ import {
   ListChecks,
   Languages,
   Zap,
+  Activity,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -125,6 +126,7 @@ const BUSINESS_ITEMS = [
   { label: "Materials", href: "/app/settings/materials", icon: Boxes },
   { label: "Work Areas", href: "/app/settings/work-areas", icon: Map },
   { label: "Overhead", href: "/app/settings/overhead", icon: TrendingUp },
+  { label: "Activity Log", href: "/app/activity", icon: Activity },
 ];
 
 // Client-facing surfaces: the things a customer actually sees or interacts

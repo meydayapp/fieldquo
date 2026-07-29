@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
   requireToggle,
@@ -92,6 +93,14 @@ export async function POST(request) {
       status: isPaid ? "paid" : invoice.status,
       paidDate: isPaid ? new Date() : invoice.paidDate,
     },
+  });
+
+  await recordActivity(member, {
+    action: "payment.recorded",
+    entityType: "payment",
+    entityId: payment.id,
+    summary: `Recorded a ${method} payment of ${amount} on invoice ${invoice.invoiceNumber || invoiceId}`,
+    metadata: { invoiceId, amount, method, isPaid },
   });
 
   return NextResponse.json(payment, { status: 201 });

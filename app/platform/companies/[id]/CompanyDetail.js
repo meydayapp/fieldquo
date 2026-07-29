@@ -32,6 +32,7 @@ import {
 import { count, money } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
+import CompanyActivity from "./CompanyActivity";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
@@ -446,6 +447,9 @@ export default function CompanyDetail({ companyId }) {
 
       {/* Financial history — subscription and their own client billing */}
       <CompanyHistory companyId={companyId} />
+
+      {/* Action trail — who did what inside the company's own app */}
+      <CompanyActivity companyId={companyId} />
 
       {/* Team */}
       <div className="bg-card border border-border rounded-xl p-5">

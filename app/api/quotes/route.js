@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import {
   loadEnforceableMember,
@@ -128,6 +129,14 @@ export async function POST(request) {
       }),
     },
     include: { client: true, scopeGroups: true },
+  });
+
+  await recordActivity(member, {
+    action: "quote.created",
+    entityType: "quote",
+    entityId: quote.id,
+    summary: `Created quote ${quote.quoteNumber} for ${quote.client?.name || "a client"}`,
+    metadata: { total: quote.total },
   });
 
   return NextResponse.json(quote, { status: 201 });

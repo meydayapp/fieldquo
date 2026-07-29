@@ -22,6 +22,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
@@ -146,6 +147,14 @@ export async function POST(request, { params }) {
       ...(invoice.status === "draft" ? { status: "sent" } : {}),
     },
     select: { status: true, sentAt: true, sentToEmail: true },
+  });
+
+  await recordActivity(member, {
+    action: "invoice.sent",
+    entityType: "invoice",
+    entityId: invoice.id,
+    summary: `Sent invoice ${invoice.invoiceNumber} to ${to}`,
+    metadata: { to, total: invoice.total },
   });
 
   return NextResponse.json({ ...updated, to, messageId: result?.id || null });

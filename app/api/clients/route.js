@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -89,6 +90,13 @@ export async function POST(request) {
         // language quotes to everyone already on file.
         language: isSupported(language) ? language : null,
       },
+    });
+
+    await recordActivity(member, {
+      action: "client.created",
+      entityType: "client",
+      entityId: client.id,
+      summary: `Added client ${client.name}`,
     });
 
     return NextResponse.json(client, { status: 201 });

@@ -28,6 +28,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -182,6 +183,14 @@ export async function POST(request, { params }) {
       followUpSentAt: true,
       followUpCount: true,
     },
+  });
+
+  await recordActivity(member, {
+    action: isFollowUp ? "quote.followed_up" : "quote.sent",
+    entityType: "quote",
+    entityId: quote.id,
+    summary: `${isFollowUp ? "Sent a follow-up for" : "Sent"} quote ${quote.quoteNumber} to ${to}`,
+    metadata: { to, total: quote.total },
   });
 
   return NextResponse.json({ ...updated, to, messageId: result?.id || null });

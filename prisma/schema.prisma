@@ -336,6 +336,7 @@ model Company {
   aiDigests             AiDigest[]
   subscription          Subscription?
   instantQuoteConfigs   InstantQuoteConfig[]
+  activityLogs          ActivityLog[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -1928,4 +1929,46 @@ model InstantQuoteConfig {
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, trade])
+}
+
+// A tenant-side audit trail: who did what inside a company's own app. This is
+// deliberately SEPARATE from PlatformAuditLog (which records FieldQuo staff
+// actions). Before this existed, support could see a company's current state
+// but never "who deleted this client" or "who changed this price" — the single
+// most common support question had no answer anywhere in the schema.
+//
+// Written best-effort by lib/activity/log.js — a logging failure must never
+// fail the user's actual action, so nothing here is in a transaction with the
+// thing it records. That means the log can miss an event under failure, which
+// is the honest trade: an audit trail that can occasionally drop a row beats
+// one that can roll back a customer's quote.
+//
+// Actor identity is CAPTURED at write time (name + role), not just referenced,
+// so a departed employee or a renamed user doesn't erase who did it.
+model ActivityLog {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  actorUserId   String?
+  actorMemberId String?
+  actorName     String?
+  actorRole     String?
+  // True if the action came through a platform-support impersonation session.
+  // Support is read-only, so a write under impersonation should be impossible —
+  // if one ever shows up here, that's precisely what an audit trail is for.
+  viaImpersonation Boolean @default(false)
+
+  // Dotted verb, e.g. "quote.sent", "client.deleted", "payment.recorded".
+  action     String
+  entityType String? // "quote" | "invoice" | "client" | "payment" | "settings" | ...
+  entityId   String?
+  // Human-readable one-liner shown in the log, composed at write time.
+  summary    String?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entityType, entityId])
 }

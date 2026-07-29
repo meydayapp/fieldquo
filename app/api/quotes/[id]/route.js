@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -139,5 +140,12 @@ export async function DELETE(request, { params }) {
   }
 
   await db.quote.delete({ where: { id } });
+  await recordActivity(member, {
+    action: "quote.deleted",
+    entityType: "quote",
+    entityId: id,
+    summary: `Deleted quote ${existing.quoteNumber}`,
+    metadata: { total: existing.total },
+  });
   return NextResponse.json({ success: true });
 }
