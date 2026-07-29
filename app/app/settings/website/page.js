@@ -353,11 +353,23 @@ export default function WebsiteSettingsPage() {
               file. Only meaningful once something is saved. */}
           {site && (
             <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-foreground">Preview</h2>
-                <span className="text-xs text-muted-foreground">
-                  {isLive ? "Live" : "Saved but not published"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">
+                    {isLive ? "Live" : "Saved but not published"}
+                  </span>
+                  {/* Full-screen preview in a new tab — easier to read and edit
+                      against on a phone or a big screen than the boxed iframe. */}
+                  <a
+                    href={`/site/${site.subdomain}${isLive ? "" : "?preview=1"}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground border border-border rounded-full px-3 py-1.5"
+                  >
+                    <ExternalLink size={12} /> Open in new tab
+                  </a>
+                </div>
               </div>
               {/* `?preview=1` renders an unpublished page for a signed-in
                   member of this company — see app/site/[subdomain]/page.js.
