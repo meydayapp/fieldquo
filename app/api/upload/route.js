@@ -103,6 +103,36 @@ export async function POST(request) {
  */
 function explainCloudinaryError(err) {
   const message = err?.message || "";
+  const httpCode = err?.http_code || err?.error?.http_code;
+
+  // "cloud_name mismatch" (a 401) is a DIFFERENT trap from "invalid cloud_name":
+  // the cloud name is a real Cloudinary environment, but the api_key/secret in
+  // use belong to a *different* environment than CLOUDINARY_CLOUD_NAME. The
+  // classic version of this is setting CLOUDINARY_CLOUD_NAME to "fieldquo" — the
+  // name given to an API key — instead of the auto-generated environment id.
+  if (/cloud_name mismatch/i.test(message)) {
+    return (
+      `Cloudinary says the credentials don't belong to cloud "${process.env.CLOUDINARY_CLOUD_NAME}". ` +
+      "The cloud name is the environment id shown top-left in the Cloudinary console " +
+      "(often an auto-generated string like dq3x9k2mv), NOT the label on your API key. " +
+      "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET from the " +
+      "same environment's CLOUDINARY_URL (cloudinary://key:secret@CLOUD_NAME) and redeploy."
+    );
+  }
+
+  // A bare 403 with no parseable body — the SDK surfaces it as
+  // "Server returned unexpected status code - 403". Cloudinary uses this for a
+  // revoked/disabled API key or a suspended/locked account, not for a wrong
+  // signature (that's a 401). Naming it beats leaking the SDK's opaque string.
+  if (httpCode === 403 || /unexpected status code - 403/i.test(message)) {
+    return (
+      "Cloudinary refused the upload (403). That usually means the API key was " +
+      "revoked or the account is disabled/over quota — not a wrong file. Open the " +
+      "Cloudinary console, confirm the account is active and the API key is enabled, " +
+      "then check CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET / CLOUDINARY_CLOUD_NAME in " +
+      "Vercel match that same active environment (and match what you rotated to)."
+    );
+  }
 
   if (/invalid cloud_name/i.test(message)) {
     return (

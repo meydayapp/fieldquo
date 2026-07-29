@@ -335,6 +335,7 @@ model Company {
   notificationRules     NotificationRule[]
   aiDigests             AiDigest[]
   subscription          Subscription?
+  instantQuoteConfigs   InstantQuoteConfig[]
 
   postalCode        String?
   country           String?  @default("CA")
@@ -693,6 +694,31 @@ model Quote {
   // without re-running. Shape: see lib/ai/quoteReview.js.
   aiReview     Json?
   aiReviewedAt DateTime?
+
+  // ── Instant estimate provenance & review gate ───────────────────────────
+  // Set when a quote was born from the public instant estimator rather than
+  // typed by staff. The homeowner saw a RANGE and the company must confirm it
+  // before it's binding — so an auto-estimated quote lands here in `draft`
+  // with needsReview=true, and the review queue is the only path to `sent`.
+  //
+  // These are deliberately distinct from status: a normal draft a rep is still
+  // editing is not "awaiting approval", and must not clutter the review queue.
+  autoEstimated  Boolean @default(false)
+  needsReview    Boolean @default(false)
+  // How the numbers were derived, for the reviewer's trust: e.g.
+  // "google_solar", "lawn_polygon", "manual". Free-form, not an enum, because
+  // new trades add sources without a migration.
+  estimateSource String?
+  // Snapshot of what produced the figure — measurements (squares, pitch,
+  // area), the satellite image URL, the chosen material key, the computed
+  // range and breakdown. Kept verbatim so the reviewer sees exactly what the
+  // homeowner saw, and a later imagery change can't rewrite history.
+  estimateData   Json?
+  // Audit stamp for who approved. Plain id, not a relation: this is a record
+  // of an event, never joined on, and adding a User back-relation for it would
+  // churn the auth models for no query we run.
+  reviewedById   String?
+  reviewedAt     DateTime?
 }
 
 // An optional extra offered at the bottom of a quote.
