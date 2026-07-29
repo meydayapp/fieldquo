@@ -122,6 +122,17 @@ export const BLOCK_TYPES = {
     itemEditable: ["quote", "author"],
     defaults: { heading: "What clients say", items: [] },
   },
+  // Renders nothing until the company adds a question — an empty FAQ block on a
+  // page is worse than none. The editor picks it up automatically from this
+  // schema (generic over repeats/itemEditable), so no bespoke editor code.
+  faq: {
+    label: "FAQ",
+    required: false,
+    repeats: "items",
+    editable: ["heading"],
+    itemEditable: ["question", "answer"],
+    defaults: { heading: "Frequently asked questions", items: [] },
+  },
 
   // ── Blocks that render from the company record ────────────────────────────
   //
@@ -199,6 +210,7 @@ export const BLOCK_ORDER = [
   "quoteform",
   "booking",
   "hours",
+  "faq",
   "contact",
 ];
 
@@ -283,6 +295,11 @@ export function siteFromCompany({ company = {}, services = [], testimonials = []
   if (hasHours(company.businessHours)) {
     blocks.push(makeBlock("hours"));
   }
+
+  // An empty FAQ, ready for the company to fill in the editor. Renders nothing
+  // publicly until it has at least one question, so it's a prompt to add
+  // content — never an empty section shipped to a visitor.
+  blocks.push(makeBlock("faq"));
 
   blocks.push(
     makeBlock("contact", {

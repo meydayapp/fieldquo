@@ -50,6 +50,7 @@ async function loadSite(subdomain, { preview = false } = {}) {
           name: true,
           logoUrl: true,
           brandColor: true,
+          brandColors: true,
           phone: true,
           email: true,
           address: true,
