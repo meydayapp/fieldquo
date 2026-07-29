@@ -36,6 +36,9 @@ import {
 } from "@/lib/permissions/enforce";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
+import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
+import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
+import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
@@ -139,7 +142,40 @@ export async function POST(request, { params }) {
     }),
   });
 
-  const result = await sendEmail({ to, subject, html, text, from, replyTo });
+  // Attach the quote PDF so the client keeps the document itself, not just a
+  // link they have to click. Best-effort: a PDF hiccup must never stop the
+  // email — a quote that arrives without an attachment still beats one that
+  // never arrives. Uses the same renderer as Download PDF, so the attachment
+  // and the on-screen document are the same thing.
+  let attachments;
+  try {
+    const [fullCompany, scopeGroupsRaw, template] = await Promise.all([
+      db.company.findUnique({ where: { id: member.companyId } }),
+      db.quoteScopeGroup.findMany({
+        where: { quoteId: quote.id },
+        include: { category: true },
+        orderBy: { sortOrder: "asc" },
+      }),
+      db.documentTemplate.findFirst({
+        where: { companyId: member.companyId, type: "quote_pdf", isDefault: true },
+      }),
+    ]);
+    const sections = template?.sections || getDefaultSections("quote_pdf");
+    const scopeGroups = await attachServiceSettings(db, member.companyId, scopeGroupsRaw);
+    const pdfBuffer = await renderDocumentPdfBuffer({
+      sections,
+      language: quote.language || fullCompany?.defaultLanguage || "en",
+      data: { ...quote, client: quote.client, scopeGroups },
+      company: fullCompany,
+    });
+    if (pdfBuffer?.length) {
+      attachments = [{ filename: `Quote-${quote.quoteNumber}.pdf`, content: pdfBuffer }];
+    }
+  } catch (err) {
+    console.error("[quote send] PDF attach failed:", err?.message);
+  }
+
+  const result = await sendEmail({ to, subject, html, text, from, replyTo, attachments });
 
   // sendEmail returns { skipped } rather than throwing when RESEND_API_KEY is
   // absent. Treating that as success is how a deployment with no mail
