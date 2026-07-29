@@ -687,6 +687,44 @@ export const INTAKE_FIELDS = {
     },
   ],
 
+  // ── Coatings / concrete ──
+  // Field keys line up with the instant estimator's surcharge inputs in
+  // lib/estimate/instantEstimate.js (surfaceCondition, access, condition), so
+  // the same intake drives both the internal builder and the public estimate.
+  epoxy: [
+    { key: "squareFootage", label: "Floor Area (sqft)", type: "number" },
+    {
+      // Drives grinding/patching effort — the estimator's prepSurcharge.
+      key: "surfaceCondition",
+      label: "Surface Condition",
+      type: "select",
+      options: ["good", "fair", "poor"],
+    },
+    {
+      key: "system",
+      label: "Coating System",
+      type: "select",
+      options: ["epoxy_solid", "epoxy_flake", "metallic", "quartz", "polyaspartic"],
+    },
+  ],
+  parging: [
+    { key: "squareFootage", label: "Wall Area (sqft)", type: "number" },
+    {
+      // Ladders vs scaffold — the estimator's accessSurcharge.
+      key: "access",
+      label: "Height / Access",
+      type: "select",
+      options: ["ground", "second_storey", "scaffold"],
+    },
+    {
+      // New over sound masonry vs patch-and-repair — conditionSurcharge.
+      key: "condition",
+      label: "Surface Condition",
+      type: "select",
+      options: ["new_or_sound", "minor_repair", "major_repair"],
+    },
+  ],
+
   // ── Landscaping / outdoor ──
   landscaping_design: [
     { key: "lotSize", label: "Lot Size (sqft)", type: "number" },

@@ -270,6 +270,15 @@ const CATEGORIES = [
     icon: "Package",
     sortOrder: 60,
   },
+
+  // ── Coatings / concrete (added for the instant estimator) ──
+  {
+    key: "epoxy",
+    label: "Epoxy & Concrete Coatings",
+    icon: "Square",
+    sortOrder: 61,
+  },
+  { key: "parging", label: "Parging", icon: "Square", sortOrder: 62 },
 ];
 
 async function main() {

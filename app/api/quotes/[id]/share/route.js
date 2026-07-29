@@ -66,9 +66,22 @@ export async function POST(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true, shareToken: true },
+    select: { id: true, shareToken: true, needsReview: true },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Same gate as send: a share link publishes pricing to anyone holding the
+  // URL, so an unreviewed instant estimate must not be shareable either.
+  if (quote.needsReview) {
+    return NextResponse.json(
+      {
+        error:
+          "Approve this instant estimate in Estimate Reviews before sharing a link.",
+        needsReview: true,
+      },
+      { status: 409 },
+    );
+  }
 
   const { rotate } = await request.json().catch(() => ({}));
 

@@ -39,6 +39,7 @@ import {
   Bell,
   ListChecks,
   Languages,
+  Zap,
 } from "lucide-react";
 
 const TOP_ITEMS = [
@@ -144,6 +145,11 @@ const CLIENT_ITEMS = [
     icon: ClipboardList,
   },
   { label: "Your website", href: "/app/settings/website", icon: Globe },
+  {
+    label: "Instant Quotes",
+    href: "/app/settings/instant-quotes",
+    icon: Zap,
+  },
 ];
 
 export default function SettingsSidebar() {

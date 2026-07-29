@@ -66,6 +66,22 @@ export async function POST(request, { params }) {
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // The review gate. An instant estimate the homeowner saw as a RANGE cannot
+  // be emailed as a real quote until someone with quote:approve-estimate has
+  // signed off the price in Estimate Reviews. Without this check the whole
+  // review queue would be cosmetic — the exact "control that appears to work
+  // and doesn't" this codebase forbids.
+  if (quote.needsReview) {
+    return NextResponse.json(
+      {
+        error:
+          "This instant estimate hasn't been approved yet. Confirm the price in Estimate Reviews, then send.",
+        needsReview: true,
+      },
+      { status: 409 },
+    );
+  }
+
   const to = quote.client?.email?.trim();
   if (!to) {
     return NextResponse.json(

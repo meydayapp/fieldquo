@@ -43,6 +43,7 @@ const PLATFORM_SECRET = new TextEncoder().encode(
 // door.
 const SUBDOMAIN_PASSTHROUGH = [
   "/quote",
+  "/instant-quote",
   "/book",
   "/embed",
   "/q",

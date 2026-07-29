@@ -12,11 +12,11 @@ datasource db {
 // PLATFORM — FieldQuo's own back office (never mixed with tenant auth)
 // ============================================================
 model Product {
-  id          String      @id @default(cuid())
-  companyId   String
-  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
+  id           String      @id @default(cuid())
+  companyId    String
+  company      Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
   // Per-language name and description, keyed by language code:
   //   { fr: { name, description }, es: { name, description }, ... }
   //
@@ -28,12 +28,12 @@ model Product {
   // (app/data/standardAddOns.js), and services a company adds itself get
   // drafted by lib/i18n/translateContent.js for the company to review.
   translations Json?
-  type        ProductType @default(service)
-  unitPrice   Decimal?    @db.Decimal(12, 2)
-  costPrice   Decimal?    @db.Decimal(12, 2)
-  unit        String?
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
+  type         ProductType @default(service)
+  unitPrice    Decimal?    @db.Decimal(12, 2)
+  costPrice    Decimal?    @db.Decimal(12, 2)
+  unit         String?
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
 
   // Which quote types (ServiceCategory) this product/service can be added to
   // as a line item. Empty = available on every quote type (e.g. a generic
@@ -50,7 +50,7 @@ model PlatformAdmin {
   active       Boolean           @default(true)
   createdAt    DateTime          @default(now())
 
-  auditLogs    PlatformAuditLog[]
+  auditLogs PlatformAuditLog[]
 }
 
 model PlatformAuditLog {
@@ -69,28 +69,28 @@ model PlatformAuditLog {
 // must survive the company being deleted. "We deleted the account because of
 // a bug they reported" shouldn't also delete the bug report.
 model Feedback {
-  id        String         @id @default(cuid())
-  companyId String?
-  userId    String?
+  id          String  @id @default(cuid())
+  companyId   String?
+  userId      String?
   // Denormalised at submission time so a reply is still possible after the
   // account is gone, and so triage doesn't need a join to show who reported it.
-  email     String?
+  email       String?
   companyName String?
 
-  type      FeedbackType   @default(other)
-  subject   String
-  body      String
+  type    FeedbackType @default(other)
+  subject String
+  body    String
   // Which page they were on. The single most useful field for reproducing a
   // bug, and the one users never think to include.
-  pageUrl   String?
+  pageUrl String?
 
-  status    FeedbackStatus @default(open)
+  status     FeedbackStatus @default(open)
   // Internal triage notes — never shown to the company.
   adminNotes String?
   resolvedAt DateTime?
 
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, createdAt])
 }
@@ -101,20 +101,20 @@ model Feedback {
 // triaged and closed, a testimonial is approved and published. Conflating them
 // means one accidental status change puts a bug report on your homepage.
 model Testimonial {
-  id          String   @id @default(cuid())
-  companyId   String?
+  id           String   @id @default(cuid())
+  companyId    String?
   // Captured at approval time — the person's name and role as it should
   // appear publicly, which may differ from their account details.
-  authorName  String
-  authorTitle String?
+  authorName   String
+  authorTitle  String?
   companyLabel String?
-  quote       String
+  quote        String
   // Never published without an explicit approval step. Default false so a
   // draft can't reach the public site by omission.
-  approved    Boolean  @default(false)
-  featured    Boolean  @default(false)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  approved     Boolean  @default(false)
+  featured     Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
 
   @@index([approved, sortOrder])
 }
@@ -130,10 +130,10 @@ model CustomField {
   required   Boolean               @default(false)
   sortOrder  Int                   @default(0)
   createdAt  DateTime              @default(now())
- 
+
   values CustomFieldValue[]
 }
- 
+
 // Polymorphic on purpose — entityId points at whichever table entityType
 // implies (Client.id, Quote.id, Job.id, Invoice.id, Member.id). Not wired up
 // to any of those forms yet (see note 2 above); the model just exists so the
@@ -146,7 +146,7 @@ model CustomFieldValue {
   value         String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
- 
+
   @@unique([customFieldId, entityId])
 }
 
@@ -197,16 +197,16 @@ model Subscription {
 // ============================================================
 
 model Company {
-  id                     String            @id @default(cuid())
-  name                   String
-  slug                   String            @unique
-  email                  String?
-  phone                  String?
-  address                String?
-  city                   String?
-  province               String?
-  website                String?
-  logoUrl                String?
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  province     String?
+  website      String?
+  logoUrl      String?
   // Cloudinary's own id for the logo asset, not just its URL.
   //
   // The upload route has always returned this and the app has always thrown it
@@ -214,21 +214,21 @@ model Company {
   // account forever (storage nobody is using but everybody is paying for), and
   // moving to a different Cloudinary account meant reverse-engineering ids out
   // of URLs. Both are cheap to avoid by keeping the id at upload time.
-  logoPublicId           String?
+  logoPublicId String?
   // Kept as the canonical PRIMARY colour. Everything that read brandColor
   // before still works; brandColors below layers secondary/neutral on top
   // rather than replacing it, so there's no migration of existing values.
-  brandColor             String?           @default("#06356b")
+  brandColor   String? @default("#06356b")
   // { secondary, neutral } — see lib/email/emailTheme.js. Null means "derive
   // sensible defaults from brandColor", which is what every existing company
   // gets without touching a thing.
-  brandColors            Json?
+  brandColors  Json?
 
   // Default interface language for everyone in this company, and the fallback
   // for client-facing documents when a Client has no language of their own.
   // Distinct from Quote.language, which records the language a specific quote
   // was sent in — that must stay fixed even if the company later switches.
-  defaultLanguage        String            @default("en")
+  defaultLanguage String   @default("en")
   // Languages this company actually sends CLIENT documents in. Drives which
   // options the employee sees when setting a client's language, and which
   // translations get drafted when a service is added.
@@ -236,31 +236,31 @@ model Company {
   // Separate from the six FieldQuo supports: a painter in Ottawa might send
   // in English and French only, and shouldn't be asked to review Tagalog
   // drafts for every service they add. Empty means "default language only".
-  sendLanguages          String[]          @default([])
+  sendLanguages   String[] @default([])
 
   // ── Per-company email sending domain (Resend) ──────────────────────────
   // Until emailDomainStatus is "verified", mail for this company goes out on
   // FieldQuo's shared domain under the company's display name. Once verified,
   // it sends from emailFromLocal@emailDomain instead. See lib/email/resend.js
   // senderFor() and lib/email/resendDomains.js.
-  emailDomain          String? // e.g. "send.northline.com"
-  emailDomainId        String? // Resend's domain id, needed to verify/delete
+  emailDomain            String? // e.g. "send.northline.com"
+  emailDomainId          String? // Resend's domain id, needed to verify/delete
   // not_started | pending | verified | failed
-  emailDomainStatus    String? @default("not_started")
+  emailDomainStatus      String?          @default("not_started")
   // Local part of the sender address: "quotes" -> quotes@send.northline.com
-  emailFromLocal       String? @default("quotes")
+  emailFromLocal         String?          @default("quotes")
   // Cached DNS records Resend returned at creation, so the setup screen can
   // show them without re-hitting the API on every page load.
-  emailDomainRecords   Json?
-  emailDomainCheckedAt DateTime?
+  emailDomainRecords     Json?
+  emailDomainCheckedAt   DateTime?
   paymentTerms           String?
-  taxRate                Decimal           @default(0) @db.Decimal(6, 3)
-  paymentMethods         String[]          @default(["cash", "e_transfer", "cheque"])
-  bookingSlug            String?           @unique
-  industries String[] @default([])
-  onboardingStatus       OnboardingStatus  @default(pending)
+  taxRate                Decimal          @default(0) @db.Decimal(6, 3)
+  paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
+  bookingSlug            String?          @unique
+  industries             String[]         @default([])
+  onboardingStatus       OnboardingStatus @default(pending)
   trialEndsAt            DateTime?
-  shareAnonymizedPricing Boolean           @default(false)
+  shareAnonymizedPricing Boolean          @default(false)
 
   // Boilerplate "what happens next" copied onto every new quote — timelines,
   // site access, payment schedule, warranty, who to call. Written once in
@@ -270,20 +270,20 @@ model Company {
   defaultProcessNotes String?
 
   pendingTeamProfiles PendingTeamProfile[]
-  customFields CustomField[]
+  customFields        CustomField[]
 
-  referralCode   String? @unique
+  referralCode   String?   @unique
   referredByCode String?
   // When the referral was actually redeemed. Null on a company that arrived
   // organically, and also on one that arrived via a link but was blocked from
   // redeeming (see lib/referrals/grantCredit.js).
   referredAt     DateTime?
 
-  referralInvitesSent  ReferralInvite[] @relation("ReferralInvitesSent")
-  referralCredits      ReferralCredit[] @relation("ReferralCreditsEarned")
+  referralInvitesSent ReferralInvite[] @relation("ReferralInvitesSent")
+  referralCredits     ReferralCredit[] @relation("ReferralCreditsEarned")
 
-  site    CompanySite?
-  aiUsage AiUsage[]
+  site              CompanySite?
+  aiUsage           AiUsage[]
   // Per-company override of the plan's monthly AI token allowance. Null means
   // "use the plan's". 0 means "no AI at all" — distinct from null, which is
   // why this is nullable rather than defaulted.
@@ -337,19 +337,19 @@ model Company {
   subscription          Subscription?
   instantQuoteConfigs   InstantQuoteConfig[]
 
-  postalCode        String?
-  country           String?  @default("CA")
-  latitude          Decimal? @db.Decimal(9, 6)
-  longitude         Decimal? @db.Decimal(9, 6)
-  discoverable      Boolean  @default(false)
+  postalCode   String?
+  country      String?  @default("CA")
+  latitude     Decimal? @db.Decimal(9, 6)
+  longitude    Decimal? @db.Decimal(9, 6)
+  discoverable Boolean  @default(false)
 
-  taxIdName         String?  // e.g. "GST"
+  taxIdName         String? // e.g. "GST"
   taxIdNumber       String?
-  autoApplyLocalTax Boolean  @default(true)
+  autoApplyLocalTax Boolean @default(true)
 
-  timezone          String?  @default("America/Toronto")
-  dateFormat        String?  @default("MM/DD/YYYY")
-  weekStartsOn      Int?     @default(0) // 0 = Sunday, 1 = Monday
+  timezone     String? @default("America/Toronto")
+  dateFormat   String? @default("MM/DD/YYYY")
+  weekStartsOn Int?    @default(0) // 0 = Sunday, 1 = Monday
 
   // When the business is OPEN — deliberately not AvailabilitySchedule, which
   // hangs off a user and answers "when can this person be booked". The two
@@ -363,10 +363,10 @@ model Company {
   // Null means "never told us", which the site renders as nothing. Seven
   // closed days would mean "we are shut all week", and conflating the two puts
   // a false CLOSED on a working company's Google listing.
-  businessHours     Json?
+  businessHours Json?
 
-  sitePublished     Boolean  @default(false)
-  taxRates          TaxRate[]
+  sitePublished Boolean   @default(false)
+  taxRates      TaxRate[]
 
   authOrgId String? @unique
 
@@ -398,8 +398,6 @@ model MaterialRecipeSetting {
   @@unique([companyId, categoryKey])
 }
 
-
-
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -416,23 +414,23 @@ model User {
 
   orgMemberships OrgMember[]
 
-  memberships          Member[]
-  sessions             Session[]
-  accounts             Account[]
-  quotesCreated        Quote[]              @relation("QuoteCreatedBy")
-  invoicesCreated      Invoice[]            @relation("InvoiceCreatedBy")
-  appointmentsCreated  Appointment[]        @relation("AppointmentCreatedBy")
-  appointmentsAssigned Appointment[]        @relation("AppointmentAssignee")
-  tasksCreated         Task[]               @relation("TaskCreatedBy")
-  tasksAssigned        Task[]               @relation("TaskAssignee")
-  timeEntriesApproved  TimeEntry[]          @relation("TimeEntryApprovedBy")
-  workAreaAssignments  WorkAreaAssignment[]
-  availability         AvailabilitySchedule[]
-  eventTypes           EventType[]
-  jobVisitsAssigned    JobVisit[]           @relation("JobVisitAssignee")
-  workerProfile        Worker?
-  campaignsAssigned    MarketingCampaign[]  @relation("CampaignAssignee")
-  pamphletStopsAssigned PamphletStop[]      @relation("PamphletStopAssignee")
+  memberships           Member[]
+  sessions              Session[]
+  accounts              Account[]
+  quotesCreated         Quote[]                @relation("QuoteCreatedBy")
+  invoicesCreated       Invoice[]              @relation("InvoiceCreatedBy")
+  appointmentsCreated   Appointment[]          @relation("AppointmentCreatedBy")
+  appointmentsAssigned  Appointment[]          @relation("AppointmentAssignee")
+  tasksCreated          Task[]                 @relation("TaskCreatedBy")
+  tasksAssigned         Task[]                 @relation("TaskAssignee")
+  timeEntriesApproved   TimeEntry[]            @relation("TimeEntryApprovedBy")
+  workAreaAssignments   WorkAreaAssignment[]
+  availability          AvailabilitySchedule[]
+  eventTypes            EventType[]
+  jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
+  workerProfile         Worker?
+  campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
+  pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
 }
 
 // One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
@@ -478,7 +476,7 @@ model PendingTeamProfile {
   permissions        Json?
   invitationLanguage String?  @default("en")
   createdAt          DateTime @default(now())
- 
+
   @@unique([companyId, email])
 }
 
@@ -563,9 +561,9 @@ model Invitation {
 // ============================================================
 
 model Client {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name        String
   // individual = a homeowner / end customer whose jobs are at their own
   // address; company = another business (e.g. a general contractor) that
@@ -588,8 +586,8 @@ model Client {
   // whose crew works in English can still send a Punjabi-speaking homeowner a
   // quote they can actually read.
   language    String?
-  portalToken String?  @unique
-  createdAt   DateTime @default(now())
+  portalToken String?    @unique
+  createdAt   DateTime   @default(now())
 
   quotes        Quote[]
   invoices      Invoice[]
@@ -651,8 +649,8 @@ model Quote {
   followUpSentAt DateTime?
   followUpCount  Int       @default(0)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   invoices     Invoice[]
   scopeGroups  QuoteScopeGroup[]
@@ -660,12 +658,10 @@ model Quote {
   tasks        Task[]
   jobs         Job[]
 
-  @@unique([companyId, quoteNumber])
-
   calledAt DateTime?
 
-  tierGroupId String?     // shared ID linking Good/Better/Best variants together
-  tierLabel   String?      // "good" | "better" | "best"
+  tierGroupId String? // shared ID linking Good/Better/Best variants together
+  tierLabel   String? // "good" | "better" | "best"
 
   // ── Optional extras the client can add at approval time ────────────────
   addOns QuoteAddOn[]
@@ -703,8 +699,8 @@ model Quote {
   //
   // These are deliberately distinct from status: a normal draft a rep is still
   // editing is not "awaiting approval", and must not clutter the review queue.
-  autoEstimated  Boolean @default(false)
-  needsReview    Boolean @default(false)
+  autoEstimated  Boolean   @default(false)
+  needsReview    Boolean   @default(false)
   // How the numbers were derived, for the reviewer's trust: e.g.
   // "google_solar", "lawn_polygon", "manual". Free-form, not an enum, because
   // new trades add sources without a migration.
@@ -719,6 +715,8 @@ model Quote {
   // churn the auth models for no query we run.
   reviewedById   String?
   reviewedAt     DateTime?
+
+  @@unique([companyId, quoteNumber])
 }
 
 // An optional extra offered at the bottom of a quote.
@@ -739,8 +737,8 @@ model QuoteAddOn {
   // converts noticeably worse — "Gutter guards $340" is a cost, "Gutter
   // guards $340 — stops the autumn clean-out you're paying for every year"
   // is a saving.
-  detail String?
-  amount Decimal @default(0) @db.Decimal(12, 2)
+  detail      String?
+  amount      Decimal @default(0) @db.Decimal(12, 2)
 
   // Whether tax applies. Most extras are taxed like the rest of the job, but
   // a permit fee or a disbursement isn't, and getting that wrong on an
@@ -780,18 +778,18 @@ model Invoice {
   version         Int       @default(1)
   changeLog       Json?
 
-  lineItems    Json?
-  subtotal     Decimal @default(0) @db.Decimal(12, 2)
-  discount     Decimal @default(0) @db.Decimal(12, 2)
-  tax          Decimal @default(0) @db.Decimal(12, 2)
-  total        Decimal @default(0) @db.Decimal(12, 2)
+  lineItems Json?
+  subtotal  Decimal @default(0) @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+  tax       Decimal @default(0) @db.Decimal(12, 2)
+  total     Decimal @default(0) @db.Decimal(12, 2)
 
   dueDate      DateTime?
   startDate    DateTime?
   endDate      DateTime?
   pdfUrl       String?
-  clientPhotos String[] @default([])
-  language     String   @default("en")
+  clientPhotos String[]  @default([])
+  language     String    @default("en")
 
   stripePaymentIntentId String?
   stripeCheckoutUrl     String?
@@ -862,9 +860,10 @@ model ServiceCategory {
   scopeGroups        QuoteScopeGroup[]
   checklistTemplates JobChecklistTemplate[]
   leadRequests       LeadRequest[]
-  quickAddItems QuickAddItem[]
+  quickAddItems      QuickAddItem[]
   products           Product[]
 }
+
 model QuickAddItem {
   id          String           @id @default(cuid())
   companyId   String
@@ -892,8 +891,6 @@ model CompanyServiceCategory {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
-  @@unique([companyId, categoryId])
-
   crewRate1Person Decimal? @db.Decimal(10, 2)
   crewRate2Person Decimal? @db.Decimal(10, 2)
 
@@ -910,6 +907,8 @@ model CompanyServiceCategory {
   accentColor   String? // hex, tints the scope card for this service
   includedItems Json? // string[] — the "what's included" list
   processSteps  Json? // { title, body }[] — numbered at render time
+
+  @@unique([companyId, categoryId])
 }
 
 model QuoteScopeGroup {
@@ -947,7 +946,7 @@ model DocumentTemplate {
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
-  followUpRules FollowUpRule[]
+  followUpRules      FollowUpRule[]
   marketingCampaigns MarketingCampaign[]
 }
 
@@ -958,19 +957,19 @@ model DocumentTemplate {
 // dropdown, with no migration. Supported today: quote_no_response,
 // invoice_overdue, job_completed.
 model FollowUpRule {
-  id          String   @id @default(cuid())
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name        String
+  id           String            @id @default(cuid())
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
   triggerEvent String
-  delayValue  Int      @default(3)
-  delayUnit   String   @default("days") // "hours" | "days"
-  templateId  String?
-  template    DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  active      Boolean  @default(true)
-  conditions  Json? // reserved for future rule conditions (min quote total, etc.)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  delayValue   Int               @default(3)
+  delayUnit    String            @default("days") // "hours" | "days"
+  templateId   String?
+  template     DocumentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  active       Boolean           @default(true)
+  conditions   Json? // reserved for future rule conditions (min quote total, etc.)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
   logs FollowUpLog[]
 }
@@ -1120,23 +1119,23 @@ model JobChecklistTemplate {
 // below), plus lighter-weight records for paid channels (meta_ads) and a
 // generic bucket. Only pamphlet campaigns use PamphletStop rows.
 model MarketingCampaign {
-  id           String                  @id @default(cuid())
-  companyId    String
-  company      Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name         String
-  type         MarketingCampaignType   @default(pamphlet)
-  status       MarketingCampaignStatus @default(draft)
-  notes        String?
+  id        String                  @id @default(cuid())
+  companyId String
+  company   Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  type      MarketingCampaignType   @default(pamphlet)
+  status    MarketingCampaignStatus @default(draft)
+  notes     String?
 
   // The employee tasked with distribution (User, so it lines up with the same
   // assignee model appointments/jobs use). Nullable until assigned.
   assignedToId String?
-  assignedTo   User?                   @relation("CampaignAssignee", fields: [assignedToId], references: [id])
+  assignedTo   User?   @relation("CampaignAssignee", fields: [assignedToId], references: [id])
 
   // Paid-channel record-keeping — only meaningful for non-pamphlet types,
   // left null for pamphlet campaigns.
-  budget       Decimal?                @db.Decimal(12, 2)
-  externalUrl  String?
+  budget      Decimal? @db.Decimal(12, 2)
+  externalUrl String?
 
   // Email-blast campaigns (type = email): which template to send and to how
   // many subscribers, set once Send is clicked on the campaign detail page.
@@ -1145,10 +1144,10 @@ model MarketingCampaign {
   sentAt         DateTime?
   recipientCount Int?
 
-  stops        PamphletStop[]
+  stops PamphletStop[]
 
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // A marketing-email recipient — either imported from the Client list or
@@ -1179,14 +1178,14 @@ model MarketingSubscriber {
 // to a homeowner and have the RBAC role, a stop can spawn a real Appointment
 // and/or Quote — those FKs link back to the created records.
 model PamphletStop {
-  id           String             @id @default(cuid())
-  campaignId   String
-  campaign     MarketingCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  id         String            @id @default(cuid())
+  campaignId String
+  campaign   MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
-  address      String
-  latitude     Decimal?           @db.Decimal(9, 6)
-  longitude    Decimal?           @db.Decimal(9, 6)
-  sortOrder    Int                @default(0)
+  address   String
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+  sortOrder Int      @default(0)
 
   status       PamphletStopStatus @default(pending)
   spokeToOwner Boolean            @default(false)
@@ -1195,16 +1194,16 @@ model PamphletStop {
   // Field agent override — a stop can be handed to a specific person, though
   // by default it inherits the campaign's assignee.
   assignedToId String?
-  assignedTo   User?              @relation("PamphletStopAssignee", fields: [assignedToId], references: [id])
+  assignedTo   User?   @relation("PamphletStopAssignee", fields: [assignedToId], references: [id])
 
   // Set when the doorstep conversation converts into real work.
   clientId      String?
-  client        Client?           @relation(fields: [clientId], references: [id])
+  client        Client? @relation(fields: [clientId], references: [id])
   appointmentId String?
   quoteId       String?
 
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([campaignId, sortOrder])
 }
@@ -1365,19 +1364,19 @@ model Payout {
 // ============================================================
 
 model Expense {
-  id         String           @id @default(cuid())
-  companyId  String
-  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  category   String
-  amount     Decimal          @default(0) @db.Decimal(12, 2)
-  date       DateTime         @default(now())
-  notes      String?
-  projectId  String?
-  isOverhead Boolean          @default(false)
-  recurring  Boolean          @default(false)
-  frequency  ExpenseFrequency @default(one_time)
-  materialId String?
-  material   Material?        @relation(fields: [materialId], references: [id])
+  id          String           @id @default(cuid())
+  companyId   String
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    String
+  amount      Decimal          @default(0) @db.Decimal(12, 2)
+  date        DateTime         @default(now())
+  notes       String?
+  projectId   String?
+  isOverhead  Boolean          @default(false)
+  recurring   Boolean          @default(false)
+  frequency   ExpenseFrequency @default(one_time)
+  materialId  String?
+  material    Material?        @relation(fields: [materialId], references: [id])
   // Who recorded it. Added because the permission grid offers "Expenses:
   // view, record, and edit THEIR OWN" and there was no way to tell whose an
   // expense was — the level was unenforceable, so everyone saw everything
@@ -1388,7 +1387,7 @@ model Expense {
   // entered them — but it means existing expenses effectively become
   // admin-only.
   createdById String?
-  createdAt  DateTime         @default(now())
+  createdAt   DateTime         @default(now())
 
   priceEntries MaterialPriceEntry[]
 
@@ -1530,7 +1529,7 @@ enum CustomFieldEntityType {
   invoice
   team
 }
- 
+
 enum CustomFieldType {
   text
   number
@@ -1538,7 +1537,6 @@ enum CustomFieldType {
   checkbox
   dropdown
 }
- 
 
 enum PlatformAdminRole {
   support
@@ -1706,6 +1704,7 @@ enum CurveType {
   log
   exp
 }
+
 // ============================================================
 // REFERRALS (company → company)
 // ============================================================
@@ -1743,7 +1742,7 @@ model ReferralInvite {
   // Set when a company signs up carrying this invite's referral code and
   // matching contact details. Not a hard link — someone can forward the link
   // to a colleague, and that referral should still count for the sender.
-  redeemedByCompanyId String?  @unique
+  redeemedByCompanyId String?   @unique
   redeemedAt          DateTime?
 
   // Twilio/Resend id, so a delivery complaint can be traced to a send.
@@ -1897,4 +1896,36 @@ model CompanySite {
   updatedAt DateTime @updatedAt
 
   @@index([published])
+}
+
+// Per-company, per-trade configuration for the public instant estimator.
+//
+// The estimator NEVER prices off our defaults — it prices off this row. A
+// trade with no row (or enabled=false) is simply not offered as an instant
+// quote, which is how non-negotiable #4 (public endpoints don't publish a rate
+// card WE invented) stays true: every number a homeowner sees traces to sell
+// rates this company reviewed and saved.
+//
+// `config` is a Json blob whose shape mirrors INSTANT_ESTIMATE_DEFAULTS[trade]
+// in lib/estimate/instantEstimate.js — material rows with sell rates, surcharge
+// maps, range band, minimum charge. Kept as Json rather than columns because
+// the shape differs per trade (roofing has $/square, lawn has size tiers) and
+// a column-per-field schema would be mostly nulls. The estimator validates it
+// at price time, so a malformed blob degrades to "not configured", never a bad
+// price.
+model InstantQuoteConfig {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Estimator trade key: roofing | epoxy | parging | lawn_mowing |
+  // cabinet_refacing. Maps to a ServiceCategory key, but named `trade` because
+  // the estimator's unit of configuration is the pricing model, not the
+  // catalogue entry (roofing_service the category vs. roofing the estimator).
+  trade     String
+  enabled   Boolean  @default(false)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, trade])
 }

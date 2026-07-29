@@ -138,6 +138,25 @@ path must stay dynamic while the public path caches.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Instant estimator (Cossette-style)** — public "get an instant estimate"
+  flow. Address → Google Solar buildingInsights (roof area + predominant pitch,
+  sloped area used directly) → per-material price RANGE + satellite still; lawn
+  via a traced polygon (server recomputes the area); epoxy/parging/cabinet via
+  typed intake. All money is recomputed server-side from the company's own
+  saved rates (`InstantQuoteConfig`) — a trade with no config isn't offered, so
+  no invented price is ever published. Estimates land as `draft` quotes with
+  `needsReview=true`; **send AND share are gated** until someone with
+  `quote:approve-estimate` signs off in `/app/estimate-reviews`. Pieces:
+  `lib/measure/` (measurement, live-tested + hostile-input tested),
+  `lib/estimate/` (pure pricing brain, reproduces real Cossette figures),
+  `/api/instant-quote/*`, `/app/settings/instant-quotes`, `/app/estimate-reviews`.
+  Two new service categories seeded: `epoxy`, `parging`.
+  **To go live in production:** add `GOOGLE_MAPS_SERVER_KEY` (or confirm the
+  existing `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` is unrestricted enough for
+  server-side Solar/Geocoding — a referrer-restricted key rejects server calls)
+  with Geocoding + Solar + Static Maps enabled, and have each company set their
+  rates + enable trades. Consider linking `/instant-quote/<slug>` from the
+  "Share your links" settings page and the website builder.
 - **Website blocks integrated with real company data** — opening hours block,
   booking calendar and self-quote form embedded inline, all rendering from the
   company record rather than retyped text. Booking and hours blocks only appear

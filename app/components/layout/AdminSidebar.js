@@ -18,6 +18,7 @@ import {
   Receipt,
   Megaphone,
   Headset,
+  BadgeCheck,
   Clock,
   Wallet,
   Gift,
@@ -59,6 +60,7 @@ const NAV_GROUPS = [
     items: [
       { label: "Requests", href: "/app/leads", icon: ClipboardList },
       { label: "Quotes", href: "/app/quotes", icon: FileText },
+      { label: "Estimate Reviews", href: "/app/estimate-reviews", icon: BadgeCheck },
       { label: "Jobs", href: "/app/jobs", icon: Briefcase },
       { label: "Invoices", href: "/app/invoices", icon: Receipt },
       { label: "Calendar", href: "/app/appointments", icon: Calendar },

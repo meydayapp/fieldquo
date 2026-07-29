@@ -28,7 +28,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, ExternalLink, FileText, CalendarDays } from "lucide-react";
+import { Copy, Check, ExternalLink, FileText, CalendarDays, Zap } from "lucide-react";
 
 function ShareBlock({ icon: Icon, title, description, url, embed }) {
   const [copied, setCopied] = useState("");
@@ -73,24 +73,26 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
         </a>
       </div>
 
-      <details className="mt-3">
-        <summary className="text-xs text-muted-foreground cursor-pointer">
-          Embed it on your website instead
-        </summary>
-        <div className="mt-2 flex items-start gap-2">
-          <pre className="flex-1 min-w-0 bg-muted border border-border rounded-lg p-3 text-[11px] overflow-x-auto">
-            {embed}
-          </pre>
-          <button
-            type="button"
-            onClick={() => copy("embed", embed)}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0 mt-1"
-          >
-            {copied === "embed" ? <Check size={13} /> : <Copy size={13} />}
-            {copied === "embed" ? "Copied" : "Copy"}
-          </button>
-        </div>
-      </details>
+      {embed && (
+        <details className="mt-3">
+          <summary className="text-xs text-muted-foreground cursor-pointer">
+            Embed it on your website instead
+          </summary>
+          <div className="mt-2 flex items-start gap-2">
+            <pre className="flex-1 min-w-0 bg-muted border border-border rounded-lg p-3 text-[11px] overflow-x-auto">
+              {embed}
+            </pre>
+            <button
+              type="button"
+              onClick={() => copy("embed", embed)}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0 mt-1"
+            >
+              {copied === "embed" ? <Check size={13} /> : <Copy size={13} />}
+              {copied === "embed" ? "Copied" : "Copy"}
+            </button>
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -108,6 +110,7 @@ export default function LeadFormPage() {
 
   const quoteUrl = `${origin}/quote/${slug}`;
   const bookUrl = `${origin}/book/${slug}`;
+  const instantUrl = `${origin}/instant-quote/${slug}`;
 
   /**
    * The embed snippet.
@@ -174,6 +177,13 @@ window.addEventListener("message", function (e) {
         description="They pick a time from your real availability. Best for people who've already decided and just want you there."
         url={bookUrl}
         embed={embed("book")}
+      />
+
+      <ShareBlock
+        icon={Zap}
+        title="Instant estimate"
+        description="They enter their address and get a real starting price in seconds — roof measured from satellite, or an area they trace on a map. Every estimate lands in your review queue before it's binding. Turn trades on and set your rates under Settings → Instant Quotes."
+        url={instantUrl}
       />
 
       <p className="text-xs text-muted-foreground">
