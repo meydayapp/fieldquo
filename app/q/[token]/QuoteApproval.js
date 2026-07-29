@@ -538,11 +538,11 @@ export default function QuoteApproval({ token }) {
           )}
 
           <div className="pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label="Subtotal" value={pricing.subtotal} />
+            <Row label="Subtotal" value={pricing.subtotal} currency={c.currency} />
             {quote.discount > 0 && (
-              <Row label="Discount" value={-quote.discount} />
+              <Row label="Discount" value={-quote.discount} currency={c.currency} />
             )}
-            <Row label="Tax" value={pricing.tax} />
+            <Row label="Tax" value={pricing.tax} currency={c.currency} />
             {pricing.extras > 0 && (
               <div className="flex justify-between text-[#2d2520]/70">
                 <span>Includes optional extras</span>
@@ -690,11 +690,14 @@ function Shell({ children }) {
   );
 }
 
-function Row({ label, value }) {
+// `money` is component-scoped (it needs the quote's currency), so this
+// module-level helper takes the currency and formats itself — otherwise it
+// references a `money` that isn't in scope and crashes the whole page.
+function Row({ label, value, currency }) {
   return (
     <div className="flex justify-between text-[#2d2520]/70">
       <span>{label}</span>
-      <span className="tabular-nums">{money(value)}</span>
+      <span className="tabular-nums">{formatMoney(value, currency)}</span>
     </div>
   );
 }
