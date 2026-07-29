@@ -5,15 +5,25 @@ import { useState, useEffect } from "react";
 import { X, ArrowRight } from "lucide-react";
 
 // steps: [{ target: "[data-tour='service-picker']", title, body }]
-export default function OnboardingTour({ steps, storageKey, onFinish }) {
+//
+// `serverSeen` (optional): the tour was already dismissed by this user on some
+// device, per the server. When true the tour won't auto-open even in a fresh
+// browser that has no localStorage flag. onFinish is where the caller persists
+// "seen" server-side.
+export default function OnboardingTour({ steps, storageKey, serverSeen = false, onFinish }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [active, setActive] = useState(false);
   const [rect, setRect] = useState(null);
 
   useEffect(() => {
+    if (serverSeen) return;
     const seen = localStorage.getItem(`tour_seen_${storageKey}`);
-    if (!seen) setActive(true);
-  }, [storageKey]);
+    // Only auto-open once the target exists — a tour that fires before its
+    // anchor renders would point at nothing and flash an empty spotlight.
+    if (!seen && steps?.[0]?.target && document.querySelector(steps[0].target)) {
+      setActive(true);
+    }
+  }, [storageKey, serverSeen, steps]);
 
   useEffect(() => {
     if (!active) return;

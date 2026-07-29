@@ -58,9 +58,9 @@ const NAV_GROUPS = [
   {
     label: "Work",
     items: [
-      { label: "Requests", href: "/app/leads", icon: ClipboardList },
-      { label: "Quotes", href: "/app/quotes", icon: FileText },
-      { label: "Estimate Reviews", href: "/app/estimate-reviews", icon: BadgeCheck },
+      { label: "Requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests" },
+      { label: "Quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes" },
+      { label: "Estimate Reviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews" },
       { label: "Jobs", href: "/app/jobs", icon: Briefcase },
       { label: "Invoices", href: "/app/invoices", icon: Receipt },
       { label: "Calendar", href: "/app/appointments", icon: Calendar },
@@ -102,7 +102,7 @@ const QUICK_ADD_ITEMS = [
 // Bottom-of-sidebar items, above Log Out.
 const BOTTOM_ITEMS = [
   { label: "Plan", href: "/app/settings/account-billing", icon: CreditCard },
-  { label: "Settings", href: "/app/settings", icon: Settings },
+  { label: "Settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
 ];
 
 export default function AdminSidebar() {
@@ -174,6 +174,9 @@ export default function AdminSidebar() {
         href={item.href}
         onClick={onNavigate}
         title={showLabel ? undefined : item.label}
+        // Anchor for the first-run walkthrough (app/components/tours.js). Only
+        // set on the handful of items the welcome tour points at.
+        data-tour={item.tour}
         className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
           showLabel ? "" : "justify-center"
         } ${
@@ -290,7 +293,7 @@ export default function AdminSidebar() {
               of using the app rather than another section of it, and it's the
               feature most worth people noticing. */}
           <NavLink
-            item={{ label: "FieldQuo AI", href: "/app/copilot", icon: Sparkles }}
+            item={{ label: "FieldQuo AI", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
             forceExpanded={forceExpanded}
           />
 

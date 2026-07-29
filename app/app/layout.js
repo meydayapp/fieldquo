@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import ErrorToast from "@/app/components/ErrorToast";
+import AppTours from "@/app/components/AppTours";
 import BrandTheme from "@/app/components/BrandTheme";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { db } from "@/lib/db";
@@ -76,6 +77,9 @@ export default async function AppLayout({ children }) {
           no individual page needs its own error state and banner — see
           lib/clientErrors.js. */}
       <ErrorToast />
+      {/* First-visit walkthroughs. Mounted once here so a page never has to
+          wire its own — it just needs a data-tour anchor. See tours.js. */}
+      <AppTours />
     </div>
   );
 }

@@ -410,6 +410,11 @@ model User {
   // company set, and changing the company default moves them with it.
   // Storing "en" explicitly would freeze them, which is a different thing.
   language      String?
+  // Per-user UI state that isn't worth its own table: which first-visit tours
+  // this person has seen, dismissed hints, etc. Server-side (not just
+  // localStorage) so a tour a rep already dismissed doesn't re-appear when they
+  // open the app on the shop iPad. Shape: { seenTours: string[] }.
+  uiState       Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
