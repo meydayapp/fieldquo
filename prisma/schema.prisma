@@ -707,6 +707,16 @@ model Quote {
   // editing is not "awaiting approval", and must not clutter the review queue.
   autoEstimated  Boolean   @default(false)
   needsReview    Boolean   @default(false)
+
+  // ── Electronic signature (the approval itself) ──────────────────────────
+  // When a client signs, THIS is the acceptance — the signature is the intent,
+  // not a button. One Json audit blob, written once and read whole:
+  //   { name, signatureDataUrl, signedAt, ip, userAgent, documentHash, consent }
+  // documentHash is a sha256 of the exact quote content at signing time, so a
+  // later edit can't silently change what was agreed — the tamper-evidence that
+  // gives a self-built simple electronic signature the same standing the paid
+  // providers charge for. Null until signed.
+  signature      Json?
   // How the numbers were derived, for the reviewer's trust: e.g.
   // "google_solar", "lawn_polygon", "manual". Free-form, not an enum, because
   // new trades add sources without a migration.

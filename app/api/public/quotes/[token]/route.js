@@ -15,6 +15,15 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
 import { recordActivity } from "@/lib/activity/log";
+import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
+
+// First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
+// record with a null IP is still a valid signature, just weaker evidence.
+function clientIp(request) {
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return request.headers.get("x-real-ip") || null;
+}
 import {
   resolveServiceContent,
   dominantProcessSteps,
@@ -271,10 +280,55 @@ export async function POST(request, { params }) {
 
   const accepted = decision === "accepted";
 
+  // The signature IS the approval. On acceptance, require it and capture a
+  // tamper-evident audit record: the client supplies their name, drawn mark and
+  // consent; the server adds IP, device, timestamp and a hash of the exact
+  // priced quote (see lib/documents/signatureAudit.js). No valid signature → no
+  // acceptance, so an approval can never be recorded without one.
+  let signatureRecord = null;
+  if (accepted) {
+    const snapshot = {
+      quoteNumber: quote.quoteNumber,
+      companyId: quote.companyId,
+      clientId: quote.clientId,
+      currency: quote.currency,
+      subtotal: priced.subtotal,
+      tax: priced.tax,
+      discount: quote.discount,
+      total: priced.total,
+      lineItems: quote.lineItems,
+      scopeGroups: quote.scopeGroups,
+      addOns: quote.addOns.map((a) => ({
+        id: a.id,
+        price: a.price,
+        selected: selectedIds.includes(a.id),
+      })),
+    };
+    signatureRecord = buildSignatureRecord({
+      quote: snapshot,
+      name: body?.signature?.name,
+      signatureDataUrl: body?.signature?.dataUrl,
+      consent: body?.signature?.consent === true,
+      ip: clientIp(request),
+      userAgent: request.headers.get("user-agent"),
+    });
+    if (!signatureRecord) {
+      return NextResponse.json(
+        {
+          error:
+            "A signature is required to approve. Add your name, sign in the box, and tick the agreement.",
+          needsSignature: true,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const updated = await db.quote.update({
     where: { shareToken: token },
     data: {
       status: decision,
+      ...(signatureRecord ? { signature: signatureRecord } : {}),
       // Reuse the existing timestamp field rather than adding a new one; the
       // internal approval screen reads this to show when the client acted.
       clientDesignAt: new Date(),

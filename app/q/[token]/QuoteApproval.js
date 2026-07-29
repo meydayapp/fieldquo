@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
+import SignaturePad from "@/app/components/SignaturePad";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -35,6 +36,12 @@ export default function QuoteApproval({ token }) {
   // changes what you see and nothing else.
   const [picked, setPicked] = useState([]);
   const [settledTotal, setSettledTotal] = useState(null);
+
+  // Signature (the approval). Required before "accepted" can be submitted.
+  const [sigName, setSigName] = useState("");
+  const [sigDataUrl, setSigDataUrl] = useState("");
+  const [sigConsent, setSigConsent] = useState(false);
+  const canSign = sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
 
   useEffect(() => {
     let cancelled = false;
@@ -70,10 +77,15 @@ export default function QuoteApproval({ token }) {
       const res = await fetch(`/api/public/quotes/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // No total is sent. Deliberate — the server prices it.
+        // No total is sent. Deliberate — the server prices it. On acceptance we
+        // send the signature (name + drawn mark + consent); the server adds IP,
+        // device, timestamp and the document hash and treats it as the approval.
         body: JSON.stringify({
           decision,
           addOnIds: decision === "accepted" ? picked : [],
+          ...(decision === "accepted"
+            ? { signature: { name: sigName.trim(), dataUrl: sigDataUrl, consent: sigConsent } }
+            : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -587,10 +599,41 @@ export default function QuoteApproval({ token }) {
                     : "This tells them to go ahead."
                   : "You can always ask for a revised quote."}
               </p>
+
+              {confirming === "accepted" && (
+                <div className="mt-5 text-left max-w-sm mx-auto">
+                  <label className="block text-sm font-medium text-[#2d2520] mb-1">
+                    Your full name
+                  </label>
+                  <input
+                    value={sigName}
+                    onChange={(e) => setSigName(e.target.value)}
+                    placeholder="Type your name"
+                    className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm mb-3"
+                  />
+                  <label className="block text-sm font-medium text-[#2d2520] mb-1">
+                    Signature
+                  </label>
+                  <SignaturePad onChange={setSigDataUrl} />
+                  <label className="flex items-start gap-2 mt-3 text-xs text-[#2d2520]/80">
+                    <input
+                      type="checkbox"
+                      checked={sigConsent}
+                      onChange={(e) => setSigConsent(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      I agree that signing here is my electronic signature and
+                      approves this quote for {money(pricing.total)}.
+                    </span>
+                  </label>
+                </div>
+              )}
+
               <div className="flex gap-3 justify-center mt-4 flex-wrap">
                 <button
                   onClick={() => submit(confirming)}
-                  disabled={submitting}
+                  disabled={submitting || (confirming === "accepted" && !canSign)}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white disabled:opacity-60"
                   style={{
                     backgroundColor:
