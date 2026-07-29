@@ -44,6 +44,10 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   const [loading, setLoading] = useState(true);
 
   const [eventType, setEventType] = useState(null);
+  // Bookable team members ("pick your estimator"). When present, Step 1 is a
+  // people picker; each member's consultation event is what actually gets
+  // booked, so selecting one just sets the matching eventType.
+  const [members, setMembers] = useState([]);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [slots, setSlots] = useState({});
   const [slotsLoading, setSlotsLoading] = useState(false);
@@ -63,6 +67,18 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
         if (cancelled) return;
         if (!res.ok) throw new Error(data?.error || "Booking page not found.");
         setCompany(data);
+
+        // The estimator list. Best-effort — if it fails or is empty, Step 1
+        // falls back to the plain service menu below.
+        try {
+          const mRes = await fetch(`/api/booking/${companySlug}/members`);
+          const mData = await mRes.json().catch(() => null);
+          if (!cancelled && mRes.ok && Array.isArray(mData?.members)) {
+            setMembers(mData.members);
+          }
+        } catch {
+          /* fall back to the service menu */
+        }
 
         // Arrived via /book/<company>/<service> — skip straight to the
         // calendar. Falls through to the menu if the slug doesn't match
@@ -225,34 +241,78 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     <Shell>
       <Header company={company} accent={accent} />
 
-      {/* Step 1 — which service */}
+      {/* Step 1 — pick your estimator (member-first), or the service menu */}
       {!eventType && (
         <div>
-          <h2 className="font-semibold text-[#2d2520] mb-3">
-            What can we help with?
-          </h2>
-          {company.eventTypes?.length ? (
-            <div className="space-y-2">
-              {company.eventTypes.map((et) => (
-                <button
-                  key={et.id}
-                  onClick={() => setEventType(et)}
-                  className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors"
-                >
-                  <div className="font-medium text-[#2d2520]">{et.name}</div>
-                  <div className="text-xs text-[#2d2520]/50 mt-1 flex gap-3 flex-wrap">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock size={11} /> {et.durationMinutes} min
-                    </span>
-                    {et.location && (
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin size={11} /> {et.location}
+          {members.length > 0 ? (
+            <>
+              <h2 className="font-semibold text-[#2d2520] mb-3">
+                Choose who you&apos;d like to meet
+              </h2>
+              <div className="space-y-2">
+                {members.map((m) => {
+                  const et = company.eventTypes?.find((e) => e.slug === m.eventSlug);
+                  const initials = m.name
+                    .replace(/[^a-zA-Z ]/g, "")
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0]?.toUpperCase())
+                    .join("");
+                  return (
+                    <button
+                      key={m.eventSlug}
+                      onClick={() => setEventType(et || { slug: m.eventSlug, name: `Consultation with ${m.name}`, durationMinutes: m.durationMinutes })}
+                      className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors flex items-center gap-3"
+                    >
+                      <span
+                        className="shrink-0 w-11 h-11 rounded-full grid place-items-center text-sm font-bold text-white"
+                        style={{ backgroundColor: accent }}
+                      >
+                        {initials || "★"}
                       </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-[#2d2520]">{m.name}</span>
+                        <span className="block text-xs text-[#2d2520]/55">
+                          {m.title}
+                          {m.nextSlot
+                            ? ` · next ${new Date(m.nextSlot).toLocaleDateString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`
+                            : " · limited availability"}
+                        </span>
+                      </span>
+                      <ChevronRight size={16} className="text-[#2d2520]/30 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : company.eventTypes?.length ? (
+            <>
+              <h2 className="font-semibold text-[#2d2520] mb-3">
+                What can we help with?
+              </h2>
+              <div className="space-y-2">
+                {company.eventTypes.map((et) => (
+                  <button
+                    key={et.id}
+                    onClick={() => setEventType(et)}
+                    className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors"
+                  >
+                    <div className="font-medium text-[#2d2520]">{et.name}</div>
+                    <div className="text-xs text-[#2d2520]/50 mt-1 flex gap-3 flex-wrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={11} /> {et.durationMinutes} min
+                      </span>
+                      {et.location && (
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin size={11} /> {et.location}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <p className="text-sm text-[#2d2520]/60">
               {company.name} hasn&apos;t set up online booking yet.
