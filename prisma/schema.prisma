@@ -350,6 +350,20 @@ model Company {
   dateFormat        String?  @default("MM/DD/YYYY")
   weekStartsOn      Int?     @default(0) // 0 = Sunday, 1 = Monday
 
+  // When the business is OPEN — deliberately not AvailabilitySchedule, which
+  // hangs off a user and answers "when can this person be booked". The two
+  // diverge whenever someone takes a day off, and a website that says CLOSED
+  // because one estimator is on holiday is worse than no hours at all.
+  //
+  // Shape: [{ day: 0-6, closed: bool, open: "HH:MM", close: "HH:MM" }] × 7.
+  // Validated on the way in and out by lib/company/businessHours.js — nothing
+  // should read this column without going through normaliseHours().
+  //
+  // Null means "never told us", which the site renders as nothing. Seven
+  // closed days would mean "we are shut all week", and conflating the two puts
+  // a false CLOSED on a working company's Google listing.
+  businessHours     Json?
+
   sitePublished     Boolean  @default(false)
   taxRates          TaxRate[]
 

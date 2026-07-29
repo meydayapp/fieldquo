@@ -11,22 +11,35 @@
 // the visitor. Everything here renders on the server, in one query, and works
 // with JavaScript switched off.
 //
-// ── Unpublished is a 404, not a preview ─────────────────────────────────────
+// ── Unpublished is a 404 for the public, and visible to its owner ───────────
 //
-// A company that hasn't published gets notFound(), not a "coming soon" page.
-// A half-finished site indexed by Google is worse than no site: it's the
-// result that comes up when someone searches their name.
+// A stranger who finds an unpublished site gets notFound(). A half-finished
+// site indexed by Google is worse than no site: it's the result that comes up
+// when someone searches their name.
+//
+// But `?preview=1` renders it for a signed-in member of THAT company, which is
+// how the editor shows a draft. Without this the preview panel could only show
+// a page that was already public, so the only way to see your site was to
+// publish it — which is the opposite of what a preview is for.
+//
+// The check is a real session lookup, not a secret in the URL: a guessable
+// preview token pasted into a group chat is a published site nobody meant to
+// publish.
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { getCurrentMember } from "@/lib/currentMember";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
+import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
 
-async function loadSite(subdomain) {
+async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
     where: { subdomain: String(subdomain || "").toLowerCase() },
     select: {
+      companyId: true,
       blocks: true,
       published: true,
       seoTitle: true,
@@ -44,17 +57,42 @@ async function loadSite(subdomain) {
           province: true,
           slug: true,
           bookingSlug: true,
+          // Feed the hours block, the "Open now" pill in the header, and
+          // openingHoursSpecification below.
+          businessHours: true,
+          timezone: true,
+          weekStartsOn: true,
         },
       },
     },
   });
 
-  if (!site || !site.published) return null;
-  return site;
+  if (!site) return null;
+  if (site.published) return site;
+  if (!preview) return null;
+
+  // Unpublished and a preview was asked for. Only the company that owns it may
+  // see it — and only its own, which is why this compares companyId rather
+  // than merely checking that somebody is signed in.
+  try {
+    const member = await getCurrentMember({
+      headers: await headers(),
+      method: "GET",
+    });
+    return member?.companyId === site.companyId ? { ...site, draft: true } : null;
+  } catch {
+    // getCurrentMember throws on a read-only impersonation session attempting a
+    // write; it can also throw if auth is misconfigured. Either way an
+    // unpublished page must not render.
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }) {
   const { subdomain } = await params;
+  // Deliberately NOT preview-aware. Metadata for a draft would be metadata for
+  // a page that doesn't exist publicly, and getting it wrong is how an
+  // unpublished title ends up in a link preview when someone shares the URL.
   const site = await loadSite(subdomain);
   if (!site) return { title: "Not found", robots: { index: false } };
 
@@ -82,9 +120,11 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function CompanySitePage({ params }) {
+export default async function CompanySitePage({ params, searchParams }) {
   const { subdomain } = await params;
-  const site = await loadSite(subdomain);
+  // Next 16: searchParams is a Promise, like params.
+  const query = (await searchParams) || {};
+  const site = await loadSite(subdomain, { preview: query.preview === "1" });
   if (!site) notFound();
 
   const company = site.company;
@@ -95,6 +135,18 @@ export default async function CompanySitePage({ params }) {
 
   return (
     <div style={{ backgroundColor: "#ffffff", color: theme.ink }}>
+      {/* Only reachable by a signed-in member of this company. Says so out
+          loud, because a preview that looks identical to the live site is how
+          someone concludes they've published when they haven't.
+
+          generateMetadata returns noindex for an unpublished page, so this is
+          never crawled. */}
+      {site.draft && (
+        <div className="bg-amber-500 text-black text-center text-xs font-bold py-1.5 px-3">
+          Draft preview — this page is not public yet.
+        </div>
+      )}
+
       {/* Structured data so a search engine can read the business rather than
           infer it. This is most of the value of the feature for a contractor
           who will never think about SEO. */}
@@ -119,6 +171,17 @@ export default async function CompanySitePage({ params }) {
                     ...(company.province ? { addressRegion: company.province } : {}),
                   },
                 }
+              : {}),
+            // This is the line that puts "Open ⋅ Closes 5 PM" in a Google
+            // result. For a contractor who will never think about SEO it is
+            // most of the value of having a site at all — the box is seen by
+            // people who never load the page.
+            //
+            // Omitted entirely when no hours are set. An empty array here has
+            // been read as "open by appointment only" and as "always open",
+            // neither of which anyone asked for.
+            ...(hasBusinessHours(company.businessHours)
+              ? { openingHoursSpecification: openingHoursSpecification(company.businessHours) }
               : {}),
           }),
         }}

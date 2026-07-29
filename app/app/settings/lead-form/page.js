@@ -108,8 +108,36 @@ export default function LeadFormPage() {
 
   const quoteUrl = `${origin}/quote/${slug}`;
   const bookUrl = `${origin}/book/${slug}`;
-  const embed = (u) =>
-    `<iframe src="${u}" width="100%" height="640" style="border:none;"></iframe>`;
+
+  /**
+   * The embed snippet.
+   *
+   * Points at /embed/... rather than the shareable page — same flow, no
+   * FieldQuo chrome, and it reports its own height.
+   *
+   * The listener is what makes an embedded form usable. Without it the iframe
+   * keeps whatever height was hardcoded, and a visitor who completes the
+   * booking sees the confirmation render below the fold of a box that doesn't
+   * scroll with the page. From where they're sitting nothing happened.
+   *
+   * The origin check on the message is the important line: without it, any
+   * framed page on the host's site could resize this iframe by posting the
+   * same message shape.
+   */
+  const embed = (widget) => {
+    const src = `${origin}/embed/${slug}/${widget}`;
+    return `<iframe id="fieldquo-${widget}" src="${src}" width="100%" height="640" style="border:none;" title="${
+      widget === "book" ? "Book a visit" : "Request a quote"
+    }"></iframe>
+<script>
+window.addEventListener("message", function (e) {
+  if (e.origin !== "${origin}") return;
+  if (!e.data || e.data.type !== "fieldquo:embed-height") return;
+  var f = document.getElementById("fieldquo-${widget}");
+  if (f) f.style.height = e.data.height + "px";
+});
+</script>`;
+  };
 
   if (!slug) {
     return (
@@ -137,7 +165,7 @@ export default function LeadFormPage() {
         title="Request a quote"
         description="They describe the job and leave their details. Lands in your Leads pipeline. Best for people still comparing prices."
         url={quoteUrl}
-        embed={embed(quoteUrl)}
+        embed={embed("quote")}
       />
 
       <ShareBlock
@@ -145,7 +173,7 @@ export default function LeadFormPage() {
         title="Book a visit"
         description="They pick a time from your real availability. Best for people who've already decided and just want you there."
         url={bookUrl}
-        embed={embed(bookUrl)}
+        embed={embed("book")}
       />
 
       <p className="text-xs text-muted-foreground">

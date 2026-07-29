@@ -7,6 +7,7 @@ import { Plus, Trash2, Globe, Info } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
+import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
 import { reportResponseError } from "@/lib/clientErrors";
 
@@ -163,6 +164,10 @@ export default function CompanySettingsPage() {
           timezone: data?.timezone || "America/Toronto",
           dateFormat: data?.dateFormat || "MM/DD/YYYY",
           weekStartsOn: data?.weekStartsOn ?? 0,
+          // Left as null when never set, NOT defaulted to a schedule. A
+          // company that has said nothing about its hours must not have a
+          // guess published on its website and in its search listing.
+          businessHours: data?.businessHours ?? null,
           sitePublished: !!data?.sitePublished,
         });
         setTaxRates(Array.isArray(data?.taxRates) ? data.taxRates : []);
@@ -478,14 +483,31 @@ export default function CompanySettingsPage() {
         <MiniMap lat={form.latitude} lng={form.longitude} />
       </SectionCard>
 
-      {/* Business hours */}
+      {/* Opening hours — the PUBLIC ones.
+
+          Distinct from the card below, which edits AvailabilitySchedule (a
+          per-user booking calendar). Both were previously titled "Business
+          Hours", which is how an estimator's day off ends up published as a
+          company closure. */}
       <SectionCard
-        title="Business Hours"
-        description="Sets your default availability for online booking, team members, and request forms."
+        title="Opening hours"
+        description="When your business is open. Shown on your website and used for the opening hours that appear in Google search results."
+      >
+        <OpeningHoursEditor
+          value={form.businessHours}
+          weekStartsOn={form.weekStartsOn}
+          onSaved={(saved) => set("businessHours", saved)}
+        />
+      </SectionCard>
+
+      {/* Booking availability — per-user, drives the booking calendar. */}
+      <SectionCard
+        title="Booking availability"
+        description="Which times can be booked online. Separate from your opening hours — the office can be open on a day nobody is free to visit."
       >
         <div className="flex items-start justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Manage your weekly open/closed hours for each day.
+            Manage the bookable hours offered on your booking page.
           </p>
           <button
             onClick={() => setHoursModalOpen(true)}

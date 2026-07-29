@@ -17,7 +17,11 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { sanitiseBlocks, siteFromCompany } from "@/app/data/siteBlocks";
 import { validateSubdomain, suggestSubdomain } from "@/lib/site/subdomain";
-import { generateSite, INTERVIEW_QUESTIONS } from "@/lib/site/generateSite";
+import {
+  generateSite,
+  INTERVIEW_QUESTIONS,
+  STYLE_PRESETS,
+} from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 
 const COMPANY_SELECT = {
@@ -32,6 +36,13 @@ const COMPANY_SELECT = {
   city: true,
   province: true,
   bookingSlug: true,
+  // The site blocks render hours, the booking calendar and the quote form
+  // from these rather than from typed text — see the "derived" blocks in
+  // app/data/siteBlocks.js. The editor needs them to decide which blocks to
+  // offer at all.
+  businessHours: true,
+  timezone: true,
+  weekStartsOn: true,
 };
 
 async function requireAdmin(request) {
@@ -89,6 +100,9 @@ export async function GET(request) {
     suggestedSubdomain: site?.subdomain || suggestSubdomain(company || {}),
     company,
     questions: INTERVIEW_QUESTIONS,
+    // Served rather than imported by the editor — see the note at the top of
+    // app/app/settings/website/page.js.
+    stylePresets: STYLE_PRESETS,
   });
 }
 
@@ -173,12 +187,25 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const { services, testimonials } = await loadSource(member.companyId);
 
+  // The page as currently SAVED. generateSite carries images across from it,
+  // so pressing Regenerate rewrites the words without discarding the job
+  // photos — which are the one thing on the page FieldQuo can't reproduce.
+  //
+  // Read from the database rather than taken from the request body: the
+  // browser holds unsaved edits, and honouring those would make Regenerate
+  // silently persist work the company hadn't chosen to save.
+  const existing = await db.companySite.findUnique({
+    where: { companyId: member.companyId },
+    select: { blocks: true },
+  });
+
   try {
     const result = await generateSite({
       company,
       services,
       testimonials,
       interview: body.interview || {},
+      existingBlocks: Array.isArray(existing?.blocks) ? existing.blocks : [],
       onUsage: (u) =>
         recordAiUsage({
           companyId: member.companyId,

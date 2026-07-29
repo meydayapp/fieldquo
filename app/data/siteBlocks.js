@@ -31,6 +31,25 @@
  * label     — what the editor calls it
  * editable  — which fields get a text input; everything else is derived
  * repeats   — the block holds a list the company can add to and reorder
+ * variants  — alternative layouts for the SAME content (see below)
+ * derived   — the block renders from the company record, not from typed text
+ */
+
+/**
+ * ── Why variants rather than a freer generator ──────────────────────────────
+ *
+ * "Make it modern and beautiful" is a layout problem, not a writing problem.
+ * A better model produces a better headline; it does not produce a better
+ * page. What produces a better page is more than one arrangement to choose
+ * from — and every arrangement having been designed and checked on a phone
+ * once, by a person, instead of assembled fresh each time by a model that
+ * cannot see its own output.
+ *
+ * So the model picks a variant from a closed set. The worst case is a layout
+ * that suits the content less well than another would have. The failure mode
+ * we're avoiding — a page that is broken on mobile, or unreadable against
+ * their brand colour — is unreachable, because no generated value ever becomes
+ * a style rule.
  */
 export const BLOCK_TYPES = {
   hero: {
@@ -40,11 +59,20 @@ export const BLOCK_TYPES = {
     required: true,
     editable: ["headline", "subhead", "ctaLabel"],
     image: "backgroundImage",
+    // centered — text over a wash or a full-bleed photo. Safe everywhere,
+    //            and the only one that looks deliberate with no image at all.
+    // split    — text beside the photo on desktop, stacked on mobile. Best
+    //            when they have one good photo and a lot to say.
+    // banner   — full-bleed photo with the words in a card over it. Strongest
+    //            with a wide action shot; needs an image or it degrades to
+    //            centered.
+    variants: ["centered", "split", "banner"],
     defaults: {
       headline: "",
       subhead: "",
       ctaLabel: "Get a free quote",
       backgroundImage: null,
+      variant: "centered",
     },
   },
 
@@ -57,7 +85,13 @@ export const BLOCK_TYPES = {
     repeats: "items",
     editable: ["heading", "intro"],
     itemEditable: ["name", "description"],
-    defaults: { heading: "What we do", intro: "", items: [] },
+    // cards    — a two-column grid. Good for four to eight short entries.
+    // list     — one column, rules between, bigger names. Good for two or
+    //            three services with real descriptions.
+    // numbered — the same grid with accent numerals. Good when the services
+    //            read as a sequence rather than a menu.
+    variants: ["cards", "list", "numbered"],
+    defaults: { heading: "What we do", intro: "", items: [], variant: "cards" },
   },
 
   about: {
@@ -89,6 +123,53 @@ export const BLOCK_TYPES = {
     defaults: { heading: "What clients say", items: [] },
   },
 
+  // ── Blocks that render from the company record ────────────────────────────
+  //
+  // The three below have almost nothing to edit, and that is the point. Their
+  // content is the opening hours, the booking calendar and the quote form that
+  // already exist in FieldQuo. Nobody retypes a phone number into a website
+  // and then has to remember to change it in two places when it changes.
+  //
+  // It also means these blocks are never stale and never wrong: the same
+  // availability the booking page computes, the same services the internal
+  // quote builder uses.
+
+  quoteform: {
+    label: "Request a quote (form)",
+    required: false,
+    editable: ["heading", "intro"],
+    derived: true,
+    defaults: {
+      heading: "Tell us about your project",
+      intro: "",
+    },
+  },
+
+  booking: {
+    label: "Book a visit (calendar)",
+    required: false,
+    editable: ["heading", "intro"],
+    derived: true,
+    defaults: {
+      heading: "Book a visit",
+      intro: "",
+    },
+  },
+
+  hours: {
+    label: "Opening hours",
+    required: false,
+    editable: ["heading", "note"],
+    derived: true,
+    defaults: {
+      heading: "Opening hours",
+      // For the thing hours can't express — "24/7 for emergencies", "closed
+      // the first week of July". A free-text line beside the table beats
+      // pretending the schedule model covers every case.
+      note: "",
+    },
+  },
+
   contact: {
     label: "Get in touch",
     // Also always present. A contractor's website exists to produce a phone
@@ -112,6 +193,12 @@ export const BLOCK_ORDER = [
   "about",
   "gallery",
   "testimonials",
+  // The two conversion blocks sit after the persuasion and before the footer.
+  // Asking for details above the fold is how you get an empty form; asking
+  // after they've seen the work is how you get a filled one.
+  "quoteform",
+  "booking",
+  "hours",
   "contact",
 ];
 
@@ -146,7 +233,7 @@ export function makeBlock(type, content = {}) {
 export function siteFromCompany({ company = {}, services = [], testimonials = [] }) {
   const place = [company.city, company.province].filter(Boolean).join(", ");
 
-  return [
+  const blocks = [
     makeBlock("hero", {
       headline: company.name || "",
       subhead: place ? `Serving ${place} and the surrounding area.` : "",
@@ -172,12 +259,55 @@ export function siteFromCompany({ company = {}, services = [], testimonials = []
       })),
     }),
 
+    // The quote form is included for everyone: every company has enabled
+    // services, so it always has something to ask about.
+    makeBlock("quoteform", {
+      intro: "It takes about a minute, and there's no obligation.",
+    }),
+  ];
+
+  // ── Included only when the underlying feature is actually set up ──────────
+  //
+  // A booking calendar with no bookable times, or an hours table with no
+  // hours, is a control that does nothing — the exact failure this codebase
+  // has been swept for twice. Absent is better than empty.
+
+  if (company.bookingSlug) {
+    blocks.push(
+      makeBlock("booking", {
+        intro: "Pick a time that suits you and we'll confirm by email.",
+      }),
+    );
+  }
+
+  if (hasHours(company.businessHours)) {
+    blocks.push(makeBlock("hours"));
+  }
+
+  blocks.push(
     makeBlock("contact", {
       intro: place
         ? `Based in ${place}. Get in touch and we'll come and take a look.`
         : "Get in touch and we'll come and take a look.",
     }),
-  ];
+  );
+
+  return blocks;
+}
+
+/**
+ * Whether the hours column holds at least one open day.
+ *
+ * Duplicated in miniature from lib/company/businessHours.js on purpose: this
+ * module is imported by the editor, which runs in the browser, and pulling the
+ * full hours module in behind it would ship the Intl formatting and JSON-LD
+ * builders to every visitor for one boolean.
+ */
+function hasHours(value) {
+  return (
+    Array.isArray(value) &&
+    value.some((d) => d && typeof d === "object" && !d.closed)
+  );
 }
 
 /**
@@ -208,6 +338,17 @@ function sanitiseContent(type, content = {}) {
 
   for (const key of def.editable || []) {
     if (typeof content[key] === "string") out[key] = content[key].slice(0, 2000);
+  }
+
+  // An unrecognised variant falls back to the default rather than being
+  // stored. This is the guard that keeps a generated value from becoming a
+  // style rule: the renderer switches on this string, and a variant it has no
+  // case for would render nothing at all — an invisible block, which is the
+  // hardest kind of bug to be told about.
+  if (def.variants) {
+    out.variant = def.variants.includes(content.variant)
+      ? content.variant
+      : def.defaults.variant;
   }
 
   if (def.image && typeof content[def.image] === "string") {

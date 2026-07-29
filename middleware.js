@@ -30,6 +30,26 @@ const PLATFORM_SECRET = new TextEncoder().encode(
 // Company-facing routes that happen to live under /api/platform/ but are
 // authenticated a different way (Stripe signature, or better-auth session
 // inside the route itself) — not the platform-staff JWT.
+// Page routes that must resolve on a TENANT host as well as the apex.
+//
+// Deliberately short, and deliberately public-only. Everything here is a page
+// a stranger is meant to reach: the quote form, the booking calendar, the
+// embeds, and the client-facing quote and portal links a contractor sends.
+//
+// /app and /platform are absent on purpose. Letting the company's own back
+// office answer on sunset.fieldquo.com would put an authenticated surface on a
+// hostname a customer controls the name of, which is the cookie-scope problem
+// the reserved-subdomain list exists to prevent — reintroduced by the back
+// door.
+const SUBDOMAIN_PASSTHROUGH = [
+  "/quote",
+  "/book",
+  "/embed",
+  "/q",
+  "/portal",
+  "/refer",
+];
+
 const PLATFORM_BILLING_PASSTHROUGH = [
   "/api/platform/billing/webhook",
   "/api/platform/billing/checkout",
@@ -63,6 +83,19 @@ export async function middleware(request) {
     if (pathname.startsWith("/api") || pathname.startsWith("/_next")) {
       return NextResponse.next();
     }
+
+    // The public pages the site LINKS to must resolve on the tenant host too.
+    //
+    // Without this, "Get a free quote" on sunset.fieldquo.com pointed at
+    // /quote/sunset, which this rewrite turned into /site/sunset/quote/sunset
+    // — a 404 on the single most important button on the page. The block
+    // renderer emits those hrefs as same-origin paths on purpose: sending a
+    // visitor from the contractor's own domain to fieldquo.com mid-enquiry is
+    // exactly the handoff a white-labelled site exists to avoid.
+    if (SUBDOMAIN_PASSTHROUGH.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      return NextResponse.next();
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = `/site/${subdomain}${pathname === "/" ? "" : pathname}`;
     return NextResponse.rewrite(url);

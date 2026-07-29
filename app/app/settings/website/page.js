@@ -37,6 +37,10 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { BLOCK_TYPES } from "@/app/data/siteBlocks";
+// STYLE_PRESETS deliberately arrives from the API rather than being imported.
+// lib/site/generateSite imports lib/ai/provider, which imports the `openai`
+// package — importing it here would drag the whole SDK and its Node built-ins
+// into the browser bundle for the sake of four strings.
 
 export default function WebsiteSettingsPage() {
   const [data, setData] = useState(null);
@@ -214,8 +218,8 @@ export default function WebsiteSettingsPage() {
           Tell us about the business
         </h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Four questions. Skip any of them — we&apos;ll still build the site
-          from your services and contact details, it&apos;ll just read plainer.
+          Skip any of these — we&apos;ll still build the site from your
+          services, hours and contact details, it&apos;ll just read plainer.
         </p>
 
         <div className="space-y-4">
@@ -224,15 +228,48 @@ export default function WebsiteSettingsPage() {
               <label className="text-sm font-medium text-foreground block mb-1">
                 {q.label}
               </label>
+
+              {/* Presets write text into the field rather than setting a hidden
+                  parameter, so the company can see exactly what's being asked
+                  for and edit it. A preset with an invisible effect is a
+                  control nobody can reason about. */}
+              {q.key === "style" && (data?.stylePresets || []).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {data.stylePresets.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() =>
+                        setInterview((p) => ({ ...p, style: preset.text }))
+                      }
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                        interview.style === preset.text
+                          ? "border-foreground bg-inverted text-inverted-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <textarea
                 value={interview[q.key] || ""}
                 onChange={(e) =>
                   setInterview((p) => ({ ...p, [q.key]: e.target.value }))
                 }
-                rows={2}
+                rows={q.long ? 3 : 2}
                 placeholder={q.placeholder}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               />
+
+              {q.key === "style" && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Changes the wording and the layout. Colours and your logo
+                  always come from Settings → Branding.
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -322,19 +359,24 @@ export default function WebsiteSettingsPage() {
                   {isLive ? "Live" : "Saved but not published"}
                 </span>
               </div>
-              {isLive ? (
-                <iframe
-                  key={previewKey}
-                  src={`/site/${site.subdomain}`}
-                  title="Website preview"
-                  className="w-full h-[520px] bg-white"
-                />
-              ) : (
-                <p className="px-5 py-10 text-sm text-muted-foreground text-center">
-                  Publish to see the live preview. Nothing is public until you
-                  do.
-                </p>
-              )}
+              {/* `?preview=1` renders an unpublished page for a signed-in
+                  member of this company — see app/site/[subdomain]/page.js.
+                  Without it the only way to see your own site was to publish
+                  it, which is the opposite of what a preview is for.
+
+                  Still the real route in an iframe, so this is literally what
+                  a visitor gets. */}
+              <iframe
+                key={previewKey}
+                src={`/site/${site.subdomain}${isLive ? "" : "?preview=1"}`}
+                title="Website preview"
+                className="w-full h-[520px] bg-white"
+              />
+              <p className="px-5 py-2.5 text-xs text-muted-foreground border-t border-border">
+                {isLive
+                  ? "This is your live site."
+                  : "Nobody else can see this until you publish. Save to refresh the preview."}
+              </p>
             </div>
           )}
 
@@ -408,6 +450,37 @@ function BlockEditor({ block, onChange, onToggle, onError }) {
 
       {!hidden && (
         <div className="space-y-3">
+          {/* Layout choice. A closed set — every option here was designed and
+              checked on a phone, so there is no combination that produces a
+              broken page. */}
+          {def.variants && (
+            <div className="flex flex-wrap gap-1.5">
+              {def.variants.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => onChange({ variant: v })}
+                  className={`text-xs px-3 py-1.5 rounded-full border capitalize transition-colors ${
+                    (block.content.variant || def.defaults.variant) === v
+                      ? "border-foreground bg-inverted text-inverted-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {VARIANT_LABELS[v] || v}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Says where the content actually comes from. The alternative — a
+              block with a heading field and nothing else — reads as an editor
+              that lost the rest of the form. */}
+          {def.derived && (
+            <p className="text-xs text-muted-foreground">
+              {DERIVED_NOTES[block.type]}
+            </p>
+          )}
+
           {(def.editable || []).map((field) => {
             const long = field === "body" || field === "intro";
             return long ? (
@@ -598,6 +671,24 @@ function ImageList({ images, onChange, onError }) {
   );
 }
 
+const VARIANT_LABELS = {
+  centered: "Centred",
+  split: "Photo beside",
+  banner: "Full-width photo",
+  cards: "Cards",
+  list: "List",
+  numbered: "Numbered",
+};
+
+const DERIVED_NOTES = {
+  quoteform:
+    "The form itself is built from your enabled services — the same ones the quote builder uses. Nothing to set up here.",
+  booking:
+    "Shows real available times from your booking availability. Change them in Settings → Company.",
+  hours:
+    "Pulled from your opening hours in Settings → Company, so changing them there updates the site and your Google listing at once.",
+};
+
 function labelFor(field) {
   return (
     {
@@ -606,6 +697,7 @@ function labelFor(field) {
       ctaLabel: "Button text",
       heading: "Section heading",
       intro: "Short intro",
+      note: "Anything else — e.g. 24/7 for emergencies",
       body: "Write a few sentences about the business",
       name: "Service name",
       description: "What this involves",

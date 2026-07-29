@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { normaliseHours } from "@/lib/company/businessHours";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -55,6 +56,10 @@ export async function GET(request) {
       timezone: true,
       dateFormat: true,
       weekStartsOn: true,
+      // When the business is open. Feeds the website's hours block, the
+      // "Open now" pill, and openingHoursSpecification in the LocalBusiness
+      // JSON-LD — which is what puts opening hours in a Google result.
+      businessHours: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -110,6 +115,7 @@ export async function PATCH(request) {
     timezone,
     dateFormat,
     weekStartsOn,
+    businessHours,
     sitePublished,
   } = body;
 
@@ -168,6 +174,19 @@ export async function PATCH(request) {
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),
       ...(weekStartsOn !== undefined && { weekStartsOn }),
+      // Normalised on the way in, not trusted. This column is read by the
+      // public website and by the structured data a search engine indexes, so
+      // a close time earlier than the open time would become a Google listing
+      // that says "Closes 8 AM". normaliseHours treats that as closed rather
+      // than guessing which of the two numbers was the typo.
+      //
+      // `null` is meaningful and distinct from an empty array: it means "never
+      // told us", which renders as nothing. Seven closed days means "shut all
+      // week", which renders as a table of closures.
+      ...(businessHours !== undefined && {
+        businessHours:
+          businessHours === null ? null : normaliseHours(businessHours),
+      }),
       ...(sitePublished !== undefined && { sitePublished }),
     },
   });
