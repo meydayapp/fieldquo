@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   FileSpreadsheet,
   Sparkles,
+  LifeBuoy,
 } from "lucide-react";
 
 const ITEMS = [
@@ -38,6 +39,7 @@ const ITEMS = [
     icon: Tags,
   },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
+  { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },
   { label: "Platform team", href: "/platform/team", icon: ShieldCheck },
 ];
 

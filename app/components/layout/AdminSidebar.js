@@ -26,6 +26,7 @@ import {
   Compass,
   CreditCard,
   Settings,
+  LifeBuoy,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -101,6 +102,7 @@ const QUICK_ADD_ITEMS = [
 
 // Bottom-of-sidebar items, above Log Out.
 const BOTTOM_ITEMS = [
+  { label: "Help", href: "/app/help", icon: LifeBuoy },
   { label: "Plan", href: "/app/settings/account-billing", icon: CreditCard },
   { label: "Settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
 ];
