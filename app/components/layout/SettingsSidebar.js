@@ -75,6 +75,7 @@ const GROUPS = [
       { label: "Materials", href: "/app/settings/materials", icon: Boxes },
       { label: "Material Costs", href: "/app/settings/material-costs", icon: Droplet },
       { label: "Overhead", href: "/app/settings/overhead", icon: TrendingUp },
+      { label: "Payroll", href: "/app/settings/payroll", icon: Wallet },
       { label: "Custom Fields", href: "/app/settings/custom-fields", icon: ListPlus },
     ],
   },
