@@ -34,6 +34,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
 import CompanyHealth from "./CompanyHealth";
+import CompanyActions from "./CompanyActions";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
@@ -451,6 +452,14 @@ export default function CompanyDetail({ companyId }) {
 
       {/* Financial history — subscription and their own client billing */}
       <CompanyHistory companyId={companyId} />
+
+      {/* Support actions — billing only, each audited with a reason */}
+      <CompanyActions
+        companyId={companyId}
+        companyName={company.name}
+        trialEndsAt={company.trialEndsAt}
+        onDone={load}
+      />
 
       {/* Action trail — who did what inside the company's own app */}
       <CompanyActivity companyId={companyId} />
