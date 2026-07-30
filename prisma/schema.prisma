@@ -1915,6 +1915,14 @@ model CompanySite {
   // Answers to the setup interview, kept so regenerating doesn't ask again.
   interview Json?
 
+  // The DESIGN style — what makes two companies' sites look different rather
+  // than merely read differently. One of a closed set (lib/site/siteStyles.js):
+  // modern | bold | minimal | classic | warm. The AI picks it from the
+  // company's free-text description, and the company can override it. Colours
+  // and logo still come from Branding; a style changes type scale, weight,
+  // rhythm and corner treatment, never the palette.
+  styleKey String? @default("modern")
+
   seoTitle       String?
   seoDescription String?
 

@@ -35,6 +35,7 @@ import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos } from "@/lib/site/jobPhotos";
+import { resolveSiteStyle } from "@/lib/site/siteStyles";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -42,6 +43,7 @@ async function loadSite(subdomain, { preview = false } = {}) {
     select: {
       companyId: true,
       blocks: true,
+      styleKey: true,
       published: true,
       seoTitle: true,
       seoDescription: true,
@@ -213,6 +215,7 @@ export default async function CompanySitePage({ params, searchParams }) {
         theme={theme}
         fill={fill}
         subdomain={site.subdomain}
+        style={resolveSiteStyle(site.styleKey)}
       />
     </div>
   );

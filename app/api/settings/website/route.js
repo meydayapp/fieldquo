@@ -23,6 +23,7 @@ import {
   STYLE_PRESETS,
 } from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
+import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
 
 const COMPANY_SELECT = {
   id: true,
@@ -103,6 +104,13 @@ export async function GET(request) {
     // Served rather than imported by the editor — see the note at the top of
     // app/app/settings/website/page.js.
     stylePresets: STYLE_PRESETS,
+    // The design styles the company (or the AI) can pick from. Label + hint
+    // only; the visual rules stay server-side in lib/site/siteStyles.js.
+    siteStyles: SITE_STYLE_KEYS.map((key) => ({
+      key,
+      label: SITE_STYLES[key].label,
+      hint: SITE_STYLES[key].hint,
+    })),
   });
 }
 
@@ -136,6 +144,11 @@ export async function PUT(request) {
     blocks: sanitiseBlocks(body.blocks),
     seoTitle: str(body.seoTitle, 70),
     seoDescription: str(body.seoDescription, 200),
+    // Clamped to the closed set — a styleKey from a browser can never become an
+    // arbitrary style rule.
+    ...(SITE_STYLE_KEYS.includes(body.styleKey)
+      ? { styleKey: body.styleKey }
+      : {}),
     ...(body.interview && typeof body.interview === "object"
       ? { interview: body.interview }
       : {}),

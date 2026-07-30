@@ -63,6 +63,7 @@ export default function WebsiteSettingsPage() {
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState("desktop"); // desktop | mobile
   const [aiOpen, setAiOpen] = useState(true);
+  const [styleKey, setStyleKey] = useState("modern");
 
   const load = useCallback(async () => {
     try {
@@ -71,6 +72,7 @@ export default function WebsiteSettingsPage() {
       setSubdomain(d.site?.subdomain || d.suggestedSubdomain || "");
       setBlocks(Array.isArray(d.site?.blocks) ? d.site.blocks : []);
       setInterview(d.site?.interview || {});
+      setStyleKey(d.site?.styleKey || "modern");
       setSeo({
         title: d.site?.seoTitle || "",
         description: d.site?.seoDescription || "",
@@ -97,6 +99,10 @@ export default function WebsiteSettingsPage() {
         body: JSON.stringify({ interview }),
       });
       const newBlocks = result.blocks || [];
+      // The AI picked a design style from the description — adopt it so the
+      // LOOK changes, not just the words.
+      const newStyle = result.styleKey || styleKey;
+      setStyleKey(newStyle);
       const newSeo = {
         title: result.seoTitle || seo.title,
         description: result.seoDescription || seo.description,
@@ -125,6 +131,7 @@ export default function WebsiteSettingsPage() {
             subdomain,
             blocks: newBlocks,
             interview,
+            styleKey: newStyle,
             seoTitle: newSeo.title,
             seoDescription: newSeo.description,
           }),
@@ -152,6 +159,7 @@ export default function WebsiteSettingsPage() {
           subdomain,
           blocks,
           interview,
+          styleKey,
           seoTitle: seo.title,
           seoDescription: seo.description,
           ...(typeof published === "boolean" ? { published } : {}),
@@ -282,31 +290,75 @@ export default function WebsiteSettingsPage() {
 
               {aiOpen && (
                 <div className="px-4 pb-4 space-y-3 border-t border-border pt-3">
-                  <p className="text-xs text-muted-foreground">
-                    Answer what you can — the rest fills from your services, hours,
-                    photos and contact details. Colours and logo come from Branding.
+                  {/* THE PROMPT. Plain language in, a different-looking site
+                      out — the AI picks the design style from these words. */}
+                  <div>
+                    <label className="text-xs font-semibold text-foreground block mb-1">
+                      Describe the website you want
+                    </label>
+                    <textarea
+                      value={interview.style || ""}
+                      onChange={(e) => setInterview((p) => ({ ...p, style: e.target.value }))}
+                      rows={3}
+                      placeholder="e.g. Bold and industrial, big headlines, show off our roofing work — we want to look like the biggest crew in town."
+                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Tell it how you want it to look and sound. Your logo and colours
+                      always come from Branding.
+                    </p>
+                    {(data?.stylePresets || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {data.stylePresets.map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => setInterview((p) => ({ ...p, style: preset.text }))}
+                            className="text-[11px] px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:text-foreground"
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Design style — the AI sets this from the prompt; the
+                      company can override and see it change immediately. */}
+                  {(data?.siteStyles || []).length > 0 && (
+                    <div>
+                      <label className="text-xs font-semibold text-foreground block mb-1.5">
+                        Design style
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {data.siteStyles.map((st) => (
+                          <button
+                            key={st.key}
+                            type="button"
+                            title={st.hint}
+                            onClick={() => setStyleKey(st.key)}
+                            className={`text-[11px] px-2.5 py-1.5 rounded-full border transition-colors ${
+                              styleKey === st.key
+                                ? "border-foreground bg-inverted text-inverted-foreground"
+                                : "border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {st.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Changes the layout, type and spacing. Save to see it in the preview.
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground pt-1 border-t border-border">
+                    A few more details make the copy better (all optional):
                   </p>
-                  {(data?.questions || []).map((q) => (
+                  {(data?.questions || []).filter((q) => q.key !== "style").map((q) => (
                     <div key={q.key}>
                       <label className="text-xs font-semibold text-foreground block mb-1">{q.label}</label>
-                      {q.key === "style" && (data?.stylePresets || []).length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {data.stylePresets.map((preset) => (
-                            <button
-                              key={preset.label}
-                              type="button"
-                              onClick={() => setInterview((p) => ({ ...p, style: preset.text }))}
-                              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
-                                interview.style === preset.text
-                                  ? "border-foreground bg-inverted text-inverted-foreground"
-                                  : "border-border text-muted-foreground hover:text-foreground"
-                              }`}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                       <textarea
                         value={interview[q.key] || ""}
                         onChange={(e) => setInterview((p) => ({ ...p, [q.key]: e.target.value }))}

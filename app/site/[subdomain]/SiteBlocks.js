@@ -25,6 +25,7 @@ import {
   Wrench, Home, Paintbrush, Hammer, Ruler, Sparkles, ShieldCheck, Star,
 } from "lucide-react";
 import { neutralPair } from "@/lib/documents/theme";
+import { resolveSiteStyle, DEFAULT_SITE_STYLE } from "@/lib/site/siteStyles";
 import { groupHours, openState, formatTime } from "@/lib/company/businessHours";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
 import SelfQuoteFlow from "@/app/quote/[companySlug]/SelfQuoteFlow";
@@ -41,16 +42,20 @@ function accent2Of(company, theme) {
   return typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s) ? s : theme.accentText;
 }
 
-export default function SiteBlocks({ blocks, company, theme, fill, subdomain }) {
+export default function SiteBlocks({ blocks, company, theme, fill, subdomain, style }) {
   const visible = blocks.filter((b) => b.visible !== false);
   const accent2 = accent2Of(company, theme);
+  // The design style (lib/site/siteStyles.js) — type scale, weight, rhythm,
+  // corner treatment. Falls back to the modern default so a row saved before
+  // styles existed still renders.
+  const S = style || resolveSiteStyle(DEFAULT_SITE_STYLE);
 
   return (
     <>
       <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} />
       <main>
         {visible.map((block) => {
-          const props = { block, company, theme, fill, subdomain, accent2 };
+          const props = { block, company, theme, fill, subdomain, accent2, S };
           let el = null;
           switch (block.type) {
             case "hero": el = <Hero {...props} />; break;
@@ -82,10 +87,10 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain }) 
 
 /* ── shared scaffold ── */
 
-const Section = ({ children, alt, theme, wide, id }) => (
+const Section = ({ children, alt, theme, wide, id, S }) => (
   <section
     id={id}
-    className="px-5 sm:px-8 py-16 sm:py-24"
+    className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`}
     style={alt ? { backgroundColor: theme.accentWash } : undefined}
   >
     <div className={`${wide ? "max-w-6xl" : "max-w-5xl"} mx-auto`}>{children}</div>
@@ -104,13 +109,17 @@ const Eyebrow = ({ children, accent2 }) =>
 
 // Headings step up a real scale. onWash swaps to the contrast-measured ink for
 // tinted backgrounds (inkMuted vs paper drops below 4.5:1 on a wash).
-const Heading = ({ children, theme, center, onWash, eyebrow, accent2 }) =>
+const Heading = ({ children, theme, center, onWash, eyebrow, accent2, S }) =>
   children ? (
     <div className={`mb-8 ${center ? "text-center" : ""} ${center ? "" : "max-w-2xl"}`}>
       {eyebrow && <div className={center ? "flex justify-center" : ""}><Eyebrow accent2={accent2}>{eyebrow}</Eyebrow></div>}
       <h2
-        className="text-3xl sm:text-4xl font-extrabold tracking-[-0.02em] leading-[1.08]"
-        style={{ color: onWash ? theme.inkOnWash : theme.ink, textWrap: "balance" }}
+        className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold tracking-[-0.02em]"} leading-[1.08]`}
+        style={{
+          color: onWash ? theme.inkOnWash : theme.ink,
+          textWrap: "balance",
+          ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}),
+        }}
       >
         {children}
       </h2>
@@ -234,7 +243,7 @@ function HeroActions({ company, theme, fill, ctaLabel, onImage, center }) {
 // A trust strip — years/rating/etc aren't in the data model, so instead of
 // inventing numbers we surface a single honest reassurance when we have the
 // material (a phone to call). Kept minimal precisely to avoid fabrication.
-function Hero({ block, company, theme, fill, accent2 }) {
+function Hero({ block, company, theme, fill, accent2, S }) {
   const { headline, subhead, ctaLabel, backgroundImage } = block.content;
   const variant =
     (block.content.variant === "split" || block.content.variant === "banner") && !backgroundImage
@@ -244,11 +253,11 @@ function Hero({ block, company, theme, fill, accent2 }) {
 
   if (variant === "split") {
     return (
-      <section className="px-5 sm:px-8 py-16 sm:py-24" style={{ backgroundColor: theme.accentWash }}>
+      <section className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`} style={{ backgroundColor: theme.accentWash }}>
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div>
             <Eyebrow accent2={accent2}>{[company.city, company.province].filter(Boolean).join(", ") || "Local & trusted"}</Eyebrow>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-[-0.03em] leading-[1.03]" style={{ color: theme.ink, textWrap: "balance" }}>
+            <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
               {title}
             </h1>
             {subhead && <p className="mt-5 text-lg sm:text-xl leading-relaxed max-w-[34ch]" style={{ color: theme.inkMutedOnWash }}>{subhead}</p>}
@@ -269,7 +278,7 @@ function Hero({ block, company, theme, fill, accent2 }) {
         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.25) 45%, transparent)" }} />
         <div className="absolute inset-x-0 bottom-0 px-5 sm:px-8 pb-12 sm:pb-16">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-4xl sm:text-6xl font-extrabold tracking-[-0.03em] leading-[1.02] max-w-2xl" style={{ color: "#fff", textWrap: "balance" }}>{title}</h1>
+            <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.02] max-w-2xl`} style={{ color: "#fff", textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>{title}</h1>
             {subhead && <p className="mt-4 text-lg sm:text-xl leading-relaxed max-w-xl" style={{ color: "rgba(255,255,255,.92)" }}>{subhead}</p>}
             <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage />
           </div>
@@ -279,7 +288,7 @@ function Hero({ block, company, theme, fill, accent2 }) {
   }
 
   return (
-    <section className="relative px-5 sm:px-8 py-24 sm:py-32 overflow-hidden" style={{ backgroundColor: theme.accentWash }}>
+    <section className={`relative px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"} overflow-hidden`} style={{ backgroundColor: theme.accentWash }}>
       {backgroundImage ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -294,7 +303,7 @@ function Hero({ block, company, theme, fill, accent2 }) {
         {!backgroundImage && (
           <div className="flex justify-center"><Eyebrow accent2={accent2}>{[company.city, company.province].filter(Boolean).join(", ") || "Local & trusted"}</Eyebrow></div>
         )}
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-[-0.03em] leading-[1.03]" style={{ color: backgroundImage ? "#fff" : theme.ink, textWrap: "balance" }}>
+        <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: backgroundImage ? "#fff" : theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
           {title}
         </h1>
         {subhead && (
@@ -310,14 +319,14 @@ function Hero({ block, company, theme, fill, accent2 }) {
 
 /* ──────────────────────────── Services ──────────────────────────── */
 
-function Services({ block, theme, fill, accent2 }) {
+function Services({ block, theme, fill, accent2, S }) {
   const { heading, intro, items, variant } = block.content;
   if (!items?.length) return null;
 
   if (variant === "list") {
     return (
-      <Section theme={theme}>
-        <Heading theme={theme} eyebrow="What we do" accent2={accent2}>{heading}</Heading>
+      <Section theme={theme} S={S}>
+        <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S}>{heading}</Heading>
         <Intro theme={theme}>{intro}</Intro>
         <div className="divide-y" style={{ borderColor: theme.border }}>
           {items.map((item, i) => (
@@ -333,8 +342,8 @@ function Services({ block, theme, fill, accent2 }) {
 
   if (variant === "numbered") {
     return (
-      <Section theme={theme} wide>
-        <Heading theme={theme} center eyebrow="How it works" accent2={accent2}>{heading}</Heading>
+      <Section theme={theme} wide S={S}>
+        <Heading theme={theme} center eyebrow="How it works" accent2={accent2} S={S}>{heading}</Heading>
         <Intro theme={theme} center>{intro}</Intro>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item, i) => (
@@ -351,8 +360,8 @@ function Services({ block, theme, fill, accent2 }) {
 
   // cards (default) — elevated with an icon, hover lift, brand-tinted badge.
   return (
-    <Section theme={theme} wide>
-      <Heading theme={theme} eyebrow="What we do" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} wide S={S}>
+      <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme}>{intro}</Intro>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((item, i) => {
@@ -360,7 +369,7 @@ function Services({ block, theme, fill, accent2 }) {
           return (
             <div
               key={i}
-              className="group rounded-2xl p-6 border transition-transform hover:-translate-y-1 hover:shadow-xl"
+              className={`group ${S?.radius || "rounded-2xl"} p-6 border transition-transform hover:-translate-y-1 hover:shadow-xl`}
               style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}
             >
               <span className="inline-grid w-12 h-12 rounded-xl place-items-center mb-4" style={{ backgroundColor: theme.accentWash, color: theme.accentText }}>
@@ -378,14 +387,14 @@ function Services({ block, theme, fill, accent2 }) {
 
 /* ───────────────────────── About / Gallery ──────────────────────── */
 
-function About({ block, theme, accent2 }) {
+function About({ block, theme, accent2, S }) {
   const { heading, body, image } = block.content;
   if (!body && !image) return null;
   return (
-    <Section theme={theme} alt>
+    <Section theme={theme} alt S={S}>
       <div className="grid sm:grid-cols-2 gap-10 items-center">
         <div>
-          <Heading theme={theme} onWash eyebrow="About us" accent2={accent2}>{heading}</Heading>
+          <Heading theme={theme} onWash eyebrow="About us" accent2={accent2} S={S}>{heading}</Heading>
           {body && <p className="text-lg leading-relaxed whitespace-pre-wrap" style={{ color: theme.inkMutedOnWash }}>{body}</p>}
         </div>
         {image && (
@@ -397,14 +406,14 @@ function About({ block, theme, accent2 }) {
   );
 }
 
-function Gallery({ block, theme, accent2 }) {
+function Gallery({ block, theme, accent2, S }) {
   const { heading, intro, images } = block.content;
   if (!images?.length) return null;
   // A mixed masonry-ish rhythm: the first image spans two columns so the grid
   // reads as a portfolio, not a contact sheet of identical squares.
   return (
-    <Section theme={theme} wide>
-      <Heading theme={theme} eyebrow="Our work" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} wide S={S}>
+      <Heading theme={theme} eyebrow="Our work" accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme}>{intro}</Intro>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {images.map((src, i) => (
@@ -422,17 +431,17 @@ function Gallery({ block, theme, accent2 }) {
   );
 }
 
-function Testimonials({ block, theme, accent2 }) {
+function Testimonials({ block, theme, accent2, S }) {
   const { heading, items } = block.content;
   if (!items?.length) return null;
   const initials = (name) =>
     String(name || "").replace(/[^a-zA-Z ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("") || "★";
   return (
-    <Section theme={theme} alt wide>
-      <Heading theme={theme} onWash center eyebrow="Homeowners" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} alt wide S={S}>
+      <Heading theme={theme} onWash center eyebrow="Homeowners" accent2={accent2} S={S}>{heading}</Heading>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((t, i) => (
-          <figure key={i} className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
+          <figure key={i} className={`${S?.radius || "rounded-2xl"} p-6 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
             <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label="5 out of 5 stars">
               {[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} fill="currentColor" strokeWidth={0} />)}
             </div>
@@ -452,12 +461,12 @@ function Testimonials({ block, theme, accent2 }) {
 
 // FAQ — an accordion using <details> so it's interactive with zero JavaScript
 // (native disclosure), which keeps the server-only guarantee intact.
-function Faq({ block, theme, accent2 }) {
+function Faq({ block, theme, accent2, S }) {
   const { heading, items } = block.content;
   if (!items?.length) return null;
   return (
-    <Section theme={theme}>
-      <Heading theme={theme} eyebrow="Good to know" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} S={S}>
+      <Heading theme={theme} eyebrow="Good to know" accent2={accent2} S={S}>{heading}</Heading>
       <div className="max-w-3xl">
         {items.map((qa, i) => (
           <details key={i} className="group border-b" style={{ borderColor: theme.border }}>
@@ -475,11 +484,11 @@ function Faq({ block, theme, accent2 }) {
 
 /* ──────────────────── Blocks driven by company data ─────────────── */
 
-function QuoteForm({ block, company, theme, accent2 }) {
+function QuoteForm({ block, company, theme, accent2, S }) {
   const { heading, intro } = block.content;
   return (
-    <Section theme={theme} alt wide>
-      <Heading theme={theme} center onWash eyebrow="Free estimate" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} alt wide S={S}>
+      <Heading theme={theme} center onWash eyebrow="Free estimate" accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme} center onWash>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
         <SelfQuoteFlow companySlug={company.slug} />
@@ -493,7 +502,7 @@ function QuoteForm({ block, company, theme, accent2 }) {
   );
 }
 
-function BookingBlock({ block, company, theme, accent2 }) {
+function BookingBlock({ block, company, theme, accent2, S }) {
   const { heading, intro } = block.content;
   // Works off the company slug even without a custom bookingSlug — findBooking
   // Company resolves either. The BookingFlow degrades to a friendly message if
@@ -501,8 +510,8 @@ function BookingBlock({ block, company, theme, accent2 }) {
   const slug = company.bookingSlug || company.slug;
   if (!slug) return null;
   return (
-    <Section theme={theme} wide>
-      <Heading theme={theme} center eyebrow="Book a visit" accent2={accent2}>{heading}</Heading>
+    <Section theme={theme} wide S={S}>
+      <Heading theme={theme} center eyebrow="Book a visit" accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme} center>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
         <BookingFlow companySlug={slug} />
@@ -527,18 +536,18 @@ function staticMapUrl(address) {
   return `https://maps.googleapis.com/maps/api/staticmap?center=${c}&zoom=14&size=640x260&scale=2&markers=color:0x33333300%7C${c}&key=${key}`;
 }
 
-function Hours({ block, company, theme, accent2 }) {
+function Hours({ block, company, theme, accent2, S }) {
   const { heading, note } = block.content;
   const runs = groupHours(company.businessHours, { weekStartsOn: company.weekStartsOn ?? 0 });
   if (!runs.some((r) => !r.closed)) return null;
   const state = openState(company.businessHours, company.timezone);
   return (
-    <Section theme={theme}>
+    <Section theme={theme} S={S}>
       <div className="max-w-md mx-auto text-center">
         <span className="inline-grid w-12 h-12 rounded-2xl place-items-center mb-4 mx-auto" style={{ backgroundColor: theme.accentWash, color: theme.accentText }}>
           <Clock size={22} />
         </span>
-        <Heading theme={theme} center accent2={accent2}>{heading}</Heading>
+        <Heading theme={theme} center accent2={accent2} S={S}>{heading}</Heading>
         {state && (
           <p className="text-sm font-semibold -mt-4 mb-7" style={{ color: state.open ? theme.positive : theme.inkMuted }}>
             {state.open ? "Open now" : "Closed now"}
@@ -558,7 +567,7 @@ function Hours({ block, company, theme, accent2 }) {
   );
 }
 
-function Contact({ block, company, theme, fill, accent2 }) {
+function Contact({ block, company, theme, fill, accent2, S }) {
   const { heading, intro, showQuoteLink, showBookingLink } = block.content;
   // The address field already holds the full formatted address from signup, so
   // appending city/province again produced "…Scarborough, ON…, Toronto, ON".
@@ -566,9 +575,9 @@ function Contact({ block, company, theme, fill, accent2 }) {
   const place = company.address || [company.city, company.province].filter(Boolean).join(", ");
   const mapUrl = staticMapUrl(place);
   return (
-    <Section theme={theme}>
+    <Section theme={theme} S={S}>
       <div className="text-center">
-        <Heading theme={theme} center eyebrow="Get in touch" accent2={accent2}>{heading}</Heading>
+        <Heading theme={theme} center eyebrow="Get in touch" accent2={accent2} S={S}>{heading}</Heading>
         {intro && <p className="text-lg leading-relaxed max-w-2xl mx-auto -mt-4 mb-2" style={{ color: theme.inkMuted }}>{intro}</p>}
         <div className="mt-8 flex flex-wrap gap-3 justify-center">
           {showQuoteLink !== false && (
