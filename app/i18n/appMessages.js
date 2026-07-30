@@ -181,14 +181,53 @@ const en = {
 
   // ── Settings navigation ──────────────────────────────────────────────────
   "app.settings.title": "Settings",
-  "app.settings.group.business": "Your business",
-  "app.settings.group.brand": "Brand & documents",
-  "app.settings.group.pricing": "Pricing & catalogue",
-  "app.settings.group.team": "Team",
-  "app.settings.group.bookings": "Bookings & availability",
-  "app.settings.group.clientFacing": "What clients see",
-  "app.settings.group.money": "Money",
+
   "app.settings.group.account": "Account",
+  "app.settings.accountBilling": "Account & Billing",
+  "app.settings.refer": "Refer & Earn",
+  "app.settings.productUpdates": "Product Updates",
+
+  "app.settings.group.business": "Business",
+  "app.settings.company": "Company Settings",
+  "app.settings.branding": "Branding",
+  "app.settings.language": "Language",
+
+  "app.settings.group.team": "Team & scheduling",
+  "app.settings.team": "Manage Team",
+  "app.settings.availability": "Availability",
+  "app.settings.leave": "Time Off Policies",
+  "app.settings.bookingPage": "Booking Page",
+  "app.settings.workAreas": "Work Areas",
+
+  "app.settings.group.pricing": "Services & pricing",
+  "app.settings.products": "Products & Services",
+  "app.settings.services": "Services & Pricing",
+  "app.settings.materials": "Materials",
+  "app.settings.materialCosts": "Material Costs",
+  "app.settings.overhead": "Overhead",
+  "app.settings.payroll": "Payroll",
+  "app.settings.customFields": "Custom Fields",
+
+  "app.settings.group.documents": "Documents & messaging",
+  "app.settings.emailTemplates": "Email Templates",
+  "app.settings.pdfTemplates": "PDF Templates",
+  "app.settings.emailDomain": "Email Domain",
+  "app.settings.translations": "Translations",
+  "app.settings.followUps": "Follow-ups",
+  "app.settings.notifications": "Notifications",
+  "app.settings.checklists": "Checklists",
+
+  "app.settings.group.paid": "Getting paid",
+  "app.settings.payments": "Payments",
+  "app.settings.expenseTracking": "Expense Tracking",
+
+  "app.settings.group.clientFacing": "Client-facing",
+  "app.settings.website": "Your website",
+  "app.settings.instantQuotes": "Instant Quotes",
+  "app.settings.leadForm": "Share your links",
+
+  "app.settings.group.records": "Records",
+  "app.settings.activity": "Activity Log",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -323,14 +362,53 @@ const fr = {
   "app.time.days": "jours",
 
   "app.settings.title": "Paramètres",
-  "app.settings.group.business": "Votre entreprise",
-  "app.settings.group.brand": "Image de marque et documents",
-  "app.settings.group.pricing": "Tarifs et catalogue",
-  "app.settings.group.team": "Équipe",
-  "app.settings.group.bookings": "Rendez-vous et disponibilités",
-  "app.settings.group.clientFacing": "Ce que voient les clients",
-  "app.settings.group.money": "Finances",
+
   "app.settings.group.account": "Compte",
+  "app.settings.accountBilling": "Compte et facturation",
+  "app.settings.refer": "Parrainage",
+  "app.settings.productUpdates": "Nouveautés",
+
+  "app.settings.group.business": "Entreprise",
+  "app.settings.company": "Profil de l'entreprise",
+  "app.settings.branding": "Image de marque",
+  "app.settings.language": "Langue",
+
+  "app.settings.group.team": "Équipe et horaires",
+  "app.settings.team": "Gérer l'équipe",
+  "app.settings.availability": "Disponibilités",
+  "app.settings.leave": "Politiques de congés",
+  "app.settings.bookingPage": "Page de rendez-vous",
+  "app.settings.workAreas": "Zones desservies",
+
+  "app.settings.group.pricing": "Services et tarifs",
+  "app.settings.products": "Produits et services",
+  "app.settings.services": "Services et tarifs",
+  "app.settings.materials": "Matériaux",
+  "app.settings.materialCosts": "Coût des matériaux",
+  "app.settings.overhead": "Frais généraux",
+  "app.settings.payroll": "Paie",
+  "app.settings.customFields": "Champs personnalisés",
+
+  "app.settings.group.documents": "Documents et communications",
+  "app.settings.emailTemplates": "Modèles de courriel",
+  "app.settings.pdfTemplates": "Modèles PDF",
+  "app.settings.emailDomain": "Domaine d'envoi",
+  "app.settings.translations": "Traductions",
+  "app.settings.followUps": "Relances",
+  "app.settings.notifications": "Notifications",
+  "app.settings.checklists": "Listes de vérification",
+
+  "app.settings.group.paid": "Encaissement",
+  "app.settings.payments": "Paiements",
+  "app.settings.expenseTracking": "Suivi des dépenses",
+
+  "app.settings.group.clientFacing": "Côté client",
+  "app.settings.website": "Votre site web",
+  "app.settings.instantQuotes": "Soumissions instantanées",
+  "app.settings.leadForm": "Partager vos liens",
+
+  "app.settings.group.records": "Registres",
+  "app.settings.activity": "Journal d'activité",
 };
 
 export const APP_MESSAGES = { en, fr };

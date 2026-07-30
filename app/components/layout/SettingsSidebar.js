@@ -24,6 +24,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   Building2,
   Users,
@@ -60,79 +61,80 @@ import {
 
 const GROUPS = [
   {
-    label: "Account",
+    key: "app.settings.group.account",
     items: [
-      { label: "Account & Billing", href: "/app/settings/account-billing", icon: CreditCard },
-      { label: "Refer & Earn", href: "/app/settings/refer", icon: Gift },
-      { label: "Product Updates", href: "/app/settings/product-updates", icon: Megaphone },
+      { key: "app.settings.accountBilling", href: "/app/settings/account-billing", icon: CreditCard },
+      { key: "app.settings.refer", href: "/app/settings/refer", icon: Gift },
+      { key: "app.settings.productUpdates", href: "/app/settings/product-updates", icon: Megaphone },
     ],
   },
   {
-    label: "Business",
+    key: "app.settings.group.business",
     items: [
-      { label: "Company Settings", href: "/app/settings/company", icon: Building2 },
-      { label: "Branding", href: "/app/settings/branding", icon: Palette },
-      { label: "Language", href: "/app/settings/language", icon: Languages },
+      { key: "app.settings.company", href: "/app/settings/company", icon: Building2 },
+      { key: "app.settings.branding", href: "/app/settings/branding", icon: Palette },
+      { key: "app.settings.language", href: "/app/settings/language", icon: Languages },
     ],
   },
   {
-    label: "Team & scheduling",
+    key: "app.settings.group.team",
     items: [
-      { label: "Manage Team", href: "/app/settings/team", icon: Users },
-      { label: "Availability", href: "/app/settings/availability", icon: Clock },
-      { label: "Time Off Policies", href: "/app/settings/leave", icon: CalendarClock },
-      { label: "Booking Page", href: "/app/settings/booking-page", icon: CalendarDays },
-      { label: "Work Areas", href: "/app/settings/work-areas", icon: Map },
+      { key: "app.settings.team", href: "/app/settings/team", icon: Users },
+      { key: "app.settings.availability", href: "/app/settings/availability", icon: Clock },
+      { key: "app.settings.leave", href: "/app/settings/leave", icon: CalendarClock },
+      { key: "app.settings.bookingPage", href: "/app/settings/booking-page", icon: CalendarDays },
+      { key: "app.settings.workAreas", href: "/app/settings/work-areas", icon: Map },
     ],
   },
   {
-    label: "Services & pricing",
+    key: "app.settings.group.pricing",
     items: [
-      { label: "Products & Services", href: "/app/settings/products", icon: Package },
-      { label: "Services & Pricing", href: "/app/settings/services", icon: Tags },
-      { label: "Materials", href: "/app/settings/materials", icon: Boxes },
-      { label: "Material Costs", href: "/app/settings/material-costs", icon: Droplet },
-      { label: "Overhead", href: "/app/settings/overhead", icon: TrendingUp },
-      { label: "Payroll", href: "/app/settings/payroll", icon: Wallet },
-      { label: "Custom Fields", href: "/app/settings/custom-fields", icon: ListPlus },
+      { key: "app.settings.products", href: "/app/settings/products", icon: Package },
+      { key: "app.settings.services", href: "/app/settings/services", icon: Tags },
+      { key: "app.settings.materials", href: "/app/settings/materials", icon: Boxes },
+      { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet },
+      { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp },
+      { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet },
+      { key: "app.settings.customFields", href: "/app/settings/custom-fields", icon: ListPlus },
     ],
   },
   {
-    label: "Documents & messaging",
+    key: "app.settings.group.documents",
     items: [
-      { label: "Email Templates", href: "/app/settings/email-templates", icon: Mail },
-      { label: "PDF Templates", href: "/app/settings/templates", icon: FileText },
-      { label: "Email Domain", href: "/app/settings/email-domain", icon: AtSign },
-      { label: "Translations", href: "/app/settings/translations", icon: Globe },
-      { label: "Follow-ups", href: "/app/settings/follow-ups", icon: Clock },
-      { label: "Notifications", href: "/app/settings/notifications", icon: Bell },
-      { label: "Checklists", href: "/app/settings/checklists", icon: ListChecks },
+      { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail },
+      { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText },
+      { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign },
+      { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe },
+      { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock },
+      { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell },
+      { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
     ],
   },
   {
-    label: "Getting paid",
+    key: "app.settings.group.paid",
     items: [
-      { label: "Payments", href: "/app/settings/payments", icon: Receipt },
-      { label: "Expense Tracking", href: "/app/settings/expense-tracking", icon: Wallet },
+      { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt },
+      { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet },
     ],
   },
   {
-    label: "Client-facing",
+    key: "app.settings.group.clientFacing",
     items: [
-      { label: "Your website", href: "/app/settings/website", icon: Globe },
-      { label: "Instant Quotes", href: "/app/settings/instant-quotes", icon: Zap },
-      { label: "Share your links", href: "/app/settings/lead-form", icon: ClipboardList },
+      { key: "app.settings.website", href: "/app/settings/website", icon: Globe },
+      { key: "app.settings.instantQuotes", href: "/app/settings/instant-quotes", icon: Zap },
+      { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList },
     ],
   },
   {
-    label: "Records",
-    items: [{ label: "Activity Log", href: "/app/activity", icon: Activity }],
+    key: "app.settings.group.records",
+    items: [{ key: "app.settings.activity", href: "/app/activity", icon: Activity }],
   },
 ];
 
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
 
 export default function SettingsSidebar() {
+  const { t } = useTranslation();
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -174,7 +176,7 @@ export default function SettingsSidebar() {
         }`}
       >
         <Icon size={16} className="shrink-0" />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{t(item.key)}</span>
       </Link>
     );
   }
@@ -182,9 +184,9 @@ export default function SettingsSidebar() {
   const nav = (onNavigate) => (
     <nav className="space-y-5">
       {GROUPS.map((group) => (
-        <div key={group.label}>
+        <div key={group.key}>
           <div className="px-3 pb-1.5 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
-            {group.label}
+            {t(group.key)}
           </div>
           <div className="space-y-0.5">
             {group.items.map((item) => renderItem(item, { onNavigate }))}
@@ -209,7 +211,7 @@ export default function SettingsSidebar() {
         >
           <SettingsIcon size={16} className="shrink-0 text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground truncate">
-            {current?.label || "Settings"}
+            {current ? t(current.key) : t("app.settings.title")}
           </span>
           <ChevronDown size={16} className="ml-auto shrink-0 text-muted-foreground" />
         </button>
@@ -223,11 +225,11 @@ export default function SettingsSidebar() {
           />
           <div className="absolute inset-x-0 bottom-0 top-14 bg-card rounded-t-2xl flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-              <span className="font-bold text-foreground">Settings</span>
+              <span className="font-bold text-foreground">{t("app.settings.title")}</span>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                aria-label="Close settings menu"
+                aria-label={t("app.sidebar.closeMenu")}
                 className="p-1.5 -mr-1.5 text-muted-foreground"
               >
                 <X size={20} />
@@ -245,7 +247,7 @@ export default function SettingsSidebar() {
 
       {/* ── Desktop: unchanged ── */}
       <aside className="hidden lg:block w-64 shrink-0 border-r border-border bg-card min-h-full px-3 py-6">
-        <h1 className="px-3 text-lg font-bold text-foreground mb-4">Settings</h1>
+        <h1 className="px-3 text-lg font-bold text-foreground mb-4">{t("app.settings.title")}</h1>
         {nav()}
       </aside>
     </>

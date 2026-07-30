@@ -24,6 +24,8 @@
 import { MESSAGES, MESSAGE_KEYS } from "../app/i18n/messages.js";
 import { APP_MESSAGE_KEYS, appCoverage } from "../app/i18n/appMessages.js";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "../app/i18n/languages.js";
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 let problems = 0;
 
@@ -89,6 +91,67 @@ for (const { code, name } of LANGUAGES) {
 for (const k of APP_MESSAGE_KEYS.filter((k) => !(k in (MESSAGES.fr || {})))) {
   console.log(`     missing from French: ${k}`);
   problems++;
+}
+
+// ── Every key the code asks for must exist ─────────────────────────────────
+//
+// The other direction, and the one that actually bites. t() falls back to the
+// key itself when nothing resolves, so a typo — t("app.nav.jobss") — renders
+// the literal string "app.nav.jobss" on screen in every language including
+// English. No test catches that; a customer does.
+//
+// Scans source rather than a manifest so it can't fall out of step with the
+// code, and matches any "app.*" string literal rather than only t("...") calls.
+// That second part matters: the two sidebars keep their nav definitions in
+// module-scope constants that can't call a hook, so they carry `key: "app.nav.x"`
+// as DATA and translate at render. A t()-only scan reported 8 keys in use and
+// 145 unused, which is the sort of confidently wrong number that gets a real
+// key deleted.
+//
+// Still blind to computed keys (`app.status.${x}`) — a good reason to prefer
+// literals at call sites.
+const SRC_DIRS = ["app", "lib"];
+const CATALOGUE = "app/i18n/appMessages.js"; // the definitions, not a use
+const used = new Map(); // key -> first file that uses it
+
+async function scan(dir) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      await scan(full);
+    } else if (
+      (entry.name.endsWith(".js") || entry.name.endsWith(".jsx")) &&
+      full !== CATALOGUE
+    ) {
+      const src = await readFile(full, "utf8");
+      for (const m of src.matchAll(/["'](app\.[A-Za-z0-9_.]+)["']/g)) {
+        if (!used.has(m[1])) used.set(m[1], full);
+      }
+    }
+  }
+}
+
+for (const dir of SRC_DIRS) await scan(dir);
+
+console.log(`\nKey usage — ${used.size} distinct app keys referenced in source\n`);
+
+let undefinedKeys = 0;
+for (const [key, file] of used) {
+  if (!APP_MESSAGE_KEYS.includes(key)) {
+    console.log(`     undefined key: ${key}   (${file})`);
+    undefinedKeys++;
+    problems++;
+  }
+}
+if (undefinedKeys === 0) console.log("  every referenced key is defined.");
+
+// The reverse is only worth reporting, not failing on: a key can legitimately
+// be defined ahead of the screen that will use it, and computed call sites are
+// invisible to the scan above, so "unused" here is a hint and not a verdict.
+const unused = APP_MESSAGE_KEYS.filter((k) => !used.has(k));
+if (unused.length) {
+  console.log(`  ${unused.length} defined but not referenced by a literal t() call.`);
 }
 
 if (problems === 0) {
