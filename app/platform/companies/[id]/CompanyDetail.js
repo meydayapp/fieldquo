@@ -33,6 +33,7 @@ import { count, money } from "@/app/components/platform/MetricCard";
 import { fetchJson } from "@/lib/fetchJson";
 import CompanyHistory from "./CompanyHistory";
 import CompanyActivity from "./CompanyActivity";
+import CompanyHealth from "./CompanyHealth";
 
 const STATUS_STYLES = {
   active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
@@ -444,6 +445,9 @@ export default function CompanyDetail({ companyId }) {
           <Field label="Last change" value={formatDate(company.updatedAt)} />
         </Group>
       </div>
+
+      {/* Health first — the read that decides how the whole call goes. */}
+      <CompanyHealth companyId={companyId} />
 
       {/* Financial history — subscription and their own client billing */}
       <CompanyHistory companyId={companyId} />
