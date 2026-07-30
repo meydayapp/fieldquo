@@ -169,7 +169,10 @@ export async function POST(request) {
     const to = staff.map((m) => m.user?.email).filter(Boolean);
     if (to.length) {
       const { from, replyTo } = await resolveSender(company, company.id);
-      const link = `${getAppOrigin(request)}/app/leads/${lead.id}`;
+      // The leads LIST. There's no lead detail route, and emailing a link to
+      // a 404 is worse than emailing no link at all — it reads as the product
+      // being broken at the exact moment a new enquiry arrives.
+      const link = `${getAppOrigin(request)}/app/leads`;
       await resend.emails.send({
         from,
         replyTo,
