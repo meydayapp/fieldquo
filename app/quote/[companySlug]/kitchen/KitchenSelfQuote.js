@@ -31,6 +31,7 @@ import { Loader2, Check, Send, Ruler } from "lucide-react";
 import { designerTheme } from "@/lib/kitchen/designerTheme";
 import KitchenDesigner from "@/app/components/kitchen/KitchenDesigner";
 import { KitchenSheet } from "@/app/components/kitchen/PlanSvg";
+import { DISCLOSURE } from "@/lib/voice/disclosure";
 
 export default function KitchenSelfQuote({ company }) {
   const [design, setDesign] = useState(null);
@@ -248,6 +249,11 @@ export default function KitchenSelfQuote({ company }) {
             you a price on the spot, because {company.name} checks the layout is
             buildable first.
           </p>
+          {/* The disclosure, verbatim from lib/voice/outbound.js — the same
+              string that gets stored as the consent record, so what we can
+              prove they saw is literally what was rendered. Two copies drift,
+              and the one that drifts is the one in the evidence. */}
+          <p className="text-xs text-neutral-500">{DISCLOSURE.self_quote}</p>
         </form>
       </div>
 

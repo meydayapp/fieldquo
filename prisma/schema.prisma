@@ -530,6 +530,7 @@ model Company {
   voiceAgent    VoiceAgent?
   voiceCalls    VoiceCall[]
   voiceCredits  VoiceCreditEntry[]
+  callConsents  CallConsent[]
 
 }
 
@@ -2750,4 +2751,57 @@ model VoiceCreditEntry {
   createdAt DateTime @default(now())
 
   @@index([companyId, createdAt])
+}
+
+/// Permission to ring a specific number, and where it came from.
+///
+/// ── Why this is a table and not a boolean ──────────────────────────────────
+///
+/// "May we call this number" has to be answerable months later, in front of a
+/// regulator, with a date and a reason. TCPA is up to $1,500 PER CALL and CASL
+/// up to $10M for an organisation, and the defence is always the same: show
+/// that the person asked to be contacted, and when.
+///
+/// So consent is a ROW with a source and a timestamp, not a flag somebody could
+/// have set. If there is no row, the agent does not dial. That makes cold
+/// calling structurally impossible rather than merely against the rules — a
+/// contractor who pastes in a purchased list gets nothing, which is the point.
+model CallConsent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164, normalised. The lookup key, so a number typed one way and dialled
+  /// another can't slip past the check.
+  e164 String
+
+  /// How they asked. Each of these is a real, evidenced request to be
+  /// contacted — not an inference:
+  ///   self_quote     submitted a quote request that said we'd call
+  ///   booking        booked a visit
+  ///   quote_approved a quote they asked for was approved
+  ///   job_completed  we did work for them
+  ///   manual         staff recorded a verbal request — needs `note`
+  source String
+
+  /// The exact wording they were shown when they gave it. Stored, not
+  /// referenced, because the form copy WILL change and the defence has to be
+  /// what this person actually saw.
+  disclosure String?
+
+  /// What it relates to, so consent can be traced to the thing that created it.
+  leadId    String?
+  clientId  String?
+  quoteId   String?
+  jobId     String?
+  note      String?
+
+  /// Set the moment they ask to stop. Checked BEFORE any consent row — an
+  /// opt-out always wins, whatever else is on file, and it is never deleted.
+  optedOutAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, e164])
+  @@index([e164, optedOutAt])
 }

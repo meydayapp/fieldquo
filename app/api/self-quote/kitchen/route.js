@@ -28,6 +28,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { Resend } from "resend";
 import { lazyClient } from "@/lib/lazyClient";
 import { getAppOrigin } from "@/lib/appUrl";
+import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
 
 const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
@@ -155,6 +156,30 @@ export async function POST(request) {
       kitchenDesign: design,
     },
   });
+
+  // ── Their permission to ring them ───────────────────────────────────────
+  //
+  // The form said "someone will call you shortly", which IS the request to be
+  // contacted — and the exact wording is stored on the row rather than
+  // referenced, because this copy will change and the defence has to be what
+  // THIS person actually saw.
+  //
+  // Without this row the agent will not dial them. That's the whole design:
+  // see lib/voice/outbound.js.
+  if (phone) {
+    await recordConsent({
+      companyId: company.id,
+      phone,
+      source: "self_quote",
+      disclosure: DISCLOSURE.self_quote,
+      leadId: lead.id,
+    }).catch((err) => {
+      // Never fail the enquiry over it. Worst case the agent won't ring them,
+      // which is the safe direction — a lead with no consent is still a lead
+      // somebody can pick up the phone to themselves.
+      console.error("[self-quote/kitchen] couldn't record call consent:", err);
+    });
+  }
 
   // ── Tell the company ────────────────────────────────────────────────────
   //
