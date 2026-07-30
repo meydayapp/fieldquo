@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+import { recordConsent } from "@/lib/voice/outbound";
+import { DISCLOSURE } from "@/lib/voice/disclosure";
 // Public — a website visitor requesting a quote through an embeddable widget,
 // identified by companySlug. This is functionally very close to /api/leads/public
 // (both create a LeadRequest); the distinction from TrueFinish is that self-quote
@@ -82,6 +84,18 @@ export async function POST(request) {
       source: "self_quote",
     },
   });
+
+  // Same as every other inbound form: they gave a number expecting a reply, so
+  // that's consent to ring them. See lib/voice/outbound.js.
+  if (phone) {
+    await recordConsent({
+      companyId: company.id,
+      phone,
+      source: "self_quote",
+      disclosure: DISCLOSURE.lead,
+      leadId: lead.id,
+    }).catch((err) => console.error("[self-quote] consent not recorded:", err));
+  }
 
   return NextResponse.json({ success: true, id: lead.id }, { status: 201 });
 }

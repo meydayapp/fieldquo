@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Inbox, Mail, Phone, ArrowRight, AlertCircle } from "lucide-react";
+import { Inbox, Mail, Phone, ArrowRight, AlertCircle , PhoneOff } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
@@ -154,14 +154,28 @@ export default function LeadsPage() {
                           {lead.email}
                         </a>
                       )}
+                      {/* Fragment, not two siblings: a `&&` branch takes ONE
+                          child, and the do-not-call flag belongs with the
+                          number it's about. */}
                       {lead.phone && (
-                        <a
-                          href={`tel:${lead.phone}`}
-                          className="flex items-center gap-1.5 hover:text-foreground"
-                        >
-                          <Phone size={11} className="shrink-0" />
-                          {lead.phone}
-                        </a>
+                        <>
+                          <a
+                            href={`tel:${lead.phone}`}
+                            className="flex items-center gap-1.5 hover:text-foreground"
+                          >
+                            <Phone size={11} className="shrink-0" />
+                            {lead.phone}
+                          </a>
+                          {/* They asked us to stop. Shown BEFORE somebody picks
+                              up the phone — whoever is dialling otherwise has no
+                              way to know, and a call to someone who opted out is
+                              the complaint that ends with a regulator. */}
+                          {lead.doNotCall && (
+                            <span className="inline-flex items-center gap-1 text-[11px] text-red-700 dark:text-red-400 font-semibold">
+                              <PhoneOff size={11} /> Do not call
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
 

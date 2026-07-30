@@ -43,7 +43,7 @@ const en = {
   "app.nav.ai": "FieldQuo AI",
 
   "app.nav.group.work": "Work",
-  "app.nav.requests": "Requests",
+  "app.nav.requests": "Leads",
   "app.nav.quotes": "Quotes",
   "app.nav.estimateReviews": "Estimate Reviews",
   "app.nav.jobs": "Jobs",
@@ -383,7 +383,7 @@ const fr = {
   "app.nav.ai": "FieldQuo IA",
 
   "app.nav.group.work": "Travail",
-  "app.nav.requests": "Demandes",
+  "app.nav.requests": "Prospects",
   "app.nav.quotes": "Soumissions",
   "app.nav.estimateReviews": "Révision des estimations",
   "app.nav.jobs": "Chantiers",
@@ -598,7 +598,7 @@ const fr = {
   "app.clients.empty": "Ajoutez votre premier client",
   "app.clients.contractor": "Entrepreneur",
 
-  "app.leads.title": "Demandes",
+  "app.leads.title": "Prospects",
   "app.leads.subtitle": "Demandes reçues de votre page de rendez-vous et de vos formulaires.",
   "app.leads.empty": "Aucune demande pour l'instant",
   "app.leads.emptyHint": "Les demandes arrivent ici lorsqu'une personne remplit votre page de rendez-vous publique.",

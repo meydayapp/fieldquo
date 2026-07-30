@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+import { recordConsent } from "@/lib/voice/outbound";
+import { DISCLOSURE } from "@/lib/voice/disclosure";
 // Public — the embeddable "request a quote" form submits here.
 // companySlug identifies which company's form this is, since the form is embedded
 // on THEIR website, not accessed through FieldQuo's own auth.
@@ -39,6 +41,22 @@ export async function POST(request) {
       source: source || "embed_form",
     },
   });
+
+  // A lead IS a request to be contacted — that's what a lead is. Recording it
+  // as consent is what lets the phone agent ring them back; without a row it
+  // won't dial, however obviously they wanted a call.
+  //
+  // Best-effort: never fail an enquiry over it. No consent just means a human
+  // picks up the phone instead, which is the safe direction.
+  if (phone) {
+    await recordConsent({
+      companyId: company.id,
+      phone,
+      source: "self_quote",
+      disclosure: DISCLOSURE.lead,
+      leadId: lead.id,
+    }).catch((err) => console.error("[leads/public] consent not recorded:", err));
+  }
 
   return NextResponse.json({ success: true, id: lead.id }, { status: 201 });
 }

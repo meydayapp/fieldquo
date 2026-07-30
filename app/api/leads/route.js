@@ -20,7 +20,26 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(leads);
+  // ── Who has asked not to be called ──────────────────────────────────────
+  //
+  // Shown on the list so a contractor knows BEFORE they pick up the phone.
+  // Someone who asked us to stop and then gets rung anyway is the complaint
+  // that ends in a regulator, and the person dialling had no way to know.
+  //
+  // One query for the whole page rather than one per lead: this list can be
+  // hundreds long, and N+1 on a page people open all day is how it gets slow.
+  const numbers = [...new Set(leads.map((l) => l.phone).filter(Boolean))];
+  const optedOut = numbers.length
+    ? await db.callConsent.findMany({
+        where: { companyId: member.companyId, e164: { in: numbers }, optedOutAt: { not: null } },
+        select: { e164: true },
+      })
+    : [];
+  const blocked = new Set(optedOut.map((c) => c.e164));
+
+  return NextResponse.json(
+    leads.map((l) => ({ ...l, doNotCall: Boolean(l.phone && blocked.has(l.phone)) })),
+  );
 }
 
 export async function PATCH(request) {

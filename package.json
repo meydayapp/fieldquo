@@ -19,7 +19,8 @@
     "check:prompt": "node --import ./scripts/alias-loader.mjs scripts/check-voice-prompt.mjs",
     "check:pdf": "npx tsx scripts/check-kitchen-pdf.jsx",
     "check:section": "node scripts/check-kitchen-section.mjs",
-    "check:outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound.mjs"
+    "check:outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound.mjs",
+    "check:leadconsent": "node scripts/check-lead-consent.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

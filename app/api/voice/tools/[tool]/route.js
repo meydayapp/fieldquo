@@ -29,6 +29,7 @@ import { db } from "@/lib/db";
 import { toE164 } from "@/lib/voice/numbers";
 import { cleanPhone, cleanText, TOOL_NAMES } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
+import { recordConsent } from "@/lib/voice/outbound";
 
 function verify(rawBody, signature, secret) {
   if (!secret || !signature) return false;
@@ -176,6 +177,19 @@ async function saveCaller(ctx, args) {
           source: "phone_agent",
         },
       });
+
+  // They rang US, which is about as clear a request to be reachable as there
+  // is — but it still needs a row, or a call BACK would be refused by the same
+  // gate that stops cold calling. The consent is the inbound call itself.
+  if (phone) {
+    await recordConsent({
+      companyId: ctx.companyId,
+      phone,
+      source: "manual",
+      note: "Called in and left their details with the assistant",
+      leadId: lead.id,
+    }).catch((err) => console.error("[voice/tools] consent not recorded:", err));
+  }
 
   await db.voiceCall.update({
     where: { id: ctx.id },
