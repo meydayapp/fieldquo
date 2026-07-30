@@ -66,6 +66,11 @@ ok(costForSeconds(60) === CENTS_PER_MINUTE, "exactly 60s is one minute, not two"
 ok(costForSeconds(61) === CENTS_PER_MINUTE*2, "61s rounds up to two minutes");
 ok(costForSeconds(-99) === 0 && Number.isFinite(costForSeconds("abc")), "negative and non-numeric durations can't bill");
 ok(minutesFor(5000) === Math.floor(5000/CENTS_PER_MINUTE), `$50 buys ${minutesFor(5000)} minutes at ${CENTS_PER_MINUTE}¢/min`);
+// The rate has to stay inside the band the pricing comment justifies. Drifting
+// below cost or above the market is a decision, not something to discover from
+// a margin report six months later.
+ok(CENTS_PER_MINUTE >= 20 && CENTS_PER_MINUTE <= 45,
+   `${CENTS_PER_MINUTE}¢/min sits between cost (~15¢) and the market ceiling (~30¢ per-minute, $450/mo bundled)`);
 ok(minutesFor(-100) === 0, "a negative balance shows 0 minutes, not a negative one");
 ok(minutesFor(CENTS_PER_MINUTE - 1) === 0, "never promise a minute they can't actually use");
 ok(TOPUP_OPTIONS.every(o=>o.cents>0) && TOPUP_OPTIONS.filter(o=>o.popular).length===1,

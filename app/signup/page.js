@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/auth-client";
-import { calculatePricing } from "@/lib/pricing";
+import { calculatePricing , TRIAL_PRICE, trialLabel } from "@/lib/pricing";
 import { INDUSTRIES } from "@/app/data/industries";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
@@ -93,7 +93,7 @@ export default function SignupPage() {
   const pricing = isCustom
     ? calculatePricing(customCount)
     : {
-        trialTotal: 1,
+        trialTotal: TRIAL_PRICE,
         monthlyTotal: Number(selectedPlan?.priceMonthly || 0),
         contactSalesRequired: false,
       };
@@ -406,7 +406,7 @@ export default function SignupPage() {
                         </p>
                       ) : (
                         <p className="mt-4 text-sm text-foreground">
-                          ${pricing.trialTotal} first month, then{" "}
+                          {trialLabel(pricing.trialTotal)}, then{" "}
                           <span className="font-semibold">
                             ${pricing.monthlyTotal}/mo
                           </span>
@@ -428,7 +428,7 @@ export default function SignupPage() {
 
               {hasSelection && !pricing.contactSalesRequired && (
                 <div className="text-sm text-muted-foreground mt-1">
-                  ${pricing.trialTotal} first month, then{" "}
+                  {trialLabel(pricing.trialTotal)}, then{" "}
                   <span className="font-semibold text-foreground">
                     ${pricing.monthlyTotal}/mo
                   </span>
@@ -455,8 +455,8 @@ export default function SignupPage() {
           >
             <div className="bg-muted rounded-lg px-4 py-3 text-sm text-foreground">
               <strong>{selectedPlanName}</strong>
-              <br />${pricing.trialTotal} first month, then $
-              {pricing.monthlyTotal}/mo
+              <br />
+              {trialLabel(pricing.trialTotal)}, then ${pricing.monthlyTotal}/mo
             </div>
 
             <div className="grid grid-cols-2 gap-3">

@@ -2,7 +2,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { calculatePricing } from "@/lib/pricing";
+import { calculatePricing , TRIAL_PRICE } from "@/lib/pricing";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Locale-aware, not hardcoded to en-CA. Digit grouping differs by language —
@@ -36,7 +36,9 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
 
   const calculated = calculatePricing(employeeCount || 1);
 
-  const trialTotal = isDbPlan ? 1 : calculated.trialTotal;
+  // TRIAL_PRICE, not a literal. This was hardcoded to 1 and would have gone on
+  // advertising a dollar after the real price changed in lib/pricing.js.
+  const trialTotal = isDbPlan ? TRIAL_PRICE : calculated.trialTotal;
   const monthlyTotal = isDbPlan
     ? Number(plan.priceMonthly || 0)
     : calculated.monthlyTotal;
@@ -78,8 +80,9 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
       <div className="mt-3">
         <div className="text-sm text-muted-foreground">{t("pricing.firstMonth")}</div>
 
+        {/* "$0" reads like a bug. Free is the offer, so it says Free. */}
         <div className="text-2xl font-bold text-foreground">
-          ${money(trialTotal, locale)}
+          {trialTotal > 0 ? `$${money(trialTotal, locale)}` : t("pricing.free")}
         </div>
       </div>
 
