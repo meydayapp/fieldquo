@@ -75,6 +75,7 @@ export default function Builder({ data, onReload }) {
   const [handEdited, setHandEdited] = useState(Boolean(site?.handEditedAt));
   const [confirmRegen, setConfirmRegen] = useState(null);
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [langBusy, setLangBusy] = useState("");
 
   const threadRef = useRef(null);
   const hasSite = blocks.length > 0;
@@ -243,6 +244,55 @@ export default function Builder({ data, onReload }) {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * Add a language to the public site.
+   *
+   * Two steps on the server (enable, then write) but one button here, because
+   * "enable French" and "write the French" are not a distinction a contractor
+   * should have to hold — see the languages route.
+   */
+  async function addLanguage(code) {
+    setLangBusy(code);
+    setError("");
+    try {
+      const r = await fetchJson("/api/settings/website/languages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: code }),
+      });
+      say(
+        "assistant",
+        r.generated
+          ? `Wrote your site in ${code.toUpperCase()} — ${r.sections} sections. Visitors get a language switcher in the header.`
+          : `Added ${code.toUpperCase()}, but the writing assistant wasn't reachable so the copy is the plainer factual version.`,
+      );
+      await onReload?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLangBusy("");
+    }
+  }
+
+  async function removeLanguage(code) {
+    const next = (data?.languages || []).filter((c) => c !== code);
+    if (!next.length) return;
+    setLangBusy(code);
+    try {
+      await fetchJson("/api/settings/website/languages", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ languages: next }),
+      });
+      say("assistant", `Removed ${code.toUpperCase()} from your site.`);
+      await onReload?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLangBusy("");
     }
   }
 
@@ -543,6 +593,41 @@ export default function Builder({ data, onReload }) {
                     </span>
                   </div>
                 </label>
+                <div>
+                  <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                    Languages
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(data?.availableLanguages || []).map((code) => {
+                      const on = (data?.languages || []).includes(code);
+                      const primary = (data?.languages || [])[0] === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          disabled={Boolean(langBusy) || primary}
+                          onClick={() => (on ? removeLanguage(code) : addLanguage(code))}
+                          title={primary ? "Your main language" : on ? "Remove" : "Write the site in this language"}
+                          className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border uppercase font-bold disabled:opacity-60 ${
+                            on
+                              ? "border-foreground bg-inverted text-inverted-foreground"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {langBusy === code && <Loader2 size={10} className="animate-spin" />}
+                          {code}
+                          {primary && " ·"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                    Your main language is marked. Adding one writes the whole site
+                    in it and gives visitors a switcher — it doesn&apos;t
+                    machine-translate the page.
+                  </p>
+                </div>
+
                 <button
                   onClick={() => setPairing(true)}
                   className="w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold text-left"

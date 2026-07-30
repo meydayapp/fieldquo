@@ -28,6 +28,8 @@ import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
 import { siteGaps } from "@/lib/site/gaps";
 import { countPlaceholders, isPlaceholder } from "@/lib/site/placeholderImages";
+import { SITE_LANGUAGES } from "@/lib/site/siteCopy";
+import { categoryLabel } from "@/lib/i18n/translateContent";
 
 const COMPANY_SELECT = {
   id: true,
@@ -64,15 +66,21 @@ async function requireAdmin(request) {
   return { member };
 }
 
-/** The company's enabled services and approved testimonials, as facts. */
-async function loadSource(companyId) {
+/**
+ * The company's enabled services and approved testimonials, as facts.
+ *
+ * Service names come back in `language`, because the model is told to reproduce
+ * them exactly — the guard that stops it inventing a trade also stops it
+ * translating one, so the translation has to happen before the prompt.
+ */
+async function loadSource(companyId, language) {
   // Everything the composer needs to decide what the page can contain. Loaded
   // together because "which sections are possible" is one question — asking it
   // in pieces is how a page ends up with a gallery heading and no photos.
   const [enabled, testimonials, photos, photoPairs, areas] = await Promise.all([
     db.companyServiceCategory.findMany({
       where: { companyId, enabled: true },
-      select: { category: { select: { key: true, label: true } } },
+      select: { category: { select: { key: true, label: true, labelTranslations: true } } },
     }),
     db.testimonial.findMany({
       where: { companyId, approved: true },
@@ -90,7 +98,10 @@ async function loadSource(companyId) {
   ]);
 
   return {
-    services: enabled.map((e) => e.category).filter(Boolean),
+    services: enabled
+      .map((e) => e.category)
+      .filter(Boolean)
+      .map((c) => ({ key: c.key, label: categoryLabel(c, language) })),
     testimonials,
     photos,
     photoPairs,
@@ -148,6 +159,16 @@ export async function GET(request) {
     // warn before publishing — a placeholder that quietly goes live and stays
     // there for a year is the failure this count exists to prevent.
     placeholderCount: countPlaceholders(Array.isArray(site?.blocks) ? site.blocks : []),
+    // Languages the site is published in, and the ones that could be added.
+    // A language only counts as published once its CONTENT exists — see the
+    // languages route.
+    languages: site?.languages?.length
+      ? site.languages
+      : [company?.defaultLanguage && SITE_LANGUAGES.includes(company.defaultLanguage)
+          ? company.defaultLanguage
+          : "en"],
+    availableLanguages: SITE_LANGUAGES,
+    translatedLanguages: Object.keys(site?.translations || {}),
     // Null until they create one. The editor uses this to decide between the
     // setup interview and the block editor.
     site: site || null,
@@ -201,8 +222,20 @@ export async function PUT(request) {
     );
   }
 
+  // A new site starts in the company's own language. Defaulting every site to
+  // English meant a Gatineau contractor whose company language is French got an
+  // English site and had to notice, then fix it.
+  const companyLanguage = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { defaultLanguage: true },
+  });
+  const firstLanguage = SITE_LANGUAGES.includes(companyLanguage?.defaultLanguage)
+    ? companyLanguage.defaultLanguage
+    : "en";
+
   const data = {
     subdomain,
+    ...(body.languages === undefined ? {} : {}),
     blocks: sanitiseBlocks(body.blocks),
     seoTitle: str(body.seoTitle, 70),
     seoDescription: str(body.seoDescription, 200),
@@ -248,7 +281,7 @@ export async function PUT(request) {
 
   const site = await db.companySite.upsert({
     where: { companyId: member.companyId },
-    create: { companyId: member.companyId, ...data },
+    create: { companyId: member.companyId, languages: [firstLanguage], ...data },
     update: data,
   });
 
@@ -282,8 +315,6 @@ export async function POST(request) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
-  const { services, testimonials, photos, photoPairs, areas } =
-    await loadSource(member.companyId);
 
   // The page as currently SAVED. generateSite carries images across from it,
   // so pressing Regenerate rewrites the words without discarding the job
@@ -294,12 +325,28 @@ export async function POST(request) {
   // silently persist work the company hadn't chosen to save.
   const existing = await db.companySite.findUnique({
     where: { companyId: member.companyId },
-    select: { blocks: true, handEditedAt: true },
+    select: { blocks: true, handEditedAt: true, languages: true },
   });
+
+  // The site's own primary language. Without this, pressing Regenerate on a
+  // French site rewrote it in English — the language was a property of the site
+  // that generation didn't read. Resolved BEFORE loading the source because the
+  // service names have to arrive already translated (see loadSource).
+  const language = existing?.languages?.length
+    ? existing.languages[0]
+    : SITE_LANGUAGES.includes(company.defaultLanguage)
+      ? company.defaultLanguage
+      : "en";
+
+  const { services, testimonials, photos, photoPairs, areas } = await loadSource(
+    member.companyId,
+    language,
+  );
 
   try {
     const result = await generateSite({
       company,
+      language,
       services,
       testimonials,
       // The real content: job photos become the gallery, two-photo visits become

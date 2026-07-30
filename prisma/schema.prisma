@@ -952,6 +952,22 @@ model ServiceCategory {
   id          String  @id @default(cuid())
   key         String  @unique
   label       String
+
+  // The trade name in other languages: { fr: "Peinture intérieure", ... }
+  //
+  // A tenant website in French listed "Interior Painting" under a French
+  // heading, because the site reconciles service names live from this column and
+  // it only ever held English. Half-translated reads as a page nobody finished.
+  //
+  // NOT left to the model: it is told to reproduce service names exactly so it
+  // can't invent a trade the company doesn't offer, and relaxing that to let it
+  // translate them would relax the guard too. Trade names are a fixed, closed
+  // vocabulary — a lookup is the right tool.
+  //
+  // Missing languages fall back to `label`. Better a visibly English name than a
+  // machine-guessed one on a page a homeowner is deciding from.
+  labelTranslations Json?
+
   description String?
   icon        String?
   sortOrder   Int     @default(0)
@@ -2390,6 +2406,24 @@ model CompanySite {
   // Cleared on generation, because at that point the copy IS the generated copy
   // and there is nothing of theirs left to warn about.
   handEditedAt DateTime?
+
+  // Which languages this site is published in. The FIRST is the primary — the
+  // one served at the root URL — and the rest get /<code> paths.
+  //
+  // Defaults to the company's own defaultLanguage at creation. Empty is treated
+  // as [defaultLanguage] rather than "no languages", because a site that renders
+  // in nothing is not a state worth representing.
+  languages String[] @default(["en"])
+
+  // Generated CONTENT for the non-primary languages:
+  //   { fr: { blocks, seoTitle, seoDescription }, es: {...} }
+  //
+  // Generated per language and STORED, not machine-translated at request time.
+  // Translating on the fly would give two visitors different words for the same
+  // page, re-translate on every render, and cost a model call per pageview. The
+  // site's furniture is a static table (lib/site/siteCopy.js); this is the part
+  // that is actually written per company.
+  translations Json?
 }
 
 // Per-company, per-trade configuration for the public instant estimator.

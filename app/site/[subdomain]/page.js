@@ -36,6 +36,7 @@ import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/busin
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
+import { categoryLabel } from "@/lib/i18n/translateContent";
 
 async function loadSite(subdomain, { preview = false } = {}) {
   const site = await db.companySite.findUnique({
@@ -48,6 +49,8 @@ async function loadSite(subdomain, { preview = false } = {}) {
       seoTitle: true,
       seoDescription: true,
       subdomain: true,
+      languages: true,
+      translations: true,
       company: {
         select: {
           name: true,
@@ -96,7 +99,7 @@ async function loadSite(subdomain, { preview = false } = {}) {
   }
 }
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params, language: langParam }) {
   const { subdomain } = await params;
   // Deliberately NOT preview-aware. Metadata for a draft would be metadata for
   // a page that doesn't exist publicly, and getting it wrong is how an
@@ -112,13 +115,43 @@ export async function generateMetadata({ params }) {
     site.seoDescription ||
     `${c.name}${place ? ` in ${place}` : ""}. Get a free quote.`;
 
+  const enabled =
+    Array.isArray(site.languages) && site.languages.length ? site.languages : ["en"];
+  const primary = enabled[0];
+  const language = langParam || primary;
+  const origin = `https://${site.subdomain}.fieldquo.com`;
+
+  // Translated title/description when this is a translated page. Falling back to
+  // the primary's would put an English <title> on a French page, which is what
+  // search engines actually read.
+  const tr =
+    language !== primary && site.translations?.[language]
+      ? site.translations[language]
+      : null;
+
   return {
-    title,
-    description,
+    title: tr?.seoTitle || title,
+    description: tr?.seoDescription || description,
     // Indexable, unlike every other public surface in this product. A
     // marketing site nobody can find is the one thing this feature must not
     // be.
     robots: { index: true, follow: true },
+    // hreflang. Without these, two languages of the same page look like
+    // duplicate content and search engines pick one and drop the other — which
+    // wastes the whole point of translating it.
+    ...(enabled.length > 1
+      ? {
+          alternates: {
+            canonical: language === primary ? origin : `${origin}/${language}`,
+            languages: Object.fromEntries(
+              enabled.map((code) => [
+                code,
+                code === primary ? origin : `${origin}/${code}`,
+              ]),
+            ),
+          },
+        }
+      : {}),
     openGraph: {
       title,
       description,
@@ -128,7 +161,7 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function CompanySitePage({ params, searchParams }) {
+export default async function CompanySitePage({ params, searchParams, language: langParam }) {
   const { subdomain } = await params;
   // Next 16: searchParams is a Promise, like params.
   const query = (await searchParams) || {};
@@ -145,7 +178,30 @@ export default async function CompanySitePage({ params, searchParams }) {
   const theme = documentTheme(company);
   const fill = fillPair(theme);
 
-  let blocks = Array.isArray(site.blocks) ? site.blocks : [];
+  // ── Which language ──────────────────────────────────────────────────────
+  //
+  // The first entry in `languages` is the PRIMARY and lives at the root URL;
+  // the rest live at /<code>. An unknown or not-enabled code 404s rather than
+  // silently serving the primary — a link to /de that quietly returns English
+  // gets indexed as a duplicate and tells the visitor nothing went wrong.
+  const enabled =
+    Array.isArray(site.languages) && site.languages.length
+      ? site.languages
+      : ["en"];
+  const primary = enabled[0];
+  const language = langParam || primary;
+  if (langParam && !enabled.includes(langParam)) notFound();
+
+  const translations = site.translations && typeof site.translations === "object"
+    ? site.translations
+    : {};
+  const translated = language !== primary ? translations[language] : null;
+
+  let blocks = Array.isArray(translated?.blocks)
+    ? translated.blocks
+    : Array.isArray(site.blocks)
+      ? site.blocks
+      : [];
 
   // Auto-fill an empty gallery with real before/after job photos. A gallery the
   // company has curated (uploaded its own images) always wins; this only fills
@@ -195,22 +251,35 @@ export default async function CompanySitePage({ params, searchParams }) {
   // the block. A service that's still offered keeps whatever was written about
   // it; a new one appears with no blurb (the renderer shows the name alone);
   // a removed one disappears.
+  //
+  // The NAME comes from the database in the page's language. This block used to
+  // read `label` unconditionally, which is why a French site listed "Interior
+  // Painting" under a French heading — the reconcile overwrote whatever was
+  // there with English on every request, so no amount of regenerating could fix
+  // it. Blurbs are then matched on EITHER the translated name or the English
+  // one, because a translation generated before this existed has English names
+  // in the block and its blurbs are still worth keeping.
   const servicesBlock = blocks.find((b) => b.type === "services" && b.visible !== false);
   if (servicesBlock) {
     const enabled = await db.companyServiceCategory.findMany({
       where: { companyId: site.companyId, enabled: true },
-      select: { category: { select: { label: true } } },
+      select: { category: { select: { label: true, labelTranslations: true } } },
     });
-    const current = enabled.map((e) => e.category?.label).filter(Boolean);
+    const current = enabled
+      .map((e) => e.category)
+      .filter(Boolean)
+      .map((c) => ({ name: categoryLabel(c, language), fallback: c.label }))
+      .filter((c) => c.name);
     if (current.length) {
+      const key = (s) => String(s || "").trim().toLowerCase();
       const blurbs = new Map(
         (servicesBlock.content?.items || [])
           .filter((it) => it?.name)
-          .map((it) => [String(it.name).trim().toLowerCase(), it.description || ""]),
+          .map((it) => [key(it.name), it.description || ""]),
       );
-      const items = current.slice(0, 8).map((name) => ({
+      const items = current.slice(0, 8).map(({ name, fallback }) => ({
         name,
-        description: blurbs.get(name.trim().toLowerCase()) || "",
+        description: blurbs.get(key(name)) || blurbs.get(key(fallback)) || "",
       }));
       blocks = blocks.map((b) =>
         b === servicesBlock ? { ...b, content: { ...b.content, items } } : b,
@@ -302,6 +371,8 @@ export default async function CompanySitePage({ params, searchParams }) {
         fill={fill}
         subdomain={site.subdomain}
         style={resolveSiteStyle(site.styleKey)}
+        language={language}
+        languages={enabled}
       />
     </div>
   );

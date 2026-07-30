@@ -30,6 +30,7 @@ import { groupHours, openState, formatTime } from "@/lib/company/businessHours";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
 import SelfQuoteFlow from "@/app/quote/[companySlug]/SelfQuoteFlow";
 import BeforeAfter from "./BeforeAfter";
+import { siteCopy, fill } from "@/lib/site/siteCopy";
 
 // A rotating set of trade-flavoured icons so service cards aren't text-only.
 // Cycled by index — we can't map a category to an icon reliably, but variety
@@ -43,8 +44,13 @@ function accent2Of(company, theme) {
   return typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s) ? s : theme.accentText;
 }
 
-export default function SiteBlocks({ blocks, company, theme, fill, subdomain, style }) {
+export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [] }) {
+  // `t` is the copy table for THIS site's language. Threaded to every block
+  // rather than imported inside each, so one page always renders in one language
+  // and a block can't accidentally read a different one.
+  const t = siteCopy(language);
   const visible = blocks.filter((b) => b.visible !== false);
+  const fill = fillPairIn;
   const accent2 = accent2Of(company, theme);
   // The design style (lib/site/siteStyles.js) — type scale, weight, rhythm,
   // corner treatment. Falls back to the modern default so a row saved before
@@ -53,10 +59,10 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain, st
 
   return (
     <>
-      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} />
+      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} />
       <main>
         {visible.map((block) => {
-          const props = { block, company, theme, fill, subdomain, accent2, S };
+          const props = { block, company, theme, fill, subdomain, accent2, S, t };
           let el = null;
           switch (block.type) {
             case "hero": el = <Hero {...props} />; break;
@@ -78,7 +84,7 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain, st
           }
           // The anchor the header nav scrolls to. scroll-mt clears the sticky
           // header so the section heading isn't hidden under it.
-          const anchorId = NAV_FOR[block.type]?.id;
+          const anchorId = NAV_IDS[block.type];
           return (
             <div key={block.id} id={anchorId} className={anchorId ? "scroll-mt-20" : undefined}>
               {el}
@@ -86,7 +92,7 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain, st
           );
         })}
       </main>
-      <SiteFooter company={company} theme={theme} accent2={accent2} />
+      <SiteFooter company={company} theme={theme} accent2={accent2} t={t} />
     </>
   );
 }
@@ -174,18 +180,37 @@ const Intro = ({ children, theme, center, onWash }) =>
 // Which sections exist → anchor nav, so the single scrolling page navigates
 // like a multi-page site (Services / Our Work / Book / FAQ). Order follows the
 // page. IDs match the id= passed to each Section.
-const NAV_FOR = {
-  services: { id: "services", label: "Services" },
-  beforeafter: { id: "work", label: "Our Work" },
-  gallery: { id: "work", label: "Our Work" },
-  about: { id: "about", label: "About" },
-  quoteform: { id: "quote", label: "Get a Quote" },
-  booking: { id: "book", label: "Book" },
-  faq: { id: "faq", label: "FAQ" },
-  contact: { id: "contact", label: "Contact" },
+// Anchor ids stay in English — they are URL fragments, not prose, and a
+// translated #services would break every link a company had shared.
+const NAV_IDS = {
+  services: "services",
+  beforeafter: "work",
+  gallery: "work",
+  about: "about",
+  quoteform: "quote",
+  booking: "book",
+  faq: "faq",
+  contact: "contact",
 };
 
-function SiteHeader({ company, theme, fill, blocks = [], S }) {
+const navEntry = (type, t) =>
+  NAV_IDS[type]
+    ? {
+        id: NAV_IDS[type],
+        label: {
+          services: t.navServices,
+          beforeafter: t.navWork,
+          gallery: t.navWork,
+          about: t.navAbout,
+          quoteform: t.navQuote,
+          booking: t.navBook,
+          faq: t.navFaq,
+          contact: t.navContact,
+        }[type],
+      }
+    : null;
+
+function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain }) {
   const state = openState(company.businessHours, company.timezone);
   const neutral = neutralPair(theme);
   // Deduped by anchor id, not by block type: `beforeafter` and `gallery` both
@@ -193,7 +218,7 @@ function SiteHeader({ company, theme, fill, blocks = [], S }) {
   // nav — two links to the same place, which reads as a bug.
   const nav = [];
   for (const b of blocks) {
-    const entry = NAV_FOR[b.type];
+    const entry = navEntry(b.type, t);
     if (entry && !nav.some((n) => n.id === entry.id)) nav.push(entry);
   }
 
@@ -245,10 +270,10 @@ function SiteHeader({ company, theme, fill, blocks = [], S }) {
             >
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: state.open ? theme.positive : neutral.fg }} />
               {state.open
-                ? `Open · closes ${formatTime(state.closesAt)}`
+                ? `${t.openUntil} ${formatTime(state.closesAt)}`
                 : state.opensAt
-                  ? `Closed · opens ${state.opensDay ? `${state.opensDay} ` : ""}${formatTime(state.opensAt)}`
-                  : "Closed"}
+                  ? `${t.closedOpens} ${state.opensDay ? `${state.opensDay} ` : ""}${formatTime(state.opensAt)}`
+                  : t.closed}
             </span>
           )}
         </a>
@@ -271,6 +296,35 @@ function SiteHeader({ company, theme, fill, blocks = [], S }) {
         )}
 
         <div className="flex items-center gap-3 shrink-0">
+          {/* ── Language switcher ────────────────────────────────────────────
+              Plain links, not a <select> with JavaScript: each language is a
+              real URL, so a search engine indexes the French page as French
+              (see the hreflang tags on the page) and a visitor can bookmark or
+              share it. A JS-only toggle gives you one indexable page in one
+              language, which defeats the point of translating it.
+
+              Shown only when the company has enabled more than one. */}
+          {languages.length > 1 && (
+            <nav aria-label={t.chooseLanguage} className="hidden sm:flex items-center gap-1">
+              {languages.map((code) => {
+                const active = code === language;
+                return (
+                  <a
+                    key={code}
+                    href={code === languages[0] ? "/" : `/${code}`}
+                    hrefLang={code}
+                    aria-current={active ? "true" : undefined}
+                    className={`px-1.5 py-0.5 text-[11px] font-bold uppercase rounded ${
+                      active ? "" : "opacity-50 hover:opacity-100"
+                    }`}
+                    style={{ color: overlay ? "#fff" : theme.inkMuted }}
+                  >
+                    {code}
+                  </a>
+                );
+              })}
+            </nav>
+          )}
           {company.phone && (
             <a href={`tel:${company.phone}`} className="hidden lg:inline text-sm font-semibold whitespace-nowrap" style={{ color: theme.accentText }}>
               {company.phone}
@@ -284,8 +338,8 @@ function SiteHeader({ company, theme, fill, blocks = [], S }) {
             {/* Shorter label on a phone. "Get a quote" plus a long company name
                 does not fit in 375px, and the button is the point of the page —
                 the name is the part that can be abbreviated. */}
-            <span className="sm:hidden">Quote</span>
-            <span className="hidden sm:inline">Get a quote</span>
+            <span className="sm:hidden">{t.ctaQuoteShort}</span>
+            <span className="hidden sm:inline">{t.ctaQuote}</span>
           </a>
         </div>
       </div>
@@ -295,7 +349,7 @@ function SiteHeader({ company, theme, fill, blocks = [], S }) {
 
 /* ────────────────────────────── Hero ────────────────────────────── */
 
-function HeroActions({ company, theme, fill, ctaLabel, onImage, center }) {
+function HeroActions({ company, theme, fill, ctaLabel, onImage, center, t }) {
   return (
     <div className={`mt-9 flex flex-wrap gap-3 ${center ? "justify-center" : ""}`}>
       <a
@@ -303,7 +357,7 @@ function HeroActions({ company, theme, fill, ctaLabel, onImage, center }) {
         className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold shadow-lg transition-transform hover:-translate-y-0.5"
         style={{ backgroundColor: fill.bg, color: fill.fg }}
       >
-        {ctaLabel || "Get a free quote"}
+        {ctaLabel || t.ctaFreeQuote}
       </a>
       {company.phone && (
         <a
@@ -311,7 +365,7 @@ function HeroActions({ company, theme, fill, ctaLabel, onImage, center }) {
           className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold border-2 transition-colors"
           style={{ borderColor: onImage ? "#ffffff" : theme.border, color: onImage ? "#ffffff" : theme.accentText }}
         >
-          <Phone size={15} /> Call {company.phone}
+          <Phone size={15} /> {t.call} {company.phone}
         </a>
       )}
     </div>
@@ -321,7 +375,7 @@ function HeroActions({ company, theme, fill, ctaLabel, onImage, center }) {
 // A trust strip — years/rating/etc aren't in the data model, so instead of
 // inventing numbers we surface a single honest reassurance when we have the
 // material (a phone to call). Kept minimal precisely to avoid fabrication.
-function Hero({ block, company, theme, fill, accent2, S }) {
+function Hero({ block, company, theme, fill, accent2, S, t }) {
   const { headline, subhead, ctaLabel, backgroundImage } = block.content;
   // Image-led variants degrade to centered with no photo. Listing them rather
   // than testing for "not centered" so adding a text-only variant later can't
@@ -340,7 +394,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
     return (
       <section className={`px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"}`} style={{ backgroundColor: theme.paper || "#fff" }}>
         <div className="max-w-5xl mx-auto">
-          <Eyebrow accent2={accent2}>{place || "Local & trusted"}</Eyebrow>
+          <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
           <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[22ch]`} style={{ color: theme.ink, textWrap: "balance", ...serif }}>
             {title}
           </h1>
@@ -349,7 +403,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
               {subhead}
             </p>
           )}
-          <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} />
+          <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
         </div>
       </section>
     );
@@ -362,7 +416,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
         <div className={`px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"}`}>
           <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] gap-10 lg:gap-14 items-center">
             <div>
-              <Eyebrow accent2={accent2}>{place || "Local & trusted"}</Eyebrow>
+              <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
               <h1
                 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[18ch]`}
                 style={{ color: theme.ink, textWrap: "balance", ...serif }}
@@ -374,7 +428,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
                   {subhead}
                 </p>
               )}
-              <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} />
+              <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
             </div>
             {/* Bleeds past the container on the right — the asymmetry is the
                 point. -mr on desktop only; on a phone it sits normally, because
@@ -405,7 +459,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
         <div className="absolute inset-0" style={{ background: "linear-gradient(105deg, rgba(0,0,0,.82) 0%, rgba(0,0,0,.55) 45%, rgba(0,0,0,.15) 100%)" }} />
         <div className="relative px-5 sm:px-8 py-20 w-full">
           <div className="max-w-6xl mx-auto">
-            <Eyebrow accent2="#ffffff">{place || "Local & trusted"}</Eyebrow>
+            <Eyebrow accent2="#ffffff">{place || t.localTrusted}</Eyebrow>
             <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[20ch]`} style={{ color: "#fff", textWrap: "balance", ...serif }}>
               {title}
             </h1>
@@ -414,7 +468,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
                 {subhead}
               </p>
             )}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} />
           </div>
         </div>
       </section>
@@ -430,12 +484,12 @@ function Hero({ block, company, theme, fill, accent2, S }) {
       <section className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`} style={{ backgroundColor: theme.accentWash }}>
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className={photoFirst ? "md:order-2" : undefined}>
-            <Eyebrow accent2={accent2}>{[company.city, company.province].filter(Boolean).join(", ") || "Local & trusted"}</Eyebrow>
+            <Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow>
             <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
               {title}
             </h1>
             {subhead && <p className="mt-5 text-lg sm:text-xl leading-relaxed max-w-[34ch]" style={{ color: theme.inkMutedOnWash }}>{subhead}</p>}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -459,7 +513,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
           <div className="max-w-6xl mx-auto">
             <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.02] max-w-2xl`} style={{ color: "#fff", textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>{title}</h1>
             {subhead && <p className="mt-4 text-lg sm:text-xl leading-relaxed max-w-xl" style={{ color: "rgba(255,255,255,.92)" }}>{subhead}</p>}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} />
           </div>
         </div>
       </section>
@@ -483,7 +537,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
       )}
       <div className="relative max-w-3xl mx-auto text-center">
         {!backgroundImage && (
-          <div className="flex justify-center"><Eyebrow accent2={accent2}>{[company.city, company.province].filter(Boolean).join(", ") || "Local & trusted"}</Eyebrow></div>
+          <div className="flex justify-center"><Eyebrow accent2={accent2}>{place || t.localTrusted}</Eyebrow></div>
         )}
         <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.03]`} style={{ color: backgroundImage ? "#fff" : theme.ink, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>
           {title}
@@ -493,7 +547,7 @@ function Hero({ block, company, theme, fill, accent2, S }) {
             {subhead}
           </p>
         )}
-        <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage={Boolean(backgroundImage)} center />
+        <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage={Boolean(backgroundImage)} center t={t} />
       </div>
     </section>
   );
@@ -501,14 +555,14 @@ function Hero({ block, company, theme, fill, accent2, S }) {
 
 /* ──────────────────────────── Services ──────────────────────────── */
 
-function Services({ block, theme, fill, accent2, S }) {
+function Services({ block, theme, fill, accent2, S, t }) {
   const { heading, intro, items, variant } = block.content;
   if (!items?.length) return null;
 
   if (variant === "list") {
     return (
       <Section theme={theme} S={S}>
-        <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S}>{heading}</Heading>
+        <Heading theme={theme} eyebrow={t.eyebrowServices} accent2={accent2} S={S}>{heading}</Heading>
         <Intro theme={theme}>{intro}</Intro>
         <div className="divide-y" style={{ borderColor: theme.border }}>
           {items.map((item, i) => (
@@ -525,7 +579,7 @@ function Services({ block, theme, fill, accent2, S }) {
   if (variant === "numbered") {
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} center eyebrow="How it works" accent2={accent2} S={S}>{heading}</Heading>
+        <Heading theme={theme} center eyebrow={t.eyebrowProcess} accent2={accent2} S={S}>{heading}</Heading>
         <Intro theme={theme} center>{intro}</Intro>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item, i) => (
@@ -546,7 +600,7 @@ function Services({ block, theme, fill, accent2, S }) {
     // a legible tile instead of white-on-yellow.
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
+        <Heading theme={theme} eyebrow={t.eyebrowServices} accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
         <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
         <div className={`grid sm:grid-cols-2 lg:grid-cols-3 ${S?.gap || "gap-4"}`}>
           {items.map((item, i) => {
@@ -579,7 +633,7 @@ function Services({ block, theme, fill, accent2, S }) {
     if (images.length) {
       return (
         <Section theme={theme} wide S={S}>
-          <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+          <Heading theme={theme} eyebrow={t.eyebrowServices} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
             {heading}
           </Heading>
           <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -634,7 +688,7 @@ function Services({ block, theme, fill, accent2, S }) {
     // than twelve full-width rows.
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S}>{heading}</Heading>
+        <Heading theme={theme} eyebrow={t.eyebrowServices} accent2={accent2} S={S}>{heading}</Heading>
         <Intro theme={theme}>{intro}</Intro>
         <div className="divide-y" style={{ borderColor: theme.border }}>
           {items.slice(0, 4).map((item, i) => {
@@ -678,7 +732,7 @@ function Services({ block, theme, fill, accent2, S }) {
   // cards (default) — elevated with an icon, hover lift, brand-tinted badge.
   return (
     <Section theme={theme} wide S={S}>
-      <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} eyebrow={t.eyebrowServices} accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme}>{intro}</Intro>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((item, i) => {
@@ -704,7 +758,7 @@ function Services({ block, theme, fill, accent2, S }) {
 
 /* ───────────────────────── About / Gallery ──────────────────────── */
 
-function About({ block, theme, accent2, S }) {
+function About({ block, theme, accent2, S, t }) {
   const { heading, body, image, variant } = block.content;
   if (!body && !image) return null;
   const serif = S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {};
@@ -719,7 +773,7 @@ function About({ block, theme, accent2, S }) {
     const rest = match ? match[2] : "";
     return (
       <Section theme={theme} alt S={S}>
-        <Heading theme={theme} onWash eyebrow="About us" accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
+        <Heading theme={theme} onWash eyebrow={t.eyebrowAbout} accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
         <blockquote className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold"} max-w-3xl m-0 leading-[1.15]`} style={{ color: theme.inkOnWash, textWrap: "balance", ...serif }}>
           {lead}
         </blockquote>
@@ -736,7 +790,7 @@ function About({ block, theme, accent2, S }) {
   if (variant === "simple" || !image) {
     return (
       <Section theme={theme} alt S={S}>
-        <Heading theme={theme} onWash eyebrow="About us" accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
+        <Heading theme={theme} onWash eyebrow={t.eyebrowAbout} accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
         {body && (
           <p className={`${S?.body || "text-lg leading-relaxed"} whitespace-pre-wrap max-w-2xl ${S?.headingAlign === "center" ? "mx-auto text-center" : ""}`} style={{ color: theme.inkMutedOnWash }}>
             {body}
@@ -751,7 +805,7 @@ function About({ block, theme, accent2, S }) {
     <Section theme={theme} alt S={S}>
       <div className="grid sm:grid-cols-2 gap-10 items-center">
         <div>
-          <Heading theme={theme} onWash eyebrow="About us" accent2={accent2} S={S}>{heading}</Heading>
+          <Heading theme={theme} onWash eyebrow={t.eyebrowAbout} accent2={accent2} S={S}>{heading}</Heading>
           {body && <p className={`${S?.body || "text-lg leading-relaxed"} whitespace-pre-wrap`} style={{ color: theme.inkMutedOnWash }}>{body}</p>}
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -761,7 +815,7 @@ function About({ block, theme, accent2, S }) {
   );
 }
 
-function Gallery({ block, theme, accent2, S }) {
+function Gallery({ block, theme, accent2, S, t }) {
   const { heading, intro, images, variant } = block.content;
   if (!images?.length) return null;
   const round = S?.imageTreatment === "square" ? "" : S?.radius || "rounded-2xl";
@@ -772,7 +826,7 @@ function Gallery({ block, theme, accent2, S }) {
     // answer on a phone whatever the count.
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} eyebrow="Our work" accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
+        <Heading theme={theme} eyebrow={t.eyebrowWork} accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
         <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
         {/* Negative margin so the row bleeds to the screen edge on a phone,
             which is the cue that it scrolls. snap-x makes the swipe land. */}
@@ -794,7 +848,7 @@ function Gallery({ block, theme, accent2, S }) {
     // than cropped. Needs four or more to look deliberate.
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} eyebrow="Our work" accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
+        <Heading theme={theme} eyebrow={t.eyebrowWork} accent2={accent2} S={S} center={S?.headingAlign === "center"}>{heading}</Heading>
         <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
         <div className="columns-2 lg:columns-3 gap-4 [&>*]:mb-4">
           {images.map((src, i) => (
@@ -812,7 +866,7 @@ function Gallery({ block, theme, accent2, S }) {
   // reads as a portfolio, not a contact sheet of identical squares.
   return (
     <Section theme={theme} wide S={S}>
-      <Heading theme={theme} eyebrow="Our work" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} eyebrow={t.eyebrowWork} accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme}>{intro}</Intro>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {images.map((src, i) => (
@@ -830,7 +884,7 @@ function Gallery({ block, theme, accent2, S }) {
   );
 }
 
-function Testimonials({ block, theme, accent2, S }) {
+function Testimonials({ block, theme, accent2, S, t }) {
   const { heading, items, variant } = block.content;
   if (!items?.length) return null;
   const initials = (name) =>
@@ -844,9 +898,9 @@ function Testimonials({ block, theme, accent2, S }) {
       <Section theme={theme} alt S={S}>
         <div className={S?.headingAlign === "center" ? "text-center" : ""}>
           <div className={S?.headingAlign === "center" ? "flex justify-center" : ""}>
-            <Eyebrow accent2={accent2}>Homeowners</Eyebrow>
+            <Eyebrow accent2={accent2}>{t.eyebrowTestimonials}</Eyebrow>
           </div>
-          <div className="flex gap-1 mb-6" style={{ color: accent2, justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }} aria-label="5 out of 5 stars">
+          <div className="flex gap-1 mb-6" style={{ color: accent2, justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }} aria-label={t.fiveStars}>
             {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={20} fill="currentColor" strokeWidth={0} />)}
           </div>
           <blockquote
@@ -868,11 +922,11 @@ function Testimonials({ block, theme, accent2, S }) {
   if (variant === "strip") {
     return (
       <Section theme={theme} alt wide S={S}>
-        <Heading theme={theme} onWash center={S?.headingAlign === "center"} eyebrow="Homeowners" accent2={accent2} S={S}>{heading}</Heading>
+        <Heading theme={theme} onWash center={S?.headingAlign === "center"} eyebrow={t.eyebrowTestimonials} accent2={accent2} S={S}>{heading}</Heading>
         <div className="-mx-5 sm:-mx-8 px-5 sm:px-8 overflow-x-auto snap-x snap-mandatory flex gap-4 pb-2">
           {items.map((t, i) => (
             <figure key={i} className={`shrink-0 snap-start w-[82%] sm:w-[46%] lg:w-[32%] ${S?.radius || "rounded-2xl"} p-6 m-0 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-              <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label="5 out of 5 stars">
+              <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={t.fiveStars}>
                 {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={15} fill="currentColor" strokeWidth={0} />)}
               </div>
               <blockquote className="text-base leading-relaxed m-0" style={{ color: theme.ink }}>{t.quote}</blockquote>
@@ -886,11 +940,11 @@ function Testimonials({ block, theme, accent2, S }) {
 
   return (
     <Section theme={theme} alt wide S={S}>
-      <Heading theme={theme} onWash center eyebrow="Homeowners" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} onWash center eyebrow={t.eyebrowTestimonials} accent2={accent2} S={S}>{heading}</Heading>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((t, i) => (
           <figure key={i} className={`${S?.radius || "rounded-2xl"} p-6 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-            <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label="5 out of 5 stars">
+            <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={t.fiveStars}>
               {[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} fill="currentColor" strokeWidth={0} />)}
             </div>
             <blockquote className="text-base leading-relaxed" style={{ color: theme.ink }}>{t.quote}</blockquote>
@@ -909,12 +963,12 @@ function Testimonials({ block, theme, accent2, S }) {
 
 // FAQ — an accordion using <details> so it's interactive with zero JavaScript
 // (native disclosure), which keeps the server-only guarantee intact.
-function Faq({ block, theme, accent2, S }) {
+function Faq({ block, theme, accent2, S, t }) {
   const { heading, items } = block.content;
   if (!items?.length) return null;
   return (
     <Section theme={theme} S={S}>
-      <Heading theme={theme} eyebrow="Good to know" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} eyebrow={t.eyebrowFaq} accent2={accent2} S={S}>{heading}</Heading>
       <div className="max-w-3xl">
         {items.map((qa, i) => (
           <details key={i} className="group border-b" style={{ borderColor: theme.border }}>
@@ -932,25 +986,25 @@ function Faq({ block, theme, accent2, S }) {
 
 /* ──────────────────── Blocks driven by company data ─────────────── */
 
-function QuoteForm({ block, company, theme, accent2, S }) {
+function QuoteForm({ block, company, theme, accent2, S, t }) {
   const { heading, intro } = block.content;
   return (
     <Section theme={theme} alt wide S={S}>
-      <Heading theme={theme} center onWash eyebrow="Free estimate" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} center onWash eyebrow={t.eyebrowQuote} accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme} center onWash>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
         <SelfQuoteFlow companySlug={company.slug} />
       </div>
       <noscript>
         <p className="text-sm mt-4 text-center" style={{ color: theme.inkMutedOnWash }}>
-          <a href={`/quote/${company.slug}`} className="underline">Open the quote form</a>
+          <a href={`/quote/${company.slug}`} className="underline">{t.openQuoteForm}</a>
         </p>
       </noscript>
     </Section>
   );
 }
 
-function BookingBlock({ block, company, theme, accent2, S }) {
+function BookingBlock({ block, company, theme, accent2, S, t }) {
   const { heading, intro } = block.content;
   // Works off the company slug even without a custom bookingSlug — findBooking
   // Company resolves either. The BookingFlow degrades to a friendly message if
@@ -959,14 +1013,14 @@ function BookingBlock({ block, company, theme, accent2, S }) {
   if (!slug) return null;
   return (
     <Section theme={theme} wide S={S}>
-      <Heading theme={theme} center eyebrow="Book a visit" accent2={accent2} S={S}>{heading}</Heading>
+      <Heading theme={theme} center eyebrow={t.eyebrowBook} accent2={accent2} S={S}>{heading}</Heading>
       <Intro theme={theme} center>{intro}</Intro>
       <div className="rounded-3xl border overflow-hidden shadow-xl" style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}>
         <BookingFlow companySlug={slug} />
       </div>
       <noscript>
         <p className="text-sm mt-4 text-center" style={{ color: theme.inkMuted }}>
-          <a href={`/book/${slug}`} className="underline">Open the booking calendar</a>
+          <a href={`/book/${slug}`} className="underline">{t.openBookingCalendar}</a>
         </p>
       </noscript>
     </Section>
@@ -984,7 +1038,7 @@ function staticMapUrl(address) {
   return `https://maps.googleapis.com/maps/api/staticmap?center=${c}&zoom=14&size=640x260&scale=2&markers=color:0x33333300%7C${c}&key=${key}`;
 }
 
-function Hours({ block, company, theme, accent2, S }) {
+function Hours({ block, company, theme, accent2, S, t }) {
   const { heading, note } = block.content;
   const runs = groupHours(company.businessHours, { weekStartsOn: company.weekStartsOn ?? 0 });
   if (!runs.some((r) => !r.closed)) return null;
@@ -998,7 +1052,7 @@ function Hours({ block, company, theme, accent2, S }) {
         <Heading theme={theme} center accent2={accent2} S={S}>{heading}</Heading>
         {state && (
           <p className="text-sm font-semibold -mt-4 mb-7" style={{ color: state.open ? theme.positive : theme.inkMuted }}>
-            {state.open ? "Open now" : "Closed now"}
+            {state.open ? t.openNow : t.closedNow}
           </p>
         )}
         <dl className="text-left rounded-2xl border overflow-hidden" style={{ borderColor: theme.border }}>
@@ -1015,7 +1069,7 @@ function Hours({ block, company, theme, accent2, S }) {
   );
 }
 
-function Contact({ block, company, theme, fill, accent2, S }) {
+function Contact({ block, company, theme, fill, accent2, S, t }) {
   const { heading, intro, showQuoteLink, showBookingLink } = block.content;
   // The address field already holds the full formatted address from signup, so
   // appending city/province again produced "…Scarborough, ON…, Toronto, ON".
@@ -1025,17 +1079,17 @@ function Contact({ block, company, theme, fill, accent2, S }) {
   return (
     <Section theme={theme} S={S}>
       <div className="text-center">
-        <Heading theme={theme} center eyebrow="Get in touch" accent2={accent2} S={S}>{heading}</Heading>
+        <Heading theme={theme} center eyebrow={t.eyebrowContact} accent2={accent2} S={S}>{heading}</Heading>
         {intro && <p className="text-lg leading-relaxed max-w-2xl mx-auto -mt-4 mb-2" style={{ color: theme.inkMuted }}>{intro}</p>}
         <div className="mt-8 flex flex-wrap gap-3 justify-center">
           {showQuoteLink !== false && (
             <a href={`/quote/${company.slug}`} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold shadow-lg transition-transform hover:-translate-y-0.5" style={{ backgroundColor: fill.bg, color: fill.fg }}>
-              <FileText size={16} /> Request a quote
+              <FileText size={16} /> {t.ctaQuote}
             </a>
           )}
           {showBookingLink !== false && (
             <a href={`/book/${company.bookingSlug || company.slug}`} className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold border-2" style={{ borderColor: theme.border, color: theme.accentText }}>
-              <CalendarDays size={16} /> Book a visit
+              <CalendarDays size={16} /> {t.ctaBook}
             </a>
           )}
         </div>
@@ -1084,7 +1138,7 @@ function Contact({ block, company, theme, fill, accent2, S }) {
 
 /* ─────────────────── Before & after (the slider) ────────────────── */
 
-function BeforeAfterBlock({ block, theme, accent2, S }) {
+function BeforeAfterBlock({ block, theme, accent2, S, t }) {
   const { heading, intro, pairs } = block.content;
   // A pair with one side missing was already dropped by the sanitiser; this is
   // the "company removed both photos" case. Rendering a heading over nothing is
@@ -1094,7 +1148,7 @@ function BeforeAfterBlock({ block, theme, accent2, S }) {
 
   return (
     <Section theme={theme} wide S={S}>
-      <Heading theme={theme} eyebrow="Before & after" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+      <Heading theme={theme} eyebrow={t.eyebrowBeforeAfter} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
         {heading}
       </Heading>
       <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -1113,7 +1167,7 @@ function BeforeAfterBlock({ block, theme, accent2, S }) {
         ))}
       </div>
       <p className="mt-4 text-sm" style={{ color: theme.inkMuted }}>
-        Drag the handle to compare.
+        {t.dragToCompare}
       </p>
     </Section>
   );
@@ -1121,7 +1175,7 @@ function BeforeAfterBlock({ block, theme, accent2, S }) {
 
 /* ──────────────────────── How it works ─────────────────────── */
 
-function Process({ block, theme, fill, accent2, S }) {
+function Process({ block, theme, fill, accent2, S, t }) {
   const { heading, intro, steps } = block.content;
   // Empty when AI didn't run: there is no honest way to invent a company's
   // process, so the section simply isn't there rather than showing four
@@ -1130,7 +1184,7 @@ function Process({ block, theme, fill, accent2, S }) {
 
   return (
     <Section theme={theme} alt wide S={S}>
-      <Heading theme={theme} onWash eyebrow="How it works" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+      <Heading theme={theme} onWash eyebrow={t.eyebrowProcess} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
         {heading}
       </Heading>
       <Intro theme={theme} onWash center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -1170,7 +1224,7 @@ function Process({ block, theme, fill, accent2, S }) {
 
 /* ──────────────────────── Areas we serve ─────────────────────── */
 
-function Areas({ block, company, theme, accent2, S }) {
+function Areas({ block, company, theme, accent2, S, t }) {
   const { heading, intro } = block.content;
   // From the company's own WorkArea rows, passed down on `company`. Never a
   // typed list: a typed list of towns is the first thing to go stale, and a
@@ -1180,7 +1234,7 @@ function Areas({ block, company, theme, accent2, S }) {
 
   return (
     <Section theme={theme} S={S}>
-      <Heading theme={theme} eyebrow="Where we work" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+      <Heading theme={theme} eyebrow={t.eyebrowAreas} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
         {heading}
       </Heading>
       <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -1201,7 +1255,7 @@ function Areas({ block, company, theme, accent2, S }) {
 
 /* ──────────────────── Credentials & numbers ─────────────────── */
 
-function Credentials({ block, theme, fill, accent2, S }) {
+function Credentials({ block, theme, fill, accent2, S, t }) {
   const { heading, intro, items, variant } = block.content;
   const usable = (items || []).filter((i) => i?.value || i?.label || i?.logo);
   // Empty until the company types their own. Nothing here is inferable and
@@ -1212,7 +1266,7 @@ function Credentials({ block, theme, fill, accent2, S }) {
   if (variant === "badges") {
     return (
       <Section theme={theme} wide S={S}>
-        <Heading theme={theme} eyebrow="Credentials" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+        <Heading theme={theme} eyebrow={t.eyebrowCredentials} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
           {heading}
         </Heading>
         <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -1263,7 +1317,7 @@ function Credentials({ block, theme, fill, accent2, S }) {
   // ── stats (default): big numerals on a wash ──
   return (
     <Section theme={theme} alt wide S={S}>
-      <Heading theme={theme} onWash eyebrow="By the numbers" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+      <Heading theme={theme} onWash eyebrow={t.eyebrowNumbers} accent2={accent2} S={S} center={S?.headingAlign === "center"}>
         {heading}
       </Heading>
       <Intro theme={theme} onWash center={S?.headingAlign === "center"}>{intro}</Intro>
@@ -1290,7 +1344,7 @@ function Credentials({ block, theme, fill, accent2, S }) {
 
 /* ───────────────────── Call-to-action band ──────────────────── */
 
-function CtaBand({ block, company, theme, fill, S }) {
+function CtaBand({ block, company, theme, fill, S, t }) {
   const { heading, sub, buttonLabel } = block.content;
   if (!heading && !sub) return null;
 
@@ -1341,7 +1395,7 @@ function CtaBand({ block, company, theme, fill, S }) {
                   className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold ${S?.pill || "rounded-full"}`}
                   style={{ backgroundColor: "#fff", color: theme.ink }}
                 >
-                  <FileText size={16} /> {buttonLabel || "Get a free quote"}
+                  <FileText size={16} /> {buttonLabel || t.ctaFreeQuote}
                 </a>
               )}
               {bookHref && (
@@ -1350,7 +1404,7 @@ function CtaBand({ block, company, theme, fill, S }) {
                   className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold border-2 ${S?.pill || "rounded-full"}`}
                   style={{ borderColor: "#fff", color: "#fff" }}
                 >
-                  <CalendarDays size={16} /> Book a visit
+                  <CalendarDays size={16} /> {t.ctaBook}
                 </a>
               )}
             </div>
@@ -1386,7 +1440,7 @@ function CtaBand({ block, company, theme, fill, S }) {
               className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold ${S?.pill || "rounded-full"}`}
               style={{ backgroundColor: band.fg, color: band.bg }}
             >
-              <FileText size={16} /> {buttonLabel || "Get a free quote"}
+              <FileText size={16} /> {buttonLabel || t.ctaFreeQuote}
             </a>
           )}
           {bookHref && (
@@ -1395,7 +1449,7 @@ function CtaBand({ block, company, theme, fill, S }) {
               className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold border-2 ${S?.pill || "rounded-full"}`}
               style={{ borderColor: band.fg, color: band.fg }}
             >
-              <CalendarDays size={16} /> Book a visit
+              <CalendarDays size={16} /> {t.ctaBook}
             </a>
           )}
         </div>
@@ -1404,7 +1458,7 @@ function CtaBand({ block, company, theme, fill, S }) {
   );
 }
 
-function SiteFooter({ company, theme }) {
+function SiteFooter({ company, theme, t }) {
   return (
     <footer className="px-5 sm:px-8 py-12 border-t" style={{ borderColor: theme.border }}>
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1418,7 +1472,7 @@ function SiteFooter({ company, theme }) {
         </div>
         <div className="text-center sm:text-right text-xs" style={{ color: theme.inkFaint }}>
           <p>© {new Date().getFullYear()} {company.name}</p>
-          <p className="mt-1">Site by <a href="https://www.fieldquo.com" className="underline">FieldQuo</a></p>
+          <p className="mt-1">{t.siteBy} <a href="https://www.fieldquo.com" className="underline">FieldQuo</a></p>
         </div>
       </div>
     </footer>
