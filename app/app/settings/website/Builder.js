@@ -67,6 +67,13 @@ export default function Builder({ data, onReload }) {
   const [pane, setPane] = useState("preview");
   const [advanced, setAdvanced] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Hand-edited copy that a regeneration would overwrite.
+  //
+  // Two sources: `handEdited` for edits made in this session, and the persisted
+  // handEditedAt for edits made on a previous day — the twenty minutes of
+  // rewording and the regeneration are usually not the same sitting.
+  const [handEdited, setHandEdited] = useState(Boolean(site?.handEditedAt));
+  const [confirmRegen, setConfirmRegen] = useState(null);
 
   const threadRef = useRef(null);
   const hasSite = blocks.length > 0;
@@ -113,9 +120,19 @@ export default function Builder({ data, onReload }) {
   }, []);
 
   // ── Generate / iterate ───────────────────────────────────────────────────
-  async function send(text) {
+  async function send(text, { confirmed = false } = {}) {
     const message = (text ?? prompt).trim();
     if (!message || busy) return;
+
+    // Regenerating rewrites every text field. Photos and before/after pairs
+    // survive; hand-written words do not. Asking once beats silently discarding
+    // work someone chose to do — and this is the difference between a destructive
+    // action and a destructive action labelled as a cosmetic one.
+    if (handEdited && !confirmed) {
+      setConfirmRegen(message);
+      return;
+    }
+    setConfirmRegen(null);
     setPrompt("");
     setError("");
     say("user", message);
@@ -161,7 +178,11 @@ export default function Builder({ data, onReload }) {
         seoTitle: result.seoTitle,
         seoDescription: result.seoDescription,
         interviewStyle: message,
+        // Nothing of theirs is left in the copy now, so there is nothing to warn
+        // about next time.
+        handEdited: false,
       });
+      setHandEdited(false);
       await onReload?.();
     } catch (err) {
       setError(err.message);
@@ -180,6 +201,7 @@ export default function Builder({ data, onReload }) {
       ...(extra.seoDescription ? { seoDescription: extra.seoDescription } : {}),
       interview: { ...(site?.interview || {}), ...(extra.interviewStyle ? { style: extra.interviewStyle } : {}) },
       chat: [...thread].slice(-40),
+      ...(extra.handEdited !== undefined ? { handEdited: extra.handEdited } : {}),
     };
     await fetchJson("/api/settings/website", {
       method: "PUT",
@@ -202,6 +224,7 @@ export default function Builder({ data, onReload }) {
           styleKey,
           ...(published !== undefined ? { published } : {}),
           chat: [...thread].slice(-40),
+          ...(handEdited ? { handEdited: true } : {}),
         }),
       });
       setPreviewKey((k) => k + 1);
@@ -217,6 +240,10 @@ export default function Builder({ data, onReload }) {
     setBlocks((prev) =>
       prev.map((b) => (b.id === id ? { ...b, content: { ...b.content, ...patch } } : b)),
     );
+    // Only a TEXT change counts. Switching a layout variant is not something a
+    // regeneration destroys — it re-picks one — so warning about it would train
+    // people to click through the warning that matters.
+    if (Object.keys(patch).some((k) => k !== "variant")) setHandEdited(true);
   }
 
   function toggleBlock(id) {
@@ -277,8 +304,15 @@ export default function Builder({ data, onReload }) {
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              // Enter sends, Shift+Enter makes a newline — the same as the
+              // iteration box below. They used to differ (this one wanted
+              // Cmd+Enter), which meant the key that worked depended on which
+              // stage of the same feature you were in.
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
               }}
               rows={4}
               autoFocus
@@ -631,6 +665,48 @@ export default function Builder({ data, onReload }) {
           >
             <ExternalLink size={14} /> Open preview
           </a>
+        </div>
+      )}
+
+      {/* ── The confirmation ─────────────────────────────────────────────────
+          Says exactly what survives and what doesn't, because "are you sure?"
+          with no detail is a dialog people learn to dismiss. */}
+      {confirmRegen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmRegen(null)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+            <h2 className="font-bold text-foreground">
+              This will rewrite the words you edited
+            </h2>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              You&apos;ve changed some text by hand. Rebuilding writes new copy for
+              every section, so those edits will be replaced.
+            </p>
+            <ul className="mt-3 space-y-1.5 text-sm">
+              <li className="flex items-start gap-2 text-foreground">
+                <Check size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                Your photos, before-and-after pairs, logo and colours are kept
+              </li>
+              <li className="flex items-start gap-2 text-muted-foreground">
+                <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                Headings and paragraphs you typed will be rewritten
+              </li>
+            </ul>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <button
+                onClick={() => setConfirmRegen(null)}
+                className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+              >
+                Keep what I wrote
+              </button>
+              <button
+                onClick={() => send(confirmRegen, { confirmed: true })}
+                className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
+              >
+                Rebuild anyway
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

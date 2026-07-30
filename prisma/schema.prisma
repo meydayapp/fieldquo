@@ -2360,6 +2360,19 @@ model CompanySite {
   //
   // [{ url, label?, at }]
   photoLibrary Json?
+
+  // When someone last edited the copy BY HAND in the Sections pane.
+  //
+  // Regenerating rewrites every text field. Photos and before/after pairs are
+  // carried across, but hand-written words are not — so a company that spent
+  // twenty minutes rewording their about section and then typed a new prompt
+  // silently lost it. This is what the confirmation before regenerating reads,
+  // and it has to be persisted rather than held in component state: the twenty
+  // minutes and the regeneration are often on different days.
+  //
+  // Cleared on generation, because at that point the copy IS the generated copy
+  // and there is nothing of theirs left to warn about.
+  handEditedAt DateTime?
 }
 
 // Per-company, per-trade configuration for the public instant estimator.

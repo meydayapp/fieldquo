@@ -212,6 +212,12 @@ export async function PUT(request) {
     // The conversation. Capped and shape-checked here rather than trusted: this
     // is a Json column written from a browser, and an unbounded array would grow
     // until the row stopped loading.
+    // Set by the Sections pane, cleared by a generation. A boolean from the
+    // browser rather than a diff on the server: the client knows whether a human
+    // typed in a field, and reconstructing that by comparing block text would be
+    // guesswork that gets it wrong the first time punctuation changes.
+    ...(body.handEdited === true ? { handEditedAt: new Date() } : {}),
+    ...(body.handEdited === false ? { handEditedAt: null } : {}),
     ...(Array.isArray(body.chat)
       ? {
           chat: body.chat
@@ -283,7 +289,7 @@ export async function POST(request) {
   // silently persist work the company hadn't chosen to save.
   const existing = await db.companySite.findUnique({
     where: { companyId: member.companyId },
-    select: { blocks: true },
+    select: { blocks: true, handEditedAt: true },
   });
 
   try {
