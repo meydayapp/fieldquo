@@ -17,7 +17,8 @@
     "check:access": "node --import ./scripts/alias-loader.mjs scripts/check-billing-access.mjs",
     "check:retention": "node --import ./scripts/alias-loader.mjs scripts/check-retention.mjs",
     "check:prompt": "node --import ./scripts/alias-loader.mjs scripts/check-voice-prompt.mjs",
-    "check:pdf": "npx tsx scripts/check-kitchen-pdf.jsx"
+    "check:pdf": "npx tsx scripts/check-kitchen-pdf.jsx",
+    "check:section": "node scripts/check-kitchen-section.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
