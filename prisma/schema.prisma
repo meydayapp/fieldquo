@@ -1393,6 +1393,18 @@ model LeadRequest {
   status     LeadStatus       @default(new)
   source     String?
   createdAt  DateTime         @default(now())
+  // A kitchen the CLIENT drew themselves, from the public self-quote designer.
+  //
+  // Stored on the lead rather than turned straight into a Quote because it
+  // isn't one yet: nobody at the company has priced it, and a Quote that exists
+  // before anyone has looked at it is a number the client can see and the
+  // contractor never agreed to. Converting the lead builds the quote, and the
+  // designer opens with this as its starting layout.
+  //
+  // Prices are absent by construction — the public designer never receives the
+  // rate card, so there is nothing here to strip.
+  kitchenDesign Json?
+
 }
 
 model ReferralLink {

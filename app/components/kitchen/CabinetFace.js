@@ -21,6 +21,8 @@
  * cabinet in a drawing — exactly what a stretched photo gets wrong.
  */
 
+import { doorStyle } from "@/lib/kitchen/finishes";
+
 const DEFAULT_PAINT = "#EDE8DD";
 
 function norm(hex) {
@@ -53,7 +55,7 @@ function isDark(hex) {
   return 0.299 * r + 0.587 * g + 0.114 * b < 140;
 }
 
-export default function CabinetFace({ x, y, w, h, el, color }) {
+export default function CabinetFace({ x, y, w, h, el, color, style: styleKey }) {
   const paint = color || el?.config?.paintColor || DEFAULT_PAINT;
   const c = el.config || {};
   const gap = 1.5;
@@ -70,13 +72,30 @@ export default function CabinetFace({ x, y, w, h, el, color }) {
   const faceTop = y + gap;
   const faceBot = y + h - gap;
 
-  // dimensionally-honest Shaker stile (~2.25"), clamped so it never vanishes
-  // or swallows a tiny face.
-  const FRAME = Math.max(2.5, Math.min(2.25 * pxPerIn, w * 0.3, h * 0.3));
+  // ── The chosen door style ───────────────────────────────────────────────
+  //
+  // This used to be hardcoded Shaker. Once a client can pick a flat slab, a
+  // hardcoded frame here means the editor draws Shaker doors while the quote
+  // drawing and the PDF draw slabs — two pictures of the same kitchen, and the
+  // one the client signs is not the one they were looking at while choosing.
+  const style = doorStyle(styleKey ?? el?.config?.doorStyle);
+
+  // Dimensionally honest: the stile width is real inches converted through this
+  // face's own px-per-inch, so a 2.25" frame looks the same thickness on an 18"
+  // door and a 36" one — as it does in the room. Clamped so it can neither
+  // vanish at small zoom nor swallow a tiny drawer front.
+  const FRAME =
+    style.frame > 0
+      ? Math.max(2.5, Math.min(style.frame * pxPerIn, w * 0.3, h * 0.3))
+      : 0;
   const light = shade(paint, 0.16);
   const dark = shade(paint, -0.16);
   const darker = shade(paint, -0.3);
-  const panelFill = shade(paint, -0.05);
+  // Raised panels stand proud and catch light, so their fill is LIGHTER than
+  // the frame; recessed ones sit back and read darker. Same field, opposite
+  // sign — which is why panelDepth is signed in finishes.js rather than being
+  // an "isRecessed" boolean that only ever darkens.
+  const panelFill = shade(paint, -(style.panelDepth ?? 0.05));
   const edgeDark = shade(paint, -0.22);
   const handle = isDark(paint) ? "rgba(255,255,255,.82)" : "rgba(45,32,20,.6)";
 
@@ -87,7 +106,9 @@ export default function CabinetFace({ x, y, w, h, el, color }) {
 
   // a recessed Shaker panel inside a given cell rect
   const recessed = (cx, cy, cw, ch, key) => {
-    if (cw < FRAME * 2 + 2 || ch < FRAME * 2 + 2) {
+    // A slab door HAS no panel. Falling through to the frame branch below would
+    // draw one anyway and make every style look like Shaker.
+    if (FRAME <= 0 || cw < FRAME * 2 + 2 || ch < FRAME * 2 + 2) {
       // too small for a frame → flat painted slab w/ edge bevel
       return (
         <g key={key}>

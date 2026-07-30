@@ -38,6 +38,7 @@ import {
   Columns2,
   CookingPot,
   Move,
+  Palette,
   Maximize2,
   Microwave,
   CornerDownRight,
@@ -107,6 +108,8 @@ const KIND_ICONS = {
 };
 
 import CabinetFace from "./CabinetFace";
+import FinishPicker from "./FinishPicker";
+import { colorFor, DEFAULT_FINISH } from "@/lib/kitchen/finishes";
 import ApplianceGlyph from "./ApplianceGlyph";
 
 /* ─────────────────────────── defaults / theme ─────────────────────────── */
@@ -642,13 +645,11 @@ export default function KitchenDesigner({
       ...(value?.countertop || {}),
     },
     accessories: value?.accessories || [],
-    finish: {
-      cabinetColor: "#EDE8DD",
-      countertopColor: "#3A3A3A",
-      backsplashColor: "#E8E2D6",
-      backsplashHeight: 18,
-      ...(value?.finish || {}),
-    },
+    // From lib/kitchen/finishes.js, not a fourth copy of the defaults. The
+    // presentation drawing, the public API and this editor all normalise
+    // through the same module, so a design opened here and rendered on the
+    // quote can't start from different colours.
+    finish: { ...DEFAULT_FINISH, ...(value?.finish || {}) },
   }));
 
   // ── readOnly, enforced at the setter ───────────────────────────────────
@@ -697,6 +698,7 @@ export default function KitchenDesigner({
   const [view, setView] = useState("plan");
   const [selectedId, setSelectedId] = useState(null);
   const [showPricing, setShowPricing] = useState(true);
+  const [showFinishes, setShowFinishes] = useState(false);
   const wrapRef = useRef(null);
   const svgRef = useRef(null);
   const dragRef = useRef(null);
@@ -1415,7 +1417,8 @@ export default function KitchenDesigner({
               w={ew}
               h={eh}
               el={el}
-              color={cfg.finish?.cabinetColor}
+              color={colorFor(el, cfg.finish)}
+              style={cfg.finish?.doorStyle}
             />
           )}
           {k.group === "appliance" && (
@@ -1518,7 +1521,8 @@ export default function KitchenDesigner({
               w={ew}
               h={eh}
               el={faceEl}
-              color={cfg.finish?.cabinetColor}
+              color={colorFor(el, cfg.finish)}
+              style={cfg.finish?.doorStyle}
             />
           )}
           <text
@@ -1689,100 +1693,91 @@ export default function KitchenDesigner({
           </ViewTab>
         )}
       </div>
-      {/* Paint colour — drives every door and drawer fill live.
+      {/* ── Finishes ───────────────────────────────────────────────────────
+          Replaces a one-line row of paint chips. That row only ever set the
+          cabinet colour, which is a fraction of what makes a drawing look like
+          somebody's actual kitchen — floor, counter, wall and door STYLE do the
+          rest, and a homeowner picturing their room needs all of them.
 
-          Hidden when read-only for the same reason as the palette: setCfg is
-          guarded, so these swatches would change nothing. On a closed quote the
-          colour shown IS the colour agreed. */}
+          Collapsed by default: on a phone this is the tallest panel here, and
+          the drawing is what someone opens the page for. */}
       {!readOnly && (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          flexWrap: "wrap",
-          marginBottom: "0.7rem",
-        }}
-      >
-        <span style={{ fontSize: "0.7rem", color: theme.textMuted }}>
-          Paint colour:
-        </span>
-        {[
-          ["Chantilly Lace", "#F4F4EF"],
-          ["Classic White", "#EDE8DD"],
-          ["Sage", "#9AA487"],
-          ["Navy", "#2E3B4E"],
-          ["Charcoal", "#3A3A3A"],
-          ["Taupe", "#B9A98F"],
-          ["Espresso", "#4A3B30"],
-          ["Gold", "#bd9d60"],
-        ].map(([name, hex]) => (
-          <button
-            key={hex}
-            type="button"
-            title={name}
-            onClick={() =>
-              patchCfg({ finish: { ...cfg.finish, cabinetColor: hex } })
-            }
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              cursor: "pointer",
-              background: hex,
-              border: `2px solid ${
-                cfg.finish?.cabinetColor === hex ? theme.gold : theme.border
-              }`,
-            }}
-          />
-        ))}
-        <label
+        <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: "0.7rem",
-            color: theme.textMuted,
+            marginBottom: "0.7rem",
+            border: `1px solid ${theme.border}`,
+            borderRadius: "0.9rem",
+            overflow: "hidden",
           }}
         >
-          Custom
-          <input
-            type="color"
-            value={cfg.finish?.cabinetColor || "#EDE8DD"}
-            onChange={(e) =>
-              patchCfg({
-                finish: { ...cfg.finish, cabinetColor: e.target.value },
-              })
-            }
+          <button
+            type="button"
+            onClick={() => setShowFinishes((v) => !v)}
             style={{
-              width: 30,
-              height: 26,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.7rem 0.9rem",
+              background: `${theme.text}08`,
               border: "none",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          />
-          <input
-            type="text"
-            value={cfg.finish?.cabinetColor || ""}
-            onChange={(e) => {
-              let v = e.target.value.trim();
-              if (v && !v.startsWith("#")) v = "#" + v;
-              patchCfg({ finish: { ...cfg.finish, cabinetColor: v } });
-            }}
-            placeholder="#EDE8DD"
-            style={{
-              width: 84,
-              padding: "0.35rem 0.5rem",
-              borderRadius: 6,
-              border: `1px solid ${theme.border}`,
-              background: `${theme.text}0d`,
               color: theme.text,
-              fontSize: "0.8rem",
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "0.9rem",
             }}
-          />
-        </label>
-      </div>
+          >
+            <Palette size={15} style={{ color: theme.gold }} />
+            Colours &amp; finishes
+            <span
+              style={{
+                marginLeft: "auto",
+                display: "inline-flex",
+                gap: 4,
+                alignItems: "center",
+              }}
+            >
+              {/* The current choice, as chips. Someone deciding whether to open
+                  this can see what's set without opening it. */}
+              {[
+                cfg.finish?.cabinetColor,
+                cfg.finish?.countertopColor,
+                cfg.finish?.floorColor,
+              ]
+                .filter(Boolean)
+                .map((c, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      borderRadius: 4,
+                      background: c,
+                      border: `1px solid ${theme.border}`,
+                    }}
+                  />
+                ))}
+              <ChevronRight
+                size={15}
+                style={{
+                  transform: showFinishes ? "rotate(90deg)" : "none",
+                  transition: "transform 0.2s",
+                  color: theme.textMuted,
+                }}
+              />
+            </span>
+          </button>
+          {showFinishes && (
+            <div style={{ padding: "0.9rem" }}>
+              <FinishPicker
+                value={cfg.finish}
+                onChange={(finish) => patchCfg({ finish })}
+                // A custom hex is a contractor tool — see FinishPicker's header.
+                allowCustom={!clientMode}
+              />
+            </div>
+          )}
+        </div>
       )}
       {islandView && selectedIsland && (
         <div
