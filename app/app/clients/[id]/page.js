@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LanguagePicker from "@/app/components/LanguagePicker";
+import { LANGUAGES } from "@/app/i18n/languages";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +19,7 @@ import {
   Receipt,
   Briefcase,
   Plus,
+  Languages,
 } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
@@ -36,6 +39,8 @@ export default function ClientDetailPage() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Shown as "Company default (X)" in the picker so null reads as a real choice.
+  const [companyLanguage, setCompanyLanguage] = useState("en");
 
   function load() {
     return fetch(`/api/clients/${id}`)
@@ -46,6 +51,13 @@ export default function ClientDetailPage() {
   useEffect(() => {
     load().finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.defaultLanguage && setCompanyLanguage(d.defaultLanguage))
+      .catch(() => {});
+  }, []);
 
   function openEdit() {
     setForm({
@@ -58,6 +70,10 @@ export default function ClientDetailPage() {
       city: client.city || "",
       province: client.province || "",
       notes: client.notes || "",
+      // Null means "follow the company default" — see LanguagePicker. Without
+      // this field the API accepted a language the UI could never change, so a
+      // client created in the wrong language was stuck there forever.
+      language: client.language || null,
     });
     setEditing(true);
   }
@@ -180,6 +196,20 @@ export default function ClientDetailPage() {
             location.
           </p>
         )}
+        {/* Visible without opening Edit: which language this client's documents
+            and emails go out in. Says "company default" when unset rather than
+            naming a language they didn't choose. */}
+        <div className="flex items-center gap-2 text-sm text-foreground">
+          <Languages size={14} className="text-muted-foreground shrink-0" />
+          {client.language
+            ? LANGUAGES.find((l) => l.code === client.language)?.nativeName ||
+              client.language
+            : `Company default (${
+                LANGUAGES.find((l) => l.code === companyLanguage)?.nativeName ||
+                companyLanguage
+              })`}
+          <span className="text-muted-foreground">· documents &amp; emails</span>
+        </div>
         {client.notes && (
           <p className="text-sm text-muted-foreground pt-2 border-t border-border">
             {client.notes}
@@ -374,6 +404,16 @@ export default function ClientDetailPage() {
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 className={inputClass}
+              />
+
+              {/* Their language drives every document and email they receive —
+                  see lib/i18n/clientLanguage.js. Editable here, not only at
+                  creation, because the wrong choice used to be permanent. */}
+              <LanguagePicker
+                value={form.language}
+                onChange={(v) => setForm({ ...form, language: v })}
+                companyDefault={companyLanguage}
+                hint="Quotes, invoices and emails go out in this language."
               />
 
               <button
