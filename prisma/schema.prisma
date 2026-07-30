@@ -383,6 +383,7 @@ model Company {
   subscription          Subscription?
   instantQuoteConfigs   InstantQuoteConfig[]
   activityLogs          ActivityLog[]
+  payRuns               PayRun[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -1398,6 +1399,7 @@ model Worker {
   timeEntries TimeEntry[]
   payouts     Payout[]
   salaries    Salary[]
+  payRunLines PayRunLine[]
 }
 
 model TimeEntry {
@@ -1476,6 +1478,88 @@ model MarketingSpend {
   date         DateTime          @default(now())
   notes        String?
   createdAt    DateTime          @default(now())
+}
+
+// One payroll period for a company: draft → approved → paid.
+//
+// ── What FieldQuo is and isn't doing here ───────────────────────────────────
+//
+// It computes GROSS pay from data it owns and can be right about: approved
+// hours × rate, overtime, salary ÷ periods, plus adjustments someone typed.
+// Statutory deductions (CPP/EI, FICA, PAYE/NI) are NOT calculated from tax
+// tables — those change annually per jurisdiction and getting them wrong bills
+// the employer for penalties. Instead each line carries deductions the company
+// (or its accountant) supplied, and net is the arithmetic on top. The payslip
+// says which is which, so nobody mistakes an estimate for a filing.
+//
+// See lib/payroll/computePayRun.js for the arithmetic and why it's pure.
+model PayRun {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime
+  periodEnd   DateTime
+  // draft | approved | paid | cancelled. A string, not an enum: payroll states
+  // vary by how a company actually operates and adding one shouldn't migrate.
+  status      String   @default("draft")
+
+  // Totals, denormalised at approval so a payslip can never be re-derived into
+  // a different number than the one that was approved and paid.
+  grossTotal     Decimal @default(0) @db.Decimal(12, 2)
+  deductionTotal Decimal @default(0) @db.Decimal(12, 2)
+  netTotal       Decimal @default(0) @db.Decimal(12, 2)
+
+  // Which tax regime's LABELS the payslip uses (CA | US | UK). Labels only —
+  // it does not imply FieldQuo calculated or remitted anything.
+  region String @default("CA")
+
+  notes        String?
+  approvedById String?
+  approvedAt   DateTime?
+  paidAt       DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  lines PayRunLine[]
+
+  @@index([companyId, periodStart])
+}
+
+// One worker's pay for one run — the payslip row.
+model PayRunLine {
+  id       String @id @default(cuid())
+  payRunId String
+  payRun   PayRun @relation(fields: [payRunId], references: [id], onDelete: Cascade)
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id])
+
+  // Captured at run time, not joined at read time: a rate change next month
+  // must not rewrite what a past payslip says was paid.
+  workerName String
+  workerType String // employee | contractor — drives whether Stripe payout is offered
+  hourlyRate Decimal? @db.Decimal(10, 2)
+
+  regularHours  Decimal @default(0) @db.Decimal(8, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(8, 2)
+
+  // [{ label, amount, kind: "earning"|"deduction", source: "hours"|"salary"|"manual" }]
+  // Kept as one ordered list so the payslip prints exactly what was computed,
+  // in order, without the renderer re-deciding anything.
+  items Json?
+
+  gross     Decimal @default(0) @db.Decimal(12, 2)
+  deductions Decimal @default(0) @db.Decimal(12, 2)
+  net       Decimal @default(0) @db.Decimal(12, 2)
+
+  // Set when this line has actually been paid out, and how.
+  paidAt   DateTime?
+  payoutId String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([payRunId, workerId])
 }
 
 model Salary {
