@@ -66,11 +66,21 @@ Built and checked:
     time, always admits to being an assistant.
   * `/api/voice/webhook` — signature-verified, bills once per call.
 
-**Still to do:** the settings UI (buy a number, set the greeting, top up), the
-agent-provisioning call, tool definitions so it can create a `LeadRequest` and
-book against real availability, and the call review queue.
+Also built since: the settings screen (`/app/settings/voice`), number
+provisioning, Stripe top-ups, agent provisioning from the company's own data,
+the tools (`save_caller` / `check_availability` / `book_visit`), and the call
+review queue at `/app/receptionist` — which is no longer a placeholder.
 
-`app/app/receptionist/page.js` is still the "coming soon" placeholder.
+**Still to do:**
+  * A real call end to end, once `RETELL_API_KEY` and `RETELL_WEBHOOK_SECRET`
+    are in Vercel. Everything below the provider boundary has been exercised
+    with signed fixtures; nothing has yet spoken to Retell.
+  * Porting is recorded as a REQUEST with an expected date and nothing actions
+    it — a human has to. That's deliberate (a port needs carrier details no
+    button can obtain) but it means somebody must watch for
+    `VoicePhoneNumber.status = "porting"`.
+  * Monthly number rental is stored on the row and not yet billed. Talk time
+    bills correctly; the $4/$9 a month does not leave the database.
 
 **What it should do:** answer inbound calls, capture the caller's details,
 create a `Client` or `LeadRequest`, book a visit against real availability,
@@ -186,11 +196,19 @@ drift invisibly until a crew builds from the wrong one.
 
 1. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
    flags holes above it, but neither has been tried with a thumb on a real
-   phone. This is the one thing left that can only be checked by hand.
-2. **Trade calculators.** The owner supplied working Countertop, Flooring,
-   Interior/Exterior Painting and Stair calculators alongside the kitchen code.
-   None are adapted yet. Same rules apply: rates come from the company, not the
-   file, and every entry point clamps its input.
+   phone. The one thing left here that can only be checked by hand.
+2. **Trade calculators — NOT started, deliberately.** The owner supplied working
+   Countertop, Flooring, Interior/Exterior Painting and Stair calculators
+   (~3,400 lines) alongside the kitchen code. Half-adapting five of them would
+   leave five half-working screens, which is worse than none.
+
+   When they're picked up: the rates mostly live in the section DATA already,
+   which is good — but `StairCalculator` hardcodes
+   `{ standard: 110, moderate: 145, high: 180 }` per tread, and that's one
+   shop's pricing. It belongs on the company, like `Company.cabinetRates`.
+   Adapt ONE end-to-end first and let it set the pattern; Countertop is the
+   natural first because the kitchen designer already has a countertop module
+   it can feed.
 
 Two rules this feature already depends on. The client designer is PUBLIC, so it
 returns no prices — `stripPricing` rebuilds the payload key-by-key rather than

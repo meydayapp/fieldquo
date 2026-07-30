@@ -13,6 +13,8 @@ import Link from "next/link";
 import { Inbox, Mail, Phone, ArrowRight, AlertCircle } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import PlanSvg from "@/app/components/kitchen/PlanSvg";
+import { describeFinish } from "@/lib/kitchen/finishes";
 // Mirrors the LeadStatus enum. Order is the pipeline order, not alphabetical.
 const COLUMNS = [
   { key: "new", label: "New", tone: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900" },
@@ -209,7 +211,26 @@ export default function LeadsPage() {
                       </div>
                     </div>
 
-                    {lead.status === "converted" && (
+                    {/* ── The kitchen they drew ───────────────────────────
+                        LeadRequest.kitchenDesign was written by the public
+                        self-quote and read by NOTHING — a client spent ten
+                        minutes laying out their kitchen and it landed in a
+                        column nobody could see. It's the most useful thing on
+                        the lead: the summary says "1 cabinet"; this says which
+                        one, where, and in what colour. */}
+                    {lead.kitchenDesign?.elements?.length > 0 && (
+                      <div className="mt-3 rounded-lg border border-border overflow-hidden bg-white">
+                        <PlanSvg
+                          design={lead.kitchenDesign}
+                          showScale={false}
+                        />
+                        <p className="px-2 py-1.5 text-[11px] text-neutral-600 border-t border-border">
+                          {describeFinish(lead.kitchenDesign.finish)}
+                        </p>
+                      </div>
+                    )}
+
+                                        {lead.status === "converted" && (
                       <Link
                         href="/app/quotes/new"
                         className="mt-3 flex items-center justify-center gap-1.5 bg-card border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-semibold py-2 rounded-lg"

@@ -281,10 +281,6 @@ model Subscription {
   retentionOffer   String?
   retentionOfferAt DateTime?
 
-  /// Set when they've asked to cancel at period end but the period hasn't ended.
-  /// They keep full access until then — they paid for the month.
-  cancelAt DateTime?
-
   /// When the cancellation actually took effect.
   ///
   /// Starts the 30-day read-only window. Distinct from `pastDueSince`, which is
