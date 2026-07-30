@@ -485,6 +485,12 @@ model Company {
   materialRecipeSettings MaterialRecipeSetting[]
   followUpRules          FollowUpRule[]
   marketingSubscribers   MarketingSubscriber[]
+
+  voiceNumbers  VoicePhoneNumber[]
+  voiceAgent    VoiceAgent?
+  voiceCalls    VoiceCall[]
+  voiceCredits  VoiceCreditEntry[]
+
 }
 
 // Per-company overrides on top of the built-in defaults in
@@ -2520,4 +2526,181 @@ model ActivityLog {
 
   @@index([companyId, createdAt])
   @@index([companyId, entityType, entityId])
+}
+
+// ── Voice: the AI receptionist ───────────────────────────────────────────────
+
+/// A phone number the AI receptionist answers on.
+///
+/// Three ways a company gets one, and they are genuinely different products —
+/// see lib/voice/numbers.js:
+///   purchased — we buy it from the provider. Instant, theirs to keep.
+///   forwarded — they keep their own number and forward calls to ours. The
+///               DEFAULT migration path: reversible in a minute, no paperwork,
+///               and their number keeps working everywhere else it's printed.
+///   ported    — the number itself moves to us. Weeks, irreversible in
+///               practice, and their business line is at risk if it stalls.
+model VoicePhoneNumber {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164, always. Stored normalised so a lookup from a webhook can't miss on
+  /// formatting — the provider sends +15551234567 and a human types (555) 123-4567.
+  e164 String @unique
+
+  /// What the company should give out. For `forwarded` this is THEIR number,
+  /// not ours, and it's the one that goes on the van — printing ours would
+  /// undo the whole point of forwarding.
+  publicNumber String?
+
+  source VoiceNumberSource @default(purchased)
+  status VoiceNumberStatus @default(provisioning)
+
+  /// The provider's own id, so a release or reassign doesn't have to guess.
+  providerId String?
+  provider   String  @default("retell")
+
+  /// What it costs the company per month, in cents. Held here rather than read
+  /// from a price list at render time: a number bought at last year's rate keeps
+  /// last year's rate until someone changes it deliberately.
+  monthlyCents Int @default(0)
+
+  /// Set while a port is in flight, so the UI can say "moving, est. 3 Aug"
+  /// rather than a spinner with no end.
+  portRequestedAt DateTime?
+  portExpectedAt  DateTime?
+
+  releasedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  agentId String?
+  agent   VoiceAgent? @relation(fields: [agentId], references: [id])
+  calls   VoiceCall[]
+
+  @@index([companyId, status])
+}
+
+enum VoiceNumberSource {
+  purchased
+  forwarded
+  ported
+}
+
+enum VoiceNumberStatus {
+  provisioning
+  active
+  porting
+  failed
+  released
+}
+
+/// The receptionist's persona and rules for one company.
+model VoiceAgent {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  providerAgentId String?
+  provider        String  @default("retell")
+
+  name     String  @default("Receptionist")
+  voice    String?
+  language String  @default("en")
+
+  /// What it says when it picks up. Company-authored, because this is the first
+  /// thing a stranger hears from the business.
+  greeting String?
+
+  /// Extra instructions the owner types. Layered UNDER the system rules in
+  /// lib/voice/prompt.js — a company can shape the tone, not remove the
+  /// guardrails.
+  instructions String?
+
+  /// A human to hand off to. Null means the agent takes a message instead of
+  /// promising a transfer that can't happen.
+  transferTo String?
+
+  /// Off by default. An agent that answers before anyone has heard it is how a
+  /// contractor finds out from a client.
+  enabled Boolean @default(false)
+
+  /// Attribution for anything the agent creates. A synthetic member, so the
+  /// activity log says the receptionist did it rather than naming a person who
+  /// wasn't there.
+  memberId String?
+
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  numbers   VoicePhoneNumber[]
+  calls     VoiceCall[]
+}
+
+/// One call, and what came of it.
+model VoiceCall {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  providerCallId String  @unique
+  numberId       String?
+  number         VoicePhoneNumber? @relation(fields: [numberId], references: [id])
+  agentId        String?
+  agent          VoiceAgent?       @relation(fields: [agentId], references: [id])
+
+  direction String @default("inbound")
+  fromE164  String?
+  toE164    String?
+
+  startedAt DateTime?
+  endedAt   DateTime?
+  /// Seconds. Billed minutes are derived from this and stored on the usage row,
+  /// so a rounding-rule change can't silently rewrite what was charged.
+  durationSec Int @default(0)
+
+  transcript   Json?
+  summary      String?
+  recordingUrl String?
+
+  /// Why it ended, from the provider — answered, no-answer, hung up, error.
+  disposition String?
+
+  /// What the agent produced. Nullable because most calls produce nothing, and
+  /// a wrong number is a perfectly normal outcome.
+  leadId    String?
+  clientId  String?
+  bookingId String?
+
+  /// Needs a human to look at it — the agent flagged something, or it failed.
+  needsReview Boolean @default(false)
+  reviewedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, needsReview])
+}
+
+/// Voice minutes bought and spent. Prepaid, deliberately — see lib/voice/credits.js.
+model VoiceCreditEntry {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Positive for a top-up, negative for a call. One table for both so the
+  /// balance is a SUM that can be audited, rather than a counter that can drift
+  /// away from the calls that moved it.
+  cents Int
+
+  kind   String  // "topup" | "call" | "adjustment" | "monthly_number"
+  callId String?
+  /// The Stripe Checkout session or payment intent behind a top-up, so a
+  /// disputed charge can be traced to the credit it bought.
+  stripeRef String?
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
 }
