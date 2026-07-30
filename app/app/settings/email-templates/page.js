@@ -142,7 +142,7 @@ export default function EmailTemplatesPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 bg-accent rounded w-1/3" />
         <div className="h-48 bg-accent rounded-xl" />
       </div>
@@ -150,7 +150,7 @@ export default function EmailTemplatesPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Email Templates</h1>

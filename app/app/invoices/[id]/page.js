@@ -172,11 +172,11 @@ export default function InvoiceDetailPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
   if (!invoice)
     return (
-      <div className="p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
+      <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
         Invoice not found.
       </div>
     );
@@ -185,7 +185,7 @@ export default function InvoiceDetailPage() {
   const amountDue = Number(invoice.amountDue ?? invoice.total);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6 pb-10">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-10">
       <Link
         href="/app/invoices"
         className="flex items-center gap-1 text-sm text-muted-foreground"

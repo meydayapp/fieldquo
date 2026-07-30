@@ -195,7 +195,7 @@ export default function PayrollSettingsPage() {
   }
   if (!data) {
     return (
-      <div className="p-6 max-w-2xl mx-auto flex items-center gap-2 text-muted-foreground text-sm">
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto flex items-center gap-2 text-muted-foreground text-sm">
         <Loader2 size={16} className="animate-spin" /> Loading…
       </div>
     );

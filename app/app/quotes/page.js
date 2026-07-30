@@ -41,9 +41,9 @@ export default function QuotesPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-6xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
         <div className="h-8 w-40 bg-accent rounded" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-20 bg-accent rounded-xl" />
           ))}
@@ -53,7 +53,7 @@ export default function QuotesPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Quotes</h1>

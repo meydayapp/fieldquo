@@ -61,7 +61,7 @@ export default function WorkersPage() {
 
   if (!workers) {
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
   }
 

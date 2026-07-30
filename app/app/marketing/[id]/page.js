@@ -172,7 +172,7 @@ export default function CampaignDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 w-56 bg-accent rounded" />
         <div className="h-48 bg-accent rounded-xl" />
       </div>
@@ -181,7 +181,7 @@ export default function CampaignDetailPage() {
 
   if (!campaign) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <p className="text-sm text-muted-foreground">Campaign not found.</p>
         <Link href="/app/marketing" className="text-sm text-foreground underline">
           Back to Marketing
@@ -195,7 +195,7 @@ export default function CampaignDetailPage() {
   // state through this whole component.
   if (campaign.type === "email") {
     return (
-      <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
         <div>
           <Link
             href="/app/marketing"
@@ -219,7 +219,7 @@ export default function CampaignDetailPage() {
   ).length;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <Link
           href="/app/marketing"

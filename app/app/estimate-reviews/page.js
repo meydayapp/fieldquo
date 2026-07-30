@@ -60,7 +60,7 @@ export default function EstimateReviewsPage() {
   }
 
   return (
-    <div className="max-w-3xl px-6 py-8">
+    <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <BadgeCheck size={20} className="text-foreground" />
         <h1 className="text-2xl font-bold text-foreground">Estimate Reviews</h1>

@@ -135,7 +135,7 @@ export default function PayrollPage() {
   const showRunner = canRun;
 
   return (
-    <div className="max-w-4xl px-6 py-8 space-y-8">
+    <div className="max-w-4xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Wallet size={20} className="text-foreground" />
@@ -156,6 +156,9 @@ export default function PayrollPage() {
             My earnings
           </h2>
           {mine.ytd && (
+            // Three columns hold "Gross / Deductions / Net" on a phone only because the
+            // labels are short; the VALUES are money and take the smaller type below
+            // sm, or "$4,450.00" wraps mid-number.
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
                 ["Gross", mine.ytd.gross],
@@ -166,7 +169,7 @@ export default function PayrollPage() {
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     {label} · {mine.ytd.year}
                   </div>
-                  <div className="text-base font-bold text-foreground tabular-nums">{money(v)}</div>
+                  <div className="text-sm sm:text-base font-bold text-foreground tabular-nums">{money(v)}</div>
                 </div>
               ))}
             </div>

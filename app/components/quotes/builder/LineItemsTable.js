@@ -43,8 +43,13 @@ export default function LineItemsTable({
 
   return (
     <div>
+      {/* ── Column headers: desktop only ─────────────────────────────────────
+          Below sm each line becomes its own stacked card with the field names
+          on the fields themselves. A twelve-column grid on a 375px phone gave
+          Description about 110px — five-sixths of a quote line, unreadable and
+          unusable, on the screen this product exists to fill in. */}
       {items.length > 0 && (
-        <div className="grid grid-cols-12 gap-2 mb-1.5 px-1">
+        <div className="hidden sm:grid grid-cols-12 gap-2 mb-1.5 px-1">
           <span className="col-span-5 text-[11px] font-medium text-muted-foreground">
             Description
           </span>
@@ -63,36 +68,59 @@ export default function LineItemsTable({
 
       <div className="space-y-2">
         {items.map((item, i) => (
-          <div key={i} className="grid grid-cols-12 gap-2 items-center">
+          <div
+            key={i}
+            // Mobile: a bordered card, description on its own line, then the
+            // numbers in a row. Desktop: the original twelve-column row,
+            // unchanged. `sm:contents` on the inner wrapper makes it vanish at
+            // sm so its children become grid items of THIS grid — that's what
+            // lets one markup tree serve both shapes without duplicating the
+            // inputs and their handlers.
+            className="rounded-lg border border-border p-2 space-y-2 sm:space-y-0 sm:p-0 sm:border-0 sm:rounded-none sm:grid sm:grid-cols-12 sm:gap-2 sm:items-center"
+          >
             <input
               value={item.description}
               onChange={(e) => onChange(i, "description", e.target.value)}
-              className="col-span-5 border border-border rounded px-2 py-1.5 text-sm"
+              placeholder="Description"
+              className="w-full sm:col-span-5 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
             />
-            <input
-              type="number"
-              value={item.quantity}
-              onChange={(e) => onChange(i, "quantity", Number(e.target.value))}
-              className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
-            />
-            <input
-              type="number"
-              step="0.01"
-              value={item.rate}
-              onChange={(e) => onChange(i, "rate", Number(e.target.value))}
-              className="col-span-2 border border-border rounded px-2 py-1.5 text-sm"
-            />
-            <div className="col-span-2 text-sm font-medium text-foreground text-right tabular-nums">
-              ${Number(item.amount).toFixed(2)}
+            <div className="flex items-center gap-2 sm:contents">
+              <label className="flex-1 sm:contents">
+                <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
+                  Qty
+                </span>
+                <input
+                  type="number"
+                  value={item.quantity}
+                  onChange={(e) => onChange(i, "quantity", Number(e.target.value))}
+                  className="w-full sm:col-span-2 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
+                />
+              </label>
+              <label className="flex-1 sm:contents">
+                <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
+                  Rate
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={item.rate}
+                  onChange={(e) => onChange(i, "rate", Number(e.target.value))}
+                  className="w-full sm:col-span-2 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
+                />
+              </label>
+              <div className="sm:col-span-2 text-sm font-medium text-foreground text-right tabular-nums shrink-0 self-end pb-2 sm:pb-0">
+                ${Number(item.amount).toFixed(2)}
+              </div>
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                // 40px hit area on mobile; the desktop version stays a bare icon.
+                className="sm:col-span-1 shrink-0 self-end p-2 sm:p-0 -mr-1 sm:mr-0 text-muted-foreground hover:text-red-600"
+                aria-label="Remove line"
+              >
+                <X size={14} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="col-span-1 text-muted-foreground hover:text-red-600"
-              aria-label="Remove line"
-            >
-              <X size={14} />
-            </button>
           </div>
         ))}
       </div>

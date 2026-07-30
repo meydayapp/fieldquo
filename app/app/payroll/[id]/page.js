@@ -69,7 +69,7 @@ export default function PayRunPage() {
 
   if (error) {
     return (
-      <div className="max-w-3xl px-6 py-8">
+      <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
         <p className="text-sm text-red-600">{error}</p>
         <Link href="/app/payroll" className="text-sm underline mt-2 inline-block">
           Back to payroll
@@ -79,14 +79,14 @@ export default function PayRunPage() {
   }
   if (!run) {
     return (
-      <div className="max-w-3xl px-6 py-8 flex items-center gap-2 text-muted-foreground text-sm">
+      <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8 flex items-center gap-2 text-muted-foreground text-sm">
         <Loader2 size={16} className="animate-spin" /> Loading…
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl px-6 py-8 space-y-6">
+    <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8 space-y-6">
       <Link
         href="/app/payroll"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"

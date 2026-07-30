@@ -120,7 +120,7 @@ export default function CustomFieldsPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Custom Fields</h1>
         <p className="text-sm text-muted-foreground mt-1">

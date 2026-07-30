@@ -128,7 +128,7 @@ export default function PaymentsPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-2xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto">
         <div className="animate-pulse space-y-4">
           <div className="h-6 w-40 bg-accent rounded" />
           <div className="h-32 bg-accent rounded-xl" />
@@ -158,7 +158,7 @@ export default function PaymentsPage() {
   const active = chargesEnabled;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Payments</h1>
         <p className="text-sm text-muted-foreground mt-1">

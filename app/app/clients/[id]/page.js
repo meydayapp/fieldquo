@@ -101,7 +101,7 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 w-56 bg-accent rounded" />
         <div className="h-32 bg-accent rounded-xl" />
       </div>
@@ -110,7 +110,7 @@ export default function ClientDetailPage() {
 
   if (!client) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
         <p className="text-sm text-muted-foreground">Client not found.</p>
         <Link href="/app/clients" className="text-sm text-foreground underline">
           Back to Clients
@@ -125,7 +125,7 @@ export default function ClientDetailPage() {
   const jobs = client.jobs || [];
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <Link
           href="/app/clients"

@@ -683,7 +683,7 @@ export default function EmailTemplateEditorPage() {
 
   if (!template) {
     return (
-      <div className="p-6 max-w-5xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <p className="text-sm text-muted-foreground">Template not found.</p>
       </div>
     );

@@ -131,7 +131,7 @@ export default function MaterialCostsPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 bg-accent rounded w-1/3" />
         <div className="h-64 bg-accent rounded-xl" />
       </div>
@@ -139,7 +139,7 @@ export default function MaterialCostsPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Material Costs</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -250,7 +250,7 @@ export default function MaterialCostsPage() {
                 <h3 className="text-sm font-semibold text-foreground mb-3">
                   Wall paint cost by tier ($/gal)
                 </h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   {PAINT_TIERS.map((t) => (
                     <div key={t.key}>
                       <label className="text-xs font-medium text-muted-foreground block mb-1">

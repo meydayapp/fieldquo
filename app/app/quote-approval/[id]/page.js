@@ -112,12 +112,12 @@ export default function QuoteApprovalPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse h-80 bg-accent rounded-xl" />
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse h-80 bg-accent rounded-xl" />
     );
 
   if (!quote)
     return (
-      <div className="p-6 max-w-lg mx-auto text-sm text-muted-foreground">
+      <div className="p-4 sm:p-6 max-w-lg mx-auto text-sm text-muted-foreground">
         Quote not found.
       </div>
     );

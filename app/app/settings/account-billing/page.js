@@ -96,7 +96,7 @@ export default function AccountBillingPage() {
 
   if (loading) {
     return (
-      <div className="p-6 max-w-3xl mx-auto animate-pulse space-y-4">
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
         <div className="h-8 w-56 bg-accent rounded" />
         <div className="h-40 bg-accent rounded-xl" />
         <div className="h-64 bg-accent rounded-xl" />
@@ -109,7 +109,7 @@ export default function AccountBillingPage() {
   const currentPlanId = subscription?.plan?.id;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Account & Billing</h1>
         <p className="text-sm text-muted-foreground mt-1">

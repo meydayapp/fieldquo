@@ -67,7 +67,7 @@ export default function UnitPricingFields({
 
   return (
     <div className="space-y-4 pb-4 border-b border-border">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Doors">
           <input
             type="number"
@@ -110,7 +110,7 @@ export default function UnitPricingFields({
         </select>
       </Field>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Base price / unit">
           <div className="relative mt-1">
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
@@ -234,7 +234,7 @@ export default function UnitPricingFields({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Field label="Colour">
           <input
             value={group.color || ""}

@@ -84,7 +84,7 @@ export default function LeadsPage() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
     );
 
   return (

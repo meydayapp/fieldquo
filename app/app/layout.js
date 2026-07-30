@@ -68,7 +68,10 @@ export default async function AppLayout({ children }) {
           locale instead. Scoping the provider to /app makes that boundary
           structural rather than a rule someone has to remember. */}
       <CompanyPreferencesProvider>
-        <div className="flex">
+        {/* lg:flex, not flex — below lg the sidebar renders as a full-width
+            sticky top bar plus a drawer, which has to sit ABOVE the page in
+            normal flow rather than beside it as a flex column. */}
+        <div className="lg:flex">
           <AdminSidebar />
           <main className="flex-1 min-w-0">{children}</main>
         </div>

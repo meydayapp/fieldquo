@@ -67,11 +67,11 @@ export default function BookingPageSettings() {
 
   if (loading)
     return (
-      <div className="p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
 
   return (
-    <div className="p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Booking Page</h1>
@@ -133,7 +133,7 @@ export default function BookingPageSettings() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full border rounded px-3 py-2 text-sm"
               />
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <input
                   type="number"
                   placeholder="Minutes"

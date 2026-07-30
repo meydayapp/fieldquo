@@ -46,7 +46,7 @@ export default function TeamSchedulePage() {
   }, []);
 
   return (
-    <div className="max-w-4xl px-6 py-8">
+    <div className="max-w-4xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-foreground" />
         <h1 className="text-2xl font-bold text-foreground">Team Schedule</h1>
@@ -95,7 +95,12 @@ export default function TeamSchedulePage() {
               </div>
 
               {m.hasAvailability && (
-                <div className="mt-4 grid grid-cols-7 gap-1.5">
+                // Seven days across a 375px phone is 45px per column, which can't hold
+                // "08:00-16:00". Scroll it sideways instead of crushing it: the week
+                // stays one readable row and you swipe, which is how every calendar
+                // on a phone behaves.
+                <div className="mt-4 -mx-1 px-1 overflow-x-auto">
+                <div className="grid grid-cols-7 gap-1.5 min-w-[520px] sm:min-w-0">
                   {DAYS.map((d, dow) => {
                     const runs = byDay.get(dow);
                     return (
@@ -116,6 +121,7 @@ export default function TeamSchedulePage() {
                       </div>
                     );
                   })}
+                </div>
                 </div>
               )}
 

@@ -393,15 +393,32 @@ export default function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile hamburger trigger — sidebar is drawer-only on small screens */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
-        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-full bg-card border border-border shadow-sm text-foreground"
-      >
-        <Menu size={20} />
-      </button>
+      {/* ── Mobile top bar ──────────────────────────────────────────────────
+          This was a floating `fixed top-4 left-4` button. Pages start their
+          content at p-6, so on every phone the page's own <h1> rendered
+          UNDERNEATH the button — the first thing you read on any screen had a
+          hamburger sitting on it.
+
+          A bar in normal flow takes its own space instead of stealing the
+          page's. It's sticky so navigation stays reachable while scrolling,
+          which a floating button over content never quite managed. */}
+      {/* h-14 is load-bearing, not decorative: SettingsSidebar's own mobile bar
+          sticks at top-14 so the two stack instead of overlapping. Changing this
+          height means changing that offset. */}
+      <div className="lg:hidden sticky top-0 z-40 h-14 flex items-center gap-2 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          // 44px minimum: below that a target is genuinely hard to hit on a
+          // phone, and this is the button every navigation goes through.
+          className="p-2.5 -m-0.5 rounded-lg hover:bg-sidebar-accent"
+        >
+          <Menu size={20} />
+        </button>
+        <Logo variant="horizontal" href="/app" height={22} onDark priority />
+      </div>
 
       {/* Desktop sidebar */}
       <aside
