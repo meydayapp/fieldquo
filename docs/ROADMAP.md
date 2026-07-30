@@ -148,8 +148,25 @@ path must stay dynamic while the public path caches.
 
 ### 6. Smaller open items
 
-- `app/(marketing)` copy is still hardcoded English. The i18n catalog exists;
-  the marketing site was never extracted into keys.
+- **App interface language: shell and main screens done, ~65 screens to go.**
+  `User.language` is read now — `app/app/layout.js` resolves it (personal choice,
+  else company default) and feeds a nested `LanguageProvider`. Both sidebars, the
+  dashboard and the Quotes/Jobs/Invoices/Clients screens are extracted into
+  `app/i18n/appMessages.js` (187 strings, English + French). The rest of
+  `/app` is still hardcoded English and falls back cleanly.
+
+  Two rules for continuing it. **English and French only** — machine-translating
+  hundreds of interface strings with nobody to check them puts unreviewed text
+  on payroll and invoicing screens; adding a language means filling in a whole
+  object and nothing else. And **the app must keep saying where it stands**: the
+  language settings page prints real per-language coverage from `appCoverage()`,
+  so a picker offering six languages can't imply an interface that isn't there.
+  `npm run check:translations` reports coverage both ways and fails on a key the
+  code references but the catalogue doesn't define.
+- `app/(marketing)` is **partly** extracted, not untouched as this line used to
+  claim: the shared components (header, hero, FAQ, footer, pricing card) all use
+  `t()` and are complete in six languages. The marketing PAGES — pricing, about,
+  careers, contact, terms, privacy, resources — are still hardcoded English.
 - `getConversionRate` returns a single period, but marketing copy promises
   "up from 31% last month". Either compute the prior period or change the copy.
 - The gallery block ships empty by design (no stock photos). Consider pulling
