@@ -53,6 +53,52 @@ model PlatformAdmin {
   auditLogs PlatformAuditLog[]
 }
 
+// Things that FAILED, recorded so support can see them without a customer
+// having to notice first.
+//
+// The failures this product has been bitten by are all silent: an email Resend
+// rejected, a Stripe webhook that never created a row, an AI call that degraded
+// to nothing, a PDF that didn't render. Each one is caught and logged to the
+// server console today — which means it's invisible the moment nobody is
+// tailing logs. This table is the durable version.
+//
+// Deliberately NOT a general application log. Only real failures land here, so
+// an empty list genuinely means "nothing broke", which is the only thing that
+// makes it worth opening.
+model PlatformErrorLog {
+  id String @id @default(cuid())
+
+  // Which subsystem. Free string rather than an enum: a new integration should
+  // be loggable without a migration. Convention: email | sms | ai | stripe |
+  // webhook | pdf | upload | cron | api.
+  area String
+  // Short machine-ish code where one exists ("resend_rejected",
+  // "cloud_name_mismatch"), else null. Groupable.
+  code String?
+  // The human-readable failure. Never a raw stack in here — see `detail`.
+  message String
+
+  // Which tenant it affected, when it's tenant-scoped. Null for platform-wide
+  // failures (a cron that didn't run at all). No FK relation on purpose: a
+  // company being deleted must not delete the record that it had errors.
+  companyId String?
+
+  // Extra context (ids, status codes, a trimmed stack). Json so each area can
+  // record what's actually useful without a schema change.
+  detail Json?
+
+  // Support workflow: acknowledged errors drop out of the default view so the
+  // list stays a to-do rather than an archive.
+  resolvedAt DateTime?
+  resolvedBy String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([companyId, createdAt])
+  @@index([area, createdAt])
+}
+
 model PlatformAuditLog {
   id              String        @id @default(cuid())
   platformAdminId String

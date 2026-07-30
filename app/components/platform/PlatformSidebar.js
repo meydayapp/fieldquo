@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
   Sparkles,
   LifeBuoy,
+  AlertTriangle,
 } from "lucide-react";
 
 const ITEMS = [
@@ -38,6 +39,7 @@ const ITEMS = [
     href: "/platform/service-categories",
     icon: Tags,
   },
+  { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
   { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },
   { label: "Platform team", href: "/platform/team", icon: ShieldCheck },

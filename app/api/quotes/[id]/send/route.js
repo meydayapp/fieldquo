@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { recordActivity } from "@/lib/activity/log";
+import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -173,6 +174,14 @@ export async function POST(request, { params }) {
     }
   } catch (err) {
     console.error("[quote send] PDF attach failed:", err?.message);
+    // Support can see this without the company noticing a missing attachment.
+    await recordError({
+      area: "pdf",
+      code: "quote_pdf_attach_failed",
+      message: `Quote ${quote.quoteNumber} sent without its PDF attachment: ${err?.message || "unknown"}`,
+      companyId: member.companyId,
+      detail: errorDetail(err, { quoteId: quote.id }),
+    });
   }
 
   const result = await sendEmail({ to, subject, html, text, from, replyTo, attachments });
