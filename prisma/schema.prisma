@@ -439,6 +439,15 @@ model Company {
   // Null means "never told us", which the site renders as nothing. Seven
   // closed days would mean "we are shut all week", and conflating the two puts
   // a false CLOSED on a working company's Google listing.
+  // How long a site visit / consultation takes, in minutes.
+  //
+  // ensureConsultationEventType used to hardcode 60, so every auto-created
+  // booking slot was an hour whatever the trade — a 15-minute quote call and a
+  // two-hour kitchen measure got the same window, and there was nowhere to say
+  // otherwise. One company-level answer, used as the default for new event types
+  // and settable per event type after that.
+  defaultVisitMinutes Int @default(60)
+
   businessHours Json?
 
   sitePublished Boolean   @default(false)

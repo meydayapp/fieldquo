@@ -14,6 +14,7 @@ import {
   PRESET_TO_ROLE,
 } from "@/lib/permissions";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -128,7 +129,11 @@ export default function NewUserPage() {
       : PRESET_TO_ROLE[activePreset] || "employee";
 
     try {
-      const res = await fetch("/api/settings/members", {
+      // fetchJson, not fetch + res.json(). This is the exact call site that
+      // produced "The string did not match the expected pattern": the route
+      // threw, Next returned HTML, and res.json() surfaced the browser's parser
+      // error instead of the reason. See lib/fetchJson.js.
+      await fetchJson("/api/settings/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -149,8 +154,6 @@ export default function NewUserPage() {
           invitationLanguage,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not invite user");
       router.push("/app/settings/team");
     } catch (err) {
       setError(err.message);

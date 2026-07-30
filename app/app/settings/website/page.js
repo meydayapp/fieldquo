@@ -69,6 +69,11 @@ export default function WebsiteSettingsPage() {
   // and has no photos should be told that, not handed a shorter page.
   const [composition, setComposition] = useState(null);
   const [dropped, setDropped] = useState([]);
+  // What the prompt was understood to mean. Shown back so the company can see
+  // their words were read — the complaint this answers is "I typed a
+  // description and the page didn't change", and silence looks identical to
+  // being ignored.
+  const [promptIntent, setPromptIntent] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -160,6 +165,7 @@ export default function WebsiteSettingsPage() {
       setStyleKey(newStyle);
       setComposition(result.composition || null);
       setDropped(Array.isArray(result.droppedSections) ? result.droppedSections : []);
+      setPromptIntent(Array.isArray(result.promptIntent) ? result.promptIntent : []);
       const newSeo = {
         title: result.seoTitle || seo.title,
         description: result.seoDescription || seo.description,
@@ -416,8 +422,15 @@ export default function WebsiteSettingsPage() {
                       out. Without this a company presses Generate, gets a page
                       with no gallery, and has no way to know it's because they
                       have no photos yet. */}
-                  {composition && (
+                  {(composition || promptIntent.length > 0) && (
                     <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-1">
+                      {promptIntent.length > 0 && (
+                        <p className="text-[11px] text-foreground">
+                          From your description:{" "}
+                          <strong>{promptIntent.join(" · ")}</strong>
+                        </p>
+                      )}
+                      {composition && (
                       <p className="text-[11px] text-foreground">
                         Page shape:{" "}
                         <strong>
@@ -426,6 +439,7 @@ export default function WebsiteSettingsPage() {
                             : data?.compositions?.find((c) => c.key === composition)?.label || composition}
                         </strong>
                       </p>
+                      )}
                       {dropped.length > 0 && (
                         <p className="text-[11px] text-amber-700 dark:text-amber-400">
                           Left out: {dropped.map((d) => `${d.key} (${d.reason})`).join(", ")}.

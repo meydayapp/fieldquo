@@ -53,12 +53,78 @@ export async function POST(request) {
     );
   }
 
+  const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+
+  // ── One person, one Worker row ────────────────────────────────────────────
+  //
+  // There was NO duplicate check here. A Worker is the HR record — it carries
+  // hours, pay, payslips and leave balances — so a second row for the same
+  // person means they appear twice in payroll, accrue two sets of holiday, and
+  // get paid twice if nobody notices. lib/team/ensureWorker.js already links an
+  // invited member to a hand-entered worker by email; this is the other
+  // direction, and it was open.
+  if (cleanEmail) {
+    const existing = await db.worker.findFirst({
+      where: {
+        companyId: member.companyId,
+        email: { equals: cleanEmail, mode: "insensitive" },
+      },
+      select: { id: true, name: true, active: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: `${existing.name} is already on your team with that email${existing.active ? "" : " (currently inactive)"}. Edit them under Workers instead of adding a second record.`,
+          existingWorkerId: existing.id,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  // ── A userId from the body is not to be trusted ───────────────────────────
+  //
+  // This was written straight through. Passing another company's userId would
+  // have attached their user to this company's worker — a cross-tenant write via
+  // a field nothing validated. It must be an active member of THIS company.
+  let linkedUserId = null;
+  if (userId) {
+    const target = await db.member.findFirst({
+      where: { companyId: member.companyId, userId, active: true },
+      select: { userId: true },
+    });
+    if (!target) {
+      return NextResponse.json(
+        { error: "That person isn't an active member of your team." },
+        { status: 400 },
+      );
+    }
+    // Worker.userId is globally unique. Claiming one already linked elsewhere
+    // would throw a raw constraint error, so say what happened instead.
+    const taken = await db.worker.findUnique({
+      where: { userId },
+      select: { companyId: true },
+    });
+    if (taken) {
+      return NextResponse.json(
+        {
+          error:
+            taken.companyId === member.companyId
+              ? "That person already has a worker record on your team."
+              : "That login is already linked to a worker at another company.",
+        },
+        { status: 409 },
+      );
+    }
+    linkedUserId = target.userId;
+  }
+
   const worker = await db.worker.create({
     data: {
       companyId: member.companyId,
-      userId: userId || null,
+      userId: linkedUserId,
       name,
-      email: email || null,
+      email: cleanEmail,
       type,
       hourlyRate: hourlyRate ?? null,
     },

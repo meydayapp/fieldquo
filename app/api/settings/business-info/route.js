@@ -8,6 +8,42 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
 
+/**
+ * Coordinates for a stored address that has none.
+ *
+ * The mini map on Company Settings is gated on latitude/longitude, and those are
+ * only written when someone picks an address from the autocomplete. An address
+ * that arrived at SIGNUP has neither — so the map said "Enter an address to
+ * preview it on the map" while the address fields right above it were filled in,
+ * which reads as the page not working.
+ *
+ * Geocoded once, on read, and persisted so it costs one Google call ever. Silent
+ * on failure: no coordinates means no map, which is what the company already had,
+ * and a geocoding outage must not stop Company Settings loading.
+ */
+async function backfillCoordinates(companyId, company) {
+  if (!company?.address) return company;
+  if (company.latitude != null && company.longitude != null) return company;
+
+  try {
+    const { geocodeAddress } = await import("@/lib/measure/roofMeasurement");
+    const full = [company.address, company.city, company.province, company.postalCode]
+      .filter(Boolean)
+      .join(", ");
+    const hit = await geocodeAddress(full);
+    if (!hit?.lat || !hit?.lng) return company;
+
+    await db.company.update({
+      where: { id: companyId },
+      data: { latitude: hit.lat, longitude: hit.lng },
+    });
+    return { ...company, latitude: hit.lat, longitude: hit.lng };
+  } catch (err) {
+    console.error("[business-info] coordinate backfill failed:", err?.message);
+    return company;
+  }
+}
+
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -62,6 +98,7 @@ export async function GET(request) {
       // "Open now" pill, and openingHoursSpecification in the LocalBusiness
       // JSON-LD — which is what puts opening hours in a Google result.
       businessHours: true,
+      defaultVisitMinutes: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -71,7 +108,10 @@ export async function GET(request) {
     },
   });
 
-  return NextResponse.json(company);
+  // One-time geocode so the map works for an address that came from signup.
+  const withCoords = await backfillCoordinates(member.companyId, company);
+
+  return NextResponse.json(withCoords);
 }
 
 export async function PATCH(request) {
@@ -119,6 +159,7 @@ export async function PATCH(request) {
     dateFormat,
     weekStartsOn,
     businessHours,
+    defaultVisitMinutes,
     sitePublished,
   } = body;
 
@@ -147,9 +188,35 @@ export async function PATCH(request) {
     }
   }
 
+  // An address typed by hand (rather than picked from the autocomplete) arrives
+  // with no coordinates, and stale coordinates from a PREVIOUS address would put
+  // the map on the wrong house. So: if the address changed and the caller didn't
+  // supply coordinates, look them up.
+  let coords = null;
+  if (address !== undefined && latitude === undefined && longitude === undefined) {
+    const before = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { address: true },
+    });
+    if ((before?.address || "") !== (address || "")) {
+      try {
+        const { geocodeAddress } = await import("@/lib/measure/roofMeasurement");
+        const full = [address, city, province, postalCode].filter(Boolean).join(", ");
+        const hit = full ? await geocodeAddress(full) : null;
+        // null when it fails, which CLEARS the old coordinates rather than
+        // leaving the map pointing at the previous address.
+        coords = { latitude: hit?.lat ?? null, longitude: hit?.lng ?? null };
+      } catch (err) {
+        console.error("[business-info] geocode on save failed:", err?.message);
+        coords = { latitude: null, longitude: null };
+      }
+    }
+  }
+
   const updated = await db.company.update({
     where: { id: member.companyId },
     data: {
+      ...(coords || {}),
       ...(name !== undefined && { name }),
       ...(email !== undefined && { email }),
       ...(phone !== undefined && { phone }),
@@ -177,6 +244,11 @@ export async function PATCH(request) {
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),
       ...(weekStartsOn !== undefined && { weekStartsOn }),
+      // Clamped to a sane range rather than trusted: a 0-minute visit makes
+      // computeAvailability emit infinite slots, and a 10-hour one emits none.
+      ...(defaultVisitMinutes !== undefined && {
+        defaultVisitMinutes: Math.min(480, Math.max(10, Number(defaultVisitMinutes) || 60)),
+      }),
       ...(currency !== undefined && { currency }),
       // Normalised on the way in, not trusted. This column is read by the
       // public website and by the structured data a search engine indexes, so

@@ -29,6 +29,8 @@ export async function POST(request) {
     name,
     phone,
     address,
+    postalCode,
+    country,
     city,
     province,
     industries,
@@ -112,10 +114,19 @@ export async function POST(request) {
     data: {
       name,
       slug,
+      // The address the person REGISTERED with. Company.email was never set at
+      // signup, so Company Details opened with an empty Email field for every
+      // company ever created — and every client-facing document that falls back
+      // to it had nothing to fall back to. The signed-in user's address is the
+      // one they just proved they own, so it's the right default; they can change
+      // it on Company Settings if the business uses a different inbox.
+      email: session.user.email || null,
       phone: phone || null,
       address: address || null,
       city: city || null,
       province: province || null,
+      postalCode: postalCode || null,
+      country: country || null,
       industries: Array.isArray(industries) ? industries : [],
       onboardingStatus: "pending",
       trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),

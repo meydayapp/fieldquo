@@ -139,7 +139,14 @@ export default function SignupPage() {
       setError("For more than 40 employees, please contact sales.");
       return;
     }
-    setStep("account");
+    // Already signed in? Skip account creation — they have one.
+    //
+    // Without this the flow walked them into a wall: pick a plan, fill in the
+    // whole account form, and signUp.email refuses because the address is already
+    // registered. Several minutes of typing for a guaranteed error. Someone
+    // signed in on this page is setting up a SECOND business, so the account step
+    // is the one step they don't need.
+    setStep(alreadyOnFieldquo ? "industry" : "account");
   }
 
   // replace handleAccountSubmit entirely
@@ -273,6 +280,9 @@ export default function SignupPage() {
           <div className="max-w-md mx-auto mb-6 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
             <p>
               You&apos;re signed in as <strong>{alreadyOnFieldquo.name}</strong>.
+              {" "}Carrying on here sets up an <strong>additional business</strong>
+              {" "}on your existing login — it won&apos;t create a second account
+              or change the business you already have.
               {referrer
                 ? " Referral offers are for businesses new to FieldQuo, so this link won't apply to your account."
                 : ""}
@@ -319,8 +329,9 @@ export default function SignupPage() {
                 Choose your plan
               </h1>
               <p className="text-sm text-muted-foreground mt-2">
-                Select the number of employees you need — you'll create your
-                account next.
+                {alreadyOnFieldquo
+                  ? "Select the number of employees you need — you're signed in, so we'll go straight to the new business's details."
+                  : "Select the number of employees you need — you'll create your account next."}
               </p>
             </div>
 
@@ -691,7 +702,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep("account")}
+              onClick={() => setStep(alreadyOnFieldquo ? "plan" : "account")}
               className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back

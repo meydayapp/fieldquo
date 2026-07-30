@@ -82,8 +82,7 @@ export default function LanguageSettingsPage() {
           Language
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          What you read the app in, and what your team and clients get by
-          default.
+          What language your clients&apos; quotes, invoices and emails go out in.
         </p>
       </div>
 
@@ -96,8 +95,25 @@ export default function LanguageSettingsPage() {
       {/* Personal */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground">Your language</h2>
-        <p className="text-sm text-muted-foreground mt-1 mb-4">
-          Only affects what you see. Your teammates and clients are unaffected.
+        {/* ── Told the truth ──────────────────────────────────────────────────
+            This said "What you read the app in" and "Only affects what you see".
+            Neither was true: User.preferredLanguage is read by NOTHING in the
+            product — the app interface is English-only, all 72 screens of it, and
+            picking French here changed nothing on screen.
+
+            The setting is kept because it's the right place for the preference to
+            live and it's where interface translation will read from. But a
+            control that looks like it works and doesn't is worse than one that
+            says what it's for, so it now says. See ROADMAP §6. */}
+        <p className="text-sm text-muted-foreground mt-1 mb-2">
+          Saved as your preference. <strong className="text-foreground">The app
+          interface is English-only for now</strong> — translating all of it is
+          still to come, and this is the setting it will use when it lands.
+        </p>
+        <p className="text-sm text-muted-foreground mb-4">
+          What <em>is</em> translated today: everything your clients see. Quotes,
+          invoices, PDFs and the emails carrying them all go out in the client&apos;s
+          language, falling back to the company default below.
         </p>
 
         <div className="space-y-2">

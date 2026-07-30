@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
+import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
@@ -147,19 +148,65 @@ export async function POST(request) {
     );
   }
 
+  // A company with no authOrgId cannot be invited into, and Better Auth's error
+  // for organizationId: null is not something to show a person. Six companies in
+  // the database are in this state.
+  if (!member.authOrgId) {
+    return NextResponse.json(
+      {
+        error:
+          "This company isn't fully set up for invitations yet. Contact support and quote your company name.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // ── Wrapped, because an unhandled throw here is unreadable ────────────────
+  //
   // Better Auth's organizationId is the Organization row's id (Company.authOrgId),
   // NOT Company.id — getCurrentMember exposes both. Passing companyId here meant
   // the invite pointed at a non-existent org.
-  const invite = await auth.api.createInvitation({
-    body: { email, role, organizationId: member.authOrgId },
-    headers: request.headers,
-  });
+  //
+  // This call was NOT wrapped. When it throws, Next returns an HTML error page,
+  // the browser tries to JSON.parse it, and the person sees the parser's
+  // complaint — in Safari, literally "The string did not match the expected
+  // pattern." That is the reported bug: a real failure, rendered as gibberish,
+  // with the actual reason nowhere.
+  let invite;
+  try {
+    invite = await auth.api.createInvitation({
+      body: { email: cleanEmail, role, organizationId: member.authOrgId },
+      headers: request.headers,
+    });
+  } catch (err) {
+    // Recorded so the cause is visible in /platform/errors next time, and
+    // returned as JSON so the page can print something true.
+    await recordError({
+      area: "team-invite",
+      code: err?.status || err?.body?.code || err?.name || null,
+      message: `createInvitation failed for ${cleanEmail}: ${err?.message}`,
+      companyId: member.companyId,
+      detail: { role, authOrgId: member.authOrgId, body: err?.body ?? null },
+    });
+    return NextResponse.json(
+      {
+        error:
+          err?.body?.message ||
+          err?.message ||
+          "Couldn't create the invitation. Nothing was saved.",
+      },
+      { status: 502 },
+    );
+  }
 
+  // cleanEmail, not the raw input. The duplicate guard above lowercases, so
+  // storing the profile under whatever case was typed let one person hold two
+  // PendingTeamProfile rows and made the guard and the store disagree.
   await db.pendingTeamProfile.upsert({
-    where: { companyId_email: { companyId: member.companyId, email } },
+    where: { companyId_email: { companyId: member.companyId, email: cleanEmail } },
     create: {
       companyId: member.companyId,
-      email,
+      email: cleanEmail,
       name: name || null,
       phone: phone || null,
       address: address || null,
