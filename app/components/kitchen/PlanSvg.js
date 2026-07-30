@@ -29,6 +29,9 @@ function Shape({ s, i }) {
     strokeDasharray: dash,
     strokeLinecap: "round",
     fill: s.fill ?? "none",
+    // Shadows are stacked translucent shapes rather than an SVG filter, so the
+    // PDF adapter can draw them too — filters don't survive it.
+    opacity: s.opacity,
   };
 
   switch (s.type) {

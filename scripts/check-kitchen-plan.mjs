@@ -15,7 +15,7 @@
 // silently drops a shape with a NaN coordinate, so a bad number is a cabinet
 // that quietly isn't on the drawing rather than an error anyone sees.
 
-import { planShapes, feetInches, elevationTitle, scaleBarShapes, findGaps } from "@/lib/kitchen/planShapes";
+import { planShapes, feetInches, elevationTitle, scaleBarShapes, findGaps, PLAN_COLORS } from "@/lib/kitchen/planShapes";
 let fail = 0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 
 ok(feetInches(180) === "15'-0\"", `feetInches(180) = ${feetInches(180)}`);
@@ -50,7 +50,7 @@ ok(shapes.some(s=>s.type==="path" && s.d?.includes("A ")), "the door swing arc i
 ok(shapes.some(s=>s.type==="circle"), "burners / stools / sink details are drawn");
 ok(shapes.some(s=>s.type==="polygon"), "dimension arrowheads are drawn");
 ok(shapes.some(s=>s.dash), "uppers are dashed so they don't claim floor space");
-ok(shapes.some(s=>s.stroke === "#b08d57"), "cabinet pulls are drawn");
+ok(shapes.some(s=>s.stroke === PLAN_COLORS.pull), "cabinet pulls are drawn");
 // The two adjacent 36" bases must dimension as ONE 6'-0" run, not two 3'-0"s.
 // The island is what carries dimensions now; runs are dimensioned on elevations.
 ok(shapes.filter(s=>s.type==="text" && /'-/.test(s.text)).length >= 4,
