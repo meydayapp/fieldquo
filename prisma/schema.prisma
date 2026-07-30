@@ -1435,6 +1435,15 @@ model Worker {
   province                  String?
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
+
+  // When this person actually started. NOT the same as createdAt, which is when
+  // the row was made — a five-year employee whose Worker row was backfilled
+  // yesterday has a createdAt of yesterday, and using that to pro-rate their
+  // holiday entitlement would cut it to a fraction. Nullable on purpose: no
+  // hire date means "we don't know", which is why leave accrual grants the full
+  // allotment rather than inventing a start date. See lib/leave/balances.js.
+  hiredOn                   DateTime?
+
   stripeConnectedAccountId  String?
   payrollProviderEmployeeId String?
   active                    Boolean    @default(true)

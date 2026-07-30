@@ -138,6 +138,56 @@ path must stay dynamic while the public path caches.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Payroll + leave/PTO (HR foundation)** — FieldQuo *calculates and records*
+  pay; the company pays through its own bank or provider. Nothing here moves
+  money and no button claims to.
+  - `lib/payroll/computePayRun.js` — pure engine: overtime split per period,
+    progressive tax from configurable slabs (Frappe HR's "income tax slab"
+    shape: annualise → tax by band → divide back), percent and fixed
+    components, net clamped at zero with an `overDeducted` flag.
+  - `lib/payroll/statutoryTemplates.js` — CA/US/UK starter sets, each carrying
+    `sourceYear` and an explicit list of what it does NOT model (provincial and
+    state tax, employer contributions, CPP2, allowance tapering, NI category
+    letters). Seeded, then edited by the company.
+  - `/app/settings/payroll` — the salary-component library, without which net
+    pay is impossible.
+  - `lib/leave/accrual.js` + `lib/leave/balances.js` — three accrual methods
+    (fixed annual, per pay period, percent-of-gross for the Canadian 4%
+    model), carryover with null ≠ 0, year-end roll as an explicit action.
+    Remaining is always derived, never stored.
+  - `/app/time-off` (own balances + requests, manager approval, team view) and
+    `/app/settings/leave` (policies, regional templates).
+  - **Paid leave flows into payroll** as a named earning priced at days × that
+    person's own hours-per-working-day × rate — a four-day-ten-hour crew loses
+    10 hours a day off, not 8. Salaried people aren't re-priced (they'd be paid
+    twice).
+  - **Approved leave removes the day from booking** (`computeAvailability`), so
+    a homeowner can't book someone who's away. A half day blocks the whole day:
+    the request doesn't record *which* half, and guessing costs a missed
+    appointment.
+  - **Two real bugs found and fixed by back-testing, worth knowing about:**
+    (a) accrual pro-rated everyone as a new hire from `Worker.createdAt`, which
+    for a backfilled row is *today* — so a five-year employee got ~4% of their
+    holiday. There is now a real `Worker.hiredOn`, nullable, and no hire date
+    means the FULL allotment rather than a guessed fraction.
+    (b) mid-year pro-rating grew week by week, so nobody's entitlement was
+    knowable until December. It's now measured from start date to year end and
+    is constant.
+  - **`Worker` rows are now created on invitation acceptance**
+    (`lib/team/ensureWorker.js`), with a self-healing backfill on the members
+    list. Before this, accepting an invite created only a `Member`: the person
+    could sign in but had no presence on the books — no timesheets, no payslip,
+    no leave — and nothing on screen said so. Not one company in the database
+    had a linked worker.
+  - `/app/settings/team/workers` is now **editable** (pay rate, start date,
+    active). It previously displayed a rate that nothing in the app could set,
+    which meant payroll warned on every line.
+
+  Still open here: payslip PDF/CSV export, shift management beyond
+  `WorkingHours`, expense-claim approval workflow, employee lifecycle
+  (onboarding/offboarding, promotions), appraisals, loans/advances, year-end
+  forms (T4/W-2/P60), geolocation on attendance check-in.
+
 - **Instant estimator (Cossette-style)** — public "get an instant estimate"
   flow. Address → Google Solar buildingInsights (roof area + predominant pitch,
   sloped area used directly) → per-material price RANGE + satellite still; lawn

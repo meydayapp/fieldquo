@@ -301,6 +301,18 @@ export default function PayrollPage() {
                     Approve their timesheets to pay these.
                   </p>
                 )}
+                {/* Paid leave is IN these numbers — say so, or a leave week
+                    looks like someone was paid for hours they didn't work. */}
+                {preview.meta?.paidLeave?.length > 0 && (
+                  <p className="text-xs flex items-start gap-1.5 text-muted-foreground mb-2">
+                    <Info size={13} className="mt-0.5 shrink-0" />
+                    Includes approved paid leave for{" "}
+                    {preview.meta.paidLeave
+                      .map((l) => `${l.name} (${l.days}d ${l.policies.join(", ")})`)
+                      .join(", ")}
+                    .
+                  </p>
+                )}
                 {preview.meta && !preview.meta.statutoryConfigured && (
                   <p className="text-xs flex items-start gap-1.5 text-amber-700 dark:text-amber-400 mb-2">
                     <Info size={13} className="mt-0.5 shrink-0" />

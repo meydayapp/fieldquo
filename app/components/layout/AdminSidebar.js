@@ -20,6 +20,7 @@ import {
   Headset,
   BadgeCheck,
   Clock,
+  CalendarClock,
   Wallet,
   Gift,
   Sparkles,
@@ -73,6 +74,8 @@ const NAV_GROUPS = [
       { label: "Clients", href: "/app/clients", icon: Users },
       { label: "Team Schedule", href: "/app/schedule", icon: Calendar },
       { label: "Timesheets", href: "/app/settings/team/timesheets", icon: Clock },
+      // Top-level, not buried in settings: everyone uses it, not just admins.
+      { label: "Time Off", href: "/app/time-off", icon: CalendarClock },
     ],
   },
   {

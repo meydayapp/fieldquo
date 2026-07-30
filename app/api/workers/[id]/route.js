@@ -49,7 +49,26 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, email, hourlyRate, active } = body;
+  const { name, email, hourlyRate, active, hiredOn } = body;
+
+  // Empty string clears the hire date back to "unknown", which is a real state:
+  // it makes leave accrual grant the full allotment instead of pro-rating. An
+  // unparseable date is rejected rather than silently stored as the epoch.
+  let hiredOnValue;
+  if (hiredOn !== undefined) {
+    if (hiredOn === null || hiredOn === "") {
+      hiredOnValue = null;
+    } else {
+      const d = new Date(hiredOn);
+      if (Number.isNaN(d.getTime()) || d.getUTCFullYear() < 1950) {
+        return NextResponse.json(
+          { error: "That start date isn't a valid date." },
+          { status: 400 },
+        );
+      }
+      hiredOnValue = d;
+    }
+  }
 
   // type is intentionally NOT editable here — flipping contractor<->employee has real
   // legal/tax implications and shouldn't be a casual field update. Treat it as
@@ -61,6 +80,7 @@ export async function PATCH(request, { params }) {
       ...(email !== undefined && { email }),
       ...(hourlyRate !== undefined && { hourlyRate }),
       ...(active !== undefined && { active }),
+      ...(hiredOn !== undefined && { hiredOn: hiredOnValue }),
     },
   });
 

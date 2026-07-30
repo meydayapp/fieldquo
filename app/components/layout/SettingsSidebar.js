@@ -30,6 +30,7 @@ import {
   Map,
   TrendingUp,
   CalendarDays,
+  CalendarClock,
   ClipboardList,
   AtSign,
   Globe,
@@ -63,6 +64,7 @@ const GROUPS = [
     items: [
       { label: "Manage Team", href: "/app/settings/team", icon: Users },
       { label: "Availability", href: "/app/settings/availability", icon: Clock },
+      { label: "Time Off Policies", href: "/app/settings/leave", icon: CalendarClock },
       { label: "Booking Page", href: "/app/settings/booking-page", icon: CalendarDays },
       { label: "Work Areas", href: "/app/settings/work-areas", icon: Map },
     ],

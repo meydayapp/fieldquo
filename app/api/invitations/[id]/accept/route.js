@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
+import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
 
 // The invited person must be signed in (with the invited email) before this
 // runs — the accept page handles sign-up/sign-in first. Steps:
@@ -90,6 +91,16 @@ export async function POST(request, { params }) {
   // 3. Pull the pre-captured profile onto the Member.
   await reconcilePendingProfiles(company.id).catch((err) =>
     console.error("[accept invitation] reconcile failed", err),
+  );
+
+  // 4. Give them a Worker row, linked to this user. Without it they have a login
+  //    but no presence on the books — no timesheets, no payslips, no leave. See
+  //    the note in ensureWorker.js.
+  await ensureWorkerForMember({
+    companyId: company.id,
+    userId: session.user.id,
+  }).catch((err) =>
+    console.error("[accept invitation] worker link failed", err?.message),
   );
 
   return NextResponse.json({ ok: true, companyId: company.id });

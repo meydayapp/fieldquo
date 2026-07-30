@@ -18,6 +18,7 @@ import { requirePermission } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
+import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -27,6 +28,13 @@ export async function GET(request) {
   // Best-effort, idempotent — see lib/team/reconcilePendingProfile.js.
   await reconcilePendingProfiles(member.companyId).catch((err) =>
     console.error("[settings/members] reconcile failed", err),
+  );
+
+  // Same pattern, same reason: people accepted invitations before Worker rows
+  // were created on acceptance, and without one they have no timesheets, no
+  // payslips and no leave. Idempotent — see lib/team/ensureWorker.js.
+  await ensureWorkersForCompany(member.companyId).catch((err) =>
+    console.error("[settings/members] worker backfill failed", err?.message),
   );
 
   const members = await db.member.findMany({
