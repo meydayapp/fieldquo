@@ -6,6 +6,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -37,11 +38,17 @@ function when(iso) {
 
 export default function TeamSchedulePage() {
   const [team, setTeam] = useState(null);
+  // Comes from the server rather than being inferred from a role here, so the
+  // edit links can't appear where the save would be refused.
+  const [canManage, setCanManage] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetchJson("/api/team/schedules")
-      .then((d) => setTeam(d.team))
+      .then((d) => {
+        setTeam(d.team);
+        setCanManage(Boolean(d.canManage));
+      })
       .catch((e) => setError(e.message || "Could not load the team schedule"));
   }, []);
 
@@ -53,7 +60,11 @@ export default function TeamSchedulePage() {
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
         Everyone&apos;s weekly availability and what&apos;s booked in the next two
-        weeks. Each person sets their own hours under Settings → Availability.
+        weeks. People can set their own hours under Settings → Availability, and
+        {" "}
+        {canManage
+          ? "you can set anyone's from here."
+          : "a manager can set anyone's."}
       </p>
 
       {error && (
@@ -89,9 +100,23 @@ export default function TeamSchedulePage() {
                   <p className="text-sm font-semibold text-foreground">{m.name}</p>
                   <p className="text-xs text-muted-foreground">{ROLE_LABEL[m.role] || m.role}</p>
                 </div>
-                {!m.hasAvailability && (
-                  <span className="ml-auto text-xs text-muted-foreground">No availability set</span>
-                )}
+                <div className="ml-auto flex items-center gap-3">
+                  {!m.hasAvailability && (
+                    <span className="text-xs text-muted-foreground">No availability set</span>
+                  )}
+                  {/* The thing that was missing entirely: a way to get from
+                      "this person has no availability" to setting it. Shown only
+                      when the server said this caller may manage users, so it
+                      can't be a link that 403s. */}
+                  {canManage && m.userId && (
+                    <Link
+                      href={`/app/settings/availability?userId=${encodeURIComponent(m.userId)}`}
+                      className="text-xs font-semibold border border-border rounded-full px-3 py-1.5 hover:bg-muted whitespace-nowrap"
+                    >
+                      {m.hasAvailability ? "Edit hours" : "Set hours"}
+                    </Link>
+                  )}
+                </div>
               </div>
 
               {m.hasAvailability && (

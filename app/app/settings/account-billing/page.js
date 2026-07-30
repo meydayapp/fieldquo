@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, ExternalLink, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 function money(n) {
@@ -27,6 +27,8 @@ export default function AccountBillingPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncNote, setSyncNote] = useState("");
 
   function load() {
     return Promise.all([
@@ -38,8 +40,60 @@ export default function AccountBillingPage() {
     });
   }
 
+  /**
+   * Ask Stripe what the truth is and write it down.
+   *
+   * Called automatically when we come back from Checkout with a session_id, and
+   * manually from the button below. The Subscription row used to be written ONLY
+   * by the checkout.session.completed webhook, so a webhook that was delayed,
+   * misconfigured or failing left this page saying "No active plan" to a company
+   * that had just paid — with no way to recover.
+   */
+  async function reconcile(sessionId) {
+    setSyncing(true);
+    setSyncNote("");
+    try {
+      const res = await fetch("/api/settings/subscription/reconcile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sessionId ? { sessionId } : {}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Couldn't check your subscription with Stripe.");
+      } else if (data.reconciled) {
+        await load();
+      } else {
+        // pending / nothing found — say which, rather than leaving the page
+        // looking like the payment vanished.
+        setSyncNote(data.message || "Stripe has nothing new for this company yet.");
+      }
+    } catch {
+      setError("Couldn't reach the server to check your subscription.");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+
+    load()
+      .then(() => {
+        // Just came back from Checkout: confirm it against Stripe instead of
+        // hoping the webhook arrived in the second the redirect took.
+        if (sessionId) return reconcile(sessionId);
+      })
+      .finally(() => {
+        setLoading(false);
+        // Drop the query string so a refresh doesn't re-run this and so the
+        // session id isn't left sitting in the address bar.
+        if (sessionId) {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleUpgrade(planId) {
@@ -164,10 +218,45 @@ export default function AccountBillingPage() {
                 {formatDate(subscription.currentPeriodEnd)}
               </p>
             )}
+
+            {/* The recovery path. Says out loud that a plan can exist in Stripe
+                and not here yet, because the alternative — a page that just says
+                "No active plan" to someone who has paid — gets people paying
+                twice. */}
+            {!subscription?.plan && !syncing && (
+              <p className="text-sm text-muted-foreground mt-2 max-w-md">
+                If you&apos;ve already paid, your plan may not have reached us
+                yet. Check with Stripe below — nothing is charged again.
+              </p>
+            )}
+            {syncing && (
+              <p className="text-sm text-muted-foreground mt-2 inline-flex items-center gap-1.5">
+                <Loader2 size={13} className="animate-spin" /> Checking with
+                Stripe…
+              </p>
+            )}
+            {syncNote && !syncing && (
+              <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 max-w-md">
+                {syncNote}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex flex-wrap gap-3 mt-4">
+          <button
+            type="button"
+            onClick={() => reconcile(null)}
+            disabled={syncing}
+            className="inline-flex items-center gap-1.5 border border-border rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-60"
+          >
+            {syncing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            Check with Stripe
+          </button>
           <button
             onClick={handleManageBilling}
             disabled={openingPortal}

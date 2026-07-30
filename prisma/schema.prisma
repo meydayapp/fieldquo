@@ -240,6 +240,20 @@ model Subscription {
   trialEndsAt          DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+
+  // When the "you're subscribed" confirmation was sent.
+  //
+  // A real column rather than a boolean, and READ before sending: both the
+  // Stripe webhook and the on-return reconcile land on the same upsert, so
+  // without this a company whose webhook arrives just after they press "Check
+  // with Stripe" gets the email twice. The timestamp also answers "did we ever
+  // tell them" during a support conversation, which a boolean doesn't.
+  welcomeEmailSentAt DateTime?
+
+  // The plan the last confirmation described. Compared on change so a plan
+  // switch sends a "your plan changed" note, and a webhook replaying the same
+  // plan sends nothing.
+  notifiedPlanId     String?
 }
 
 // ============================================================

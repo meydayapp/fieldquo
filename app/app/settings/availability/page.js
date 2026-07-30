@@ -14,10 +14,11 @@
 // outside the shift, because that's usually a mistake.
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Loader2, Check, AlertTriangle, Clock, CalendarCheck } from "lucide-react";
 import { orderedWeekdays } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useSession } from "@/lib/auth-client";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 
@@ -91,16 +92,50 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
 
 export default function AvailabilityPage() {
   const { weekStartsOn } = useCompanyPreferences();
+  const { data: session } = useSession();
   const [bookable, setBookable] = useState([]);
   const [working, setWorking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // ── Whose hours ──────────────────────────────────────────────────────────
+  //
+  // This page only ever edited your own, which meant an owner could not set
+  // their crew's hours from anywhere in the product — and someone who never
+  // signs in never became bookable. The team list only loads for a manager
+  // (the request 403s otherwise), so the picker appears exactly when it works
+  // rather than being shown and then failing.
+  const [team, setTeam] = useState([]);
+  const [meId, setMeId] = useState(null);
+  const [targetId, setTargetId] = useState(null);
+
+  // Deep link from the schedule page: ?userId=<id>
   useEffect(() => {
-    Promise.all([
-      fetch("/api/availability").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/working-hours").then((r) => (r.ok ? r.json() : { workingHours: [] })),
+    const q = new URLSearchParams(window.location.search).get("userId");
+    if (q) setTargetId(q);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/members")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setTeam(Array.isArray(rows) ? rows.filter((m) => m.active !== false) : []))
+      .catch(() => setTeam([]));
+  }, []);
+
+  // Who am I — from the Better Auth session store, not a bespoke /api/me. That
+  // endpoint doesn't exist, and adding one to answer a question the session
+  // already answers is how a codebase grows two sources of identity.
+  useEffect(() => {
+    if (session?.user?.id) setMeId(session.user.id);
+  }, [session]);
+
+  const load = useCallback((userId) => {
+    const q = userId ? `?userId=${encodeURIComponent(userId)}` : "";
+    setLoading(true);
+    return Promise.all([
+      fetch(`/api/availability${q}`).then((r) => (r.ok ? r.json() : [])),
+      fetch(`/api/working-hours${q}`).then((r) => (r.ok ? r.json() : { workingHours: [] })),
     ])
       .then(([avail, work]) => {
         setBookable(Array.isArray(avail) ? avail : []);
@@ -108,6 +143,10 @@ export default function AvailabilityPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load(targetId);
+  }, [load, targetId]);
 
   // Warn where the public booking window sits outside the shift — clients could
   // book someone who isn't working. Not blocked (a company may genuinely want
@@ -133,6 +172,17 @@ export default function AvailabilityPage() {
 
   const anyInvalid = [...bookable, ...working].some((r) => r.endTime <= r.startTime);
 
+  // A manager sees the picker; everyone else doesn't, because for them it would
+  // list one name and do nothing. `team.length > 1` rather than a role check:
+  // the members endpoint is the thing that actually gates this, so agreeing with
+  // it means the control can't appear where the save would 403.
+  const canPickPerson = team.length > 1;
+  const editingSomeoneElse = Boolean(targetId && targetId !== meId);
+  const targetName =
+    team.find((m) => m.userId === targetId)?.user?.name ||
+    team.find((m) => m.userId === targetId)?.user?.email ||
+    "This person";
+
   async function handleSave() {
     if (anyInvalid) {
       showError("Fix the highlighted times — each day needs a start before its end.");
@@ -145,12 +195,14 @@ export default function AvailabilityPage() {
         fetchJson("/api/availability", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ schedules: bookable }),
+          // Only sent when editing someone else. Omitted for your own hours so
+          // the route's "self" path stays the default and needs no permission.
+          body: JSON.stringify({ schedules: bookable, ...(targetId ? { userId: targetId } : {}) }),
         }),
         fetchJson("/api/working-hours", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ schedules: working }),
+          body: JSON.stringify({ schedules: working, ...(targetId ? { userId: targetId } : {}) }),
         }),
       ]);
       setSaved(true);
@@ -169,12 +221,42 @@ export default function AvailabilityPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8 pb-28">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Your hours</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {editingSomeoneElse ? `${targetName}'s hours` : "Your hours"}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your shift and your bookable window are separate. You might work 8–4 but
-          only take client bookings 2–4 — set both here.
+          {editingSomeoneElse ? "Their" : "Your"} shift and{" "}
+          {editingSomeoneElse ? "their" : "your"} bookable window are separate.
+          They might work 8–4 but only take client bookings 2–4 — set both here.
         </p>
-      </div>
+      
+
+        {canPickPerson && (
+          <label className="block mt-4">
+            <span className="text-xs font-semibold text-muted-foreground block mb-1">
+              Whose hours
+            </span>
+            <select
+              value={targetId || meId || ""}
+              onChange={(e) => setTargetId(e.target.value || null)}
+              className="w-full sm:w-72 border border-border rounded-lg px-3 py-2 text-sm bg-background"
+            >
+              {team.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.user?.name || m.user?.email}
+                  {m.userId === meId ? " (you)" : ""}
+                </option>
+              ))}
+            </select>
+            {editingSomeoneElse && (
+              <span className="mt-1 block text-[11px] text-amber-700 dark:text-amber-400">
+                You&apos;re editing someone else&apos;s hours. They&apos;ll see the
+                change on their own schedule.
+              </span>
+            )}
+          </label>
+        )}
+</div>
 
       <section>
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">

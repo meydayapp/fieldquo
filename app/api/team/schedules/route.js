@@ -67,6 +67,10 @@ export async function GET(request) {
     ].sort((x, y) => new Date(x.when) - new Date(y.when));
 
     team.push({
+      // Needed so the page can deep-link to this person's hours editor. Safe to
+      // expose to a caller who already passed the user:view gate to reach this
+      // route at all.
+      userId: m.userId,
       name: m.user?.name || "Team member",
       role: m.role,
       hasAvailability: availability.length > 0,
@@ -82,5 +86,7 @@ export async function GET(request) {
     return a.name.localeCompare(b.name);
   });
 
-  return NextResponse.json({ team });
+  // Whether THIS caller may change other people's hours, so the page shows the
+  // edit link only when the save behind it will succeed.
+  return NextResponse.json({ team, canManage: can(member.role, "user:manage") });
 }

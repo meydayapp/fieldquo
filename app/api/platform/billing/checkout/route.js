@@ -36,7 +36,12 @@ export async function POST(request) {
   const session = await createBillingCheckoutSession({
     company,
     plan,
-    successUrl: `${baseUrl}/app/settings/account-billing?upgraded=true`,
+    // session_id, not just a flag. The page reconciles with it on arrival rather
+    // than waiting for the checkout.session.completed webhook to land — Checkout
+    // redirects in about a second and the webhook often doesn't beat it, so the
+    // company was landing on "No active plan" right after paying.
+    // {CHECKOUT_SESSION_ID} is substituted by Stripe.
+    successUrl: `${baseUrl}/app/settings/account-billing?upgraded=true&session_id={CHECKOUT_SESSION_ID}`,
     cancelUrl: `${baseUrl}/app/settings/account-billing`,
   });
 
