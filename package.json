@@ -14,7 +14,8 @@
     "check:plan": "node --import ./scripts/alias-loader.mjs scripts/check-kitchen-plan.mjs",
     "check:finishes": "node --import ./scripts/alias-loader.mjs scripts/check-kitchen-finishes.mjs",
     "check:voice": "node --import ./scripts/alias-loader.mjs scripts/check-voice.mjs",
-    "check:access": "node --import ./scripts/alias-loader.mjs scripts/check-billing-access.mjs"
+    "check:access": "node --import ./scripts/alias-loader.mjs scripts/check-billing-access.mjs",
+    "check:retention": "node --import ./scripts/alias-loader.mjs scripts/check-retention.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

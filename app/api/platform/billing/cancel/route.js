@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/permissions";
 import { cancelSubscription } from "@/lib/platform/stripeBilling";
 import { notifyCancellation } from "@/lib/billing/notify";
 import { recordActivity } from "@/lib/activity/log";
+import { isValidReason } from "@/lib/billing/retention";
 
 // Self-serve cancellation — uses your existing cancelSubscription() helper.
 // Cancels at Stripe immediately; your webhook's subscription.updated /
@@ -40,8 +41,25 @@ export async function POST(request) {
     );
   }
 
+  // Why they're leaving, if the save flow collected it. The single most
+  // valuable field in the billing tables and the one nobody remembers to
+  // collect — by the time you want it, they're gone and you can't ask.
+  const body = await request.json().catch(() => ({}));
+  const reason = isValidReason(body?.reason) ? body.reason : null;
+  const note = typeof body?.note === "string" ? body.note.slice(0, 2000) : null;
+
   try {
     const cancelled = await cancelSubscription(subscription.stripeSubscriptionId);
+
+    if (reason || note) {
+      await db.subscription.update({
+        where: { companyId: member.companyId },
+        data: { cancelReason: [reason, note].filter(Boolean).join(" — ") },
+      }).catch(() => {
+        // Never fail a cancellation over analytics. They asked to leave; the
+        // one thing that must work is leaving.
+      });
+    }
 
     // Stripe's customer.subscription.deleted webhook is the authority and also
     // sends this, but a company whose webhook isn't configured would otherwise

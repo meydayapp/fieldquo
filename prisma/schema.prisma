@@ -272,6 +272,23 @@ model Subscription {
   /// doesn't send it again every morning.
   graceWarnedAt DateTime?
 
+  /// The last save offer this company accepted, and when.
+  ///
+  /// Recorded so it can't be farmed. A discount you can claim every time you
+  /// threaten to cancel isn't a discount — it's the price, and the customers
+  /// who learn that are the ones who cost the most. One offer per twelve
+  /// months; see lib/billing/retention.js.
+  retentionOffer   String?
+  retentionOfferAt DateTime?
+
+  /// Set when they've asked to cancel at period end but the period hasn't ended.
+  /// They keep full access until then — they paid for the month.
+  cancelAt DateTime?
+
+  /// Why they left, in their own words. The single most valuable field in this
+  /// table and the one nobody remembers to collect.
+  cancelReason String?
+
 }
 
 // ============================================================
