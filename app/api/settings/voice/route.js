@@ -15,6 +15,8 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured } from "@/lib/voice/retell";
+import { provisionAgent } from "@/lib/voice/provision";
+import { getAppOrigin } from "@/lib/appUrl";
 import { activeNumber, publicNumberFor, formatNumber, NUMBER_SOURCES, forwardingCodes } from "@/lib/voice/numbers";
 import {
   balanceFor,
@@ -154,6 +156,21 @@ export async function PUT(request) {
     update: data,
   });
 
+  // ── Push to the provider ────────────────────────────────────────────────
+  //
+  // On EVERY save, not just the first. The agent at Retell is a cache of what's
+  // in our database; not pushing leaves a settings screen that says one thing
+  // and a phone that says another, which is worse than the save failing because
+  // nobody knows.
+  //
+  // Best-effort: the local save has already happened and must stand. A failed
+  // push is logged and the response says so, rather than rolling back an edit
+  // the company can see they made.
+  let pushed = { ok: false, reason: "not_attempted" };
+  if (voiceConfigured()) {
+    pushed = await provisionAgent(member.companyId, getAppOrigin(request));
+  }
+
   if (typeof body.enabled === "boolean") {
     await recordActivity(member, {
       action: body.enabled ? "voice.enabled" : "voice.disabled",
@@ -162,5 +179,12 @@ export async function PUT(request) {
     });
   }
 
-  return NextResponse.json({ ok: true, enabled: agent.enabled });
+  return NextResponse.json({
+    ok: true,
+    enabled: agent.enabled,
+    // Surfaced rather than swallowed. "Saved, but the phone hasn't picked it up
+    // yet" is a state the company needs to know about.
+    live: pushed.ok,
+    liveError: pushed.ok ? null : pushed.reason,
+  });
 }

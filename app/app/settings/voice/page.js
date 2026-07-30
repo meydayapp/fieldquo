@@ -47,6 +47,7 @@ export default function VoiceSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({ greeting: "", instructions: "", transferTo: "" });
   const [copied, setCopied] = useState(null);
+  const [liveWarning, setLiveWarning] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/voice");
@@ -94,6 +95,11 @@ export default function VoiceSettingsPage() {
         await reportResponseError(res, "Couldn't save.");
         return false;
       }
+      const d = await res.json().catch(() => ({}));
+      // Saved locally but not pushed to the phone is its own state, and it has
+      // to be visible. "Saved" over a greeting the caller will never hear is
+      // the kind of quiet lie that costs a company a week of wrong calls.
+      setLiveWarning(d.live === false && d.liveError !== "not_configured");
       await load();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -443,6 +449,15 @@ export default function VoiceSettingsPage() {
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
             />
           </label>
+
+          {liveWarning && (
+            <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              Saved here, but we couldn&apos;t update the live phone agent.
+              It&apos;s still using the previous wording — try saving again in a
+              moment.
+            </p>
+          )}
 
           <button
             type="button"

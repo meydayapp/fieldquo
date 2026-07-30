@@ -16,6 +16,8 @@ import { recordActivity } from "@/lib/activity/log";
 import { buyNumber, voiceConfigured, RetellError } from "@/lib/voice/retell";
 import { toE164, isSharedTestNumber, activeNumber } from "@/lib/voice/numbers";
 import { monthlyCentsFor, NUMBER_TYPES, FREE_TRIAL_MINUTES, ratePerMinute, addCredit } from "@/lib/voice/credits";
+import { provisionAgent } from "@/lib/voice/provision";
+import { getAppOrigin } from "@/lib/appUrl";
 
 export async function POST(request) {
   const member = await getCurrentMember(request);
@@ -106,6 +108,10 @@ export async function POST(request) {
     );
   }
 
+  // Provision the agent FIRST, so the number can be bought already pointing at
+  // it. Buying first and attaching later leaves a live number with no agent —
+  // for however long that window is, a caller gets silence.
+  const provisioned = await provisionAgent(member.companyId, getAppOrigin(request));
   const agent = await db.voiceAgent.findUnique({
     where: { companyId: member.companyId },
     select: { providerAgentId: true },
@@ -166,6 +172,7 @@ export async function POST(request) {
       source,
       numberType,
       publicNumber: row.publicNumber,
+      agentReady: provisioned.ok,
     });
   } catch (err) {
     const message =
