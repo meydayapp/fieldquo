@@ -24,7 +24,7 @@ import Link from "next/link";
 import { Lock, CreditCard, ShieldCheck } from "lucide-react";
 
 export default function AccountLocked({ reason, companyName }) {
-  const cancelled = reason === "canceled";
+  const cancelled = reason === "canceled" || reason === "canceled_expired";
 
   return (
     <main className="min-h-screen grid place-items-center p-6 bg-background">
@@ -41,8 +41,8 @@ export default function AccountLocked({ reason, companyName }) {
           {cancelled ? (
             <>
               {companyName ? <strong>{companyName}</strong> : "This account"} was
-              cancelled, so the app is switched off. Starting it again turns
-              everything back on straight away.
+              cancelled, and the thirty days of read-only access have run out.
+              Starting the plan again turns everything back on straight away.
             </>
           ) : (
             <>

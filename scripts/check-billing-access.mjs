@@ -21,7 +21,7 @@
 // permissions problem and sends people to their admin, where nothing can be
 // fixed. Payment Required sends them to the billing screen.
 
-import { accessFor, denyReason, isBillingPath, isReadMethod, GRACE_DAYS } from "@/lib/billing/access";
+import { accessFor, denyReason, isBillingPath, isReadMethod, GRACE_DAYS, CANCELLED_DAYS } from "@/lib/billing/access";
 let fail=0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 const NOW = new Date("2026-07-30T12:00:00Z");
 const ago = d => new Date(NOW.getTime() - d*24*60*60*1000);
@@ -31,7 +31,27 @@ ok(accessFor(null, NOW).level === "full",
    "NO subscription row → full access (a hand-made company, or a webhook that hasn't landed, must not be locked out)");
 ok(accessFor({status:"active"}, NOW).level === "full", "active → full");
 ok(accessFor({status:"trialing"}, NOW).level === "full", "trialing → full (the free month)");
-ok(accessFor({status:"canceled"}, NOW).level === "locked", "cancelled → locked immediately (they asked to stop; there's nothing to fix)");
+// ── Cancellation gets a LONGER window than a failed payment, not none ────
+// They chose to leave; they're not being punished, and they may need to pull
+// an old invoice for their accountant.
+for (const [days, want, left] of [[0,"readonly",30],[10,"readonly",20],[29,"readonly",1],[30,"locked",0],[90,"locked",0]]) {
+  const a = accessFor({status:"canceled", canceledAt: ago(days)}, NOW);
+  ok(a.level===want && a.daysLeft===left, `cancelled ${days}d ago → ${a.level}, ${a.daysLeft} day(s) left`);
+}
+ok(CANCELLED_DAYS > GRACE_DAYS,
+   `a cancellation (${CANCELLED_DAYS}d) gets longer than a failed payment (${GRACE_DAYS}d) — one is a decision, the other is urgent`);
+ok(accessFor({status:"canceled", canceledAt:null}, NOW).level === "readonly",
+   "a pre-existing cancelled row with no timestamp is read-only, not locked — the safe direction when we don't know when they left");
+
+// The MESSAGE has to match the situation.
+const cancelledRO = accessFor({status:"canceled", canceledAt: ago(5)}, NOW);
+const cMsg = denyReason(cancelledRO, {method:"POST", pathname:"/api/quotes"});
+ok(!/payment didn.t go through/.test(cMsg.error),
+   "a cancelled account is NOT told their payment failed — they'd go and check a card that's fine");
+ok(/cancelled/i.test(cMsg.error) && /25 more days/.test(cMsg.error),
+   `it says what actually happened, with the countdown: "${cMsg.error.slice(0,70)}…"`);
+ok(denyReason(cancelledRO, {method:"GET", pathname:"/api/invoices"}) === null,
+   "and they can still READ their invoices — the whole point of the window");
 
 // ── The 7-day clock ───────────────────────────────────────────────────────
 for (const [days, want, left] of [[0,"readonly",7],[1,"readonly",6],[6,"readonly",1],[6.9,"readonly",1],[7,"locked",0],[30,"locked",0]]) {

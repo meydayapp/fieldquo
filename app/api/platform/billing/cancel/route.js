@@ -54,7 +54,14 @@ export async function POST(request) {
     if (reason || note) {
       await db.subscription.update({
         where: { companyId: member.companyId },
-        data: { cancelReason: [reason, note].filter(Boolean).join(" — ") },
+        data: {
+          cancelReason: [reason, note].filter(Boolean).join(" — "),
+          // canceledAt is NOT set here. It starts the 30-day read-only window,
+          // and the cancellation may not have taken effect yet — Stripe often
+          // cancels at period end, and they keep full access until then because
+          // they paid for it. customer.subscription.deleted stamps it when it
+          // actually happens.
+        },
       }).catch(() => {
         // Never fail a cancellation over analytics. They asked to leave; the
         // one thing that must work is leaving.

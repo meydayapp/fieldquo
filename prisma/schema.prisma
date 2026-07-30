@@ -285,6 +285,15 @@ model Subscription {
   /// They keep full access until then — they paid for the month.
   cancelAt DateTime?
 
+  /// When the cancellation actually took effect.
+  ///
+  /// Starts the 30-day read-only window. Distinct from `pastDueSince`, which is
+  /// the 7-day window for a FAILED payment: those are different situations and
+  /// deserve different treatment. A failed card is urgent — fix it or lose
+  /// access. A cancellation is a decision someone made, and they are not being
+  /// punished for it; they may simply need to look up an old invoice.
+  canceledAt DateTime?
+
   /// Why they left, in their own words. The single most valuable field in this
   /// table and the one nobody remembers to collect.
   cancelReason String?

@@ -41,9 +41,12 @@ export default function BillingBanner() {
   if (!state || state.level === "full") return null;
 
   const locked = state.level === "locked";
-  // The last two days go red. Before that it's amber — a week of red chrome
-  // trains people to ignore red.
-  const urgent = locked || state.daysLeft <= 2;
+  // Cancelling is a DECISION, not a failure. Red chrome and "payment didn't go
+  // through" would send someone to check a card that's perfectly fine, and
+  // shouting at somebody who chose to leave is the surest way to make sure they
+  // don't come back.
+  const cancelled = state.reason === "canceled" || state.reason === "canceled_expired";
+  const urgent = !cancelled && (locked || state.daysLeft <= 2);
 
   return (
     <div
@@ -58,7 +61,23 @@ export default function BillingBanner() {
         <AlertTriangle size={17} className="shrink-0" />
 
         <p className="flex-1 min-w-[14rem]">
-          {locked ? (
+          {cancelled ? (
+            locked ? (
+              <>
+                <strong>Your plan is cancelled.</strong> Start it again to pick
+                up where you left off — everything is still here.
+              </>
+            ) : (
+              <>
+                <strong>
+                  Your plan is cancelled — {state.daysLeft} day
+                  {state.daysLeft === 1 ? "" : "s"} of read-only left.
+                </strong>{" "}
+                You can still look at everything and download what you need.
+                Start the plan again any time.
+              </>
+            )
+          ) : locked ? (
             <>
               <strong>Your account is locked.</strong> Update your card to get
               back in — nothing has been deleted.
@@ -86,7 +105,7 @@ export default function BillingBanner() {
               : "bg-amber-900 text-white dark:bg-amber-200 dark:text-amber-950"
           }`}
         >
-          <CreditCard size={15} /> Update card
+          <CreditCard size={15} /> {cancelled ? "Start again" : "Update card"}
         </Link>
       </div>
     </div>
