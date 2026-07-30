@@ -51,10 +51,26 @@ These block or degrade features that are already merged.
 
 ## Not built
 
-### 1. AI phone agent / receptionist — the big one
+### 1. AI phone agent / receptionist — foundation built, no UI yet
 
-`app/app/receptionist/page.js` is an honest "coming soon" placeholder. The nav
-links to it. Nothing else exists.
+Provider is **Retell**, platform-owned: FieldQuo holds one account and
+provisions an agent and a number per company, so a contractor never sees Retell.
+
+Built and checked:
+  * `lib/voice/retell.js` — the only file that talks to the vendor
+  * `lib/voice/numbers.js` — buy / **forward** / port. Forwarding is the
+    recommended default; read the header before changing that.
+  * `lib/voice/credits.js` — prepaid, 35¢/min local and 40¢ toll-free, priced
+    against Jobber's $0.79/conversation. Toll-free costs more BOTH ways.
+  * `lib/voice/prompt.js` — the guardrails. Never a price, never an unchecked
+    time, always admits to being an assistant.
+  * `/api/voice/webhook` — signature-verified, bills once per call.
+
+**Still to do:** the settings UI (buy a number, set the greeting, top up), the
+agent-provisioning call, tool definitions so it can create a `LeadRequest` and
+book against real availability, and the call review queue.
+
+`app/app/receptionist/page.js` is still the "coming soon" placeholder.
 
 **What it should do:** answer inbound calls, capture the caller's details,
 create a `Client` or `LeadRequest`, book a visit against real availability,
@@ -160,17 +176,21 @@ Adapted from the owner's working TrueFinish code. What's done:
 - `lib/kitchen/planShapes.js` + `PlanSvg.js` — the presentation plan.
 - `/app/quotes/[id]/kitchen`, `/design/[token]`, `/app/settings/cabinet-rates`.
 
-**Still to do, in order:**
+Elevations, the finish picker, the self-quote entry and the PDF are all done —
+the drawing on a quote comes from the same `planShapes` list as the screen, via
+`lib/kitchen/PlanPdf.jsx`. Do NOT add a third renderer or re-derive the geometry:
+a client approves a drawing on their phone and signs a PDF, and two code paths
+drift invisibly until a crew builds from the wrong one.
 
-1. **Elevations in the presentation style.** The plan is drawn; the elevations
-   are still the editor's plain boxes. `elevationTitle()` already names them the
-   way the reference does ("Cooktop wall", not "Wall B").
-2. **The drawing on the PDF.** `planShapes` returns primitives precisely so a
-   second adapter can emit `@react-pdf` `Svg`/`Rect`/`Line`/`Path`/`Text` from
-   the same list. Write that adapter — do NOT re-derive the geometry, and do not
-   rasterise. The quote and invoice PDFs then carry the plan the client saw.
-3. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
-   flags holes above it; both need testing with a thumb on a real phone.
+**Still to do:**
+
+1. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
+   flags holes above it, but neither has been tried with a thumb on a real
+   phone. This is the one thing left that can only be checked by hand.
+2. **Trade calculators.** The owner supplied working Countertop, Flooring,
+   Interior/Exterior Painting and Stair calculators alongside the kitchen code.
+   None are adapted yet. Same rules apply: rates come from the company, not the
+   file, and every entry point clamps its input.
 
 Two rules this feature already depends on. The client designer is PUBLIC, so it
 returns no prices — `stripPricing` rebuilds the payload key-by-key rather than
