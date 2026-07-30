@@ -1,7 +1,7 @@
 // app/app/settings/account-billing/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
@@ -29,6 +29,18 @@ export default function AccountBillingPage() {
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState("");
+  // Whether the account was locked when this page loaded. A ref, not state:
+  // it's read once inside an effect that must not re-run when it changes.
+  const wasLockedRef = useRef(false);
+
+  useEffect(() => {
+    fetch("/api/settings/subscription/access")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) wasLockedRef.current = d.level === "locked";
+      })
+      .catch(() => {});
+  }, []);
 
   function load() {
     return Promise.all([
@@ -78,18 +90,35 @@ export default function AccountBillingPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get("session_id");
+    // Set on the return from the Stripe billing portal — see the portal route.
+    // Someone who was LOCKED OUT and has just fixed their card arrives here,
+    // and has to see the app come back now rather than whenever a webhook
+    // happens to land. Waiting for one means they pay and stay locked, which is
+    // the worst possible outcome of the grace period.
+    const fromPortal = params.get("reconcile") === "1";
 
     load()
       .then(() => {
-        // Just came back from Checkout: confirm it against Stripe instead of
-        // hoping the webhook arrived in the second the redirect took.
-        if (sessionId) return reconcile(sessionId);
+        // Just came back from Checkout or the portal: confirm it against Stripe
+        // instead of hoping the webhook arrived in the second the redirect took.
+        if (sessionId || fromPortal) return reconcile(sessionId);
+      })
+      .then(() => {
+        // A lock is enforced in the LAYOUT, which was rendered before any of
+        // this ran — so clearing the lock in the database isn't enough to make
+        // the app reappear. A reload re-runs the layout with the new state.
+        //
+        // Only when they actually were locked, so a routine visit to this page
+        // doesn't reload itself.
+        if (fromPortal && wasLockedRef.current) {
+          window.location.href = "/app";
+        }
       })
       .finally(() => {
         setLoading(false);
         // Drop the query string so a refresh doesn't re-run this and so the
         // session id isn't left sitting in the address bar.
-        if (sessionId) {
+        if (sessionId || fromPortal) {
           window.history.replaceState({}, "", window.location.pathname);
         }
       });

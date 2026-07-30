@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
+import AccountLocked from "@/app/components/layout/AccountLocked";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
 import BrandTheme from "@/app/components/BrandTheme";
@@ -84,7 +85,7 @@ async function getCompanyBrand() {
 
     return await db.company.findUnique({
       where: { id: member.companyId },
-      select: { brandColor: true, brandColors: true },
+      select: { name: true, brandColor: true, brandColors: true },
     });
   } catch (err) {
     console.error("[AppLayout] couldn't load company branding:", err);
@@ -92,8 +93,55 @@ async function getCompanyBrand() {
   }
 }
 
+/**
+ * Is this company locked out for non-payment?
+ *
+ * Resolved with skipBillingGate, because the gate would throw here — and
+ * throwing in the layout would break the one page that fixes the problem.
+ *
+ * Never throws for any other reason either. A billing lookup failing must not
+ * take the whole app down, and the safe direction is "not locked": briefly
+ * letting an overdue company work costs a few requests, while wrongly walling
+ * off a paying one is a support emergency.
+ */
+async function getLockState() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "http://x/app" },
+      { skipBillingGate: true },
+    );
+    if (member?.billingAccess?.level !== "locked") return null;
+    return member.billingAccess;
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve billing access:", err);
+    return null;
+  }
+}
+
 export default async function AppLayout({ children }) {
-  const [brand, language] = await Promise.all([getCompanyBrand(), getAppLanguage()]);
+  const [brand, language, locked] = await Promise.all([
+    getCompanyBrand(),
+    getAppLanguage(),
+    getLockState(),
+  ]);
+
+  // ── Locked ──────────────────────────────────────────────────────────────
+  //
+  // The whole app is replaced, not decorated with a banner. Every data request
+  // is refused in this state, so rendering the normal shell would give them
+  // twenty empty panels with the fix hidden somewhere in the middle.
+  //
+  // BrandTheme still wraps it so the screen carries their own colour — being
+  // locked out shouldn't also mean being handed a page that looks like it
+  // belongs to someone else.
+  if (locked) {
+    return (
+      <div data-brand className="min-h-screen bg-background">
+        <BrandTheme brandColor={brand?.brandColor} brandColors={brand?.brandColors} />
+        <AccountLocked reason={locked.reason} companyName={brand?.name} />
+      </div>
+    );
+  }
 
   return (
     // data-brand is the hook BrandTheme's CSS targets. Present even when the

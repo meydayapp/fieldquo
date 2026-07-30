@@ -185,6 +185,19 @@ export async function POST(request) {
       });
     }
 
+    // ── The grace clock ────────────────────────────────────────────────────
+    //
+    // Cleared whenever Stripe says the account is live again. `status` alone
+    // restores access — accessFor() checks it first — so leaving this set looks
+    // harmless. It isn't: markPastDue keeps an existing pastDueSince, so the
+    // NEXT failed payment months later would inherit this date, compute a
+    // negative grace and lock the company out instantly with no warning.
+    //
+    // Set to undefined rather than null when the account isn't live, so a
+    // reconcile of a still-overdue account doesn't reset a clock that's already
+    // running.
+    const nowLive = LIVE.includes(live.status);
+
     await db.subscription.upsert({
       where: { companyId: member.companyId },
       update: {
@@ -192,6 +205,7 @@ export async function POST(request) {
         stripeCustomerId: customerId,
         stripeSubscriptionId: live.id,
         status: live.status,
+        ...(nowLive ? { pastDueSince: null, graceWarnedAt: null } : {}),
         currentPeriodEnd: live.current_period_end
           ? new Date(live.current_period_end * 1000)
           : null,

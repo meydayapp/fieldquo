@@ -38,7 +38,15 @@ export async function POST(request) {
 
   const url = await createBillingPortalSession({
     stripeCustomerId: subscription.stripeCustomerId,
-    returnUrl: `${baseUrl}/app/settings/account-billing`,
+    // ?reconcile=1 makes the billing page pull the live state from Stripe the
+    // moment they come back, rather than waiting for a webhook.
+    //
+    // That matters most for the case this whole feature exists for: someone
+    // locked out updates their card in the portal, returns, and has to see the
+    // app come back NOW. If the billing webhook is delayed — or, as today, not
+    // registered at all — waiting for it means they pay and stay locked, which
+    // is the single worst outcome of the grace period.
+    returnUrl: `${baseUrl}/app/settings/account-billing?reconcile=1`,
   });
 
   return NextResponse.json({ url });
