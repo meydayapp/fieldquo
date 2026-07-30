@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
+import CancelFlow from "./CancelFlow";
 function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
 }
@@ -25,7 +26,6 @@ export default function AccountBillingPage() {
   const [busyPlanId, setBusyPlanId] = useState(null);
   const [openingPortal, setOpeningPortal] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState("");
@@ -160,22 +160,6 @@ export default function AccountBillingPage() {
     }
   }
 
-  async function handleCancel() {
-    setCancelling(true);
-    try {
-      const res = await fetch("/api/platform/billing/cancel", {
-        method: "POST",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not cancel");
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setCancelling(false);
-      setShowCancelConfirm(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -359,43 +343,20 @@ export default function AccountBillingPage() {
         </div>
       </div>
 
-      {showCancelConfirm && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowCancelConfirm(false)}
-        >
-          <div
-            className="bg-card rounded-2xl w-full max-w-sm p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle size={26} className="text-red-500" />
-            </div>
-            <h2 className="text-lg font-semibold text-foreground text-center">
-              Cancel your plan?
-            </h2>
-            <p className="text-sm text-muted-foreground text-center mt-1.5">
-              You'll keep access until the end of your current billing period,
-              then your account will be downgraded.
-            </p>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
-              >
-                Keep plan
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={cancelling}
-                className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
-              >
-                {cancelling ? "Cancelling..." : "Cancel plan"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The save flow, not a two-button "are you sure?".
+          It asks WHY before offering anything — an offer before you've asked
+          reads as haggling, and it spends margin on people who'd have stayed
+          for free if asked the right question. See CancelFlow.js. */}
+      <CancelFlow
+        open={showCancelConfirm}
+        onClose={() => setShowCancelConfirm(false)}
+        periodEnd={subscription?.currentPeriodEnd}
+        formatDate={formatDate}
+        onCancelled={async () => {
+          setShowCancelConfirm(false);
+          await load();
+        }}
+      />
     </div>
   );
 }
