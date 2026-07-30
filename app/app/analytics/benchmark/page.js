@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export default function BenchmarkPage() {
@@ -40,6 +41,16 @@ export default function BenchmarkPage() {
           Your average quote pricing vs. the anonymized platform average, by
           service category.
         </p>
+        {/* /app/analytics/digest worked and was linked from NOTHING. It's the
+            other half of this page — this one is "how do I compare", that one
+            is "what changed this week" — so it belongs here rather than
+            needing its own nav slot for a page you read occasionally. */}
+        <Link
+          href="/app/analytics/digest"
+          className="inline-flex items-center gap-1.5 text-sm text-foreground underline mt-2"
+        >
+          Weekly digests
+        </Link>
       </div>
 
       {!optedIn && (

@@ -49,9 +49,11 @@ const en = {
   "app.nav.jobs": "Jobs",
   "app.nav.invoices": "Invoices",
   "app.nav.calendar": "Calendar",
+  "app.nav.tasks": "To-do",
 
   "app.nav.group.people": "People",
   "app.nav.clients": "Clients",
+  "app.nav.team": "Your team",
   "app.nav.teamSchedule": "Team Schedule",
   "app.nav.timesheets": "Timesheets",
   "app.nav.timeOff": "Time Off",
@@ -181,6 +183,7 @@ const en = {
 
   // ── Settings navigation ──────────────────────────────────────────────────
   "app.settings.title": "Settings",
+  "app.settings.search": "Search settings",
 
   "app.settings.group.account": "Account",
   "app.settings.accountBilling": "Account & Billing",
@@ -268,6 +271,7 @@ const en = {
 
   "app.clients.title": "Clients",
   "app.clients.new": "New Client",
+  "app.clients.import": "Import",
   "app.clients.search": "Search clients...",
   "app.clients.empty": "Add your first client",
   "app.clients.contractor": "Contractor",
@@ -385,9 +389,11 @@ const fr = {
   "app.nav.jobs": "Chantiers",
   "app.nav.invoices": "Factures",
   "app.nav.calendar": "Calendrier",
+  "app.nav.tasks": "À faire",
 
   "app.nav.group.people": "Personnel",
   "app.nav.clients": "Clients",
+  "app.nav.team": "Votre équipe",
   "app.nav.teamSchedule": "Horaire de l'équipe",
   "app.nav.timesheets": "Feuilles de temps",
   "app.nav.timeOff": "Congés",
@@ -501,6 +507,7 @@ const fr = {
   "app.time.days": "jours",
 
   "app.settings.title": "Paramètres",
+  "app.settings.search": "Rechercher un réglage",
 
   "app.settings.group.account": "Compte",
   "app.settings.accountBilling": "Compte et facturation",
@@ -586,6 +593,7 @@ const fr = {
 
   "app.clients.title": "Clients",
   "app.clients.new": "Nouveau client",
+  "app.clients.import": "Importer",
   "app.clients.search": "Rechercher un client...",
   "app.clients.empty": "Ajoutez votre premier client",
   "app.clients.contractor": "Entrepreneur",

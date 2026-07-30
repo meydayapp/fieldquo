@@ -58,6 +58,7 @@ import {
   Activity,
   Settings as SettingsIcon,
   ChevronDown,
+  Search,
   X,
 } from "lucide-react";
 
@@ -139,6 +140,7 @@ const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
 
 export default function SettingsSidebar() {
   const { t } = useTranslation();
+  const [query, setQuery] = useState("");
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -185,19 +187,78 @@ export default function SettingsSidebar() {
     );
   }
 
+  // ── Filter ────────────────────────────────────────────────────────────
+  //
+  // Thirty-one destinations in eight groups. The groups help, but past about
+  // twenty items no amount of grouping beats typing three letters — which is
+  // why every settings screen worth using has a filter box (macOS, Slack,
+  // GitHub all landed on the same answer).
+  //
+  // Matches the GROUP name as well as the item, so "team" finds everything
+  // under Team & scheduling even when the word isn't in the item's own label.
+  // Empty groups disappear rather than showing a heading with nothing under it.
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? GROUPS.map((group) => {
+        const groupMatches = t(group.key).toLowerCase().includes(q);
+        return {
+          ...group,
+          items: group.items.filter(
+            (item) => groupMatches || t(item.key).toLowerCase().includes(q),
+          ),
+        };
+      }).filter((group) => group.items.length)
+    : GROUPS;
+
   const nav = (onNavigate) => (
-    <nav className="space-y-5">
-      {GROUPS.map((group) => (
-        <div key={group.key}>
-          <div className="px-3 pb-1.5 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
-            {t(group.key)}
+    <div className="space-y-3">
+      <div className="relative">
+        <Search
+          size={14}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+        />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t("app.settings.search")}
+          // `search` gives mobile keyboards a sensible action key and a native
+          // clear button on iOS.
+          type="search"
+          className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+        />
+      </div>
+
+      <nav className="space-y-5">
+        {filtered.map((group) => (
+          <div key={group.key}>
+            <div className="px-3 pb-1.5 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+              {t(group.key)}
+            </div>
+            <div className="space-y-0.5">
+              {group.items.map((item) => renderItem(item, { onNavigate }))}
+            </div>
           </div>
-          <div className="space-y-0.5">
-            {group.items.map((item) => renderItem(item, { onNavigate }))}
+        ))}
+
+        {/* A dead end needs a way out. Without this, typing something with no
+            match leaves a blank column and no hint that clearing the box
+            brings everything back. */}
+        {filtered.length === 0 && (
+          <div className="px-3 py-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Nothing matches &ldquo;{query}&rdquo;.
+            </p>
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="text-sm text-foreground underline mt-1"
+            >
+              {t("app.action.clear")}
+            </button>
           </div>
-        </div>
-      ))}
-    </nav>
+        )}
+      </nav>
+    </div>
   );
 
   return (

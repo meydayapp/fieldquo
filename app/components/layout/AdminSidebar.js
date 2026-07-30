@@ -26,6 +26,8 @@ import {
   Gift,
   Sparkles,
   Compass,
+  UserCog,
+  ListTodo,
   CreditCard,
   Settings,
   LifeBuoy,
@@ -67,12 +69,23 @@ const NAV_GROUPS = [
       { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
       { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
       { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar },
+      // /app/tasks existed, worked, and was reachable from NOTHING — no nav
+      // entry and no link from any page. 380 lines of working to-do list that
+      // only somebody typing the URL could find.
+      { key: "app.nav.tasks", href: "/app/tasks", icon: ListTodo },
     ],
   },
   {
     key: "app.nav.group.people",
     items: [
       { key: "app.nav.clients", href: "/app/clients", icon: Users },
+      // ── HR in one place ─────────────────────────────────────────────────
+      //
+      // "Manage Team" lived ONLY under Settings, so hiring someone meant
+      // hunting through a 31-item settings list while Timesheets and Time Off
+      // sat right here. Employee records, their hours and their leave are one
+      // job; splitting them across two menus is why people ask where things are.
+      { key: "app.nav.team", href: "/app/settings/team", icon: UserCog },
       { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar },
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },
       // Top-level, not buried in settings: everyone uses it, not just admins.

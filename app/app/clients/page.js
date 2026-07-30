@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Plus, Search, Phone, MapPin, ArrowRight } from "lucide-react";
+import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 export default function ClientsPage() {
@@ -50,12 +50,24 @@ export default function ClientsPage() {
             {clients.length} client{clients.length !== 1 ? "s" : ""} total.
           </p>
         </div>
-        <Link
-          href="/app/clients/new"
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          <Plus size={16} /> {t("app.clients.new")}
-        </Link>
+        <div className="flex items-center gap-2">
+          {/* /app/clients/import worked and was linked from NOTHING — a
+              contractor switching from another system had a CSV importer they
+              could only reach by typing the URL. It belongs beside "New
+              client", which is where someone with a list to load looks. */}
+          <Link
+            href="/app/clients/import"
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Upload size={16} /> {t("app.clients.import")}
+          </Link>
+          <Link
+            href="/app/clients/new"
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={16} /> {t("app.clients.new")}
+          </Link>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
