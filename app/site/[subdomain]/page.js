@@ -34,7 +34,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
-import { recentJobPhotos } from "@/lib/site/jobPhotos";
+import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
 
 async function loadSite(subdomain, { preview = false } = {}) {
@@ -66,6 +66,10 @@ async function loadSite(subdomain, { preview = false } = {}) {
           businessHours: true,
           timezone: true,
           weekStartsOn: true,
+          // Read at request time, not snapshotted into the block, so adding a
+          // town in Settings changes the public page without regenerating it.
+          // The whole reason the areas block is `derived`.
+          workAreas: { select: { name: true }, orderBy: { name: "asc" }, take: 40 },
         },
       },
     },
@@ -131,7 +135,13 @@ export default async function CompanySitePage({ params, searchParams }) {
   const site = await loadSite(subdomain, { preview: query.preview === "1" });
   if (!site) notFound();
 
-  const company = site.company;
+  // workAreas comes back as [{ name }]; the renderer wants names. Flattened
+  // here rather than in the component so the component stays a pure function of
+  // its props and can be rendered in the editor preview with the same shape.
+  const company = {
+    ...site.company,
+    workAreas: (site.company.workAreas || []).map((a) => a.name).filter(Boolean),
+  };
   const theme = documentTheme(company);
   const fill = fillPair(theme);
 
@@ -154,6 +164,62 @@ export default async function CompanySitePage({ params, searchParams }) {
       );
     }
   }
+
+  // Same rule for the before/after slider: a pair the company curated wins, an
+  // empty block fills itself from two-photo job visits. This is what makes the
+  // section keep working as crews upload more work, without anyone opening the
+  // builder again.
+  const emptyPairs = blocks.some(
+    (b) => b.type === "beforeafter" && b.visible !== false && !(b.content?.pairs?.length),
+  );
+  if (emptyPairs) {
+    const pairs = await jobPhotoPairs(site.companyId, 6);
+    if (pairs.length) {
+      blocks = blocks.map((b) =>
+        b.type === "beforeafter" && !(b.content?.pairs?.length)
+          ? { ...b, content: { ...b.content, pairs } }
+          : b,
+      );
+    }
+  }
+
+  // ── Services reconcile against what the company CURRENTLY offers ─────────
+  //
+  // The services block stores names and blurbs, so it was a snapshot taken when
+  // the page was generated: enable a new trade in Settings and the website kept
+  // advertising the old list until somebody remembered to regenerate. A public
+  // page that omits a service you now offer costs you the call; one that lists a
+  // service you dropped costs you the argument.
+  //
+  // So: the LIST comes from the database every request, and the blurbs come from
+  // the block. A service that's still offered keeps whatever was written about
+  // it; a new one appears with no blurb (the renderer shows the name alone);
+  // a removed one disappears.
+  const servicesBlock = blocks.find((b) => b.type === "services" && b.visible !== false);
+  if (servicesBlock) {
+    const enabled = await db.companyServiceCategory.findMany({
+      where: { companyId: site.companyId, enabled: true },
+      select: { category: { select: { label: true } } },
+    });
+    const current = enabled.map((e) => e.category?.label).filter(Boolean);
+    if (current.length) {
+      const blurbs = new Map(
+        (servicesBlock.content?.items || [])
+          .filter((it) => it?.name)
+          .map((it) => [String(it.name).trim().toLowerCase(), it.description || ""]),
+      );
+      const items = current.slice(0, 8).map((name) => ({
+        name,
+        description: blurbs.get(name.trim().toLowerCase()) || "",
+      }));
+      blocks = blocks.map((b) =>
+        b === servicesBlock ? { ...b, content: { ...b.content, items } } : b,
+      );
+    }
+  }
+
+  // Company map: workAreas arrives on `company` and the areas block reads it
+  // from there, so nothing needs to be threaded separately into SiteBlocks.
 
   return (
     <div style={{ backgroundColor: "#ffffff", color: theme.ink }}>

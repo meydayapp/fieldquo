@@ -24,6 +24,8 @@ import {
 } from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
+import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
+import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
 
 const COMPANY_SELECT = {
   id: true,
@@ -62,7 +64,10 @@ async function requireAdmin(request) {
 
 /** The company's enabled services and approved testimonials, as facts. */
 async function loadSource(companyId) {
-  const [enabled, testimonials] = await Promise.all([
+  // Everything the composer needs to decide what the page can contain. Loaded
+  // together because "which sections are possible" is one question — asking it
+  // in pieces is how a page ends up with a gallery heading and no photos.
+  const [enabled, testimonials, photos, photoPairs, areas] = await Promise.all([
     db.companyServiceCategory.findMany({
       where: { companyId, enabled: true },
       select: { category: { select: { key: true, label: true } } },
@@ -72,11 +77,22 @@ async function loadSource(companyId) {
       orderBy: [{ featured: "desc" }, { sortOrder: "asc" }],
       take: 6,
     }),
+    recentJobPhotos(companyId, 12),
+    jobPhotoPairs(companyId, 6),
+    db.workArea.findMany({
+      where: { companyId },
+      select: { name: true },
+      orderBy: { name: "asc" },
+      take: 40,
+    }),
   ]);
 
   return {
     services: enabled.map((e) => e.category).filter(Boolean),
     testimonials,
+    photos,
+    photoPairs,
+    areas: areas.map((a) => a.name).filter(Boolean),
   };
 }
 
@@ -104,6 +120,13 @@ export async function GET(request) {
     // Served rather than imported by the editor — see the note at the top of
     // app/app/settings/website/page.js.
     stylePresets: STYLE_PRESETS,
+    // Page shapes the company can pick directly, so choosing a different layout
+    // doesn't require spending tokens on a regeneration.
+    compositions: COMPOSITION_KEYS.map((key) => ({
+      key,
+      label: COMPOSITION_PRESETS[key].label,
+      sections: COMPOSITION_PRESETS[key].sections,
+    })),
     // The design styles the company (or the AI) can pick from. Label + hint
     // only; the visual rules stay server-side in lib/site/siteStyles.js.
     siteStyles: SITE_STYLE_KEYS.map((key) => ({
@@ -198,7 +221,8 @@ export async function POST(request) {
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
-  const { services, testimonials } = await loadSource(member.companyId);
+  const { services, testimonials, photos, photoPairs, areas } =
+    await loadSource(member.companyId);
 
   // The page as currently SAVED. generateSite carries images across from it,
   // so pressing Regenerate rewrites the words without discarding the job
@@ -217,6 +241,12 @@ export async function POST(request) {
       company,
       services,
       testimonials,
+      // The real content: job photos become the gallery, two-photo visits become
+      // before/after sliders, WorkArea rows become the areas-served list. None
+      // of it is retyped, so none of it can go stale.
+      photos,
+      photoPairs,
+      areas,
       interview: body.interview || {},
       existingBlocks: Array.isArray(existing?.blocks) ? existing.blocks : [],
       onUsage: (u) =>
@@ -234,7 +264,7 @@ export async function POST(request) {
     // A failed generation still returns a usable site rather than an error
     // screen — the whole point of the factual fallback.
     return NextResponse.json({
-      blocks: siteFromCompany({ company, services, testimonials }),
+      blocks: siteFromCompany({ company, services, testimonials, photos, photoPairs, areas }),
       seoTitle: null,
       seoDescription: null,
       generated: false,

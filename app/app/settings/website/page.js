@@ -40,7 +40,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-import { BLOCK_TYPES } from "@/app/data/siteBlocks";
+import { BLOCK_TYPES, BLOCK_ORDER, makeBlock } from "@/app/data/siteBlocks";
 // STYLE_PRESETS deliberately arrives from the API rather than being imported.
 // lib/site/generateSite imports lib/ai/provider, which imports the `openai`
 // package — importing it here would drag the whole SDK and its Node built-ins
@@ -64,6 +64,11 @@ export default function WebsiteSettingsPage() {
   const [device, setDevice] = useState("desktop"); // desktop | mobile
   const [aiOpen, setAiOpen] = useState(true);
   const [styleKey, setStyleKey] = useState("modern");
+  // What SHAPE the last generation produced, and what it had to leave out.
+  // Surfaced rather than swallowed: a company that asked for a photo-led page
+  // and has no photos should be told that, not handed a shorter page.
+  const [composition, setComposition] = useState(null);
+  const [dropped, setDropped] = useState([]);
 
   const load = useCallback(async () => {
     try {
@@ -88,6 +93,56 @@ export default function WebsiteSettingsPage() {
     load();
   }, [load]);
 
+  /**
+   * Apply a page shape without spending a token.
+   *
+   * Reorders the sections the page already has to match the preset and creates
+   * any it's missing, keeping every block's CONTENT. Changing the layout should
+   * not cost a generation and should not throw away the words — those are two
+   * different decisions and the button only makes one of them.
+   */
+  function reshape(preset) {
+    const wanted = preset.sections || [];
+    const byType = new Map();
+    for (const b of blocks) {
+      if (!byType.has(b.type)) byType.set(b.type, b);
+    }
+    const next = [];
+    for (const type of wanted) {
+      if (!BLOCK_TYPES[type]) continue;
+      const existing = byType.get(type);
+      if (existing) {
+        byType.delete(type);
+        next.push(existing);
+      } else {
+        next.push(makeBlock(type));
+      }
+    }
+    // Anything the preset doesn't mention is kept, hidden, at the end rather
+    // than deleted — the company may have written copy into it, and a layout
+    // change that silently destroys text is a destructive op labelled cosmetic.
+    for (const leftover of byType.values()) {
+      next.push({ ...leftover, visible: false });
+    }
+    setBlocks(next);
+    setComposition(preset.key);
+    setNote("Layout changed. Press Save to update the preview.");
+  }
+
+  function addSection(type) {
+    if (!BLOCK_TYPES[type]) return;
+    // Before the contact block, which is always last.
+    setBlocks((prev) => {
+      const next = [...prev];
+      const contactAt = next.findIndex((b) => b.type === "contact");
+      const block = makeBlock(type);
+      if (contactAt === -1) next.push(block);
+      else next.splice(contactAt, 0, block);
+      return next;
+    });
+    setNote("Section added. Press Save to update the preview.");
+  }
+
   async function generate() {
     setGenerating(true);
     setError("");
@@ -103,6 +158,8 @@ export default function WebsiteSettingsPage() {
       // LOOK changes, not just the words.
       const newStyle = result.styleKey || styleKey;
       setStyleKey(newStyle);
+      setComposition(result.composition || null);
+      setDropped(Array.isArray(result.droppedSections) ? result.droppedSections : []);
       const newSeo = {
         title: result.seoTitle || seo.title,
         description: result.seoDescription || seo.description,
@@ -293,19 +350,21 @@ export default function WebsiteSettingsPage() {
                   {/* THE PROMPT. Plain language in, a different-looking site
                       out — the AI picks the design style from these words. */}
                   <div>
-                    <label className="text-xs font-semibold text-foreground block mb-1">
+                    <label className="text-sm font-bold text-foreground block mb-1.5">
                       Describe the website you want
                     </label>
                     <textarea
                       value={interview.style || ""}
                       onChange={(e) => setInterview((p) => ({ ...p, style: e.target.value }))}
-                      rows={3}
-                      placeholder="e.g. Bold and industrial, big headlines, show off our roofing work — we want to look like the biggest crew in town."
-                      className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                      rows={5}
+                      placeholder={`e.g. Bold and industrial. Big headlines, hard edges. Lead with our before-and-after photos — we want to look like the biggest roofing crew in town.\n\nOr: quiet and high-end. Lots of white space, serif headings, one strong client quote near the top.`}
+                      className="w-full border border-border rounded-xl px-3.5 py-3 text-sm bg-background leading-relaxed"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Tell it how you want it to look and sound. Your logo and colours
-                      always come from Branding.
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                      This changes the <strong className="text-foreground">layout</strong> — which
+                      sections the page has, what order they come in, and how it&apos;s
+                      typeset — not just the words. Your logo and colours always come
+                      from Branding.
                     </p>
                     {(data?.stylePresets || []).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
@@ -353,6 +412,29 @@ export default function WebsiteSettingsPage() {
                     </div>
                   )}
 
+                  {/* What the last generation actually built, and what it left
+                      out. Without this a company presses Generate, gets a page
+                      with no gallery, and has no way to know it's because they
+                      have no photos yet. */}
+                  {composition && (
+                    <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-1">
+                      <p className="text-[11px] text-foreground">
+                        Page shape:{" "}
+                        <strong>
+                          {composition === "custom"
+                            ? "custom (chosen from your description)"
+                            : data?.compositions?.find((c) => c.key === composition)?.label || composition}
+                        </strong>
+                      </p>
+                      {dropped.length > 0 && (
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                          Left out: {dropped.map((d) => `${d.key} (${d.reason})`).join(", ")}.
+                          Add the missing content and regenerate to include them.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-xs text-muted-foreground pt-1 border-t border-border">
                     A few more details make the copy better (all optional):
                   </p>
@@ -395,6 +477,34 @@ export default function WebsiteSettingsPage() {
                   <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sections</h2>
                   <span className="text-[11px] text-muted-foreground">Click a section to edit</span>
                 </div>
+
+                {/* Layout shapes. Free — reordering what's already there costs
+                    nothing, so changing the look shouldn't require a
+                    regeneration and shouldn't rewrite anyone's copy. */}
+                {(data?.compositions || []).length > 0 && (
+                  <div className="bg-card border border-border rounded-2xl p-4">
+                    <p className="text-xs font-bold text-foreground mb-1">Page layout</p>
+                    <p className="text-[11px] text-muted-foreground mb-2.5">
+                      Reorders your sections. Keeps all your text and photos.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {data.compositions.map((c) => (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => reshape(c)}
+                          className={`text-[11px] px-2.5 py-1.5 rounded-full border transition-colors ${
+                            composition === c.key
+                              ? "border-foreground bg-inverted text-inverted-foreground"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {blocks.map((block) => (
                   <BlockEditor
                     key={block.id}
@@ -404,6 +514,35 @@ export default function WebsiteSettingsPage() {
                     onError={setError}
                   />
                 ))}
+
+                {/* Add a section. Only offers types not already on the page —
+                    two "About us" sections is never what anyone meant. */}
+                <div className="bg-card border border-border rounded-2xl p-4">
+                  <label className="text-xs font-bold text-foreground block mb-2">
+                    Add a section
+                  </label>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) addSection(e.target.value);
+                      e.target.value = "";
+                    }}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                  >
+                    <option value="">Choose a section…</option>
+                    {BLOCK_ORDER.filter(
+                      (type) =>
+                        BLOCK_TYPES[type] &&
+                        // `cta` is the one repeatable section, so it stays on
+                        // offer however many are already there.
+                        (type === "cta" || !blocks.some((b) => b.type === type)),
+                    ).map((type) => (
+                      <option key={type} value={type}>
+                        {BLOCK_TYPES[type].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Address + SEO */}
                 <details className="bg-card border border-border rounded-2xl">
@@ -625,59 +764,109 @@ function BlockEditor({ block, onChange, onToggle, onError }) {
             />
           )}
 
-          {def.repeats === "items" && (
-            <div className="space-y-2">
-              {(block.content.items || []).map((item, i) => (
-                <div key={i} className="border border-border rounded-lg p-3 space-y-2 relative">
-                  {(def.itemEditable || []).map((k) => (
-                    <input
-                      key={k}
-                      value={item[k] || ""}
-                      onChange={(e) => {
-                        const items = [...block.content.items];
-                        items[i] = { ...items[i], [k]: e.target.value };
-                        onChange({ items });
-                      }}
-                      placeholder={labelFor(k)}
-                      className="w-full border border-border rounded px-2 py-1.5 text-sm bg-background"
-                    />
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => onChange({ items: block.content.items.filter((_, j) => j !== i) })}
-                    className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
-                    aria-label="Remove"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-              {(block.content.items || []).length === 0 && block.type === "testimonials" && (
-                <p className="text-xs text-muted-foreground">
-                  Approved testimonials appear here automatically — or add one below.
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({
-                    items: [
-                      ...(block.content.items || []),
-                      Object.fromEntries((def.itemEditable || []).map((k) => [k, ""])),
-                    ],
-                  })
-                }
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
-              >
-                <ImagePlus size={13} className="rotate-45" /> Add {block.type === "faq" ? "question" : "item"}
-              </button>
-            </div>
+          {/* Repeated items. Driven by `def.repeats` rather than hardcoded to
+              "items", so `steps` and `pairs` get an editor from the schema alone
+              — the alternative was a third and fourth copy of this block, and
+              the copy is the one that rots. Keys listed in `imagePair` get an
+              uploader instead of a text input, because a before/after pair holds
+              image URLs. */}
+          {def.repeats && def.repeats !== "images" && (
+            <RepeatEditor def={def} block={block} onChange={onChange} onError={onError} />
           )}
         </div>
       )}
     </div>
   );
 }
+
+/**
+ * Editor for a block's repeated list — items, steps, or before/after pairs.
+ *
+ * One component for all three because they differ only in which keys are text
+ * and which are images, and that is already in the schema.
+ */
+function RepeatEditor({ def, block, onChange, onError }) {
+  const key = def.repeats;
+  const list = block.content[key] || [];
+  const imageKeys = def.imagePair || [];
+  const textKeys = (def.itemEditable || []).filter((k) => !imageKeys.includes(k));
+
+  const write = (next) => onChange({ [key]: next });
+  const patch = (i, k, v) => {
+    const next = [...list];
+    next[i] = { ...next[i], [k]: v };
+    write(next);
+  };
+
+  const noun =
+    block.type === "faq" ? "question" : block.type === "process" ? "step" : block.type === "beforeafter" ? "pair" : "item";
+
+  return (
+    <div className="space-y-2">
+      {list.map((item, i) => (
+        <div key={i} className="border border-border rounded-lg p-3 space-y-2 relative">
+          {imageKeys.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {imageKeys.map((k) => (
+                <div key={k}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground block mb-1">
+                    {k}
+                  </span>
+                  <ImageField
+                    value={item[k]}
+                    onChange={(url) => patch(i, k, url)}
+                    onError={onError}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {textKeys.map((k) => (
+            <input
+              key={k}
+              value={item[k] || ""}
+              onChange={(e) => patch(i, k, e.target.value)}
+              placeholder={labelFor(k)}
+              className="w-full border border-border rounded px-2 py-1.5 text-sm bg-background"
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => write(list.filter((_, j) => j !== i))}
+            className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
+            aria-label="Remove"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+
+      {list.length === 0 && EMPTY_HINTS[block.type] && (
+        <p className="text-xs text-muted-foreground">{EMPTY_HINTS[block.type]}</p>
+      )}
+
+      <button
+        type="button"
+        onClick={() =>
+          write([...list, Object.fromEntries((def.itemEditable || []).map((k) => [k, ""]))])
+        }
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+      >
+        <ImagePlus size={13} className="rotate-45" /> Add {noun}
+      </button>
+    </div>
+  );
+}
+
+// What an empty list means, said out loud. An empty editor with no explanation
+// reads as a form that failed to load.
+const EMPTY_HINTS = {
+  testimonials: "Approved testimonials appear here automatically — or add one below.",
+  beforeafter:
+    "Fills itself from job visits that have exactly two photos — a before and an after. Add a pair here to override it.",
+  process: "Generated from your description. Add your own steps to override it.",
+  faq: "Generated from your description. Add your own questions to override it.",
+};
 
 function ImageField({ value, onChange, onError }) {
   const [busy, setBusy] = useState(false);
@@ -798,15 +987,34 @@ function ImageList({ images, onChange, onError }) {
 }
 
 const VARIANT_LABELS = {
+  // hero
   centered: "Centred",
-  split: "Photo beside",
-  banner: "Full-width photo",
+  split: "Photo right",
+  sidebyside: "Photo left",
+  banner: "Photo + card",
+  overlay: "Words on photo",
+  minimal: "Type only",
+  // services
   cards: "Cards",
   list: "List",
   numbered: "Numbered",
+  tiles: "Filled tiles",
+  alternating: "Alternating rows",
+  // about
+  simple: "Text only",
+  withphoto: "With photo",
+  quote: "Pull quote",
+  // gallery
+  grid: "Grid",
+  masonry: "Masonry",
+  strip: "Scrolling row",
+  // testimonials
+  single: "One, large",
 };
 
 const DERIVED_NOTES = {
+  areas:
+    "Built from your Work Areas in Settings → Work Areas, so adding a town updates the site with no regeneration.",
   quoteform:
     "The form itself is built from your enabled services — the same ones the quote builder uses. Nothing to set up here.",
   booking:
@@ -831,6 +1039,10 @@ function labelFor(field) {
       author: "Who said it",
       question: "Question",
       answer: "Answer",
+      title: "Step name",
+      caption: "What this job was",
+      sub: "One line under the heading",
+      buttonLabel: "Button text",
     }[field] || field
   );
 }

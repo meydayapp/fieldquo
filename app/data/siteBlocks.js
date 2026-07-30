@@ -26,6 +26,13 @@
 // a page that renders differently depending on whose browser saved it is a
 // class of bug worth designing out.
 
+import {
+  availabilityFor,
+  validateComposition,
+  compositionFromData,
+  sectionsForPreset,
+} from "@/lib/site/composition";
+
 /**
  * type      — stored on the block, used by the renderer and the editor
  * label     — what the editor calls it
@@ -59,14 +66,19 @@ export const BLOCK_TYPES = {
     required: true,
     editable: ["headline", "subhead", "ctaLabel"],
     image: "backgroundImage",
-    // centered — text over a wash or a full-bleed photo. Safe everywhere,
-    //            and the only one that looks deliberate with no image at all.
-    // split    — text beside the photo on desktop, stacked on mobile. Best
-    //            when they have one good photo and a lot to say.
-    // banner   — full-bleed photo with the words in a card over it. Strongest
-    //            with a wide action shot; needs an image or it degrades to
-    //            centered.
-    variants: ["centered", "split", "banner"],
+    // centered  — text over a wash or a full-bleed photo. Safe everywhere, and
+    //             the only one that looks deliberate with no image at all.
+    // split     — text beside the photo on desktop, stacked on mobile. Best
+    //             when they have one good photo and a lot to say.
+    // banner    — full-bleed photo, words in a card over it. Needs an image.
+    // overlay   — full-bleed photo, words directly on it with a scrim. Needs an
+    //             image. Reads as a magazine cover rather than a brochure.
+    // sidebyside— photo LEFT, text right: the mirror of split. Trivial to add
+    //             and one of the cheapest ways to make two sites differ, since
+    //             the eye reads the flip immediately.
+    // minimal   — type only, enormous, no photo even if one exists. For a
+    //             company whose headline is the whole pitch.
+    variants: ["centered", "split", "banner", "overlay", "sidebyside", "minimal"],
     defaults: {
       headline: "",
       subhead: "",
@@ -85,12 +97,15 @@ export const BLOCK_TYPES = {
     repeats: "items",
     editable: ["heading", "intro"],
     itemEditable: ["name", "description"],
-    // cards    — a two-column grid. Good for four to eight short entries.
-    // list     — one column, rules between, bigger names. Good for two or
-    //            three services with real descriptions.
-    // numbered — the same grid with accent numerals. Good when the services
-    //            read as a sequence rather than a menu.
-    variants: ["cards", "list", "numbered"],
+    // cards      — two/three-column grid. Four to eight short entries.
+    // list       — one column, rules between, bigger names. Two or three with
+    //              real descriptions.
+    // numbered   — the grid with accent numerals, for services that read as a
+    //              sequence rather than a menu.
+    // tiles      — filled accent tiles. Loud; pairs with the bold style.
+    // alternating— full-width rows alternating text side. Slow and editorial;
+    //              only sensible for three or fewer.
+    variants: ["cards", "list", "numbered", "tiles", "alternating"],
     defaults: { heading: "What we do", intro: "", items: [], variant: "cards" },
   },
 
@@ -99,7 +114,11 @@ export const BLOCK_TYPES = {
     required: false,
     editable: ["heading", "body"],
     image: "image",
-    defaults: { heading: "About us", body: "", image: null },
+    // simple — prose in a readable column.
+    // withphoto — prose beside the photo (falls back to simple with no image).
+    // quote — the first sentence pulled out large, like a pull-quote.
+    variants: ["simple", "withphoto", "quote"],
+    defaults: { heading: "About us", body: "", image: null, variant: "simple" },
   },
 
   gallery: {
@@ -111,7 +130,12 @@ export const BLOCK_TYPES = {
     // automatically — job photos live on jobs, not in a marketing library.
     // Left empty rather than padded with stock photography, which reads as a
     // company that has no photos of its own work.
-    defaults: { heading: "Our work", intro: "", images: [] },
+    // grid    — even squares. Safe with any number of photos.
+    // masonry — staggered heights; looks curated, needs 4+.
+    // strip   — one horizontal scrolling row. Best on a phone, and the only
+    //           variant that stays good with exactly two or three photos.
+    variants: ["grid", "masonry", "strip"],
+    defaults: { heading: "Our work", intro: "", images: [], variant: "grid" },
   },
 
   testimonials: {
@@ -120,7 +144,12 @@ export const BLOCK_TYPES = {
     repeats: "items",
     editable: ["heading"],
     itemEditable: ["quote", "author"],
-    defaults: { heading: "What clients say", items: [] },
+    // cards  — a grid of quotes.
+    // single — one quote, very large. Strongest when there is only one good one,
+    //          which is the common case for a company just starting out.
+    // strip  — a horizontal scrolling row of narrow cards.
+    variants: ["cards", "single", "strip"],
+    defaults: { heading: "What clients say", items: [], variant: "cards" },
   },
   // Renders nothing until the company adds a question — an empty FAQ block on a
   // page is worse than none. The editor picks it up automatically from this
@@ -196,14 +225,84 @@ export const BLOCK_TYPES = {
       showBookingLink: true,
     },
   },
+
+  // ══ Sections added so a generated page can actually look different ═════════
+  //
+  // The page used to be ten fixed sections in a fixed order. Composition is now
+  // chosen (lib/site/composition.js), and these give it something to choose
+  // between — a photo-led page and a services-led page need different parts,
+  // not the same parts shuffled.
+
+  beforeafter: {
+    label: "Before & after",
+    required: false,
+    repeats: "pairs",
+    editable: ["heading", "intro"],
+    itemEditable: ["before", "after", "caption"],
+    // The most persuasive thing a trade can show, and the reason JobVisit.photos
+    // exists. A draggable divider rather than two images side by side: side-by-side
+    // makes a viewer compare two rectangles, a slider makes them do the reveal
+    // themselves, on the same pixels, which is why every restoration company on
+    // earth uses one.
+    //
+    // `pairs` holds image URLs, so it needs its own sanitiser branch — the
+    // generic itemEditable path would let a javascript: URL through as a string.
+    imagePair: ["before", "after"],
+    defaults: { heading: "Before & after", intro: "", pairs: [] },
+  },
+
+  process: {
+    label: "How it works",
+    required: false,
+    repeats: "steps",
+    editable: ["heading", "intro"],
+    itemEditable: ["title", "body"],
+    // Copy, not claims. The model may describe stages of the work; it is
+    // instructed never to attach a timeline, a price or a guarantee to one,
+    // because those are commitments the company would have to honour.
+    defaults: { heading: "How it works", intro: "", steps: [] },
+  },
+
+  areas: {
+    label: "Areas we serve",
+    required: false,
+    editable: ["heading", "intro"],
+    // Derived from the company's own WorkArea rows. Never a typed list, because
+    // a typed list of towns is the first thing to go stale, and a homeowner in a
+    // town you quietly dropped is a wasted call for both of you.
+    derived: true,
+    defaults: { heading: "Areas we serve", intro: "" },
+  },
+
+  cta: {
+    label: "Call to action band",
+    required: false,
+    editable: ["heading", "sub", "buttonLabel"],
+    // The only repeatable section. One line of copy and two buttons — no facts
+    // to get wrong — which makes it safe to use as the thing that breaks a long
+    // page into chapters.
+    defaults: {
+      heading: "",
+      sub: "",
+      buttonLabel: "Get a free quote",
+    },
+  },
 };
 
+// The order the editor's "add a section" menu offers, roughly the order a
+// visitor reads. NOT the order of a generated page any more — composition
+// decides that (lib/site/composition.js). Kept because the editor needs a
+// stable menu order and "whatever the last generation chose" is not one.
 export const BLOCK_ORDER = [
   "hero",
   "services",
-  "about",
+  "beforeafter",
   "gallery",
+  "about",
+  "process",
   "testimonials",
+  "cta",
+  "areas",
   // The two conversion blocks sit after the persuasion and before the footer.
   // Asking for details above the fold is how you get an empty form; asking
   // after they've seen the work is how you get a filled one.
@@ -242,76 +341,108 @@ export function makeBlock(type, content = {}) {
  * But every fact on the page is true, which is the property that matters
  * when the alternative is a model guessing at a business it's never seen.
  */
-export function siteFromCompany({ company = {}, services = [], testimonials = [] }) {
+/**
+ * A complete, publishable page built only from what FieldQuo already knows.
+ *
+ * This is the floor, not the goal: prose is thin and the hero has no headline
+ * until either the company writes one or generation fills it in. But every fact
+ * on the page is true, which is the property that matters when the alternative
+ * is a model guessing at a business it's never seen.
+ *
+ * ── It no longer returns one fixed page ────────────────────────────────────
+ *
+ * It used to build the same ten blocks in the same order for every company on
+ * the platform, and generateSite's merge() mapped over that list — so no
+ * generated site could ever have a different SHAPE from any other. That is the
+ * whole of "there's only one template".
+ *
+ * Now it takes a `sections` list (from lib/site/composition.js) and builds
+ * exactly those, in that order. With no list it derives one from what the
+ * company actually has, so even the no-AI path differs between a company with a
+ * portfolio and a company with twelve services and no photos.
+ *
+ * @param sections  ordered section keys. Already validated by the caller; keys
+ *                  with no block type are skipped rather than throwing, because
+ *                  a bad section name must not cost the company their page.
+ */
+export function siteFromCompany({
+  company = {},
+  services = [],
+  testimonials = [],
+  photos = [],
+  photoPairs = [],
+  areas = [],
+  sections = null,
+}) {
   const place = [company.city, company.province].filter(Boolean).join(", ");
 
-  const blocks = [
-    makeBlock("hero", {
+  const available = availabilityFor({
+    services,
+    testimonials,
+    photos,
+    photoPairs: photoPairs.length,
+    areas,
+    hasHours: hasHours(company.businessHours),
+  });
+
+  const chosen = sections
+    ? validateComposition(sections, available).sections
+    : sectionsForPreset(
+        compositionFromData(available, { serviceCount: services.length }),
+        available,
+      ).sections;
+
+  // Content for a section, built from data. Deliberately a lookup rather than a
+  // switch inside a loop: adding a section type means adding one entry here and
+  // one renderer case, and nothing else.
+  const CONTENT = {
+    hero: () => ({
       headline: company.name || "",
       subhead: place ? `Serving ${place} and the surrounding area.` : "",
+      backgroundImage: photos[0] || null,
     }),
-
-    makeBlock("services", {
-      items: services.slice(0, 8).map((s) => ({
-        name: s.label,
-        description: "",
+    services: () => ({
+      items: services.slice(0, 8).map((s) => ({ name: s.label, description: "" })),
+    }),
+    about: () => ({ body: "" }),
+    gallery: () => ({ images: photos.slice(0, 12) }),
+    beforeafter: () => ({
+      pairs: photoPairs.slice(0, 6).map((pair) => ({
+        before: pair.before,
+        after: pair.after,
+        caption: pair.caption || "",
       })),
     }),
-
-    makeBlock("about", {
-      body: "",
-    }),
-
-    makeBlock("gallery"),
-
-    makeBlock("testimonials", {
+    testimonials: () => ({
       items: testimonials.slice(0, 6).map((t) => ({
         quote: t.quote,
         author: [t.authorName, t.companyLabel].filter(Boolean).join(", "),
       })),
     }),
-
-    // The quote form is included for everyone: every company has enabled
-    // services, so it always has something to ask about.
-    makeBlock("quoteform", {
-      intro: "It takes about a minute, and there's no obligation.",
+    // Steps are left EMPTY here. The factual fallback has no basis for
+    // describing a company's process, and inventing four generic stages would
+    // be exactly the padding-absent-data-with-defaults failure. Generation
+    // fills them; without it the section drops out at render.
+    process: () => ({ steps: [] }),
+    areas: () => ({}),
+    faq: () => ({ items: [] }),
+    quoteform: () => ({ intro: "It takes about a minute, and there's no obligation." }),
+    booking: () => ({ intro: "Pick a time that suits you and we'll confirm by email." }),
+    hours: () => ({}),
+    cta: () => ({
+      heading: place ? `Working in ${place}?` : "Ready to get started?",
+      sub: "Tell us about the job and we'll come and take a look.",
     }),
-  ];
-
-  // ── Included only when the underlying feature is actually set up ──────────
-  //
-  // A booking calendar with no bookable times, or an hours table with no
-  // hours, is a control that does nothing — the exact failure this codebase
-  // has been swept for twice. Absent is better than empty.
-
-  // Always offered — booking works off the company slug even without a custom
-  // bookingSlug, and the renderer degrades gracefully to "no times yet" if
-  // nobody has set availability. A booking CTA is core to the pipeline the
-  // whole product serves, so it shouldn't be silently dropped.
-  blocks.push(
-    makeBlock("booking", {
-      intro: "Pick a time that suits you and we'll confirm by email.",
-    }),
-  );
-
-  if (hasHours(company.businessHours)) {
-    blocks.push(makeBlock("hours"));
-  }
-
-  // An empty FAQ, ready for the company to fill in the editor. Renders nothing
-  // publicly until it has at least one question, so it's a prompt to add
-  // content — never an empty section shipped to a visitor.
-  blocks.push(makeBlock("faq"));
-
-  blocks.push(
-    makeBlock("contact", {
+    contact: () => ({
       intro: place
         ? `Based in ${place}. Get in touch and we'll come and take a look.`
         : "Get in touch and we'll come and take a look.",
     }),
-  );
+  };
 
-  return blocks;
+  return chosen
+    .filter((key) => BLOCK_TYPES[key])
+    .map((key) => makeBlock(key, CONTENT[key] ? CONTENT[key]() : {}));
 }
 
 /**
@@ -384,8 +515,25 @@ function sanitiseContent(type, content = {}) {
             for (const k of def.itemEditable || []) {
               if (typeof item?.[k] === "string") clean[k] = item[k].slice(0, 1000);
             }
+            // Some repeated items carry IMAGE URLs, not prose — a before/after
+            // pair is two of them. The loop above would have copied them
+            // through as plain strings, which is how a `javascript:` value ends
+            // up in a src on a public page. Re-run those keys through the URL
+            // guard and drop anything that isn't http(s).
+            for (const k of def.imagePair || []) {
+              clean[k] = safeImageUrl(item?.[k]);
+            }
             return clean;
           });
+
+    // A before/after pair with only one side is not a slider. Dropping the
+    // half-pair beats rendering a divider over a blank rectangle, which reads
+    // as a broken image rather than as missing content.
+    if (def.imagePair) {
+      out[def.repeats] = out[def.repeats].filter((item) =>
+        def.imagePair.every((k) => item[k]),
+      );
+    }
   }
 
   if (type === "contact") {
