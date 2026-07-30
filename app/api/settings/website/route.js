@@ -26,6 +26,7 @@ import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
+import { siteGaps } from "@/lib/site/gaps";
 
 const COMPANY_SELECT = {
   id: true,
@@ -100,15 +101,48 @@ export async function GET(request) {
   const { member, error, status } = await requireAdmin(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const [company, site] = await Promise.all([
+  const [company, site, source] = await Promise.all([
     db.company.findUnique({
       where: { id: member.companyId },
       select: COMPANY_SELECT,
     }),
     db.companySite.findUnique({ where: { companyId: member.companyId } }),
+    loadSource(member.companyId),
   ]);
 
+  // Photos available to pair FROM: whatever was uploaded to the site's own
+  // library, plus what crews shot on job visits. One pool, so a photo doesn't
+  // have to live inside a block before it can be used.
+  const library = Array.isArray(site?.photoLibrary) ? site.photoLibrary : [];
+  const libraryUrls = library.map((p) => p?.url).filter(Boolean);
+  const photoPool = [...new Set([...libraryUrls, ...source.photos])];
+
+  // Pairs the company has CONFIRMED, read off the block. Suggestions derived
+  // from two-photo job visits are offered separately — a suggestion is not a
+  // confirmation, and the difference matters on a public page.
+  const confirmedPairs = (Array.isArray(site?.blocks) ? site.blocks : [])
+    .filter((b) => b?.type === "beforeafter")
+    .flatMap((b) => (Array.isArray(b.content?.pairs) ? b.content.pairs : []))
+    .filter((x) => x?.before && x?.after);
+
   return NextResponse.json({
+    // Only what's actually absent — see lib/site/gaps.js. The builder asks about
+    // these and nothing else; everything the company record already holds is read
+    // live and never re-requested.
+    gaps: siteGaps({
+      company: company || {},
+      services: source.services,
+      testimonials: source.testimonials,
+      photos: photoPool,
+      photoPairs: confirmedPairs,
+      hasHours: Array.isArray(company?.businessHours)
+        ? company.businessHours.some((d) => d && typeof d === "object" && !d.closed)
+        : false,
+    }),
+    photoPool,
+    suggestedPairs: source.photoPairs,
+    confirmedPairs,
+    chat: Array.isArray(site?.chat) ? site.chat : [],
     // Null until they create one. The editor uses this to decide between the
     // setup interview and the block editor.
     site: site || null,
@@ -174,6 +208,22 @@ export async function PUT(request) {
       : {}),
     ...(body.interview && typeof body.interview === "object"
       ? { interview: body.interview }
+      : {}),
+    // The conversation. Capped and shape-checked here rather than trusted: this
+    // is a Json column written from a browser, and an unbounded array would grow
+    // until the row stopped loading.
+    ...(Array.isArray(body.chat)
+      ? {
+          chat: body.chat
+            .filter((m) => m && (m.role === "user" || m.role === "assistant"))
+            .slice(-40)
+            .map((m) => ({
+              role: m.role,
+              text: String(m.text || "").slice(0, 2000),
+              at: typeof m.at === "string" ? m.at.slice(0, 40) : null,
+              ...(m.meta && typeof m.meta === "object" ? { meta: m.meta } : {}),
+            })),
+        }
       : {}),
     ...(typeof body.published === "boolean"
       ? {

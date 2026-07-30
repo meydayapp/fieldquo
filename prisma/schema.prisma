@@ -2342,6 +2342,24 @@ model CompanySite {
   updatedAt DateTime @updatedAt
 
   @@index([published])
+
+  // The conversation. Lovable-style iteration means the thread IS the interface:
+  // what you asked for, what was built, and what it still needs. Kept so
+  // reopening the builder shows the history rather than a blank box that has
+  // forgotten everything you told it.
+  //
+  // [{ role: "user"|"assistant", text, at, meta? }] — capped in the route.
+  chat Json?
+
+  // Photo library for the site, independent of any one block.
+  //
+  // Before/after pairing needs a pool to pair FROM: you upload six photos and
+  // then say which two go together. Storing them only inside a gallery block
+  // meant an unpaired photo had nowhere to live, which is why "I can upload 3, 4,
+  // 6 — how will it know which is which" had no answer.
+  //
+  // [{ url, label?, at }]
+  photoLibrary Json?
 }
 
 // Per-company, per-trade configuration for the public instant estimator.
