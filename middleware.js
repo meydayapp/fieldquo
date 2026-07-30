@@ -48,6 +48,10 @@ const SUBDOMAIN_PASSTHROUGH = [
   "/embed",
   "/q",
   "/portal",
+  // The client-facing kitchen designer. Same class as /q and /portal: a
+  // homeowner reaching it from a link on the contractor's own subdomain must
+  // get the drawing, not that tenant's marketing site.
+  "/design",
   "/refer",
 ];
 

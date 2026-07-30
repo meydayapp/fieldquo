@@ -10,6 +10,7 @@ import {
   Send,
   RefreshCw,
   Pencil,
+  Ruler,
   Link2,
   Mail,
   Loader2,
@@ -144,6 +145,25 @@ export default function QuoteDetailPage() {
       </div>
     );
 
+  // ── Is this a kitchen? ──────────────────────────────────────────────────
+  //
+  // True when the quote already carries a design, or when any of its scope
+  // groups is cabinetry work — which is how a quote that hasn't been designed
+  // yet can still open the designer and become one.
+  //
+  // Deliberately not "always show it": on a fence quote the button would open an
+  // empty room and a pricing panel for cabinetry nobody is buying. And not "only
+  // when a design exists" either — that would make the designer impossible to
+  // reach the first time.
+  //
+  // Placed after the !quote guard because it reads `quote`.
+  const isKitchen =
+    quote.quoteType === "kitchen" ||
+    quote.scopeDetails?.serviceType === "kitchen" ||
+    (quote.scopeGroups || []).some((g) =>
+      /cabinet|kitchen|countertop|remodel/.test(g.category?.key || ""),
+    );
+
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-10">
       <Link
@@ -223,6 +243,17 @@ export default function QuoteDetailPage() {
             >
               <RefreshCw size={14} /> Convert to Invoice
             </button>
+          )}
+          {/* Only offered when this quote actually IS a kitchen. Showing it on
+              a fence quote would be a button that opens an empty room and a
+              pricing panel for cabinetry nobody is buying. */}
+          {isKitchen && (
+            <Link
+              href={`/app/quotes/${id}/kitchen`}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
+            >
+              <Ruler size={14} /> Kitchen designer
+            </Link>
           )}
           <Link
             href={`/app/quotes/${id}/edit`}

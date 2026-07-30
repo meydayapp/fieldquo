@@ -853,161 +853,12 @@ function touchesWallBand(wall, rect, room) {
   }
 }
 
-/* ────────────────────────── cabinet face render ───────────────────────── */
-function CabinetFace({ x, y, w, h, el, theme }) {
-  const c = el.config || {};
-  const gap = 1.5;
-  const stroke = theme.gold;
-  const items = [];
-  const innerW = w - gap * 2;
-  const left = x + gap;
-  const pxPerIn = h / (el.height || 1); // face is `h` px tall = el.height inches
-  const drawers = c.drawers || [];
-  const doors = c.doors || 0;
-  const doorRows = doors > 0 ? c.doorRows || 1 : 0; // stacked door rows
-  const drawersAtBottom = !!c.drawersAtBottom; // pantry-style: drawers at base
-  const drawerInches = (dz) => (dz === "big" ? 11 : dz === "medium" ? 8.5 : 6);
-  const weight = (dz) => (dz === "big" ? 1.7 : dz === "medium" ? 1.4 : 1);
-  const faceTop = y + gap;
-  const faceBot = y + h - gap;
+/* ── The old outline-only CabinetFace lived here ─────────────────────────────
+   Superseded by ./CabinetFace, the painted version, which both call sites in
+   this file already used — they pass `color`, where this one wanted `theme`.
+   Removed rather than left: two components with the same name and different
+   props is how someone "fixes" a drawing by editing the copy nobody renders. */
 
-  const drawerRect = (cy, dh, key) => (
-    <g key={key}>
-      <rect
-        x={left}
-        y={cy}
-        width={innerW}
-        height={dh}
-        rx={1.5}
-        fill="none"
-        stroke={stroke}
-        strokeWidth={0.7}
-      />
-      <line
-        x1={x + w / 2 - 4}
-        y1={cy + dh / 2}
-        x2={x + w / 2 + 4}
-        y2={cy + dh / 2}
-        stroke={stroke}
-        strokeWidth={1}
-      />
-    </g>
-  );
-  // grid of door panels: `cols` side-by-side × `rows` stacked
-  const doorGrid = (ay, ah, cols, rows, kp) => {
-    if (cols <= 0 || rows <= 0 || ah <= 2) return;
-    const cw = (innerW - gap * (cols - 1)) / cols;
-    const rh = (ah - gap * (rows - 1)) / rows;
-    for (let r = 0; r < rows; r++)
-      for (let ci = 0; ci < cols; ci++) {
-        const dx = left + ci * (cw + gap);
-        const dy = ay + r * (rh + gap);
-        const handleX =
-          cols === 1 ? dx + cw - 3 : ci === 0 ? dx + cw - 3 : dx + 3;
-        const handleY =
-          rows === 1 ? dy + rh / 2 : r === 0 ? dy + rh - 6 : dy + 6;
-        items.push(
-          <g key={`${kp}_${r}_${ci}`}>
-            <rect
-              x={dx}
-              y={dy}
-              width={cw}
-              height={rh}
-              rx={1.5}
-              fill="none"
-              stroke={stroke}
-              strokeWidth={0.7}
-            />
-            <circle cx={handleX} cy={handleY} r={1} fill={stroke} />
-          </g>,
-        );
-      }
-  };
-
-  // 1) drawer-only face → drawers fill the WHOLE height (4 → quarters)
-  if (!c.sink && drawers.length && doors === 0) {
-    const avail = faceBot - faceTop - gap * (drawers.length - 1);
-    const wsum = drawers.reduce((s, d) => s + weight(d), 0) || 1;
-    let cy = faceTop;
-    drawers.forEach((dz, i) => {
-      const dh = avail * (weight(dz) / wsum);
-      items.push(drawerRect(cy, dh, `dr${i}`));
-      cy += dh + gap;
-    });
-    return <g>{items}</g>;
-  }
-
-  // 2) sink base → basin band on top, doors below
-  if (c.sink) {
-    const basinH = Math.min(9 * pxPerIn, h * 0.32);
-    items.push(
-      <g key="sink">
-        <rect
-          x={left}
-          y={faceTop}
-          width={innerW}
-          height={basinH}
-          rx={2}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={0.7}
-          opacity={0.9}
-        />
-        <ellipse
-          cx={x + w / 2}
-          cy={faceTop + basinH / 2}
-          rx={innerW * 0.3}
-          ry={basinH * 0.3}
-          fill="none"
-          stroke={stroke}
-          strokeWidth={0.6}
-          opacity={0.6}
-        />
-      </g>,
-    );
-    const ay = faceTop + basinH + gap;
-    doorGrid(ay, faceBot - ay, doors, doorRows, "door");
-    return <g>{items}</g>;
-  }
-
-  // 3) drawers + doors → drawers as inch-tall bands; doors fill the rest.
-  //    drawersAtBottom (pantry) puts the drawer stack at the base.
-  if (drawers.length) {
-    const innerGaps = gap * (drawers.length - 1);
-    let raw = drawers.map((d) => drawerInches(d) * pxPerIn);
-    let sum = raw.reduce((a, b) => a + b, 0);
-    const maxStackInner = faceBot - faceTop - gap - 10 * pxPerIn; // keep ≥10" for doors
-    if (sum + innerGaps > maxStackInner && maxStackInner > innerGaps) {
-      const sf = (maxStackInner - innerGaps) / sum;
-      raw = raw.map((r) => r * sf);
-      sum = raw.reduce((a, b) => a + b, 0);
-    }
-    const stackH = sum + innerGaps;
-
-    const placeStack = (startY) => {
-      let cy = startY;
-      raw.forEach((dh, i) => {
-        items.push(drawerRect(cy, dh, `dr${i}`));
-        cy += dh + gap;
-      });
-    };
-
-    if (drawersAtBottom) {
-      const drawerTop = faceBot - stackH;
-      doorGrid(faceTop, drawerTop - gap - faceTop, doors, doorRows, "door");
-      placeStack(drawerTop);
-    } else {
-      placeStack(faceTop);
-      const ay = faceTop + stackH + gap;
-      doorGrid(ay, faceBot - ay, doors, doorRows, "door");
-    }
-    return <g>{items}</g>;
-  }
-
-  // 4) doors only (single, double, or stacked rows)
-  doorGrid(faceTop, faceBot - faceTop, doors, doorRows, "door");
-  return <g>{items}</g>;
-}
 
 /* ──────────────────────────── main component ──────────────────────────── */
 /**
@@ -1034,7 +885,7 @@ export default function KitchenDesigner({
   const grid = dark ? "#ffffff10" : "#11182710";
   const surface = `${theme.text}0a`; // faint tint that reads on light & dark
   const surfaceSoft = `${theme.text}06`;
-  const [room, setRoom] = useState(
+  const [room, setRoomRaw] = useState(
     value?.room || {
       width: 144,
       depth: 120,
@@ -1047,9 +898,9 @@ export default function KitchenDesigner({
       },
     },
   );
-  const [elements, setElements] = useState(value?.elements || []);
+  const [elements, setElementsRaw] = useState(value?.elements || []);
   // ancillary config: pricing + modules (seeded from value, editable here, saved upstream)
-  const [cfg, setCfg] = useState(() => ({
+  const [cfg, setCfgRaw] = useState(() => ({
     supplyMode: value?.supplyMode || "supply_install",
     // ── Whose prices are these ─────────────────────────────────────────────
     //
@@ -1097,6 +948,28 @@ export default function KitchenDesigner({
       ...(value?.finish || {}),
     },
   }));
+
+  // ── readOnly, enforced at the setter ───────────────────────────────────
+  //
+  // Wrapping the three state setters rather than guarding the dozen call sites
+  // that use them. Every edit in this component — adding a box, dragging one,
+  // editing the inspector, resizing the room, toggling a pricing module — ends
+  // in one of these three, so this is a choke point rather than a checklist.
+  //
+  // A checklist is what fails: the toolbar is hidden below, and if that were the
+  // whole guard then dragging a cabinet on a SENT quote would still silently
+  // reprice it. Guarding here also means code added later is covered by
+  // default rather than by someone remembering.
+  const guard = useCallback(
+    (setter) => (updater) => {
+      if (readOnly) return;
+      setter(updater);
+    },
+    [readOnly],
+  );
+  const setElements = useMemo(() => guard(setElementsRaw), [guard]);
+  const setRoom = useMemo(() => guard(setRoomRaw), [guard]);
+  const setCfg = useMemo(() => guard(setCfgRaw), [guard]);
 
   const [islandSide, setIslandSide] = useState("front");
 
@@ -2007,6 +1880,10 @@ export default function KitchenDesigner({
                 <input
                   type="number"
                   inputMode="numeric"
+                  // setRoom is guarded, so typing here would already do nothing.
+                  // Disabled as well: a field that accepts keystrokes and
+                  // discards them reads as a bug, not as a closed quote.
+                  disabled={readOnly}
                   value={wallLength(w.id, room)}
                   onChange={(e) => {
                     const length = Math.max(12, parseInt(e.target.value) || 0);
@@ -2049,6 +1926,7 @@ export default function KitchenDesigner({
                 <input
                   type="number"
                   inputMode="numeric"
+                  disabled={readOnly}
                   value={wallCeiling(w.id, room)}
                   onChange={(e) => {
                     const ceiling = Math.max(12, parseInt(e.target.value) || 0);
@@ -2109,7 +1987,12 @@ export default function KitchenDesigner({
           </ViewTab>
         )}
       </div>
-      {/* paint colour — drives every door & drawer fill live */}
+      {/* Paint colour — drives every door and drawer fill live.
+
+          Hidden when read-only for the same reason as the palette: setCfg is
+          guarded, so these swatches would change nothing. On a closed quote the
+          colour shown IS the colour agreed. */}
+      {!readOnly && (
       <div
         style={{
           display: "flex",
@@ -2198,6 +2081,7 @@ export default function KitchenDesigner({
           />
         </label>
       </div>
+      )}
       {islandView && selectedIsland && (
         <div
           style={{
@@ -2232,7 +2116,14 @@ export default function KitchenDesigner({
         </div>
       )}
 
-      {/* palette — grouped, horizontally scrollable on phones */}
+      {/* palette — grouped, horizontally scrollable on phones.
+
+          Hidden when read-only. The setters are guarded above, so leaving it
+          visible would be a row of buttons that do nothing — which is worse
+          than not offering them: the person clicking concludes the app is
+          broken rather than that the quote is closed. The banner on the page
+          above says why. */}
+      {!readOnly && (
       <div
         style={{
           display: "flex",
@@ -2282,6 +2173,7 @@ export default function KitchenDesigner({
           </div>
         ))}
       </div>
+      )}
 
       {/* drawing surface */}
       <div
