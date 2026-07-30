@@ -1328,6 +1328,10 @@ model ReferralLink {
   client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   code          String   @unique
   referredCount Int      @default(0)
+  // Never read: whether a referral reward was actually issued is derived at read
+  // time in /api/settings/referral from Stripe credit records instead (see
+  // `rewarded` there), which is the more truthful source. This column can go out
+  // of step with reality and nothing would notice, so nothing consults it.
   rewardIssued  Boolean  @default(false)
   createdAt     DateTime @default(now())
 }
@@ -1821,6 +1825,18 @@ model Debt {
   createdAt      DateTime @default(now())
 }
 
+// ── Twelve of these thirteen columns are unused ─────────────────────────────
+//
+// `jobsPerWeekCapacity` is read by lib/analytics/minimumPrice.js and set from
+// /app/settings/overhead. Every other column here is written by nothing and read
+// by nothing: no route accepts them, no screen shows them, no calculation
+// consumes them. They are a forecasting model that was scaffolded and never
+// built on.
+//
+// Left in place rather than dropped — the defaults are considered and someone
+// clearly intended a forecasting feature — but do NOT put them on a settings
+// form until something reads them. A form whose inputs save and change nothing
+// is the exact failure this codebase keeps being swept for; see AGENTS.md.
 model ForecastSettings {
   id                  String    @id @default(cuid())
   companyId           String    @unique

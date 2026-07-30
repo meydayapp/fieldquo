@@ -110,11 +110,18 @@ const Section = ({ children, alt, theme, wide, id, S }) => {
       id={id}
       className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`}
       style={{
-        // accentUse "detail" keeps the brand colour for accents only, so its
-        // bands are a neutral page grey instead of a brand tint.
-        ...(banded
-          ? { backgroundColor: S?.accentUse === "detail" ? theme.page : theme.accentWash }
-          : null),
+        // Always accentWash, never theme.page.
+        //
+        // `accentUse: "detail"` originally put a neutral page grey here. It
+        // measured at 4.40:1 for inkMuted against every brand colour tested —
+        // because inkMuted is contrast-checked against PAPER, and theme.page is
+        // a shade darker. inkMutedOnWash exists precisely because a wash costs
+        // that ~0.1, and a second background with no measured ink pair
+        // reintroduced the bug the theme file was written to kill.
+        //
+        // So "detail" is expressed where it cannot fail a contrast check
+        // instead: see CtaBand, which fills with ink rather than the brand.
+        ...(banded ? { backgroundColor: theme.accentWash } : null),
         ...(divider === "hairline" ? { borderTop: `1px solid ${theme.border}` } : null),
         ...(divider === "thick" ? { borderTop: `3px solid ${theme.ink}` } : null),
       }}
@@ -1075,25 +1082,33 @@ function CtaBand({ block, company, theme, fill, S }) {
   const { heading, sub, buttonLabel } = block.content;
   if (!heading && !sub) return null;
 
+  // This is where `accentUse` lives. A style that says "brand colour for details
+  // only" gets an INK band rather than a brand-coloured one — a real and obvious
+  // visual difference between, say, Minimal and Bold, expressed as a choice
+  // between two pairs that are both already contrast-measured. The alternative
+  // (a third background colour) is how the 4.40:1 bug above happened.
+  const band =
+    S?.accentUse === "detail" ? { bg: theme.ink, fg: "#ffffff" } : fill;
+
   const quoteHref = company?.slug ? `/quote/${company.slug}` : null;
   const bookHref = company?.bookingSlug || company?.slug ? `/book/${company.bookingSlug || company.slug}` : null;
 
-  // A filled band in the brand colour. fill.bg/fg is the MEASURED pair from
+  // A filled band in the brand colour. band.bg/fg is the MEASURED pair from
   // lib/documents/theme.js, not "is it dark, use white" — a mid-grey or yellow
   // brand needs the fill moved rather than the text, and that maths lives there.
   return (
-    <section className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`} style={{ backgroundColor: fill.bg }}>
+    <section className={`px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`} style={{ backgroundColor: band.bg }}>
       <div className="max-w-4xl mx-auto text-center">
         {heading && (
           <h2
             className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold"} leading-[1.08]`}
-            style={{ color: fill.fg, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
+            style={{ color: band.fg, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
           >
             {heading}
           </h2>
         )}
         {sub && (
-          <p className="mt-4 text-lg leading-relaxed max-w-2xl mx-auto" style={{ color: fill.fg, opacity: 0.9 }}>
+          <p className="mt-4 text-lg leading-relaxed max-w-2xl mx-auto" style={{ color: band.fg, opacity: 0.9 }}>
             {sub}
           </p>
         )}
@@ -1102,7 +1117,7 @@ function CtaBand({ block, company, theme, fill, S }) {
             <a
               href={quoteHref}
               className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold ${S?.pill || "rounded-full"}`}
-              style={{ backgroundColor: fill.fg, color: fill.bg }}
+              style={{ backgroundColor: band.fg, color: band.bg }}
             >
               <FileText size={16} /> {buttonLabel || "Get a free quote"}
             </a>
@@ -1111,7 +1126,7 @@ function CtaBand({ block, company, theme, fill, S }) {
             <a
               href={bookHref}
               className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold border-2 ${S?.pill || "rounded-full"}`}
-              style={{ borderColor: fill.fg, color: fill.fg }}
+              style={{ borderColor: band.fg, color: band.fg }}
             >
               <CalendarDays size={16} /> Book a visit
             </a>
