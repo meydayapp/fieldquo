@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 29 July 2026. **Update this file when you finish something.**
+Last updated: 30 July 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -122,7 +122,31 @@ and the actual answer to "what if a site gets a lot of traffic". Switching to
 Interacts with the `?preview=1` draft mode added for the editor — the preview
 path must stay dynamic while the public path caches.
 
-### 5. Smaller open items
+### 5. Found by audit — not yet done
+
+- **`ForecastSettings` has 13 columns and 1 consumer.** `jobsPerWeekCapacity` is
+  now settable on `/app/settings/overhead` and drives the minimum-price figure
+  there. The other twelve (conversion rates, curve coefficients, smoothing
+  alpha) are written by nothing and read by nothing. Annotated in the schema —
+  do not put them on a form until something reads them.
+- **`Testimonial.featured` is a sort key nothing can set**, so ordering by
+  "featured" is inert. Either add the toggle where testimonials are managed or
+  drop the `orderBy` in `/api/settings/website`.
+- **Redundant boolean state**: `Quote.clientDesignSaved` (use `clientDesignAt`)
+  and `PamphletStop.spokeToOwner` (use `status === "spoke"`). Both written, never
+  read, able to disagree with the field that is read.
+- **Three pay-rate paths disagree.** `AddEmployeeModal` → `quick-add` writes
+  `Worker.hourlyRate` (payroll reads it). The New User page → `/api/settings/members`
+  writes `Member.laborCostPerHour` and no Worker at all. `/settings/overhead` →
+  `/api/salaries` writes `Salary` rows with `workerId: null`, and `buildPayRun`
+  reads salaries PER WORKER — so an overhead salary never reaches a payslip. The
+  overhead page now says so; the two settings paths should converge.
+- **Payroll/HR still to build**: payslip translations, shift management beyond
+  `WorkingHours`, expense-claim approval workflow, employee lifecycle,
+  appraisals, loans/advances, year-end forms (T4/W-2/P60), geolocation on
+  check-in.
+
+### 6. Smaller open items
 
 - `app/(marketing)` copy is still hardcoded English. The i18n catalog exists;
   the marketing site was never extracted into keys.
@@ -137,6 +161,47 @@ path must stay dynamic while the public path caches.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Website generation is composition-driven** — the reason every generated site
+  used to look identical was not the prompt. `siteFromCompany()` returned one
+  hardcoded list of ten blocks in one hardcoded order and `merge()` mapped over
+  it, so the section set and order were unreachable from anything a company
+  typed. Now:
+  - `lib/site/composition.js` — the model returns an ordered list of section keys
+    from a closed vocabulary; `validateComposition` clamps it (unknown names
+    dropped, hero first, contact last, cta may repeat but never twice running,
+    and any section the company has no DATA for is refused). Five hand-designed
+    page shapes; the no-AI path picks one from the company's own data so it
+    varies too.
+  - Hero 6 variants, services 5, plus variants on about/gallery/testimonials.
+    Seven design systems that move header behaviour, accent usage, shape
+    language, heading alignment and section rhythm — not five tokens.
+  - New sections: before/after slider, process, areas-served, CTA band.
+  - `app/site/[subdomain]/BeforeAfter.js` — draggable comparison. Reveal is
+    clip-path (no DOM measurement, so no hydration mismatch and it reflows for
+    free); the control is an invisible range input so keyboard, touch and screen
+    readers work; the AFTER image is a plain `<img>` so JS-off shows finished
+    work. Pairs come from JobVisit visits with EXACTLY two photos — nothing in
+    the schema flags before vs after, and a page calling a finished kitchen the
+    "before" is worse than no slider.
+  - **Live data, not snapshots**: services reconcile against currently-enabled
+    categories every request (list from the DB, blurbs from the block), an empty
+    gallery fills from job photos, an empty slider from two-photo visits,
+    WorkArea rows drive areas-served. Enable a trade and the public page
+    advertises it without regenerating.
+  - **`html { @apply font-serif }` with `--font-serif: var(--font-serif)`** — a
+    variable defined as itself, resolving to nothing. The entire back office and
+    every tenant website rendered in Times New Roman while Geist sat loaded and
+    unused. Fixed; `serif` is now a deliberate choice two styles make.
+
+- **Mobile** — 35 of 72 `/app` pages had zero breakpoints. The worst was one
+  line: `settings/layout.js` kept `SettingsSidebar` at `w-64 shrink-0` at every
+  width, leaving 119px of a 375px phone for ~28 settings screens. Both sidebars
+  now have mobile drawers, `AdminSidebar`'s floating hamburger became a sticky
+  `h-14` bar (it used to sit on top of every page's `<h1>`), quote and invoice
+  line items stack via `sm:contents`, the schedule week scrolls sideways, and 55
+  page roots went from a fixed `p-6` to `p-4 sm:p-6`. Verified in a browser at
+  375px and 1280px.
 
 - **Payroll + leave/PTO (HR foundation)** — FieldQuo *calculates and records*
   pay; the company pays through its own bank or provider. Nothing here moves
