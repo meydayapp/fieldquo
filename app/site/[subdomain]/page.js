@@ -218,6 +218,26 @@ export default async function CompanySitePage({ params, searchParams }) {
     }
   }
 
+  // The `feature` services variant needs a photo per row. Threaded from the same
+  // pool the gallery uses rather than asking the company to upload twice — and
+  // without this the variant silently fell back to text-only rows, which is a
+  // layout choice that looks available and isn't.
+  const featureServices = blocks.some(
+    (b) => b.type === "services" && b.visible !== false && b.content?.variant === "feature",
+  );
+  if (featureServices) {
+    const pool = await recentJobPhotos(site.companyId, 8);
+    const gallery = blocks.find((b) => b.type === "gallery")?.content?.images || [];
+    const images = [...new Set([...gallery, ...pool])];
+    if (images.length) {
+      blocks = blocks.map((b) =>
+        b.type === "services" && b.content?.variant === "feature"
+          ? { ...b, content: { ...b.content, featureImages: images } }
+          : b,
+      );
+    }
+  }
+
   // Company map: workAreas arrives on `company` and the areas block reads it
   // from there, so nothing needs to be threaded separately into SiteBlocks.
 

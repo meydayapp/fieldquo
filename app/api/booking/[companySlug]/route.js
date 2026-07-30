@@ -16,6 +16,9 @@ export async function GET(request, { params }) {
     brandColor: true,
     phone: true,
     email: true,
+    // Which ways a client may meet them. Public on purpose — the visitor has to
+    // choose one before booking.
+    bookingModes: true,
     eventTypes: {
       where: { active: true },
       select: {

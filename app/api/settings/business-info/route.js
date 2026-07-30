@@ -99,6 +99,7 @@ export async function GET(request) {
       // JSON-LD — which is what puts opening hours in a Google result.
       businessHours: true,
       defaultVisitMinutes: true,
+      bookingModes: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -160,6 +161,7 @@ export async function PATCH(request) {
     weekStartsOn,
     businessHours,
     defaultVisitMinutes,
+    bookingModes,
     sitePublished,
   } = body;
 
@@ -248,6 +250,15 @@ export async function PATCH(request) {
       // computeAvailability emit infinite slots, and a 10-hour one emits none.
       ...(defaultVisitMinutes !== undefined && {
         defaultVisitMinutes: Math.min(480, Math.max(10, Number(defaultVisitMinutes) || 60)),
+      }),
+      // Filtered to the known set, and never allowed to be empty: a company with
+      // no bookable modes has a booking page that cannot be completed. Falls back
+      // to a site visit, which is the default for a field trade.
+      ...(Array.isArray(bookingModes) && {
+        bookingModes: (() => {
+          const clean = bookingModes.filter((m) => ["call", "visit", "video"].includes(m));
+          return clean.length ? clean : ["visit"];
+        })(),
       }),
       ...(currency !== undefined && { currency }),
       // Normalised on the way in, not trusted. This column is read by the

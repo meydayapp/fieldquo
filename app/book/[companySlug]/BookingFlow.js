@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Clock,
   MapPin,
+  Phone,
   ArrowLeft,
   Loader2,
   Check,
@@ -23,19 +24,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function isoDate(d) {
   // Local date, not toISOString() — that converts to UTC first, so anyone
   // west of Greenwich gets yesterday's date after 5pm.
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function startOfWeek(d) {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  out.setDate(out.getDate() - out.getDay());
-  return out;
 }
 
 export default function BookingFlow({ companySlug, initialEventSlug }) {
@@ -48,9 +40,22 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   // people picker; each member's consultation event is what actually gets
   // booked, so selecting one just sets the matching eventType.
   const [members, setMembers] = useState([]);
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [slots, setSlots] = useState({});
   const [slotsLoading, setSlotsLoading] = useState(false);
+  // Which month the calendar is showing, and which day was tapped.
+  //
+  // Replaces a week-at-a-time list that rendered EVERY slot for EVERY day at
+  // once: 8am–5pm at 15-minute increments is ~36 buttons a day, so a week was
+  // ~180 buttons on one screen. Nobody scans 180 buttons — they pick a day
+  // first, which is what a calendar is for.
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const n = new Date();
+    return new Date(Date.UTC(n.getFullYear(), n.getMonth(), 1));
+  });
+  const [chosenDay, setChosenDay] = useState(null);
+  // How the client wants to meet. Only asked when the company offers a choice —
+  // a segmented control with one option is a label pretending to be a control.
+  const [mode, setMode] = useState(null);
   const [chosen, setChosen] = useState(null);
 
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
@@ -105,12 +110,27 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     };
   }, [companySlug, initialEventSlug]);
 
+  useEffect(() => {
+    const offered = company?.bookingModes?.length ? company.bookingModes : ["visit"];
+    setMode((m) => m || offered[0]);
+  }, [company]);
+
   const loadSlots = useCallback(async () => {
     if (!eventType) return;
     setSlotsLoading(true);
     try {
-      const from = isoDate(weekStart);
-      const to = isoDate(new Date(weekStart.getTime() + 6 * DAY_MS));
+      // A whole month per request, not a week.
+      //
+      // The calendar needs to know which DAYS have anything free before you pick
+      // one, so a week's worth of data can't fill it. One request per month view
+      // is also fewer round trips than one per week for the same browsing.
+      const first = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth(), 1));
+      const last = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 0));
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      // Never ask for the past — it can only return nothing.
+      const from = isoDate(first < today ? today : first);
+      const to = isoDate(last);
       const res = await fetch(
         `/api/booking/${companySlug}/availability?eventTypeSlug=${encodeURIComponent(
           eventType.slug,
@@ -123,28 +143,66 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     } finally {
       setSlotsLoading(false);
     }
-  }, [companySlug, eventType, weekStart]);
+  }, [companySlug, eventType, monthCursor]);
 
   useEffect(() => {
     loadSlots();
   }, [loadSlots]);
 
-  const days = useMemo(() => {
+  // The month as a 7-column grid, padded so the 1st lands on the right weekday.
+  const monthGrid = useMemo(() => {
+    const y = monthCursor.getUTCFullYear();
+    const m = monthCursor.getUTCMonth();
+    const firstDow = new Date(Date.UTC(y, m, 1)).getUTCDay();
+    const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date(weekStart.getTime() + i * DAY_MS);
-      return {
-        date,
-        key: isoDate(date),
-        past: date < today,
-        times: slots[isoDate(date)] || [],
-      };
-    });
-  }, [weekStart, slots]);
 
-  const atCurrentWeek =
-    weekStart.getTime() <= startOfWeek(new Date()).getTime();
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(y, m, d);
+      const key = isoDate(date);
+      const times = slots[key] || [];
+      cells.push({ date, key, day: d, past: date < today, count: times.length });
+    }
+    return cells;
+  }, [monthCursor, slots]);
+
+  // Times for the tapped day, split into parts of the day.
+  //
+  // Even one day can be 36 slots; "Morning / Afternoon / Evening" makes that
+  // scannable instead of a wall. Empty groups are dropped rather than shown as
+  // headings over nothing.
+  const dayTimes = useMemo(() => {
+    if (!chosenDay) return [];
+    const list = slots[chosenDay] || [];
+    const groups = [
+      { label: "Morning", until: 12, times: [] },
+      { label: "Afternoon", until: 17, times: [] },
+      { label: "Evening", until: 24, times: [] },
+    ];
+    for (const iso of list) {
+      const h = new Date(iso).getHours();
+      (groups.find((g) => h < g.until) || groups[2]).times.push(iso);
+    }
+    return groups.filter((g) => g.times.length);
+  }, [chosenDay, slots]);
+
+  const monthHasAny = monthGrid.some((c) => c && !c.past && c.count > 0);
+  const atCurrentMonth = (() => {
+    const n = new Date();
+    return (
+      monthCursor.getUTCFullYear() === n.getFullYear() &&
+      monthCursor.getUTCMonth() === n.getMonth()
+    );
+  })();
+  const shiftMonth = (by) => {
+    setChosenDay(null);
+    setMonthCursor(
+      (c) => new Date(Date.UTC(c.getUTCFullYear(), c.getUTCMonth() + by, 1)),
+    );
+  };
 
   async function submit(e) {
     e.preventDefault();
@@ -160,6 +218,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           clientName: form.name.trim(),
           clientEmail: form.email.trim(),
           clientPhone: form.phone.trim() || null,
+          mode,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -338,76 +397,164 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               <h2 className="font-semibold text-[#2d2520]">{eventType.name}</h2>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-sm font-semibold text-[#2d2520] tabular-nums">
+                {monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}
+              </span>
               <button
-                onClick={() =>
-                  setWeekStart(new Date(weekStart.getTime() - 7 * DAY_MS))
-                }
-                disabled={atCurrentWeek}
+                onClick={() => shiftMonth(-1)}
+                disabled={atCurrentMonth}
                 className="p-1.5 rounded-lg border border-black/10 disabled:opacity-30"
-                aria-label="Previous week"
+                aria-label="Previous month"
               >
                 <ChevronLeft size={14} />
               </button>
               <button
-                onClick={() =>
-                  setWeekStart(new Date(weekStart.getTime() + 7 * DAY_MS))
-                }
+                onClick={() => shiftMonth(1)}
                 className="p-1.5 rounded-lg border border-black/10"
-                aria-label="Next week"
+                aria-label="Next month"
               >
                 <ChevronRight size={14} />
               </button>
             </div>
           </div>
 
+          {/* ── How would you like to meet? ──────────────────────────────────
+              EventType.location was free text ("Phone or on-site visit"), which
+              is a label, not a choice: the visitor couldn't say which they
+              wanted and the crew found out on the day. A roofer doing a
+              satellite estimate wants calls; a cabinet maker measuring a kitchen
+              needs to be in the room. Both is common, so the company says which
+              it offers and the client picks. */}
+          {(company.bookingModes?.length || 0) > 1 && (
+            <div className="mb-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-1.5">
+                How would you like to meet?
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {company.bookingModes.map((m) => {
+                  const label =
+                    m === "call" ? "Phone call" : m === "video" ? "Video call" : "Visit my place";
+                  const Icon = m === "visit" ? MapPin : Phone;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => setMode(m)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        mode === m
+                          ? "bg-[#2d2520] text-white border-[#2d2520]"
+                          : "bg-white border-black/15 text-[#2d2520] hover:border-black/40"
+                      }`}
+                    >
+                      <Icon size={13} /> {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {slotsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-[#2d2520]/50 py-8 justify-center">
+            <div className="flex items-center gap-2 text-sm text-[#2d2520]/50 py-10 justify-center">
               <Loader2 size={15} className="animate-spin" /> Finding times…
             </div>
-          ) : days.every((d) => d.times.length === 0) ? (
-            <div className="text-center py-8">
-              <p className="text-sm text-[#2d2520]/60">
-                Nothing free this week.
-              </p>
-              <button
-                onClick={() =>
-                  setWeekStart(new Date(weekStart.getTime() + 7 * DAY_MS))
-                }
-                className="mt-2 text-sm font-semibold underline text-[#2d2520]"
-              >
-                Try next week
-              </button>
-            </div>
           ) : (
-            <div className="space-y-4">
-              {days
-                .filter((d) => !d.past && d.times.length > 0)
-                .map((d) => (
-                  <div key={d.key}>
+            <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] sm:gap-6">
+              {/* ── Pick a day ── */}
+              <div>
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                    <div key={i} className="text-center text-[10px] font-bold uppercase text-[#2d2520]/35 py-1">
+                      {d}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {monthGrid.map((cell, i) => {
+                    if (!cell) return <div key={i} />;
+                    const free = !cell.past && cell.count > 0;
+                    const selected = chosenDay === cell.key;
+                    return (
+                      <button
+                        key={cell.key}
+                        onClick={() => free && setChosenDay(cell.key)}
+                        disabled={!free}
+                        aria-label={`${cell.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}${free ? `, ${cell.count} times available` : ", nothing available"}`}
+                        className={`relative aspect-square rounded-lg text-sm font-medium transition-colors ${
+                          selected
+                            ? "bg-[#2d2520] text-white"
+                            : free
+                              ? "bg-white border border-black/10 text-[#2d2520] hover:border-black/40"
+                              : "text-[#2d2520]/25 cursor-default"
+                        }`}
+                      >
+                        {cell.day}
+                        {/* A dot, not a count. "14 times" is noise at this size;
+                            what a visitor needs to know is "this day is open". */}
+                        {free && !selected && (
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#2d2520]/40" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!monthHasAny && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-[#2d2520]/60">Nothing free this month.</p>
+                    <button
+                      onClick={() => shiftMonth(1)}
+                      className="mt-1 text-sm font-semibold underline text-[#2d2520]"
+                    >
+                      Try next month
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Then a time, grouped ── */}
+              <div className="mt-5 sm:mt-0">
+                {!chosenDay ? (
+                  <p className="text-sm text-[#2d2520]/50 sm:pt-8">
+                    Pick a day to see the times.
+                  </p>
+                ) : (
+                  <>
                     <div className="text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-2">
-                      {d.date.toLocaleDateString(undefined, {
+                      {new Date(`${chosenDay}T12:00:00`).toLocaleDateString(undefined, {
                         weekday: "long",
                         month: "short",
                         day: "numeric",
                       })}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {d.times.map((t) => (
-                        <button
-                          key={t}
-                          onClick={() => setChosen(t)}
-                          className="px-3 py-2 rounded-lg border border-black/15 bg-white text-sm font-medium text-[#2d2520] hover:border-black/40"
-                        >
-                          {new Date(t).toLocaleTimeString(undefined, {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </button>
+                    {/* Capped height with its own scroll: a full day is still ~36
+                        times, and letting that push the calendar off the screen is
+                        the problem this rebuild exists to fix. */}
+                    <div className="space-y-3 sm:max-h-[19rem] sm:overflow-y-auto sm:pr-1">
+                      {dayTimes.map((g) => (
+                        <div key={g.label}>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#2d2520]/35 mb-1.5">
+                            {g.label}
+                          </div>
+                          <div className="grid grid-cols-3 sm:grid-cols-2 gap-1.5">
+                            {g.times.map((t) => (
+                              <button
+                                key={t}
+                                onClick={() => setChosen(t)}
+                                className="px-2 py-2 rounded-lg border border-black/15 bg-white text-sm font-medium text-[#2d2520] hover:border-black/40 tabular-nums"
+                              >
+                                {new Date(t).toLocaleTimeString(undefined, {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                ))}
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>

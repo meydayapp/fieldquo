@@ -7,6 +7,12 @@ import { reportResponseError } from "@/lib/clientErrors";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
+const MODES = [
+  { key: "visit", label: "Visit their place", hint: "You go to them" },
+  { key: "call", label: "Phone call", hint: "You ring them" },
+  { key: "video", label: "Video call", hint: "You send a link" },
+];
+
 export default function BookingPageSettings() {
   const [eventTypes, setEventTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +21,10 @@ export default function BookingPageSettings() {
   // which was hardcoded to an hour, whatever the trade.
   const [visitMinutes, setVisitMinutes] = useState(60);
   const [savingVisit, setSavingVisit] = useState(false);
+  // Which ways a client may meet them. Drives the choice on the public booking
+  // page — with one mode selected the visitor isn't asked, because a control with
+  // one option is a label.
+  const [modes, setModes] = useState(["visit"]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -32,10 +42,25 @@ export default function BookingPageSettings() {
       .then(([types, info]) => {
         setEventTypes(Array.isArray(types) ? types : []);
         if (info?.defaultVisitMinutes) setVisitMinutes(info.defaultVisitMinutes);
+        if (Array.isArray(info?.bookingModes) && info.bookingModes.length) setModes(info.bookingModes);
         setForm((f) => ({ ...f, durationMinutes: info?.defaultVisitMinutes || 60 }));
       })
       .finally(() => setLoading(false));
   }, []);
+
+  async function toggleMode(key) {
+    // Never allowed to reach zero — that would leave a booking page nobody can
+    // complete. The last remaining mode simply can't be switched off.
+    const next = modes.includes(key) ? modes.filter((m) => m !== key) : [...modes, key];
+    if (!next.length) return;
+    setModes(next);
+    const res = await fetch("/api/settings/business-info", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingModes: next }),
+    });
+    if (!res.ok) await reportResponseError(res, "Couldn't save how clients can meet you.");
+  }
 
   async function saveVisitMinutes(minutes) {
     setVisitMinutes(minutes);
@@ -145,6 +170,34 @@ export default function BookingPageSettings() {
           add their availability. Existing bookings keep the length they were made
           with.
         </p>
+        <div className="mb-5">
+          <p className="text-sm font-semibold text-foreground mb-1">
+            How can clients meet you?
+          </p>
+          <p className="text-xs text-muted-foreground mb-2.5">
+            Pick everything you offer. If you offer more than one, the client
+            chooses when they book.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {MODES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => toggleMode(m.key)}
+                title={m.hint}
+                className={`text-sm px-3 py-2 rounded-full border transition-colors ${
+                  modes.includes(m.key)
+                    ? "border-foreground bg-inverted text-inverted-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="text-sm font-semibold text-foreground mb-1">How long is a visit?</p>
         <div className="flex flex-wrap gap-1.5">
           {DURATIONS.map((m) => (
             <button

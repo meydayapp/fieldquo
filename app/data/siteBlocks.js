@@ -78,7 +78,14 @@ export const BLOCK_TYPES = {
     //             the eye reads the flip immediately.
     // minimal   — type only, enormous, no photo even if one exists. For a
     //             company whose headline is the whole pitch.
-    variants: ["centered", "split", "banner", "overlay", "sidebyside", "minimal"],
+    // editorial — asymmetric: oversized type in a narrow column, photo bleeding
+    //             off the right edge. The magazine-cover treatment.
+    //
+    // Deliberately NO "stat" variant: a hero with a numbers strip beneath it is
+    // just a hero followed by the credentials section in `strip` mode, and a
+    // variant that renders identically to `centered` is a control that looks like
+    // a choice and isn't.
+    variants: ["centered", "split", "banner", "overlay", "sidebyside", "minimal", "editorial"],
     defaults: {
       headline: "",
       subhead: "",
@@ -105,7 +112,11 @@ export const BLOCK_TYPES = {
     // tiles      — filled accent tiles. Loud; pairs with the bold style.
     // alternating— full-width rows alternating text side. Slow and editorial;
     //              only sensible for three or fewer.
-    variants: ["cards", "list", "numbered", "tiles", "alternating"],
+    // feature — full-width rows, each with a large photograph, text side
+    //           alternating. The device Montage, S-bottles and Opus all use; the
+    //           slowest and most premium option and the best one when there are
+    //           photos to spare. Falls back to `alternating` with no images.
+    variants: ["cards", "list", "numbered", "tiles", "alternating", "feature"],
     defaults: { heading: "What we do", intro: "", items: [], variant: "cards" },
   },
 
@@ -274,6 +285,33 @@ export const BLOCK_TYPES = {
     defaults: { heading: "Areas we serve", intro: "" },
   },
 
+  credentials: {
+    label: "Credentials & numbers",
+    required: false,
+    repeats: "items",
+    editable: ["heading", "intro"],
+    itemEditable: ["label", "value"],
+    // The single most persuasive missing section for a trade.
+    //
+    // "GAF Master Elite", "22 years", "1,400 roofs", "5-year workmanship
+    // warranty" — a homeowner comparing three roofers decides on exactly this,
+    // and every award-winning site in the reference set has some version of it
+    // (Morgan Stanley's stat strip, cap-hpi's numbers, ESPN's partner logos).
+    //
+    // ── Company-entered ONLY ─────────────────────────────────────────────────
+    //
+    // Every value here is a factual claim a homeowner will rely on, and several
+    // are legal ones — a certification you don't hold, a warranty length you
+    // won't honour. The model is forbidden from writing these (see the SYSTEM
+    // prompt) and the factual fallback leaves them empty. The section renders
+    // nothing until the company types them, which is the only safe default.
+    //
+    // `logo` is an optional image per item, for a manufacturer badge.
+    imagePair: ["logo"],
+    variants: ["stats", "badges", "strip"],
+    defaults: { heading: "Why us", intro: "", items: [], variant: "stats" },
+  },
+
   cta: {
     label: "Call to action band",
     required: false,
@@ -281,10 +319,18 @@ export const BLOCK_TYPES = {
     // The only repeatable section. One line of copy and two buttons — no facts
     // to get wrong — which makes it safe to use as the thing that breaks a long
     // page into chapters.
+    //
+    // flat  — filled with the brand colour (or ink, per the style's accentUse).
+    // image — full-bleed photograph with the words over it. The closing device on
+    //         most of the reference sites; needs an image or it degrades to flat.
+    variants: ["flat", "image"],
+    image: "backgroundImage",
     defaults: {
       heading: "",
       sub: "",
       buttonLabel: "Get a free quote",
+      backgroundImage: null,
+      variant: "flat",
     },
   },
 };

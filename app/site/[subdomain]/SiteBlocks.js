@@ -64,6 +64,7 @@ export default function SiteBlocks({ blocks, company, theme, fill, subdomain, st
             case "process": el = <Process {...props} />; break;
             case "areas": el = <Areas {...props} />; break;
             case "cta": el = <CtaBand {...props} />; break;
+            case "credentials": el = <Credentials {...props} />; break;
             case "services": el = <Services {...props} />; break;
             case "about": el = <About {...props} />; break;
             case "gallery": el = <Gallery {...props} />; break;
@@ -354,6 +355,44 @@ function Hero({ block, company, theme, fill, accent2, S }) {
     );
   }
 
+  // ── editorial: oversized type in a narrow column, photo bleeding off-edge ──
+  if (variant === "editorial") {
+    return (
+      <section className="relative overflow-hidden" style={{ backgroundColor: theme.paper || "#fff" }}>
+        <div className={`px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"}`}>
+          <div className="max-w-6xl mx-auto grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] gap-10 lg:gap-14 items-center">
+            <div>
+              <Eyebrow accent2={accent2}>{place || "Local & trusted"}</Eyebrow>
+              <h1
+                className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold"} max-w-[18ch]`}
+                style={{ color: theme.ink, textWrap: "balance", ...serif }}
+              >
+                {title}
+              </h1>
+              {subhead && (
+                <p className="mt-6 text-lg sm:text-xl leading-relaxed max-w-[40ch]" style={{ color: theme.inkMuted }}>
+                  {subhead}
+                </p>
+              )}
+              <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} />
+            </div>
+            {/* Bleeds past the container on the right — the asymmetry is the
+                point. -mr on desktop only; on a phone it sits normally, because
+                an image running off a 375px screen is just a cropped image. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={backgroundImage}
+              alt=""
+              className={`w-full object-cover aspect-[4/5] lg:aspect-[3/4] lg:-mr-8 xl:-mr-24 ${
+                S?.imageTreatment === "square" ? "" : "rounded-3xl"
+              }`}
+            />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // ── overlay: words directly on a full-bleed photo, no card ──
   if (variant === "overlay") {
     return (
@@ -427,6 +466,9 @@ function Hero({ block, company, theme, fill, accent2, S }) {
     );
   }
 
+  // `stat` degrades to centered here and renders its strip separately below —
+  // see the statStrip prop threaded from SiteBlocks. An empty strip would be
+  // worse than none, so it only appears when there are real numbers.
   return (
     <section className={`relative px-5 sm:px-8 ${S?.heroPad || "py-24 sm:py-32"} overflow-hidden`} style={{ backgroundColor: theme.accentWash }}>
       {backgroundImage ? (
@@ -524,7 +566,68 @@ function Services({ block, theme, fill, accent2, S }) {
     );
   }
 
-  if (variant === "alternating") {
+  if (variant === "feature") {
+    // Full-width rows, each with a large photograph, sides alternating. The
+    // device Montage, S-bottles and Opus all use — the slowest, most premium
+    // option, and the reason it's capped at four rows: this is a page you scroll
+    // slowly, and twelve of them is a chore rather than a portfolio.
+    //
+    // Images come from the GALLERY's pool, threaded on the block by the page, so
+    // a company doesn't upload the same photo twice. With none, this falls back
+    // to `alternating`, which is the same rhythm without pictures.
+    const images = Array.isArray(block.content.featureImages) ? block.content.featureImages : [];
+    if (images.length) {
+      return (
+        <Section theme={theme} wide S={S}>
+          <Heading theme={theme} eyebrow="What we do" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+            {heading}
+          </Heading>
+          <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
+          <div className="space-y-14 sm:space-y-20">
+            {items.slice(0, 4).map((item, i) => {
+              const flip = i % 2 === 1;
+              const img = images[i % images.length];
+              return (
+                <div key={i} className="grid sm:grid-cols-2 gap-8 sm:gap-12 items-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img}
+                    alt=""
+                    loading="lazy"
+                    className={`w-full object-cover aspect-[4/3] ${
+                      S?.imageTreatment === "square" ? "" : S?.radius || "rounded-2xl"
+                    } ${flip ? "sm:order-2" : ""}`}
+                  />
+                  <div className={flip ? "sm:order-1" : undefined}>
+                    <span
+                      className={`${S?.eyebrow || "text-[11px] font-bold uppercase tracking-[0.18em]"} block mb-2`}
+                      style={{ color: accent2 }}
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <h3
+                      className={S?.h2 || "text-3xl font-extrabold"}
+                      style={{ color: theme.ink, ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
+                    >
+                      {item.name}
+                    </h3>
+                    {item.description && (
+                      <p className={`${S?.body || "text-base leading-relaxed"} mt-3`} style={{ color: theme.inkMuted }}>
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      );
+    }
+    // No photos — fall through to the text-only alternating rhythm below.
+  }
+
+  if (variant === "alternating" || variant === "feature") {
     // Full-width rows, text side flipping each row. Slow and editorial; the
     // schema comment says three or fewer, and this caps at four so a company
     // that switches to it with twelve services gets a long-but-sane page rather
@@ -1076,6 +1179,95 @@ function Areas({ block, company, theme, accent2, S }) {
   );
 }
 
+/* ──────────────────── Credentials & numbers ─────────────────── */
+
+function Credentials({ block, theme, fill, accent2, S }) {
+  const { heading, intro, items, variant } = block.content;
+  const usable = (items || []).filter((i) => i?.value || i?.label || i?.logo);
+  // Empty until the company types their own. Nothing here is inferable and
+  // several of these are legal claims — see the schema note.
+  if (!usable.length) return null;
+
+  // ── badges: manufacturer logos in a row ──
+  if (variant === "badges") {
+    return (
+      <Section theme={theme} wide S={S}>
+        <Heading theme={theme} eyebrow="Credentials" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+          {heading}
+        </Heading>
+        <Intro theme={theme} center={S?.headingAlign === "center"}>{intro}</Intro>
+        <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 ${S?.gap || "gap-4"}`}>
+          {usable.map((item, i) => (
+            <div
+              key={i}
+              className={`flex flex-col items-center justify-center text-center p-5 border ${S?.radius || "rounded-2xl"}`}
+              style={{ borderColor: theme.border, backgroundColor: theme.paper || "#fff" }}
+            >
+              {item.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.logo} alt="" className="h-10 w-auto max-w-[8rem] object-contain mb-2.5" loading="lazy" />
+              ) : (
+                <ShieldCheck size={24} style={{ color: accent2 }} className="mb-2.5" />
+              )}
+              <span className="text-sm font-bold" style={{ color: theme.ink }}>{item.value || item.label}</span>
+              {item.value && item.label && (
+                <span className="text-xs mt-0.5" style={{ color: theme.inkMuted }}>{item.label}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+    );
+  }
+
+  // ── strip: a slim band, no heading. Sits directly under a hero. ──
+  if (variant === "strip") {
+    return (
+      <section className="px-5 sm:px-8 py-8 sm:py-10" style={{ backgroundColor: fill.bg }}>
+        <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6">
+          {usable.slice(0, 4).map((item, i) => (
+            <div key={i} className="text-center">
+              <div className="text-2xl sm:text-4xl font-extrabold tabular-nums" style={{ color: fill.fg }}>
+                {item.value}
+              </div>
+              <div className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider mt-1" style={{ color: fill.fg, opacity: 0.8 }}>
+                {item.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  // ── stats (default): big numerals on a wash ──
+  return (
+    <Section theme={theme} alt wide S={S}>
+      <Heading theme={theme} onWash eyebrow="By the numbers" accent2={accent2} S={S} center={S?.headingAlign === "center"}>
+        {heading}
+      </Heading>
+      <Intro theme={theme} onWash center={S?.headingAlign === "center"}>{intro}</Intro>
+      <div className={`grid grid-cols-2 lg:grid-cols-4 ${S?.gap || "gap-6"}`}>
+        {usable.map((item, i) => (
+          <div key={i}>
+            {/* The number, deliberately oversized. On the reference sites this is
+                the one place type goes bigger than the headline. */}
+            <div
+              className="text-3xl sm:text-5xl font-extrabold tracking-[-0.03em] tabular-nums"
+              style={{ color: theme.accentText, ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
+            >
+              {item.value}
+            </div>
+            <div className="text-sm mt-1.5 leading-snug" style={{ color: theme.inkMutedOnWash }}>
+              {item.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 /* ───────────────────── Call-to-action band ──────────────────── */
 
 function CtaBand({ block, company, theme, fill, S }) {
@@ -1092,6 +1284,61 @@ function CtaBand({ block, company, theme, fill, S }) {
 
   const quoteHref = company?.slug ? `/quote/${company.slug}` : null;
   const bookHref = company?.bookingSlug || company?.slug ? `/book/${company.bookingSlug || company.slug}` : null;
+
+  // ── image: full-bleed photograph, words over it ──
+  //
+  // The closing device on almost every site in the reference set. Needs an image;
+  // with none it falls through to the filled band below rather than rendering a
+  // scrim over nothing.
+  const bg = block.content.backgroundImage;
+  if (block.content.variant === "image" && bg) {
+    return (
+      <section className="relative">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={bg} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        {/* Two stops, same reasoning as the overlay hero: a flat scrim kills a
+            dark photo and still leaves white text marginal over a bright one. */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,.82), rgba(0,0,0,.45))" }} />
+        <div className={`relative px-5 sm:px-8 ${S?.sectionPad || "py-16 sm:py-24"}`}>
+          <div className="max-w-4xl mx-auto text-center">
+            {heading && (
+              <h2
+                className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold"} leading-[1.08]`}
+                style={{ color: "#fff", textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
+              >
+                {heading}
+              </h2>
+            )}
+            {sub && (
+              <p className="mt-4 text-lg leading-relaxed max-w-2xl mx-auto" style={{ color: "rgba(255,255,255,.92)" }}>
+                {sub}
+              </p>
+            )}
+            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+              {quoteHref && (
+                <a
+                  href={quoteHref}
+                  className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold ${S?.pill || "rounded-full"}`}
+                  style={{ backgroundColor: "#fff", color: theme.ink }}
+                >
+                  <FileText size={16} /> {buttonLabel || "Get a free quote"}
+                </a>
+              )}
+              {bookHref && (
+                <a
+                  href={bookHref}
+                  className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold border-2 ${S?.pill || "rounded-full"}`}
+                  style={{ borderColor: "#fff", color: "#fff" }}
+                >
+                  <CalendarDays size={16} /> Book a visit
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   // A filled band in the brand colour. band.bg/fg is the MEASURED pair from
   // lib/documents/theme.js, not "is it dark, use white" — a mid-grey or yellow

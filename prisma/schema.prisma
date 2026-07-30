@@ -448,6 +448,19 @@ model Company {
   // and settable per event type after that.
   defaultVisitMinutes Int @default(60)
 
+  // How a client may meet this company: "call", "visit", "video".
+  //
+  // EventType.location was a free-text string ("Phone or on-site visit"), which
+  // is a label rather than a choice — the visitor couldn't say which they wanted
+  // and the company couldn't offer one without the other. A roofer doing a
+  // satellite estimate wants calls; a cabinet maker measuring a kitchen needs to
+  // be in the room. Both is common too.
+  //
+  // Empty array means "not stated", which the booking page treats as visit-only
+  // rather than inventing options: the default for a field trade is that someone
+  // comes out.
+  bookingModes String[] @default(["visit"])
+
   businessHours Json?
 
   sitePublished Boolean   @default(false)
@@ -1449,6 +1462,10 @@ model Booking {
   clientPhone   String?
   startTime     DateTime
   endTime       DateTime
+  // Which of the company's offered modes the client picked: call | visit | video.
+  // Stored because it changes what the crew does that morning — driving to an
+  // address or ringing a number — and the confirmation email has to say which.
+  mode          String        @default("visit")
   status        BookingStatus @default(confirmed)
   appointmentId String?       @unique
   appointment   Appointment?  @relation(fields: [appointmentId], references: [id])

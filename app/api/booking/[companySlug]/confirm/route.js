@@ -12,7 +12,7 @@ export async function POST(request, { params }) {
   // which made the company lookup below silently 404 every booking.
   const { companySlug } = await params;
   const body = await request.json();
-  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone } =
+  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode } =
     body;
 
   if (!eventTypeSlug || !startTime || !clientName || !clientEmail) {
@@ -88,6 +88,14 @@ export async function POST(request, { params }) {
     },
   });
 
+  // Validated against what the company ACTUALLY offers, not just against the
+  // three known strings. A visitor posting mode:"video" to a company that only
+  // does site visits would otherwise book a video call nobody can host.
+  const offered = Array.isArray(company.bookingModes) && company.bookingModes.length
+    ? company.bookingModes
+    : ["visit"];
+  const chosenMode = offered.includes(mode) ? mode : offered[0];
+
   const booking = await db.booking.create({
     data: {
       eventTypeId: eventType.id,
@@ -96,6 +104,7 @@ export async function POST(request, { params }) {
       clientPhone: clientPhone || null,
       startTime: start,
       endTime: end,
+      mode: chosenMode,
       appointmentId: appointment.id,
     },
   });
@@ -106,7 +115,14 @@ export async function POST(request, { params }) {
     clientName,
     eventTypeName: eventType.name,
     startTime: start,
-    location: eventType.location,
+    // What the client chose beats the event type's free-text label: "Phone or
+    // on-site visit" told them nothing about which one they're getting.
+    location:
+      chosenMode === "call"
+        ? `Phone call${company.phone ? ` — we'll ring you${clientPhone ? ` on ${clientPhone}` : ""}` : ""}`
+        : chosenMode === "video"
+          ? "Video call — we'll email a link"
+          : eventType.location || "On-site visit",
   });
 
   return NextResponse.json(booking, { status: 201 });
