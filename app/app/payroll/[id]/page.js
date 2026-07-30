@@ -11,16 +11,20 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Loader2, Check, BadgeCheck, Ban, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Check, BadgeCheck, Ban, Info, Download } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
+import { formatDateOnly } from "@/lib/format/companyDate";
 
 function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-function date(d) {
-  return d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
-}
+// Period boundaries are calendar days at midnight UTC — see the note in
+// lib/format/companyDate.js. approvedAt/paidAt are real instants and read in
+// the viewer's own timezone.
+const date = (d) => formatDateOnly(d);
+const stamp = (d) =>
+  d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 const STATUS_STYLE = {
   draft: "bg-muted text-muted-foreground",
@@ -97,8 +101,8 @@ export default function PayRunPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             {run.lines.length} {run.lines.length === 1 ? "person" : "people"} · {run.region} labels
-            {run.approvedAt ? ` · approved ${date(run.approvedAt)}` : ""}
-            {run.paidAt ? ` · recorded paid ${date(run.paidAt)}` : ""}
+            {run.approvedAt ? ` · approved ${stamp(run.approvedAt)}` : ""}
+            {run.paidAt ? ` · recorded paid ${stamp(run.paidAt)}` : ""}
           </p>
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[run.status] || ""}`}>
@@ -152,6 +156,14 @@ export default function PayRunPage() {
               Record as paid
             </button>
           )}
+          {/* A plain link, not a fetch: the browser handles the download and
+              Content-Disposition, and a 403 shows the API's own message. */}
+          <a
+            href={`/api/payroll/runs/${run.id}/export`}
+            className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold"
+          >
+            <Download size={14} /> Export CSV
+          </a>
         </div>
       )}
 
@@ -206,6 +218,17 @@ export default function PayRunPage() {
                 <span>Net</span>
                 <span className="tabular-nums">{money(l.net)}</span>
               </div>
+              {/* Only offered once approved — a draft's numbers can still
+                  change, and a PDF someone keeps would be a figure they'd
+                  reasonably treat as their pay. */}
+              {run.status !== "draft" && (
+                <a
+                  href={`/api/payroll/runs/${run.id}/payslip/${l.id}`}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5"
+                >
+                  <Download size={12} /> Payslip PDF
+                </a>
+              )}
               {/* Honest about provenance: deductions are the company's figures. */}
               <p className="text-[11px] text-muted-foreground mt-2">
                 Deductions use the rates saved in your payroll settings. FieldQuo does

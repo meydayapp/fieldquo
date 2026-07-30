@@ -17,8 +17,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Wallet, Calculator, AlertTriangle, Check, Info } from "lucide-react";
+import { Loader2, Wallet, Calculator, AlertTriangle, Check, Info, Download } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { formatDateOnly } from "@/lib/format/companyDate";
 
 const REGIONS = [
   { key: "CA", label: "Canada" },
@@ -42,9 +43,13 @@ const STATUS_STYLE = {
 function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
-function date(d) {
-  return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
+// Two formatters on purpose. Pay period boundaries are calendar days stored at
+// midnight UTC, so a local formatter shows the day before — see the note in
+// lib/format/companyDate.js. paidAt is a real instant (someone clicked a button
+// at a moment in time) and reads correctly in the viewer's own timezone.
+const date = (d) => formatDateOnly(d);
+const stamp = (d) =>
+  d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 
 // Sensible default period: the fortnight that just ended.
 function defaultPeriod() {
@@ -181,14 +186,25 @@ export default function PayrollPage() {
                     <p className="text-xs text-muted-foreground">
                       {Number(p.regularHours)}h regular
                       {Number(p.overtimeHours) > 0 ? ` · ${Number(p.overtimeHours)}h overtime` : ""}
-                      {p.paidAt ? ` · paid ${date(p.paidAt)}` : " · awaiting payment"}
+                      {p.paidAt ? ` · paid ${stamp(p.paidAt)}` : " · awaiting payment"}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-foreground tabular-nums">{money(p.net)}</div>
-                    <div className="text-[11px] text-muted-foreground tabular-nums">
-                      {money(p.gross)} gross − {money(p.deductions)}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-foreground tabular-nums">{money(p.net)}</div>
+                      <div className="text-[11px] text-muted-foreground tabular-nums">
+                        {money(p.gross)} gross − {money(p.deductions)}
+                      </div>
                     </div>
+                    {/* Their own payslip. The route resolves "own" from their
+                        Worker row, not from the id in this URL. */}
+                    <a
+                      href={`/api/payroll/runs/${p.payRun.id}/payslip/${p.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 shrink-0"
+                      aria-label="Download this payslip as a PDF"
+                    >
+                      <Download size={12} /> PDF
+                    </a>
                   </div>
                 </div>
               ))}

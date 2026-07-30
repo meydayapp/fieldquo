@@ -29,6 +29,7 @@ import {
   User,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
 const STATUS_STYLE = {
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
@@ -45,16 +46,12 @@ const KIND_LABEL = {
   other: "Other",
 };
 
-function date(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// Leave dates are calendar DAYS stored as midnight UTC. A local formatter
+// renders 3 August as 2 August for anyone west of UTC — see the note in
+// lib/format/companyDate.js.
+const date = (d) => formatDateOnly(d);
 function range(a, b) {
-  const sameDay = new Date(a).toDateString() === new Date(b).toDateString();
+  const sameDay = isoDateOnly(a) === isoDateOnly(b);
   return sameDay ? date(a) : `${date(a)} → ${date(b)}`;
 }
 function money(n) {

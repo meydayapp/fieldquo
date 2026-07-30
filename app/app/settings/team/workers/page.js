@@ -18,12 +18,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Info, Check, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
-function dateInput(d) {
-  if (!d) return "";
-  const t = new Date(d);
-  return Number.isNaN(t.getTime()) ? "" : t.toISOString().slice(0, 10);
-}
+// hiredOn is a calendar day. Both reading it into the <input type="date"> and
+// displaying it must use the UTC getters, or the date shifts a day each way.
+const dateInput = (d) => isoDateOnly(d);
 
 export default function WorkersPage() {
   const [workers, setWorkers] = useState(null);
@@ -264,7 +263,7 @@ function WorkerRow({ worker, reload, onConnect }) {
           {worker.type}
           {worker.hourlyRate != null ? ` · $${worker.hourlyRate}/hr` : " · no rate set"}
           {worker.hiredOn
-            ? ` · started ${new Date(worker.hiredOn).toLocaleDateString()}`
+            ? ` · started ${formatDateOnly(worker.hiredOn)}`
             : ""}
           {!worker.userId && " · no login"}
         </div>
