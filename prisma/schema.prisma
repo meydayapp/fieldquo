@@ -386,6 +386,8 @@ model Company {
   payRuns               PayRun[]
   salaryComponentDefs   SalaryComponent[]
   workingHours          WorkingHours[]
+  leavePolicies         LeavePolicy[]
+  leaveRequests         LeaveRequest[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -1443,6 +1445,8 @@ model Worker {
   salaries    Salary[]
   payRunLines PayRunLine[]
   salaryComponents WorkerSalaryComponent[]
+  leaveBalances    LeaveBalance[]
+  leaveRequests    LeaveRequest[]
 }
 
 model TimeEntry {
@@ -1521,6 +1525,117 @@ model MarketingSpend {
   date         DateTime          @default(now())
   notes        String?
   createdAt    DateTime          @default(now())
+}
+
+// ── Leave / PTO ─────────────────────────────────────────────────────────────
+//
+// Modelled on Frappe HR's split: a POLICY defines the rule, a BALANCE holds
+// what one person has accrued and used, a REQUEST is someone asking for time
+// off. Keeping balance separate from request history is what makes "how many
+// days do I have left" a single cheap read instead of a replay of every request.
+//
+// Why this matters here specifically: leave touches BOTH payroll (paid leave is
+// an earning; unpaid is not) and scheduling (don't book an estimator who's
+// away). Those are the two systems a field-service company runs on, which is
+// why this was the biggest gap.
+
+model LeavePolicy {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String // "Vacation", "Sick leave", "Unpaid leave"
+  // vacation | sick | personal | unpaid | other — drives labels and whether it
+  // defaults to paid.
+  kind String @default("vacation")
+
+  // Is time off under this policy paid? Unpaid leave still needs tracking (for
+  // scheduling and for a record), it just doesn't reach payroll as an earning.
+  paid Boolean @default(true)
+
+  // How entitlement builds up:
+  //   annual_allotment — a fixed number of days granted each year
+  //   per_period       — accrues each pay period (annualDays / periods)
+  //   percent_of_gross — vacation PAY as a share of earnings (the common
+  //                      Canadian 4% = two weeks model). Accrues money, not days.
+  accrualMethod String @default("annual_allotment")
+
+  annualDays     Decimal? @db.Decimal(6, 2)
+  percentOfGross Decimal? @db.Decimal(6, 3)
+
+  // Days that may roll into next year. Null = unlimited, 0 = use it or lose it.
+  // Null and 0 are genuinely different answers and must not collapse.
+  carryoverMaxDays Decimal? @db.Decimal(6, 2)
+
+  // Whether a request needs approving. Some companies auto-approve sick days.
+  requiresApproval Boolean @default(true)
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  balances LeaveBalance[]
+  requests LeaveRequest[]
+
+  @@unique([companyId, name])
+}
+
+// One person's standing under one policy for one year.
+//
+// `accruedDays`/`accruedAmount` are what they've earned, `usedDays`/`usedAmount`
+// what they've taken. Remaining is derived, never stored — a stored remainder
+// is the field that drifts.
+model LeaveBalance {
+  id        String      @id @default(cuid())
+  policyId  String
+  policy    LeavePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  year      Int
+
+  accruedDays   Decimal @default(0) @db.Decimal(8, 2)
+  usedDays      Decimal @default(0) @db.Decimal(8, 2)
+  carriedInDays Decimal @default(0) @db.Decimal(8, 2)
+
+  // For percent_of_gross policies, which accrue money rather than days.
+  accruedAmount Decimal @default(0) @db.Decimal(12, 2)
+  usedAmount    Decimal @default(0) @db.Decimal(12, 2)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([policyId, workerId, year])
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  companyId String
+  company   Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  policyId  String
+  policy    LeavePolicy @relation(fields: [policyId], references: [id])
+  workerId  String
+  worker    Worker      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  startDate DateTime
+  endDate   DateTime
+  // Working days requested — computed at submit time and stored, because the
+  // company's working week can change and a past request must keep meaning what
+  // it meant.
+  days      Decimal  @db.Decimal(6, 2)
+  halfDay   Boolean  @default(false)
+
+  reason String?
+  // pending | approved | declined | cancelled
+  status String  @default("pending")
+
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, startDate])
+  @@index([workerId, status])
 }
 
 // A reusable named earning or deduction — Frappe HR's "Salary Component"
