@@ -74,6 +74,7 @@ export default function Builder({ data, onReload }) {
   // rewording and the regeneration are usually not the same sitting.
   const [handEdited, setHandEdited] = useState(Boolean(site?.handEditedAt));
   const [confirmRegen, setConfirmRegen] = useState(null);
+  const [confirmPublish, setConfirmPublish] = useState(false);
 
   const threadRef = useRef(null);
   const hasSite = blocks.length > 0;
@@ -211,7 +212,16 @@ export default function Builder({ data, onReload }) {
     setPreviewKey((k) => k + 1);
   }
 
-  async function save({ published } = {}) {
+  async function save({ published, confirmed = false } = {}) {
+    // Publishing with stock photos still on the page is allowed — a company with
+    // no photos yet shouldn't be blocked from launching — but it is never silent.
+    // A placeholder that quietly goes live and stays for a year is worse than a
+    // page that took one more click.
+    if (published && !confirmed && (data?.placeholderCount || 0) > 0) {
+      setConfirmPublish(true);
+      return;
+    }
+    setConfirmPublish(false);
     setSaving(true);
     setError("");
     try {
@@ -704,6 +714,50 @@ export default function Builder({ data, onReload }) {
                 className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
               >
                 Rebuild anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmPublish && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmPublish(false)} />
+          <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
+            <h2 className="font-bold text-foreground">
+              {data.placeholderCount} stock photo
+              {data.placeholderCount === 1 ? "" : "s"} still on your site
+            </h2>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              I used stock photography so your page isn&apos;t empty. It&apos;s only
+              in the background of the header and similar spots — never in
+              &ldquo;Our work&rdquo;, because that section says the photos are jobs
+              you did.
+            </p>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              You can publish now and swap them later, or add your own photos
+              first — your own work always sells better than a stock house.
+            </p>
+            <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <label className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold cursor-pointer">
+                {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
+                Add my photos
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    setConfirmPublish(false);
+                    uploadPhotos(Array.from(e.target.files || []));
+                  }}
+                />
+              </label>
+              <button
+                onClick={() => save({ published: true, confirmed: true })}
+                className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
+              >
+                Publish anyway
               </button>
             </div>
           </div>

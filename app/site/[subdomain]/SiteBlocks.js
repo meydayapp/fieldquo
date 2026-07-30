@@ -1052,8 +1052,28 @@ function Contact({ block, company, theme, fill, accent2, S }) {
             className="block mt-8 rounded-2xl overflow-hidden border max-w-3xl mx-auto"
             style={{ borderColor: theme.border }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={mapUrl} alt={`Map of ${place}`} className="w-full h-auto" loading="lazy" />
+            {/* A background-image, not an <img>, and deliberately.
+                //
+                // The Maps key is referrer-restricted (which is correct — see
+                // staticMapUrl), and Google refuses any request it doesn't like:
+                // wrong referrer, Static Maps not enabled on the key, quota. An
+                // <img> that fails renders the browser's broken-image glyph in
+                // the contact section of a live customer-facing page. A
+                // background-image that fails renders the tinted panel underneath
+                // and nobody can tell.
+                //
+                // The map is decoration — the address text above it is the actual
+                // information — so failing invisibly is the right behaviour, and
+                // it costs no JavaScript to get. */}
+            <div
+              role="img"
+              aria-label={`Map of ${place}`}
+              className="w-full aspect-[64/26] bg-center bg-cover"
+              style={{
+                backgroundImage: `url("${mapUrl}")`,
+                backgroundColor: theme.accentWash,
+              }}
+            />
           </a>
         )}
       </div>

@@ -27,6 +27,7 @@ import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
 import { siteGaps } from "@/lib/site/gaps";
+import { countPlaceholders, isPlaceholder } from "@/lib/site/placeholderImages";
 
 const COMPANY_SELECT = {
   id: true,
@@ -143,6 +144,10 @@ export async function GET(request) {
     suggestedPairs: source.photoPairs,
     confirmedPairs,
     chat: Array.isArray(site?.chat) ? site.chat : [],
+    // Stock images still on the page. Surfaced so the builder can badge them and
+    // warn before publishing — a placeholder that quietly goes live and stays
+    // there for a year is the failure this count exists to prevent.
+    placeholderCount: countPlaceholders(Array.isArray(site?.blocks) ? site.blocks : []),
     // Null until they create one. The editor uses this to decide between the
     // setup interview and the block editor.
     site: site || null,
