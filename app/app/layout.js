@@ -2,6 +2,7 @@
 import { headers } from "next/headers";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
+import BillingBanner from "@/app/components/layout/BillingBanner";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
 import BrandTheme from "@/app/components/BrandTheme";
@@ -104,6 +105,12 @@ export default async function AppLayout({ children }) {
       />
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
+      {/* Renders nothing when the account is in good standing, which is the
+          common case. Mounted here rather than on the billing page because
+          someone whose card expired is looking at tomorrow's jobs, not at
+          billing — a warning you have to go and find is one nobody sees until
+          they're locked out. */}
+      <BillingBanner />
       {/* Mounted HERE, not at the root layout. Date format and week start are
           the COMPANY's preference and apply to their own screens; everything
           client-facing (/q, /portal, /book, /quote) formats by the client's

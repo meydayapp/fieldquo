@@ -21,7 +21,9 @@
 // page would undo the entire reason they chose forwarding.
 
 import { toE164, formatNumber, forwardingCodes, publicNumberFor, NUMBER_SOURCES, isSharedTestNumber } from "@/lib/voice/numbers";
-import { costForSeconds, minutesFor, CENTS_PER_MINUTE, TOPUP_OPTIONS, LOW_BALANCE_CENTS } from "@/lib/voice/credits";
+import { costForSeconds, minutesFor, CENTS_PER_MINUTE, TOPUP_OPTIONS, LOW_BALANCE_CENTS,
+         ratePerMinute, monthlyCentsFor, NUMBER_TYPES, normaliseTopup,
+         CUSTOM_TOPUP_MIN_CENTS, CUSTOM_TOPUP_MAX_CENTS } from "@/lib/voice/credits";
 import { voiceConfigured } from "@/lib/voice/retell";
 let fail=0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 
@@ -70,7 +72,34 @@ ok(minutesFor(5000) === Math.floor(5000/CENTS_PER_MINUTE), `$50 buys ${minutesFo
 // below cost or above the market is a decision, not something to discover from
 // a margin report six months later.
 ok(CENTS_PER_MINUTE >= 20 && CENTS_PER_MINUTE <= 45,
-   `${CENTS_PER_MINUTE}¢/min sits between cost (~15¢) and the market ceiling (~30¢ per-minute, $450/mo bundled)`);
+   `${CENTS_PER_MINUTE}¢/min sits between cost (~16¢) and the market`);
+
+// ── Toll-free is a different product and must cost more, both ways ────────
+ok(ratePerMinute("toll_free") > ratePerMinute("local"),
+   `toll-free bills more per minute (${ratePerMinute("toll_free")}¢ vs ${ratePerMinute("local")}¢) — on toll-free WE pay the carrier leg`);
+ok(monthlyCentsFor("toll_free") > monthlyCentsFor("local"),
+   `toll-free rents for more ($${monthlyCentsFor("toll_free")/100} vs $${monthlyCentsFor("local")/100})`);
+ok(ratePerMinute("nonsense") === ratePerMinute("local"),
+   "an unknown number type falls back to local rather than billing NaN");
+ok(monthlyCentsFor(undefined) === monthlyCentsFor("local"), "no type given → local rental");
+ok(costForSeconds(120,"toll_free") > costForSeconds(120,"local"),
+   `a 2-min toll-free call costs more (${costForSeconds(120,"toll_free")}¢ vs ${costForSeconds(120,"local")}¢)`);
+ok(Object.values(NUMBER_TYPES).every(t=>t.label && t.hint && t.monthlyCents>0),
+   `both number types are labelled and priced: ${Object.values(NUMBER_TYPES).map(t=>t.label).join(" / ")}`);
+
+// ── We must stay under Jobber, our nearest comparable ────────────────────
+// Jobber bills conversations: $0.79 each after the first 30. At a typical
+// 2-minute call that's ~39.5¢/min. If we ever cross it, this fails.
+const JOBBER_PER_CONVERSATION = 79;
+const ours2min = costForSeconds(120, "local");
+ok(ours2min < JOBBER_PER_CONVERSATION,
+   `a 2-min call costs ${ours2min}¢ vs Jobber's ${JOBBER_PER_CONVERSATION}¢ overage — ${Math.round((1-ours2min/JOBBER_PER_CONVERSATION)*100)}% cheaper, with no monthly minimum`);
+
+// ── Custom top-ups ────────────────────────────────────────────────────────
+ok(normaliseTopup(2000) === 2000, "a $20 custom top-up is accepted");
+ok(normaliseTopup(100) === null, `under $${CUSTOM_TOPUP_MIN_CENTS/100} is refused — the card fee would eat it`);
+ok(normaliseTopup(1e9) === CUSTOM_TOPUP_MAX_CENTS, "an absurd amount clamps instead of charging it");
+ok(normaliseTopup("abc") === null && normaliseTopup(null) === null, "junk amounts are refused, not charged");
 ok(minutesFor(-100) === 0, "a negative balance shows 0 minutes, not a negative one");
 ok(minutesFor(CENTS_PER_MINUTE - 1) === 0, "never promise a minute they can't actually use");
 ok(TOPUP_OPTIONS.every(o=>o.cents>0) && TOPUP_OPTIONS.filter(o=>o.popular).length===1,

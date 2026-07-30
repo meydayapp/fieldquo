@@ -254,6 +254,24 @@ model Subscription {
   // switch sends a "your plan changed" note, and a webhook replaying the same
   // plan sends nothing.
   notifiedPlanId     String?
+  /// When the account first went unpaid — trial ended with no working card, or
+  /// a renewal failed.
+  ///
+  /// The grace period counts from HERE, not from `updatedAt`. Any unrelated
+  /// write to this row touches updatedAt, so a grace period measured from it
+  /// would silently restart every time a webhook arrived — the account would
+  /// never actually lock, which is the failure nobody notices because it looks
+  /// like everything working.
+  ///
+  /// Cleared the moment payment succeeds, so a company that fixes their card
+  /// and later fails again gets a fresh 7 days rather than inheriting the old
+  /// clock.
+  pastDueSince DateTime?
+
+  /// Set when the "you have N days left" email goes out, so the daily job
+  /// doesn't send it again every morning.
+  graceWarnedAt DateTime?
+
 }
 
 // ============================================================
@@ -2556,6 +2574,13 @@ model VoicePhoneNumber {
 
   source VoiceNumberSource @default(purchased)
   status VoiceNumberStatus @default(provisioning)
+
+  /// local or toll_free. NOT cosmetic: a toll-free number costs us more to rent
+  /// AND more per inbound minute, because on toll-free the CALLED party pays the
+  /// carrier leg. Billing both at the local rate is a quiet loss on every
+  /// toll-free customer — the kind that only shows up in a margin report months
+  /// later. See lib/voice/credits.js.
+  numberType String @default("local")
 
   /// The provider's own id, so a release or reassign doesn't have to guess.
   providerId String?
