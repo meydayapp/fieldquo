@@ -11,7 +11,32 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, Globe } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { appCoverage } from "@/app/i18n/appMessages";
 import { useTranslation } from "@/app/hooks/useTranslation";
+
+/**
+ * How much of the interface this language covers.
+ *
+ * Rendered next to every option rather than only next to the incomplete ones:
+ * "Interface 100%" on English and French is what makes "Interface in English"
+ * on the others read as a fact about this language rather than a warning
+ * someone forgot to remove.
+ */
+function Coverage({ code }) {
+  const pct = Math.round(appCoverage(code) * 100);
+  if (pct === 100) {
+    return (
+      <span className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+        Interface 100%
+      </span>
+    );
+  }
+  return (
+    <span className="text-xs text-muted-foreground whitespace-nowrap">
+      {pct > 0 ? `Interface ${pct}%` : "Interface in English"}
+    </span>
+  );
+}
 
 export default function LanguageSettingsPage() {
   const { changeLanguage } = useTranslation();
@@ -95,25 +120,26 @@ export default function LanguageSettingsPage() {
       {/* Personal */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground">Your language</h2>
-        {/* ── Told the truth ──────────────────────────────────────────────────
-            This said "What you read the app in" and "Only affects what you see".
-            Neither was true: User.preferredLanguage is read by NOTHING in the
-            product — the app interface is English-only, all 72 screens of it, and
-            picking French here changed nothing on screen.
+        {/* ── Still telling the truth, with a better answer ──────────────────
+            This used to say the interface was English-only, because User.language
+            was written here and read by nothing. It is read now — the app layout
+            resolves it and feeds the language provider.
 
-            The setting is kept because it's the right place for the preference to
-            live and it's where interface translation will read from. But a
-            control that looks like it works and doesn't is worse than one that
-            says what it's for, so it now says. See ROADMAP §6. */}
+            What has NOT changed is the honesty requirement. The interface
+            catalogue is English and French; the other supported languages render
+            an English interface. So each option prints its own real coverage
+            rather than letting the presence of a button imply a translation that
+            isn't there. The percentage comes from the catalogue itself
+            (appCoverage), so it can't drift out of date the way a hardcoded
+            sentence would. */}
         <p className="text-sm text-muted-foreground mt-1 mb-2">
-          Saved as your preference. <strong className="text-foreground">The app
-          interface is English-only for now</strong> — translating all of it is
-          still to come, and this is the setting it will use when it lands.
+          What you read the app in. Each option below shows how much of the
+          interface is translated — the rest falls back to English.
         </p>
         <p className="text-sm text-muted-foreground mb-4">
-          What <em>is</em> translated today: everything your clients see. Quotes,
-          invoices, PDFs and the emails carrying them all go out in the client&apos;s
-          language, falling back to the company default below.
+          This is separate from what your <em>clients</em> see. Quotes, invoices,
+          PDFs and the emails carrying them go out in the client&apos;s own
+          language in every supported language, whatever you read the app in.
         </p>
 
         <div className="space-y-2">
@@ -153,9 +179,12 @@ export default function LanguageSettingsPage() {
                 {l.nativeName}
                 <span className="text-muted-foreground"> — {l.name}</span>
               </span>
-              {personal === l.code && (
-                <Check size={16} className="text-foreground" />
-              )}
+              <span className="flex items-center gap-3">
+                <Coverage code={l.code} />
+                {personal === l.code && (
+                  <Check size={16} className="text-foreground" />
+                )}
+              </span>
             </button>
           ))}
         </div>

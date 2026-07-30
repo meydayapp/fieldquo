@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import {
   Home,
@@ -58,61 +59,62 @@ import Logo from "@/app/components/Logo";
 // never top-level concerns.
 const NAV_GROUPS = [
   {
-    label: "Work",
+    key: "app.nav.group.work",
     items: [
-      { label: "Requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests" },
-      { label: "Quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes" },
-      { label: "Estimate Reviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews" },
-      { label: "Jobs", href: "/app/jobs", icon: Briefcase },
-      { label: "Invoices", href: "/app/invoices", icon: Receipt },
-      { label: "Calendar", href: "/app/appointments", icon: Calendar },
+      { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests" },
+      { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes" },
+      { key: "app.nav.estimateReviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews" },
+      { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
+      { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
+      { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar },
     ],
   },
   {
-    label: "People",
+    key: "app.nav.group.people",
     items: [
-      { label: "Clients", href: "/app/clients", icon: Users },
-      { label: "Team Schedule", href: "/app/schedule", icon: Calendar },
-      { label: "Timesheets", href: "/app/settings/team/timesheets", icon: Clock },
+      { key: "app.nav.clients", href: "/app/clients", icon: Users },
+      { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar },
+      { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },
       // Top-level, not buried in settings: everyone uses it, not just admins.
-      { label: "Time Off", href: "/app/time-off", icon: CalendarClock },
+      { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock },
     ],
   },
   {
-    label: "Money",
+    key: "app.nav.group.money",
     items: [
-      { label: "Payroll", href: "/app/payroll", icon: Wallet },
-      { label: "Expenses", href: "/app/settings/expense-tracking", icon: Wallet },
-      { label: "Insights", href: "/app/analytics/benchmark", icon: Compass },
+      { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet },
+      { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet },
+      { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass },
     ],
   },
   {
-    label: "Grow",
+    key: "app.nav.group.grow",
     items: [
-      { label: "Marketing", href: "/app/marketing", icon: Megaphone },
-      { label: "Receptionist", href: "/app/receptionist", icon: Headset },
-      { label: "Refer & Earn", href: "/app/settings/refer", icon: Gift },
+      { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone },
+      { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
+      { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift },
     ],
   },
 ];
 
 // The floating "+" popup — quick-create shortcuts.
 const QUICK_ADD_ITEMS = [
-  { label: "Client", href: "/app/clients", icon: Users },
-  { label: "Request", href: "/app/leads", icon: ClipboardList },
-  { label: "Quote", href: "/app/quotes/new", icon: FileText },
-  { label: "Job", href: "/app/jobs", icon: Briefcase },
-  { label: "Invoice", href: "/app/invoices/new", icon: Receipt },
+  { key: "app.quickAdd.client", href: "/app/clients", icon: Users },
+  { key: "app.quickAdd.request", href: "/app/leads", icon: ClipboardList },
+  { key: "app.quickAdd.quote", href: "/app/quotes/new", icon: FileText },
+  { key: "app.quickAdd.job", href: "/app/jobs", icon: Briefcase },
+  { key: "app.quickAdd.invoice", href: "/app/invoices/new", icon: Receipt },
 ];
 
 // Bottom-of-sidebar items, above Log Out.
 const BOTTOM_ITEMS = [
-  { label: "Help", href: "/app/help", icon: LifeBuoy },
-  { label: "Plan", href: "/app/settings/account-billing", icon: CreditCard },
-  { label: "Settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
+  { key: "app.nav.help", href: "/app/help", icon: LifeBuoy },
+  { key: "app.nav.plan", href: "/app/settings/account-billing", icon: CreditCard },
+  { key: "app.nav.settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
 ];
 
 export default function AdminSidebar() {
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -180,7 +182,7 @@ export default function AdminSidebar() {
       <Link
         href={item.href}
         onClick={onNavigate}
-        title={showLabel ? undefined : item.label}
+        title={showLabel ? undefined : t(item.key)}
         // Anchor for the first-run walkthrough (app/components/tours.js). Only
         // set on the handful of items the welcome tour points at.
         data-tour={item.tour}
@@ -196,7 +198,7 @@ export default function AdminSidebar() {
         }`}
       >
         <Icon size={18} className="shrink-0" />
-        {showLabel && <span className="truncate">{item.label}</span>}
+        {showLabel && <span className="truncate">{t(item.key)}</span>}
       </Link>
     );
   }
@@ -219,7 +221,7 @@ export default function AdminSidebar() {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            aria-label="Close menu"
+            aria-label={t("app.sidebar.closeMenu")}
             className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
           >
             <X size={20} />
@@ -229,7 +231,7 @@ export default function AdminSidebar() {
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {/* Home */}
           <NavLink
-            item={{ label: "Home", href: "/app", icon: Home }}
+            item={{ key: "app.nav.home", href: "/app", icon: Home }}
             forceExpanded={forceExpanded}
           />
 
@@ -238,13 +240,13 @@ export default function AdminSidebar() {
             <button
               type="button"
               onClick={() => setQuickAddOpen((v) => !v)}
-              title={showLabel ? undefined : "New"}
+              title={showLabel ? undefined : t("app.quickAdd.title")}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium border border-dashed border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
                 showLabel ? "" : "justify-center"
               }`}
             >
               <Plus size={18} className="shrink-0" />
-              {showLabel && <span>New</span>}
+              {showLabel && <span>{t("app.quickAdd.title")}</span>}
             </button>
 
             {quickAddOpen && (
@@ -257,13 +259,13 @@ export default function AdminSidebar() {
                   const Icon = item.icon;
                   return (
                     <Link
-                      key={item.label}
+                      key={item.key}
                       href={item.href}
                       onClick={() => setQuickAddOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-foreground hover:bg-muted"
                     >
                       <Icon size={16} className="shrink-0" />
-                      {item.label}
+                      {t(item.key)}
                     </Link>
                   );
                 })}
@@ -272,14 +274,14 @@ export default function AdminSidebar() {
           </div>
 
           {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="pt-3 first:pt-1">
+            <div key={group.key} className="pt-3 first:pt-1">
               {/* Headings only when the rail is expanded. Collapsed, the
                   groups still read as groups because of the gap between
                   them — a heading squeezed into 76px would be truncated
                   noise. */}
               {showLabel && (
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/40">
-                  {group.label}
+                  {t(group.key)}
                 </div>
               )}
               <div className="space-y-1">
@@ -300,7 +302,7 @@ export default function AdminSidebar() {
               of using the app rather than another section of it, and it's the
               feature most worth people noticing. */}
           <NavLink
-            item={{ label: "FieldQuo AI", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
+            item={{ key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
             forceExpanded={forceExpanded}
           />
 
@@ -360,19 +362,19 @@ export default function AdminSidebar() {
 
           <button
             onClick={handleLogout}
-            title={showLabel ? undefined : "Log Out"}
+            title={showLabel ? undefined : t("app.nav.logOut")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
               showLabel ? "" : "justify-center"
             }`}
           >
             <LogOut size={18} className="shrink-0" />
-            {showLabel && "Log Out"}
+            {showLabel && t("app.nav.logOut")}
           </button>
 
           {/* Expand / contract toggle — desktop only */}
           <button
             onClick={() => setCollapsed((v) => !v)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
             className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
               showLabel ? "" : "justify-center"
             }`}
@@ -409,7 +411,7 @@ export default function AdminSidebar() {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          aria-label="Open menu"
+          aria-label={t("app.sidebar.openMenu")}
           aria-expanded={mobileOpen}
           // 44px minimum: below that a target is genuinely hard to hit on a
           // phone, and this is the button every navigation goes through.

@@ -12,6 +12,12 @@
 //
 // Interpolation uses {name} placeholders — see t() in useTranslation.js.
 
+// Extension included on purpose. Webpack resolves either way, but
+// scripts/check-translations.mjs runs this file under plain node, whose ESM
+// resolver does not guess extensions — without it the coverage check dies at
+// import time, which is exactly how it came to be silently broken before.
+import { APP_MESSAGES, APP_MESSAGE_KEYS } from "./appMessages.js";
+
 const en = {
   // Navigation
   "nav.features": "Features",
@@ -1051,9 +1057,30 @@ const tl = {
   "common.back": "Bumalik",
 };
 
-export const MESSAGES = { en, fr, es, uk, pa, tl };
+// The /app catalogue is merged in rather than pasted here — see the header of
+// appMessages.js for why the two are separate files. Merging at this level
+// means t(), the coverage script and every call site stay unchanged: there is
+// still exactly one MESSAGES object and one flat lookup.
+//
+// App keys are namespaced "app.*", so a collision with a marketing key is
+// impossible by construction rather than by discipline.
+const MARKETING = { en, fr, es, uk, pa, tl };
+
+export const MESSAGES = Object.fromEntries(
+  Object.keys(MARKETING).map((code) => [
+    code,
+    { ...MARKETING[code], ...(APP_MESSAGES[code] || {}) },
+  ]),
+);
 
 // Every key that exists in English. Used by the coverage check in
 // scripts/check-translations.mjs so a missing translation is a caught
 // omission rather than something a customer discovers.
 export const MESSAGE_KEYS = Object.keys(en);
+
+// English keys across BOTH catalogues. Kept separate from MESSAGE_KEYS because
+// the coverage script gates a deploy on full marketing coverage in all six
+// languages, and the app catalogue is deliberately English + French only — see
+// appMessages.js. Holding them to the same bar would either block every deploy
+// or force machine-translating 640 interface strings nobody has reviewed.
+export const ALL_MESSAGE_KEYS = [...MESSAGE_KEYS, ...APP_MESSAGE_KEYS];

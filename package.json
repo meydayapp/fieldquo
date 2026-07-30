@@ -7,7 +7,8 @@
     "build": "node scripts/check-imports.mjs && prisma generate && next build",
     "check:imports": "node scripts/check-imports.mjs",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:translations": "node scripts/check-translations.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

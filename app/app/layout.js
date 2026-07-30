@@ -6,6 +6,7 @@ import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
 import BrandTheme from "@/app/components/BrandTheme";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
+import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 
@@ -34,6 +35,47 @@ export const dynamic = "force-dynamic";
 // Failure here must never take the app down — a company that can't load its
 // colour gets FieldQuo's, which is exactly what an unbranded company gets
 // anyway.
+/**
+ * The signed-in user's interface language: their own choice, else the company
+ * default, else null for "no stated preference".
+ *
+ * `User.language` was written by the settings page and read by NOTHING — picking
+ * French there survived a round-trip to the database and changed no screen.
+ *
+ * Resolved HERE rather than in the root layout, even though the provider it
+ * feeds lives there. The root layout wraps the marketing site too, and reading
+ * headers() that high up opts every static marketing page into dynamic
+ * rendering. /app is already force-dynamic, so a nested provider costs nothing
+ * and keeps the boundary honest: signed-in screens follow the account, public
+ * pages follow the browser.
+ *
+ * Never throws. A language lookup failing must not take down the whole app, and
+ * the fallback is what everyone gets today anyway.
+ */
+async function getAppLanguage() {
+  try {
+    const member = await getCurrentMember({ headers: await headers() });
+    if (!member?.userId) return null;
+
+    const [user, company] = await Promise.all([
+      db.user.findUnique({ where: { id: member.userId }, select: { language: true } }),
+      member.companyId
+        ? db.company.findUnique({
+            where: { id: member.companyId },
+            select: { defaultLanguage: true },
+          })
+        : null,
+    ]);
+
+    // Personal choice first, company default second — the order the settings
+    // page describes. A null personal language means "inherit", not "unset".
+    return user?.language || company?.defaultLanguage || null;
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve the interface language:", err);
+    return null;
+  }
+}
+
 async function getCompanyBrand() {
   try {
     const member = await getCurrentMember({ headers: await headers() });
@@ -50,7 +92,7 @@ async function getCompanyBrand() {
 }
 
 export default async function AppLayout({ children }) {
-  const brand = await getCompanyBrand();
+  const [brand, language] = await Promise.all([getCompanyBrand(), getAppLanguage()]);
 
   return (
     // data-brand is the hook BrandTheme's CSS targets. Present even when the
@@ -67,6 +109,15 @@ export default async function AppLayout({ children }) {
           client-facing (/q, /portal, /book, /quote) formats by the client's
           locale instead. Scoping the provider to /app makes that boundary
           structural rather than a rule someone has to remember. */}
+      {/* Nested inside the root provider on purpose — see getAppLanguage. The
+          inner one wins for this subtree, so /app follows the saved account
+          preference while the marketing site keeps following the browser.
+
+          fromAccount tells it the value is a stated CHOICE, not a guess, so
+          localStorage can't overwrite it. Without that, a user who picked French
+          in Settings got English back on any browser that had previously visited
+          the marketing site. */}
+      <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
       <CompanyPreferencesProvider>
         {/* lg:flex, not flex — below lg the sidebar renders as a full-width
             sticky top bar plus a drawer, which has to sit ABOVE the page in
@@ -76,6 +127,7 @@ export default async function AppLayout({ children }) {
           <main className="flex-1 min-w-0">{children}</main>
         </div>
       </CompanyPreferencesProvider>
+      </LanguageProvider>
       {/* Renders nothing until something calls showError(). Mounted here so
           no individual page needs its own error state and banner — see
           lib/clientErrors.js. */}
