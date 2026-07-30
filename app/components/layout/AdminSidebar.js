@@ -78,6 +78,7 @@ const NAV_GROUPS = [
   {
     label: "Money",
     items: [
+      { label: "Payroll", href: "/app/payroll", icon: Wallet },
       { label: "Expenses", href: "/app/settings/expense-tracking", icon: Wallet },
       { label: "Insights", href: "/app/analytics/benchmark", icon: Compass },
     ],
