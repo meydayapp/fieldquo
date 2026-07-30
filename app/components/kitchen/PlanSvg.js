@@ -13,7 +13,12 @@
 // the same input, so it can go straight into a server-rendered quote page
 // without shipping any JavaScript.
 
-import { planShapes, scaleBarShapes, PLAN_COLORS } from "@/lib/kitchen/planShapes";
+import {
+  planShapes,
+  elevationShapes,
+  scaleBarShapes,
+  PLAN_COLORS,
+} from "@/lib/kitchen/planShapes";
 
 /** One shape → one SVG node. The only place shape types are interpreted. */
 function Shape({ s, i }) {
@@ -136,5 +141,96 @@ export default function PlanSvg({
         <Shape key={`sc${i}`} s={s} i={`sc${i}`} />
       ))}
     </svg>
+  );
+}
+
+/**
+ * One wall, seen straight on.
+ *
+ * Separate component rather than a mode of PlanSvg: an elevation has a
+ * different aspect ratio, a different title and no scale bar, and folding both
+ * into one component means every caller passes a flag to say which drawing it
+ * wanted.
+ */
+export function ElevationSvg({ design, wallId, className }) {
+  const { shapes, width, height, title } = elevationShapes(design, wallId);
+  const pad = 10;
+  const head = 16;
+
+  return (
+    <figure style={{ margin: 0 }}>
+      <svg
+        viewBox={`${-pad} ${-pad - head} ${width + pad * 2} ${height + pad * 2 + head}`}
+        width="100%"
+        className={className}
+        style={{ display: "block", background: "#ffffff" }}
+        role="img"
+        aria-label={title}
+      >
+        <text
+          x={-pad + 2}
+          y={-pad - 4}
+          fill={PLAN_COLORS.ink}
+          fontSize={7}
+          fontWeight={700}
+          style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif", letterSpacing: "0.04em" }}
+        >
+          {title.toUpperCase()}
+        </text>
+        {shapes.map((s, i) => (
+          <Shape key={i} s={s} i={i} />
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
+/**
+ * The whole sheet: plan, then the elevations that have anything on them.
+ *
+ * Empty walls are skipped rather than drawn blank. Four elevations where two
+ * are bare rectangles makes the sheet look padded, and a homeowner counts the
+ * empty ones as walls the contractor forgot.
+ */
+export function KitchenSheet({ design, title = "Kitchen plan", subtitle, className }) {
+  const elements = Array.isArray(design?.elements) ? design.elements : [];
+  const walls = ["A", "B", "C", "D"].filter((id) =>
+    elements.some((el) => el?.wall === id),
+  );
+
+  return (
+    <div className={className}>
+      <PlanSvg design={design} title={title} subtitle={subtitle} />
+      {walls.length > 0 && (
+        <>
+          <p
+            style={{
+              margin: "1.25rem 0 0.5rem",
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              color: PLAN_COLORS.ink,
+            }}
+          >
+            ELEVATIONS
+          </p>
+          {/* auto-fit rather than a fixed column count: three elevations sit in
+              a row on a laptop and stack on a phone with no breakpoint of their
+              own, and a kitchen with one wall doesn't get a lonely third-width
+              drawing. */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "0.75rem",
+            }}
+          >
+            {walls.map((id) => (
+              <ElevationSvg key={id} design={design} wallId={id} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
