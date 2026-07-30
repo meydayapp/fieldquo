@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:translations": "node scripts/check-translations.mjs",
-    "check:kitchen": "node scripts/check-kitchen-pricing.mjs"
+    "check:kitchen": "node scripts/check-kitchen-pricing.mjs",
+    "check:contrast": "node --import ./scripts/alias-loader.mjs scripts/check-designer-contrast.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
