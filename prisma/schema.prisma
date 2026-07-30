@@ -293,6 +293,16 @@ model Company {
   // Distinct from Quote.language, which records the language a specific quote
   // was sent in — that must stay fixed even if the company later switches.
   defaultLanguage String   @default("en")
+
+  // The company's own cabinet rate card, for the kitchen designer.
+  //
+  // Null means "use the defaults in lib/kitchen/pricing.js" — which are a
+  // starting point, not a price. The adapted source came from one cabinet maker
+  // charging $700 per linear foot; quoting a different shop at that number is
+  // quoting someone else's business. The settings page writes this, every
+  // pricing path reads it, and normaliseRates() merges it over the defaults so a
+  // partially-filled card can't leave a field undefined and price at NaN.
+  cabinetRates Json?
   // Languages this company actually sends CLIENT documents in. Drives which
   // options the employee sees when setting a client's language, and which
   // translations get drafted when a service is added.
