@@ -111,6 +111,34 @@ export async function POST(request) {
     );
   }
 
+  const cleanEmail = String(email).trim().toLowerCase();
+
+  // Same duplicate guard as quick-add. Inviting someone already on the team
+  // used to create a second pending invitation and, on accept, race the Member
+  // upsert — cheaper to refuse clearly than to reconcile afterwards.
+  const [dupMember, dupInvite] = await Promise.all([
+    db.member.findFirst({
+      where: { companyId: member.companyId, user: { email: cleanEmail } },
+      select: { id: true },
+    }),
+    db.invitation.findFirst({
+      where: { organizationId: member.authOrgId, email: cleanEmail, status: "pending" },
+      select: { id: true },
+    }),
+  ]);
+  if (dupMember) {
+    return NextResponse.json(
+      { error: "Someone with that email is already on your team." },
+      { status: 409 },
+    );
+  }
+  if (dupInvite) {
+    return NextResponse.json(
+      { error: "That email already has an invitation waiting." },
+      { status: 409 },
+    );
+  }
+
   // Better Auth's organizationId is the Organization row's id (Company.authOrgId),
   // NOT Company.id — getCurrentMember exposes both. Passing companyId here meant
   // the invite pointed at a non-existent org.

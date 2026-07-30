@@ -385,6 +385,7 @@ model Company {
   activityLogs          ActivityLog[]
   payRuns               PayRun[]
   salaryComponentDefs   SalaryComponent[]
+  workingHours          WorkingHours[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -486,6 +487,7 @@ model User {
   timeEntriesApproved   TimeEntry[]            @relation("TimeEntryApprovedBy")
   workAreaAssignments   WorkAreaAssignment[]
   availability          AvailabilitySchedule[]
+  workingHours          WorkingHours[]
   eventTypes            EventType[]
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
   workerProfile         Worker?
@@ -1328,6 +1330,22 @@ model ReferralLink {
   createdAt     DateTime @default(now())
 }
 
+// When a person is BOOKABLE by a client — not when they work.
+//
+// ── Why these are two different things ──────────────────────────────────────
+//
+// An estimator might work 8–4 but only take consultations 2–4, because mornings
+// are on site. Conflating the two produces one of two wrong outcomes: publish
+// 8–4 and clients book over their site work; publish 2–4 as their working day
+// and payroll/scheduling think they're part-time.
+//
+// So: this table is the PUBLIC booking window (it feeds the booking calendar and
+// the website). WorkingHours below is the internal shift — what scheduling and
+// timesheets treat as their day. They're allowed to differ, and the bookable
+// window is expected to be the narrower of the two.
+//
+// Deliberately not merged with Company.businessHours either, which is when the
+// business is open — see lib/company/businessHours.js.
 model AvailabilitySchedule {
   id        String   @id @default(cuid())
   userId    String
@@ -1337,6 +1355,29 @@ model AvailabilitySchedule {
   endTime   String
   timezone  String   @default("America/Toronto")
   createdAt DateTime @default(now())
+}
+
+// The internal shift — when this person is actually on the clock.
+//
+// Read by scheduling (is assigning them a 7am job unreasonable?) and by payroll
+// as the expected-hours baseline against which logged time is sanity-checked.
+// NEVER published to clients; that's AvailabilitySchedule's job.
+model WorkingHours {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  dayOfWeek Int      // 0 = Sunday
+  startTime String   // "08:00"
+  endTime   String   // "16:00"
+  timezone  String   @default("America/Toronto")
+  createdAt DateTime @default(now())
+
+  // One shift row per person per day. A split shift is a product decision we
+  // haven't taken; until then this keeps the data unambiguous.
+  @@unique([userId, dayOfWeek])
+  @@index([companyId])
 }
 
 model EventType {
