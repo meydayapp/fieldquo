@@ -353,6 +353,18 @@ const en = {
   "app.reviews.approveAt": "Approve at",
   "app.reviews.property": "Property",
   "app.reviews.material": "Material:",
+
+  // ── Job detail & timesheets ──────────────────────────────────────────────
+  "app.job.backToJobs": "Back to jobs",
+  "app.job.client": "Client",
+  "app.job.visits": "Visits",
+  "app.job.addVisit": "Add visit",
+  "app.job.noVisits": "No visits scheduled yet. Add one to put this job on the calendar.",
+
+  "app.timesheets.title": "Timesheets",
+  "app.timesheets.subtitle": "Review and approve logged hours.",
+  "app.timesheets.empty": "No time entries yet.",
+  "app.timesheets.approve": "Approve",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -651,6 +663,17 @@ const fr = {
   "app.reviews.approveAt": "Approuver à",
   "app.reviews.property": "Propriété",
   "app.reviews.material": "Matériau :",
+
+  "app.job.backToJobs": "Retour aux chantiers",
+  "app.job.client": "Client",
+  "app.job.visits": "Visites",
+  "app.job.addVisit": "Ajouter une visite",
+  "app.job.noVisits": "Aucune visite planifiée. Ajoutez-en une pour placer ce chantier au calendrier.",
+
+  "app.timesheets.title": "Feuilles de temps",
+  "app.timesheets.subtitle": "Révisez et approuvez les heures déclarées.",
+  "app.timesheets.empty": "Aucune entrée de temps.",
+  "app.timesheets.approve": "Approuver",
 };
 
 export const APP_MESSAGES = { en, fr };

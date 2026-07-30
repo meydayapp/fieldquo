@@ -5,7 +5,9 @@ import { useState, useEffect } from "react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 export default function TimesheetsPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,16 +44,16 @@ export default function TimesheetsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Timesheets</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.timesheets.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Review and approve logged hours.
+          {t("app.timesheets.subtitle")}
         </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl divide-y divide-border">
         {entries.length === 0 && (
           <p className="px-5 py-6 text-sm text-muted-foreground">
-            No time entries yet.
+            {t("app.timesheets.empty")}
           </p>
         )}
         {entries.map((e) => (
@@ -73,7 +75,7 @@ export default function TimesheetsPage() {
                 onClick={() => approve(e.id)}
                 className="text-xs bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full"
               >
-                Approve
+                {t("app.timesheets.approve")}
               </button>
             ) : (
               <span className="text-xs capitalize text-muted-foreground">

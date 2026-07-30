@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import {
   ArrowLeft,
   Pencil,
@@ -46,6 +47,7 @@ function formatDateTime(value) {
 }
 
 export default function JobDetail({ jobId }) {
+  const { t } = useTranslation();
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -118,7 +120,7 @@ export default function JobDetail({ jobId }) {
             href="/app/jobs"
             className="mt-3 inline-block text-sm text-red-700 dark:text-red-300 underline"
           >
-            Back to jobs
+            {t("app.job.backToJobs")}
           </Link>
         </div>
       </div>
@@ -135,8 +137,7 @@ export default function JobDetail({ jobId }) {
         href="/app/jobs"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Jobs
-      </Link>
+        <ArrowLeft size={14} />{t("app.jobs.title")}</Link>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
@@ -181,8 +182,7 @@ export default function JobDetail({ jobId }) {
             href={`/app/jobs/${jobId}/edit`}
             className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
           >
-            <Pencil size={13} /> Edit
-          </Link>
+            <Pencil size={13} />{t("app.action.edit")}</Link>
         </div>
       </div>
 
@@ -194,7 +194,7 @@ export default function JobDetail({ jobId }) {
 
       {/* Client — the details someone needs before they set off */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-4">Client</h2>
+        <h2 className="font-semibold text-foreground mb-4">{t("app.job.client")}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field icon={User} label="Name" value={job.client?.name} />
           <Field
@@ -251,7 +251,7 @@ export default function JobDetail({ jobId }) {
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <h2 className="font-semibold text-foreground">Visits</h2>
+            <h2 className="font-semibold text-foreground">{t("app.job.visits")}</h2>
             {job.visits?.length > 0 && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {completedVisits} of {job.visits.length} complete
@@ -262,13 +262,12 @@ export default function JobDetail({ jobId }) {
             href={`/app/jobs/${jobId}/visits/new`}
             className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
           >
-            <Plus size={13} /> Add visit
-          </Link>
+            <Plus size={13} />{t("app.job.addVisit")}</Link>
         </div>
 
         {!job.visits?.length ? (
           <p className="text-sm text-muted-foreground">
-            No visits scheduled yet. Add one to put this job on the calendar.
+            {t("app.job.noVisits")}
           </p>
         ) : (
           <div className="divide-y divide-border">
