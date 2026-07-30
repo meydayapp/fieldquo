@@ -15,7 +15,9 @@ import {
 
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const [onboarding, setOnboarding] = useState(null);
   const [overview, setOverview] = useState(null);
   const [recentQuotes, setRecentQuotes] = useState([]);
@@ -102,9 +104,9 @@ export default function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.dash.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Here's what's happening with your business.
+          {t("app.dash.subtitle")}
         </p>
       </div>
 
@@ -127,7 +129,7 @@ export default function DashboardPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <TrendingUp size={16} /> Revenue this month
+            <TrendingUp size={16} /> {t("app.dash.revenueThisMonth")}
           </div>
           <div className="text-2xl font-bold text-foreground mt-2">
             ${(overview?.revenue || 0).toLocaleString()}
@@ -135,7 +137,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <FileText size={16} /> Quotes sent
+            <FileText size={16} /> {t("app.dash.quotesSent")}
           </div>
           <div className="text-2xl font-bold text-foreground mt-2">
             {overview?.quotesSent || 0}
@@ -143,7 +145,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Receipt size={16} /> Conversion rate
+            <Receipt size={16} /> {t("app.dash.conversionRate")}
           </div>
           <div className="text-2xl font-bold text-foreground mt-2">
             {overview?.conversionRate != null
@@ -153,7 +155,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Calendar size={16} /> Upcoming visits
+            <Calendar size={16} /> {t("app.dash.upcomingVisits")}
           </div>
           <div className="text-2xl font-bold text-foreground mt-2">
             {upcomingAppointments.length}
@@ -172,30 +174,30 @@ export default function DashboardPage() {
           href="/app/clients"
           className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          View Clients
+          {t("app.dash.viewClients")}
         </Link>
         <Link
           href="/app/appointments"
           className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          Schedule Appointment
+          {t("app.dash.scheduleAppointment")}
         </Link>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-            <h2 className="font-semibold text-foreground">Recent Quotes</h2>
+            <h2 className="font-semibold text-foreground">{t("app.dash.recentQuotes")}</h2>
             <Link
               href="/app/quotes"
               className="text-sm text-muted-foreground flex items-center gap-1"
             >
-              View all <ArrowRight size={14} />
+              {t("app.action.viewAll")} <ArrowRight size={14} />
             </Link>
           </div>
           <div className="divide-y divide-border">
             {recentQuotes.length === 0 && (
-              <p className="px-5 py-6 text-sm text-muted-foreground">No quotes yet.</p>
+              <p className="px-5 py-6 text-sm text-muted-foreground">{t("app.dash.noQuotes")}</p>
             )}
             {recentQuotes.map((q) => (
               <Link
@@ -220,7 +222,7 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h2 className="font-semibold text-foreground">
-              Upcoming Appointments
+              {t("app.dash.upcomingAppointments")}
             </h2>
             <Link
               href="/app/appointments"
@@ -232,7 +234,7 @@ export default function DashboardPage() {
           <div className="divide-y divide-border">
             {upcomingAppointments.length === 0 && (
               <p className="px-5 py-6 text-sm text-muted-foreground">
-                Nothing scheduled.
+                {t("app.dash.nothingScheduled")}
               </p>
             )}
             {upcomingAppointments.map((a) => (

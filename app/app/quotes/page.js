@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FileText, Plus, Search, ArrowRight } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -13,6 +14,7 @@ const STATUS_STYLES = {
 };
 
 export default function QuotesPage() {
+  const { t } = useTranslation();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -56,14 +58,14 @@ export default function QuotesPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Quotes</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage customer quotes.</p>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.quotes.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("app.quotes.subtitle")}</p>
         </div>
         <Link
           href="/app/quotes/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          <Plus size={16} /> New Quote
+          <Plus size={16} /> {t("app.quotes.new")}
         </Link>
       </div>
 
@@ -92,7 +94,7 @@ export default function QuotesPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search quotes..."
+          placeholder={t("app.quotes.search")}
           className="w-full pl-9 pr-3 py-2.5 border border-border rounded-lg text-sm"
         />
       </div>
@@ -108,7 +110,7 @@ export default function QuotesPage() {
               href="/app/quotes/new"
               className="text-sm font-medium text-foreground underline mt-2 inline-block"
             >
-              Create your first quote
+              {t("app.quotes.empty")}
             </Link>
           )}
         </div>

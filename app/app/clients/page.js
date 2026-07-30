@@ -5,7 +5,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Users, Plus, Search, Phone, MapPin, ArrowRight } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 export default function ClientsPage() {
+  const { t } = useTranslation();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -43,7 +45,7 @@ export default function ClientsPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Clients</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.clients.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {clients.length} client{clients.length !== 1 ? "s" : ""} total.
           </p>
@@ -52,7 +54,7 @@ export default function ClientsPage() {
           href="/app/clients/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          <Plus size={16} /> New Client
+          <Plus size={16} /> {t("app.clients.new")}
         </Link>
       </div>
 
@@ -64,7 +66,7 @@ export default function ClientsPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients..."
+          placeholder={t("app.clients.search")}
           className="w-full pl-9 pr-3 py-2.5 border border-border rounded-lg text-sm"
         />
       </div>
@@ -80,7 +82,7 @@ export default function ClientsPage() {
               href="/app/clients/new"
               className="text-sm font-medium text-foreground underline mt-2 inline-block"
             >
-              Add your first client
+              {t("app.clients.empty")}
             </Link>
           )}
         </div>
@@ -98,7 +100,7 @@ export default function ClientsPage() {
                     <span className="truncate">{client.name}</span>
                     {client.type === "company" && (
                       <span className="text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full shrink-0">
-                        Contractor
+                        {t("app.clients.contractor")}
                       </span>
                     )}
                   </div>

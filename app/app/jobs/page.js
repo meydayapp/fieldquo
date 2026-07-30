@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
   // Purple/attention — an unscheduled job (usually auto-created from an
   // accepted quote) is a to-do: it needs a date.
@@ -16,6 +17,7 @@ const STATUS_STYLES = {
 };
 
 export default function JobsPage() {
+  const { t } = useTranslation();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -50,16 +52,16 @@ export default function JobsPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Jobs</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.jobs.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Scheduled and in-progress work.
+            {t("app.jobs.subtitle")}
           </p>
         </div>
         <Link
           href="/app/jobs/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          <Plus size={16} /> New Job
+          <Plus size={16} /> {t("app.jobs.new")}
         </Link>
       </div>
 
@@ -89,7 +91,7 @@ export default function JobsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search jobs..."
+            placeholder={t("app.jobs.search")}
             className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
           />
         </div>
@@ -98,7 +100,7 @@ export default function JobsPage() {
       {filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <Briefcase size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">No jobs in this view.</p>
+          <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
@@ -124,7 +126,7 @@ export default function JobsPage() {
                     </span>
                     {job.recurring && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">
-                        Recurring
+                        {t("app.jobs.recurring")}
                       </span>
                     )}
                   </div>

@@ -228,6 +228,47 @@ const en = {
 
   "app.settings.group.records": "Records",
   "app.settings.activity": "Activity Log",
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  "app.dash.title": "Dashboard",
+  "app.dash.subtitle": "Here's what's happening with your business.",
+  "app.dash.revenueThisMonth": "Revenue this month",
+  "app.dash.quotesSent": "Quotes sent",
+  "app.dash.conversionRate": "Conversion rate",
+  "app.dash.upcomingVisits": "Upcoming visits",
+  "app.dash.recentQuotes": "Recent Quotes",
+  "app.dash.upcomingAppointments": "Upcoming Appointments",
+  "app.dash.noQuotes": "No quotes yet.",
+  "app.dash.nothingScheduled": "Nothing scheduled.",
+  "app.dash.scheduleAppointment": "Schedule Appointment",
+  "app.dash.viewClients": "View Clients",
+
+  // ── List screens ─────────────────────────────────────────────────────────
+  "app.quotes.title": "Quotes",
+  "app.quotes.subtitle": "Manage customer quotes.",
+  "app.quotes.new": "New Quote",
+  "app.quotes.search": "Search quotes...",
+  "app.quotes.empty": "Create your first quote",
+
+  "app.jobs.title": "Jobs",
+  "app.jobs.subtitle": "Scheduled and in-progress work.",
+  "app.jobs.new": "New Job",
+  "app.jobs.search": "Search jobs...",
+  "app.jobs.empty": "No jobs in this view.",
+  "app.jobs.recurring": "Recurring",
+
+  "app.invoices.title": "Invoices",
+  "app.invoices.subtitle": "Track payments and billing.",
+  "app.invoices.new": "New Invoice",
+  "app.invoices.search": "Search invoices...",
+  "app.invoices.totalBilled": "Total Billed",
+  "app.invoices.outstanding": "Outstanding",
+
+  "app.clients.title": "Clients",
+  "app.clients.new": "New Client",
+  "app.clients.search": "Search clients...",
+  "app.clients.empty": "Add your first client",
+  "app.clients.contractor": "Contractor",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -409,6 +450,45 @@ const fr = {
 
   "app.settings.group.records": "Registres",
   "app.settings.activity": "Journal d'activité",
+
+  "app.dash.title": "Tableau de bord",
+  "app.dash.subtitle": "Voici où en est votre entreprise.",
+  "app.dash.revenueThisMonth": "Revenus ce mois-ci",
+  "app.dash.quotesSent": "Soumissions envoyées",
+  "app.dash.conversionRate": "Taux de conversion",
+  "app.dash.upcomingVisits": "Visites à venir",
+  "app.dash.recentQuotes": "Soumissions récentes",
+  "app.dash.upcomingAppointments": "Prochains rendez-vous",
+  "app.dash.noQuotes": "Aucune soumission pour l'instant.",
+  "app.dash.nothingScheduled": "Rien de prévu.",
+  "app.dash.scheduleAppointment": "Planifier un rendez-vous",
+  "app.dash.viewClients": "Voir les clients",
+
+  "app.quotes.title": "Soumissions",
+  "app.quotes.subtitle": "Gérez les soumissions de vos clients.",
+  "app.quotes.new": "Nouvelle soumission",
+  "app.quotes.search": "Rechercher une soumission...",
+  "app.quotes.empty": "Créez votre première soumission",
+
+  "app.jobs.title": "Chantiers",
+  "app.jobs.subtitle": "Travaux planifiés et en cours.",
+  "app.jobs.new": "Nouveau chantier",
+  "app.jobs.search": "Rechercher un chantier...",
+  "app.jobs.empty": "Aucun chantier dans cette vue.",
+  "app.jobs.recurring": "Récurrent",
+
+  "app.invoices.title": "Factures",
+  "app.invoices.subtitle": "Suivez les paiements et la facturation.",
+  "app.invoices.new": "Nouvelle facture",
+  "app.invoices.search": "Rechercher une facture...",
+  "app.invoices.totalBilled": "Total facturé",
+  "app.invoices.outstanding": "Impayé",
+
+  "app.clients.title": "Clients",
+  "app.clients.new": "Nouveau client",
+  "app.clients.search": "Rechercher un client...",
+  "app.clients.empty": "Ajoutez votre premier client",
+  "app.clients.contractor": "Entrepreneur",
 };
 
 export const APP_MESSAGES = { en, fr };

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Receipt, Plus, Search, ArrowRight } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -13,6 +14,7 @@ const STATUS_STYLES = {
 };
 
 export default function InvoicesPage() {
+  const { t } = useTranslation();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -58,22 +60,22 @@ export default function InvoicesPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.invoices.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Track payments and billing.
+            {t("app.invoices.subtitle")}
           </p>
         </div>
         <Link
           href="/app/invoices/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          <Plus size={16} /> New Invoice
+          <Plus size={16} /> {t("app.invoices.new")}
         </Link>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Total Billed</div>
+          <div className="text-xs text-muted-foreground">{t("app.invoices.totalBilled")}</div>
           <div className="text-xl font-bold text-foreground mt-1">
             $
             {totalBilled.toLocaleString(undefined, {
@@ -82,14 +84,14 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Paid</div>
+          <div className="text-xs text-muted-foreground">{t("app.status.paid")}</div>
           <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
             $
             {paidAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
-          <div className="text-xs text-muted-foreground">Outstanding</div>
+          <div className="text-xs text-muted-foreground">{t("app.invoices.outstanding")}</div>
           <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
             $
             {outstanding.toLocaleString(undefined, {
@@ -107,7 +109,7 @@ export default function InvoicesPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search invoices..."
+          placeholder={t("app.invoices.search")}
           className="w-full pl-9 pr-3 py-2.5 border border-border rounded-lg text-sm"
         />
       </div>
