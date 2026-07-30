@@ -114,5 +114,38 @@ ok(!/^Wall/.test(elevationTitle("D", design.elements)) || elevationTitle("D", de
    `wall D (only a door) → "${elevationTitle("D", design.elements)}"`);
 ok(scaleBarShapes({unitPx:1}).length > 8, "scale bar emits ticks and labels");
 
+// ── The two renderers must cover the SAME shape types ────────────────────
+//
+// A type handled by the SVG adapter and skipped by the PDF one is a cabinet
+// missing from the printed plan — and the plan still LOOKS plausible, which is
+// exactly what makes it dangerous: the client approves one drawing and signs
+// another.
+//
+// Read from SOURCE rather than imported. PlanPdf pulls in @react-pdf, which
+// drags a whole font pipeline into a check script that has no business loading
+// one — and a check that's slow or fragile to run is a check that stops being
+// run.
+import { readFileSync } from "node:fs";
+const casesIn = (src) => new Set([...src.matchAll(/case "(\w+)":/g)].map((m) => m[1]));
+const svgTypes = casesIn(readFileSync("app/components/kitchen/PlanSvg.js", "utf8"));
+const pdfTypes = casesIn(readFileSync("lib/kitchen/PlanPdf.jsx", "utf8"));
+
+const missingInPdf = [...svgTypes].filter((t) => !pdfTypes.has(t));
+ok(missingInPdf.length === 0,
+   missingInPdf.length
+     ? `PDF is MISSING shape types the screen draws: ${missingInPdf.join(", ")}`
+     : `both renderers handle the same ${svgTypes.size} shape types (${[...svgTypes].sort().join(", ")})`);
+
+// And every type the generator actually EMITS must be in both.
+const emitted = new Set();
+for (const d of [design, { ...design, finish: { floorPlank: false } }]) {
+  for (const s of planShapes(d).shapes) emitted.add(s.type);
+}
+const unhandled = [...emitted].filter((t) => !svgTypes.has(t) || !pdfTypes.has(t));
+ok(unhandled.length === 0,
+   unhandled.length
+     ? `the generator emits types nobody draws: ${unhandled.join(", ")}`
+     : `all ${emitted.size} emitted shape types are handled by both adapters`);
+
 console.log(`\n${fail===0?"ALL PASS":fail+" FAILED"}`);
 process.exit(fail?1:0);
