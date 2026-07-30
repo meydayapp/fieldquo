@@ -158,6 +158,10 @@ model Testimonial {
   // Never published without an explicit approval step. Default false so a
   // draft can't reach the public site by omission.
   approved     Boolean  @default(false)
+  // Only ever used as a sort key (orderBy in /api/settings/website), and nothing in
+  // the product can set it — so testimonial ordering by "featured" is currently
+  // inert. Either add a toggle where testimonials are managed or drop the orderBy;
+  // leaving it implies a control that doesn't exist.
   featured     Boolean  @default(false)
   sortOrder    Int      @default(0)
   createdAt    DateTime @default(now())
@@ -694,6 +698,10 @@ model Quote {
   scopeDetails Json?
 
   shareToken          String?   @unique
+  // Written by /api/kitchen-design/[token] and read by nothing. The UI and the
+  // public approval route both use `clientDesignAt` (the timestamp) instead, which
+  // carries the same fact plus when it happened. Two representations of one event,
+  // one of them never consulted — trust clientDesignAt, not this.
   clientDesignSaved   Boolean   @default(false)
   clientDesignAt      DateTime?
   clientKitchenConfig Json?
@@ -1262,6 +1270,9 @@ model PamphletStop {
   sortOrder Int      @default(0)
 
   status       PamphletStopStatus @default(pending)
+  // Written by /api/marketing/stops/[id] and read by nothing. The UI drives off
+  // `status === "spoke"` instead. Redundant with status and able to disagree with
+  // it, so status is the source of truth.
   spokeToOwner Boolean            @default(false)
   notes        String?
 

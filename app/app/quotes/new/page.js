@@ -553,6 +553,7 @@ export default function NewQuotePage() {
         }),
         subtotal,
         tax,
+        taxEnabled,
         total,
         notes,
         // Always created as a draft. Only a confirmed send promotes it,

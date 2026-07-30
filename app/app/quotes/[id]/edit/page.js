@@ -146,6 +146,10 @@ export default function EditQuotePage() {
           subtotal: totals.subtotal,
           tax: totals.tax,
           total: totals.total,
+          // Sent, not just used locally. Without this the checkbox above is a
+          // control that appears to work: the amount saves as 0 but the FLAG
+          // reverts, so reopening re-ticks it and the next save re-adds tax.
+          taxEnabled,
           validUntil: validUntil || null,
           // The API replaces scope groups wholesale (deleteMany + create), so
           // this has to be the complete set, not a delta.

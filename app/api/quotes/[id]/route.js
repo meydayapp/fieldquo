@@ -67,6 +67,15 @@ export async function PATCH(request, { params }) {
     discount,
     tax,
     total,
+    // Whether tax applies at all, as opposed to the tax AMOUNT.
+    //
+    // This was read in two places and written in none: the edit page restored
+    // the checkbox from it and the public quote route consulted it, but no route
+    // ever stored it, so it sat at its schema default of `true` forever. A
+    // contractor who unticked "Apply tax", saved, and reopened the quote found
+    // the box ticked again — and the next edit silently put the tax back on a
+    // price they had deliberately set without it.
+    taxEnabled,
     notes,
     processNotes,
     validUntil,
@@ -84,6 +93,7 @@ export async function PATCH(request, { params }) {
       ...(discount !== undefined && { discount }),
       ...(tax !== undefined && { tax }),
       ...(total !== undefined && { total }),
+      ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
       ...(notes !== undefined && { notes }),
       ...(processNotes !== undefined && { processNotes }),
       ...(validUntil !== undefined && {

@@ -72,6 +72,10 @@ export async function POST(request) {
     discount,
     tax,
     total,
+    // The flag, not just the amount. See the note in [id]/route.js: this column
+    // was read by the edit page and by the public quote route, and written by
+    // nothing, so the "Apply tax" checkbox never survived a save.
+    taxEnabled,
     notes,
     validUntil,
     language,
@@ -107,6 +111,9 @@ export async function POST(request) {
       subtotal: subtotal || 0,
       discount: discount || 0,
       tax: tax || 0,
+      // Default true only when the client didn't say — matching the column's own
+      // default. `taxEnabled: false` must not be read as "unset".
+      taxEnabled: taxEnabled === undefined ? true : Boolean(taxEnabled),
       total,
       notes: notes || null,
       // COPIED onto the quote, not referenced from the company. A quote sent
