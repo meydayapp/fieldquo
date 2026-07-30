@@ -37,6 +37,7 @@ import {
   Megaphone,
   Droplet,
   Ruler,
+  Headset,
   Mail,
   Clock,
   Palette,
@@ -125,6 +126,7 @@ const GROUPS = [
       { key: "app.settings.website", href: "/app/settings/website", icon: Globe },
       { key: "app.settings.instantQuotes", href: "/app/settings/instant-quotes", icon: Zap },
       { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList },
+      { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset },
     ],
   },
   {
