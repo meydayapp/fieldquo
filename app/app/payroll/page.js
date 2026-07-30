@@ -21,6 +21,7 @@ import { Loader2, Wallet, Calculator, AlertTriangle, Check, Info, Download } fro
 import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly } from "@/lib/format/companyDate";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const REGIONS = [
   { key: "CA", label: "Canada" },
   { key: "US", label: "United States" },
@@ -60,6 +61,7 @@ function defaultPeriod() {
 }
 
 export default function PayrollPage() {
+  const { t } = useTranslation();
   const [runs, setRuns] = useState(null);
   const [canRun, setCanRun] = useState(false);
   const [listError, setListError] = useState("");
@@ -139,12 +141,12 @@ export default function PayrollPage() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Wallet size={20} className="text-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">Payroll</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.payroll.title")}</h1>
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           FieldQuo works out what each person should be paid from their approved
           hours and your saved rates, and produces payslips.{" "}
-          <strong className="text-foreground">You pay through your own bank or payroll provider</strong> —
+          <strong className="text-foreground">{t("app.payroll.payYourself")}</strong> —
           FieldQuo doesn&apos;t move the money.
         </p>
       </div>
@@ -153,7 +155,7 @@ export default function PayrollPage() {
       {mine?.worker && (
         <section>
           <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-3">
-            My earnings
+            {t("app.payroll.myEarnings")}
           </h2>
           {mine.ytd && (
             // Three columns hold "Gross / Deductions / Net" on a phone only because the
@@ -176,7 +178,7 @@ export default function PayrollPage() {
           )}
           {mine.payslips.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No payslips yet. They appear once a pay run is approved.
+              {t("app.payroll.noPayslips")}
             </p>
           ) : (
             <div className="rounded-xl border border-border bg-card divide-y divide-border">
@@ -204,7 +206,7 @@ export default function PayrollPage() {
                     <a
                       href={`/api/payroll/runs/${p.payRun.id}/payslip/${p.id}`}
                       className="inline-flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5 shrink-0"
-                      aria-label="Download this payslip as a PDF"
+                      aria-label={t("app.payroll.downloadPayslip")}
                     >
                       <Download size={12} /> PDF
                     </a>
@@ -221,8 +223,7 @@ export default function PayrollPage() {
         <>
           <section className="rounded-xl border border-border bg-card p-5">
             <h2 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-              <Calculator size={16} className="text-muted-foreground" /> New pay run
-            </h2>
+              <Calculator size={16} className="text-muted-foreground" />{t("app.payroll.newRun")}</h2>
             <p className="text-xs text-muted-foreground mb-4">
               Only <strong className="text-foreground">approved</strong> time is included. Approve
               timesheets first, or those hours won&apos;t be paid.
@@ -230,7 +231,7 @@ export default function PayrollPage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted-foreground">Period start</span>
+                <span className="text-[11px] text-muted-foreground">{t("app.payroll.periodStart")}</span>
                 <input
                   type="date"
                   value={form.periodStart}
@@ -239,7 +240,7 @@ export default function PayrollPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted-foreground">Period end</span>
+                <span className="text-[11px] text-muted-foreground">{t("app.payroll.periodEnd")}</span>
                 <input
                   type="date"
                   value={form.periodEnd}
@@ -248,7 +249,7 @@ export default function PayrollPage() {
                 />
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted-foreground">Frequency</span>
+                <span className="text-[11px] text-muted-foreground">{t("app.payroll.frequency")}</span>
                 <select
                   value={form.frequency}
                   onChange={(e) => setForm({ ...form, frequency: e.target.value })}
@@ -260,7 +261,7 @@ export default function PayrollPage() {
                 </select>
               </label>
               <label className="flex flex-col gap-1">
-                <span className="text-[11px] text-muted-foreground">Payslip labels</span>
+                <span className="text-[11px] text-muted-foreground">{t("app.payroll.payslipLabels")}</span>
                 <select
                   value={form.region}
                   onChange={(e) => setForm({ ...form, region: e.target.value })}
@@ -288,7 +289,7 @@ export default function PayrollPage() {
                   disabled={busy}
                   className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60"
                 >
-                  Save as draft run
+                  {t("app.payroll.saveDraft")}
                 </button>
               )}
             </div>
@@ -371,7 +372,7 @@ export default function PayrollPage() {
                   ))}
                   {preview.lines.length === 0 && (
                     <p className="px-3 py-4 text-sm text-muted-foreground">
-                      Nobody has approved hours or a salary in this period.
+                      {t("app.payroll.nothingApproved")}
                     </p>
                   )}
                 </div>
@@ -382,11 +383,11 @@ export default function PayrollPage() {
           {/* Past runs */}
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wide text-muted-foreground mb-3">
-              Pay runs
+              {t("app.payroll.runs")}
             </h2>
             {!runs && <Loader2 size={16} className="animate-spin text-muted-foreground" />}
             {runs?.length === 0 && (
-              <p className="text-sm text-muted-foreground">No pay runs yet.</p>
+              <p className="text-sm text-muted-foreground">{t("app.payroll.noRuns")}</p>
             )}
             <div className="space-y-2">
               {runs?.map((r) => (
@@ -420,7 +421,7 @@ export default function PayrollPage() {
         listError && (
           <p className="text-xs text-muted-foreground flex items-start gap-1.5">
             <Info size={13} className="mt-0.5 shrink-0" />
-            Only your own payslips are shared with your account.
+            {t("app.payroll.ownPayslipsOnly")}
           </p>
         )
       )}

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Inbox, Mail, Phone, ArrowRight, AlertCircle } from "lucide-react";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 // Mirrors the LeadStatus enum. Order is the pipeline order, not alphabetical.
 const COLUMNS = [
   { key: "new", label: "New", tone: "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900" },
@@ -27,6 +28,7 @@ const COLUMNS = [
 const NEXT_STATUS = { new: "contacted", contacted: "converted" };
 
 export default function LeadsPage() {
+  const { t } = useTranslation();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
@@ -90,9 +92,9 @@ export default function LeadsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Leads</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.leads.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Enquiries from your booking page and contact forms.
+          {t("app.leads.subtitle")}
         </p>
       </div>
 
@@ -106,9 +108,9 @@ export default function LeadsPage() {
       {leads.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <Inbox size={30} className="text-muted-foreground mx-auto" />
-          <p className="mt-3 font-medium text-foreground">No leads yet</p>
+          <p className="mt-3 font-medium text-foreground">{t("app.leads.empty")}</p>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-            Enquiries land here when someone fills in your public booking page.
+            {t("app.leads.emptyHint")}
           </p>
         </div>
       ) : (
@@ -127,7 +129,7 @@ export default function LeadsPage() {
               <div className="space-y-3">
                 {grouped[col.key].length === 0 && (
                   <div className="border border-dashed border-border rounded-xl px-4 py-6 text-center text-xs text-muted-foreground">
-                    Nothing here
+                    {t("app.leads.nothingHere")}
                   </div>
                 )}
 
@@ -201,7 +203,7 @@ export default function LeadsPage() {
                             disabled={Boolean(busyId)}
                             className="text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
                           >
-                            Lost
+                            {t("app.status.lost")}
                           </button>
                         )}
                       </div>
@@ -212,7 +214,7 @@ export default function LeadsPage() {
                         href="/app/quotes/new"
                         className="mt-3 flex items-center justify-center gap-1.5 bg-card border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-xs font-semibold py-2 rounded-lg"
                       >
-                        Start a quote
+                        {t("app.leads.startQuote")}
                       </Link>
                     )}
                   </div>

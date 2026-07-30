@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Plus, MapPin, User as UserIcon, ShieldAlert, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
   scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
   needs_supervisor: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
@@ -13,6 +14,7 @@ const STATUS_STYLES = {
 };
 
 export default function AppointmentsPage() {
+  const { t } = useTranslation();
   const [appointments, setAppointments] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,17 +56,16 @@ export default function AppointmentsPage() {
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-lg md:text-xl font-semibold">Appointments</h1>
+          <h1 className="text-lg md:text-xl font-semibold">{t("app.appts.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            In-person visits and site assignments.
+            {t("app.appts.subtitle")}
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           className="admin-btn-primary flex items-center justify-center gap-2 shrink-0"
         >
-          <Plus size={16} /> New Appointment
-        </button>
+          <Plus size={16} />{t("app.appts.new")}</button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -94,7 +95,7 @@ export default function AppointmentsPage() {
 
       {!loading && filtered.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
-          No appointments in this view.
+          {t("app.appts.empty")}
         </div>
       )}
 
@@ -114,8 +115,7 @@ export default function AppointmentsPage() {
                   </span>
                   {appt.requiresSupervisor && (
                     <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
-                      <ShieldAlert size={12} /> Supervisor required
-                    </span>
+                      <ShieldAlert size={12} />{t("app.appts.supervisorRequired")}</span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">
@@ -142,7 +142,7 @@ export default function AppointmentsPage() {
                   onChange={(e) => assign(appt.id, e.target.value || null)}
                   className="border rounded px-2 py-1.5 text-sm bg-card"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t("app.appts.unassigned")}</option>
                   {members.map((m) => (
                     <option key={m.userId} value={m.userId}>
                       {m.user.name}
@@ -213,7 +213,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
 
         <form onSubmit={submit} className="space-y-3">
           <div>
-            <label className="text-sm text-muted-foreground">Client name</label>
+            <label className="text-sm text-muted-foreground">{t("app.appts.clientName")}</label>
             <input
               required
               value={form.clientName}
@@ -223,7 +223,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground">Date & time</label>
+            <label className="text-sm text-muted-foreground">{t("app.appts.dateTime")}</label>
             <input
               required
               type="datetime-local"
@@ -236,12 +236,12 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground">Location</label>
+            <label className="text-sm text-muted-foreground">{t("app.appts.location")}</label>
             <input
               value={form.location}
               onChange={(e) => setForm({ ...form, location: e.target.value })}
               className="w-full border rounded px-3 py-2 text-sm mt-1"
-              placeholder="Site address"
+              placeholder={t("app.appts.siteAddress")}
             />
           </div>
 
@@ -253,11 +253,11 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
                 setForm({ ...form, requiresSupervisor: e.target.checked })
               }
             />
-            Requires a senior supervisor on site
+            {t("app.appts.supervisorHint")}
           </label>
 
           <div>
-            <label className="text-sm text-muted-foreground">Assign to</label>
+            <label className="text-sm text-muted-foreground">{t("app.appts.assignTo")}</label>
             <select
               value={form.assignedToId}
               onChange={(e) =>

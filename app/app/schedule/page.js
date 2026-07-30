@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function initials(name) {
@@ -37,6 +38,7 @@ function when(iso) {
 }
 
 export default function TeamSchedulePage() {
+  const { t } = useTranslation();
   const [team, setTeam] = useState(null);
   // Comes from the server rather than being inferred from a role here, so the
   // edit links can't appear where the save would be refused.
@@ -56,7 +58,7 @@ export default function TeamSchedulePage() {
     <div className="max-w-4xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <CalendarDays size={20} className="text-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">Team Schedule</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.schedule.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
         Everyone&apos;s weekly availability and what&apos;s booked in the next two
@@ -79,7 +81,7 @@ export default function TeamSchedulePage() {
 
       {team && team.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          No team members yet.
+          {t("app.schedule.noMembers")}
         </div>
       )}
 
@@ -102,7 +104,7 @@ export default function TeamSchedulePage() {
                 </div>
                 <div className="ml-auto flex items-center gap-3">
                   {!m.hasAvailability && (
-                    <span className="text-xs text-muted-foreground">No availability set</span>
+                    <span className="text-xs text-muted-foreground">{t("app.schedule.noAvailability")}</span>
                   )}
                   {/* The thing that was missing entirely: a way to get from
                       "this person has no availability" to setting it. Shown only
@@ -153,7 +155,7 @@ export default function TeamSchedulePage() {
               {m.upcoming.length > 0 && (
                 <div className="mt-4 border-t border-border pt-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Next 2 weeks
+                    {t("app.schedule.nextTwoWeeks")}
                   </p>
                   <ul className="space-y-1">
                     {m.upcoming.slice(0, 8).map((u, j) => (

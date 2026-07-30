@@ -31,6 +31,7 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLE = {
   pending: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300",
   approved: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300",
@@ -77,6 +78,7 @@ function Pill({ status }) {
 }
 
 export default function TimeOffPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState("mine");
   const [mine, setMine] = useState(null);
   const [team, setTeam] = useState(null);
@@ -117,10 +119,9 @@ export default function TimeOffPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-            <CalendarDays size={22} /> Time off
-          </h1>
+            <CalendarDays size={22} />{t("app.timeOff.title")}</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Request time off and see what you have left.
+            {t("app.timeOff.subtitle")}
           </p>
         </div>
         {canSeeTeam && (
@@ -131,8 +132,7 @@ export default function TimeOffPage() {
                 tab === "mine" ? "bg-inverted text-inverted-foreground" : "hover:bg-muted"
               }`}
             >
-              <User size={14} /> Mine
-            </button>
+              <User size={14} />{t("app.timeOff.mine")}</button>
             <button
               onClick={() => setTab("team")}
               className={`px-3 py-1.5 flex items-center gap-1.5 ${
@@ -212,19 +212,18 @@ function MyTimeOff({ data, reload }) {
           data.balances.map((b) => <BalanceCard key={b.id} balance={b} />)
         ) : (
           <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
-            No balance has accrued yet this year.
+            {t("app.timeOff.noBalance")}
           </div>
         )}
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="font-semibold text-foreground">Your requests</h2>
+        <h2 className="font-semibold text-foreground">{t("app.timeOff.yourRequests")}</h2>
         <button
           onClick={() => setOpen((v) => !v)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-inverted text-inverted-foreground px-3 py-2 text-sm font-medium"
         >
-          <Plus size={15} /> Request time off
-        </button>
+          <Plus size={15} />{t("app.timeOff.request")}</button>
       </div>
 
       {open && (
@@ -279,11 +278,11 @@ function BalanceCard({ balance }) {
       {!isMoney && (
         <div className="mt-3 text-xs text-muted-foreground space-y-0.5">
           <div className="flex justify-between">
-            <span>Accrued</span>
+            <span>{t("app.timeOff.accrued")}</span>
             <span>{balance.accruedDays}</span>
           </div>
           <div className="flex justify-between">
-            <span>Taken</span>
+            <span>{t("app.timeOff.taken")}</span>
             <span>{balance.usedDays}</span>
           </div>
           {balance.pendingDays > 0 && (
@@ -345,7 +344,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">Type</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.type")}</span>
           <select
             value={form.policyId}
             onChange={(e) => setForm({ ...form, policyId: e.target.value })}
@@ -374,7 +373,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
         </div>
 
         <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">First day</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.firstDay")}</span>
           <input
             type="date"
             required
@@ -392,7 +391,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
           />
         </label>
         <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">Last day</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("app.timeOff.lastDay")}</span>
           <input
             type="date"
             required
@@ -412,19 +411,19 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
             onChange={(e) => setForm({ ...form, halfDay: e.target.checked })}
             className="rounded border-border"
           />
-          Half day only
+          {t("app.timeOff.halfDayOnly")}
         </label>
       )}
 
       <label className="block">
         <span className="text-xs font-medium text-muted-foreground">
-          Note (optional)
+          {t("app.timeOff.note")}
         </span>
         <textarea
           rows={2}
           value={form.reason}
           onChange={(e) => setForm({ ...form, reason: e.target.value })}
-          placeholder="Anything your manager should know"
+          placeholder={t("app.timeOff.notePlaceholder")}
           className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         />
       </label>
@@ -448,7 +447,7 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
           onClick={onCancel}
           className="rounded-lg border border-border px-4 py-2 text-sm"
         >
-          Cancel
+          {t("app.action.cancel")}
         </button>
         <button
           disabled={busy}
@@ -593,7 +592,7 @@ function TeamTimeOff({ data, reload }) {
     <div className="space-y-6">
       <section>
         <h2 className="font-semibold text-foreground mb-2">
-          Awaiting approval
+          {t("app.timeOff.awaitingApproval")}
           {pending.length > 0 && (
             <span className="ml-2 text-sm font-normal text-muted-foreground">
               {pending.length}
@@ -613,12 +612,12 @@ function TeamTimeOff({ data, reload }) {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Nothing to approve.</p>
+          <p className="text-sm text-muted-foreground">{t("app.timeOff.nothingToApprove")}</p>
         )}
         {!data.canApprove && pending.length > 0 && (
           <p className="mt-2 text-xs text-muted-foreground flex items-start gap-1.5">
             <Info size={13} className="mt-0.5 shrink-0" />
-            You can see requests but not approve them.
+            {t("app.timeOff.viewOnly")}
           </p>
         )}
       </section>
@@ -639,23 +638,23 @@ function TeamTimeOff({ data, reload }) {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Nobody has approved time off coming up.
+            {t("app.timeOff.noneUpcoming")}
           </p>
         )}
       </section>
 
       {data.balances?.length > 0 && (
         <section>
-          <h2 className="font-semibold text-foreground mb-2">Balances this year</h2>
+          <h2 className="font-semibold text-foreground mb-2">{t("app.timeOff.balances")}</h2>
           <div className="overflow-x-auto rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-2">Person</th>
-                  <th className="px-3 py-2">Policy</th>
+                  <th className="px-3 py-2">{t("app.timeOff.person")}</th>
+                  <th className="px-3 py-2">{t("app.timeOff.policy")}</th>
                   <th className="px-3 py-2 text-right">Accrued</th>
                   <th className="px-3 py-2 text-right">Taken</th>
-                  <th className="px-3 py-2 text-right">Left</th>
+                  <th className="px-3 py-2 text-right">{t("app.timeOff.left")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -687,7 +686,7 @@ function TeamTimeOff({ data, reload }) {
 
       {past.length > 0 && (
         <section>
-          <h2 className="font-semibold text-foreground mb-2">Earlier</h2>
+          <h2 className="font-semibold text-foreground mb-2">{t("app.timeOff.earlier")}</h2>
           <div className="space-y-2">
             {past.slice(0, 20).map((r) => (
               <RequestRow key={r.id} request={r} reload={reload} showWho />

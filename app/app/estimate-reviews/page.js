@@ -13,6 +13,7 @@ import { Loader2, BadgeCheck, ExternalLink } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 function money(n) {
   return "$" + Math.round(Number(n) || 0).toLocaleString();
 }
@@ -24,6 +25,7 @@ const SOURCE_LABEL = {
 };
 
 export default function EstimateReviewsPage() {
+  const { t } = useTranslation();
   const [quotes, setQuotes] = useState(null);
   const [canApprove, setCanApprove] = useState(false);
   const [error, setError] = useState("");
@@ -63,7 +65,7 @@ export default function EstimateReviewsPage() {
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <BadgeCheck size={20} className="text-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">Estimate Reviews</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.reviews.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
         Instant estimates from your website land here first. Confirm the price —
@@ -82,7 +84,7 @@ export default function EstimateReviewsPage() {
 
       {quotes && quotes.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          Nothing waiting. New instant estimates from your website will appear here.
+          {t("app.reviews.empty")}
         </div>
       )}
 
@@ -127,7 +129,7 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
       <div className="mt-3 flex gap-4">
         {m.satelliteImageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.satelliteImageUrl} alt="Property" className="h-28 w-40 object-cover rounded-lg border border-border shrink-0" />
+          <img src={m.satelliteImageUrl} alt={t("app.reviews.property")} className="h-28 w-40 object-cover rounded-lg border border-border shrink-0" />
         )}
         <div className="text-sm text-muted-foreground space-y-1">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -136,7 +138,7 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
             {m.predominantPitch && <span><strong className="text-foreground">{m.predominantPitch.rise}/12</strong> pitch</span>}
             {m.tearOffLayers ? <span>{m.tearOffLayers} layer(s) tear-off</span> : null}
           </div>
-          {d.materialKey && <div>Material: <strong className="text-foreground">{d.materialKey}</strong></div>}
+          {d.materialKey && <div>{t("app.reviews.material")}<strong className="text-foreground">{d.materialKey}</strong></div>}
           <div>
             Homeowner saw:{" "}
             <strong className="text-foreground">{money(range.low)}–{money(range.high)}{d.unit ? ` ${d.unit}` : ""}</strong>
@@ -157,7 +159,7 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Approve at</span>
+          <span className="text-muted-foreground">{t("app.reviews.approveAt")}</span>
           <span className="text-muted-foreground">$</span>
           <input
             type="number"
@@ -178,11 +180,10 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
         <Link
           href={`/app/quotes/${q.id}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          Open quote <ExternalLink size={13} />
+        >{t("app.reviews.openQuote")}<ExternalLink size={13} />
         </Link>
         {!canApprove && (
-          <span className="text-xs text-muted-foreground">Only a supervisor, admin or owner can approve.</span>
+          <span className="text-xs text-muted-foreground">{t("app.reviews.supervisorOnly")}</span>
         )}
       </div>
     </div>

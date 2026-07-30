@@ -6,11 +6,13 @@
 
 import HelpCenter from "@/app/components/help/HelpCenter";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 export default function HelpPage() {
+  const { t } = useTranslation();
   return (
     <HelpCenter
       audience="company"
-      title="Help Centre"
+      title={t("app.help.title")}
       intro="Guides for getting the most out of FieldQuo — setup, quoting, instant quotes, payments and more."
     />
   );

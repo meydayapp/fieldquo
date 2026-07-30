@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Activity as ActivityIcon, ShieldAlert } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
+import { useTranslation } from "@/app/hooks/useTranslation";
 // Small dot colour per action family, so the eye can scan for deletes/payments.
 function toneFor(action) {
   if (action.includes("deleted")) return "bg-red-500";
@@ -32,6 +33,7 @@ function timeAgo(iso) {
 }
 
 export default function ActivityPage() {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState("");
 
@@ -45,7 +47,7 @@ export default function ActivityPage() {
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <ActivityIcon size={20} className="text-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">Activity Log</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.activity.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
         A record of important actions in your account — quotes sent, payments
@@ -67,7 +69,7 @@ export default function ActivityPage() {
 
       {entries && entries.length === 0 && (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground">
-          No activity recorded yet.
+          {t("app.activity.empty")}
         </div>
       )}
 
