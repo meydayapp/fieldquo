@@ -384,6 +384,7 @@ model Company {
   instantQuoteConfigs   InstantQuoteConfig[]
   activityLogs          ActivityLog[]
   payRuns               PayRun[]
+  salaryComponentDefs   SalaryComponent[]
 
   postalCode   String?
   country      String?  @default("CA")
@@ -1400,6 +1401,7 @@ model Worker {
   payouts     Payout[]
   salaries    Salary[]
   payRunLines PayRunLine[]
+  salaryComponents WorkerSalaryComponent[]
 }
 
 model TimeEntry {
@@ -1478,6 +1480,71 @@ model MarketingSpend {
   date         DateTime          @default(now())
   notes        String?
   createdAt    DateTime          @default(now())
+}
+
+// A reusable named earning or deduction — Frappe HR's "Salary Component"
+// pattern. Set up once per company ("CPP", "Income tax", "Union dues", "Tool
+// allowance"), then assigned to workers.
+//
+// Three calculation shapes, because real components come in all three:
+//   fixed    — a flat amount per period (union dues, health premium)
+//   percent  — a share of gross (CPP 5.95%, EI 1.66%)
+//   slabs    — progressive brackets (income tax); see taxFromSlabs
+//
+// `statutory` marks the ones that exist because a government requires them, so
+// the payslip can group them separately and a company can see at a glance
+// whether its statutory set is configured at all. FieldQuo never invents these
+// rates: they are seeded from published tables as a STARTING POINT the company
+// confirms, and thereafter they're the company's own numbers.
+model SalaryComponent {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+  // earning | deduction
+  kind String  @default("deduction")
+  // fixed | percent | slabs
+  calculation String @default("fixed")
+
+  amount  Decimal? @db.Decimal(12, 2)
+  percent Decimal? @db.Decimal(6, 3)
+  // [{ upTo: number|null, percent: number }] ascending. Annual thresholds.
+  slabs   Json?
+
+  statutory Boolean @default(false)
+  // CA | US | UK — which regime this belongs to, for grouping and for warning
+  // when a company's region and its components disagree.
+  region    String?
+  active    Boolean @default(true)
+
+  // Applies to everyone by default (statutory usually does); otherwise it only
+  // applies to workers it's explicitly assigned to.
+  appliesToAll Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments WorkerSalaryComponent[]
+
+  @@unique([companyId, name])
+}
+
+// A component assigned to one worker, optionally overriding the amount/percent
+// (someone's union dues or garnishment differ from the default).
+model WorkerSalaryComponent {
+  id          String          @id @default(cuid())
+  workerId    String
+  worker      Worker          @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  componentId String
+  component   SalaryComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  amount  Decimal? @db.Decimal(12, 2)
+  percent Decimal? @db.Decimal(6, 3)
+
+  createdAt DateTime @default(now())
+
+  @@unique([workerId, componentId])
 }
 
 // One payroll period for a company: draft → approved → paid.
