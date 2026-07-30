@@ -146,6 +146,39 @@ path must stay dynamic while the public path caches.
   appraisals, loans/advances, year-end forms (T4/W-2/P60), geolocation on
   check-in.
 
+### 5b. Kitchen designer — built, two pieces left
+
+Adapted from the owner's working TrueFinish code. What's done:
+
+- `lib/kitchen/pricing.js` — the maths unchanged (it prices kitchens real
+  clients bought; `npm run check:kitchen` pins it to those numbers), but rates
+  now belong to the company (`Company.cabinetRates`), line items come out in
+  FieldQuo's shape, and nothing trusts its input.
+- `lib/kitchen/geometry.js` — ONE wall-to-XY mapping, shared by the editor and
+  the drawing. Do not copy it into a renderer; that is how the picture a client
+  approves stops matching the one the crew builds from.
+- `lib/kitchen/planShapes.js` + `PlanSvg.js` — the presentation plan.
+- `/app/quotes/[id]/kitchen`, `/design/[token]`, `/app/settings/cabinet-rates`.
+
+**Still to do, in order:**
+
+1. **Elevations in the presentation style.** The plan is drawn; the elevations
+   are still the editor's plain boxes. `elevationTitle()` already names them the
+   way the reference does ("Cooktop wall", not "Wall B").
+2. **The drawing on the PDF.** `planShapes` returns primitives precisely so a
+   second adapter can emit `@react-pdf` `Svg`/`Rect`/`Line`/`Path`/`Text` from
+   the same list. Write that adapter — do NOT re-derive the geometry, and do not
+   rasterise. The quote and invoice PDFs then carry the plan the client saw.
+3. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
+   flags holes above it; both need testing with a thumb on a real phone.
+
+Two rules this feature already depends on. The client designer is PUBLIC, so it
+returns no prices — `stripPricing` rebuilds the payload key-by-key rather than
+deleting known fields, because a blacklist starts leaking the moment the pricing
+engine gains one. And it accepts no prices: `mergeClientDesign` re-attaches
+appliance pricing from the contractor's own copy, verified against the live
+endpoint with a tampered POST.
+
 ### 6. Smaller open items
 
 - **App interface language: shell and main screens done, ~65 screens to go.**
