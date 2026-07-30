@@ -56,6 +56,56 @@ import {
   KITCHEN_ACCESSORIES,
 } from "@/lib/kitchen/pricing";
 
+// Geometry lives in lib/kitchen/geometry.js so the presentation drawing and the
+// PDF can use the SAME wall-to-XY mapping this editor drags against. A second
+// copy is a drawing that slowly stops matching what the client moved.
+import {
+  WALLS,
+  KINDS,
+  islandModules,
+  islandFrontModules,
+  islandBackModules,
+  islandLeftModules,
+  islandRightModules,
+  islandSideRun,
+  planRect,
+  planWidth,
+  planDepth,
+  cornerLegs,
+  islandTotalWidth,
+  islandTotalDepth,
+  COUNTER_HEIGHT,
+  BASE_HEIGHT,
+  UPPER_BOTTOM,
+  SNAP,
+  RETURN_DEPTH,
+} from "@/lib/kitchen/geometry";
+
+// The palette buttons' icons. Split from KINDS when the geometry moved out —
+// lucide components can't be imported by a PDF renderer or a bare-node test.
+const KIND_ICONS = {
+  base: Box,
+  drawerBase: Columns2,
+  sinkBase: CookingPot,
+  spiceBase: Box,
+  tall: PanelTop,
+  fridgeSurround: PanelTop,
+  hoodCabinet: PanelTop,
+  wall: Box,
+  microwave: Microwave,
+  island: Box,
+  cornerBase: CornerDownRight,
+  cornerBaseDiag: Triangle,
+  cornerWall: CornerDownRight,
+  cornerWallDiag: Triangle,
+  fridge: Refrigerator,
+  stove: Flame,
+  hoodVent: CookingPot,
+  dishwasher: Square,
+  window: RectangleHorizontal,
+  door: DoorOpen,
+};
+
 import CabinetFace from "./CabinetFace";
 import ApplianceGlyph from "./ApplianceGlyph";
 
@@ -86,18 +136,7 @@ function isLightColor(hex) {
 }
 
 const WALL_HEIGHT_CLASSES = ["12", "24", "30", "34", "36", "42"];
-const COUNTER_HEIGHT = 36;
-const BASE_HEIGHT = 34.5;
-const UPPER_BOTTOM = 54;
-const SNAP = 2; // inches
-const RETURN_DEPTH = 30; // corner-zone depth for "return" detection
 
-const WALLS = [
-  { id: "A", label: "Wall A (back)", short: "Back" },
-  { id: "B", label: "Wall B (right)", short: "Right" },
-  { id: "C", label: "Wall C (front)", short: "Front" },
-  { id: "D", label: "Wall D (left)", short: "Left" },
-];
 
 // corner → the two walls it joins, in [first, second] order (legA, legB)
 const CORNER_WALLS = {
@@ -126,209 +165,6 @@ function defaultCornerForView(view) {
   return "AD";
 }
 
-const KINDS = {
-  base: {
-    label: "Base",
-    group: "cabinet",
-    plane: "floor",
-    dragY: false,
-    w: 24,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: Box,
-  },
-  drawerBase: {
-    label: "Drawer base",
-    group: "cabinet",
-    plane: "floor",
-    dragY: false,
-    w: 18,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: Columns2,
-  },
-  sinkBase: {
-    label: "Sink base",
-    group: "cabinet",
-    plane: "floor",
-    dragY: false,
-    w: 30,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: CookingPot,
-  },
-  spiceBase: {
-    label: "Spice/pull-out",
-    group: "cabinet",
-    plane: "floor",
-    dragY: false,
-    w: 6,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: Box,
-  },
-  tall: {
-    label: "Tall/pantry",
-    group: "cabinet",
-    plane: "full",
-    dragY: false,
-    w: 24,
-    h: 84,
-    d: 24,
-    icon: PanelTop,
-  },
-  fridgeSurround: {
-    label: "Fridge surround",
-    group: "cabinet",
-    plane: "full",
-    dragY: false,
-    w: 36,
-    h: 84,
-    d: 26,
-    icon: PanelTop,
-  },
-
-  hoodCabinet: {
-    label: "Hood cabinet",
-    group: "cabinet",
-    plane: "upper",
-    dragY: true,
-    w: 30,
-    h: 24,
-    d: 12,
-    icon: PanelTop,
-  },
-  wall: {
-    label: "Wall",
-    group: "cabinet",
-    plane: "upper",
-    dragY: true,
-    w: 24,
-    h: 30,
-    d: 12,
-    icon: Box,
-  },
-  microwave: {
-    label: "Microwave",
-    group: "cabinet",
-    plane: "upper",
-    dragY: true,
-    w: 24,
-    h: 18,
-    d: 13,
-    icon: Microwave,
-  },
-  island: {
-    label: "Island",
-    group: "island",
-    plane: "floor",
-    dragY: false,
-    w: 60,
-    h: BASE_HEIGHT,
-    d: 36,
-    icon: Box,
-    free: true,
-  },
-
-  cornerBase: {
-    label: "Corner base (L)",
-    group: "cabinet",
-    plane: "floor",
-    corner: true,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: CornerDownRight,
-  },
-  cornerBaseDiag: {
-    label: "Corner base (45°)",
-    group: "cabinet",
-    plane: "floor",
-    corner: true,
-    h: BASE_HEIGHT,
-    d: 24,
-    icon: Triangle,
-  },
-  cornerWall: {
-    label: "Corner wall (L)",
-    group: "cabinet",
-    plane: "upper",
-    corner: true,
-    h: 30,
-    d: 12,
-    icon: CornerDownRight,
-  },
-  cornerWallDiag: {
-    label: "Corner wall (45°)",
-    group: "cabinet",
-    plane: "upper",
-    corner: true,
-    h: 30,
-    d: 12,
-    icon: Triangle,
-  },
-
-  fridge: {
-    label: "Fridge",
-    group: "appliance",
-    plane: "floor",
-    dragY: false,
-    w: 36,
-    h: 70,
-    d: 30,
-    icon: Refrigerator,
-  },
-  stove: {
-    label: "Range/stove",
-    group: "appliance",
-    plane: "floor",
-    dragY: false,
-    w: 30,
-    h: 36,
-    d: 26,
-    icon: Flame,
-  },
-  hoodVent: {
-    label: "Hood vent",
-    group: "appliance",
-    plane: "upper",
-    dragY: true,
-    w: 30,
-    h: 12,
-    d: 18,
-    icon: CookingPot,
-  },
-  dishwasher: {
-    label: "Dishwasher",
-    group: "appliance",
-    plane: "floor",
-    dragY: false,
-    w: 24,
-    h: 34,
-    d: 24,
-    icon: Square,
-  },
-
-  window: {
-    label: "Window",
-    group: "opening",
-    plane: "free",
-    dragY: true,
-    w: 36,
-    h: 36,
-    d: 0,
-    icon: RectangleHorizontal,
-  },
-  door: {
-    label: "Door",
-    group: "opening",
-    plane: "floor",
-    dragY: false,
-    w: 32,
-    h: 80,
-    d: 0,
-    icon: DoorOpen,
-  },
-};
 
 const PALETTE_GROUPS = [
   { title: "Base", kinds: ["base", "drawerBase", "sinkBase", "spiceBase"] },
@@ -578,142 +414,8 @@ function wallCeiling(wallId, room) {
   return room.ceiling || 96;
 }
 
-function planWidth(room) {
-  return Math.max(
-    room.width || 0,
-    room.walls?.A?.length || 0,
-    room.walls?.C?.length || 0,
-    12,
-  );
-}
-
-function planDepth(room) {
-  return Math.max(
-    room.depth || 0,
-    room.walls?.B?.length || 0,
-    room.walls?.D?.length || 0,
-    12,
-  );
-}
-
-function islandModules(el) {
-  return el.config?.modules || [];
-}
-
-function islandSideModules(el, side) {
-  return islandModules(el).filter((m) => (m.side || "front") === side);
-}
-
-function islandFrontModules(el) {
-  return islandSideModules(el, "front");
-}
-
-function islandBackModules(el) {
-  return islandSideModules(el, "back");
-}
-
-function islandLeftModules(el) {
-  return islandSideModules(el, "left");
-}
-
-function islandRightModules(el) {
-  return islandSideModules(el, "right");
-}
-
-function islandSideRun(modules) {
-  return modules.reduce((sum, m) => sum + (m.width || 0), 0);
-}
-
-function islandTotalWidth(el) {
-  const frontW = islandSideRun(islandFrontModules(el));
-  const backW = islandSideRun(islandBackModules(el));
-
-  const sideDepths =
-    Math.max(
-      0,
-      ...islandLeftModules(el).map((m) => m.depth || 24),
-      ...islandRightModules(el).map((m) => m.depth || 24),
-    ) * 2;
-
-  return Math.max(frontW, backW, el.width || 0, 24) + sideDepths;
-}
-
-function islandTotalDepth(el) {
-  const frontD = Math.max(
-    0,
-    ...islandFrontModules(el).map((m) => m.depth || 24),
-  );
-  const backD = Math.max(0, ...islandBackModules(el).map((m) => m.depth || 24));
-
-  const leftW = islandSideRun(islandLeftModules(el));
-  const rightW = islandSideRun(islandRightModules(el));
-
-  return Math.max(frontD + backD, leftW, rightW, el.depth || 0, 24);
-}
-
-// plan AABB for a normal (non-corner) element
-function planRect(el, room) {
-  const k = KINDS[el.kind];
-  const W = planWidth(room);
-  const D = planDepth(room);
-  const w = el.width;
-  const d = el.depth || (k.plane === "upper" ? 12 : 24);
-
-  if (el.kind === "island") {
-    return {
-      x: el.pos,
-      y: el.y,
-      w: islandTotalWidth(el),
-      h: islandTotalDepth(el),
-    };
-  }
-
-  switch (el.wall) {
-    case "A":
-      return { x: el.pos, y: 0, w, h: d };
-    case "B":
-      return { x: W - d, y: el.pos, w: d, h: w };
-    case "C":
-      return { x: W - el.pos - w, y: D - d, w, h: d };
-    case "D":
-      return { x: 0, y: D - el.pos - w, w: d, h: w };
-    default:
-      return { x: el.pos, y: 0, w, h: d };
-  }
-}
-
-// the two legs of an L corner, as plan rects
-function cornerLegs(el, room) {
-  const d = el.depth || 24;
-  const la = el.config?.legA ?? 36;
-  const lb = el.config?.legB ?? 36;
-  const W = planWidth(room);
-  const D = planDepth(room);
-  switch (el.corner) {
-    case "AD":
-      return [
-        { x: 0, y: 0, w: la, h: d },
-        { x: 0, y: 0, w: d, h: lb },
-      ];
-    case "AB":
-      return [
-        { x: W - la, y: 0, w: la, h: d },
-        { x: W - d, y: 0, w: d, h: lb },
-      ];
-    case "BC":
-      return [
-        { x: W - d, y: D - lb, w: d, h: lb },
-        { x: W - la, y: D - d, w: la, h: d },
-      ];
-    case "CD":
-      return [
-        { x: 0, y: D - d, w: la, h: d },
-        { x: 0, y: D - lb, w: d, h: lb },
-      ];
-    default:
-      return [];
-  }
-}
+// The island module helpers, planRect and cornerLegs all moved to
+// lib/kitchen/geometry.js — see the import at the top of this file.
 
 // diagonal (45°) corner footprint → svg polygon points (plan), leg = depth-ish
 // diagonal 45° corner footprint → 5-sided cabinet shape in plan view
@@ -2157,7 +1859,11 @@ export default function KitchenDesigner({
             </span>
             {g.kinds.map((kind) => {
               const K = KINDS[kind];
-              const Icon = K.icon || Box;
+              // From KIND_ICONS now, not K.icon — the geometry module can't
+              // carry lucide components. Without this the whole palette would
+              // have silently fallen back to the generic Box glyph and every
+              // button would look identical.
+              const Icon = KIND_ICONS[kind] || Box;
               return (
                 <button
                   key={kind}

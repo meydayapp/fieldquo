@@ -24,7 +24,7 @@ import {
   createKitchenConfig, buildKitchenLineItems, getKitchenBreakdown, getKitchenTotal,
   normaliseRates, toLineItems, kitchenLineItems, mergeClientDesign,
   DEFAULT_CABINET_RATES, KITCHEN_ACCESSORIES, priceCabinet,
-} from "../lib/kitchen/pricing.js";
+} from "@/lib/kitchen/pricing";
 
 let fail = 0;
 const ok = (c, m) => { console.log((c ? "✓ " : "✗ ") + m); if (!c) fail++; };
