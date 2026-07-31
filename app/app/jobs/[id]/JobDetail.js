@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
 import {
   ArrowLeft,
   Pencil,
@@ -342,6 +343,9 @@ export default function JobDetail({ jobId }) {
           </div>
         )}
       </div>
+
+      {/* Curate the crew's photos → website gallery */}
+      <JobPhotoCurator jobId={jobId} />
     </div>
   );
 }
