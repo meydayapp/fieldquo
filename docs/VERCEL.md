@@ -31,6 +31,13 @@ openssl rand -base64 32
 
 ### Not an environment variable
 
+- **Point Twilio's inbound Messaging webhook at `/api/crew/inbound`** (POST) for
+  the crew photo/update inbox. The number crew text must be an SMS-capable
+  company number on file (`VoicePhoneNumber`); the endpoint verifies Twilio's
+  signature with `TWILIO_AUTH_TOKEN` and is a silent no-op for any number whose
+  company hasn't switched the inbox on.
+
+
 - **Seed the demo accounts** once, after the next deploy — ten sales-demo
   companies, then invite each agent from Settings → Team on their company:
   ```

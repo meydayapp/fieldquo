@@ -52,7 +52,7 @@ export async function GET(request) {
     recentEntries(member.companyId, 20),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { outboundCallsEnabled: true },
+      select: { outboundCallsEnabled: true, crewInboxEnabled: true },
     }),
     db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
   ]);
@@ -118,6 +118,9 @@ export async function GET(request) {
     outbound: {
       enabled: Boolean(company?.outboundCallsEnabled),
       queued: queuedCalls,
+    },
+    crewInbox: {
+      enabled: Boolean(company?.crewInboxEnabled),
     },
   });
 }
@@ -198,6 +201,21 @@ export async function PUT(request) {
       summary: body.outboundCallsEnabled
         ? "Turned on automatic calls to confirm approved quotes"
         : "Turned off automatic outbound calls",
+    });
+  }
+
+  // ── Crew inbox — crew text photos/updates in, they file to the job ──────
+  if (typeof body.crewInboxEnabled === "boolean") {
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { crewInboxEnabled: body.crewInboxEnabled },
+    });
+    await recordActivity(member, {
+      action: body.crewInboxEnabled ? "crew_inbox.enabled" : "crew_inbox.disabled",
+      entityType: "settings",
+      summary: body.crewInboxEnabled
+        ? "Turned on the crew photo/update inbox"
+        : "Turned off the crew inbox",
     });
   }
 

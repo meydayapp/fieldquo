@@ -582,6 +582,10 @@ model Company {
   /// makes deliberately, not a default they discover.
   outboundCallsEnabled Boolean @default(false)
 
+  /// The crew-messaging inbox: crew text photos/updates to a number and the
+  /// assistant files them to the right job. Off by default. See lib/crew/.
+  crewInboxEnabled Boolean @default(false)
+
   /// A yearly revenue target the owner sets. Null means "no goal set", which is
   /// distinct from zero — the dashboard shows the goal card only when this
   /// exists, rather than inventing a target nobody chose. Monthly and weekly
@@ -603,6 +607,7 @@ model Company {
   /// (see lib/demo/industries.js). Null on real companies.
   demoIndustry String?
   voiceCallTasks VoiceCallTask[]
+  crewMessages CrewInboundMessage[]
 
 }
 
@@ -2965,4 +2970,47 @@ model VoiceCallTask {
 
   @@index([companyId, status])
   @@index([status, notBefore])
+}
+
+/// One message a crew member texted in — a photo, an update, a voice note.
+///
+/// Doubles as the record of what was filed AND the "which job?" question when
+/// one is open (status = pending, candidateJobIds set). One row, both jobs:
+/// there's no separate pending-question table to drift out of sync with the
+/// message it's about. See lib/crew/inboxLogic.js for the state machine.
+model CrewInboundMessage {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The crew member, resolved from their phone. Null when the number isn't on
+  /// the roster — the message is still logged (so nothing vanishes) but nothing
+  /// is filed, because we don't know whose schedule to look at.
+  senderUserId String?
+  senderPhone  String
+
+  body      String?
+  /// Re-hosted to Cloudinary, not raw Twilio URLs — those need auth to fetch
+  /// and expire, and JobVisit.photos are shown to staff expecting durable links.
+  mediaUrls String[] @default([])
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  /// pending → filed | ignored | superseded
+  status String @default("pending")
+  /// How it was attributed once filed: explicit | gps | only-one | answered.
+  method String?
+
+  /// Where it landed. jobVisitId is the specific visit the media was appended to.
+  jobId      String?
+  jobVisitId String?
+
+  /// When status = pending: the jobs the crew was asked to choose between.
+  candidateJobIds String[] @default([])
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([companyId, status])
+  @@index([companyId, senderPhone, status])
 }

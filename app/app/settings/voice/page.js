@@ -19,6 +19,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
+  MessageSquare,
   Headset, Phone, Loader2, Check, Plus, AlertTriangle, Copy, Info,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -525,6 +526,36 @@ export default function VoiceSettingsPage() {
               ? `${data.outbound.queued} call${data.outbound.queued === 1 ? "" : "s"} waiting to go out.`
               : "No calls waiting. The next approved quote will queue one."}{" "}
             A client who asks to stop being called is taken off immediately and for good.
+          </p>
+        )}
+      </Card>
+
+      {/* ── 6. Crew inbox ───────────────────────────────────────────────────
+          Crew text photos and updates to your number; the assistant files each
+          one to the right job on their schedule, and asks when it's not sure.
+          Needs a phone number; crew are matched by the phone on their profile. */}
+      <Card
+        step="6."
+        title="Let the crew text in photos and updates"
+        hint="Your crew send photos or a quick note to your number, and it files them to the right job automatically — asking which one when the day has more than one."
+      >
+        <button
+          type="button"
+          disabled={busy || (!data?.crewInbox?.enabled && !number)}
+          onClick={() => save({ crewInboxEnabled: !data?.crewInbox?.enabled })}
+          className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold disabled:opacity-40 ${
+            data?.crewInbox?.enabled
+              ? "bg-emerald-600 text-white"
+              : "bg-inverted text-inverted-foreground"
+          }`}
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+          {data?.crewInbox?.enabled ? "Crew inbox is on — turn off" : "Turn on the crew inbox"}
+        </button>
+        {data?.crewInbox?.enabled && (
+          <p className="text-xs text-muted-foreground mt-3">
+            Crew are matched by the phone number on their profile (Settings →
+            Team). A text from an unknown number is logged but not filed.
           </p>
         )}
       </Card>
