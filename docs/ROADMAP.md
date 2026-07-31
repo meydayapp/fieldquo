@@ -249,6 +249,18 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Crew messaging agent** (`lib/crew/`, `/api/crew/inbound`, `/app/crew-inbox`)
+  — crew text photos/updates to the company number; it files each to the right
+  job. TWO pure cores, exhaustively tested (61 assertions): `attribution.js`
+  ("which job?" — never guesses silently, asks with tappable candidates) and
+  `inboxLogic.js` ("file / ask / resolve a reply"). `inbox.js` is the thin DB
+  adapter; the Twilio webhook verifies the signature and no-ops for any company
+  that hasn't switched it on. Read the attribution header before touching:
+  explicit text > GPS (only when clearly nearest) > only-one > ask, and the
+  cost asymmetry (a five-second reply beats a silent wrong file) is the whole
+  design. FieldQuo's edge over Barry: owns the schema (no OAuth/approval gate)
+  and already geocodes job addresses for the GPS tier.
+
 - **Retell OUTBOUND** (`lib/voice/outboundCall.js`, `outboundPrompt.js`,
   `/api/cron/voice-outbound`) — a queue drained by cron, every gate re-checked
   at dial time. Read `outboundPrompt.js` before touching: it discloses up front
