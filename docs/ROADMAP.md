@@ -38,6 +38,18 @@ secrets, `GOOGLE_MAPS_SERVER_KEY`, `CRON_SECRET`, the two JWT secrets, the
 
 ## Not built
 
+### Unified inbox — blocked on external integrations, not started
+
+Housecall's pitch is one thread list for leads from Google / Thumbtack / Angi
+with a sub-60s auto-reply. The marketplace side needs OAuth + webhooks into
+each, which can't be built or tested without the accounts — building it blind
+would be an untested integration masquerading as a feature. What IS buildable:
+one inbox over the lead sources FieldQuo already has (lead form, self-quote,
+voice calls, bookings) with a speed-to-lead metric. Check whether `/app/leads`
+already covers most of this first. Needs a product decision on which
+marketplaces justify the integration cost.
+
+
 ### 1. AI phone agent / receptionist — foundation built, no UI yet
 
 Provider is **Retell**, platform-owned: FieldQuo holds one account and
@@ -236,6 +248,21 @@ endpoint with a tampered POST.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Retell OUTBOUND** (`lib/voice/outboundCall.js`, `outboundPrompt.js`,
+  `/api/cron/voice-outbound`) — a queue drained by cron, every gate re-checked
+  at dial time. Read `outboundPrompt.js` before touching: it discloses up front
+  and honours "stop calling", and may state a quote total a human approved but
+  never compute one. Trigger: approving an instant estimate, behind
+  `Company.outboundCallsEnabled`.
+- **Revenue goal + pace** (`lib/analytics/goal.js`) — one annual number, all
+  targets derived. The headline is ahead/behind pace, because a raw % is
+  meaningless without the date. On the dashboard.
+- **Editable client messages** (`lib/sms/renderTemplate.js`, Settings → Client
+  messages) — token WHITELIST, invalid templates fall back to the built-in so a
+  bad edit can't ship "{price}". Only on_my_way is editable because it's the
+  only SMS actually wired to send; the registry knows the others but won't offer
+  them until they send.
 
 - **Demo accounts** (`lib/demo/`, `/platform/demo`, `npm run seed:demos`) — ten
   sales demos with a switchable trade. Read the `assertDemo` note before
