@@ -504,7 +504,7 @@ export default function VoiceSettingsPage() {
       <Card
         step="5."
         title="Call clients back automatically"
-        hint="When you approve a quote a client requested, the assistant rings them to confirm the details and find out when to schedule — within calling hours, only if they asked to be contacted."
+        hint="The assistant rings clients who asked to be contacted — when you approve their quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good."
       >
         <button
           type="button"

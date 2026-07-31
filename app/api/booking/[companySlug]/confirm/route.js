@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
+import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
+import { onBookingConfirmed } from "@/lib/voice/triggers";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -152,6 +154,25 @@ export async function POST(request, { params }) {
           ? "Video call — we'll email a link"
           : visitAddress || eventType.location || "On-site visit",
   });
+
+  // ── Consent + a reminder call ─────────────────────────────────────────────
+  //
+  // Booking a visit is an evidenced request to be contacted, so record the
+  // consent (with the exact disclosure they saw) — the reminder call and any
+  // future outbound contact check this row. Then queue the day-before reminder.
+  // Both best-effort: neither may fail the booking the customer just made.
+  if (clientPhone) {
+    await recordConsent({
+      companyId: company.id,
+      phone: clientPhone,
+      source: "booking",
+      disclosure: DISCLOSURE.booking,
+      clientId: client.id,
+    }).catch((err) => console.error("[booking] consent record failed:", err?.message));
+  }
+  await onBookingConfirmed({ bookingId: booking.id }).catch((err) =>
+    console.error("[booking] couldn't queue reminder:", err?.message),
+  );
 
   return NextResponse.json(booking, { status: 201 });
 }

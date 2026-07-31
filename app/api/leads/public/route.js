@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
+import { onLeadCreated } from "@/lib/voice/triggers";
 // Public — the embeddable "request a quote" form submits here.
 // companySlug identifies which company's form this is, since the form is embedded
 // on THEIR website, not accessed through FieldQuo's own auth.
@@ -57,6 +58,14 @@ export async function POST(request) {
       leadId: lead.id,
     }).catch((err) => console.error("[leads/public] consent not recorded:", err));
   }
+
+  // "Someone will call you shortly" — the call the form promised, queued. Fires
+  // only if the company opted into outbound calls; the lead's own consent (just
+  // recorded above) is checked at dial time. Best-effort — never fails the
+  // enquiry the person just submitted.
+  await onLeadCreated(lead.id).catch((err) =>
+    console.error("[leads/public] couldn't queue follow-up call:", err?.message),
+  );
 
   return NextResponse.json({ success: true, id: lead.id }, { status: 201 });
 }
