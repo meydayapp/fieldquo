@@ -66,6 +66,7 @@ const en = {
   "app.nav.group.grow": "Grow",
   "app.nav.marketing": "Marketing",
   "app.nav.receptionist": "Receptionist",
+  "app.nav.crewInbox": "Crew inbox",
   "app.nav.refer": "Refer & Earn",
 
   "app.nav.help": "Help",
@@ -408,6 +409,7 @@ const fr = {
   "app.nav.group.grow": "Croissance",
   "app.nav.marketing": "Marketing",
   "app.nav.receptionist": "Réceptionniste",
+  "app.nav.crewInbox": "Boîte équipe",
   "app.nav.refer": "Parrainage",
 
   "app.nav.help": "Aide",

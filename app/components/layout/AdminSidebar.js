@@ -9,6 +9,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import {
+  MessageSquare,
   Home,
   Plus,
   Calendar,
@@ -105,6 +106,7 @@ const NAV_GROUPS = [
     items: [
       { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone },
       { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
+      { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift },
     ],
   },
