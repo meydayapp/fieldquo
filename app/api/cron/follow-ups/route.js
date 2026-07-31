@@ -6,9 +6,11 @@
 // already gotten this rule's email (FollowUpLog dedupe), render the
 // rule's template, send it, and log it.
 //
-// job_completed uses Job.updatedAt as a proxy for "when it was marked
-// complete" — there's no dedicated completedAt column on Job today. If a
-// job flips in and out of "completed" this could misfire; fine for v1.
+// job_completed keys off Job.completedAt, stamped once when the job first
+// flips to completed and cleared if it's reopened. It used to use updatedAt
+// as a proxy, which meant renaming a job three weeks later reset the clock on
+// every follow-up attached to it. Jobs completed before that column existed
+// have a null completedAt and are skipped rather than guessed at.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -69,7 +71,7 @@ async function findJobCompleted(rule) {
     where: {
       companyId: rule.companyId,
       status: "completed",
-      updatedAt: { lte: cutoffFor(rule) },
+      completedAt: { not: null, lte: cutoffFor(rule) },
       ...(excluded.length > 0 && { id: { notIn: excluded } }),
     },
     include: { client: true, company: true },

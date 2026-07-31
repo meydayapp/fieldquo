@@ -56,11 +56,23 @@ export async function PATCH(request, { params }) {
   const body = await request.json();
   const { title, status, recurring, recurrenceRule } = body;
 
+  // Stamp when the work actually finished.
+  //
+  // Set on the FIRST flip to completed and never moved afterwards. The
+  // follow-up cron used to key off `updatedAt`, which meant renaming a job
+  // three weeks later re-armed every "how did we do?" email attached to it.
+  // Cleared if the job comes back out of completed, because a job that isn't
+  // finished has no finish time.
+  const completing = status === "completed" && existing.status !== "completed";
+  const reopening = status !== undefined && status !== "completed" && existing.completedAt;
+
   const updated = await db.job.update({
     where: { id: id },
     data: {
       ...(title !== undefined && { title }),
       ...(status !== undefined && { status }),
+      ...(completing && { completedAt: new Date() }),
+      ...(reopening && { completedAt: null }),
       ...(recurring !== undefined && { recurring }),
       ...(recurrenceRule !== undefined && { recurrenceRule }),
     },

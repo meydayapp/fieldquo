@@ -532,6 +532,20 @@ model Company {
   voiceCredits  VoiceCreditEntry[]
   callConsents  CallConsent[]
 
+  /// Where a happy customer should leave a review. Usually a Google review
+  /// link. Null means we don't ask — a review request with nowhere to go is
+  /// worse than none, because it spends the goodwill and returns nothing.
+  reviewUrl String?
+
+  /// Hours to wait after a job is finished before asking. Same day is too soon
+  /// — the crew may still be packing the van — and a week later they've stopped
+  /// thinking about it.
+  reviewDelayHours Int @default(24)
+
+  /// Off by default. Nobody should discover that their customers are being
+  /// messaged automatically.
+  reviewRequestsEnabled Boolean @default(false)
+
 }
 
 // Per-company overrides on top of the built-in defaults in
@@ -1274,6 +1288,15 @@ model Job {
 
   visits      JobVisit[]
   timeEntries TimeEntry[]
+  /// When the job was actually finished, and when we asked for a review.
+  ///
+  /// Both are needed and neither is derivable from `status`: a job can flip in
+  /// and out of "completed" while somebody tidies up the paperwork, and asking
+  /// for a review every time it does is the fastest way to have a customer mute
+  /// you. `reviewRequestedAt` is the once-only guard.
+  completedAt       DateTime?
+  reviewRequestedAt DateTime?
+
 }
 
 model JobVisit {

@@ -230,6 +230,7 @@ const en = {
   "app.settings.instantQuotes": "Instant Quotes",
   "app.settings.leadForm": "Share your links",
   "app.settings.voice": "Phone receptionist",
+  "app.settings.reviews": "Reviews",
 
   "app.settings.group.records": "Records",
   "app.settings.activity": "Activity Log",
@@ -554,6 +555,7 @@ const fr = {
   "app.settings.instantQuotes": "Soumissions instantanées",
   "app.settings.leadForm": "Partager vos liens",
   "app.settings.voice": "Réceptionniste téléphonique",
+  "app.settings.reviews": "Avis",
 
   "app.settings.group.records": "Registres",
   "app.settings.activity": "Journal d'activité",

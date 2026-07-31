@@ -26,6 +26,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
+  Star,
   Building2,
   Users,
   Package,
@@ -128,6 +129,7 @@ const GROUPS = [
       { key: "app.settings.instantQuotes", href: "/app/settings/instant-quotes", icon: Zap },
       { key: "app.settings.leadForm", href: "/app/settings/lead-form", icon: ClipboardList },
       { key: "app.settings.voice", href: "/app/settings/voice", icon: Headset },
+      { key: "app.settings.reviews", href: "/app/settings/reviews", icon: Star },
     ],
   },
   {
