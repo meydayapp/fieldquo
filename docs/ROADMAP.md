@@ -249,6 +249,22 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Job-photo gallery** (`lib/gallery/`, `/api/jobs/[id]/photos`, JobPhotoCurator)
+  — crew photos file as JobPhoto rows with an inferred STAGE (start/progress/
+  finish/issue); the owner stars the good ones; the website shows featured
+  photos and builds before/after from featured start+finish. Read the stages/
+  albums headers: nothing unfeatured or "issue" is ever public, and a before/
+  after needs BOTH sides. Featured is authoritative on the site; an uncurated
+  gallery still auto-fills from the raw feed.
+- **Payroll rate fallback** (`effectiveWageRate` in `buildPayRun.js`) — a rate
+  set via the members screen (Member.laborCostPerHour) now reaches the payslip;
+  it used to show $0 because payroll read only Worker.hourlyRate. Read-side, so
+  it never clobbers an explicit rate, and overhead salaries (workerId:null) stay
+  business costs, not pay — that part was never a bug.
+- **Self-quote estimate email** (`lib/estimate/estimateEmail.js`) — white-label,
+  built from documentTheme so it matches a real quote; gated trades show no
+  figure, financing shows no invented monthly amount.
+
 - **Honest month-over-month** (`lib/analytics/trend.js`) — `getAnalyticsOverview`
   now computes `priorConversionRate` (null, not zero, when last month had no
   activity). `compare` / `describeRateTrend` return null rather than a fabricated
