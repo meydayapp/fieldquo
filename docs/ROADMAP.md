@@ -237,6 +237,20 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Travel time between jobs** (`lib/booking/travel.js`) — the booking page
+  collects a visit address and hides slots the estimator can't drive to, both
+  legs. The file imports NOTHING, so its pure half runs in the browser for the
+  appointments list and on the server for slot filtering. Read the header
+  before touching it: unknown travel must never hide a slot, and an earlier
+  version returned null past 300 km, which meant Montreal-5pm to Toronto-6pm
+  was the one case that sailed through. Settings on Settings → Booking page.
+- **Arrival windows** (`lib/booking/arrivalWindow.js`) — client-facing only, off
+  by default. `describeWindow` returns null when off so callers fall through to
+  their own exact-time formatting instead of duplicating it.
+- **`docs/VERCEL.md`** — the deployment checklist, and `npm run check:env` fails
+  the build if any `process.env.X` in the codebase is missing from it. Add the
+  SYMPTOM, not just the name.
+
 - **Automatic review requests** (`lib/reviews/`, `/api/cron/review-requests`,
   hourly) — asks a customer once, ever, after their job is finished. The
   decision lives in `request.js` and touches nothing, so the rules that cost
