@@ -19,6 +19,7 @@ import {
   INSTANT_ESTIMATE_DEFAULTS,
   INSTANT_ESTIMATE_TRADES,
 } from "@/lib/estimate/instantEstimate";
+import { normaliseFinancing } from "@/lib/estimate/financing";
 
 const TRADE_LABELS = {
   roofing: "Roofing",
@@ -37,9 +38,13 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const saved = await db.instantQuoteConfig.findMany({
-    where: { companyId: member.companyId },
-  });
+  const [saved, company] = await Promise.all([
+    db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { financing: true },
+    }),
+  ]);
   const byTrade = new Map(saved.map((r) => [r.trade, r]));
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
@@ -57,7 +62,12 @@ export async function GET(request) {
     };
   });
 
-  return NextResponse.json({ trades, canEdit: isPricingAdmin(member.role) });
+  return NextResponse.json({
+    trades,
+    canEdit: isPricingAdmin(member.role),
+    // Company-level, not per-trade — one financing offer for the business.
+    financing: normaliseFinancing(company?.financing),
+  });
 }
 
 export async function PUT(request) {
@@ -77,6 +87,27 @@ export async function PUT(request) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // ── Company-level financing save ─────────────────────────────────────────
+  //
+  // Distinct from the per-trade rate save below: financing is one offer for the
+  // whole business, so a `{ financing }` payload (no trade) updates the company
+  // and returns. normaliseFinancing drops a bad URL and clamps the note before
+  // it's stored.
+  if (body && body.financing !== undefined) {
+    const financing = normaliseFinancing(body.financing);
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { financing },
+    });
+    await recordActivity(member, {
+      action: "settings.financing_updated",
+      entityType: "settings",
+      summary: financing.enabled ? "Turned on financing on estimates" : "Turned off financing",
+      metadata: { enabled: financing.enabled, mode: financing.url ? "provider" : "contact" },
+    });
+    return NextResponse.json({ ok: true, financing });
   }
 
   const { trade, enabled, config } = body || {};

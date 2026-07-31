@@ -341,6 +341,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
 export default function InstantQuotesSettingsPage() {
   const [trades, setTrades] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [financing, setFinancing] = useState(null);
   const [error, setError] = useState("");
 
   async function load() {
@@ -348,6 +349,7 @@ export default function InstantQuotesSettingsPage() {
       const data = await fetchJson("/api/settings/instant-quote");
       setTrades(data.trades);
       setCanEdit(Boolean(data.canEdit));
+      setFinancing(data.financing || { enabled: false });
     } catch (err) {
       setError(err.message || "Could not load instant-quote settings");
     }
@@ -387,6 +389,118 @@ export default function InstantQuotesSettingsPage() {
           <TradeCard key={t.trade} trade={t} canEdit={canEdit} onSaved={load} />
         ))}
       </div>
+
+      {financing && (
+        <FinancingCard financing={financing} canEdit={canEdit} onSaved={load} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Company-wide financing offer shown on estimates.
+ *
+ * FieldQuo computes NO monthly payment — it doesn't provide financing. This is
+ * either the company's own "ask us" wording, or a link to a real provider that
+ * quotes the terms itself. Off by default. See lib/estimate/financing.js.
+ */
+function FinancingCard({ financing, canEdit, onSaved }) {
+  const [enabled, setEnabled] = useState(Boolean(financing.enabled));
+  const [note, setNote] = useState(financing.note || "");
+  const [url, setUrl] = useState(financing.url || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await fetchJson("/api/settings/instant-quote", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ financing: { enabled, note, url } }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved?.();
+    } catch (err) {
+      alert(err.message || "Couldn't save financing.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-4 rounded-xl border border-border bg-card p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">Financing</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-md">
+            Optional. FieldQuo doesn&apos;t provide financing and never shows a
+            monthly figure — this just lets homeowners know it&apos;s available,
+            in your words or via your provider.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          disabled={!canEdit}
+          onClick={() => setEnabled((v) => !v)}
+          className={`shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${
+            enabled ? "bg-emerald-600" : "bg-muted-foreground/30"
+          }`}
+        >
+          <span className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+        </button>
+      </div>
+
+      {enabled && (
+        <div className="mt-4 space-y-3">
+          <label className="block">
+            <span className="text-sm text-foreground">What to tell the homeowner</span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
+              maxLength={400}
+              placeholder="e.g. We offer financing on approved credit — ask us for details."
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground resize-none"
+            />
+            <span className="text-xs text-muted-foreground">
+              Your own wording — don&apos;t promise a rate or monthly amount you can&apos;t honour.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="text-sm text-foreground">Provider link (optional)</span>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://… (Shop Pay, Affirm, your bank)"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
+            />
+            <span className="text-xs text-muted-foreground">
+              If set, homeowners get a button to your provider, who quotes the terms. Leave blank for &quot;ask us&quot;.
+            </span>
+          </label>
+        </div>
+      )}
+
+      {canEdit && (
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null} Save
+          </button>
+          {saved && <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved</span>}
+        </div>
+      )}
+    </section>
   );
 }

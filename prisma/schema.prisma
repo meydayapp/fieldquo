@@ -601,6 +601,12 @@ model Company {
   /// "{price}" to a customer.
   smsTemplates Json?
 
+  /// Financing offer shown on estimates, or absent/disabled for the many
+  /// contractors who don't finance. { enabled, note, url }. FieldQuo computes
+  /// NO payment figure — see lib/estimate/financing.js. url present = a real
+  /// provider hand-off; otherwise it's a plain "ask us".
+  financing Json?
+
   isDemo Boolean @default(false)
 
   /// Which industry preset this demo is currently dressed as
