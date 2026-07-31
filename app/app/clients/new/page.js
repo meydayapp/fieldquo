@@ -8,12 +8,14 @@ import { ArrowLeft } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import LanguagePicker from "@/app/components/LanguagePicker";
 import { formatPhoneInput } from "@/lib/validation";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function NewClientPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     type: "individual",
     name: "",
@@ -52,7 +54,7 @@ export default function NewClientPage() {
     e.preventDefault();
     setError("");
     if (!form.name.trim()) {
-      setError("Client name is required");
+      setError(t("app.clientNew.nameRequired"));
       return;
     }
     setSaving(true);
@@ -63,7 +65,7 @@ export default function NewClientPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not create client");
+      if (!res.ok) throw new Error(data.error || t("app.clientNew.createError"));
       // The clients list links each row to /app/clients/[id]; go straight there.
       router.push(`/app/clients/${data.id}`);
     } catch (err) {
@@ -79,9 +81,9 @@ export default function NewClientPage() {
           href="/app/clients"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
-          <ArrowLeft size={14} /> Back to Clients
+          <ArrowLeft size={14} /> {t("app.clientNew.back")}
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">New Client</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.clients.new")}</h1>
       </div>
 
       {error && (
@@ -99,7 +101,7 @@ export default function NewClientPage() {
             job). */}
         <div>
           <label className="text-sm font-medium text-foreground block mb-2">
-            Client type
+            {t("app.clientNew.type")}
           </label>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -112,10 +114,10 @@ export default function NewClientPage() {
               }`}
             >
               <div className="text-sm font-medium text-foreground">
-                Homeowner
+                {t("app.clientNew.homeowner")}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                An individual — jobs are at their address
+                {t("app.clientNew.homeownerHint")}
               </div>
             </button>
             <button
@@ -126,10 +128,10 @@ export default function NewClientPage() {
               }`}
             >
               <div className="text-sm font-medium text-foreground">
-                Company / Contractor
+                {t("app.clientNew.company")}
               </div>
               <div className="text-xs text-muted-foreground mt-0.5">
-                A business — job sites vary per job
+                {t("app.clientNew.companyHint")}
               </div>
             </button>
           </div>
@@ -138,7 +140,7 @@ export default function NewClientPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              {isCompany ? "Company name" : "Name"}{" "}
+              {isCompany ? t("app.clientNew.companyName") : t("app.field.name")}{" "}
               <span className="text-red-500">*</span>
             </label>
             <input
@@ -152,11 +154,11 @@ export default function NewClientPage() {
           {isCompany && (
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Contact person
+                {t("app.clientNew.contactPerson")}
               </label>
               <input
                 className={inputClass}
-                placeholder="Who you deal with there"
+                placeholder={t("app.clientNew.contactPlaceholder")}
                 value={form.contactName}
                 onChange={(e) => set("contactName", e.target.value)}
               />
@@ -164,7 +166,7 @@ export default function NewClientPage() {
           )}
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Phone
+              {t("app.field.phone")}
             </label>
             <input
               className={inputClass}
@@ -175,7 +177,7 @@ export default function NewClientPage() {
           </div>
           <div className={isCompany ? "" : "sm:col-span-2"}>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Email
+              {t("app.field.email")}
             </label>
             <input
               type="email"
@@ -188,7 +190,7 @@ export default function NewClientPage() {
 
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">
-            {isCompany ? "Business address (optional)" : "Address"}
+            {isCompany ? t("app.clientNew.businessAddress") : t("app.field.address")}
           </label>
           <AddressAutocomplete
             value={form.address}
@@ -201,13 +203,12 @@ export default function NewClientPage() {
                 province: province || prev.province,
               }))
             }
-            placeholder="Start typing an address..."
+            placeholder={t("app.clientNew.addressPlaceholder")}
             className={inputClass}
           />
           {isCompany && (
             <p className="text-xs text-muted-foreground mt-1">
-              This is their office. Each job's actual site address is set on the
-              quote or job itself.
+              {t("app.clientNew.businessAddressHint")}
             </p>
           )}
         </div>
@@ -215,7 +216,7 @@ export default function NewClientPage() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              City
+              {t("app.field.city")}
             </label>
             <input
               className={inputClass}
@@ -225,7 +226,7 @@ export default function NewClientPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Province
+              {t("app.field.province")}
             </label>
             <input
               className={inputClass}
@@ -243,7 +244,7 @@ export default function NewClientPage() {
 
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">
-            Notes
+            {t("app.field.notes")}
           </label>
           <textarea
             rows={3}
@@ -258,14 +259,14 @@ export default function NewClientPage() {
             href="/app/clients"
             className="text-sm font-medium text-muted-foreground px-4 py-2.5"
           >
-            Cancel
+            {t("app.action.cancel")}
           </Link>
           <button
             type="submit"
             disabled={saving}
             className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
           >
-            {saving ? "Creating..." : "Create Client"}
+            {saving ? t("app.clientNew.creating") : t("app.clientNew.create")}
           </button>
         </div>
       </form>

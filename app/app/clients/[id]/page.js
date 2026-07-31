@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -32,6 +33,7 @@ function money(n) {
 }
 
 export default function ClientDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,7 @@ export default function ClientDetailPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not save");
+      if (!res.ok) throw new Error(data.error || t("app.clientDetail.saveError"));
       setEditing(false);
       await load();
     } catch (err) {
@@ -111,9 +113,9 @@ export default function ClientDetailPage() {
   if (!client) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-        <p className="text-sm text-muted-foreground">Client not found.</p>
+        <p className="text-sm text-muted-foreground">{t("app.clientDetail.notFound")}</p>
         <Link href="/app/clients" className="text-sm text-foreground underline">
-          Back to Clients
+          {t("app.clientNew.back")}
         </Link>
       </div>
     );
@@ -131,7 +133,7 @@ export default function ClientDetailPage() {
           href="/app/clients"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
-          <ArrowLeft size={14} /> Back to Clients
+          <ArrowLeft size={14} /> {t("app.clientNew.back")}
         </Link>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -146,14 +148,14 @@ export default function ClientDetailPage() {
                   : "bg-muted text-muted-foreground"
               }`}
             >
-              {isCompany ? "Company / Contractor" : "Homeowner"}
+              {isCompany ? t("app.clientNew.company") : t("app.clientNew.homeowner")}
             </span>
           </div>
           <button
             onClick={openEdit}
             className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
           >
-            <Pencil size={14} /> Edit
+            <Pencil size={14} /> {t("app.action.edit")}
           </button>
         </div>
       </div>
@@ -164,7 +166,7 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-2 text-sm text-foreground">
             <User size={14} className="text-muted-foreground shrink-0" />
             {client.contactName}{" "}
-            <span className="text-muted-foreground">· contact person</span>
+            <span className="text-muted-foreground">· {t("app.clientDetail.contactSuffix")}</span>
           </div>
         )}
         {client.phone && (
@@ -186,14 +188,13 @@ export default function ClientDetailPage() {
               .filter(Boolean)
               .join(", ")}
             {isCompany && (
-              <span className="text-muted-foreground">· office</span>
+              <span className="text-muted-foreground">· {t("app.clientDetail.office")}</span>
             )}
           </div>
         )}
         {isCompany && (
           <p className="text-xs text-muted-foreground pt-1">
-            Job sites vary for contractors — each quote or job carries its own
-            location.
+            {t("app.clientDetail.jobSitesVary")}
           </p>
         )}
         {/* Visible without opening Edit: which language this client's documents
@@ -204,11 +205,12 @@ export default function ClientDetailPage() {
           {client.language
             ? LANGUAGES.find((l) => l.code === client.language)?.nativeName ||
               client.language
-            : `Company default (${
-                LANGUAGES.find((l) => l.code === companyLanguage)?.nativeName ||
-                companyLanguage
-              })`}
-          <span className="text-muted-foreground">· documents &amp; emails</span>
+            : t("app.clientDetail.companyDefaultLang", {
+                lang:
+                  LANGUAGES.find((l) => l.code === companyLanguage)?.nativeName ||
+                  companyLanguage,
+              })}
+          <span className="text-muted-foreground">· {t("app.clientDetail.docsEmails")}</span>
         </div>
         {client.notes && (
           <p className="text-sm text-muted-foreground pt-2 border-t border-border">
@@ -223,22 +225,22 @@ export default function ClientDetailPage() {
           href={`/app/quotes/new?clientId=${client.id}`}
           className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold"
         >
-          <Plus size={14} /> New Quote
+          <Plus size={14} /> {t("app.clientDetail.newQuote")}
         </Link>
         <Link
           href={`/app/jobs/new?clientId=${client.id}`}
           className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
         >
-          <Plus size={14} /> New Job
+          <Plus size={14} /> {t("app.clientDetail.newJob")}
         </Link>
       </div>
 
       {/* Related records */}
       <RelatedList
         icon={FileText}
-        title="Quotes"
+        title={t("app.nav.quotes")}
         items={quotes}
-        empty="No quotes yet."
+        empty={t("app.clientDetail.noQuotes")}
         render={(q) => (
           <Link
             key={q.id}
@@ -246,7 +248,7 @@ export default function ClientDetailPage() {
             className="flex items-center justify-between px-5 py-3 hover:bg-muted"
           >
             <span className="text-sm text-foreground">
-              {q.quoteNumber || "Quote"}
+              {q.quoteNumber || t("app.clientDetail.quoteFallback")}
             </span>
             <span className="text-sm font-medium text-foreground">
               {money(q.total)}
@@ -257,9 +259,9 @@ export default function ClientDetailPage() {
 
       <RelatedList
         icon={Briefcase}
-        title="Jobs"
+        title={t("app.nav.jobs")}
         items={jobs}
-        empty="No jobs yet."
+        empty={t("app.clientDetail.noJobs")}
         render={(j) => (
           <Link
             key={j.id}
@@ -276,9 +278,9 @@ export default function ClientDetailPage() {
 
       <RelatedList
         icon={Receipt}
-        title="Invoices"
+        title={t("app.nav.invoices")}
         items={invoices}
-        empty="No invoices yet."
+        empty={t("app.clientDetail.noInvoices")}
         render={(inv) => (
           <Link
             key={inv.id}
@@ -286,7 +288,7 @@ export default function ClientDetailPage() {
             className="flex items-center justify-between px-5 py-3 hover:bg-muted"
           >
             <span className="text-sm text-foreground">
-              {inv.invoiceNumber || "Invoice"}
+              {inv.invoiceNumber || t("app.clientDetail.invoiceFallback")}
             </span>
             <span className="text-sm font-medium text-foreground">
               {money(inv.total)}
@@ -307,7 +309,7 @@ export default function ClientDetailPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">
-                Edit Client
+                {t("app.clientDetail.edit")}
               </h2>
               <button onClick={() => setEditing(false)}>
                 <X size={18} className="text-muted-foreground" />
@@ -331,7 +333,7 @@ export default function ClientDetailPage() {
                       : "border-border"
                   }`}
                 >
-                  Homeowner
+                  {t("app.clientNew.homeowner")}
                 </button>
                 <button
                   type="button"
@@ -342,14 +344,14 @@ export default function ClientDetailPage() {
                       : "border-border"
                   }`}
                 >
-                  Company / Contractor
+                  {t("app.clientNew.company")}
                 </button>
               </div>
 
               <input
                 required
                 placeholder={
-                  form.type === "company" ? "Company name" : "Name"
+                  form.type === "company" ? t("app.clientNew.companyName") : t("app.field.name")
                 }
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -357,7 +359,7 @@ export default function ClientDetailPage() {
               />
               {form.type === "company" && (
                 <input
-                  placeholder="Contact person"
+                  placeholder={t("app.clientNew.contactPerson")}
                   value={form.contactName}
                   onChange={(e) =>
                     setForm({ ...form, contactName: e.target.value })
@@ -367,7 +369,7 @@ export default function ClientDetailPage() {
               )}
               <input
                 type="email"
-                placeholder="Email"
+                placeholder={t("app.field.email")}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className={inputClass}
@@ -393,14 +395,14 @@ export default function ClientDetailPage() {
                 }
                 placeholder={
                   form.type === "company"
-                    ? "Business address (optional)"
-                    : "Address"
+                    ? t("app.clientNew.businessAddress")
+                    : t("app.field.address")
                 }
                 className={inputClass}
               />
               <textarea
                 rows={2}
-                placeholder="Notes"
+                placeholder={t("app.field.notes")}
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 className={inputClass}
@@ -413,7 +415,7 @@ export default function ClientDetailPage() {
                 value={form.language}
                 onChange={(v) => setForm({ ...form, language: v })}
                 companyDefault={companyLanguage}
-                hint="Quotes, invoices and emails go out in this language."
+                hint={t("app.clientDetail.langHint")}
               />
 
               <button
@@ -421,7 +423,7 @@ export default function ClientDetailPage() {
                 disabled={saving}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Save Changes"}
+                {saving ? t("app.action.saving") : t("app.clientDetail.saveChanges")}
               </button>
             </form>
           </div>

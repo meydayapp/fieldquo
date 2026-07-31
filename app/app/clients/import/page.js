@@ -5,9 +5,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { Upload } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ImportClientsPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [fileName, setFileName] = useState("");
   const [importing, setImporting] = useState(false);
@@ -35,8 +37,7 @@ export default function ImportClientsPage() {
         }));
         setRows(normalized);
       },
-      error: () =>
-        setError("Could not read that file — make sure it's a valid CSV"),
+      error: () => setError(t("app.clientImport.readError")),
     });
   }
 
@@ -52,17 +53,16 @@ export default function ImportClientsPage() {
     if (res.ok) {
       setResult(data);
     } else {
-      setError(data.error || "Import failed");
+      setError(data.error || t("app.clientImport.failed"));
     }
   }
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Import Clients</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.clientImport.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a CSV exported from another system. Expected columns: name,
-          email, phone, address, city, province.
+          {t("app.clientImport.subtitle")}
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export default function ImportClientsPage() {
           <label className="flex flex-col items-center gap-2 border-2 border-dashed border-border rounded-lg py-10 cursor-pointer">
             <Upload size={24} className="text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              {fileName || "Click to choose a CSV file"}
+              {fileName || t("app.clientImport.choose")}
             </span>
             <input
               type="file"
@@ -90,8 +90,7 @@ export default function ImportClientsPage() {
           {rows.length > 0 && (
             <div className="mt-5">
               <p className="text-sm text-foreground mb-3">
-                Found <strong>{rows.length}</strong> rows. Preview of the first
-                3:
+                {t("app.clientImport.found", { count: rows.length })}
               </p>
               <div className="border border-border rounded-lg overflow-hidden mb-4">
                 {rows.slice(0, 3).map((r, i) => (
@@ -99,7 +98,7 @@ export default function ImportClientsPage() {
                     key={i}
                     className="px-3 py-2 text-xs text-muted-foreground border-b border-border last:border-0"
                   >
-                    {r.name} — {r.email || r.phone || "no contact info"}
+                    {r.name} — {r.email || r.phone || t("app.clientImport.noContact")}
                   </div>
                 ))}
               </div>
@@ -108,7 +107,7 @@ export default function ImportClientsPage() {
                 disabled={importing}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                {importing ? "Importing..." : `Import ${rows.length} Clients`}
+                {importing ? t("app.clientImport.importing") : t("app.clientImport.importN", { count: rows.length })}
               </button>
             </div>
           )}
@@ -116,16 +115,15 @@ export default function ImportClientsPage() {
       ) : (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-xl p-6 text-center">
           <p className="text-sm text-green-800 dark:text-green-300">
-            Imported <strong>{result.imported}</strong> clients
-            {result.skipped > 0 &&
-              ` (${result.skipped} skipped — missing a name)`}
+            {t("app.clientImport.imported", { count: result.imported })}
+            {result.skipped > 0 && t("app.clientImport.skipped", { count: result.skipped })}
             .
           </p>
           <button
             onClick={() => router.push("/app/clients")}
             className="mt-4 bg-inverted text-inverted-foreground px-5 py-2 rounded-full text-sm font-semibold"
           >
-            View Clients
+            {t("app.clientImport.view")}
           </button>
         </div>
       )}
