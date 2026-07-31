@@ -24,28 +24,15 @@ When you touch an area, check it rather than trusting it.
 
 ## ⚠️ Do these first — deployment is currently incomplete
 
-These block or degrade features that are already merged.
+**Moved to [VERCEL.md](VERCEL.md)** and kept honest there: `npm run check:env`
+runs as part of the build and fails it if any `process.env.X` in the codebase
+is missing from that page. This section used to be the list and had already
+drifted — two of its five items were done, and it was missing every variable
+added since.
 
-1. **`npx prisma db push`** — `CompanySite` and `Company.businessHours` are in
-   the schema and may not be in the database. Retry once on `P1001` (Neon
-   scale-to-zero).
-2. **Add `*.fieldquo.com` as a wildcard domain in Vercel.** Until this exists,
-   no tenant subdomain resolves at all. The code is ready; the DNS isn't.
-   Locally, `sunset.localhost:3000` works with no setup.
-3. **Check the AI model.** Deploy, then open `/platform` — an amber banner
-   appears if the configured model is retired. `lib/ai/provider.js` defaults to
-   `gpt-5-mini`, which OpenAI has superseded. If the banner fires, set the
-   working model as the *code default* (not an env var — it isn't a secret) and
-   delete the commented `OPENAI_MODEL` line in `.env`.
-   Symptom if ignored: every AI feature returns nothing, silently, with no
-   error in any log, because `provider.js` catches and degrades.
-4. **Rotate three secrets.** They were pasted into a chat transcript:
-   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
-5. **Finish the Resend DNS** for `fieldquo.com` if not already done: TXT at
-   `resend._domainkey` with Resend's key; delete the stale record under
-   `privateemail._domainkey`; root SPF must be
-   `v=spf1 include:spf.privateemail.com ~all` (one SPF record per host — a
-   second breaks both).
+Still outstanding at the time of writing: the Retell keys, both Stripe webhook
+secrets, `GOOGLE_MAPS_SERVER_KEY`, `CRON_SECRET`, the two JWT secrets, the
+`*.fieldquo.com` wildcard domain, three secrets to rotate, and the Resend DNS.
 
 ---
 
