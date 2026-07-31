@@ -20,7 +20,8 @@
     "check:pdf": "npx tsx scripts/check-kitchen-pdf.jsx",
     "check:section": "node scripts/check-kitchen-section.mjs",
     "check:outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound.mjs",
-    "check:leadconsent": "node scripts/check-lead-consent.mjs"
+    "check:leadconsent": "node scripts/check-lead-consent.mjs",
+    "check:cleaning": "node --import ./scripts/alias-loader.mjs scripts/check-cleaning-pricing.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

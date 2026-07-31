@@ -841,10 +841,34 @@ export const INTAKE_FIELDS = {
   ],
 
   // ── Cleaning ──
+  // ── Cleaning ────────────────────────────────────────────────────────────
+  //
+  // These five used to be asked and then IGNORED — bedrooms, bathrooms and
+  // isFirstClean were read by nothing, so an estimator answered them and then
+  // typed a price in by hand anyway. lib/cleaning/pricing.js now reads every
+  // one, and the three added here are the ones the trade actually prices on:
+  //
+  //   cleaningType  a move-out is nearly twice a standard clean
+  //   condition     the single biggest driver of how long a house takes, and
+  //                 the one most often discovered on arrival
+  //   pets          hair is time, and it's the most under-charged factor there is
   residential_cleaning: [
     { key: "squareFootage", label: "Square Footage", type: "number" },
     { key: "bedrooms", label: "Bedrooms", type: "number" },
     { key: "bathrooms", label: "Bathrooms", type: "number" },
+    {
+      key: "cleaningType",
+      label: "Type of Clean",
+      type: "select",
+      options: ["standard", "deep", "move_out", "post_construction"],
+    },
+    {
+      key: "condition",
+      label: "Condition",
+      type: "select",
+      options: ["well_kept", "normal", "needs_work", "neglected"],
+    },
+    { key: "pets", label: "Pets in the Home", type: "number" },
     {
       key: "frequency",
       label: "Frequency",
@@ -857,6 +881,13 @@ export const INTAKE_FIELDS = {
     { key: "squareFootage", label: "Square Footage", type: "number" },
     { key: "bedrooms", label: "Bedrooms", type: "number" },
     { key: "bathrooms", label: "Bathrooms", type: "number" },
+    {
+      key: "condition",
+      label: "Condition",
+      type: "select",
+      options: ["well_kept", "normal", "needs_work", "neglected"],
+    },
+    { key: "pets", label: "Pets in the Home", type: "number" },
   ],
   commercial_cleaning: [
     { key: "squareFootage", label: "Facility Square Footage", type: "number" },
