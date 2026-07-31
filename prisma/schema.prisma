@@ -577,11 +577,17 @@ model Company {
   /// and — most importantly — the demo reset refuses to touch any company where
   /// this is false. A reset wipes quotes, jobs and invoices; it must be
   /// impossible to point at a real tenant.
+  /// When a quote a client requested is approved, ring them to confirm and
+  /// schedule. Off by default — an automated sales call is a decision the owner
+  /// makes deliberately, not a default they discover.
+  outboundCallsEnabled Boolean @default(false)
+
   isDemo Boolean @default(false)
 
   /// Which industry preset this demo is currently dressed as
   /// (see lib/demo/industries.js). Null on real companies.
   demoIndustry String?
+  voiceCallTasks VoiceCallTask[]
 
 }
 
@@ -2730,6 +2736,11 @@ model VoiceAgent {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   providerAgentId String?
+  /// A SECOND agent, for calls WE place. Separate from the inbound receptionist
+  /// because its whole prompt differs (discloses up front, honours "stop
+  /// calling", never negotiates). One per company, reused across all outbound
+  /// purposes via per-call dynamic variables. See lib/voice/outboundPrompt.js.
+  outboundProviderAgentId String?
   provider        String  @default("retell")
 
   name     String  @default("Receptionist")
@@ -2883,4 +2894,60 @@ model CallConsent {
 
   @@index([companyId, e164])
   @@index([e164, optedOutAt])
+}
+
+/// One queued outbound call, waiting for a good time to be placed.
+///
+/// A queue rather than a call placed on the spot, because the trigger and the
+/// call must not be the same moment: a quote approved at 9pm must not ring the
+/// customer at 9pm. The cron drains this within calling hours, re-checking
+/// consent and credit at dial time — not at enqueue time, because a number can
+/// opt out in the hours between.
+///
+/// Everything the call is ABOUT is a foreign key, never a copied name or
+/// number: the dialled number is read from the linked lead/client at send
+/// time, so an opt-out or a corrected number takes effect even for a call
+/// already in the queue.
+model VoiceCallTask {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Why we're calling — drives the script. See lib/voice/outboundPrompt.js.
+  purpose String
+
+  /// queued → calling → done | failed | skipped | cancelled
+  status String @default("queued")
+
+  /// What it's about. The number to dial is derived from these, not stored.
+  leadId    String?
+  clientId  String?
+  quoteId   String?
+  jobId     String?
+  bookingId String?
+
+  /// Script variables the purpose needs (customer first name, quote total as a
+  /// fact the agent may STATE because a human already set it, appointment time).
+  /// Never a price the agent computes — only figures a human already committed to.
+  context Json?
+
+  /// The earliest this may be dialled. Set to the next morning when a trigger
+  /// fires after hours, so the queue itself carries the "not yet".
+  notBefore DateTime @default(now())
+
+  /// Dial attempts. A no-answer is retried a few times across days, then given
+  /// up on — a fourth voicemail is a nuisance, not a follow-up.
+  attempts   Int       @default(0)
+  lastError  String?
+  lastTriedAt DateTime?
+
+  /// The call it produced, once placed. Links to the VoiceCall row the webhook
+  /// fills in.
+  providerCallId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([status, notBefore])
 }

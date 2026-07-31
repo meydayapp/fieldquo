@@ -30,7 +30,9 @@ export async function GET(request) {
     take: 100,
     select: {
       id: true,
+      direction: true,
       fromE164: true,
+      toE164: true,
       startedAt: true,
       durationSec: true,
       summary: true,
@@ -52,7 +54,10 @@ export async function GET(request) {
     pending,
     calls: calls.map((c) => ({
       id: c.id,
-      from: formatNumber(c.fromE164),
+      direction: c.direction,
+      // The OTHER party, not our own number. On an outbound call `fromE164` is
+      // us — showing it would label every call we placed with our own number.
+      from: formatNumber(c.direction === "outbound" ? c.toE164 : c.fromE164),
       at: c.startedAt,
       durationSec: c.durationSec,
       // What it cost, per call. "Where did my credit go" is the first question

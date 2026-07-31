@@ -495,6 +495,39 @@ export default function VoiceSettingsPage() {
           {agent?.enabled ? "It's answering — turn off" : "Start answering calls"}
         </button>
       </Card>
+
+      {/* ── 5. Outbound ─────────────────────────────────────────────────────
+          A separate switch on purpose — answering a call someone placed is a
+          different consent story from placing one they didn't. Off by default;
+          the same number-and-credit floor as answering. */}
+      <Card
+        step="5."
+        title="Call clients back automatically"
+        hint="When you approve a quote a client requested, the assistant rings them to confirm the details and find out when to schedule — within calling hours, only if they asked to be contacted."
+      >
+        <button
+          type="button"
+          disabled={busy || (!data?.outbound?.enabled && !canEnable)}
+          onClick={() => save({ outboundCallsEnabled: !data?.outbound?.enabled })}
+          className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold disabled:opacity-40 ${
+            data?.outbound?.enabled
+              ? "bg-emerald-600 text-white"
+              : "bg-inverted text-inverted-foreground"
+          }`}
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />}
+          {data?.outbound?.enabled ? "It's calling clients — turn off" : "Turn on quote callbacks"}
+        </button>
+
+        {data?.outbound?.enabled && (
+          <p className="text-xs text-muted-foreground mt-3">
+            {data.outbound.queued > 0
+              ? `${data.outbound.queued} call${data.outbound.queued === 1 ? "" : "s"} waiting to go out.`
+              : "No calls waiting. The next approved quote will queue one."}{" "}
+            A client who asks to stop being called is taken off immediately and for good.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

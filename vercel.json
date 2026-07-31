@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/review-requests",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/voice-outbound",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

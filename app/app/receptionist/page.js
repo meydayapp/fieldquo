@@ -23,7 +23,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
-  Headset, Phone, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings,
+  Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -173,6 +173,14 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
       }`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/* Which way the call went. An outbound row without this reads as a
+            customer who rang — but it's a call the assistant placed, and the
+            summary ("confirmed the quote") only makes sense with the arrow. */}
+        {call.direction === "outbound" && (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
+            <PhoneOutgoing size={11} /> We called
+          </span>
+        )}
         <span className="font-semibold text-foreground tabular-nums">
           {call.from || "Unknown number"}
         </span>

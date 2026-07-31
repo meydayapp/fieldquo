@@ -19,7 +19,7 @@ does nothing to the deployment.
 | `STRIPE_BILLING_WEBHOOK_SECRET` | FieldQuo's own subscriptions | Payment failures never reach us. Nobody is ever marked past-due, so the 7-day grace never starts and a dead card bills forever. |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Contractor payouts | A homeowner pays and the invoice stays unpaid on screen. |
 | `GOOGLE_MAPS_SERVER_KEY` | Geocoding · Distance Matrix · Solar · Static Maps | Roof measurement is dead. Travel-time booking silently falls back to straight-line estimates — it still works and still says "about", but a river with one bridge fools it. |
-| `CRON_SECRET` | Guards all four cron routes | Every cron 401s: no follow-ups, no review requests, no monthly digest, no large-quote check. Vercel reports the cron as *run*, so this looks fine from the dashboard. |
+| `CRON_SECRET` | Guards all four cron routes | Every cron 401s: no follow-ups, no review requests, no outbound calls, no monthly digest, no large-quote check. Vercel reports the cron as *run*, so this looks fine from the dashboard. |
 | `PLATFORM_JWT_SECRET` | Superadmin console session | Fails **closed** — jose refuses a zero-length key, so login appears to work and bounces you straight back out with nothing in any log. |
 | `IMPERSONATION_JWT_SECRET` | Read-only support tokens | Throws a 500 with instructions. The one that fails honestly. |
 

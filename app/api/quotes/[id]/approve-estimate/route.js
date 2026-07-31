@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { recordActivity } from "@/lib/activity/log";
 import { can } from "@/lib/permissions";
+import { onQuoteApproved } from "@/lib/voice/triggers";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -72,6 +73,13 @@ export async function POST(request, { params }) {
         : "Approved instant estimate",
     metadata: data.total != null ? { total: data.total } : undefined,
   });
+
+  // Best-effort: if the company turned on outbound calls, queue one to confirm
+  // and schedule. Never allowed to fail the approval — a queuing hiccup must not
+  // block a reviewer clearing needsReview.
+  await onQuoteApproved(id).catch((err) =>
+    console.error("[approve-estimate] couldn't queue outbound call:", err?.message),
+  );
 
   return NextResponse.json({ ok: true });
 }

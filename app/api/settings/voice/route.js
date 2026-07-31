@@ -45,11 +45,16 @@ export async function GET(request) {
   const { member, error, status } = await requireAdmin(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const [agent, number, cents, entries] = await Promise.all([
+  const [agent, number, cents, entries, company, queuedCalls] = await Promise.all([
     db.voiceAgent.findUnique({ where: { companyId: member.companyId } }),
     activeNumber(member.companyId),
     balanceFor(member.companyId),
     recentEntries(member.companyId, 20),
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { outboundCallsEnabled: true },
+    }),
+    db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
   ]);
 
   const type = number?.numberType || "local";
@@ -107,6 +112,13 @@ export async function GET(request) {
       freeTrialMinutes: FREE_TRIAL_MINUTES,
     },
     sources: NUMBER_SOURCES,
+    // Calls WE place, not just ones we answer. The queued count is read from the
+    // same column the cron drains, so "3 waiting" can't drift from what will
+    // actually go out.
+    outbound: {
+      enabled: Boolean(company?.outboundCallsEnabled),
+      queued: queuedCalls,
+    },
   });
 }
 
@@ -148,6 +160,45 @@ export async function PUT(request) {
       }
     }
     data.enabled = body.enabled;
+  }
+
+  // ── Outbound calls — a separate switch, on the Company ──────────────────
+  //
+  // Kept apart from the receptionist toggle because they're different consent
+  // stories: answering a call the customer placed is nothing like placing one
+  // they didn't. Turning it ON needs the same number-and-credit floor as the
+  // receptionist — a switch that promises calls it can't make is the dead
+  // control this codebase keeps deleting.
+  if (typeof body.outboundCallsEnabled === "boolean") {
+    if (body.outboundCallsEnabled) {
+      const [number, cents] = await Promise.all([
+        activeNumber(member.companyId),
+        balanceFor(member.companyId),
+      ]);
+      if (!number || number.status !== "active") {
+        return NextResponse.json(
+          { error: "Set up a phone number first — there's nothing to call from." },
+          { status: 409 },
+        );
+      }
+      if (cents < ratePerMinute(number.numberType)) {
+        return NextResponse.json(
+          { error: "Add some credit first, or no call can be placed." },
+          { status: 409 },
+        );
+      }
+    }
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { outboundCallsEnabled: body.outboundCallsEnabled },
+    });
+    await recordActivity(member, {
+      action: body.outboundCallsEnabled ? "voice.outbound.enabled" : "voice.outbound.disabled",
+      entityType: "settings",
+      summary: body.outboundCallsEnabled
+        ? "Turned on automatic calls to confirm approved quotes"
+        : "Turned off automatic outbound calls",
+    });
   }
 
   const agent = await db.voiceAgent.upsert({

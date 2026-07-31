@@ -74,11 +74,16 @@ export async function POST(request) {
     return NextResponse.json({ error: "No call id" }, { status: 400 });
   }
 
-  // The number THEY dialled — ours. `to_number` on inbound.
-  const dialled = toE164(call.to_number);
-  const number = dialled
+  // Which number is OURS depends on direction. Inbound: they dialled our
+  // number, so it's `to_number`. Outbound: WE dialled them, so ours is
+  // `from_number` and `to_number` is the customer's. Resolving the tenant from
+  // the customer's number on an outbound call would find nothing and drop every
+  // outbound result on the floor.
+  const isOutbound = call.direction === "outbound";
+  const ourNumber = toE164(isOutbound ? call.from_number : call.to_number);
+  const number = ourNumber
     ? await db.voicePhoneNumber.findUnique({
-        where: { e164: dialled },
+        where: { e164: ourNumber },
         select: { id: true, companyId: true, agentId: true, numberType: true },
       })
     : null;
@@ -89,7 +94,7 @@ export async function POST(request) {
     // and the symptom otherwise is calls silently vanishing.
     await recordError({
       source: "voice_webhook",
-      message: `Call to an unknown number: ${dialled || call.to_number}`,
+      message: `Call to an unknown number: ${ourNumber || call.to_number}`,
       metadata: { providerCallId, type },
     }).catch(() => {});
     return NextResponse.json({ ok: true, ignored: "unknown_number" });
@@ -106,7 +111,7 @@ export async function POST(request) {
           agentId: number.agentId,
           direction: call.direction === "outbound" ? "outbound" : "inbound",
           fromE164: toE164(call.from_number),
-          toE164: dialled,
+          toE164: toE164(call.to_number),
           startedAt: call.start_timestamp ? new Date(call.start_timestamp) : new Date(),
         },
         // Retell retries. A second call_started must not create a duplicate row
@@ -133,7 +138,7 @@ export async function POST(request) {
           agentId: number.agentId,
           direction: call.direction === "outbound" ? "outbound" : "inbound",
           fromE164: toE164(call.from_number),
-          toE164: dialled,
+          toE164: toE164(call.to_number),
           startedAt: call.start_timestamp ? new Date(call.start_timestamp) : null,
           endedAt: new Date(),
           durationSec: seconds,
@@ -144,6 +149,11 @@ export async function POST(request) {
         },
         update: {
           endedAt: new Date(),
+          // Fill in the number/agent on a row that was created before the
+          // webhook — an outbound call's VoiceCall is created at dial time with
+          // its subject links but no number id. Stable values, safe to set.
+          numberId: number.id,
+          agentId: number.agentId,
           // call_analyzed arrives after call_ended and can report a slightly
           // different duration. Overwriting is fine — BILLING is idempotent on
           // the call id, so whichever event arrives first is what was charged,
