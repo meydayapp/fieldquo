@@ -27,6 +27,7 @@ const TRADE_LABELS = {
   parging: "Parging",
   lawn_mowing: "Lawn Mowing",
   cabinet_refacing: "Cabinet Refacing",
+  countertop: "Countertops",
   junk_removal: "Junk Removal",
 };
 

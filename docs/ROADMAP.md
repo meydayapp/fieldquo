@@ -196,18 +196,21 @@ drift invisibly until a crew builds from the wrong one.
 1. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
    flags holes above it, but neither has been tried with a thumb on a real
    phone. The one thing left here that can only be checked by hand.
-2. **Trade calculators — NOT started, deliberately.** The owner supplied working
-   Countertop, Flooring, Interior/Exterior Painting and Stair calculators
-   (~3,400 lines) alongside the kitchen code. Half-adapting five of them would
-   leave five half-working screens, which is worse than none.
+2. **Trade calculators — Countertop DONE, three to go.** The pattern is now set:
+   a calculator becomes an instant-quote trade in `INSTANT_ESTIMATE_TRADES`,
+   with company-editable rates on `/app/settings/instant-quotes` and the estimate
+   computed server-side (never a hardcoded shop's price). **Countertop** is live
+   end-to-end — installed $/sqft per material (laminate→marble) plus additive
+   edge/cutout/backsplash extras, reusing the `manual_area` measure and the
+   standard material-rate editor; 21 assertions in `check:countertop`.
 
-   When they're picked up: the rates mostly live in the section DATA already,
-   which is good — but `StairCalculator` hardcodes
-   `{ standard: 110, moderate: 145, high: 180 }` per tread, and that's one
-   shop's pricing. It belongs on the company, like `Company.cabinetRates`.
-   Adapt ONE end-to-end first and let it set the pattern; Countertop is the
-   natural first because the kitchen designer already has a countertop module
-   it can feed.
+   **Remaining: Flooring, Interior/Exterior Painting, Stair.** Flooring and
+   Painting are area trades that fit `estimateAreaTrade` almost directly (a
+   material list + a prep/condition percent map — copy epoxy). **Stair** is the
+   one with a real decision already made here: its old `{ standard: 110,
+   moderate: 145, high: 180 }` per-tread pricing must become a company rate on
+   the settings card (like countertop's extras), NOT a constant — do it the same
+   way. Adapt one at a time; each ships enabled-and-priceable or not at all.
 
 Two rules this feature already depends on. The client designer is PUBLIC, so it
 returns no prices — `stripPricing` rebuilds the payload key-by-key rather than

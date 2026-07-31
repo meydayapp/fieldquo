@@ -314,6 +314,16 @@ function TradeCard({ trade, canEdit, onSaved }) {
             <PercentMap title="Condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
           </>
         )}
+        {trade.trade === "countertop" && (
+          <div>
+            <div className="text-sm font-medium text-foreground mb-2">Extras (added on top of the material rate)</div>
+            <div className="flex flex-wrap gap-4">
+              <NumField label="Upgraded edge, per ft" prefix="$" value={config.edgePerFt} onChange={(v) => patch({ edgePerFt: v })} />
+              <NumField label="Per cutout (sink/cooktop)" prefix="$" value={config.cutoutFee} onChange={(v) => patch({ cutoutFee: v })} />
+              <NumField label="Backsplash, per sqft" prefix="$" value={config.backsplashPerSqft} onChange={(v) => patch({ backsplashPerSqft: v })} />
+            </div>
+          </div>
+        )}
 
         {/* Junk removal rate card — the whole cost model in one place.
             Priced by VOLUME (a load discount is built in: the per-item price

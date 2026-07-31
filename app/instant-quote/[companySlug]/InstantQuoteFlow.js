@@ -45,6 +45,12 @@ const INTAKE_INPUTS = {
     { key: "drawerCount", label: "Drawer fronts", type: "number" },
     { key: "boxLinearFt", label: "Exposed box sides (linear ft)", type: "number" },
   ],
+  countertop: [
+    { key: "squareFootage", label: "Countertop area (sq ft)", type: "number", required: true, placeholder: "e.g. 40" },
+    { key: "cutouts", label: "Sink / cooktop cutouts", type: "number", placeholder: "e.g. 1" },
+    { key: "edgeFt", label: "Upgraded edge (linear ft)", type: "number" },
+    { key: "backsplashSqft", label: "Backsplash (sq ft)", type: "number" },
+  ],
 };
 
 function money(n) {

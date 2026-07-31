@@ -32,7 +32,7 @@
     "check:goal": "node --import ./scripts/alias-loader.mjs scripts/check-goal.mjs",
     "check:sms-template": "node --import ./scripts/alias-loader.mjs scripts/check-sms-template.mjs",
     "check:attribution": "node --import ./scripts/alias-loader.mjs scripts/check-attribution.mjs",
-    "check:all": "npm run check:imports && npm run check:translations && npm run check:kitchen && npm run check:contrast && npm run check:plan && npm run check:finishes && npm run check:voice && npm run check:access && npm run check:retention && npm run check:prompt && npm run check:pdf && npm run check:section && npm run check:outbound && npm run check:leadconsent && npm run check:cleaning && npm run check:reviews && npm run check:travel && npm run check:env && npm run check:booking && npm run check:demo && npm run check:voice-outbound && npm run check:goal && npm run check:sms-template && npm run check:attribution && npm run check:inbox && npm run check:voice-triggers && npm run check:trend && npm run check:estimate-visibility && npm run check:financing && npm run check:estimate-email && npm run check:payroll-rate && npm run check:gallery && npm run check:junk-pricing && npm run check:junk-guidance && npm run check:junk-instant && npm run check:media",
+    "check:all": "npm run check:imports && npm run check:translations && npm run check:kitchen && npm run check:contrast && npm run check:plan && npm run check:finishes && npm run check:voice && npm run check:access && npm run check:retention && npm run check:prompt && npm run check:pdf && npm run check:section && npm run check:outbound && npm run check:leadconsent && npm run check:cleaning && npm run check:reviews && npm run check:travel && npm run check:env && npm run check:booking && npm run check:demo && npm run check:voice-outbound && npm run check:goal && npm run check:sms-template && npm run check:attribution && npm run check:inbox && npm run check:voice-triggers && npm run check:trend && npm run check:estimate-visibility && npm run check:financing && npm run check:estimate-email && npm run check:payroll-rate && npm run check:gallery && npm run check:junk-pricing && npm run check:junk-guidance && npm run check:junk-instant && npm run check:countertop && npm run check:media",
     "check:inbox": "node --import ./scripts/alias-loader.mjs scripts/check-inbox-logic.mjs",
     "check:voice-triggers": "node --import ./scripts/alias-loader.mjs scripts/check-voice-triggers.mjs",
     "check:trend": "node --import ./scripts/alias-loader.mjs scripts/check-trend.mjs",
@@ -44,6 +44,7 @@
     "check:junk-pricing": "node --import ./scripts/alias-loader.mjs scripts/check-junk-pricing.mjs",
     "check:junk-guidance": "node --import ./scripts/alias-loader.mjs scripts/check-junk-guidance.mjs",
     "check:junk-instant": "node --import ./scripts/alias-loader.mjs scripts/check-junk-instant.mjs",
+    "check:countertop": "node --import ./scripts/alias-loader.mjs scripts/check-countertop.mjs",
     "check:media": "node --import ./scripts/alias-loader.mjs scripts/check-media-validate.mjs"
   },
   "dependencies": {
