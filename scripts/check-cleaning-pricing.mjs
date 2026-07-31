@@ -22,7 +22,7 @@
 //   * a multiplier hits the WORK, not the flat add-ons: a deep clean must not
 //     charge 1.6x for a load of laundry
 
-import { priceCleaning, normaliseCleaningRates, cleaningLineItems,
+import { priceCleaning, priceCleaningHourly, normaliseCleaningRates, cleaningLineItems,
          DEFAULT_CLEANING_RATES, CLEANING_ADDONS } from "@/lib/cleaning/pricing";
 let fail=0; const ok=(c,m)=>{console.log((c?"✓ ":"✗ ")+m); if(!c)fail++;};
 const $ = c => `$${(c/100).toFixed(2)}`;
@@ -110,6 +110,27 @@ const sum = Math.round(items.reduce((s,i)=>s+i.amount,0) * 100);
 ok(Math.abs(sum - deep) <= 1, `the itemised lines add up to the total (${$(sum)})`);
 
 ok(CLEANING_ADDONS.every(a=>a.key && a.label && a.cents>0), `${CLEANING_ADDONS.length} add-ons, all priced and labelled`);
+
+
+// ── Hourly: the model for jobs nobody has seen yet ──────────────────────
+const hr = priceCleaningHourly({ crewSize:2, hours:2 });
+ok(hr.total === 22000, `2 cleaners × 2 hours = ${$(hr.total)} — inside the $100–$300 first-visit band`);
+ok(/2 cleaners × 2 hours at \$55\.00\/hr/.test(hr.lines[0].label),
+   `the working is spelled out: "${hr.lines[0].label}" — "$220" invites haggling, this doesn't`);
+ok(priceCleaningHourly({ crewSize:3, hours:2 }).total > hr.total, "a third cleaner costs more");
+ok(priceCleaningHourly({ crewSize:2, hours:4 }).total > hr.total, "twice the hours costs more");
+ok(priceCleaningHourly({}).total > 0, "no arguments falls back to a typical 2×2 visit");
+ok(priceCleaningHourly(null).total > 0, "null doesn't throw");
+ok(priceCleaningHourly({ crewSize:-5, hours:1e9 }).total > 0, "hostile crew/hours still finite");
+
+// ── Per-unit add-ons ────────────────────────────────────────────────────
+const w = (n) => priceCleaning({ squareFootage:1500, bedrooms:2, bathrooms:1,
+                                 addOns:[{ key:"interior_windows", quantity:n }] }).total;
+ok(w(40) > w(8), `40 windows costs more than 8 (${$(w(8))} → ${$(w(40))}) — a bungalow and a big house are not the same job`);
+ok(priceCleaning({ squareFootage:1500, addOns:["interior_windows"] }).total > 0,
+   "a bare string add-on still works — callers don't all have a quantity");
+const many = priceCleaning({ squareFootage:1500, addOns:[{ key:"interior_windows", quantity:1e9 }] });
+ok(Number.isFinite(many.total), "an absurd window count is clamped rather than overflowing");
 
 console.log(`\n${fail===0?"ALL PASS":fail+" FAILED"}`);
 process.exit(fail?1:0);
