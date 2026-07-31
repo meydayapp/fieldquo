@@ -25,6 +25,7 @@ const MEASURE_COPY = {
   manual_area: "Homeowner enters the area and picks options.",
   manual_units: "Homeowner enters counts (doors, drawers).",
   item_picker: "Homeowner picks the items to remove; priced by volume with a built-in load discount.",
+  stair_count: "Homeowner enters the number of steps and picks the build; priced per tread.",
 };
 
 function money(n) {
@@ -80,8 +81,10 @@ function TradeCard({ trade, canEdit, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [savedNote, setSavedNote] = useState("");
 
-  const rateKey = trade.trade === "roofing" ? "ratePerSquare" : "ratePerSqft";
-  const rateSuffix = trade.trade === "roofing" ? "/ square" : "/ sqft";
+  const rateKey =
+    trade.trade === "roofing" ? "ratePerSquare" : trade.trade === "stair" ? "ratePerTread" : "ratePerSqft";
+  const rateSuffix =
+    trade.trade === "roofing" ? "/ square" : trade.trade === "stair" ? "/ tread" : "/ sqft";
 
   function patch(next) {
     setConfig((c) => ({ ...c, ...next }));
@@ -313,6 +316,9 @@ function TradeCard({ trade, canEdit, onSaved }) {
             <PercentMap title="Access surcharge" map={config.accessSurcharge} onChange={(m) => patch({ accessSurcharge: m })} />
             <PercentMap title="Condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
           </>
+        )}
+        {trade.trade === "stair" && (
+          <NumField label="Railing, per linear ft" prefix="$" value={config.railingPerFt} onChange={(v) => patch({ railingPerFt: v })} />
         )}
         {trade.trade === "flooring" && (
           <PercentMap title="Subfloor / removal surcharge" map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />

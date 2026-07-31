@@ -30,8 +30,18 @@ const TRADE_LABELS = {
   countertop: "Countertops",
   flooring: "Flooring",
   painting: "Painting",
+  stair: "Stairs & Railings",
   junk_removal: "Junk Removal",
 };
+
+// Which per-material rate key a trade prices on. Roofing sells by the square,
+// stairs by the tread, everything else by the sqft. One source of truth so the
+// "is it priceable?" check and the settings editor can't disagree.
+export function materialRateKey(trade) {
+  if (trade === "roofing") return "ratePerSquare";
+  if (trade === "stair") return "ratePerTread";
+  return "ratePerSqft";
+}
 
 function isPricingAdmin(role) {
   return role === "owner" || role === "admin";
@@ -158,7 +168,7 @@ function validatePriceable(trade, spec, config) {
 
   if (spec.hasMaterials && trade !== "cabinet_refacing") {
     const mats = Array.isArray(config.materials) ? config.materials : [];
-    const rateKey = trade === "roofing" ? "ratePerSquare" : "ratePerSqft";
+    const rateKey = materialRateKey(trade);
     const priced = mats.some((m) => Number(m?.[rateKey]) > 0);
     if (!priced) return "Set a sell rate on at least one material before enabling.";
   }

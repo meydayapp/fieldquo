@@ -75,6 +75,10 @@ const INTAKE_INPUTS = {
       options: [["good", "Good"], ["fair", "Fair"], ["poor", "Poor / needs prep"]],
     },
   ],
+  stair: [
+    { key: "treads", label: "Number of steps", type: "number", required: true, placeholder: "e.g. 13" },
+    { key: "railingFt", label: "Railing (linear ft)", type: "number" },
+  ],
 };
 
 function money(n) {

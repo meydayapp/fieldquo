@@ -196,21 +196,23 @@ drift invisibly until a crew builds from the wrong one.
 1. **Mobile drag.** Snapping exists (2", `SNAP` in geometry.js) and `findGaps()`
    flags holes above it, but neither has been tried with a thumb on a real
    phone. The one thing left here that can only be checked by hand.
-2. **Trade calculators — Countertop DONE, three to go.** The pattern is now set:
-   a calculator becomes an instant-quote trade in `INSTANT_ESTIMATE_TRADES`,
-   with company-editable rates on `/app/settings/instant-quotes` and the estimate
-   computed server-side (never a hardcoded shop's price). **Countertop** is live
-   end-to-end — installed $/sqft per material (laminate→marble) plus additive
-   edge/cutout/backsplash extras, reusing the `manual_area` measure and the
-   standard material-rate editor; 21 assertions in `check:countertop`.
+2. **Trade calculators — DONE (all four).** Every supplied calculator is now a
+   self-serve instant-quote trade in `INSTANT_ESTIMATE_TRADES`, with
+   company-editable rates on `/app/settings/instant-quotes` and the price
+   computed server-side (never a hardcoded shop rate; browser sends the material
+   key + measurements, per #5):
+   - **Countertop** — installed $/sqft per material + additive edge/cutout/
+     backsplash extras (`manual_area`). `check:countertop`, 21 assertions.
+   - **Flooring** & **Painting** — area × material + percentage surcharges,
+     reusing `estimateAreaTrade` (`manual_area`). `check:area-trades`, 16.
+   - **Stair** — priced per tread by complexity + railing per ft; the old
+     `{ standard: 110, moderate: 145, high: 180 }` constant is now company
+     material rates (`ratePerTread`, new `stair_count` measure). `check:stair`, 14.
 
-   **Remaining: Flooring, Interior/Exterior Painting, Stair.** Flooring and
-   Painting are area trades that fit `estimateAreaTrade` almost directly (a
-   material list + a prep/condition percent map — copy epoxy). **Stair** is the
-   one with a real decision already made here: its old `{ standard: 110,
-   moderate: 145, high: 180 }` per-tread pricing must become a company rate on
-   the settings card (like countertop's extras), NOT a constant — do it the same
-   way. Adapt one at a time; each ships enabled-and-priceable or not at all.
+   `materialRateKey(trade)` (settings API) is the one source of truth for which
+   per-material key a trade sells on (square / tread / sqft), so the editor and
+   the "is it priceable?" guard can't drift. Remaining calculator nicety: feed
+   the kitchen designer's countertop module into the Countertop trade (optional).
 
 Two rules this feature already depends on. The client designer is PUBLIC, so it
 returns no prices — `stripPricing` rebuilds the payload key-by-key rather than
