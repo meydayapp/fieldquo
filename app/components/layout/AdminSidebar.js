@@ -235,6 +235,8 @@ export default function AdminSidebar() {
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label={t("app.sidebar.closeMenu")}
+            // How the tour puts the drawer back when it finishes.
+            data-tour-close="nav"
             className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
           >
             <X size={20} />
@@ -425,6 +427,10 @@ export default function AdminSidebar() {
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label={t("app.sidebar.openMenu")}
+          // The walkthrough points at nav items that live inside this drawer.
+          // It opens the drawer by clicking THIS, named explicitly rather than
+          // guessed at — see app/components/OnboardingTour.js.
+          data-tour-open="nav"
           aria-expanded={mobileOpen}
           // 44px minimum: below that a target is genuinely hard to hit on a
           // phone, and this is the button every navigation goes through.
