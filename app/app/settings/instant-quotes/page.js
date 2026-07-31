@@ -314,6 +314,15 @@ function TradeCard({ trade, canEdit, onSaved }) {
             <PercentMap title="Condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
           </>
         )}
+        {trade.trade === "flooring" && (
+          <PercentMap title="Subfloor / removal surcharge" map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />
+        )}
+        {trade.trade === "painting" && (
+          <>
+            <PercentMap title="Interior vs exterior" map={config.scopeSurcharge} onChange={(m) => patch({ scopeSurcharge: m })} />
+            <PercentMap title="Surface condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
+          </>
+        )}
         {trade.trade === "countertop" && (
           <div>
             <div className="text-sm font-medium text-foreground mb-2">Extras (added on top of the material rate)</div>

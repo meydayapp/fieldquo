@@ -51,6 +51,30 @@ const INTAKE_INPUTS = {
     { key: "edgeFt", label: "Upgraded edge (linear ft)", type: "number" },
     { key: "backsplashSqft", label: "Backsplash (sq ft)", type: "number" },
   ],
+  flooring: [
+    { key: "squareFootage", label: "Floor area (sq ft)", type: "number", required: true },
+    {
+      key: "surfaceCondition",
+      label: "Subfloor / old floor",
+      type: "select",
+      options: [["good", "Bare & level"], ["fair", "Some prep"], ["poor", "Tear-out + levelling"]],
+    },
+  ],
+  painting: [
+    { key: "squareFootage", label: "Surface area (sq ft)", type: "number", required: true },
+    {
+      key: "scope",
+      label: "Interior or exterior",
+      type: "select",
+      options: [["interior", "Interior"], ["exterior", "Exterior"]],
+    },
+    {
+      key: "surfaceCondition",
+      label: "Surface condition",
+      type: "select",
+      options: [["good", "Good"], ["fair", "Fair"], ["poor", "Poor / needs prep"]],
+    },
+  ],
 };
 
 function money(n) {

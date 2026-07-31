@@ -28,6 +28,8 @@ const TRADE_LABELS = {
   lawn_mowing: "Lawn Mowing",
   cabinet_refacing: "Cabinet Refacing",
   countertop: "Countertops",
+  flooring: "Flooring",
+  painting: "Painting",
   junk_removal: "Junk Removal",
 };
 
