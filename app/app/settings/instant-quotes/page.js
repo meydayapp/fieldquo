@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
+import JunkGuidance from "@/app/components/settings/JunkGuidance";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -355,6 +356,8 @@ function TradeCard({ trade, canEdit, onSaved }) {
             </div>
 
             <NumField label="Minimum charge" prefix="$" value={centsToDollars(rates.minimumCents)} onChange={(v) => setRate("minimumCents", v)} />
+
+            <JunkGuidance />
           </div>
         )}
 
