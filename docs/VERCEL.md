@@ -31,6 +31,13 @@ openssl rand -base64 32
 
 ### Not an environment variable
 
+- **Seed the demo accounts** once, after the next deploy — ten sales-demo
+  companies, then invite each agent from Settings → Team on their company:
+  ```
+  npm run seed:demos
+  ```
+  Switch a demo's trade any time at `/platform/demo`.
+
 - **Wildcard domain `*.fieldquo.com`** in Vercel → Domains. Until it exists **no
   tenant website resolves at all**. The code is ready; the DNS isn't. Locally
   `sunset.localhost:3000` works with no setup, which is why this is easy to miss.

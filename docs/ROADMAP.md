@@ -237,6 +237,17 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Demo accounts** (`lib/demo/`, `/platform/demo`, `npm run seed:demos`) — ten
+  sales demos with a switchable trade. Read the `assertDemo` note before
+  touching: every write RE-READS the company and refuses anything without
+  `isDemo`, because switching trade wipes quotes, jobs and clients. No logins
+  are created — invitation only, per non-negotiable 1.
+- **The tour works on phones** (`app/components/OnboardingTour.js`) — every
+  lookup goes through `visibleTarget()`, because `hidden lg:flex` is
+  display:none rather than unmounted, so the desktop sidebar matches every
+  `data-tour` selector with a {0,0,0,0} rect. Steps declare `openWith` /
+  `closeWith` to reach targets behind a drawer.
+
 - **Travel time between jobs** (`lib/booking/travel.js`) — the booking page
   collects a visit address and hides slots the estimator can't drive to, both
   legs. The file imports NOTHING, so its pure half runs in the browser for the
