@@ -261,14 +261,20 @@ they set the pattern.
   `npx prisma db push` before the leads media renders in prod; (2) the public
   upload endpoint has no IP rate limit yet (bounded by real-slug + per-file
   validator), so add one before it's heavily embedded.
-- **Junk removal is now a real, adjustable service** (`lib/junk/pricing.js`,
-  `lib/junk/guidance.js`). Volume-based pricing (per-item price DROPS with load
+- **Junk removal is a full self-serve instant-quote trade** (`lib/junk/pricing.js`,
+  `lib/junk/guidance.js`, wired through `lib/estimate/instantEstimate.js` +
+  `instantQuoteServer.js`). Volume-based pricing (per-item price DROPS with load
   — the whole model), special-recycling fees (freon/e-waste/mattress/tire),
-  access surcharges, hazards priced at nothing but warned. Plus default,
-  company-editable content: a customer FAQ and a new-operator pricing/process
-  guide, written original (not copied from competitors). Still to wire:
-  `junk_removal` into `INSTANT_ESTIMATE_TRADES` with an item-picker measure type,
-  and a junk rate-card settings screen.
+  access surcharges, hazards priced at nothing but warned. Now end-to-end:
+  a new `item_picker` measure type (pick items + quantities + job type + access,
+  browser sends keys only, server reprices per #5); a junk rate-card editor on
+  `/app/settings/instant-quotes` (dollars in the form, cents in storage); the
+  homeowner's picked items are preserved on the draft for the reviewer. Plus
+  default company-editable content: a customer FAQ + a new-operator
+  pricing/process guide, written original (not copied). 18 + 15 + 45 assertions.
+  While here, fixed a pre-existing DEAD CONTROL on that settings page: the
+  "What the homeowner sees" radio called an undefined `update()` and threw on
+  click — now `patch()`.
 - **Job-photo gallery** (`lib/gallery/`, `/api/jobs/[id]/photos`, JobPhotoCurator)
   — crew photos file as JobPhoto rows with an inferred STAGE (start/progress/
   finish/issue); the owner stars the good ones; the website shows featured

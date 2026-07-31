@@ -287,10 +287,15 @@ export default function InstantQuoteFlow({ companySlug }) {
 
   // Can we attempt a measurement yet?
   const inputs = trade ? INTAKE_INPUTS[trade.trade] || [] : [];
+  const itemQtyTotal = Array.isArray(intake.items)
+    ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
+    : 0;
   const requiredMet =
     trade &&
     (trade.measure !== "roof_address" || address.trim().length > 4) &&
     (trade.measure !== "lawn_polygon" || (polygon && polygon.length >= 3)) &&
+    // Junk: at least one item picked. The access toggles are all optional.
+    (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
     inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0);
 
   const selectedOption = options.find((o) => o.materialKey === materialKey) || (options.length === 1 ? options[0] : null);
@@ -372,6 +377,15 @@ export default function InstantQuoteFlow({ companySlug }) {
                   <LawnMap
                     mapsKey={data.mapsKey}
                     onArea={(sqft, path) => setPolygon(path)}
+                  />
+                )}
+
+                {trade.measure === "item_picker" && (
+                  <ItemPicker
+                    items={trade.items || []}
+                    jobTypes={trade.jobTypes || []}
+                    intake={intake}
+                    setIntake={setIntake}
                   />
                 )}
 
@@ -539,6 +553,113 @@ export default function InstantQuoteFlow({ companySlug }) {
           Powered by measurements from satellite imagery.
         </p>
       </div>
+    </div>
+  );
+}
+
+// The junk-removal measurement: a job type, a list of items with quantities,
+// and the access surcharges. The browser only ever holds item KEYS + counts —
+// no prices; the server reprices from the company's rates (non-negotiable #5).
+function ItemPicker({ items, jobTypes, intake, setIntake }) {
+  const selected = Array.isArray(intake.items) ? intake.items : [];
+  const qtyOf = (key) => selected.find((i) => i.key === key)?.quantity || 0;
+  const setQty = (key, q) => {
+    const next = selected.filter((i) => i.key !== key);
+    if (q > 0) next.push({ key, quantity: q });
+    setIntake({ ...intake, items: next });
+  };
+  const accepted = items.filter((i) => !i.notAccepted);
+  const refused = items.filter((i) => i.notAccepted);
+  const toggle = (k) => setIntake({ ...intake, [k]: !intake[k] });
+
+  return (
+    <div className="space-y-4">
+      {jobTypes.length > 0 && (
+        <div>
+          <p className="text-sm text-muted-foreground mb-1.5">What kind of job?</p>
+          <div className="flex flex-wrap gap-2">
+            {jobTypes.map((j) => {
+              const on = (intake.jobType || "single_items") === j.key;
+              return (
+                <button
+                  key={j.key}
+                  type="button"
+                  onClick={() => setIntake({ ...intake, jobType: j.key })}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    on ? "border-foreground bg-foreground text-background" : "border-border text-foreground"
+                  }`}
+                >
+                  {j.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <p className="text-sm text-muted-foreground mb-1.5">What needs to go?</p>
+        <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+          {accepted.map((it) => (
+            <div key={it.key} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span className="text-sm text-foreground">{it.label}</span>
+              <Stepper q={qtyOf(it.key)} onChange={(nq) => setQty(it.key, nq)} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {refused.length > 0 && (
+        // Named, not hidden — a homeowner who has a propane tank needs to know
+        // now, not when the truck arrives and refuses it.
+        <p className="text-xs text-muted-foreground">
+          We can’t take: {refused.map((r) => r.label).join(", ")}.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">Anything that makes it harder? (optional)</p>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-foreground">Flights of stairs</span>
+          <Stepper q={Number(intake.stairsFlights) || 0} onChange={(nq) => setIntake({ ...intake, stairsFlights: nq })} />
+        </div>
+        {[
+          ["disassembly", "Needs taking apart"],
+          ["demolition", "Small demolition"],
+          ["longCarry", "Long carry to the truck"],
+          ["noElevator", "Upstairs, no elevator"],
+        ].map(([k, l]) => (
+          <label key={k} className="flex items-center gap-2 text-sm text-foreground">
+            <input type="checkbox" checked={!!intake[k]} onChange={() => toggle(k)} />
+            <span>{l}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Stepper({ q, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, q - 1))}
+        className="h-7 w-7 rounded-full border border-border text-foreground disabled:opacity-40"
+        disabled={q <= 0}
+        aria-label="Fewer"
+      >
+        −
+      </button>
+      <span className="w-6 text-center text-sm tabular-nums text-foreground">{q}</span>
+      <button
+        type="button"
+        onClick={() => onChange(q + 1)}
+        className="h-7 w-7 rounded-full border border-border text-foreground"
+        aria-label="More"
+      >
+        +
+      </button>
     </div>
   );
 }

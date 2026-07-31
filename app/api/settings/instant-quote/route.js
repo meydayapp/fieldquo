@@ -27,6 +27,7 @@ const TRADE_LABELS = {
   parging: "Parging",
   lawn_mowing: "Lawn Mowing",
   cabinet_refacing: "Cabinet Refacing",
+  junk_removal: "Junk Removal",
 };
 
 function isPricingAdmin(role) {
@@ -166,6 +167,16 @@ function validatePriceable(trade, spec, config) {
   }
   if (trade === "cabinet_refacing") {
     if (!(Number(config.perDoor) > 0)) return "Set a per-door price before enabling.";
+  }
+  if (trade === "junk_removal") {
+    // Junk prices off the load tiers + minimum; a full-truck price of 0 means
+    // the owner blanked the card. normaliseJunkRates fills gaps, but an all-zero
+    // load would publish free hauling — refuse it.
+    const r = config.rates || {};
+    const full = Number(r?.loadCents?.full);
+    if (!(full > 0) && !(Number(r?.minimumCents) > 0)) {
+      return "Set at least a full-load price or a minimum charge before enabling.";
+    }
   }
   return null;
 }

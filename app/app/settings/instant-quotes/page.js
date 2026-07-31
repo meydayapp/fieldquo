@@ -23,6 +23,7 @@ const MEASURE_COPY = {
   lawn_polygon: "Homeowner traces the lawn on a satellite map; area computed from the outline.",
   manual_area: "Homeowner enters the area and picks options.",
   manual_units: "Homeowner enters counts (doors, drawers).",
+  item_picker: "Homeowner picks the items to remove; priced by volume with a built-in load discount.",
 };
 
 function money(n) {
@@ -107,6 +108,15 @@ function TradeCard({ trade, canEdit, onSaved }) {
 
   const materials = Array.isArray(config.materials) ? config.materials : [];
 
+  // Junk rates are stored in CENTS (priceJunk's unit); the form shows dollars.
+  const rates = config.rates || {};
+  const centsToDollars = (c) => (Number(c) > 0 ? Math.round(Number(c) / 100) : "");
+  const dollarsToCents = (d) => (d === "" || d == null ? 0 : Math.round(Number(d) * 100));
+  const setRate = (field, dollars) =>
+    patch({ rates: { ...rates, [field]: dollarsToCents(dollars) } });
+  const setLoad = (tier, dollars) =>
+    patch({ rates: { ...rates, loadCents: { ...(rates.loadCents || {}), [tier]: dollarsToCents(dollars) } } });
+
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
@@ -156,7 +166,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => update({ estimateVisibility: opt.key })}
+                  onClick={() => patch({ estimateVisibility: opt.key })}
                   className={`text-left rounded-lg border px-3 py-2 transition-colors ${
                     current
                       ? "border-foreground bg-inverted/5"
@@ -304,6 +314,50 @@ function TradeCard({ trade, canEdit, onSaved }) {
           </>
         )}
 
+        {/* Junk removal rate card — the whole cost model in one place.
+            Priced by VOLUME (a load discount is built in: the per-item price
+            falls as the truck fills), plus the recycling fees that eat the
+            margin and the access surcharges that are real labour. */}
+        {trade.trade === "junk_removal" && (
+          <div className="space-y-4">
+            <div>
+              <div className="text-sm font-medium text-foreground mb-2">The load (what a truckful costs)</div>
+              <div className="flex flex-wrap gap-4">
+                <NumField label="One-item / min trip" prefix="$" value={centsToDollars(rates.loadCents?.minimum)} onChange={(v) => setLoad("minimum", v)} />
+                <NumField label="Quarter load" prefix="$" value={centsToDollars(rates.loadCents?.quarter)} onChange={(v) => setLoad("quarter", v)} />
+                <NumField label="Half load" prefix="$" value={centsToDollars(rates.loadCents?.half)} onChange={(v) => setLoad("half", v)} />
+                <NumField label="Full truck" prefix="$" value={centsToDollars(rates.loadCents?.full)} onChange={(v) => setLoad("full", v)} />
+                <NumField label="Volume units in a full truck" value={rates.fullLoadUnits} onChange={(v) => patch({ rates: { ...rates, fullLoadUnits: v === "" ? 1 : Number(v) } })} />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-medium text-foreground mb-2">Recycling &amp; disposal fees (what the depot charges you)</div>
+              <div className="flex flex-wrap gap-4">
+                <NumField label="Fridge / AC (Freon)" prefix="$" value={centsToDollars(rates.refrigerantFeeCents)} onChange={(v) => setRate("refrigerantFeeCents", v)} />
+                <NumField label="TV / electronics" prefix="$" value={centsToDollars(rates.ewasteFeeCents)} onChange={(v) => setRate("ewasteFeeCents", v)} />
+                <NumField label="Mattress" prefix="$" value={centsToDollars(rates.mattressFeeCents)} onChange={(v) => setRate("mattressFeeCents", v)} />
+                <NumField label="Per tire" prefix="$" value={centsToDollars(rates.tirePerUnitCents)} onChange={(v) => setRate("tirePerUnitCents", v)} />
+                <NumField label="Heavy debris, per truck-bed" prefix="$" value={centsToDollars(rates.heavyPerLoadCents)} onChange={(v) => setRate("heavyPerLoadCents", v)} />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-medium text-foreground mb-2">Access surcharges (real labour)</div>
+              <div className="flex flex-wrap gap-4">
+                <NumField label="Per flight of stairs" prefix="$" value={centsToDollars(rates.stairsPerFlightCents)} onChange={(v) => setRate("stairsPerFlightCents", v)} />
+                <NumField label="Disassembly" prefix="$" value={centsToDollars(rates.disassemblyCents)} onChange={(v) => setRate("disassemblyCents", v)} />
+                <NumField label="Small demolition" prefix="$" value={centsToDollars(rates.demolitionCents)} onChange={(v) => setRate("demolitionCents", v)} />
+                <NumField label="Long carry" prefix="$" value={centsToDollars(rates.longCarryCents)} onChange={(v) => setRate("longCarryCents", v)} />
+                <NumField label="No elevator" prefix="$" value={centsToDollars(rates.noElevatorCents)} onChange={(v) => setRate("noElevatorCents", v)} />
+                <NumField label="Out of free area" prefix="$" value={centsToDollars(rates.outOfAreaCents)} onChange={(v) => setRate("outOfAreaCents", v)} />
+              </div>
+            </div>
+
+            <NumField label="Minimum charge" prefix="$" value={centsToDollars(rates.minimumCents)} onChange={(v) => setRate("minimumCents", v)} />
+          </div>
+        )}
+
         {/* Shared knobs */}
         <div className="flex flex-wrap gap-4 pt-1">
           <NumField
@@ -313,7 +367,11 @@ function TradeCard({ trade, canEdit, onSaved }) {
             value={Math.round((Number(config.rangeBandPct) || 0) * 100)}
             onChange={(v) => patch({ rangeBandPct: (v === "" ? 0 : v) / 100 })}
           />
-          <NumField label="Minimum charge" prefix="$" value={config.minCharge} onChange={(v) => patch({ minCharge: v })} />
+          {/* Junk's minimum lives in its own rate card (in cents); the shared
+              dollar minCharge would be a second, conflicting control. */}
+          {trade.trade !== "junk_removal" && (
+            <NumField label="Minimum charge" prefix="$" value={config.minCharge} onChange={(v) => patch({ minCharge: v })} />
+          )}
         </div>
       </div>
 

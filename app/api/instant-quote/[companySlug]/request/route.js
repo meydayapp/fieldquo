@@ -149,6 +149,17 @@ function sanitiseMeasurement(m) {
     doorCount: m.doorCount ?? null,
     drawerCount: m.drawerCount ?? null,
     boxLinearFt: m.boxLinearFt ?? null,
+    // Junk removal: the reviewer needs to see WHAT was quoted, not just a total.
+    // Keys + counts only — no prices were ever in the measurement.
+    items: Array.isArray(m.items) ? m.items : null,
+    jobType: m.jobType ?? null,
+    stairsFlights: m.stairsFlights ?? null,
+    disassembly: m.disassembly ?? null,
+    demolition: m.demolition ?? null,
+    longCarry: m.longCarry ?? null,
+    noElevator: m.noElevator ?? null,
+    outOfArea: m.outOfArea ?? null,
+    heavyLoads: m.heavyLoads ?? null,
     satelliteImageUrl: m.satelliteImageUrl ?? null,
     formattedAddress: m.formattedAddress ?? null,
     imageryDate: m.imageryDate ?? null,
