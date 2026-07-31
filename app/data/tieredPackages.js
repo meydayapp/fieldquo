@@ -9,6 +9,8 @@
 // fraction), auto detailing (Bronze/Silver/Gold/Platinum), chimney sweep
 // (NFPA inspection levels 1/2/3).
 
+import { JUNK_ITEMS } from "@/lib/junk/pricing";
+
 export const TIERED_PACKAGES = {
   junk_removal: {
     label: "Load Size",
@@ -19,12 +21,10 @@ export const TIERED_PACKAGES = {
       { key: "full", label: "Full Truckload", priceHint: "$550–1,000" },
     ],
     // Single large items bypass the load-fraction tiers entirely — flat per-item
-    singleItems: [
-      { key: "couch", label: "Couch" },
-      { key: "mattress", label: "Mattress" },
-      { key: "refrigerator", label: "Refrigerator" },
-      { key: "hot_tub", label: "Hot Tub" },
-    ],
+    singleItems: JUNK_ITEMS.filter((i) => !i.notAccepted).map((i) => ({ key: i.key, label: i.label, special: i.special || null })),
+    // Hazards the crew won't take on a standard run — shown so the customer
+    // knows, priced by nothing. See lib/junk/pricing.js.
+    notAccepted: JUNK_ITEMS.filter((i) => i.notAccepted).map((i) => ({ key: i.key, label: i.label })),
   },
 
   auto_detailing: {
