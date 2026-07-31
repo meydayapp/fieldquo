@@ -138,6 +138,46 @@ function TradeCard({ trade, canEdit, onSaved }) {
       )}
 
       <div className="mt-4 space-y-5">
+        {/* ── What the homeowner sees ──────────────────────────────────────
+            Per trade, because a cabinet shop is happy to flash a range and a
+            GC never is. Defaults to "don't show" — a company opts INTO
+            revealing a number. */}
+        <div>
+          <div className="text-sm font-medium text-foreground mb-2">
+            What the homeowner sees
+          </div>
+          <div className="flex flex-col gap-2">
+            {[
+              { key: "gated", label: "Don't show a price", hint: "They submit and we say a quote is on the way." },
+              { key: "range", label: "Show an estimated range", hint: "A range instantly; exact price after you review. Converts better." },
+            ].map((opt) => {
+              const current = (config.estimateVisibility || "gated") === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => update({ estimateVisibility: opt.key })}
+                  className={`text-left rounded-lg border px-3 py-2 transition-colors ${
+                    current
+                      ? "border-foreground bg-inverted/5"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-3.5 w-3.5 rounded-full border-2 ${
+                        current ? "border-foreground bg-foreground" : "border-muted-foreground"
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 ml-5.5">{opt.hint}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Material sell rates */}
         {trade.hasMaterials && trade.trade !== "cabinet_refacing" && (
           <div>
