@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
+import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 export default function DashboardPage() {
@@ -162,6 +163,18 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Yearly goal + pace. Renders itself away for a non-admin with no goal
+          set, so it's never a dead prompt. */}
+      <RevenueGoalCard
+        goal={overview?.goal}
+        canEdit={Boolean(overview?.canEditGoal)}
+        onSaved={() =>
+          fetch("/api/analytics/overview")
+            .then((r) => (r.ok ? r.json() : null))
+            .then(setOverview)
+        }
+      />
 
       <div className="flex flex-wrap gap-3">
         <Link

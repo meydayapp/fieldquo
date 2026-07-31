@@ -28,7 +28,8 @@
     "check:booking": "node --import ./scripts/alias-loader.mjs scripts/check-travel.mjs && node --import ./scripts/alias-loader.mjs scripts/check-arrival-window.mjs",
     "check:demo": "node --import ./scripts/alias-loader.mjs scripts/check-demo.mjs",
     "seed:demos": "node --import ./scripts/alias-loader.mjs scripts/seed-demos.mjs",
-    "check:voice-outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound-prompt.mjs"
+    "check:voice-outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound-prompt.mjs",
+    "check:goal": "node --import ./scripts/alias-loader.mjs scripts/check-goal.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

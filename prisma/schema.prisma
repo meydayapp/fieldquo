@@ -582,6 +582,13 @@ model Company {
   /// makes deliberately, not a default they discover.
   outboundCallsEnabled Boolean @default(false)
 
+  /// A yearly revenue target the owner sets. Null means "no goal set", which is
+  /// distinct from zero — the dashboard shows the goal card only when this
+  /// exists, rather than inventing a target nobody chose. Monthly and weekly
+  /// figures are DERIVED (see lib/analytics/goal.js), never stored, so they
+  /// can't drift from the annual number.
+  revenueGoalAnnual Decimal? @db.Decimal(12, 2)
+
   isDemo Boolean @default(false)
 
   /// Which industry preset this demo is currently dressed as
