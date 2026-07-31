@@ -249,6 +249,12 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Honest month-over-month** (`lib/analytics/trend.js`) — `getAnalyticsOverview`
+  now computes `priorConversionRate` (null, not zero, when last month had no
+  activity). `compare` / `describeRateTrend` return null rather than a fabricated
+  baseline, so the digest states "up from X%" only when X is real. Every AI
+  surface is already told never to invent a number.
+
 - **Outbound call triggers complete** (`lib/voice/triggers.js`) — all three
   purposes now fire: quote approved, visit booked (day-before reminder), and a
   new lead ("someone will call you shortly"). The booking route now records a
