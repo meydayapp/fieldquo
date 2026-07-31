@@ -24,7 +24,8 @@
     "check:cleaning": "node --import ./scripts/alias-loader.mjs scripts/check-cleaning-pricing.mjs",
     "check:reviews": "node --import ./scripts/alias-loader.mjs scripts/check-reviews.mjs && node --import ./scripts/alias-loader.mjs scripts/check-review-email.mjs",
     "check:travel": "node --import ./scripts/alias-loader.mjs scripts/check-travel.mjs",
-    "check:env": "node scripts/check-env-docs.mjs"
+    "check:env": "node scripts/check-env-docs.mjs",
+    "check:booking": "node --import ./scripts/alias-loader.mjs scripts/check-travel.mjs && node --import ./scripts/alias-loader.mjs scripts/check-arrival-window.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

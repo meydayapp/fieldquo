@@ -10,6 +10,7 @@
 // because Next only compiles a route once something requests it.
 
 import { sendEmail, senderFor } from "@/lib/email/resend";
+import { describeWindow } from "@/lib/booking/arrivalWindow";
 
 function formatWhen(startTime, timezone) {
   try {
@@ -59,8 +60,17 @@ export async function sendBookingConfirmationEmail({
   location,
   timezone,
   company,
+  arrivalWindowMinutes,
 }) {
-  const when = formatWhen(startTime, timezone);
+  // ── Window if the company set one, exact time otherwise ──────────────────
+  //
+  // describeWindow returns null when windows are off, so this falls straight
+  // through to the formatting that was already here rather than to a second,
+  // divergent copy of it. Only the CLIENT sees the window; the crew's own
+  // schedule keeps the real time. See lib/booking/arrivalWindow.js.
+  const when =
+    describeWindow(startTime, arrivalWindowMinutes, { timezone }) ||
+    formatWhen(startTime, timezone);
 
   const html = `<!DOCTYPE html>
 <html>

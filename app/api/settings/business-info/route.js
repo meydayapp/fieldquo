@@ -7,6 +7,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
+import { clampWindow } from "@/lib/booking/arrivalWindow";
 
 /**
  * Coordinates for a stored address that has none.
@@ -102,6 +103,7 @@ export async function GET(request) {
       bookingModes: true,
       travelCheckEnabled: true,
       travelBufferMinutes: true,
+      arrivalWindowMinutes: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -166,6 +168,7 @@ export async function PATCH(request) {
     bookingModes,
     travelCheckEnabled,
     travelBufferMinutes,
+    arrivalWindowMinutes,
     sitePublished,
   } = body;
 
@@ -273,6 +276,11 @@ export async function PATCH(request) {
       // parking, unloading and writing up the previous job.
       ...(travelBufferMinutes !== undefined && {
         travelBufferMinutes: Math.min(120, Math.max(0, Math.round(Number(travelBufferMinutes) || 0))),
+      }),
+      // Clamped by the same helper the renderer uses, so what's stored and
+      // what's shown can't disagree.
+      ...(arrivalWindowMinutes !== undefined && {
+        arrivalWindowMinutes: clampWindow(arrivalWindowMinutes),
       }),
       ...(currency !== undefined && { currency }),
       // Normalised on the way in, not trusted. This column is read by the

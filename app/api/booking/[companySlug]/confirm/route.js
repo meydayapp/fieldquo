@@ -136,6 +136,9 @@ export async function POST(request, { params }) {
 
   await sendBookingConfirmationEmail({
     to: clientEmail,
+    // Zero means an exact time, which is the default. Nothing is widened on a
+    // contractor's behalf without them asking.
+    arrivalWindowMinutes: chosenMode === "visit" ? company.arrivalWindowMinutes : 0,
     companyName: company.name,
     clientName,
     eventTypeName: eventType.name,

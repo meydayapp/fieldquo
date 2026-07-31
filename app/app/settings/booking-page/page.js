@@ -34,6 +34,7 @@ export default function BookingPageSettings() {
     location: "",
   });
   const [travel, setTravel] = useState({ enabled: true, buffer: 0 });
+  const [arrival, setArrival] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -48,6 +49,7 @@ export default function BookingPageSettings() {
           enabled: info?.travelCheckEnabled !== false,
           buffer: info?.travelBufferMinutes ?? 0,
         });
+        setArrival(info?.arrivalWindowMinutes ?? 0);
         setForm((f) => ({ ...f, durationMinutes: info?.defaultVisitMinutes || 60 }));
       })
       .finally(() => setLoading(false));
@@ -74,6 +76,21 @@ export default function BookingPageSettings() {
         buffer: info.travelBufferMinutes ?? 0,
       });
     }
+  }
+
+  async function saveArrival(minutes) {
+    setArrival(minutes);
+    const res = await fetch("/api/settings/business-info", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ arrivalWindowMinutes: minutes }),
+    });
+    if (!res.ok) {
+      await reportResponseError(res, "Couldn't save the arrival window.");
+      return;
+    }
+    const info = await res.json().catch(() => null);
+    if (info) setArrival(info.arrivalWindowMinutes ?? 0);
   }
 
   async function toggleMode(key) {
@@ -287,6 +304,43 @@ export default function BookingPageSettings() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Arrival window ──────────────────────────────────────────── */}
+        {modes.includes("visit") && (
+          <div className="mb-5 pt-5 border-t border-border">
+            <p className="text-sm font-semibold text-foreground mb-1">
+              What do you promise the client?
+            </p>
+            <p className="text-xs text-muted-foreground mb-2.5">
+              A window is a promise the road can&apos;t break. Your own schedule
+              keeps the exact time either way — this only changes what the
+              client is told.
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[0, 15, 30, 60].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => saveArrival(m)}
+                  className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                    arrival === m
+                      ? "border-foreground bg-inverted text-inverted-foreground"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m === 0 ? "Exact time" : `± ${m} min`}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {arrival === 0
+                ? "They'll be told 2:00 PM."
+                : `They'll be told "between ${
+                    arrival >= 60 ? "1:00" : arrival === 30 ? "1:30" : "1:45"
+                  } and ${arrival >= 60 ? "3:00" : arrival === 30 ? "2:30" : "2:15"} PM".`}
+            </p>
           </div>
         )}
 

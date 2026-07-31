@@ -557,6 +557,18 @@ model Company {
   /// contractor working one small town can switch the whole thing off.
   travelCheckEnabled Boolean @default(true)
 
+  /// Half-width of the arrival window shown to CLIENTS, in minutes.
+  ///
+  /// 15 turns "2:00 PM" into "between 1:45 and 2:15 PM" on their confirmation.
+  /// Zero — the default — means an exact time, because promising a window
+  /// nobody agreed to is a change to what the customer was told.
+  ///
+  /// Client-facing only. The crew's own schedule keeps the real time: an
+  /// estimator told "between 1:45 and 2:15" cannot plan a day, and the whole
+  /// point of the window is that it absorbs the slack the ROUTE has, which
+  /// only the exact times make visible.
+  arrivalWindowMinutes Int @default(0)
+
 }
 
 // Per-company overrides on top of the built-in defaults in
