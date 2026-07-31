@@ -195,6 +195,8 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [measureErr, setMeasureErr] = useState("");
   const [measurement, setMeasurement] = useState(null);
   const [options, setOptions] = useState([]);
+  const [gated, setGated] = useState(null); // a message string when the owner hides prices
+  const [financing, setFinancing] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
 
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
@@ -209,6 +211,7 @@ export default function InstantQuoteFlow({ companySlug }) {
   }, [companySlug]);
 
   const brand = data?.company?.brandColor || "#06356b";
+  const language = data?.language || "en";
 
   function pickTrade(t) {
     setTrade(t);
@@ -238,8 +241,20 @@ export default function InstantQuoteFlow({ companySlug }) {
         body: JSON.stringify(payload),
       });
       setMeasurement(res.measurement);
-      setOptions(res.options);
-      if (res.options.length === 1) setMaterialKey(res.options[0].materialKey);
+      setFinancing(res.financing || null);
+      // Gated: the owner chose not to show a price for this trade. The server
+      // sends a message and NO options — render the message, and let them
+      // request a quote exactly as before. Without this guard `res.options`
+      // is undefined and the line below throws.
+      if (res.gated) {
+        setGated(res.message || "");
+        setOptions([]);
+      } else {
+        setGated(null);
+        const opts = res.options || [];
+        setOptions(opts);
+        if (opts.length === 1) setMaterialKey(opts[0].materialKey);
+      }
     } catch (err) {
       setMeasureErr(err.message || "We couldn't measure that.");
     } finally {
@@ -440,8 +455,41 @@ export default function InstantQuoteFlow({ companySlug }) {
               </Card>
             )}
 
-            {/* Step 4 — contact */}
-            {selectedOption && (
+            {/* Step 3 (gated) — measurement, but the owner hides the price.
+                No figure is shown; they still leave details and we follow up. */}
+            {measurement && gated && (
+              <Card step="3" title="Almost there">
+                {measurement.satelliteImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
+                )}
+                <p className="text-sm text-foreground">{gated}</p>
+              </Card>
+            )}
+
+            {/* Financing — the company's own offer, shown once there's an
+                estimate or a gated result. Never a monthly figure (FieldQuo
+                doesn't provide financing); it's their words or their provider. */}
+            {financing && (measurement) && (
+              <div className="rounded-xl border border-border bg-card p-4">
+                <p className="text-sm text-foreground">{financing.note}</p>
+                {financing.url && (
+                  <a
+                    href={financing.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                    style={{ background: brand }}
+                  >
+                    {language === "fr" ? "Voir les options de financement" : "See financing options"}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Step 4 — contact. Shown whether they saw a price or a gated
+                message, so a gated flow can still be completed. */}
+            {(selectedOption || gated) && (
               <Card step="4" title="Where should we send it?">
                 <div className="space-y-3">
                   <input

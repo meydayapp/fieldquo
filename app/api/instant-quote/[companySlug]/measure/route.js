@@ -12,12 +12,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { measureForTrade, priceAllMaterials } from "@/lib/estimate/instantQuoteServer";
+import { publicEstimate, gatedMessage } from "@/lib/estimate/visibility";
+import { financingOffer } from "@/lib/estimate/financing";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
   const company = await db.company.findUnique({
     where: { slug: companySlug },
-    select: { id: true },
+    select: { id: true, financing: true, defaultLanguage: true },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -63,7 +65,42 @@ export async function POST(request, { params }) {
     formattedAddress: m.formattedAddress ?? null,
   };
 
-  return NextResponse.json({ measurement: measurementView, options: priced.options });
+  const language = company.defaultLanguage || "en";
+  const financing = financingOffer(company.financing, { language });
+
+  // ── The visibility gate ───────────────────────────────────────────────────
+  //
+  // The prices are computed; whether they cross to the homeowner is the owner's
+  // per-trade choice. Gated: return the measurement and a plain message, and NO
+  // figures at all — not a stripped option, not a $0, nothing a screenshot could
+  // turn into a promise. Range: the options as computed, each run through
+  // publicEstimate so a material that couldn't price falls out rather than
+  // showing a broken number.
+  if (priced.visibility !== "range") {
+    return NextResponse.json({
+      measurement: measurementView,
+      gated: true,
+      message: gatedMessage(language),
+      financing,
+    });
+  }
+
+  const options = priced.options
+    .map((o) => {
+      const pub = publicEstimate({ low: o.low, high: o.high }, "range");
+      return pub.show
+        ? { materialKey: o.materialKey, label: o.label, low: pub.low, high: pub.high, unit: o.unit || null }
+        : null;
+    })
+    .filter(Boolean);
+
+  // Every material fell out (all unpriceable) — treat as gated rather than
+  // returning an empty options array the UI would render as a blank estimate.
+  if (!options.length) {
+    return NextResponse.json({ measurement: measurementView, gated: true, message: gatedMessage(language), financing });
+  }
+
+  return NextResponse.json({ measurement: measurementView, options, financing });
 }
 
 function measureErrorMessage(reason) {
