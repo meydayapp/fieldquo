@@ -100,6 +100,8 @@ export async function GET(request) {
       businessHours: true,
       defaultVisitMinutes: true,
       bookingModes: true,
+      travelCheckEnabled: true,
+      travelBufferMinutes: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -162,6 +164,8 @@ export async function PATCH(request) {
     businessHours,
     defaultVisitMinutes,
     bookingModes,
+    travelCheckEnabled,
+    travelBufferMinutes,
     sitePublished,
   } = body;
 
@@ -259,6 +263,16 @@ export async function PATCH(request) {
           const clean = bookingModes.filter((m) => ["call", "visit", "video"].includes(m));
           return clean.length ? clean : ["visit"];
         })(),
+      }),
+      ...(travelCheckEnabled !== undefined && {
+        travelCheckEnabled: Boolean(travelCheckEnabled),
+      }),
+      // Clamped, not trusted. This number ADDS to the drive between jobs, so a
+      // fat-fingered 600 would quietly empty the booking page — every slot
+      // ten hours from the last one. Two hours is already generous for
+      // parking, unloading and writing up the previous job.
+      ...(travelBufferMinutes !== undefined && {
+        travelBufferMinutes: Math.min(120, Math.max(0, Math.round(Number(travelBufferMinutes) || 0))),
       }),
       ...(currency !== undefined && { currency }),
       // Normalised on the way in, not trusted. This column is read by the

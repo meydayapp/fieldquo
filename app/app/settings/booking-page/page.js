@@ -33,6 +33,7 @@ export default function BookingPageSettings() {
     bufferAfter: 0,
     location: "",
   });
+  const [travel, setTravel] = useState({ enabled: true, buffer: 0 });
 
   useEffect(() => {
     Promise.all([
@@ -43,10 +44,37 @@ export default function BookingPageSettings() {
         setEventTypes(Array.isArray(types) ? types : []);
         if (info?.defaultVisitMinutes) setVisitMinutes(info.defaultVisitMinutes);
         if (Array.isArray(info?.bookingModes) && info.bookingModes.length) setModes(info.bookingModes);
+        setTravel({
+          enabled: info?.travelCheckEnabled !== false,
+          buffer: info?.travelBufferMinutes ?? 0,
+        });
         setForm((f) => ({ ...f, durationMinutes: info?.defaultVisitMinutes || 60 }));
       })
       .finally(() => setLoading(false));
   }, []);
+
+  async function saveTravel(patch) {
+    // Optimistic, then reconciled from the server's answer — the buffer is
+    // clamped server-side, so echoing back what was typed would show 600 when
+    // 120 was stored.
+    setTravel((t) => ({ ...t, ...patch }));
+    const res = await fetch("/api/settings/business-info", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) {
+      await reportResponseError(res, "Couldn't save the travel settings.");
+      return;
+    }
+    const info = await res.json().catch(() => null);
+    if (info) {
+      setTravel({
+        enabled: info.travelCheckEnabled !== false,
+        buffer: info.travelBufferMinutes ?? 0,
+      });
+    }
+  }
 
   async function toggleMode(key) {
     // Never allowed to reach zero — that would leave a booking page nobody can
@@ -196,6 +224,71 @@ export default function BookingPageSettings() {
             ))}
           </div>
         </div>
+
+        {/* ── Travel between jobs ─────────────────────────────────────────
+            Only relevant when someone is actually driving to a client, so it's
+            hidden entirely for a phone-only company rather than shown greyed
+            out — a control that can't apply is noise. */}
+        {modes.includes("visit") && (
+          <div className="mb-5 pt-5 border-t border-border">
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Don&apos;t offer times you can&apos;t drive to
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Clients give an address when they book a visit. Times you
+                  couldn&apos;t reach on schedule from your previous job are
+                  hidden.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={travel.enabled}
+                onClick={() => saveTravel({ travelCheckEnabled: !travel.enabled })}
+                className={`shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  travel.enabled ? "bg-emerald-600" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    travel.enabled ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {travel.enabled && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-foreground mb-1">
+                  Extra time between jobs
+                </p>
+                <p className="text-xs text-muted-foreground mb-2.5">
+                  Added on top of the drive — parking, unloading, writing up the
+                  last job. Starts at none, because guessing on your behalf
+                  removes bookable slots you never agreed to give up.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[0, 10, 15, 30, 45, 60].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => saveTravel({ travelBufferMinutes: m })}
+                      className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                        travel.buffer === m
+                          ? "border-foreground bg-inverted text-inverted-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {m === 0 ? "None" : `${m} min`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="text-sm font-semibold text-foreground mb-1">How long is a visit?</p>
         <div className="flex flex-wrap gap-1.5">
