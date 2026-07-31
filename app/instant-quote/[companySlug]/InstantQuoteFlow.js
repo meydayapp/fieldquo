@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, MapPin, Ruler, CheckCircle2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import MediaUploader from "@/app/components/MediaUploader";
 
 // Surcharge / intake inputs shown per trade, mirroring the estimator's keys.
 const INTAKE_INPUTS = {
@@ -200,6 +201,7 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [materialKey, setMaterialKey] = useState(null);
 
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
+  const [media, setMedia] = useState([]); // photos/videos the homeowner attaches
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [submitErr, setSubmitErr] = useState("");
@@ -269,6 +271,7 @@ export default function InstantQuoteFlow({ companySlug }) {
       const payload = { trade: trade.trade, intake, materialKey, ...contact };
       if (trade.measure === "roof_address") payload.address = address;
       if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+      if (media.length) payload.media = media;
       const res = await fetchJson(`/api/instant-quote/${companySlug}/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -510,6 +513,11 @@ export default function InstantQuoteFlow({ companySlug }) {
                     value={contact.phone}
                     onChange={(e) => setContact({ ...contact, phone: e.target.value })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <MediaUploader
+                    uploadUrl={`/api/self-quote/${companySlug}/upload`}
+                    value={media}
+                    onChange={setMedia}
                   />
                 </div>
                 <button

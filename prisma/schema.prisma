@@ -1552,6 +1552,11 @@ model LeadRequest {
   // Prices are absent by construction — the public designer never receives the
   // rate card, so there is nothing here to strip.
   kitchenDesign Json?
+  // Photos/videos the homeowner attached to the self-quote — the pile to haul,
+  // the room to paint, the leak. Same shape as Quote.clientPhotos
+  // ({ url, kind, publicId }), normalised server-side so only https media URLs
+  // land here. Carried onto the Quote when the lead is converted.
+  clientPhotos  Json?
 
 }
 

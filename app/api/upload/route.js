@@ -19,19 +19,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentMember } from "@/lib/currentMember";
 import { uploadBuffer } from "@/lib/cloudinary";
-
-const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-const ALLOWED = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-  // iPhones shoot HEIC/HEIF by default — the single most common "why won't my
-  // photo upload" on a contractor's phone. Cloudinary converts it server-side.
-  "image/heic",
-  "image/heif",
-]);
+import { classifyMedia } from "@/lib/media/validate";
 
 export async function POST(request) {
   // Previously absent: this endpoint accepted uploads from anyone on the
@@ -58,18 +46,12 @@ export async function POST(request) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  if (!ALLOWED.has(file.type)) {
-    return NextResponse.json(
-      { error: "Upload a PNG, JPEG, WebP, GIF or SVG." },
-      { status: 400 },
-    );
-  }
-
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json(
-      { error: "That file is larger than 8 MB." },
-      { status: 400 },
-    );
+  // Shared boundary — same rules the public self-quote upload enforces, plus
+  // SVG (allowLogo) which only this authenticated branding path may accept.
+  // A video now goes through cleanly as resource_type "video".
+  const verdict = classifyMedia(file, { allowLogo: true });
+  if (!verdict.ok) {
+    return NextResponse.json({ error: verdict.error }, { status: 400 });
   }
 
   try {
@@ -79,12 +61,13 @@ export async function POST(request) {
     // delete without trawling a flat global namespace.
     const uploaded = await uploadBuffer(buffer, {
       folder: `fieldquo/companies/${member.companyId}`,
-      resourceType: "image",
+      resourceType: verdict.resourceType,
     });
 
     return NextResponse.json({
       url: uploaded.secure_url,
       publicId: uploaded.public_id,
+      kind: verdict.kind,
     });
   } catch (err) {
     console.error("[upload] Cloudinary error:", err?.message);

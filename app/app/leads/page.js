@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Inbox, Mail, Phone, ArrowRight, AlertCircle , PhoneOff } from "lucide-react";
+import { Inbox, Mail, Phone, ArrowRight, AlertCircle , PhoneOff, Film } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
@@ -190,6 +190,35 @@ export default function LeadsPage() {
                         {lead.message}
                       </p>
                     )}
+
+                    {Array.isArray(lead.clientPhotos) &&
+                      lead.clientPhotos.length > 0 && (
+                        <div className="mt-2 flex gap-1.5 flex-wrap">
+                          {lead.clientPhotos.map((m, i) => {
+                            const url = typeof m === "string" ? m : m?.url;
+                            if (!url) return null;
+                            return (
+                              <a
+                                key={url + i}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={m?.kind === "video" ? "Play video" : "View photo"}
+                                className="relative block h-12 w-12 overflow-hidden rounded border border-border bg-muted"
+                              >
+                                {m?.kind === "video" ? (
+                                  <span className="flex h-full w-full items-center justify-center">
+                                    <Film size={14} className="text-muted-foreground" />
+                                  </span>
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={url} alt="" className="h-full w-full object-cover" />
+                                )}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
 
                     <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-[11px] text-muted-foreground">

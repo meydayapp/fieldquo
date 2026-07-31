@@ -35,7 +35,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { trade, address, polygon, intake, materialKey, name, email, phone, language } = body || {};
+  const { trade, address, polygon, intake, materialKey, name, email, phone, language, media } = body || {};
 
   if (!trade) return NextResponse.json({ error: "Missing service." }, { status: 400 });
   if (!name || (!email && !phone)) {
@@ -72,6 +72,9 @@ export async function POST(request, { params }) {
     source: priced.source,
     address: address || measured.measurement.formattedAddress || null,
     language: language || company.defaultLanguage || "en",
+    // The homeowner's attached photos/videos — re-normalised server-side (https
+    // only, count-capped) so the browser can't stash anything but real media URLs.
+    media,
   });
 
   const emailLanguage = language || company.defaultLanguage || "en";

@@ -249,6 +249,26 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Client media on every quote — photos AND video** (`lib/media/validate.js`,
+  `MediaUploader`, `/api/self-quote/[companySlug]/upload`). One validator is the
+  boundary for both the authenticated `/api/upload` (now accepts video) and the
+  public anonymous upload — a limit in one and not the other is the hole a 2 GB
+  file drives through. A homeowner can attach a photo/short clip on both public
+  self-quote surfaces (`/instant-quote/*` and `/quote/*`); it's stored on
+  `Quote.clientPhotos` / `LeadRequest.clientPhotos` (normalised https-only,
+  count-capped) and shown back to staff on the quote detail and the leads board.
+  **Two follow-ups**: (1) `LeadRequest.clientPhotos` is a NEW column — run
+  `npx prisma db push` before the leads media renders in prod; (2) the public
+  upload endpoint has no IP rate limit yet (bounded by real-slug + per-file
+  validator), so add one before it's heavily embedded.
+- **Junk removal is now a real, adjustable service** (`lib/junk/pricing.js`,
+  `lib/junk/guidance.js`). Volume-based pricing (per-item price DROPS with load
+  — the whole model), special-recycling fees (freon/e-waste/mattress/tire),
+  access surcharges, hazards priced at nothing but warned. Plus default,
+  company-editable content: a customer FAQ and a new-operator pricing/process
+  guide, written original (not copied from competitors). Still to wire:
+  `junk_removal` into `INSTANT_ESTIMATE_TRADES` with an item-picker measure type,
+  and a junk rate-card settings screen.
 - **Job-photo gallery** (`lib/gallery/`, `/api/jobs/[id]/photos`, JobPhotoCurator)
   — crew photos file as JobPhoto rows with an inferred STAGE (start/progress/
   finish/issue); the owner stars the good ones; the website shows featured

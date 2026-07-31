@@ -391,6 +391,45 @@ export default function QuoteDetailPage() {
           </div>
         )}
 
+        {Array.isArray(quote.clientPhotos) && quote.clientPhotos.length > 0 && (
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              Photos & videos from the client
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {quote.clientPhotos.map((m, i) => {
+                const url = typeof m === "string" ? m : m?.url;
+                if (!url) return null;
+                const isVideo = m?.kind === "video";
+                return isVideo ? (
+                  <video
+                    key={url + i}
+                    src={url}
+                    controls
+                    preload="metadata"
+                    className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
+                  />
+                ) : (
+                  <a
+                    key={url + i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={m?.caption || "Client photo"}
+                      className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
+                    />
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Subtotal</span>

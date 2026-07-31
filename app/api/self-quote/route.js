@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { normaliseMediaList } from "@/lib/media/validate";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -57,6 +58,8 @@ export async function POST(request) {
     // than reading it out of a paragraph.
     details,
     language,
+    // Photos/videos attached in the browser. Re-normalised below, never trusted.
+    media,
   } = body;
 
   if (!companySlug || !name || (!email && !phone)) {
@@ -73,6 +76,8 @@ export async function POST(request) {
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const clientMedia = normaliseMediaList(media);
+
   const lead = await db.leadRequest.create({
     data: {
       companyId: company.id,
@@ -82,6 +87,7 @@ export async function POST(request) {
       categoryId: categoryId || null,
       message: buildMessage({ address, description, details }),
       source: "self_quote",
+      ...(clientMedia.length && { clientPhotos: clientMedia }),
     },
   });
 

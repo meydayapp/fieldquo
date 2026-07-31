@@ -32,6 +32,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
+import MediaUploader from "@/app/components/MediaUploader";
 
 const FALLBACK_ACCENT = "#06356b";
 
@@ -44,6 +45,7 @@ export default function SelfQuoteFlow({ companySlug }) {
   const [service, setService] = useState(null);
   const [details, setDetails] = useState({});
   const [description, setDescription] = useState("");
+  const [media, setMedia] = useState([]); // photos/videos of the job
   const [contact, setContact] = useState({
     name: "",
     email: "",
@@ -97,6 +99,7 @@ export default function SelfQuoteFlow({ companySlug }) {
           categoryId: service?.id || null,
           description,
           details,
+          media,
         }),
       });
       const d = await res.json().catch(() => null);
@@ -370,6 +373,11 @@ export default function SelfQuoteFlow({ companySlug }) {
                   }
                   placeholder="Where's the job? (optional)"
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
+                />
+                <MediaUploader
+                  uploadUrl={`/api/self-quote/${companySlug}/upload`}
+                  value={media}
+                  onChange={setMedia}
                 />
               </div>
 
