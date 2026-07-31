@@ -59,6 +59,21 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   const [chosen, setChosen] = useState(null);
 
   const [form, setForm] = useState({ name: "", email: "", phone: "" });
+
+  // ── The visit address ────────────────────────────────────────────────────
+  //
+  // Two pieces of state, not one. `address` is what they're typing; `geoAddress`
+  // is what the slot query has been run against. Refetching on every keystroke
+  // would be a geocode per character, so the query only moves when typing stops.
+  //
+  // `travelInfo` is what came back — whether the filter actually applied. Null
+  // means we haven't asked; { applied: false } means we asked and couldn't
+  // place the address, which must LOOK different to the visitor from a
+  // successful filter, or an unrecognised address silently shows unreachable
+  // times.
+  const [address, setAddress] = useState("");
+  const [geoAddress, setGeoAddress] = useState("");
+  const [travelInfo, setTravelInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmed, setConfirmed] = useState(null);
@@ -115,6 +130,11 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     setMode((m) => m || offered[0]);
   }, [company]);
 
+  useEffect(() => {
+    const t = setTimeout(() => setGeoAddress(address.trim()), 700);
+    return () => clearTimeout(t);
+  }, [address]);
+
   const loadSlots = useCallback(async () => {
     if (!eventType) return;
     setSlotsLoading(true);
@@ -131,19 +151,24 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
       // Never ask for the past — it can only return nothing.
       const from = isoDate(first < today ? today : first);
       const to = isoDate(last);
+      // The address is only relevant to an in-person visit. Sending it for a
+      // phone consult would filter times by a drive nobody is making.
+      const forVisit = mode === "visit" && geoAddress.length > 5;
       const res = await fetch(
         `/api/booking/${companySlug}/availability?eventTypeSlug=${encodeURIComponent(
           eventType.slug,
-        )}&from=${from}&to=${to}`,
+        )}&from=${from}&to=${to}` +
+          (forVisit ? `&address=${encodeURIComponent(geoAddress)}` : ""),
       );
       const data = await res.json().catch(() => null);
       setSlots(res.ok ? data?.slots || {} : {});
+      setTravelInfo(res.ok ? data?.travel || null : null);
     } catch {
       setSlots({});
     } finally {
       setSlotsLoading(false);
     }
-  }, [companySlug, eventType, monthCursor]);
+  }, [companySlug, eventType, monthCursor, mode, geoAddress]);
 
   useEffect(() => {
     loadSlots();
@@ -219,6 +244,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           clientEmail: form.email.trim(),
           clientPhone: form.phone.trim() || null,
           mode,
+          address: mode === "visit" ? address.trim() || null : null,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -451,6 +477,52 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ── Where are we coming to? ────────────────────────────────────
+              Asked BEFORE the times, not after, because it changes which times
+              are real. An estimator finishing across town at 5:00 cannot be at
+              a door at 5:30, and offering that slot is a promise the company
+              breaks on the day.
+
+              Optional on purpose. Someone who won't type an address still gets
+              the full grid — the times are then merely unfiltered, which is
+              exactly what every booking page did before this. Blocking the
+              calendar behind a required field would cost more bookings than
+              the occasional tight drive does. */}
+          {mode === "visit" && (
+            <div className="mb-4">
+              <label
+                htmlFor="visit-address"
+                className="block text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-1.5"
+              >
+                Where should we come?
+              </label>
+              <div className="relative">
+                <MapPin
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#2d2520]/35 pointer-events-none"
+                />
+                <input
+                  id="visit-address"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="123 Main St, Montreal"
+                  autoComplete="street-address"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-black/15 bg-white text-sm text-[#2d2520] placeholder:text-[#2d2520]/30 focus:border-[#2d2520]/50 focus:outline-none"
+                />
+              </div>
+
+              {/* Three states, and they must not look alike. */}
+              <p className="text-xs text-[#2d2520]/50 mt-1.5">
+                {travelInfo?.applied
+                  ? `Showing times we can reach ${travelInfo.address || "you"} on schedule.`
+                  : travelInfo
+                    ? "We couldn't place that address, so all times are shown. Double-check it before you book."
+                    : "Optional — it lets us hide times we couldn't get to you on time."}
+              </p>
             </div>
           )}
 

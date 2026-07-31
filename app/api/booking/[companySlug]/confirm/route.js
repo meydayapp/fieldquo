@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -12,7 +13,7 @@ export async function POST(request, { params }) {
   // which made the company lookup below silently 404 every booking.
   const { companySlug } = await params;
   const body = await request.json();
-  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode } =
+  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode, address } =
     body;
 
   if (!eventTypeSlug || !startTime || !clientName || !clientEmail) {
@@ -76,18 +77,6 @@ export async function POST(request, { params }) {
     });
   }
 
-  const appointment = await db.appointment.create({
-    data: {
-      companyId: company.id,
-      clientId: client.id,
-      scheduledAt: start,
-      location: eventType.location || null,
-      status: "scheduled",
-      createdById: eventType.userId,
-      assignedToId: eventType.userId,
-    },
-  });
-
   // Validated against what the company ACTUALLY offers, not just against the
   // three known strings. A visitor posting mode:"video" to a company that only
   // does site visits would otherwise book a video call nobody can host.
@@ -95,6 +84,40 @@ export async function POST(request, { params }) {
     ? company.bookingModes
     : ["visit"];
   const chosenMode = offered.includes(mode) ? mode : offered[0];
+
+  // ── The visit address, geocoded ─────────────────────────────────────────
+  //
+  // Re-geocoded here rather than trusting coordinates from the browser: a
+  // client posting lat/lng directly could place an appointment anywhere, and
+  // these coordinates decide whether OTHER slots get offered. The availability
+  // step already resolved this address, so it's a cache hit at Google and the
+  // visitor sees no delay.
+  //
+  // A failed geocode stores the typed address with null coordinates. That's
+  // honest — the crew still needs the street address — and travel filtering
+  // treats missing coordinates as unknown rather than as the middle of the
+  // ocean.
+  const visitAddress = typeof address === "string" && address.trim() ? address.trim() : null;
+  let visitPoint = null;
+  if (visitAddress && chosenMode === "visit") {
+    const hit = await geocodeAddress(visitAddress);
+    if (hit) visitPoint = { lat: hit.lat, lng: hit.lng };
+  }
+
+  const appointment = await db.appointment.create({
+    data: {
+      companyId: company.id,
+      clientId: client.id,
+      scheduledAt: start,
+      // The CLIENT's address when they gave one — that's where the van goes.
+      // eventType.location is a label ("On-site visit"), not a destination.
+      location: visitAddress || eventType.location || null,
+      ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
+      status: "scheduled",
+      createdById: eventType.userId,
+      assignedToId: eventType.userId,
+    },
+  });
 
   const booking = await db.booking.create({
     data: {
@@ -105,6 +128,8 @@ export async function POST(request, { params }) {
       startTime: start,
       endTime: end,
       mode: chosenMode,
+      address: visitAddress,
+      ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
       appointmentId: appointment.id,
     },
   });
@@ -122,7 +147,7 @@ export async function POST(request, { params }) {
         ? `Phone call${company.phone ? ` — we'll ring you${clientPhone ? ` on ${clientPhone}` : ""}` : ""}`
         : chosenMode === "video"
           ? "Video call — we'll email a link"
-          : eventType.location || "On-site visit",
+          : visitAddress || eventType.location || "On-site visit",
   });
 
   return NextResponse.json(booking, { status: 201 });

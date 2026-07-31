@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { computeAvailableSlots } from "@/lib/booking/computeAvailability";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 
 // Public — open slots for a given event type over a date range
 // GET /api/booking/acme-cabinets/availability?eventTypeSlug=in-home-consult&from=2026-07-05&to=2026-07-12
@@ -36,6 +37,27 @@ export async function GET(request, { params }) {
       { status: 404 },
     );
 
+  // ── Where the visitor wants to be seen ───────────────────────────────────
+  //
+  // Optional. Given one, slots the estimator can't physically reach from their
+  // previous job are removed. Given nothing — a phone consult, or an address
+  // not typed yet — the result is exactly what it was before travel time
+  // existed, because unknown never filters.
+  //
+  // Geocoded here, server-side, and echoed back so the confirm step can store
+  // the coordinates without paying for a second lookup.
+  const address = searchParams.get("address");
+  let destination = null;
+  let resolvedAddress = null;
+
+  if (address && company.travelCheckEnabled) {
+    const hit = await geocodeAddress(address);
+    if (hit) {
+      destination = { lat: hit.lat, lng: hit.lng };
+      resolvedAddress = hit.formattedAddress;
+    }
+  }
+
   const fromDate = new Date(from);
   const toDate = new Date(to);
 
@@ -51,6 +73,8 @@ export async function GET(request, { params }) {
     eventType,
     fromDate,
     toDate,
+    destination,
+    travelBuffer: company.travelBufferMinutes || 0,
   });
 
   return NextResponse.json({
@@ -60,5 +84,15 @@ export async function GET(request, { params }) {
       location: eventType.location,
     },
     slots: slotsByDate,
+    // So the UI can say "times you can be reached from" honestly, and say
+    // nothing at all when the address didn't resolve. A silent failure here
+    // would look identical to a successful one.
+    travel: address
+      ? {
+          applied: Boolean(destination),
+          address: resolvedAddress,
+          ...(destination || {}),
+        }
+      : null,
   });
 }

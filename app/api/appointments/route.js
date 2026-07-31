@@ -28,7 +28,15 @@ export async function GET(request) {
             OR: [{ assignedToId: member.userId }, { assignedToId: null }],
           }),
     },
-    include: { client: true, assignedTo: { select: { id: true, name: true } } },
+    include: {
+      client: true,
+      assignedTo: { select: { id: true, name: true } },
+      // For the real finish time. An Appointment has no duration of its own,
+      // so one created from a booking is the only kind we can say anything
+      // definite about — and the travel check stays silent rather than
+      // assuming an hour for the rest. See lib/booking/travel.js travelLegs.
+      booking: { select: { endTime: true } },
+    },
     orderBy: { scheduledAt: "asc" },
   });
 

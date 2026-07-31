@@ -1,9 +1,10 @@
 // app/(app)/appointments/page.js
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, MapPin, User as UserIcon, ShieldAlert, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, MapPin, User as UserIcon, ShieldAlert, X, Car, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { travelLegs, describeTravel } from "@/lib/booking/travel";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -12,6 +13,42 @@ const STATUS_STYLES = {
   completed: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
   cancelled: "bg-muted text-muted-foreground",
 };
+
+/**
+ * The drive between each appointment and the one before it.
+ *
+ * Grouped BY ASSIGNEE first. The list is one chronological stream across the
+ * whole company, so pairing neighbours blind would show a painter the drive
+ * from a plumber's last job — a number that is not merely useless but actively
+ * misleading, because it looks exactly like a real one.
+ *
+ * Unassigned appointments are skipped rather than lumped together: "nobody" is
+ * not a person with a van.
+ */
+function legsByAppointment(appointments) {
+  const byPerson = new Map();
+  for (const a of appointments) {
+    if (!a.assignedToId) continue;
+    if (!byPerson.has(a.assignedToId)) byPerson.set(a.assignedToId, []);
+    byPerson.get(a.assignedToId).push(a);
+  }
+
+  const out = new Map();
+  for (const list of byPerson.values()) {
+    const stops = list
+      .slice()
+      .sort((x, y) => new Date(x.scheduledAt) - new Date(y.scheduledAt))
+      .map((a) => ({
+        id: a.id,
+        at: a.scheduledAt,
+        endAt: a.booking?.endTime || null,
+        latitude: a.latitude,
+        longitude: a.longitude,
+      }));
+    for (const leg of travelLegs(stops)) out.set(leg.id, leg);
+  }
+  return out;
+}
 
 export default function AppointmentsPage() {
   const { t } = useTranslation();
@@ -36,6 +73,8 @@ export default function AppointmentsPage() {
     filter === "all"
       ? appointments
       : appointments.filter((a) => a.status === filter);
+
+  const legs = useMemo(() => legsByAppointment(appointments), [appointments]);
 
   const assign = async (id, assignedToId) => {
     const res = await fetch(`/api/appointments/${id}`, {
@@ -100,8 +139,31 @@ export default function AppointmentsPage() {
       )}
 
       <div className="space-y-3">
-        {filtered.map((appt) => (
-          <div key={appt.id} className="glass-effect card-hover rounded-lg p-4">
+        {filtered.map((appt) => {
+          // Read from the FULL list, not `filtered`. A drive is measured from
+          // the previous stop, and that stop may be filtered off screen —
+          // computing legs over the visible subset would quietly invent a
+          // drive from whatever happened to be above it.
+          const leg = legs.get(appt.id);
+          return (
+          <div key={appt.id}>
+          {leg?.travel && (
+            <div
+              className={`flex items-center gap-1.5 text-xs px-1 pb-1.5 ${
+                leg.tight
+                  ? "text-amber-700 dark:text-amber-400 font-medium"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {leg.tight ? <AlertTriangle size={12} /> : <Car size={12} />}
+              <span>
+                {describeTravel(leg.travel)}
+                {leg.gapMinutes != null && ` · ${leg.gapMinutes} min gap`}
+                {leg.tight && ` · ${leg.shortBy} min short`}
+              </span>
+            </div>
+          )}
+          <div className="glass-effect card-hover rounded-lg p-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -156,7 +218,9 @@ export default function AppointmentsPage() {
               </div>
             </div>
           </div>
-        ))}
+          </div>
+          );
+        })}
       </div>
 
       {showForm && (

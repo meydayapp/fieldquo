@@ -546,6 +546,17 @@ model Company {
   /// messaged automatically.
   reviewRequestsEnabled Boolean @default(false)
 
+  /// Padding added on top of driving time between appointments: parking,
+  /// unloading, writing up the last job. Zero by default because inventing a
+  /// number here silently removes bookable slots the contractor never agreed
+  /// to give up.
+  travelBufferMinutes Int @default(0)
+
+  /// Whether unreachable slots are hidden from the public booking page.
+  /// On by default — a slot nobody can drive to is worse than no slot — but a
+  /// contractor working one small town can switch the whole thing off.
+  travelCheckEnabled Boolean @default(true)
+
 }
 
 // Per-company overrides on top of the built-in defaults in
@@ -1217,6 +1228,13 @@ model Appointment {
   updatedAt          DateTime          @updatedAt
 
   booking Booking?
+  /// Geocoded from `location`, so an internally-booked appointment counts
+  /// toward travel time exactly like a client-booked one. Without this, a day
+  /// full of manually-entered appointments looks like an empty day to the
+  /// travel check.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
 }
 
 model Task {
@@ -1578,6 +1596,18 @@ model Booking {
   appointmentId String?       @unique
   appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
   createdAt     DateTime      @default(now())
+  /// Where the visit is. Collected from the client at booking time for
+  /// in-person modes, and geocoded once so the scheduler can work out whether
+  /// the estimator can physically get there from their previous job.
+  ///
+  /// Nullable, and null is meaningful: phone/video bookings have no address,
+  /// and a geocode that fails leaves the coordinates null rather than zeroed.
+  /// Travel filtering treats missing coordinates as "unknown", which never
+  /// hides a slot — see lib/booking/travel.js.
+  address   String?
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
 }
 
 // ============================================================

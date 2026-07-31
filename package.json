@@ -22,7 +22,8 @@
     "check:outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound.mjs",
     "check:leadconsent": "node scripts/check-lead-consent.mjs",
     "check:cleaning": "node --import ./scripts/alias-loader.mjs scripts/check-cleaning-pricing.mjs",
-    "check:reviews": "node --import ./scripts/alias-loader.mjs scripts/check-reviews.mjs && node --import ./scripts/alias-loader.mjs scripts/check-review-email.mjs"
+    "check:reviews": "node --import ./scripts/alias-loader.mjs scripts/check-reviews.mjs && node --import ./scripts/alias-loader.mjs scripts/check-review-email.mjs",
+    "check:travel": "node --import ./scripts/alias-loader.mjs scripts/check-travel.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
