@@ -614,6 +614,7 @@ model Company {
   demoIndustry String?
   voiceCallTasks VoiceCallTask[]
   crewMessages CrewInboundMessage[]
+  jobPhotos JobPhoto[]
 
 }
 
@@ -1372,6 +1373,7 @@ model Job {
   /// you. `reviewRequestedAt` is the once-only guard.
   completedAt       DateTime?
   reviewRequestedAt DateTime?
+  galleryPhotos JobPhoto[]
 
 }
 
@@ -3019,4 +3021,38 @@ model CrewInboundMessage {
 
   @@index([companyId, status])
   @@index([companyId, senderPhone, status])
+}
+
+/// One photo of a job, with the stage it belongs to and whether it's been
+/// promoted to the public website gallery.
+///
+/// This is the richer store behind the crew inbox. A crew photo files to a job
+/// (JobVisit.photos keeps the raw feed for the job screen); a JobPhoto row adds
+/// the STAGE (start / progress / finish / issue) the crew agent inferred, and a
+/// `featured` flag the owner sets to lift the best ones onto their website.
+/// Start + finish of the same job is the before/after that sells the work.
+model JobPhoto {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobId      String?
+  job        Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  jobVisitId String?
+
+  url     String
+  /// start | progress | finish | issue — see lib/gallery/stages.js.
+  stage   String  @default("progress")
+  caption String?
+
+  /// Promoted to the public gallery. Off by default: a job photo is private
+  /// until the owner deliberately shows it — a homeowner's kitchen is not
+  /// marketing until they say so.
+  featured   Boolean @default(false)
+  /// Manual ordering within an album; lower shows first.
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, featured])
+  @@index([jobId, stage])
 }
