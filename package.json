@@ -29,7 +29,8 @@
     "check:demo": "node --import ./scripts/alias-loader.mjs scripts/check-demo.mjs",
     "seed:demos": "node --import ./scripts/alias-loader.mjs scripts/seed-demos.mjs",
     "check:voice-outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound-prompt.mjs",
-    "check:goal": "node --import ./scripts/alias-loader.mjs scripts/check-goal.mjs"
+    "check:goal": "node --import ./scripts/alias-loader.mjs scripts/check-goal.mjs",
+    "check:sms-template": "node --import ./scripts/alias-loader.mjs scripts/check-sms-template.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -26,6 +26,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import {
+  MessageSquare,
   Star,
   Building2,
   Users,
@@ -112,6 +113,7 @@ const GROUPS = [
       { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe },
       { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock },
       { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell },
+      { key: "app.settings.messages", href: "/app/settings/messages", icon: MessageSquare },
       { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
     ],
   },

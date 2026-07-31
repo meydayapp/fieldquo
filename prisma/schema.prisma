@@ -589,6 +589,14 @@ model Company {
   /// can't drift from the annual number.
   revenueGoalAnnual Decimal? @db.Decimal(12, 2)
 
+  /// Per-company overrides for the text messages CLIENTS receive, keyed by
+  /// type: { on_my_way: "Hi {name}, {worker} from {company} is on the way." }.
+  /// Absent or a missing key means the built-in wording is used — see
+  /// lib/sms/renderTemplate.js. Only tokens on the type's whitelist are allowed,
+  /// so a saved template can never reference a field that renders as a literal
+  /// "{price}" to a customer.
+  smsTemplates Json?
+
   isDemo Boolean @default(false)
 
   /// Which industry preset this demo is currently dressed as

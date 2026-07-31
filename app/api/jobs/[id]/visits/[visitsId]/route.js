@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { sendSms } from "@/lib/sms/twilioClient";
-import { onMyWayText } from "@/lib/sms/templates";
+import { renderMessage } from "@/lib/sms/renderTemplate";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -44,9 +44,17 @@ export async function PATCH(request, { params }) {
   if (status === "on_the_way" && visit.job.client.phone) {
     sendSms({
       to: visit.job.client.phone,
-      body: onMyWayText({
-        companyName: visit.job.company.name,
-        workerName: updated.assignedTo?.name || "Your technician",
+      // The company's own wording when they set it, the built-in otherwise.
+      // renderMessage falls back safely if a stored template is invalid, so a
+      // bad edit can never ship a raw "{token}" to a customer.
+      body: renderMessage({
+        type: "on_my_way",
+        templates: visit.job.company.smsTemplates,
+        values: {
+          company: visit.job.company.name,
+          worker: updated.assignedTo?.name || "Your technician",
+          name: (visit.job.client.name || "").split(/\s+/)[0],
+        },
       }),
     }).catch((err) => console.error("On-my-way SMS failed:", err.message));
   }
