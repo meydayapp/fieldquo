@@ -250,6 +250,20 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Automatic review requests** (`lib/reviews/`, `/api/cron/review-requests`,
+  hourly) — asks a customer once, ever, after their job is finished. The
+  decision lives in `request.js` and touches nothing, so the rules that cost
+  money when they leak are executable against hostile input; the cron claims
+  `Job.reviewRequestedAt` with a conditional update BEFORE sending, so
+  overlapping runs can't double-ask. Note `sendEmail` returns
+  `{ id | error | skipped }` rather than throwing — `skipped` releases the
+  claim, `error` keeps it. Settings at `/app/settings/reviews`, which shows a
+  live queue count so the toggle can't quietly be a lie.
+- **`Job.completedAt`** — stamped on the first flip to completed, cleared on
+  reopen. The follow-up cron used `updatedAt` as a proxy and carried a comment
+  saying so; renaming a job re-armed every follow-up on it. One write site
+  (`/api/jobs/[id]` PATCH), so it can't be bypassed.
+
 - **Website generation is composition-driven** — the reason every generated site
   used to look identical was not the prompt. `siteFromCompany()` returned one
   hardcoded list of ten blocks in one hardcoded order and `merge()` mapped over
