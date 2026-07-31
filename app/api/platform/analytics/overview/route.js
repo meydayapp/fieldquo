@@ -23,6 +23,9 @@ import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
 
+/** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
+const NOT_DEMO = { isDemo: false };
+
 // Groups rows into buckets by date key without pulling the whole table into
 // memory twice. Raw SQL would be faster, but keeping it in Prisma means this
 // works identically on any provider and stays readable.
@@ -114,15 +117,22 @@ export async function GET(request) {
     quoteTotal,
     invoiceTotal,
   ] = await Promise.all([
-    db.company.count(),
-    db.company.count({ where: { onboardingStatus: "active" } }),
+    // ── Demo accounts are excluded from every company count ────────────────
+    //
+    // Ten seeded sales demos would otherwise read as ten signups, and the one
+    // number this page exists to report — how many real businesses are on
+    // FieldQuo — would be wrong by ten from the day they were created. Applied
+    // at every count rather than subtracted at the end, because a percentage
+    // computed from a padded denominator is wrong in a way nobody spots.
+    db.company.count({ where: NOT_DEMO }),
+    db.company.count({ where: { ...NOT_DEMO, onboardingStatus: "active" } }),
     db.company.count({
-      where: { onboardingStatus: "pending", trialEndsAt: { gte: now } },
+      where: { ...NOT_DEMO, onboardingStatus: "pending", trialEndsAt: { gte: now } },
     }),
     // Approximate — see the note on Company.updatedAt. Any edit to a churned
     // company pulls it back into this window.
     db.company.count({
-      where: { onboardingStatus: "churned", updatedAt: { gte: startOfMonth } },
+      where: { ...NOT_DEMO, onboardingStatus: "churned", updatedAt: { gte: startOfMonth } },
     }),
     db.subscription.findMany({
       where: { status: "active" },
@@ -133,7 +143,7 @@ export async function GET(request) {
 
     // Daily series inputs — 30 days.
     db.company.findMany({
-      where: { createdAt: { gte: thirtyDaysAgo } },
+      where: { ...NOT_DEMO, createdAt: { gte: thirtyDaysAgo } },
       select: { createdAt: true },
     }),
     db.quote.findMany({
@@ -147,7 +157,7 @@ export async function GET(request) {
 
     // Monthly series inputs — 12 months.
     db.company.findMany({
-      where: { createdAt: { gte: twelveMonthsAgo } },
+      where: { ...NOT_DEMO, createdAt: { gte: twelveMonthsAgo } },
       select: { createdAt: true },
     }),
     db.quote.findMany({

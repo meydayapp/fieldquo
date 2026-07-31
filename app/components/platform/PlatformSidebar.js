@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Beaker,
   LayoutDashboard,
   Building2,
   CreditCard,
@@ -39,6 +40,7 @@ const ITEMS = [
     href: "/platform/service-categories",
     icon: Tags,
   },
+  { label: "Demo accounts", href: "/platform/demo", icon: Beaker },
   { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
   { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },

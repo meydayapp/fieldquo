@@ -569,6 +569,20 @@ model Company {
   /// only the exact times make visible.
   arrivalWindowMinutes Int @default(0)
 
+  /// A sales demo account, not a real customer.
+  ///
+  /// Load-bearing in three places, which is why it's a column and not a naming
+  /// convention on `name`: platform analytics exclude these (ten seeded
+  /// companies would otherwise read as ten signups), billing never chases them,
+  /// and — most importantly — the demo reset refuses to touch any company where
+  /// this is false. A reset wipes quotes, jobs and invoices; it must be
+  /// impossible to point at a real tenant.
+  isDemo Boolean @default(false)
+
+  /// Which industry preset this demo is currently dressed as
+  /// (see lib/demo/industries.js). Null on real companies.
+  demoIndustry String?
+
 }
 
 // Per-company overrides on top of the built-in defaults in
