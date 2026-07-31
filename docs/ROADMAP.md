@@ -249,6 +249,12 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Outbound call triggers complete** (`lib/voice/triggers.js`) — all three
+  purposes now fire: quote approved, visit booked (day-before reminder), and a
+  new lead ("someone will call you shortly"). The booking route now records a
+  `booking` consent row (it didn't before). Pure timing in `reminderTiming` /
+  `describeAppointmentTime`, tested.
+
 - **Crew messaging agent** (`lib/crew/`, `/api/crew/inbound`, `/app/crew-inbox`)
   — crew text photos/updates to the company number; it files each to the right
   job. TWO pure cores, exhaustively tested (61 assertions): `attribution.js`
