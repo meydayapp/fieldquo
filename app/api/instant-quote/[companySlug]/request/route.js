@@ -11,12 +11,20 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
+import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
+import { sendEmail } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
+import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
   const company = await db.company.findUnique({
     where: { slug: companySlug },
-    select: { id: true, defaultLanguage: true },
+    select: {
+      id: true, name: true, logoUrl: true, brandColor: true, brandColors: true,
+      email: true, phone: true, website: true, defaultLanguage: true,
+      financing: true,
+    },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -66,18 +74,60 @@ export async function POST(request, { params }) {
     language: language || company.defaultLanguage || "en",
   });
 
+  const emailLanguage = language || company.defaultLanguage || "en";
+
+  // ── The white-label confirmation ──────────────────────────────────────────
+  //
+  // Sent from the company's own domain, in their brand, obeying the same
+  // visibility gate the screen did — a gated trade's email shows no figure
+  // either. Best-effort: a mail hiccup must not fail the request the homeowner
+  // just made, and the on-screen result already confirmed it.
+  if (email) {
+    try {
+      const { subject, html } = buildEstimateEmail({
+        company,
+        contact: { name },
+        estimate: { low: priced.estimate.low, high: priced.estimate.high },
+        visibility: priced.visibility,
+        reference: draft.quoteNumber,
+        language: emailLanguage,
+      });
+      await sendEmail({
+        to: email,
+        subject,
+        html,
+        ...(await resolveSender(company, company.id)),
+      });
+    } catch (err) {
+      console.error("[instant-quote/request] estimate email failed:", err?.message);
+    }
+  }
+
+  // They submitted a request that said someone would be in touch — record the
+  // consent (attached to the draft quote) so a follow-up call is allowed.
+  if (phone) {
+    await recordConsent({
+      companyId: company.id,
+      phone,
+      source: "self_quote",
+      disclosure: DISCLOSURE.self_quote,
+      quoteId: draft.id,
+    }).catch((err) => console.error("[instant-quote/request] consent failed:", err?.message));
+  }
+
   // Show the homeowner their range back, clearly as an estimate — never the
-  // internal quote id, and never a "confirmed price".
-  return NextResponse.json({
-    ok: true,
-    reference: draft.quoteNumber,
-    estimate: {
-      low: priced.estimate.low,
-      high: priced.estimate.high,
-      unit: priced.estimate.unit || null,
-      assumptions: priced.estimate.assumptions || [],
-    },
-  });
+  // internal quote id, and never a "confirmed price". Respects the gate: a gated
+  // trade returns no figure here either.
+  const shown = priced.visibility === "range"
+    ? {
+        low: priced.estimate.low,
+        high: priced.estimate.high,
+        unit: priced.estimate.unit || null,
+        assumptions: priced.estimate.assumptions || [],
+      }
+    : null;
+
+  return NextResponse.json({ ok: true, reference: draft.quoteNumber, estimate: shown });
 }
 
 // Keep the stored snapshot small and free of the raw Solar dump — the facts
