@@ -126,7 +126,13 @@ async function scan(dir) {
     ) {
       const src = await readFile(full, "utf8");
       for (const m of src.matchAll(/["'](app\.[A-Za-z0-9_.]+)["']/g)) {
-        if (!used.has(m[1])) used.set(m[1], full);
+        const key = m[1];
+        // A literal ending in "." is a dynamic-key PREFIX being concatenated —
+        // t("app.mkStop." + stop.status). The real keys are app.mkStop.pending
+        // etc.; the prefix itself is never a key, so don't flag it as undefined.
+        // Every such usage in this codebase passes a fallback, so a miss is safe.
+        if (key.endsWith(".")) continue;
+        if (!used.has(key)) used.set(key, full);
       }
     }
   }
