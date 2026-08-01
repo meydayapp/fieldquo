@@ -5,7 +5,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission, presetPermissionsFor } from "@/lib/permissions";
+import {
+  requirePermission,
+  presetPermissionsFor,
+  toBetterAuthRole,
+} from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 
 export async function POST(request) {
@@ -114,15 +118,19 @@ export async function POST(request) {
 
   let invite = null;
   try {
-    // Pass FieldQuo's REAL role, not a Better Auth "admin"/"member" mapping.
-    //
-    // This was a live bug: the accept flow writes `Member.role =
-    // invitation.role`, so mapping supervisor/employee down to "member" created
-    // a Member whose role isn't in PERMISSIONS at all — `can()` then returned
-    // false for everything and the person could do nothing after accepting.
-    // organizationId must be the Better Auth org id, not Company.id.
+    // Better Auth only knows admin/member; passing supervisor/employee throws
+    // ROLE_NOT_FOUND. Map down for the invitation only — the granular FieldQuo
+    // role is carried on PendingTeamProfile.role below and written to
+    // Member.role on accept, so `can()` still gates the accepted member by
+    // supervisor/employee (writing "member" would be worse: it isn't in the
+    // MemberRole enum and isn't in PERMISSIONS). organizationId must be the
+    // Better Auth org id, not Company.id.
     invite = await auth.api.createInvitation({
-      body: { email: cleanEmail, role, organizationId: member.authOrgId },
+      body: {
+        email: cleanEmail,
+        role: toBetterAuthRole(role),
+        organizationId: member.authOrgId,
+      },
       headers: request.headers,
     });
   } catch (err) {
@@ -151,11 +159,13 @@ export async function POST(request) {
       province: province || null,
       laborCostPerHour: hourlyRate ? Number(hourlyRate) : null,
       permissions: permissions || presetPermissionsFor(role),
+      role,
     },
     update: {
       name: `${firstName} ${lastName}`.trim(),
       phone: phone || null,
       permissions: permissions || presetPermissionsFor(role),
+      role,
     },
   });
 

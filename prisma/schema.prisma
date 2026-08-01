@@ -719,6 +719,13 @@ model PendingTeamProfile {
   imageUrl           String?
   laborCostPerHour   Decimal? @db.Decimal(10, 2)
   permissions        Json?
+  // The granular FieldQuo role (admin/supervisor/employee) captured at invite
+  // time. Better Auth's invitation can only carry admin/member, so this is the
+  // only place the supervisor/employee distinction survives until the invite is
+  // accepted and Member.role is written — see the invite routes and the accept
+  // route. Nullable String, not the MemberRole enum, so an older pending row
+  // with no role reconciles harmlessly.
+  role               String?
   invitationLanguage String?  @default("en")
   createdAt          DateTime @default(now())
 

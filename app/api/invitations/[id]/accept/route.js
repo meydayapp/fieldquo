@@ -65,6 +65,22 @@ export async function POST(request, { params }) {
     );
   }
 
+  // The granular FieldQuo role (admin/supervisor/employee) lives on the pending
+  // profile, because Better Auth's invitation can only carry admin/member — see
+  // the invite routes. Prefer it; fall back to a valid MemberRole (never the
+  // Better Auth "member", which isn't in the enum and grants no permissions).
+  const pending = await db.pendingTeamProfile.findUnique({
+    where: {
+      companyId_email: {
+        companyId: company.id,
+        email: invitation.email.toLowerCase(),
+      },
+    },
+    select: { role: true },
+  });
+  const fieldquoRole =
+    pending?.role || (invitation.role === "admin" ? "admin" : "employee");
+
   await db.member.upsert({
     where: {
       userId_companyId: { userId: session.user.id, companyId: company.id },
@@ -73,7 +89,7 @@ export async function POST(request, { params }) {
     create: {
       userId: session.user.id,
       companyId: company.id,
-      role: invitation.role || "employee",
+      role: fieldquoRole,
       active: true,
     },
   });

@@ -243,7 +243,7 @@ export default function ServiceSettingsPage() {
       <button
         onClick={save}
         disabled={saving}
-        className="mt-6 admin-btn-primary"
+        className="mt-6 inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
       >
         {saving ? t("app.action.saving") : t("app.setServices.saveSettings")}
       </button>

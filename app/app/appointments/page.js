@@ -102,7 +102,7 @@ export default function AppointmentsPage() {
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="admin-btn-primary flex items-center justify-center gap-2 shrink-0"
+          className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60 shrink-0"
         >
           <Plus size={16} />{t("app.appts.new")}</button>
       </div>
@@ -341,7 +341,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
           <button
             type="submit"
             disabled={saving}
-            className="admin-btn-primary w-full mt-2"
+            className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60 w-full mt-2"
           >
             {saving ? "Creating..." : "Create Appointment"}
           </button>

@@ -431,9 +431,23 @@ const en = {
   "app.job.noVisits": "No visits scheduled yet. Add one to put this job on the calendar.",
 
   "app.timesheets.title": "Timesheets",
-  "app.timesheets.subtitle": "Review and approve logged hours.",
-  "app.timesheets.empty": "No time entries yet.",
+  "app.timesheets.subtitle": "Log, review and approve hours.",
+  "app.timesheets.empty": "No time entries yet. Add one to log hours.",
   "app.timesheets.approve": "Approve",
+  "app.timesheets.addEntry": "Add entry",
+  "app.timesheets.newEntry": "New time entry",
+  "app.timesheets.worker": "Worker",
+  "app.timesheets.selectWorker": "Select a worker…",
+  "app.timesheets.date": "Date",
+  "app.timesheets.start": "Start",
+  "app.timesheets.end": "End (optional)",
+  "app.timesheets.save": "Save",
+  "app.timesheets.saving": "Saving…",
+  "app.timesheets.cancel": "Cancel",
+  "app.timesheets.delete": "Delete",
+  "app.timesheets.clockOut": "Clock out",
+  "app.timesheets.inProgress": "In progress",
+  "app.timesheets.noWorkers": "Add a worker under Workers first, then log their hours here.",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "Couldn't send the email.",
@@ -2359,9 +2373,23 @@ const fr = {
   "app.job.noVisits": "Aucune visite planifiée. Ajoutez-en une pour placer ce chantier au calendrier.",
 
   "app.timesheets.title": "Feuilles de temps",
-  "app.timesheets.subtitle": "Révisez et approuvez les heures déclarées.",
-  "app.timesheets.empty": "Aucune entrée de temps.",
+  "app.timesheets.subtitle": "Enregistrez, révisez et approuvez les heures.",
+  "app.timesheets.empty": "Aucune entrée de temps. Ajoutez-en une pour enregistrer des heures.",
   "app.timesheets.approve": "Approuver",
+  "app.timesheets.addEntry": "Ajouter une entrée",
+  "app.timesheets.newEntry": "Nouvelle entrée de temps",
+  "app.timesheets.worker": "Intervenant",
+  "app.timesheets.selectWorker": "Choisir un intervenant…",
+  "app.timesheets.date": "Date",
+  "app.timesheets.start": "Début",
+  "app.timesheets.end": "Fin (facultatif)",
+  "app.timesheets.save": "Enregistrer",
+  "app.timesheets.saving": "Enregistrement…",
+  "app.timesheets.cancel": "Annuler",
+  "app.timesheets.delete": "Supprimer",
+  "app.timesheets.clockOut": "Pointer la sortie",
+  "app.timesheets.inProgress": "En cours",
+  "app.timesheets.noWorkers": "Ajoutez d'abord un intervenant sous Intervenants, puis enregistrez ses heures ici.",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "Impossible d'envoyer le courriel.",
@@ -5793,6 +5821,22 @@ const es = {
   "app.kitchen.clientSavedVersion": "Tu cliente guardó su propia versión de este diseño",
   "app.kitchen.onDate": "el {date}",
   "app.kitchen.loadTheirVersion": "Cargar su versión",
+
+  // timesheets create/edit UI (backfilled to match en/fr)
+  "app.timesheets.addEntry": "Agregar entrada",
+  "app.timesheets.newEntry": "Nueva entrada de tiempo",
+  "app.timesheets.worker": "Trabajador",
+  "app.timesheets.selectWorker": "Selecciona un trabajador…",
+  "app.timesheets.date": "Fecha",
+  "app.timesheets.start": "Inicio",
+  "app.timesheets.end": "Fin (opcional)",
+  "app.timesheets.save": "Guardar",
+  "app.timesheets.saving": "Guardando…",
+  "app.timesheets.cancel": "Cancelar",
+  "app.timesheets.delete": "Eliminar",
+  "app.timesheets.clockOut": "Registrar salida",
+  "app.timesheets.inProgress": "En curso",
+  "app.timesheets.noWorkers": "Agrega primero un trabajador en Trabajadores, luego registra sus horas aquí.",
 };
 
 const uk = {
@@ -7673,6 +7717,22 @@ const uk = {
   "app.kitchen.clientSavedVersion": "Ваш клієнт зберіг власну версію цього макета",
   "app.kitchen.onDate": "{date}",
   "app.kitchen.loadTheirVersion": "Завантажити їхню версію",
+
+  // timesheets create/edit UI (backfilled to match en/fr)
+  "app.timesheets.addEntry": "Додати запис",
+  "app.timesheets.newEntry": "Новий запис часу",
+  "app.timesheets.worker": "Працівник",
+  "app.timesheets.selectWorker": "Виберіть працівника…",
+  "app.timesheets.date": "Дата",
+  "app.timesheets.start": "Початок",
+  "app.timesheets.end": "Кінець (необовязково)",
+  "app.timesheets.save": "Зберегти",
+  "app.timesheets.saving": "Збереження…",
+  "app.timesheets.cancel": "Скасувати",
+  "app.timesheets.delete": "Видалити",
+  "app.timesheets.clockOut": "Відмітити вихід",
+  "app.timesheets.inProgress": "У процесі",
+  "app.timesheets.noWorkers": "Спершу додайте працівника в розділі Працівники, потім записуйте його години тут.",
 };
 
 const pa = {
@@ -9553,6 +9613,22 @@ const pa = {
   "app.kitchen.clientSavedVersion": "ਤੁਹਾਡੇ ਗਾਹਕ ਨੇ ਇਸ ਲੇਆਉਟ ਦਾ ਆਪਣਾ ਸੰਸਕਰਣ ਸੰਭਾਲਿਆ",
   "app.kitchen.onDate": "{date} ਨੂੰ",
   "app.kitchen.loadTheirVersion": "ਉਨ੍ਹਾਂ ਦਾ ਸੰਸਕਰਣ ਲੋਡ ਕਰੋ",
+
+  // timesheets create/edit UI (backfilled to match en/fr)
+  "app.timesheets.addEntry": "ਐਂਟਰੀ ਸ਼ਾਮਲ ਕਰੋ",
+  "app.timesheets.newEntry": "ਨਵੀਂ ਟਾਈਮ ਐਂਟਰੀ",
+  "app.timesheets.worker": "ਵਰਕਰ",
+  "app.timesheets.selectWorker": "ਇੱਕ ਵਰਕਰ ਚੁਣੋ…",
+  "app.timesheets.date": "ਤਾਰੀਖ",
+  "app.timesheets.start": "ਸ਼ੁਰੂ",
+  "app.timesheets.end": "ਅੰਤ (ਵਿਕਲਪਿਕ)",
+  "app.timesheets.save": "ਸੰਭਾਲੋ",
+  "app.timesheets.saving": "ਸੰਭਾਲਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
+  "app.timesheets.cancel": "ਰੱਦ ਕਰੋ",
+  "app.timesheets.delete": "ਮਿਟਾਓ",
+  "app.timesheets.clockOut": "ਕਲਾਕ ਆਊਟ",
+  "app.timesheets.inProgress": "ਜਾਰੀ ਹੈ",
+  "app.timesheets.noWorkers": "ਪਹਿਲਾਂ ਵਰਕਰ ਹੇਠ ਇੱਕ ਵਰਕਰ ਸ਼ਾਮਲ ਕਰੋ, ਫਿਰ ਉਸ ਦੇ ਘੰਟੇ ਇੱਥੇ ਦਰਜ ਕਰੋ।",
 };
 
 const tl = {
@@ -11433,6 +11509,22 @@ const tl = {
   "app.kitchen.clientSavedVersion": "Nag-save ang iyong kliyente ng sarili nilang bersyon ng layout na ito",
   "app.kitchen.onDate": "noong {date}",
   "app.kitchen.loadTheirVersion": "I-load ang kanilang bersyon",
+
+  // timesheets create/edit UI (backfilled to match en/fr)
+  "app.timesheets.addEntry": "Magdagdag ng entry",
+  "app.timesheets.newEntry": "Bagong time entry",
+  "app.timesheets.worker": "Manggagawa",
+  "app.timesheets.selectWorker": "Pumili ng manggagawa…",
+  "app.timesheets.date": "Petsa",
+  "app.timesheets.start": "Simula",
+  "app.timesheets.end": "Wakas (opsyonal)",
+  "app.timesheets.save": "I-save",
+  "app.timesheets.saving": "Sine-save…",
+  "app.timesheets.cancel": "Kanselahin",
+  "app.timesheets.delete": "Tanggalin",
+  "app.timesheets.clockOut": "Mag-clock out",
+  "app.timesheets.inProgress": "Kasalukuyang ginagawa",
+  "app.timesheets.noWorkers": "Magdagdag muna ng manggagawa sa ilalim ng Mga Manggagawa, tapos itala ang kanilang oras dito.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };

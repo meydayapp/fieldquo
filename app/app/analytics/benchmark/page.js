@@ -67,7 +67,7 @@ export default function BenchmarkPage() {
           </p>
           <a
             href="/settings/business-info"
-            className="admin-btn-primary inline-block text-sm"
+            className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
           >
             {t("app.benchmark.goToSettings", "Go to Settings")}
           </a>

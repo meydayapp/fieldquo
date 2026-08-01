@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -174,8 +174,15 @@ export async function POST(request) {
   // with the actual reason nowhere.
   let invite;
   try {
+    // Better Auth only knows admin/member — supervisor/employee throw
+    // ROLE_NOT_FOUND. Map down for the invitation; the granular `role` is
+    // stashed on PendingTeamProfile below and becomes Member.role on accept.
     invite = await auth.api.createInvitation({
-      body: { email: cleanEmail, role, organizationId: member.authOrgId },
+      body: {
+        email: cleanEmail,
+        role: toBetterAuthRole(role),
+        organizationId: member.authOrgId,
+      },
       headers: request.headers,
     });
   } catch (err) {
@@ -217,6 +224,7 @@ export async function POST(request) {
       imageUrl: imageUrl || null,
       laborCostPerHour: laborCostPerHour ?? null,
       permissions: permissions || null,
+      role,
       invitationLanguage: invitationLanguage || "en",
     },
     update: {
@@ -230,6 +238,7 @@ export async function POST(request) {
       imageUrl: imageUrl || null,
       laborCostPerHour: laborCostPerHour ?? null,
       permissions: permissions || null,
+      role,
       invitationLanguage: invitationLanguage || "en",
     },
   });
