@@ -7,7 +7,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ChevronLeft, BookOpen } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, ChevronLeft, BookOpen, PlayCircle } from "lucide-react";
 import { HELP_CATEGORIES, articlesFor } from "@/app/data/helpArticles";
 
 function Block({ block }) {
@@ -31,9 +32,26 @@ function Block({ block }) {
 }
 
 export default function HelpCenter({ audience, title, intro }) {
+  const router = useRouter();
   const all = useMemo(() => articlesFor(audience), [audience]);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(null); // active article slug
+
+  // Replay the first-run walkthrough: clear its "seen" flag server-side, then go
+  // to the dashboard where it runs. Company audience only — the welcome tour is
+  // an in-app tour, not a platform one.
+  async function replayWelcome() {
+    try {
+      await fetch("/api/ui-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tour: "welcome-v1", seen: false }),
+      });
+    } catch {
+      /* best effort — navigate anyway */
+    }
+    router.push("/app");
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -89,6 +107,19 @@ export default function HelpCenter({ audience, title, intro }) {
           className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm"
         />
       </div>
+
+      {audience === "company" && !query && (
+        <button
+          onClick={replayWelcome}
+          className="mb-6 w-full inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-muted/50"
+        >
+          <PlayCircle size={18} className="text-foreground shrink-0" />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Replay the setup walkthrough</span>
+            <span className="block text-xs text-muted-foreground">The quick guided tour of the app, from the start.</span>
+          </span>
+        </button>
+      )}
 
       {cats.length === 0 && (
         <p className="text-sm text-muted-foreground">No articles match “{query}”.</p>

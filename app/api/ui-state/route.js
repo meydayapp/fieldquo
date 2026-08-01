@@ -45,6 +45,11 @@ export async function POST(request) {
   const tour = String(body?.tour || "").trim();
   if (!tour) return NextResponse.json({ error: "Missing tour" }, { status: 400 });
 
+  // seen:false RESETS a tour — removes it from the seen list so the walkthrough
+  // plays again next time its page loads. That's how "Replay the tour" in the
+  // Help Center works; default (seen omitted/true) marks it seen as before.
+  const markSeen = body?.seen !== false;
+
   const user = await db.user.findUnique({
     where: { id: member.userId },
     select: { uiState: true },
@@ -52,9 +57,17 @@ export async function POST(request) {
   const current = Array.isArray(user?.uiState?.seenTours)
     ? user.uiState.seenTours
     : [];
-  if (current.includes(tour)) return NextResponse.json({ seenTours: current });
 
-  const seenTours = [...current, tour];
+  if (markSeen && current.includes(tour)) {
+    return NextResponse.json({ seenTours: current });
+  }
+  if (!markSeen && !current.includes(tour)) {
+    return NextResponse.json({ seenTours: current });
+  }
+
+  const seenTours = markSeen
+    ? [...current, tour]
+    : current.filter((k) => k !== tour);
   await db.user.update({
     where: { id: member.userId },
     data: { uiState: { ...(user?.uiState || {}), seenTours } },

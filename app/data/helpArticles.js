@@ -19,6 +19,7 @@ export const HELP_CATEGORIES = [
   { key: "instant-quotes", label: "Instant quotes" },
   { key: "getting-paid", label: "Getting paid" },
   { key: "email-domains", label: "Email & website" },
+  { key: "team-scheduling", label: "Team & scheduling" },
   { key: "troubleshooting", label: "Troubleshooting" },
 ];
 
@@ -201,6 +202,138 @@ export const HELP_ARTICLES = [
         "You can view the company's screens to diagnose, but you cannot edit, send, or delete anything.",
         "Talk the customer through the change, or ask them to make it.",
         "Every impersonation session is logged, and any action taken shows in the company's activity log flagged as a support session.",
+      ] },
+    ],
+  },
+
+  // ── Website ──
+  {
+    slug: "create-your-website",
+    category: "email-domains",
+    audience: "company",
+    title: "How to build your website",
+    summary: "Generate a branded one-page site from your business details in a couple of minutes.",
+    body: [
+      { p: "FieldQuo builds you a real one-page website from what it already knows about your business — your services, brand colour, logo and photos. No page-building from scratch." },
+      { h: "Steps" },
+      { steps: [
+        "Go to Settings → Website.",
+        "Answer the short interview (what your business does, the tone you want). This guides the copy.",
+        "Click Generate. FieldQuo writes the sections — hero, services, work, booking, FAQ and contact — and shows a live preview.",
+        "Edit any section inline: change text, add or remove FAQ and testimonial items, and upload your own photos.",
+        "Publish. Your site goes live on your subdomain (see Settings → Website for the address).",
+      ] },
+      { note: "Regenerating rewrites the wording only — your uploaded photos, services and testimonials are kept. Add your own photos any time; the AI never invents a service you don't offer." },
+    ],
+  },
+
+  // ── Team & scheduling ──
+  {
+    slug: "change-availability",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How to change your availability",
+    summary: "Set the hours you can be booked online — separate from your opening hours.",
+    body: [
+      { p: "Availability is when clients can book you online. It's deliberately separate from your business's opening hours — the office can be open on a day nobody is free to visit a site." },
+      { h: "Steps" },
+      { steps: [
+        "Go to Settings → Availability.",
+        "For each day, set the time ranges you're open to bookings (or mark the day off).",
+        "Save. Your booking page and any 'pick a time' flow immediately reflect it.",
+      ] },
+      { note: "Each team member has their own availability. To see everyone's at once, use Scheduling → Team schedule." },
+    ],
+  },
+  {
+    slug: "schedule-shifts",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How to schedule your team's shifts",
+    summary: "Draft shifts for the week, then publish them so your crew can see their schedule.",
+    body: [
+      { p: "Shift scheduling lets a manager plan who works when, then publish it. Workers only see shifts once they're published, so a half-built week never lands on someone's phone." },
+      { h: "Steps" },
+      { steps: [
+        "Open Scheduling from the sidebar (People group).",
+        "Use the arrows to land on the week you want.",
+        "Click Add shift, pick the worker, day, start and end time, and an optional note (site address, what to bring).",
+        "Repeat for the week. Draft shifts show a 'Draft' badge — only you can see them.",
+        "Click Publish week. Now each worker sees their own shifts.",
+      ] },
+      { note: "Editing or deleting a published shift updates what the worker sees. Scheduling is planning only — it doesn't pay anyone; hours come from the time clock." },
+    ],
+  },
+  {
+    slug: "time-clock",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How the time clock works",
+    summary: "Workers clock in and out from their phone; hours flow to timesheets for approval.",
+    body: [
+      { p: "The time clock is where an hourly worker punches in and out. It records real hours worked (different from the shifts you scheduled)." },
+      { h: "For the worker" },
+      { steps: [
+        "Open Time clock from the sidebar.",
+        "Tap the big green Clock in button when you start. A live timer runs while you're on the clock.",
+        "Tap the red Clock out button when you finish. Today's total updates.",
+      ] },
+      { h: "For the manager" },
+      { steps: [
+        "A worker only appears on the clock once they're added under Team → Workers and linked to a login.",
+        "Clocked hours land in Timesheets for you to review and approve.",
+      ] },
+      { note: "The clock only records time — it never moves money. Approved hours are what payroll reads." },
+    ],
+  },
+  {
+    slug: "timesheets",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How to do timesheets",
+    summary: "Review, add, edit and approve the hours your team worked.",
+    body: [
+      { p: "Timesheets are the manager's view of everyone's hours — from the time clock, or added by hand. Approving is what makes hours count toward pay." },
+      { h: "Steps" },
+      { steps: [
+        "Go to Team → Timesheets.",
+        "To log hours manually, click Add entry, pick the worker, the date and start/end times.",
+        "For someone still on the clock, you can Clock out their open entry.",
+        "Check each entry, then Approve. Only approved hours flow to payroll.",
+        "A wrong entry can be deleted while it's still unapproved.",
+      ] },
+      { note: "The system computes the hours from the times — you never type a total, so the number can't drift from the timestamps." },
+    ],
+  },
+  {
+    slug: "invite-team",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How to add a team member",
+    summary: "Invite staff and set what they can see and do.",
+    body: [
+      { h: "Steps" },
+      { steps: [
+        "Go to Settings → Team, then New user.",
+        "Enter their name, email and role (admin, supervisor or employee).",
+        "Set their access and, if hourly, their pay rate.",
+        "Save. They get an email invite to set up their own login; your settings apply automatically once they accept.",
+      ] },
+      { note: "Roles gate what someone can do — an employee can't see the whole team's schedule or payroll. You can fine-tune access per person." },
+    ],
+  },
+  {
+    slug: "time-off",
+    category: "team-scheduling",
+    audience: "company",
+    title: "How to handle time off",
+    summary: "Set leave policies and approve requests.",
+    body: [
+      { h: "Steps" },
+      { steps: [
+        "Set your policies under Settings → Leave (types, how much accrues).",
+        "Team members request time off from the Time off screen.",
+        "Approve or decline from the same screen — approved time off shows on the team schedule.",
       ] },
     ],
   },
