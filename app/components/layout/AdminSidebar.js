@@ -87,6 +87,7 @@ const NAV_GROUPS = [
       // sat right here. Employee records, their hours and their leave are one
       // job; splitting them across two menus is why people ask where things are.
       { key: "app.nav.team", href: "/app/settings/team", icon: UserCog },
+      { key: "app.nav.scheduler", href: "/app/scheduler", icon: CalendarClock },
       { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar },
       { key: "app.nav.clock", href: "/app/clock", icon: Clock },
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },

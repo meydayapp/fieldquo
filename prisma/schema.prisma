@@ -441,6 +441,7 @@ model Company {
   debts                 Debt[]
   forecastSettings      ForecastSettings?
   workers               Worker[]
+  shifts                Shift[]
   eventTypes            EventType[]
   jobs                  Job[]
   jobChecklistTemplates JobChecklistTemplate[]
@@ -1372,6 +1373,7 @@ model Job {
 
   visits      JobVisit[]
   timeEntries TimeEntry[]
+  shifts      Shift[]
   /// When the job was actually finished, and when we asked for a review.
   ///
   /// Both are needed and neither is derivable from `status`: a job can flip in
@@ -1715,6 +1717,7 @@ model Worker {
   createdAt                 DateTime   @default(now())
 
   timeEntries TimeEntry[]
+  shifts      Shift[]
   payouts     Payout[]
   salaries    Salary[]
   payRunLines PayRunLine[]
@@ -1736,6 +1739,29 @@ model TimeEntry {
   approvedBy   User?           @relation("TimeEntryApprovedBy", fields: [approvedById], references: [id])
   status       TimeEntryStatus @default(pending)
   createdAt    DateTime        @default(now())
+}
+
+// A scheduled shift assigned to a worker. Distinct from TimeEntry (hours the
+// worker ACTUALLY clocked) and from AvailabilitySchedule (when they CAN work) —
+// a Shift is the plan the manager publishes. Draft shifts are the manager's
+// working copy; `published` is the line the worker is allowed to see, so a
+// half-built week never shows up on someone's phone.
+model Shift {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  jobId     String?
+  job       Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  start     DateTime
+  end       DateTime
+  note      String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([companyId, start])
+  @@index([workerId, start])
 }
 
 model Payout {
