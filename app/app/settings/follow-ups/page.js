@@ -11,6 +11,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Rules should point at a template meant for this kind of automated send —
 // not a one-off quote/instructions/receipt template.
@@ -20,6 +21,7 @@ const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function FollowUpsPage() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,10 +138,9 @@ export default function FollowUpsPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Follow-ups</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.settings.followUps")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Automatically send a template a set time after a quote, invoice,
-            or job hits a certain state — no manual reminders.
+            {t("app.setFollowUps.subtitle")}
           </p>
         </div>
         <button
@@ -147,28 +148,27 @@ export default function FollowUpsPage() {
           disabled={eligibleTemplates.length === 0}
           title={
             eligibleTemplates.length === 0
-              ? "Create a Follow-up, Marketing, or Custom email template first"
+              ? t("app.setFollowUps.needTemplateTooltip")
               : ""
           }
           className="flex items-center gap-1.5 bg-inverted text-inverted-foreground text-sm font-semibold px-3 py-2 rounded-lg disabled:opacity-40 shrink-0"
         >
-          <Plus size={14} /> New Rule
+          <Plus size={14} /> {t("app.setFollowUps.newRule")}
         </button>
       </div>
 
       {eligibleTemplates.length === 0 && (
         <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3">
-          You need at least one Follow-up, Marketing, or Custom email template
-          before you can create a rule — head to{" "}
+          {t("app.setFollowUps.needTemplatePre")}{" "}
           <a href="/app/settings/email-templates" className="underline">
-            Email Templates
+            {t("app.settings.emailTemplates")}
           </a>{" "}
-          first.
+          {t("app.setFollowUps.needTemplatePost")}
         </p>
       )}
 
       {rules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No follow-up rules yet.</p>
+        <p className="text-sm text-muted-foreground">{t("app.setFollowUps.empty")}</p>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {rules.map((rule) => (
@@ -178,14 +178,14 @@ export default function FollowUpsPage() {
                   <span className="text-sm font-medium text-foreground">{rule.name}</span>
                   {!rule.active && (
                     <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                      Paused
+                      {t("app.setFollowUps.paused")}
                     </span>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {rule.delayValue} {rule.delayUnit} after{" "}
+                  {rule.delayValue} {rule.delayUnit} {t("app.setFollowUps.after")}{" "}
                   {TRIGGER_META[rule.triggerEvent]?.label || rule.triggerEvent} →{" "}
-                  {rule.template?.name || "(template deleted)"}
+                  {rule.template?.name || t("app.setFollowUps.templateDeleted")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -194,13 +194,13 @@ export default function FollowUpsPage() {
                   disabled={busyId === rule.id}
                   className="text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  {rule.active ? "Pause" : "Activate"}
+                  {rule.active ? t("app.setFollowUps.pause") : t("app.setFollowUps.activate")}
                 </button>
                 <button
                   onClick={() => handleDelete(rule.id)}
                   disabled={busyId === rule.id}
                   className="text-muted-foreground hover:text-red-500"
-                  aria-label={`Delete ${rule.name}`}
+                  aria-label={t("app.setFollowUps.deleteAria", { name: rule.name })}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -220,7 +220,7 @@ export default function FollowUpsPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground">New Follow-up Rule</h2>
+              <h2 className="text-lg font-semibold text-foreground">{t("app.setFollowUps.newRuleTitle")}</h2>
               <button onClick={() => setShowNew(false)}>
                 <X size={18} className="text-muted-foreground" />
               </button>
@@ -228,7 +228,7 @@ export default function FollowUpsPage() {
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">
-                  Rule name (optional)
+                  {t("app.setFollowUps.ruleName")}
                 </label>
                 <input
                   placeholder={TRIGGER_META[form.triggerEvent].label}
@@ -240,7 +240,7 @@ export default function FollowUpsPage() {
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">
-                  Trigger
+                  {t("app.setFollowUps.trigger")}
                 </label>
                 <select
                   value={form.triggerEvent}
@@ -261,7 +261,7 @@ export default function FollowUpsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-1">
-                    Delay
+                    {t("app.setFollowUps.delay")}
                   </label>
                   <input
                     type="number"
@@ -273,22 +273,22 @@ export default function FollowUpsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-1">
-                    Unit
+                    {t("app.setFollowUps.unit")}
                   </label>
                   <select
                     value={form.delayUnit}
                     onChange={(e) => setForm({ ...form, delayUnit: e.target.value })}
                     className={inputClass}
                   >
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
+                    <option value="hours">{t("app.time.hours")}</option>
+                    <option value="days">{t("app.time.days")}</option>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground block mb-1">
-                  Template to send
+                  {t("app.setFollowUps.templateToSend")}
                 </label>
                 <select
                   required
@@ -297,7 +297,7 @@ export default function FollowUpsPage() {
                   className={inputClass}
                 >
                   <option value="" disabled>
-                    Choose a template…
+                    {t("app.setFollowUps.chooseTemplate")}
                   </option>
                   {eligibleTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
@@ -312,7 +312,7 @@ export default function FollowUpsPage() {
                 disabled={saving || !form.templateId}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Creating…" : "Create Rule"}
+                {saving ? t("app.setFollowUps.creating") : t("app.setFollowUps.createRule")}
               </button>
             </form>
           </div>

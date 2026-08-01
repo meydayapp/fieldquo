@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -50,6 +51,7 @@ const STATUS_META = {
 };
 
 function CopyButton({ value }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -60,7 +62,7 @@ function CopyButton({ value }) {
         setTimeout(() => setCopied(false), 1500);
       }}
       className="text-muted-foreground hover:text-foreground shrink-0"
-      aria-label="Copy value"
+      aria-label={t("app.setEmailDomain.copyValue")}
     >
       {copied ? <Check size={14} className="text-emerald-600 dark:text-emerald-400" /> : <Copy size={14} />}
     </button>
@@ -68,6 +70,7 @@ function CopyButton({ value }) {
 }
 
 export default function EmailDomainPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [domainInput, setDomainInput] = useState("");
   const [localInput, setLocalInput] = useState("quotes");
@@ -79,7 +82,7 @@ export default function EmailDomainPage() {
     try {
       const res = await fetch("/api/settings/email-domain");
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not load");
+      if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.loadError"));
       setData(json);
       setLocalInput(json.emailFromLocal || "quotes");
       setDomainInput(json.emailDomain || "");
@@ -113,7 +116,7 @@ export default function EmailDomainPage() {
         body: JSON.stringify({ domain: domainInput.trim() }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not connect domain");
+      if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.connectError"));
       setData(json);
     } catch (err) {
       setError(err.message);
@@ -138,7 +141,7 @@ export default function EmailDomainPage() {
         // surfacing an error on every one of those would bury the page in
         // messages about a check the user never asked for. A check they
         // clicked, though, has to say what happened.
-        setError(json?.error || "Couldn't check your domain just now.");
+        setError(json?.error || t("app.setEmailDomain.checkError"));
       }
     } finally {
       if (!silent) setBusy(false);
@@ -155,7 +158,7 @@ export default function EmailDomainPage() {
         body: JSON.stringify({ emailFromLocal: localInput }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Could not save");
+      if (!res.ok) throw new Error(json.error || t("app.setEmailDomain.saveError"));
       setData(json);
     } catch (err) {
       setError(err.message);
@@ -165,12 +168,7 @@ export default function EmailDomainPage() {
   }
 
   async function disconnect() {
-    if (
-      !confirm(
-        "Disconnect this domain? Your emails will go back to sending from FieldQuo's shared address.",
-      )
-    )
-      return;
+    if (!confirm(t("app.setEmailDomain.disconnectConfirm"))) return;
     setBusy(true);
     try {
       const res = await fetch("/api/settings/email-domain", {
@@ -209,16 +207,14 @@ export default function EmailDomainPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <ReplyToPromptModal
-        context="quotes and invoices"
+        context={t("app.setEmailDomain.replyContext")}
         onSaved={(email) => setData((d) => ({ ...(d || {}), email }))}
       />
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Email Domain</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.emailDomain")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Send client emails from your own domain instead of ours. Better
-          deliverability, and no &ldquo;via fieldquo.com&rdquo; next to your
-          name.
+          {t("app.setEmailDomain.subtitle")}
         </p>
       </div>
 
@@ -233,19 +229,21 @@ export default function EmailDomainPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h2 className="font-semibold text-foreground">
-              {isConnected ? data.emailDomain : "No domain connected"}
+              {isConnected ? data.emailDomain : t("app.setEmailDomain.noDomainConnected")}
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isConnected
-                ? `Emails will send from ${data.emailFromLocal || "quotes"}@${data.emailDomain}`
-                : "Your emails currently send from FieldQuo's shared address, using your company name."}
+                ? t("app.setEmailDomain.willSendFrom", {
+                    addr: `${data.emailFromLocal || "quotes"}@${data.emailDomain}`,
+                  })
+                : t("app.setEmailDomain.usingShared")}
             </p>
           </div>
           <span
             className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border ${meta.className}`}
           >
             <StatusIcon size={13} />
-            {meta.label}
+            {t(`app.setEmailDomain.status.${status}`, meta.label)}
           </span>
         </div>
 
@@ -258,7 +256,7 @@ export default function EmailDomainPage() {
                 className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
               >
                 {busy && <Loader2 size={14} className="animate-spin" />}
-                Check verification
+                {t("app.setEmailDomain.checkVerification")}
               </button>
             )}
             <button
@@ -267,7 +265,7 @@ export default function EmailDomainPage() {
               className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-muted disabled:opacity-60"
             >
               <Trash2 size={14} />
-              Disconnect
+              {t("app.setEmailDomain.disconnect")}
             </button>
           </div>
         )}
@@ -276,14 +274,13 @@ export default function EmailDomainPage() {
       {/* Connect a domain */}
       {!isConnected && (
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Connect a domain</h2>
+          <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.connectDomain")}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Use a subdomain like{" "}
+            {t("app.setEmailDomain.connectHint1")}{" "}
             <span className="font-mono text-foreground">
               send.yourcompany.com
             </span>{" "}
-            rather than your root domain. It keeps this separate from your
-            normal email so it can&apos;t interfere with your existing inbox.
+            {t("app.setEmailDomain.connectHint2")}
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -298,7 +295,7 @@ export default function EmailDomainPage() {
               className="bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
             >
               {busy && <Loader2 size={14} className="animate-spin" />}
-              Connect
+              {t("app.setEmailDomain.connect")}
             </button>
           </div>
         </div>
@@ -307,10 +304,9 @@ export default function EmailDomainPage() {
       {/* DNS records */}
       {isConnected && records.length > 0 && status !== "verified" && (
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Add these DNS records</h2>
+          <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.addDnsRecords")}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            This proves you own the domain, which is what lets us send email as
-            you. Nothing sends from your domain until it&apos;s done.
+            {t("app.setEmailDomain.dnsIntro")}
           </p>
 
           {/* Written because "add these DNS records" assumes knowledge most
@@ -319,42 +315,37 @@ export default function EmailDomainPage() {
               quotes-around-values one — both are called out explicitly. */}
           <ol className="text-sm text-muted-foreground space-y-2 mb-5 list-decimal pl-5">
             <li>
-              Sign in wherever you bought the domain — GoDaddy, Namecheap,
-              Cloudflare, Google Domains. That&apos;s your{" "}
-              <span className="text-foreground font-medium">DNS host</span>. If
-              you&apos;re not sure, it&apos;s usually whoever bills you yearly
-              for the domain name.
+              {t("app.setEmailDomain.dns1a")}{" "}
+              <span className="text-foreground font-medium">{t("app.setEmailDomain.dnsHost")}</span>
+              {t("app.setEmailDomain.dns1b")}
             </li>
             <li>
-              Find <span className="text-foreground font-medium">DNS</span>,{" "}
-              <span className="text-foreground font-medium">DNS records</span>{" "}
-              or <span className="text-foreground font-medium">Manage DNS</span>
-              . Add a new record for each block below, matching Type, Name and
-              Value exactly.
+              {t("app.setEmailDomain.dns2a")}{" "}
+              <span className="text-foreground font-medium">{t("app.setEmailDomain.dnsWord")}</span>,{" "}
+              <span className="text-foreground font-medium">{t("app.setEmailDomain.dnsRecordsWord")}</span>{" "}
+              {t("app.setEmailDomain.dnsOr")}{" "}
+              <span className="text-foreground font-medium">{t("app.setEmailDomain.dnsManageWord")}</span>
+              {t("app.setEmailDomain.dns2b")}
             </li>
             <li>
               <span className="text-foreground font-medium">
-                Watch the Name field.
+                {t("app.setEmailDomain.dnsNameWatch")}
               </span>{" "}
-              Most hosts add your domain automatically. If the Name below is{" "}
+              {t("app.setEmailDomain.dns3a")}{" "}
               <code className="font-mono text-xs">send._domainkey.example.com</code>{" "}
-              you usually enter only{" "}
-              <code className="font-mono text-xs">send._domainkey</code> — if
-              your host shows the full name after saving, you did it right.
-              Ending up with{" "}
+              {t("app.setEmailDomain.dns3b")}{" "}
+              <code className="font-mono text-xs">send._domainkey</code>{" "}
+              {t("app.setEmailDomain.dns3c")}{" "}
               <code className="font-mono text-xs">
                 send._domainkey.example.com.example.com
               </code>{" "}
-              is the most common mistake.
+              {t("app.setEmailDomain.dns3d")}
             </li>
             <li>
-              Paste values exactly, with no quotes added and no line breaks. TXT
-              values are long — copy them rather than typing.
+              {t("app.setEmailDomain.dns4")}
             </li>
             <li>
-              Save, then leave it. Most hosts apply changes within an hour;
-              some take up to 24. This page rechecks every 30 seconds on its
-              own — you don&apos;t need to sit here.
+              {t("app.setEmailDomain.dns5")}
             </li>
           </ol>
 
@@ -374,11 +365,11 @@ export default function EmailDomainPage() {
                 </div>
                 <dl className="space-y-1.5">
                   {[
-                    ["Type", r.type],
-                    ["Name", r.name],
-                    ["Value", r.value],
-                    ["Priority", r.priority],
-                    ["TTL", r.ttl],
+                    [t("app.setEmailDomain.type"), r.type],
+                    [t("app.field.name"), r.name],
+                    [t("app.setEmailDomain.value"), r.value],
+                    [t("app.setEmailDomain.priority"), r.priority],
+                    [t("app.setEmailDomain.ttl"), r.ttl],
                   ]
                     .filter(([, v]) => v !== undefined && v !== null && v !== "")
                     .map(([label, value]) => (
@@ -402,10 +393,9 @@ export default function EmailDomainPage() {
       {/* Sender address */}
       {isConnected && (
         <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Sender address</h2>
+          <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.senderAddress")}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            The address clients see. This doesn&apos;t need to be a real
-            mailbox — verifying the domain is what lets us send as it.
+            {t("app.setEmailDomain.senderHint")}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             <div className="flex items-center flex-1 min-w-0">
@@ -423,7 +413,7 @@ export default function EmailDomainPage() {
               disabled={busy || localInput === data.emailFromLocal}
               className="bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2 rounded-lg disabled:opacity-60 shrink-0"
             >
-              Save
+              {t("app.action.save")}
             </button>
           </div>
         </div>
@@ -431,17 +421,17 @@ export default function EmailDomainPage() {
 
       {/* Replies */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">Replies</h2>
+        <h2 className="font-semibold text-foreground mb-1">{t("app.setEmailDomain.replies")}</h2>
         <p className="text-sm text-muted-foreground">
-          When a client replies to a quote or invoice, it goes to{" "}
+          {t("app.setEmailDomain.repliesIntro")}{" "}
           {data?.email ? (
             <span className="font-medium text-foreground">{data.email}</span>
           ) : (
             <span className="text-amber-700 dark:text-amber-300">
-              your account owner&apos;s email, because no company email is set
+              {t("app.setEmailDomain.repliesFallback")}
             </span>
           )}
-          . Change it under Company Settings.
+          {t("app.setEmailDomain.repliesOutro")}
         </p>
       </div>
     </div>

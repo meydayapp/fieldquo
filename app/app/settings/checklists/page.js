@@ -15,6 +15,7 @@ import {
   X,
   GripVertical,
 } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const blankDraft = () => ({
   id: null,
@@ -24,6 +25,7 @@ const blankDraft = () => ({
 });
 
 export default function ChecklistsPage() {
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState([]);
   const [categories, setCategories] = useState([]);
   const [draft, setDraft] = useState(null);
@@ -49,7 +51,7 @@ export default function ChecklistsPage() {
         (Array.isArray(c) ? c : []).filter((x) => x.enabled !== false),
       );
     } catch {
-      setError("Couldn't load checklists.");
+      setError(t("app.setChecklists.loadError"));
     } finally {
       setLoading(false);
     }
@@ -72,8 +74,8 @@ export default function ChecklistsPage() {
 
   async function save() {
     const items = draft.items.map((i) => i.trim()).filter(Boolean);
-    if (!draft.name.trim()) return setError("Give it a name.");
-    if (items.length === 0) return setError("Add at least one item.");
+    if (!draft.name.trim()) return setError(t("app.setChecklists.nameRequired"));
+    if (items.length === 0) return setError(t("app.setChecklists.itemRequired"));
 
     setSaving(true);
     setError("");
@@ -89,7 +91,7 @@ export default function ChecklistsPage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't save.");
+      if (!res.ok) throw new Error(d?.error || t("app.setChecklists.saveError"));
       setDraft(null);
       await load();
     } catch (err) {
@@ -109,7 +111,7 @@ export default function ChecklistsPage() {
       );
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't delete.");
+        throw new Error(d?.error || t("app.setChecklists.deleteError"));
       }
       await load();
     } catch (err) {
@@ -128,17 +130,18 @@ export default function ChecklistsPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Checklists</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.settings.checklists")}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Standard steps your crew works through on site. Attach one to a job
-            visit and it comes across as a fresh, tickable copy.
+            {t("app.setChecklists.subtitle")}
           </p>
         </div>
         <button
           onClick={() => setDraft(blankDraft())}
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg shrink-0"
         >
-          <Plus size={14} /> New checklist
+          <Plus size={14} /> {t("app.setChecklists.new")}
         </button>
       </div>
 
@@ -153,12 +156,12 @@ export default function ChecklistsPage() {
         <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-foreground">
-              {draft.id ? "Edit checklist" : "New checklist"}
+              {draft.id ? t("app.setChecklists.edit") : t("app.setChecklists.new")}
             </h2>
             <button
               onClick={() => setDraft(null)}
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Close"
+              aria-label={t("app.action.close")}
             >
               <X size={16} />
             </button>
@@ -167,19 +170,19 @@ export default function ChecklistsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                Name
+                {t("app.field.name")}
               </label>
               <input
                 autoFocus
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                placeholder="Kitchen refinish — day one"
+                placeholder={t("app.setChecklists.namePlaceholder")}
                 className={inputClass}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">
-                For which service
+                {t("app.setChecklists.forService")}
               </label>
               <select
                 value={draft.categoryId}
@@ -188,7 +191,7 @@ export default function ChecklistsPage() {
                 }
                 className={inputClass}
               >
-                <option value="">Any service</option>
+                <option value="">{t("app.setChecklists.anyService")}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}
@@ -200,7 +203,7 @@ export default function ChecklistsPage() {
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
-              Steps
+              {t("app.setChecklists.steps")}
             </label>
             <div className="space-y-2">
               {draft.items.map((item, i) => (
@@ -231,7 +234,7 @@ export default function ChecklistsPage() {
                         });
                       }
                     }}
-                    placeholder={`Step ${i + 1}`}
+                    placeholder={t("app.setChecklists.stepN", { n: i + 1 })}
                     className={inputClass}
                   />
                   <button
@@ -242,7 +245,7 @@ export default function ChecklistsPage() {
                       })
                     }
                     className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-1 shrink-0"
-                    aria-label="Remove step"
+                    aria-label={t("app.setChecklists.removeStep")}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -253,7 +256,7 @@ export default function ChecklistsPage() {
               onClick={() => setDraft({ ...draft, items: [...draft.items, ""] })}
               className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
-              <Plus size={13} /> Add step
+              <Plus size={13} /> {t("app.setChecklists.addStep")}
             </button>
           </div>
 
@@ -264,13 +267,13 @@ export default function ChecklistsPage() {
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
-              {draft.id ? "Save changes" : "Create"}
+              {draft.id ? t("app.setChecklists.saveChanges") : t("app.action.create")}
             </button>
             <button
               onClick={() => setDraft(null)}
               className="border border-border text-foreground text-sm font-semibold px-4 py-2 rounded-lg"
             >
-              Cancel
+              {t("app.action.cancel")}
             </button>
           </div>
         </div>
@@ -279,10 +282,11 @@ export default function ChecklistsPage() {
       {templates.length === 0 && !draft ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <ClipboardList size={30} className="text-muted-foreground mx-auto" />
-          <p className="mt-3 font-medium text-foreground">No checklists yet</p>
+          <p className="mt-3 font-medium text-foreground">
+            {t("app.setChecklists.emptyTitle")}
+          </p>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-            Write down the steps your crew repeats on every job once, and stop
-            relying on people remembering them.
+            {t("app.setChecklists.emptyBody")}
           </p>
         </div>
       ) : (

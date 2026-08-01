@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -35,6 +36,7 @@ function emptyForm() {
 }
 
 export default function ProductsPage() {
+  const { t } = useTranslation();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -167,8 +169,8 @@ export default function ProductsPage() {
       const data = await res.json();
       setImportMessage(
         res.ok
-          ? `Imported ${data.imported} items.`
-          : data.error || "Import failed",
+          ? t("app.setProducts.importedN", { count: data.imported })
+          : data.error || t("app.setProducts.importFailed"),
       );
       if (res.ok) load(); else {
         // Was silent: a failed request did nothing visible at all.
@@ -199,11 +201,10 @@ export default function ProductsPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Products & Services
+          {t("app.settings.products")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Add and update your products & services to stay organized when
-          creating quotes, quote templates, jobs, and invoices.
+          {t("app.setProducts.subtitle")}
         </p>
       </div>
 
@@ -214,7 +215,7 @@ export default function ProductsPage() {
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
-            placeholder="Search"
+            placeholder={t("app.action.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className={`${inputClass} pl-9`}
@@ -224,15 +225,15 @@ export default function ProductsPage() {
           onClick={openAdd}
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
         >
-          <Plus size={14} /> Add Item
+          <Plus size={14} /> {t("app.setProducts.addItem")}
         </button>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          <span>Name</span>
-          <span>Description</span>
-          <span>Type</span>
+          <span>{t("app.field.name")}</span>
+          <span>{t("app.setProducts.description")}</span>
+          <span>{t("app.setProducts.type")}</span>
           <span></span>
         </div>
         <div className="divide-y divide-border">
@@ -245,7 +246,7 @@ export default function ProductsPage() {
           )}
           {!loading && pageItems.length === 0 && (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-              No products or services yet.
+              {t("app.setProducts.emptyList")}
             </p>
           )}
           {!loading &&
@@ -296,7 +297,11 @@ export default function ProductsPage() {
         {!loading && products.length > 0 && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-border text-xs text-muted-foreground">
             <span>
-              Showing {startIdx}-{endIdx} of {products.length} items
+              {t("app.setProducts.showingRange", {
+                start: startIdx,
+                end: endIdx,
+                total: products.length,
+              })}
             </span>
             <div className="flex items-center gap-3">
               <select
@@ -306,7 +311,7 @@ export default function ProductsPage() {
               >
                 {PAGE_SIZE_OPTIONS.map((n) => (
                   <option key={n} value={n}>
-                    {n} per page
+                    {t("app.setProducts.perPage", { n })}
                   </option>
                 ))}
               </select>
@@ -316,7 +321,7 @@ export default function ProductsPage() {
                   onClick={() => setPage((p) => p - 1)}
                   className="px-2 py-1 border border-border rounded disabled:opacity-40"
                 >
-                  Prev
+                  {t("app.setProducts.prev")}
                 </button>
                 <span>
                   {page} / {totalPages}
@@ -326,7 +331,7 @@ export default function ProductsPage() {
                   onClick={() => setPage((p) => p + 1)}
                   className="px-2 py-1 border border-border rounded disabled:opacity-40"
                 >
-                  Next
+                  {t("app.action.next")}
                 </button>
               </div>
             </div>
@@ -335,23 +340,21 @@ export default function ProductsPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="text-base font-semibold text-foreground">Costs</h2>
+        <h2 className="text-base font-semibold text-foreground">
+          {t("app.setProducts.costsHeading")}
+        </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Add costs to your products and services on quotes and jobs — set a
-          Cost Price alongside the sale price when you add or edit an item
-          above, and job costing will pick it up automatically.
+          {t("app.setProducts.costsBody")}
         </p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-1">
-            Import products & services
+            {t("app.setProducts.importHeading")}
           </h2>
           <p className="text-sm text-muted-foreground mb-3">
-            Bulk import via a .csv exported from Excel, Google Sheets, or
-            Numbers. Columns: name, description, type, unitPrice, costPrice,
-            unit.
+            {t("app.setProducts.importBody")}
           </p>
           {importMessage && (
             <p className="text-sm text-foreground mb-2">{importMessage}</p>
@@ -359,7 +362,9 @@ export default function ProductsPage() {
           <div className="flex flex-wrap gap-2">
             <label className="flex items-center gap-2 text-sm font-medium border border-border rounded-full px-4 py-2 cursor-pointer hover:bg-muted">
               <Upload size={14} />
-              {importing ? "Importing..." : "Import CSV"}
+              {importing
+                ? t("app.setProducts.importing")
+                : t("app.setProducts.importCsv")}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -373,23 +378,23 @@ export default function ProductsPage() {
               onClick={downloadSample}
               className="text-sm font-medium text-muted-foreground px-4 py-2 rounded-full hover:bg-muted"
             >
-              Download sample file
+              {t("app.setProducts.downloadSample")}
             </button>
           </div>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-1">
-            Export products & services
+            {t("app.setProducts.exportHeading")}
           </h2>
           <p className="text-sm text-muted-foreground mb-3">
-            Export everything in this list as a .csv file.
+            {t("app.setProducts.exportBody")}
           </p>
           <a
             href="/api/products/export"
             className="flex items-center gap-2 w-fit text-sm font-medium border border-border rounded-full px-4 py-2 hover:bg-muted"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} /> {t("app.setProducts.exportCsv")}
           </a>
         </div>
       </div>
@@ -405,7 +410,9 @@ export default function ProductsPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">
-                {editing ? "Edit Item" : "Add Item"}
+                {editing
+                  ? t("app.setProducts.editItem")
+                  : t("app.setProducts.addItem")}
               </h2>
               <button onClick={() => setShowModal(false)}>
                 <X size={18} className="text-muted-foreground" />
@@ -414,13 +421,13 @@ export default function ProductsPage() {
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 required
-                placeholder="Name"
+                placeholder={t("app.field.name")}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={inputClass}
               />
               <textarea
-                placeholder="Description"
+                placeholder={t("app.setProducts.description")}
                 rows={3}
                 value={form.description}
                 onChange={(e) =>
@@ -434,11 +441,15 @@ export default function ProductsPage() {
                   onChange={(e) => setForm({ ...form, type: e.target.value })}
                   className={inputClass}
                 >
-                  <option value="service">Service</option>
-                  <option value="product">Product</option>
+                  <option value="service">
+                    {t("app.setProducts.optService")}
+                  </option>
+                  <option value="product">
+                    {t("app.setProducts.optProduct")}
+                  </option>
                 </select>
                 <input
-                  placeholder="Unit (e.g. sqft)"
+                  placeholder={t("app.setProducts.unitPlaceholder")}
                   value={form.unit}
                   onChange={(e) => setForm({ ...form, unit: e.target.value })}
                   className={inputClass}
@@ -447,7 +458,7 @@ export default function ProductsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">
-                    Unit price
+                    {t("app.setProducts.unitPrice")}
                   </label>
                   <input
                     type="number"
@@ -461,7 +472,7 @@ export default function ProductsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">
-                    Cost price
+                    {t("app.setProducts.costPrice")}
                   </label>
                   <input
                     type="number"
@@ -476,12 +487,11 @@ export default function ProductsPage() {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">
-                  Available on these quote types
+                  {t("app.setProducts.availableOnTypes")}
                 </label>
                 {quoteTypes.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    No quote types enabled yet — go to Settings → Services to
-                    turn some on first.
+                    {t("app.setProducts.noQuoteTypes")}
                   </p>
                 ) : (
                   <div className="border border-border rounded-lg divide-y divide-border max-h-40 overflow-y-auto">
@@ -501,8 +511,7 @@ export default function ProductsPage() {
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground mt-1">
-                  Leave all unchecked to make this available on every quote
-                  type.
+                  {t("app.setProducts.leaveUnchecked")}
                 </p>
               </div>
 
@@ -511,7 +520,11 @@ export default function ProductsPage() {
                 disabled={saving}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Saving..." : editing ? "Save Changes" : "Add Item"}
+                {saving
+                  ? t("app.action.saving")
+                  : editing
+                    ? t("app.setProducts.saveChanges")
+                    : t("app.setProducts.addItem")}
               </button>
             </form>
           </div>

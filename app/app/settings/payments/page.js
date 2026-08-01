@@ -11,8 +11,10 @@ import {
   X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PaymentsPage() {
+  const { t } = useTranslation();
   const [company, setCompany] = useState(null);
   // What Stripe itself says, as opposed to what our database last heard. See
   // the comment on loadStatus below — these disagreeing is the normal case,
@@ -30,7 +32,7 @@ export default function PaymentsPage() {
     return fetch("/api/settings/business-info")
       .then((r) => r.json())
       .then(setCompany)
-      .catch(() => setError("Could not load payment settings"));
+      .catch(() => setError(t("app.setPayments.loadError")));
   }
 
   /**
@@ -51,7 +53,7 @@ export default function PaymentsPage() {
     try {
       setStatus(await fetchJson("/api/stripe/connect/status"));
     } catch (err) {
-      setError(err.message || "Couldn't check the Stripe connection.");
+      setError(err.message || t("app.setPayments.statusError"));
     }
   }
 
@@ -88,10 +90,10 @@ export default function PaymentsPage() {
       // weeks, which was Safari's JSON parser choking on a 500 HTML page
       // caused by an unset NEXT_PUBLIC_APP_URL.
       const data = await fetchJson("/api/stripe/connect", { method: "POST" });
-      if (!data?.url) throw new Error("Stripe didn't return an onboarding link.");
+      if (!data?.url) throw new Error(t("app.setPayments.noOnboardingLink"));
       window.location.href = data.url;
     } catch (err) {
-      setError(err.message || "Could not connect Stripe");
+      setError(err.message || t("app.setPayments.connectError"));
       setConnecting(false);
     }
   }
@@ -103,10 +105,10 @@ export default function PaymentsPage() {
       const data = await fetchJson("/api/stripe/connect/login-link", {
         method: "POST",
       });
-      if (!data?.url) throw new Error("Stripe didn't return a dashboard link.");
+      if (!data?.url) throw new Error(t("app.setPayments.noDashboardLink"));
       window.open(data.url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      setError(err.message || "Could not open the Stripe dashboard");
+      setError(err.message || t("app.setPayments.dashboardError"));
     } finally {
       setOpeningDashboard(false);
     }
@@ -119,7 +121,7 @@ export default function PaymentsPage() {
       await fetchJson("/api/stripe/connect/disconnect", { method: "POST" });
       await loadCompany();
     } catch (err) {
-      setError(err.message || "Could not disconnect Stripe");
+      setError(err.message || t("app.setPayments.disconnectError"));
     } finally {
       setDisconnecting(false);
       setShowDisconnectConfirm(false);
@@ -160,10 +162,9 @@ export default function PaymentsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Payments</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.payments")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Connect Stripe so your clients can pay invoices online, directly to
-          your bank account.
+          {t("app.setPayments.subtitle")}
         </p>
       </div>
 
@@ -183,15 +184,14 @@ export default function PaymentsPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-foreground">
-                  Stripe connected
+                  {t("app.setPayments.stripeConnected")}
                 </h2>
                 <span className="text-xs bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-medium">
-                  Active
+                  {t("app.status.active")}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                Your clients can pay invoices online, and payments go directly
-                to your bank account via Stripe Express.
+                {t("app.setPayments.activeDesc")}
               </p>
 
               <div className="flex flex-wrap gap-3 mt-4">
@@ -202,14 +202,14 @@ export default function PaymentsPage() {
                   className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
                 >
                   <ExternalLink size={14} />
-                  {openingDashboard ? "Opening..." : "Manage in Stripe"}
+                  {openingDashboard ? t("app.setPayments.opening") : t("app.setPayments.manageInStripe")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowDisconnectConfirm(true)}
                   className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
                 >
-                  Disconnect
+                  {t("app.setPayments.disconnect")}
                 </button>
               </div>
             </div>
@@ -221,12 +221,10 @@ export default function PaymentsPage() {
             <AlertCircle size={22} className="text-blue-500 shrink-0 mt-0.5" />
             <div>
               <h2 className="font-semibold text-foreground">
-                Stripe is reviewing your details
+                {t("app.setPayments.reviewingTitle")}
               </h2>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Everything Stripe asked for has been submitted — they&apos;re
-                verifying it now. Nothing more is needed from you. This usually
-                takes minutes, occasionally a day or two.
+                {t("app.setPayments.reviewingDesc")}
               </p>
               <button
                 type="button"
@@ -234,7 +232,7 @@ export default function PaymentsPage() {
                 disabled={rechecking}
                 className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                {rechecking ? "Checking..." : "Check again"}
+                {rechecking ? t("app.setPayments.checking") : t("app.setPayments.checkAgain")}
               </button>
             </div>
           </div>
@@ -245,13 +243,13 @@ export default function PaymentsPage() {
             <AlertCircle size={22} className="text-amber-500 shrink-0 mt-0.5" />
             <div>
               <h2 className="font-semibold text-foreground">
-                Stripe still needs a few things
+                {t("app.setPayments.needsThingsTitle")}
               </h2>
 
               {requirements.length > 0 ? (
                 <>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">
-                    Stripe won&apos;t enable payments until these are done:
+                    {t("app.setPayments.needsThingsIntro")}
                   </p>
                   {/* Naming the actual outstanding items rather than saying "a
                       bit more information". Stripe's hosted flow sometimes
@@ -266,15 +264,13 @@ export default function PaymentsPage() {
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  You started connecting Stripe but haven&apos;t finished —
-                  Stripe needs a bit more information before you can accept
-                  payments.
+                  {t("app.setPayments.notFinished")}
                 </p>
               )}
 
               {status?.disabledReason && (
                 <p className="text-xs text-muted-foreground mb-4">
-                  Stripe&apos;s reason:{" "}
+                  {t("app.setPayments.stripeReason")}{" "}
                   <span className="font-mono">{status.disabledReason}</span>
                 </p>
               )}
@@ -286,7 +282,7 @@ export default function PaymentsPage() {
                   disabled={connecting}
                   className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
                 >
-                  {connecting ? "Redirecting..." : "Finish Setup"}
+                  {connecting ? t("app.setPayments.redirecting") : t("app.setPayments.finishSetup")}
                 </button>
                 {/* For the case this whole route exists to fix: they finished
                     on Stripe's side and FieldQuo hadn't caught up. */}
@@ -296,7 +292,7 @@ export default function PaymentsPage() {
                   disabled={rechecking}
                   className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
                 >
-                  {rechecking ? "Checking..." : "I've already done this"}
+                  {rechecking ? t("app.setPayments.checking") : t("app.setPayments.alreadyDone")}
                 </button>
               </div>
             </div>
@@ -307,10 +303,9 @@ export default function PaymentsPage() {
           <div className="flex items-start gap-3">
             <CreditCard size={22} className="text-muted-foreground shrink-0 mt-0.5" />
             <div>
-              <h2 className="font-semibold text-foreground">Not connected yet</h2>
+              <h2 className="font-semibold text-foreground">{t("app.setPayments.notConnected")}</h2>
               <p className="text-sm text-muted-foreground mt-1 mb-4">
-                Stripe handles the actual payment processing — you'll enter your
-                bank details on Stripe's own secure page, not here.
+                {t("app.setPayments.notConnectedDesc")}
               </p>
               <button
                 type="button"
@@ -318,7 +313,7 @@ export default function PaymentsPage() {
                 disabled={connecting}
                 className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
               >
-                {connecting ? "Redirecting..." : "Connect with Stripe"}
+                {connecting ? t("app.setPayments.redirecting") : t("app.setPayments.connectWithStripe")}
               </button>
             </div>
           </div>
@@ -326,8 +321,7 @@ export default function PaymentsPage() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        FieldQuo never sees or stores your bank account details — that
-        information goes directly to Stripe.
+        {t("app.setPayments.neverSees")}
       </p>
 
       {showDisconnectConfirm && (
@@ -343,27 +337,24 @@ export default function PaymentsPage() {
               <AlertTriangle size={26} className="text-amber-500" />
             </div>
             <h2 className="text-lg font-semibold text-foreground text-center">
-              Disconnect Stripe?
+              {t("app.setPayments.disconnectTitle")}
             </h2>
             <p className="text-sm text-muted-foreground text-center mt-1.5">
-              Clients won't be able to pay invoices online until you reconnect.
-              This only unlinks Stripe from FieldQuo — it does not delete or
-              close your actual Stripe account, and nothing about your past
-              payout history changes.
+              {t("app.setPayments.disconnectDesc")}
             </p>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowDisconnectConfirm(false)}
                 className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
               >
-                Cancel
+                {t("app.action.cancel")}
               </button>
               <button
                 onClick={handleDisconnect}
                 disabled={disconnecting}
                 className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {disconnecting ? "Disconnecting..." : "Disconnect"}
+                {disconnecting ? t("app.setPayments.disconnecting") : t("app.setPayments.disconnect")}
               </button>
             </div>
           </div>

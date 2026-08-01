@@ -11,8 +11,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, AlertCircle, Bell, Check } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NotificationsPage() {
+  const { t } = useTranslation();
   const [rules, setRules] = useState([]);
   const [threshold, setThreshold] = useState("");
   const [active, setActive] = useState(true);
@@ -26,7 +28,7 @@ export default function NotificationsPage() {
     setError("");
     try {
       const res = await fetch("/api/settings/notification-rules");
-      if (!res.ok) throw new Error("Couldn't load your alert settings.");
+      if (!res.ok) throw new Error(t("app.setNotifications.loadError"));
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       setRules(list);
@@ -62,7 +64,7 @@ export default function NotificationsPage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't save.");
+      if (!res.ok) throw new Error(d?.error || t("app.setNotifications.saveError"));
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       await load();
@@ -83,10 +85,9 @@ export default function NotificationsPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.notifications")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          When FieldQuo should email you about something happening in your
-          account.
+          {t("app.setNotifications.subtitle")}
         </p>
       </div>
 
@@ -101,10 +102,9 @@ export default function NotificationsPage() {
         <div className="flex items-start gap-3">
           <Bell size={18} className="text-muted-foreground mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <h2 className="font-semibold text-foreground">Large quote created</h2>
+            <h2 className="font-semibold text-foreground">{t("app.setNotifications.largeQuoteTitle")}</h2>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Emails everyone with an owner or admin role when someone on your
-              team writes a quote above this amount.
+              {t("app.setNotifications.largeQuoteDesc")}
             </p>
           </div>
         </div>
@@ -115,12 +115,12 @@ export default function NotificationsPage() {
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />
-          Send this alert
+          {t("app.setNotifications.sendAlert")}
         </label>
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Alert me above
+            {t("app.setNotifications.alertAbove")}
           </label>
           <div className="relative w-48">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -143,8 +143,7 @@ export default function NotificationsPage() {
             prevents "I made a big quote and nothing happened" twenty minutes
             later. */}
         <p className="text-xs text-muted-foreground border-t border-border pt-3">
-          This runs on a daily schedule rather than the instant a quote is
-          saved, so expect the email within a day.
+          {t("app.setNotifications.scheduleNote")}
         </p>
 
         <div className="flex items-center gap-3 flex-wrap">
@@ -154,32 +153,31 @@ export default function NotificationsPage() {
             className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
-            Save
+            {t("app.action.save")}
           </button>
           {saved && (
             <span className="inline-flex items-center gap-1.5 text-sm text-green-700 dark:text-green-300">
-              <Check size={14} /> Saved
+              <Check size={14} /> {t("app.action.saved")}
             </span>
           )}
           {!existing && !saved && (
             <span className="text-xs text-muted-foreground">
-              Not set up yet — no alerts are being sent.
+              {t("app.setNotifications.notSetUp")}
             </span>
           )}
         </div>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Client-facing emails</h2>
+        <h2 className="font-semibold text-foreground">{t("app.setNotifications.clientEmailsTitle")}</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Quote, receipt and follow-up emails are configured separately — what
-          they say lives in{" "}
+          {t("app.setNotifications.clientEmailsPre")}{" "}
           <Link href="/app/settings/email-templates" className="underline">
-            Email Templates
+            {t("app.settings.emailTemplates")}
           </Link>
-          , and when they go out lives in{" "}
+          {t("app.setNotifications.clientEmailsMid")}{" "}
           <Link href="/app/settings/follow-ups" className="underline">
-            Follow-ups
+            {t("app.settings.followUps")}
           </Link>
           .
         </p>

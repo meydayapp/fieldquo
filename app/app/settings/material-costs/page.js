@@ -21,6 +21,7 @@ import {
   CONSUMABLE_EDITABLE_FIELDS,
 } from "@/app/data/materialRecipes";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CATEGORY_META = {
   cabinet_refinishing: {
@@ -66,6 +67,7 @@ function setPath(obj, path, value) {
 }
 
 export default function MaterialCostsPage() {
+  const { t } = useTranslation();
   const [recipes, setRecipes] = useState(null);
   const [drafts, setDrafts] = useState({});
   const [savingKey, setSavingKey] = useState(null);
@@ -141,12 +143,11 @@ export default function MaterialCostsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Material Costs</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.materialCosts")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          These numbers drive the internal Cost &amp; Margin estimate on every
-          quote — what you actually pay for materials and labour, separate
-          from the price you charge the client. Leave anything you're not
-          sure about at the default.
+          {t("app.setMaterialCosts.subtitle")}
         </p>
       </div>
 
@@ -164,7 +165,9 @@ export default function MaterialCostsPage() {
             <div className="flex items-start justify-between mb-1">
               <div className="flex items-center gap-2">
                 <Droplet size={16} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{meta.label}</h2>
+                <h2 className="font-semibold text-foreground">
+                  {t(`app.setMaterialCosts.cat.${categoryKey}.label`, meta.label)}
+                </h2>
                 <span
                   className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                     hasOverrides
@@ -172,7 +175,9 @@ export default function MaterialCostsPage() {
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {hasOverrides ? "Custom" : "Default"}
+                  {hasOverrides
+                    ? t("app.setMaterialCosts.custom")
+                    : t("app.setMaterialCosts.default")}
                 </span>
               </div>
               {hasOverrides && (
@@ -181,11 +186,13 @@ export default function MaterialCostsPage() {
                   disabled={savingKey === categoryKey}
                   className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                 >
-                  <RotateCcw size={12} /> Reset to defaults
+                  <RotateCcw size={12} /> {t("app.setMaterialCosts.resetDefaults")}
                 </button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mb-4">{meta.note}</p>
+            <p className="text-xs text-muted-foreground mb-4">
+              {t(`app.setMaterialCosts.cat.${categoryKey}.note`, meta.note)}
+            </p>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {fields.map((f) => (
@@ -209,13 +216,16 @@ export default function MaterialCostsPage() {
             {meta.model === "cabinet_unit" && draft.consumables && (
               <div className="mt-5 pt-5 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Consumables
+                  {t("app.setMaterialCosts.consumables")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {Object.entries(CONSUMABLE_EDITABLE_FIELDS).map(([subKey, subFields]) => (
                     <div key={subKey}>
                       <div className="text-xs font-medium text-muted-foreground mb-1.5">
-                        {CONSUMABLE_LABELS[subKey] || subKey}
+                        {t(
+                          `app.setMaterialCosts.consumable.${subKey}`,
+                          CONSUMABLE_LABELS[subKey] || subKey,
+                        )}
                       </div>
                       <div className="space-y-2">
                         {subFields.map((f) => (
@@ -248,7 +258,7 @@ export default function MaterialCostsPage() {
             {meta.model === "production_rate" && draft.paintTiers && (
               <div className="mt-5 pt-5 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground mb-3">
-                  Wall paint cost by tier ($/gal)
+                  {t("app.setMaterialCosts.paintByTier")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   {PAINT_TIERS.map((t) => (
@@ -282,10 +292,14 @@ export default function MaterialCostsPage() {
                 className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
               >
                 <Save size={14} />
-                {savingKey === categoryKey ? "Saving…" : "Save"}
+                {savingKey === categoryKey
+                  ? t("app.action.saving")
+                  : t("app.action.save")}
               </button>
               {savedFlash === categoryKey && (
-                <span className="text-xs text-emerald-600 dark:text-emerald-400">Saved</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                  {t("app.action.saved")}
+                </span>
               )}
             </div>
           </div>

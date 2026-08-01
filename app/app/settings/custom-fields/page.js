@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const SECTIONS = [
   {
@@ -50,6 +51,7 @@ const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function CustomFieldsPage() {
+  const { t } = useTranslation();
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalEntityType, setModalEntityType] = useState(null);
@@ -122,15 +124,16 @@ export default function CustomFieldsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Custom Fields</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.customFields")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track additional information specific to your business with custom
-          fields.
+          {t("app.setCustomFields.subtitle")}
         </p>
         <p className="text-xs text-muted-foreground mt-2">
-          This is unrelated to emails — for that, see{" "}
+          {t("app.setCustomFields.emailNote")}{" "}
           <a href="/app/settings/email-templates" className="underline">
-            Email Templates
+            {t("app.settings.emailTemplates")}
           </a>
           .
         </p>
@@ -155,18 +158,20 @@ export default function CustomFieldsPage() {
               >
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-base font-semibold text-foreground">
-                    {section.label}
+                    {t(`app.setCustomFields.label.${section.entityType}`, section.label)}
                   </h2>
                   <button
                     onClick={() => openAdd(section.entityType)}
                     className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
                   >
-                    <Plus size={14} /> Add Field
+                    <Plus size={14} /> {t("app.setCustomFields.addField")}
                   </button>
                 </div>
 
                 {sectionFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground mt-2">{section.empty}</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {t(`app.setCustomFields.empty.${section.entityType}`, section.empty)}
+                  </p>
                 ) : (
                   <div className="divide-y divide-border mt-2">
                     {sectionFields.map((f) => (
@@ -183,14 +188,14 @@ export default function CustomFieldsPage() {
                           </span>
                           {f.required && (
                             <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                              Required
+                              {t("app.state.required")}
                             </span>
                           )}
                         </div>
                         <button
                           onClick={() => handleDelete(f.id)}
                           className="text-muted-foreground hover:text-red-500"
-                          aria-label={`Delete ${f.label}`}
+                          aria-label={t("app.setCustomFields.deleteAria", { label: f.label })}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -215,8 +220,12 @@ export default function CustomFieldsPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">
-                Add{" "}
-                {SECTIONS.find((s) => s.entityType === modalEntityType)?.label}
+                {t("app.setCustomFields.addTitle", {
+                  label: t(
+                    `app.setCustomFields.label.${modalEntityType}`,
+                    SECTIONS.find((s) => s.entityType === modalEntityType)?.label,
+                  ),
+                })}
               </h2>
               <button onClick={() => setModalEntityType(null)}>
                 <X size={18} className="text-muted-foreground" />
@@ -225,7 +234,7 @@ export default function CustomFieldsPage() {
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 required
-                placeholder="Field name"
+                placeholder={t("app.setCustomFields.fieldNamePlaceholder")}
                 value={form.label}
                 onChange={(e) => setForm({ ...form, label: e.target.value })}
                 className={inputClass}
@@ -245,7 +254,7 @@ export default function CustomFieldsPage() {
               </select>
               {form.fieldType === "dropdown" && (
                 <input
-                  placeholder="Options, comma separated"
+                  placeholder={t("app.setCustomFields.optionsPlaceholder")}
                   value={form.options}
                   onChange={(e) =>
                     setForm({ ...form, options: e.target.value })
@@ -261,14 +270,14 @@ export default function CustomFieldsPage() {
                     setForm({ ...form, required: e.target.checked })
                   }
                 />
-                Required
+                {t("app.state.required")}
               </label>
               <button
                 type="submit"
                 disabled={saving}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Add Field"}
+                {saving ? t("app.action.saving") : t("app.setCustomFields.addField")}
               </button>
             </form>
           </div>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
@@ -69,8 +70,9 @@ function KpiCard({ label, value, sub, icon: Icon, tone = "gray" }) {
 }
 
 function BreakdownBars({ items, total }) {
+  const { t } = useTranslation();
   if (!items.length) {
-    return <p className="text-sm text-muted-foreground">No expenses recorded yet.</p>;
+    return <p className="text-sm text-muted-foreground">{t("app.setExpenses.noneRecorded")}</p>;
   }
   const max = Math.max(...items.map((i) => i.total), 1);
   return (
@@ -125,6 +127,7 @@ function TrendChart({ trend }) {
 }
 
 export default function ExpenseTrackingPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [monthDate, setMonthDate] = useState(() => new Date());
   const [summary, setSummary] = useState(null);
@@ -238,7 +241,7 @@ export default function ExpenseTrackingPage() {
         body: JSON.stringify({ month: monthParam(monthDate) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not generate summary");
+      if (!res.ok) throw new Error(data.error || t("app.setExpenses.summaryError"));
       setAiSummary(data);
     } catch (err) {
       setAiError(err.message);
@@ -274,17 +277,16 @@ export default function ExpenseTrackingPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Expense Tracking</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.setExpenses.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Where your money goes — by job, overhead, and category — plus your
-            monthly burn rate.
+            {t("app.setExpenses.subtitle")}
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
-          <Plus size={14} /> Add Expense
+          <Plus size={14} /> {t("app.setExpenses.addExpense")}
         </button>
       </div>
 
@@ -297,7 +299,7 @@ export default function ExpenseTrackingPage() {
             )
           }
           className="p-1.5 rounded-full hover:bg-muted"
-          aria-label="Previous month"
+          aria-label={t("app.setExpenses.prevMonth")}
         >
           <ChevronLeft size={18} />
         </button>
@@ -311,7 +313,7 @@ export default function ExpenseTrackingPage() {
             )
           }
           className="p-1.5 rounded-full hover:bg-muted"
-          aria-label="Next month"
+          aria-label={t("app.setExpenses.nextMonth")}
         >
           <ChevronRight size={18} />
         </button>
@@ -320,31 +322,36 @@ export default function ExpenseTrackingPage() {
       {/* KPIs */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="Tracked expenses this month"
+          label={t("app.setExpenses.kpiTracked")}
           value={money(totalThisMonth)}
         />
         <KpiCard
-          label="Monthly burn rate"
+          label={t("app.setExpenses.kpiBurn")}
           value={money(burnRate.totalMonthlyBurn)}
-          sub="Overhead + salaries + debt"
+          sub={t("app.setExpenses.kpiBurnSub")}
           tone="red"
           icon={TrendingDown}
         />
         <KpiCard
-          label="Runway"
+          label={t("app.setExpenses.kpiRunway")}
           value={
-            burnRate.runwayMonths !== null ? `${burnRate.runwayMonths} mo` : "—"
+            burnRate.runwayMonths !== null
+              ? t("app.setExpenses.months", { n: burnRate.runwayMonths })
+              : "—"
           }
           sub={
             burnRate.runwayMonths === null
-              ? "Add cash on hand to estimate"
-              : "At current burn rate"
+              ? t("app.setExpenses.runwayAddCash")
+              : t("app.setExpenses.runwayAtBurn")
           }
         />
         <KpiCard
-          label="Job-related spend"
+          label={t("app.setExpenses.kpiJobSpend")}
           value={money(associationBreakdown.job)}
-          sub={`Overhead ${money(associationBreakdown.overhead)} · General ${money(associationBreakdown.general)}`}
+          sub={t("app.setExpenses.kpiJobSpendSub", {
+            overhead: money(associationBreakdown.overhead),
+            general: money(associationBreakdown.general),
+          })}
         />
       </div>
 
@@ -354,7 +361,7 @@ export default function ExpenseTrackingPage() {
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-muted-foreground" />
             <h2 className="text-base font-semibold text-foreground">
-              AI Summary
+              {t("app.setExpenses.aiSummary")}
             </h2>
           </div>
           <button
@@ -363,10 +370,10 @@ export default function ExpenseTrackingPage() {
             className="text-sm font-medium border border-border px-3 py-1.5 rounded-full hover:bg-muted disabled:opacity-60"
           >
             {aiLoading
-              ? "Thinking..."
+              ? t("app.setExpenses.aiThinking")
               : aiSummary
-                ? "Regenerate"
-                : "Generate summary"}
+                ? t("app.setExpenses.aiRegenerate")
+                : t("app.setExpenses.aiGenerate")}
           </button>
         </div>
         {aiError && <p className="text-sm text-red-600 dark:text-red-400 mt-3">{aiError}</p>}
@@ -384,7 +391,7 @@ export default function ExpenseTrackingPage() {
         )}
         {!aiSummary && !aiError && (
           <p className="text-sm text-muted-foreground mt-2">
-            Get a plain-language read on this month's spending and burn rate.
+            {t("app.setExpenses.aiEmptyHint")}
           </p>
         )}
       </div>
@@ -393,13 +400,13 @@ export default function ExpenseTrackingPage() {
         {/* Burn rate breakdown */}
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-4">
-            Monthly Burn Breakdown
+            {t("app.setExpenses.burnBreakdown")}
           </h2>
           <BreakdownBars
             items={[
-              { label: "Overhead", total: burnRate.breakdown.overhead },
-              { label: "Salaries", total: burnRate.breakdown.salaries },
-              { label: "Debt payments", total: burnRate.breakdown.debt },
+              { label: t("app.setExpenses.overhead"), total: burnRate.breakdown.overhead },
+              { label: t("app.setExpenses.salaries"), total: burnRate.breakdown.salaries },
+              { label: t("app.setExpenses.debtPayments"), total: burnRate.breakdown.debt },
             ]}
             total={burnRate.totalMonthlyBurn}
           />
@@ -407,14 +414,14 @@ export default function ExpenseTrackingPage() {
             href="/app/settings/overhead"
             className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mt-4"
           >
-            Manage salaries & debt <ArrowRight size={14} />
+            {t("app.setExpenses.manageSalariesDebt")} <ArrowRight size={14} />
           </Link>
         </div>
 
         {/* Category breakdown */}
         <div className="bg-card border border-border rounded-xl p-5">
           <h2 className="text-base font-semibold text-foreground mb-4">
-            Spend by Category
+            {t("app.setExpenses.spendByCategory")}
           </h2>
           <BreakdownBars items={categoryBreakdown} total={totalThisMonth} />
         </div>
@@ -425,7 +432,7 @@ export default function ExpenseTrackingPage() {
         <div className="flex items-center gap-2 mb-4">
           <TrendingUp size={16} className="text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">
-            6-Month Trend
+            {t("app.setExpenses.sixMonthTrend")}
           </h2>
         </div>
         <TrendChart trend={trend} />
@@ -435,13 +442,13 @@ export default function ExpenseTrackingPage() {
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
-            Recent Expenses
+            {t("app.setExpenses.recentExpenses")}
           </h2>
         </div>
         <div className="divide-y divide-border">
           {recent.length === 0 && (
             <p className="px-5 py-6 text-sm text-muted-foreground">
-              No expenses logged yet.
+              {t("app.setExpenses.noneLogged")}
             </p>
           )}
           {recent.map((e) => (
@@ -454,12 +461,12 @@ export default function ExpenseTrackingPage() {
                   {e.category}
                   {e.isOverhead && (
                     <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                      Overhead
+                      {t("app.setExpenses.overhead")}
                     </span>
                   )}
                   {e.projectId && (
                     <span className="ml-2 text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full">
-                      Job-linked
+                      {t("app.setExpenses.jobLinked")}
                     </span>
                   )}
                 </div>
@@ -475,7 +482,7 @@ export default function ExpenseTrackingPage() {
                 <button
                   onClick={() => handleDeleteExpense(e.id)}
                   className="text-muted-foreground hover:text-red-500"
-                  aria-label="Delete expense"
+                  aria-label={t("app.setExpenses.deleteExpense")}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -496,12 +503,12 @@ export default function ExpenseTrackingPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold text-foreground mb-4">
-              Add Expense
+              {t("app.setExpenses.addExpense")}
             </h2>
             <form onSubmit={handleAddExpense} className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">
-                  Category
+                  {t("app.setExpenses.category")}
                 </label>
                 <select
                   className={inputClass}
@@ -518,7 +525,7 @@ export default function ExpenseTrackingPage() {
                 </select>
                 {form.category === "Other" && (
                   <input
-                    placeholder="Custom category name"
+                    placeholder={t("app.setExpenses.customCategory")}
                     value={form.customCategory}
                     onChange={(e) =>
                       setForm({ ...form, customCategory: e.target.value })
@@ -531,7 +538,7 @@ export default function ExpenseTrackingPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1">
-                    Amount
+                    {t("app.setExpenses.amount")}
                   </label>
                   <input
                     required
@@ -546,7 +553,7 @@ export default function ExpenseTrackingPage() {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1">
-                    Date
+                    {t("app.setExpenses.date")}
                   </label>
                   <input
                     required
@@ -560,13 +567,13 @@ export default function ExpenseTrackingPage() {
 
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">
-                  Associate with
+                  {t("app.setExpenses.associateWith")}
                 </label>
                 <div className="flex gap-2 mb-2">
                   {[
-                    { value: "general", label: "General" },
-                    { value: "job", label: "A job" },
-                    { value: "overhead", label: "Overhead" },
+                    { value: "general", label: t("app.setExpenses.assocGeneral") },
+                    { value: "job", label: t("app.setExpenses.assocJob") },
+                    { value: "overhead", label: t("app.setExpenses.overhead") },
                   ].map((opt) => (
                     <button
                       type="button"
@@ -592,7 +599,7 @@ export default function ExpenseTrackingPage() {
                       setForm({ ...form, jobId: e.target.value })
                     }
                   >
-                    <option value="">Select a job...</option>
+                    <option value="">{t("app.setExpenses.selectJob")}</option>
                     {jobs.map((j) => (
                       <option key={j.id} value={j.id}>
                         {j.title} — {j.client?.name}
@@ -609,7 +616,7 @@ export default function ExpenseTrackingPage() {
                         setForm({ ...form, recurring: e.target.checked })
                       }
                     />
-                    Recurring (feeds burn rate below)
+                    {t("app.setExpenses.recurring")}
                     {form.recurring && (
                       <select
                         className="border border-border rounded px-2 py-1 text-xs ml-2"
@@ -618,9 +625,9 @@ export default function ExpenseTrackingPage() {
                           setForm({ ...form, frequency: e.target.value })
                         }
                       >
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
+                        <option value="weekly">{t("app.setExpenses.weekly")}</option>
+                        <option value="monthly">{t("app.setExpenses.monthly")}</option>
+                        <option value="yearly">{t("app.setExpenses.yearly")}</option>
                       </select>
                     )}
                   </label>
@@ -629,7 +636,7 @@ export default function ExpenseTrackingPage() {
 
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">
-                  Notes
+                  {t("app.field.notes")}
                 </label>
                 <textarea
                   className={inputClass}
@@ -645,14 +652,14 @@ export default function ExpenseTrackingPage() {
                   onClick={() => setShowAddModal(false)}
                   className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
                 >
-                  Cancel
+                  {t("app.action.cancel")}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
                   className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
                 >
-                  {saving ? "Saving..." : "Add Expense"}
+                  {saving ? t("app.action.saving") : t("app.setExpenses.addExpense")}
                 </button>
               </div>
             </form>

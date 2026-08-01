@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { Plus, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
@@ -14,6 +15,7 @@ const MODES = [
 ];
 
 export default function BookingPageSettings() {
+  const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   // The company's answer to "how long is a visit". Used as the default for any
@@ -66,7 +68,7 @@ export default function BookingPageSettings() {
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't save the travel settings.");
+      await reportResponseError(res, t("app.setBooking.travelSaveError"));
       return;
     }
     const info = await res.json().catch(() => null);
@@ -86,7 +88,7 @@ export default function BookingPageSettings() {
       body: JSON.stringify({ arrivalWindowMinutes: minutes }),
     });
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't save the arrival window.");
+      await reportResponseError(res, t("app.setBooking.arrivalSaveError"));
       return;
     }
     const info = await res.json().catch(() => null);
@@ -104,7 +106,7 @@ export default function BookingPageSettings() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookingModes: next }),
     });
-    if (!res.ok) await reportResponseError(res, "Couldn't save how clients can meet you.");
+    if (!res.ok) await reportResponseError(res, t("app.setBooking.modesSaveError"));
   }
 
   async function saveVisitMinutes(minutes) {
@@ -117,7 +119,7 @@ export default function BookingPageSettings() {
     });
     setSavingVisit(false);
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't save the visit length.");
+      await reportResponseError(res, t("app.setBooking.visitSaveError"));
     }
   }
 
@@ -138,7 +140,7 @@ export default function BookingPageSettings() {
       const updated = await res.json();
       setEventTypes((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
     } else {
-      await reportResponseError(res, "Couldn't change the length of that visit.");
+      await reportResponseError(res, t("app.setBooking.durationSaveError"));
     }
   }
 
@@ -192,16 +194,18 @@ export default function BookingPageSettings() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Booking Page</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.settings.bookingPage")}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Event types clients can book directly from your public page.
+            {t("app.setBooking.subtitle")}
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold"
         >
-          <Plus size={14} /> New Event Type
+          <Plus size={14} /> {t("app.setBooking.newEventType")}
         </button>
       </div>
 
@@ -209,19 +213,18 @@ export default function BookingPageSettings() {
           automatically. Separate from the per-event lengths below because those
           are exceptions and this is the rule. */}
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 mb-4">
-        <h2 className="font-semibold text-foreground">How long is a visit?</h2>
+        <h2 className="font-semibold text-foreground">
+          {t("app.setBooking.visitLengthTitle")}
+        </h2>
         <p className="text-sm text-muted-foreground mt-0.5 mb-3">
-          Used for any consultation FieldQuo sets up for a team member when they
-          add their availability. Existing bookings keep the length they were made
-          with.
+          {t("app.setBooking.visitLengthHint")}
         </p>
         <div className="mb-5">
           <p className="text-sm font-semibold text-foreground mb-1">
-            How can clients meet you?
+            {t("app.setBooking.meetTitle")}
           </p>
           <p className="text-xs text-muted-foreground mb-2.5">
-            Pick everything you offer. If you offer more than one, the client
-            chooses when they book.
+            {t("app.setBooking.meetHint")}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {MODES.map((m) => (
@@ -229,14 +232,14 @@ export default function BookingPageSettings() {
                 key={m.key}
                 type="button"
                 onClick={() => toggleMode(m.key)}
-                title={m.hint}
+                title={t(`app.setBooking.modeHint.${m.key}`, m.hint)}
                 className={`text-sm px-3 py-2 rounded-full border transition-colors ${
                   modes.includes(m.key)
                     ? "border-foreground bg-inverted text-inverted-foreground"
                     : "border-border text-muted-foreground hover:text-foreground"
                 }`}
               >
-                {m.label}
+                {t(`app.setBooking.mode.${m.key}`, m.label)}
               </button>
             ))}
           </div>
@@ -251,12 +254,10 @@ export default function BookingPageSettings() {
             <div className="flex items-start gap-4">
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">
-                  Don&apos;t offer times you can&apos;t drive to
+                  {t("app.setBooking.travelTitle")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Clients give an address when they book a visit. Times you
-                  couldn&apos;t reach on schedule from your previous job are
-                  hidden.
+                  {t("app.setBooking.travelHint")}
                 </p>
               </div>
               <button
@@ -279,12 +280,10 @@ export default function BookingPageSettings() {
             {travel.enabled && (
               <div className="mt-4">
                 <p className="text-sm font-semibold text-foreground mb-1">
-                  Extra time between jobs
+                  {t("app.setBooking.bufferTitle")}
                 </p>
                 <p className="text-xs text-muted-foreground mb-2.5">
-                  Added on top of the drive — parking, unloading, writing up the
-                  last job. Starts at none, because guessing on your behalf
-                  removes bookable slots you never agreed to give up.
+                  {t("app.setBooking.bufferHint")}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {[0, 10, 15, 30, 45, 60].map((m) => (
@@ -298,7 +297,7 @@ export default function BookingPageSettings() {
                           : "border-border text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {m === 0 ? "None" : `${m} min`}
+                      {m === 0 ? t("app.setBooking.none") : t("app.setBooking.minutesShort", { m })}
                     </button>
                   ))}
                 </div>
@@ -311,12 +310,10 @@ export default function BookingPageSettings() {
         {modes.includes("visit") && (
           <div className="mb-5 pt-5 border-t border-border">
             <p className="text-sm font-semibold text-foreground mb-1">
-              What do you promise the client?
+              {t("app.setBooking.promiseTitle")}
             </p>
             <p className="text-xs text-muted-foreground mb-2.5">
-              A window is a promise the road can&apos;t break. Your own schedule
-              keeps the exact time either way — this only changes what the
-              client is told.
+              {t("app.setBooking.promiseHint")}
             </p>
             <div className="flex flex-wrap gap-1.5">
               {[0, 15, 30, 60].map((m) => (
@@ -330,21 +327,24 @@ export default function BookingPageSettings() {
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {m === 0 ? "Exact time" : `± ${m} min`}
+                  {m === 0 ? t("app.setBooking.exactTime") : t("app.setBooking.plusMinusMin", { m })}
                 </button>
               ))}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {arrival === 0
-                ? "They'll be told 2:00 PM."
-                : `They'll be told "between ${
-                    arrival >= 60 ? "1:00" : arrival === 30 ? "1:30" : "1:45"
-                  } and ${arrival >= 60 ? "3:00" : arrival === 30 ? "2:30" : "2:15"} PM".`}
+                ? t("app.setBooking.previewExact")
+                : t("app.setBooking.previewWindow", {
+                    lo: arrival >= 60 ? "1:00" : arrival === 30 ? "1:30" : "1:45",
+                    hi: arrival >= 60 ? "3:00" : arrival === 30 ? "2:30" : "2:15",
+                  })}
             </p>
           </div>
         )}
 
-        <p className="text-sm font-semibold text-foreground mb-1">How long is a visit?</p>
+        <p className="text-sm font-semibold text-foreground mb-1">
+          {t("app.setBooking.visitLengthTitle")}
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {DURATIONS.map((m) => (
             <button
@@ -358,7 +358,7 @@ export default function BookingPageSettings() {
                   : "border-border text-muted-foreground hover:text-foreground"
               }`}
             >
-              {m} min
+              {t("app.setBooking.minutesShort", { m })}
             </button>
           ))}
         </div>
@@ -367,7 +367,7 @@ export default function BookingPageSettings() {
       <div className="space-y-2">
         {eventTypes.length === 0 && (
           <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
-            No event types yet — clients can't book anything until you add one.
+            {t("app.setBooking.noEventTypes")}
           </div>
         )}
         {eventTypes.map((et) => (
@@ -378,12 +378,12 @@ export default function BookingPageSettings() {
             <div className="min-w-0">
               <div className="font-medium text-foreground">{et.name}</div>
               <div className="text-xs text-muted-foreground">
-                {et.location || "No location set"}
+                {et.location || t("app.setBooking.noLocation")}
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <label className="flex items-center gap-1.5 text-sm">
-                <span className="text-muted-foreground text-xs">Length</span>
+                <span className="text-muted-foreground text-xs">{t("app.setBooking.length")}</span>
                 <select
                   value={et.durationMinutes}
                   onChange={(e) => setDuration(et, Number(e.target.value))}
@@ -396,7 +396,7 @@ export default function BookingPageSettings() {
                     .sort((a, b) => a - b)
                     .map((m) => (
                       <option key={m} value={m}>
-                        {m} min
+                        {t("app.setBooking.minutesShort", { m })}
                       </option>
                     ))}
                 </select>
@@ -407,7 +407,7 @@ export default function BookingPageSettings() {
                 checked={et.active}
                 onChange={() => toggleActive(et)}
               />
-              Active
+              {t("app.status.active")}
             </label>
             </div>
           </div>
@@ -418,7 +418,7 @@ export default function BookingPageSettings() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">New Event Type</h2>
+              <h2 className="font-semibold">{t("app.setBooking.newEventType")}</h2>
               <button onClick={() => setShowForm(false)}>
                 <X size={18} />
               </button>
@@ -426,7 +426,7 @@ export default function BookingPageSettings() {
             <form onSubmit={handleCreate} className="space-y-3">
               <input
                 required
-                placeholder="Name (e.g. In-home consult)"
+                placeholder={t("app.setBooking.namePlaceholder")}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full border rounded px-3 py-2 text-sm"
@@ -434,7 +434,7 @@ export default function BookingPageSettings() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <input
                   type="number"
-                  placeholder="Minutes"
+                  placeholder={t("app.setBooking.minutesPlaceholder")}
                   value={form.durationMinutes}
                   onChange={(e) =>
                     setForm({
@@ -446,7 +446,7 @@ export default function BookingPageSettings() {
                 />
                 <input
                   type="number"
-                  placeholder="Buffer before"
+                  placeholder={t("app.setBooking.bufferBefore")}
                   value={form.bufferBefore}
                   onChange={(e) =>
                     setForm({ ...form, bufferBefore: Number(e.target.value) })
@@ -455,7 +455,7 @@ export default function BookingPageSettings() {
                 />
                 <input
                   type="number"
-                  placeholder="Buffer after"
+                  placeholder={t("app.setBooking.bufferAfter")}
                   value={form.bufferAfter}
                   onChange={(e) =>
                     setForm({ ...form, bufferAfter: Number(e.target.value) })
@@ -464,7 +464,7 @@ export default function BookingPageSettings() {
                 />
               </div>
               <input
-                placeholder="Location (optional)"
+                placeholder={t("app.setBooking.locationPlaceholder")}
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
                 className="w-full border rounded px-3 py-2 text-sm"
@@ -473,7 +473,7 @@ export default function BookingPageSettings() {
                 type="submit"
                 className="w-full bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
               >
-                Create
+                {t("app.action.create")}
               </button>
             </form>
           </div>

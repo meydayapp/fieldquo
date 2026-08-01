@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CALC_META = {
   fixed: { label: "Fixed amount", icon: Hash, hint: "Same amount every pay period" },
@@ -49,6 +50,7 @@ function money(n) {
 // The band editor. Kept simple: an ordered list where the last row's "up to" is
 // left blank to mean "and above".
 function SlabEditor({ slabs, onChange }) {
+  const { t } = useTranslation();
   function update(i, field, value) {
     const next = slabs.map((s, j) => (j === i ? { ...s, [field]: value } : s));
     onChange(next);
@@ -58,13 +60,13 @@ function SlabEditor({ slabs, onChange }) {
       {slabs.map((s, i) => (
         <div key={i} className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground w-12 shrink-0">
-            {i === 0 ? "Up to" : "then to"}
+            {i === 0 ? t("app.setPayroll.slabUpTo") : t("app.setPayroll.slabThenTo")}
           </span>
           <input
             type="number"
             value={s.upTo ?? ""}
             onChange={(e) => update(i, "upTo", e.target.value)}
-            placeholder={i === slabs.length - 1 ? "and above" : "55867"}
+            placeholder={i === slabs.length - 1 ? t("app.setPayroll.andAbove") : "55867"}
             className="w-28 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
           />
           <input
@@ -81,7 +83,7 @@ function SlabEditor({ slabs, onChange }) {
               type="button"
               onClick={() => onChange(slabs.filter((_, j) => j !== i))}
               className="text-muted-foreground hover:text-red-600"
-              aria-label="Remove band"
+              aria-label={t("app.setPayroll.removeBand")}
             >
               <X size={14} />
             </button>
@@ -93,17 +95,17 @@ function SlabEditor({ slabs, onChange }) {
         onClick={() => onChange([...slabs, { upTo: "", percent: "" }])}
         className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
       >
-        <Plus size={12} /> Add band
+        <Plus size={12} /> {t("app.setPayroll.addBand")}
       </button>
       <p className="text-[11px] text-muted-foreground">
-        Annual thresholds, lowest first. Leave the last “up to” blank for “and
-        above”.
+        {t("app.setPayroll.slabHint")}
       </p>
     </div>
   );
 }
 
 export default function PayrollSettingsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,7 +132,7 @@ export default function PayrollSettingsPage() {
         body: JSON.stringify({ seedRegion: region }),
       });
       await load();
-      if (r.created === 0) showError("Those components already exist — nothing was changed.");
+      if (r.created === 0) showError(t("app.setPayroll.seedNoChange"));
     } catch (err) {
       showError(err.message);
     } finally {
@@ -172,7 +174,7 @@ export default function PayrollSettingsPage() {
   }
 
   async function remove(id, name) {
-    if (!confirm(`Remove "${name}"? Past payslips keep what was already deducted.`)) return;
+    if (!confirm(t("app.setPayroll.removeConfirm", { name }))) return;
     setBusy(true);
     try {
       await fetchJson(`/api/settings/payroll-components?id=${id}`, { method: "DELETE" });
@@ -196,7 +198,7 @@ export default function PayrollSettingsPage() {
   if (!data) {
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto flex items-center gap-2 text-muted-foreground text-sm">
-        <Loader2 size={16} className="animate-spin" /> Loading…
+        <Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}
       </div>
     );
   }
@@ -210,35 +212,36 @@ export default function PayrollSettingsPage() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Wallet size={20} className="text-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">Payroll settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.setPayroll.title")}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          The deductions and allowances applied when you run payroll. Without these,
-          pay runs show gross pay only.
+          {t("app.setPayroll.subtitle")}
         </p>
       </div>
 
       {/* Seed from a regional template */}
       {components.length === 0 && (
         <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <h2 className="text-sm font-bold text-foreground mb-1">Start from your region</h2>
+          <h2 className="text-sm font-bold text-foreground mb-1">{t("app.setPayroll.startRegion")}</h2>
           <p className="text-xs text-muted-foreground mb-3">
-            We&apos;ll add the usual statutory deductions so you&apos;re not typing tax
-            bands from a PDF. <strong className="text-foreground">These are published
-            figures for the year shown — confirm every one with your accountant.</strong>{" "}
-            They become your numbers, and FieldQuo won&apos;t change them later.
+            {t("app.setPayroll.regionDesc1")}{" "}
+            <strong className="text-foreground">{t("app.setPayroll.regionDescStrong")}</strong>{" "}
+            {t("app.setPayroll.regionDesc2")}
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
-            {(data.templates || []).map((t) => (
+            {(data.templates || []).map((tpl) => (
               <button
-                key={t.key}
-                onClick={() => seed(t.key)}
+                key={tpl.key}
+                onClick={() => seed(tpl.key)}
                 disabled={busy}
                 className="flex-1 rounded-lg border border-border px-3 py-2.5 text-left hover:bg-muted disabled:opacity-60"
               >
-                <div className="text-sm font-semibold text-foreground">{t.label}</div>
+                <div className="text-sm font-semibold text-foreground">{tpl.label}</div>
                 <div className="text-[11px] text-muted-foreground">
-                  {t.count} components · {t.sourceYear} figures
+                  {t("app.setPayroll.templateMeta", {
+                    count: tpl.count,
+                    year: tpl.sourceYear,
+                  })}
                 </div>
               </button>
             ))}
@@ -247,7 +250,7 @@ export default function PayrollSettingsPage() {
       )}
 
       {/* Existing components */}
-      {[["Deductions", deductions], ["Allowances & earnings", earnings]].map(
+      {[[t("app.setPayroll.deductions"), deductions], [t("app.setPayroll.allowancesEarnings"), earnings]].map(
         ([title, list]) =>
           list.length > 0 && (
             <section key={title}>
@@ -267,22 +270,22 @@ export default function PayrollSettingsPage() {
                             <span className="text-sm font-semibold text-foreground">{c.name}</span>
                             {c.statutory && (
                               <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                statutory
+                                {t("app.setPayroll.statutory")}
                               </span>
                             )}
                             {!c.active && (
                               <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300">
-                                off
+                                {t("app.setPayroll.off")}
                               </span>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {c.calculation === "percent"
-                              ? `${Number(c.percent)}% of gross`
+                              ? t("app.setPayroll.percentOfGross", { percent: Number(c.percent) })
                               : c.calculation === "slabs"
-                                ? `${(c.slabs || []).length} progressive bands`
+                                ? t("app.setPayroll.progressiveBands", { count: (c.slabs || []).length })
                                 : money(c.amount)}
-                            {c.appliesToAll ? " · everyone" : " · assigned individually"}
+                            {c.appliesToAll ? t("app.setPayroll.everyone") : t("app.setPayroll.assignedIndividually")}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -291,13 +294,13 @@ export default function PayrollSettingsPage() {
                             disabled={busy}
                             className="text-xs font-semibold text-muted-foreground hover:text-foreground"
                           >
-                            {c.active ? "Turn off" : "Turn on"}
+                            {c.active ? t("app.setPayroll.turnOff") : t("app.setPayroll.turnOn")}
                           </button>
                           <button
                             onClick={() => remove(c.id, c.name)}
                             disabled={busy}
                             className="text-muted-foreground hover:text-red-600"
-                            aria-label="Remove"
+                            aria-label={t("app.action.remove")}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -308,7 +311,7 @@ export default function PayrollSettingsPage() {
                       {c.calculation !== "slabs" && (
                         <div className="mt-3 flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {c.calculation === "percent" ? "Percent" : "Amount"}
+                            {c.calculation === "percent" ? t("app.setPayroll.percent") : t("app.setPayroll.amount")}
                           </span>
                           <input
                             type="number"
@@ -332,7 +335,7 @@ export default function PayrollSettingsPage() {
                       {c.calculation === "slabs" && (
                         <details className="mt-3">
                           <summary className="text-xs font-semibold text-muted-foreground cursor-pointer">
-                            {(c.slabs || []).length} bands — view or edit
+                            {t("app.setPayroll.bandsViewEdit", { count: (c.slabs || []).length })}
                           </summary>
                           <div className="mt-2">
                             <SlabEditor
@@ -356,11 +359,11 @@ export default function PayrollSettingsPage() {
       {/* Add new */}
       {draft ? (
         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
-          <h2 className="text-sm font-bold text-foreground">New component</h2>
+          <h2 className="text-sm font-bold text-foreground">{t("app.setPayroll.newComponent")}</h2>
           <input
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            placeholder="Name — e.g. Union dues, Tool allowance"
+            placeholder={t("app.setPayroll.namePlaceholder")}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
           <div className="flex gap-2 flex-wrap">
@@ -374,7 +377,7 @@ export default function PayrollSettingsPage() {
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {k === "deduction" ? "Deduction" : "Allowance / earning"}
+                {k === "deduction" ? t("app.setPayroll.deduction") : t("app.setPayroll.allowanceEarning")}
               </button>
             ))}
           </div>
@@ -383,14 +386,14 @@ export default function PayrollSettingsPage() {
               <button
                 key={key}
                 onClick={() => setDraft({ ...draft, calculation: key })}
-                title={m.hint}
+                title={t(`app.setPayroll.calc.${key}.hint`)}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${
                   draft.calculation === key
                     ? "border-foreground bg-inverted text-inverted-foreground"
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {m.label}
+                {t(`app.setPayroll.calc.${key}.label`)}
               </button>
             ))}
           </div>
@@ -401,7 +404,7 @@ export default function PayrollSettingsPage() {
               step="0.01"
               value={draft.amount}
               onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-              placeholder="Amount per pay period"
+              placeholder={t("app.setPayroll.amountPerPeriod")}
               className="w-full sm:w-48 rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
           )}
@@ -411,7 +414,7 @@ export default function PayrollSettingsPage() {
               step="0.01"
               value={draft.percent}
               onChange={(e) => setDraft({ ...draft, percent: e.target.value })}
-              placeholder="Percent of gross"
+              placeholder={t("app.setPayroll.percentPlaceholder")}
               className="w-full sm:w-48 rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
           )}
@@ -425,7 +428,7 @@ export default function PayrollSettingsPage() {
               checked={draft.appliesToAll}
               onChange={(e) => setDraft({ ...draft, appliesToAll: e.target.checked })}
             />
-            Apply to everyone automatically
+            {t("app.setPayroll.applyEveryone")}
           </label>
 
           <div className="flex gap-2">
@@ -435,13 +438,13 @@ export default function PayrollSettingsPage() {
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-bold disabled:opacity-50"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              Add
+              {t("app.action.add")}
             </button>
             <button
               onClick={() => setDraft(null)}
               className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
             >
-              Cancel
+              {t("app.action.cancel")}
             </button>
           </div>
         </section>
@@ -450,15 +453,13 @@ export default function PayrollSettingsPage() {
           onClick={() => setDraft(blankComponent())}
           className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold"
         >
-          <Plus size={14} /> Add a component
+          <Plus size={14} /> {t("app.setPayroll.addComponent")}
         </button>
       )}
 
       <p className="text-xs text-muted-foreground flex items-start gap-1.5 border-t border-border pt-4">
         <Info size={13} className="mt-0.5 shrink-0" />
-        FieldQuo does the arithmetic with the rates you save here. It does not file
-        or remit anything, and it doesn&apos;t update rates when they change — review
-        them each tax year with your accountant.
+        {t("app.setPayroll.footerNote")}
       </p>
     </div>
   );

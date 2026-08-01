@@ -20,15 +20,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { MessageSquare, Loader2, Check, RotateCcw } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ClientMessagesPage() {
+  const { t } = useTranslation();
   const [types, setTypes] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/message-templates");
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't load your messages.");
+      await reportResponseError(res, t("app.setMessages.loadError"));
       return;
     }
     const data = await res.json();
@@ -52,11 +54,10 @@ export default function ClientMessagesPage() {
     <div className="p-4 sm:p-6 max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageSquare size={22} /> Client messages
+          <MessageSquare size={22} /> {t("app.settings.messages")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          The texts your clients get. Leave one alone to use our wording, or make
-          it sound like you.
+          {t("app.setMessages.subtitle")}
         </p>
       </div>
 
@@ -68,6 +69,7 @@ export default function ClientMessagesPage() {
 }
 
 function MessageEditor({ type, onSaved }) {
+  const { t } = useTranslation();
   const [text, setText] = useState(type.custom || "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -93,7 +95,7 @@ function MessageEditor({ type, onSaved }) {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        setError(d?.error || "Couldn't save that.");
+        setError(d?.error || t("app.setMessages.saveError"));
         return;
       }
       setSaved(true);
@@ -111,7 +113,7 @@ function MessageEditor({ type, onSaved }) {
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-foreground">{type.label}</h2>
         {isCustom && (
-          <span className="text-xs text-muted-foreground">Customised</span>
+          <span className="text-xs text-muted-foreground">{t("app.setMessages.customised")}</span>
         )}
       </div>
 
@@ -140,16 +142,16 @@ function MessageEditor({ type, onSaved }) {
 
       {unknown.length > 0 && (
         <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
-          Unknown {unknown.length === 1 ? "field" : "fields"}:{" "}
-          {unknown.map((u) => `{${u}}`).join(", ")}. Only the fields above work.
+          {unknown.length === 1 ? t("app.setMessages.unknownField") : t("app.setMessages.unknownFields")}:{" "}
+          {unknown.map((u) => `{${u}}`).join(", ")}. {t("app.setMessages.unknownSuffix")}
         </p>
       )}
 
       {/* What the customer actually receives. */}
       <div className="mt-3">
-        <p className="text-xs text-muted-foreground mb-1">Your client sees:</p>
+        <p className="text-xs text-muted-foreground mb-1">{t("app.setMessages.clientSees")}</p>
         <div className="rounded-lg bg-muted/60 px-3 py-2 text-sm text-foreground">
-          {preview || <span className="text-muted-foreground">Write a message above.</span>}
+          {preview || <span className="text-muted-foreground">{t("app.setMessages.writePrompt")}</span>}
         </div>
       </div>
 
@@ -160,7 +162,7 @@ function MessageEditor({ type, onSaved }) {
           onClick={() => save(text)}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-40"
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Save
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t("app.action.save")}
         </button>
         {isCustom && (
           <button
@@ -169,12 +171,12 @@ function MessageEditor({ type, onSaved }) {
             onClick={() => { setText(""); save(""); }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground"
           >
-            <RotateCcw size={13} /> Use default
+            <RotateCcw size={13} /> {t("app.setMessages.useDefault")}
           </button>
         )}
         {saved && (
           <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-            <Check size={14} /> Saved
+            <Check size={14} /> {t("app.action.saved")}
           </span>
         )}
       </div>

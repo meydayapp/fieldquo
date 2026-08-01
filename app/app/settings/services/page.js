@@ -5,12 +5,14 @@ import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function emptyCustomForm() {
   return { label: "", fieldKeys: [] };
 }
 
 export default function ServiceSettingsPage() {
+  const { t } = useTranslation();
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -62,13 +64,14 @@ export default function ServiceSettingsPage() {
         body: JSON.stringify({ categoryId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not add items");
+      if (!res.ok)
+        throw new Error(data.error || t("app.setServices.addItemsError"));
       setSeedMsg({
         id: categoryId,
         text:
           data.created > 0
-            ? `Added ${data.created} standard item${data.created === 1 ? "" : "s"} for ${label}. Edit them in Products & Services.`
-            : `${label} already has its standard items.`,
+            ? t("app.setServices.itemsAdded", { count: data.created, label })
+            : t("app.setServices.alreadyHasItems", { label }),
       });
     } catch (err) {
       setSeedMsg({ id: categoryId, text: err.message, error: true });
@@ -125,18 +128,16 @@ export default function ServiceSettingsPage() {
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6">
       <div className="flex items-start justify-between gap-4 mb-1">
-        <h1 className="text-xl font-semibold">Services & Pricing</h1>
+        <h1 className="text-xl font-semibold">{t("app.settings.services")}</h1>
         <button
           onClick={() => setShowCustomModal(true)}
           className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground shrink-0"
         >
-          <Plus size={14} /> Add custom quote type
+          <Plus size={14} /> {t("app.setServices.addCustomType")}
         </button>
       </div>
       <p className="text-sm text-muted-foreground mb-6">
-        Turn on the quote types you offer and set your default rate for each.
-        These are what show up when you create a new quote. You can still
-        override pricing on individual quotes.
+        {t("app.setServices.subtitle")}
       </p>
 
       <div className="space-y-3">
@@ -156,14 +157,14 @@ export default function ServiceSettingsPage() {
                 {c.label}
                 {!c.isSystem && (
                   <span className="flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                    <Sparkles size={11} /> Custom
+                    <Sparkles size={11} /> {t("app.setServices.customBadge")}
                   </span>
                 )}
               </div>
               {!c.isSystem && Array.isArray(c.customFields) && (
                 <div className="text-xs text-muted-foreground mt-0.5">
                   {c.customFields.length === 0
-                    ? "No fields — flat rate only"
+                    ? t("app.setServices.noFieldsFlatRate")
                     : c.customFields.map((f) => f.label).join(", ")}
                 </div>
               )}
@@ -176,8 +177,8 @@ export default function ServiceSettingsPage() {
                 >
                   <PackagePlus size={12} />
                   {seedingId === c.id
-                    ? "Adding..."
-                    : "Add standard items to Products & Services"}
+                    ? t("app.setServices.adding")
+                    : t("app.setServices.addStandardItems")}
                 </button>
               )}
               {seedMsg?.id === c.id && (
@@ -198,15 +199,19 @@ export default function ServiceSettingsPage() {
                   }
                   className="border rounded px-2 py-1 text-sm"
                 >
-                  <option value="flat">Flat rate</option>
-                  <option value="per_unit">Per unit</option>
-                  <option value="hourly">Hourly</option>
+                  <option value="flat">{t("app.setServices.pricingFlat")}</option>
+                  <option value="per_unit">
+                    {t("app.setServices.pricingPerUnit")}
+                  </option>
+                  <option value="hourly">
+                    {t("app.setServices.pricingHourly")}
+                  </option>
                 </select>
 
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="Rate"
+                  placeholder={t("app.setServices.ratePlaceholder")}
                   value={c.defaultRate ?? ""}
                   onChange={(e) =>
                     update(c.id, {
@@ -221,7 +226,7 @@ export default function ServiceSettingsPage() {
                 {c.pricingModel === "per_unit" && (
                   <input
                     type="text"
-                    placeholder="unit (sqft, door...)"
+                    placeholder={t("app.setServices.unitPlaceholder")}
                     value={c.unit ?? ""}
                     onChange={(e) => update(c.id, { unit: e.target.value })}
                     className="border rounded px-2 py-1 text-sm w-28"
@@ -238,7 +243,7 @@ export default function ServiceSettingsPage() {
         disabled={saving}
         className="mt-6 admin-btn-primary"
       >
-        {saving ? "Saving..." : "Save Settings"}
+        {saving ? t("app.action.saving") : t("app.setServices.saveSettings")}
       </button>
 
       {showCustomModal && (
@@ -252,28 +257,25 @@ export default function ServiceSettingsPage() {
           >
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-semibold text-foreground">
-                Add custom quote type
+                {t("app.setServices.addCustomType")}
               </h2>
               <button onClick={() => setShowCustomModal(false)}>
                 <X size={18} className="text-muted-foreground" />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Name it, then pick which fields it should ask for on a quote —
-              chosen from fields already used across FieldQuo's other quote
-              types, so it works the same way in the quote builder right
-              away.
+              {t("app.setServices.modalIntro")}
             </p>
 
             <form onSubmit={handleCreateCustom} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1">
-                  Name
+                  {t("app.field.name")}
                 </label>
                 <input
                   required
                   autoFocus
-                  placeholder="e.g. Closet Organization"
+                  placeholder={t("app.setServices.namePlaceholder")}
                   value={customForm.label}
                   onChange={(e) =>
                     setCustomForm((prev) => ({
@@ -288,10 +290,12 @@ export default function ServiceSettingsPage() {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sm font-medium text-foreground">
-                    Fields ({customForm.fieldKeys.length} selected)
+                    {t("app.setServices.fieldsSelected", {
+                      count: customForm.fieldKeys.length,
+                    })}
                   </label>
                   <input
-                    placeholder="Search fields..."
+                    placeholder={t("app.setServices.searchFields")}
                     value={fieldSearch}
                     onChange={(e) => setFieldSearch(e.target.value)}
                     className="border border-border rounded-lg px-2 py-1 text-xs w-40"
@@ -316,13 +320,12 @@ export default function ServiceSettingsPage() {
                   ))}
                   {filteredFields.length === 0 && (
                     <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                      No fields match "{fieldSearch}"
+                      {t("app.setServices.noFieldsMatch", { query: fieldSearch })}
                     </p>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  No fields selected is fine too — it'll behave like a flat
-                  rate item with no extra form.
+                  {t("app.setServices.noFieldsHint")}
                 </p>
               </div>
 
@@ -331,7 +334,9 @@ export default function ServiceSettingsPage() {
                 disabled={creatingCustom}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {creatingCustom ? "Creating..." : "Create quote type"}
+                {creatingCustom
+                  ? t("app.setServices.creating")
+                  : t("app.setServices.createType")}
               </button>
             </form>
           </div>

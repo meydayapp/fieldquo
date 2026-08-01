@@ -19,17 +19,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { Star, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const DELAYS = [
-  { hours: 2, label: "2 hours later" },
-  { hours: 4, label: "4 hours later" },
-  { hours: 24, label: "The next day" },
-  { hours: 48, label: "Two days later" },
-  { hours: 72, label: "Three days later" },
-  { hours: 168, label: "A week later" },
+  { hours: 2, label: "app.setReviews.delay2h" },
+  { hours: 4, label: "app.setReviews.delay4h" },
+  { hours: 24, label: "app.setReviews.delayNextDay" },
+  { hours: 48, label: "app.setReviews.delay2d" },
+  { hours: 72, label: "app.setReviews.delay3d" },
+  { hours: 168, label: "app.setReviews.delayWeek" },
 ];
 
 export default function ReviewSettingsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +41,7 @@ export default function ReviewSettingsPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/reviews");
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't load your review settings.");
+      await reportResponseError(res, t("app.setReviews.loadError"));
       return;
     }
     const json = await res.json();
@@ -61,7 +63,7 @@ export default function ReviewSettingsPage() {
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't save that.");
+        await reportResponseError(res, t("app.setReviews.saveError"));
         // Reload so the screen shows what's actually stored rather than the
         // change that was refused — otherwise the toggle sits in the position
         // the server rejected.
@@ -92,21 +94,20 @@ export default function ReviewSettingsPage() {
     <div className="p-4 sm:p-6 max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Star size={22} /> Reviews
+          <Star size={22} /> {t("app.settings.reviews")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Ask customers for a review automatically once their job is finished.
+          {t("app.setReviews.subtitle")}
         </p>
       </div>
 
       {/* ── Where to send them ─────────────────────────────────────────── */}
       <section className="rounded-xl border border-border bg-card p-5">
         <label htmlFor="reviewUrl" className="block text-sm font-semibold text-foreground">
-          Your review link
+          {t("app.setReviews.linkLabel")}
         </label>
         <p className="text-xs text-muted-foreground mt-1">
-          Usually your Google review link. On your Google Business Profile, choose
-          “Ask for reviews” and copy the short link.
+          {t("app.setReviews.linkHelp")}
         </p>
         <div className="flex flex-wrap gap-2 mt-3">
           <input
@@ -123,7 +124,7 @@ export default function ReviewSettingsPage() {
             onClick={() => save({ reviewUrl: url })}
             className="px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-40"
           >
-            Save
+            {t("app.action.save")}
           </button>
         </div>
         {hasUrl && (
@@ -133,7 +134,7 @@ export default function ReviewSettingsPage() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mt-2"
           >
-            <ExternalLink size={12} /> Open it and check it goes where you expect
+            <ExternalLink size={12} /> {t("app.setReviews.openCheck")}
           </a>
         )}
       </section>
@@ -143,12 +144,12 @@ export default function ReviewSettingsPage() {
         <div className="flex items-start gap-4">
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">
-              Ask automatically
+              {t("app.setReviews.askAuto")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               {hasUrl
-                ? "Every customer with an email address gets one message after their job is marked complete. Never more than one."
-                : "Add your review link above first."}
+                ? t("app.setReviews.askAutoOn")
+                : t("app.setReviews.askAutoOff")}
             </p>
           </div>
           <button
@@ -171,7 +172,7 @@ export default function ReviewSettingsPage() {
 
         {on && (
           <div className="mt-5 pt-5 border-t border-border">
-            <p className="text-sm font-semibold text-foreground">When to ask</p>
+            <p className="text-sm font-semibold text-foreground">{t("app.setReviews.whenToAsk")}</p>
             <div className="flex flex-wrap gap-2 mt-2">
               {DELAYS.map((d) => (
                 <button
@@ -185,7 +186,7 @@ export default function ReviewSettingsPage() {
                       : "border-border text-foreground hover:bg-muted"
                   }`}
                 >
-                  {d.label}
+                  {t(d.label)}
                 </button>
               ))}
             </div>
@@ -201,14 +202,14 @@ export default function ReviewSettingsPage() {
             <div className="text-sm text-foreground">
               <p>
                 <strong className="tabular-nums">{data.waiting}</strong>{" "}
-                {data.waiting === 1 ? "customer is" : "customers are"} in the queue,
-                and <strong className="tabular-nums">{data.askedRecently}</strong>{" "}
-                {data.askedRecently === 1 ? "has" : "have"} been asked in the last 30 days.
+                {data.waiting === 1 ? t("app.setReviews.customerIs") : t("app.setReviews.customersAre")}{" "}
+                {t("app.setReviews.inQueueAnd")}{" "}
+                <strong className="tabular-nums">{data.askedRecently}</strong>{" "}
+                {data.askedRecently === 1 ? t("app.setReviews.has") : t("app.setReviews.have")}{" "}
+                {t("app.setReviews.beenAsked")}
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                Customers who have unsubscribed are skipped, and anyone who
-                replies saying something went wrong reaches you directly rather
-                than the review page.
+                {t("app.setReviews.footnote")}
               </p>
             </div>
           </div>
@@ -217,12 +218,12 @@ export default function ReviewSettingsPage() {
 
       {saved && (
         <p className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-          <Check size={15} /> Saved
+          <Check size={15} /> {t("app.action.saved")}
         </p>
       )}
       {saving && (
         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-          <Loader2 size={15} className="animate-spin" /> Saving…
+          <Loader2 size={15} className="animate-spin" /> {t("app.action.saving")}
         </p>
       )}
     </div>

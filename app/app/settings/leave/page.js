@@ -25,6 +25,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const METHOD_LABEL = {
   annual_allotment: "Fixed days per year",
@@ -52,6 +53,7 @@ const BLANK = {
 };
 
 export default function LeaveSettingsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -84,8 +86,12 @@ export default function LeaveSettingsPage() {
       });
       setNotice(
         r.created
-          ? `Added ${r.created} polic${r.created === 1 ? "y" : "ies"}${r.skipped ? `, skipped ${r.skipped} that already existed` : ""}.`
-          : "Those policies already exist — nothing changed.",
+          ? t("app.setLeave.seeded", { count: r.created }) +
+              (r.skipped
+                ? t("app.setLeave.seededSkipped", { skipped: r.skipped })
+                : "") +
+              "."
+          : t("app.setLeave.seedNoChange"),
       );
       await load();
     } catch (err) {
@@ -106,8 +112,8 @@ export default function LeaveSettingsPage() {
       });
       setNotice(
         r.rolled
-          ? `Carried unused days into ${r.intoYear} for ${r.rolled} balance(s).`
-          : "Nothing was eligible to carry over.",
+          ? t("app.setLeave.rolled", { year: r.intoYear, count: r.rolled })
+          : t("app.setLeave.rollNothing"),
       );
       await load();
     } catch (err) {
@@ -121,8 +127,11 @@ export default function LeaveSettingsPage() {
     const used = policy._count?.requests > 0;
     const ok = window.confirm(
       used
-        ? `"${policy.name}" has ${policy._count.requests} request(s). It will be deactivated — existing requests keep their history — but nobody can book it again. Continue?`
-        : `Delete "${policy.name}"? It has never been used, so it will be removed entirely.`,
+        ? t("app.setLeave.removeUsed", {
+            name: policy.name,
+            count: policy._count.requests,
+          })
+        : t("app.setLeave.removeUnused", { name: policy.name }),
     );
     if (!ok) return;
     setBusy(`del-${policy.id}`);
@@ -142,7 +151,7 @@ export default function LeaveSettingsPage() {
   if (!data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground p-6">
-        <Loader2 className="animate-spin" size={16} /> Loading leave policies…
+        <Loader2 className="animate-spin" size={16} /> {t("app.setLeave.loading")}
       </div>
     );
   }
@@ -155,13 +164,12 @@ export default function LeaveSettingsPage() {
     <div className="p-4 sm:p-6 max-w-3xl space-y-6">
       <header>
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-          <CalendarClock size={20} /> Time off policies
+          <CalendarClock size={20} /> {t("app.setLeave.title")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          What time off your team can take, and how it builds up. Requests and
-          balances live on{" "}
+          {t("app.setLeave.intro")}{" "}
           <Link href="/app/time-off" className="underline">
-            Time off
+            {t("app.setLeave.introTimeOffLink")}
           </Link>
           .
         </p>
@@ -182,33 +190,35 @@ export default function LeaveSettingsPage() {
       {!active.length && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2 font-semibold text-foreground">
-            <Sparkles size={16} /> Start from a template
+            <Sparkles size={16} /> {t("app.setLeave.startTemplate")}
           </div>
           <p className="text-sm text-muted-foreground">
-            These are common starting points you can edit — not compliance
-            advice. Each one says what it assumes.
+            {t("app.setLeave.templateDesc")}
           </p>
           <div className="grid gap-2 sm:grid-cols-3">
-            {data.templates.map((t) => (
+            {data.templates.map((tpl) => (
               <button
-                key={t.key}
-                onClick={() => seed(t.key)}
+                key={tpl.key}
+                onClick={() => seed(tpl.key)}
                 disabled={Boolean(busy)}
                 className="rounded-lg border border-border p-3 text-left hover:bg-muted disabled:opacity-60"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">{t.label}</span>
-                  {busy === `seed-${t.key}` ? (
+                  <span className="font-medium text-foreground">{tpl.label}</span>
+                  {busy === `seed-${tpl.key}` ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (
                     <ArrowRight size={14} className="text-muted-foreground" />
                   )}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  {t.policies.length} policies · figures as of {t.sourceYear}
+                  {t("app.setLeave.templateMeta", {
+                    count: tpl.policies.length,
+                    year: tpl.sourceYear,
+                  })}
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
-                  {t.note}
+                  {tpl.note}
                 </p>
               </button>
             ))}
@@ -218,12 +228,12 @@ export default function LeaveSettingsPage() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Policies</h2>
+          <h2 className="font-semibold text-foreground">{t("app.setLeave.policiesHeading")}</h2>
           <button
             onClick={() => setAdding((v) => !v)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-inverted text-inverted-foreground px-3 py-1.5 text-sm font-medium"
           >
-            <Plus size={14} /> Add policy
+            <Plus size={14} /> {t("app.setLeave.addPolicy")}
           </button>
         </div>
 
@@ -253,7 +263,7 @@ export default function LeaveSettingsPage() {
         ) : (
           !adding && (
             <p className="text-sm text-muted-foreground">
-              No policies yet — seed a template above or add one.
+              {t("app.setLeave.noPolicies")}
             </p>
           )
         )}
@@ -261,7 +271,7 @@ export default function LeaveSettingsPage() {
         {inactive.length > 0 && (
           <div className="pt-2">
             <h3 className="text-xs uppercase tracking-wide text-muted-foreground mb-1.5">
-              Retired
+              {t("app.setLeave.retired")}
             </h3>
             <div className="space-y-1.5">
               {inactive.map((p) => (
@@ -270,9 +280,12 @@ export default function LeaveSettingsPage() {
                   className="rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground flex items-center justify-between gap-2"
                 >
                   <span>
-                    {p.name} · {p._count?.requests || 0} past request(s)
+                    {p.name} ·{" "}
+                    {t("app.setLeave.pastRequests", {
+                      count: p._count?.requests || 0,
+                    })}
                   </span>
-                  <span className="text-[11px]">not bookable</span>
+                  <span className="text-[11px]">{t("app.setLeave.notBookable")}</span>
                 </div>
               ))}
             </div>
@@ -282,11 +295,9 @@ export default function LeaveSettingsPage() {
 
       {active.length > 0 && (
         <section className="rounded-xl border border-border bg-card p-4 space-y-2">
-          <h2 className="font-semibold text-foreground">Year end</h2>
+          <h2 className="font-semibold text-foreground">{t("app.setLeave.yearEnd")}</h2>
           <p className="text-sm text-muted-foreground">
-            Carry unused days from {lastYear} into {lastYear + 1}, capped by each
-            policy&apos;s carryover limit. This runs only when you ask — it is
-            not automatic, so you decide when the year is closed.
+            {t("app.setLeave.yearEndDesc", { from: lastYear, to: lastYear + 1 })}
           </p>
           <button
             onClick={() => roll(lastYear)}
@@ -294,22 +305,21 @@ export default function LeaveSettingsPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm disabled:opacity-60"
           >
             {busy === "roll" && <Loader2 size={14} className="animate-spin" />}
-            Carry {lastYear} balances into {lastYear + 1}
+            {t("app.setLeave.carryButton", { from: lastYear, to: lastYear + 1 })}
           </button>
         </section>
       )}
 
       <p className="text-xs text-muted-foreground flex items-start gap-1.5">
         <Info size={13} className="mt-0.5 shrink-0" />
-        Statutory minimums vary by province, state and length of service, and
-        several rise with years employed. FieldQuo tracks what you configure — it
-        doesn&apos;t decide what you owe.
+        {t("app.setLeave.statutoryNote")}
       </p>
     </div>
   );
 }
 
 function PolicyCard({ policy, onSaved, onRemove, removing }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
 
   if (editing) {
@@ -334,8 +344,12 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
 
   const entitlement =
     policy.accrualMethod === "percent_of_gross"
-      ? `${Number(policy.percentOfGross || 0)}% of gross`
-      : `${Number(policy.annualDays || 0)} days/year`;
+      ? t("app.setLeave.entitlementPercent", {
+          percent: Number(policy.percentOfGross || 0),
+        })
+      : t("app.setLeave.entitlementDays", {
+          days: Number(policy.annualDays || 0),
+        });
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
@@ -345,20 +359,21 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
             <span className="font-semibold text-foreground">{policy.name}</span>
             {!policy.paid && (
               <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-                unpaid
+                {t("app.setLeave.unpaidBadge")}
               </span>
             )}
             {!policy.requiresApproval && (
               <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
-                auto-approved
+                {t("app.setLeave.autoApproved")}
               </span>
             )}
           </div>
           <div className="text-sm text-muted-foreground mt-0.5">
-            {METHOD_LABEL[policy.accrualMethod]} · {entitlement} · carryover{" "}
+            {t(`app.setLeave.method.${policy.accrualMethod}`)} · {entitlement} ·{" "}
+            {t("app.setLeave.carryoverLabel")}{" "}
             {policy.carryoverMaxDays == null
-              ? "unlimited"
-              : `${Number(policy.carryoverMaxDays)} days`}
+              ? t("app.setLeave.unlimited")
+              : t("app.setLeave.nDays", { n: Number(policy.carryoverMaxDays) })}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -366,13 +381,13 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
             onClick={() => setEditing(true)}
             className="rounded-lg border border-border px-3 py-1.5 text-sm"
           >
-            Edit
+            {t("app.action.edit")}
           </button>
           <button
             onClick={onRemove}
             disabled={removing}
             className="rounded-lg border border-border px-2.5 py-1.5 text-sm text-red-600 dark:text-red-400 disabled:opacity-60"
-            aria-label={`Remove ${policy.name}`}
+            aria-label={t("app.setLeave.removeAria", { name: policy.name })}
           >
             {removing ? (
               <Loader2 size={14} className="animate-spin" />
@@ -387,6 +402,7 @@ function PolicyCard({ policy, onSaved, onRemove, removing }) {
 }
 
 function PolicyForm({ initial, onSaved, onCancel }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -424,18 +440,18 @@ function PolicyForm({ initial, onSaved, onCancel }) {
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block sm:col-span-2">
-          <span className="text-xs font-medium text-muted-foreground">Name</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("app.field.name")}</span>
           <input
             required
             value={form.name}
             onChange={set("name")}
-            placeholder="Vacation"
+            placeholder={t("app.setLeave.namePlaceholder")}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
         </label>
 
         <label className="block">
-          <span className="text-xs font-medium text-muted-foreground">Kind</span>
+          <span className="text-xs font-medium text-muted-foreground">{t("app.setLeave.kindLabel")}</span>
           <select
             value={form.kind}
             onChange={set("kind")}
@@ -443,7 +459,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
           >
             {KINDS.map((k) => (
               <option key={k.value} value={k.value}>
-                {k.label}
+                {t(`app.setLeave.kind.${k.value}`)}
               </option>
             ))}
           </select>
@@ -451,7 +467,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
 
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">
-            How it builds up
+            {t("app.setLeave.howItBuilds")}
           </span>
           <select
             value={form.accrualMethod}
@@ -460,7 +476,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
           >
             {Object.entries(METHOD_LABEL).map(([v, l]) => (
               <option key={v} value={v}>
-                {l}
+                {t(`app.setLeave.method.${v}`)}
               </option>
             ))}
           </select>
@@ -469,7 +485,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
         {isMoney ? (
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
-              Percent of gross
+              {t("app.setLeave.percentOfGrossLabel")}
             </span>
             <input
               type="number"
@@ -484,7 +500,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
         ) : (
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
-              Days per year
+              {t("app.setLeave.daysPerYear")}
             </span>
             <input
               type="number"
@@ -499,7 +515,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
 
         <label className="block">
           <span className="text-xs font-medium text-muted-foreground">
-            Carryover cap (days)
+            {t("app.setLeave.carryoverCap")}
           </span>
           <input
             type="number"
@@ -507,11 +523,11 @@ function PolicyForm({ initial, onSaved, onCancel }) {
             min="0"
             value={form.carryoverMaxDays}
             onChange={set("carryoverMaxDays")}
-            placeholder="blank = unlimited"
+            placeholder={t("app.setLeave.blankUnlimited")}
             className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
           <span className="mt-1 block text-[11px] text-muted-foreground">
-            Blank means unlimited. 0 means use it or lose it.
+            {t("app.setLeave.carryoverHint")}
           </span>
         </label>
       </div>
@@ -524,7 +540,7 @@ function PolicyForm({ initial, onSaved, onCancel }) {
             onChange={(e) => setForm({ ...form, paid: e.target.checked })}
             className="rounded border-border"
           />
-          Paid
+          {t("app.setLeave.paid")}
         </label>
         <label className="flex items-center gap-2 text-sm text-foreground">
           <input
@@ -535,15 +551,14 @@ function PolicyForm({ initial, onSaved, onCancel }) {
             }
             className="rounded border-border"
           />
-          Needs a manager&apos;s approval
+          {t("app.setLeave.needsApproval")}
         </label>
       </div>
 
       {isMoney && (
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
           <Info size={13} className="mt-0.5 shrink-0" />
-          This accrues money, not days — the Canadian 4% vacation-pay model. Time
-          off under it isn&apos;t limited by a day balance.
+          {t("app.setLeave.moneyInfo")}
         </p>
       )}
 
@@ -559,14 +574,14 @@ function PolicyForm({ initial, onSaved, onCancel }) {
           onClick={onCancel}
           className="rounded-lg border border-border px-4 py-2 text-sm"
         >
-          Cancel
+          {t("app.action.cancel")}
         </button>
         <button
           disabled={busy}
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
         >
           {busy && <Loader2 size={14} className="animate-spin" />}
-          {form.id ? "Save changes" : "Add policy"}
+          {form.id ? t("app.setLeave.saveChanges") : t("app.setLeave.addPolicy")}
         </button>
       </div>
     </form>

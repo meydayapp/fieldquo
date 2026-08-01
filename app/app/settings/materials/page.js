@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function MaterialsPage() {
+  const { t } = useTranslation();
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
@@ -63,10 +65,11 @@ export default function MaterialsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Materials</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.materials")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Track material costs to see price trends and get low-stock flags in
-          your AI digest.
+          {t("app.setMaterials.subtitle")}
         </p>
       </div>
 
@@ -75,19 +78,19 @@ export default function MaterialsPage() {
         className="bg-card border border-border rounded-xl p-4 grid grid-cols-2 gap-3"
       >
         <input
-          placeholder="Material name"
+          placeholder={t("app.setMaterials.namePlaceholder")}
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           className="border rounded px-3 py-2 text-sm col-span-2"
         />
         <input
-          placeholder="Unit (gallon, sheet...)"
+          placeholder={t("app.setMaterials.unitPlaceholder")}
           value={form.unit}
           onChange={(e) => setForm({ ...form, unit: e.target.value })}
           className="border rounded px-3 py-2 text-sm"
         />
         <input
-          placeholder="Category"
+          placeholder={t("app.setMaterials.categoryPlaceholder")}
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
           className="border rounded px-3 py-2 text-sm"
@@ -95,7 +98,7 @@ export default function MaterialsPage() {
         <input
           type="number"
           step="0.01"
-          placeholder="Current cost"
+          placeholder={t("app.setMaterials.currentCostPlaceholder")}
           value={form.currentAvgCost}
           onChange={(e) => setForm({ ...form, currentAvgCost: e.target.value })}
           className="border rounded px-3 py-2 text-sm"
@@ -103,7 +106,7 @@ export default function MaterialsPage() {
         <input
           type="number"
           step="0.01"
-          placeholder="Reorder threshold"
+          placeholder={t("app.setMaterials.reorderPlaceholder")}
           value={form.reorderThreshold}
           onChange={(e) =>
             setForm({ ...form, reorderThreshold: e.target.value })
@@ -114,7 +117,7 @@ export default function MaterialsPage() {
           type="submit"
           className="col-span-2 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
         >
-          Add Material
+          {t("app.setMaterials.addMaterial")}
         </button>
       </form>
 

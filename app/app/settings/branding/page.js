@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Upload, Loader2 } from "lucide-react";
 import BrandPreview from "@/app/components/settings/BrandPreview";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PRESET_COLORS = [
   "#06356b",
@@ -22,6 +23,7 @@ const DEFAULT_NEUTRAL = "#1A1917";
 // inherit the default", which is why the picker falls back to `placeholder`
 // for display while the stored value stays empty.
 function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
+  const { t } = useTranslation();
   const shown = value || placeholder || "#000000";
   const isSet = Boolean(value);
 
@@ -38,7 +40,7 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
             onClick={onReset}
             className="text-xs text-muted-foreground hover:text-foreground underline shrink-0"
           >
-            Reset
+            {t("app.setBranding.reset")}
           </button>
         )}
       </div>
@@ -63,10 +65,10 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
             value={shown}
             onChange={(e) => onChange(e.target.value)}
             className="w-9 h-9 rounded-lg border border-border cursor-pointer"
-            aria-label={`${label} custom colour`}
+            aria-label={t("app.setBranding.customColour", { label })}
           />
           <span className="text-sm text-muted-foreground font-mono">
-            {isSet ? value : `${placeholder} (default)`}
+            {isSet ? value : t("app.setBranding.defaultSuffix", { placeholder })}
           </span>
         </div>
       </div>
@@ -75,6 +77,7 @@ function ColorRow({ label, hint, value, onChange, onReset, placeholder }) {
 }
 
 export default function BrandingPage() {
+  const { t } = useTranslation();
   const fileInputRef = useRef(null);
 
   const [logoUrl, setLogoUrl] = useState("");
@@ -103,7 +106,7 @@ export default function BrandingPage() {
         setSecondary(data.brandColors?.secondary || "");
         setNeutral(data.brandColors?.neutral || "");
       })
-      .catch(() => setError("Could not load branding settings"))
+      .catch(() => setError(t("app.setBranding.loadError")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -125,13 +128,13 @@ export default function BrandingPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Upload failed");
+        throw new Error(data.error || t("app.setBranding.uploadFailed"));
       }
 
       setLogoUrl(data.url);
       setLogoPublicId(data.publicId || "");
     } catch (err) {
-      setError(err.message || "Could not upload logo");
+      setError(err.message || t("app.setBranding.uploadError"));
     } finally {
       setUploading(false);
     }
@@ -164,13 +167,13 @@ export default function BrandingPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Could not save branding");
+        throw new Error(data.error || t("app.setBranding.saveError"));
       }
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(err.message || "Could not save branding");
+      setError(err.message || t("app.setBranding.saveError"));
     } finally {
       setSaving(false);
     }
@@ -190,10 +193,9 @@ export default function BrandingPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Branding</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.branding")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your logo and brand color appear on every quote, invoice, and email
-          your clients see.
+          {t("app.setBranding.subtitle")}
         </p>
       </div>
 
@@ -205,11 +207,11 @@ export default function BrandingPage() {
 
       {/* Logo */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">Logo</h2>
+        <h2 className="font-semibold text-foreground mb-1">{t("app.setBranding.logo")}</h2>
         {/* 8 MB, not 10 — the API route rejects anything larger, so the old
             copy invited a failure and then blamed the file. */}
         <p className="text-sm text-muted-foreground mb-4">
-          PNG, JPG, WebP or SVG, up to 8 MB.
+          {t("app.setBranding.logoFormats")}
         </p>
 
         <div className="flex items-center gap-4">
@@ -218,11 +220,11 @@ export default function BrandingPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
-                alt="Company logo"
+                alt={t("app.setBranding.logoAlt")}
                 className="w-full h-full object-contain"
               />
             ) : (
-              <span className="text-xs text-muted-foreground">No logo</span>
+              <span className="text-xs text-muted-foreground">{t("app.setBranding.noLogo")}</span>
             )}
           </div>
 
@@ -246,10 +248,10 @@ export default function BrandingPage() {
                 <Upload size={14} />
               )}
               {uploading
-                ? "Uploading..."
+                ? t("app.setBranding.uploading")
                 : logoUrl
-                  ? "Replace logo"
-                  : "Upload logo"}
+                  ? t("app.setBranding.replaceLogo")
+                  : t("app.setBranding.uploadLogo")}
             </button>
           </div>
         </div>
@@ -257,24 +259,23 @@ export default function BrandingPage() {
 
       {/* Brand colors */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-1">Brand Colors</h2>
+        <h2 className="font-semibold text-foreground mb-1">{t("app.setBranding.brandColors")}</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          Used across your emails, quotes and invoices —{" "}
-          <strong className="text-foreground">and across this app</strong>. Your
-          primary colour becomes the sidebar and buttons your whole team sees.
-          Only the primary is required; the others follow sensible defaults.
+          {t("app.setBranding.colorsHint1")}{" "}
+          <strong className="text-foreground">{t("app.setBranding.colorsStrong")}</strong>
+          {t("app.setBranding.colorsHint2")}
         </p>
 
         <div className="space-y-5">
           <ColorRow
-            label="Primary"
-            hint="Buttons, progress bars and your name in the email header."
+            label={t("app.setBranding.primary")}
+            hint={t("app.setBranding.primaryHint")}
             value={brandColor}
             onChange={setBrandColor}
           />
           <ColorRow
-            label="Secondary"
-            hint="Supporting accents, like section titles on itemized lists. Defaults to your primary."
+            label={t("app.setBranding.secondary")}
+            hint={t("app.setBranding.secondaryHint")}
             value={secondary}
             onChange={setSecondary}
             onReset={() => setSecondary("")}
@@ -284,23 +285,23 @@ export default function BrandingPage() {
               so "pick and find out after a reload" is no longer acceptable. */}
           <div className="pt-2">
             <div className="text-sm font-medium text-foreground mb-2">
-              How the app will look
+              {t("app.setBranding.howAppLooks")}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <div className="text-xs text-muted-foreground mb-1.5">Light</div>
+                <div className="text-xs text-muted-foreground mb-1.5">{t("app.setBranding.light")}</div>
                 <BrandPreview brandColor={brandColor} secondary={secondary} />
               </div>
               <div>
-                <div className="text-xs text-muted-foreground mb-1.5">Dark</div>
+                <div className="text-xs text-muted-foreground mb-1.5">{t("app.setBranding.dark")}</div>
                 <BrandPreview brandColor={brandColor} secondary={secondary} dark />
               </div>
             </div>
           </div>
 
           <ColorRow
-            label="Neutral"
-            hint="The email header bar. Dark tones read as more premium than a saturated brand colour."
+            label={t("app.setBranding.neutral")}
+            hint={t("app.setBranding.neutralHint")}
             value={neutral}
             onChange={setNeutral}
             onReset={() => setNeutral("")}
@@ -311,9 +312,9 @@ export default function BrandingPage() {
 
       {/* Preview */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Preview</h2>
+        <h2 className="font-semibold text-foreground mb-3">{t("app.action.preview")}</h2>
         <p className="text-sm text-muted-foreground mb-3">
-          Roughly how the top of your emails will look.
+          {t("app.setBranding.previewHint")}
         </p>
 
         <div className="border border-border rounded-lg overflow-hidden max-w-md">
@@ -326,7 +327,7 @@ export default function BrandingPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
-                alt="Logo preview"
+                alt={t("app.setBranding.logoPreviewAlt")}
                 className="h-8 object-contain"
               />
             ) : (
@@ -334,7 +335,7 @@ export default function BrandingPage() {
                 className="text-xs font-bold uppercase tracking-[0.18em]"
                 style={{ color: brandColor }}
               >
-                Your Company Name
+                {t("app.setBranding.yourCompanyName")}
               </span>
             )}
           </div>
@@ -344,16 +345,16 @@ export default function BrandingPage() {
               className="text-[11px] font-bold uppercase tracking-wider mb-2"
               style={{ color: secondary || brandColor }}
             >
-              What&apos;s included
+              {t("app.setBranding.whatsIncluded")}
             </p>
             <p className="text-sm text-muted-foreground mb-4">
-              Your quote is ready to review.
+              {t("app.setBranding.quoteReady")}
             </p>
             <span
               className="inline-block px-6 py-2.5 rounded-md text-sm font-bold text-white"
               style={{ background: brandColor }}
             >
-              View &amp; approve
+              {t("app.setBranding.viewApprove")}
             </span>
           </div>
         </div>
@@ -365,7 +366,7 @@ export default function BrandingPage() {
         disabled={saving}
         className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
       >
-        {saving ? "Saving..." : saved ? "Saved ✓" : "Save Branding"}
+        {saving ? t("app.action.saving") : saved ? t("app.setBranding.savedCheck") : t("app.setBranding.saveBranding")}
       </button>
     </div>
   );

@@ -29,8 +29,10 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, ExternalLink, FileText, CalendarDays, Zap } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function ShareBlock({ icon: Icon, title, description, url, embed }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState("");
 
   function copy(what, value) {
@@ -61,7 +63,7 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
           className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
         >
           {copied === "link" ? <Check size={13} /> : <Copy size={13} />}
-          {copied === "link" ? "Copied" : "Copy link"}
+          {copied === "link" ? t("app.action.copied") : t("app.action.copyLink")}
         </button>
         <a
           href={url}
@@ -69,14 +71,14 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
         >
-          <ExternalLink size={13} /> Open
+          <ExternalLink size={13} /> {t("app.setLeadForm.open")}
         </a>
       </div>
 
       {embed && (
         <details className="mt-3">
           <summary className="text-xs text-muted-foreground cursor-pointer">
-            Embed it on your website instead
+            {t("app.setLeadForm.embedToggle")}
           </summary>
           <div className="mt-2 flex items-start gap-2">
             <pre className="flex-1 min-w-0 bg-muted border border-border rounded-lg p-3 text-[11px] overflow-x-auto">
@@ -88,7 +90,7 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
               className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0 mt-1"
             >
               {copied === "embed" ? <Check size={13} /> : <Copy size={13} />}
-              {copied === "embed" ? "Copied" : "Copy"}
+              {copied === "embed" ? t("app.action.copied") : t("app.setLeadForm.copy")}
             </button>
           </div>
         </details>
@@ -98,6 +100,7 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
 }
 
 export default function LeadFormPage() {
+  const { t } = useTranslation();
   const [slug, setSlug] = useState("");
   const [origin, setOrigin] = useState("");
 
@@ -130,7 +133,7 @@ export default function LeadFormPage() {
   const embed = (widget) => {
     const src = `${origin}/embed/${slug}/${widget}`;
     return `<iframe id="fieldquo-${widget}" src="${src}" width="100%" height="640" style="border:none;" title="${
-      widget === "book" ? "Book a visit" : "Request a quote"
+      widget === "book" ? t("app.setLeadForm.bookTitle") : t("app.setLeadForm.quoteTitle")
     }"></iframe>
 <script>
 window.addEventListener("message", function (e) {
@@ -156,40 +159,39 @@ window.addEventListener("message", function (e) {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Share your links</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.leadForm")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Put these anywhere you already are — your website, Google listing,
-          Facebook page, email signature, or the side of the van.
+          {t("app.setLeadForm.subtitle")}
         </p>
       </div>
 
       <ShareBlock
         icon={FileText}
-        title="Request a quote"
-        description="They describe the job and leave their details. Lands in your Leads pipeline. Best for people still comparing prices."
+        title={t("app.setLeadForm.quoteTitle")}
+        description={t("app.setLeadForm.quoteDesc")}
         url={quoteUrl}
         embed={embed("quote")}
       />
 
       <ShareBlock
         icon={CalendarDays}
-        title="Book a visit"
-        description="They pick a time from your real availability. Best for people who've already decided and just want you there."
+        title={t("app.setLeadForm.bookTitle")}
+        description={t("app.setLeadForm.bookDesc")}
         url={bookUrl}
         embed={embed("book")}
       />
 
       <ShareBlock
         icon={Zap}
-        title="Instant estimate"
-        description="They enter their address and get a real starting price in seconds — roof measured from satellite, or an area they trace on a map. Every estimate lands in your review queue before it's binding. Turn trades on and set your rates under Settings → Instant Quotes."
+        title={t("app.setLeadForm.instantTitle")}
+        description={t("app.setLeadForm.instantDesc")}
         url={instantUrl}
       />
 
       <p className="text-xs text-muted-foreground">
-        The quote form only offers the services you&apos;ve enabled under
-        Settings → Services, and never shows your prices — it collects enough
-        detail that you can quote accurately, without publishing your rates.
+        {t("app.setLeadForm.footer")}
       </p>
     </div>
   );

@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function OverheadPage() {
+  const { t } = useTranslation();
   const [salaries, setSalaries] = useState([]);
   // Capacity and the minimum price it makes possible. The page has always
   // claimed these feed a "minimum-price calculator"; there was no way to set the
@@ -66,7 +68,7 @@ export default function OverheadPage() {
       if (res.ok) {
         await loadMinPrice();
       } else {
-        await reportResponseError(res, "Couldn't save your capacity.");
+        await reportResponseError(res, t("app.setOverhead.saveCapacityError"));
       }
     } finally {
       setCapacitySaving(false);
@@ -128,10 +130,9 @@ export default function OverheadPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Overhead</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.setOverhead.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Fixed monthly costs. These, divided by how many jobs you can take on,
-          are the lowest price a job can go out at and still cover the business.
+          {t("app.setOverhead.subtitle")}
         </p>
       </div>
 
@@ -142,16 +143,16 @@ export default function OverheadPage() {
           invented price floor. It now refuses to answer without a real one. */}
       <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
         <div>
-          <h2 className="font-semibold text-foreground">Your minimum price</h2>
+          <h2 className="font-semibold text-foreground">{t("app.setOverhead.minPriceTitle")}</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            How many jobs can your crew take on in a normal week?
+            {t("app.setOverhead.minPriceDesc")}
           </p>
         </div>
 
         <form onSubmit={saveCapacity} className="flex flex-col sm:flex-row gap-2 sm:items-end">
           <label className="flex-1">
             <span className="text-xs font-medium text-muted-foreground block mb-1">
-              Jobs per week
+              {t("app.setOverhead.jobsPerWeek")}
             </span>
             <input
               type="number"
@@ -160,7 +161,7 @@ export default function OverheadPage() {
               step="1"
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
-              placeholder="not set"
+              placeholder={t("app.setOverhead.notSet")}
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
             />
           </label>
@@ -168,7 +169,7 @@ export default function OverheadPage() {
             disabled={capacitySaving}
             className="rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60"
           >
-            {capacitySaving ? "Saving…" : "Save"}
+            {capacitySaving ? t("app.action.saving") : t("app.action.save")}
           </button>
         </form>
 
@@ -179,10 +180,10 @@ export default function OverheadPage() {
         {minPrice && !minPrice.needsCapacity && !minPrice.error && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
             {[
-              ["Monthly fixed costs", minPrice.monthlyFixedCosts],
-              ["Jobs / month", minPrice.jobsPerMonth],
-              ["Cost per job", minPrice.costPerJob],
-              ["Minimum price", minPrice.minimumPrice],
+              [t("app.setOverhead.monthlyFixedCosts"), minPrice.monthlyFixedCosts],
+              [t("app.setOverhead.jobsPerMonth"), minPrice.jobsPerMonth],
+              [t("app.setOverhead.costPerJob"), minPrice.costPerJob],
+              [t("app.setOverhead.minimumPrice"), minPrice.minimumPrice],
             ].map(([label, value], i) => (
               <div key={label} className="rounded-lg border border-border px-3 py-2">
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -202,25 +203,24 @@ export default function OverheadPage() {
 
         {minPrice && !minPrice.needsCapacity && !minPrice.error && (
           <p className="text-[11px] text-muted-foreground">
-            At a {Math.round((minPrice.targetMargin || 0.2) * 100)}% target margin.
-            This covers overhead only — materials and labour for the specific job
-            are on top.
+            {t("app.setOverhead.marginNote", {
+              pct: Math.round((minPrice.targetMargin || 0.2) * 100),
+            })}
           </p>
         )}
       </div>
 
       <div>
-        <h2 className="font-semibold text-foreground mb-1">Salaries</h2>
+        <h2 className="font-semibold text-foreground mb-1">{t("app.setOverhead.salaries")}</h2>
         {/* Said out loud. These rows have no worker attached — buildPayRun reads
             salaries PER WORKER, so an overhead salary is a business cost and
             never lands on anyone's payslip. Two people reasonably read "Salaries"
             on a settings page as "what I pay my staff", and the page owes them
             the distinction. */}
         <p className="text-xs text-muted-foreground mb-3">
-          Business overhead only — your own draw, an office wage, anything fixed.
-          These are <strong className="text-foreground">not</strong> used to pay
-          anyone: an employee&apos;s pay comes from their rate or salary under
-          Manage Team, and appears in Payroll.
+          {t("app.setOverhead.salariesDesc1")}
+          <strong className="text-foreground">{t("app.setOverhead.salariesDescNot")}</strong>
+          {t("app.setOverhead.salariesDesc2")}
         </p>
         <div className="space-y-2 mb-3">
           {salaries.map((s) => (
@@ -237,7 +237,7 @@ export default function OverheadPage() {
         </div>
         <form onSubmit={addSalary} className="flex gap-2">
           <input
-            placeholder="Name"
+            placeholder={t("app.field.name")}
             value={salaryForm.name}
             onChange={(e) =>
               setSalaryForm({ ...salaryForm, name: e.target.value })
@@ -246,7 +246,7 @@ export default function OverheadPage() {
           />
           <input
             type="number"
-            placeholder="Amount"
+            placeholder={t("app.setOverhead.amount")}
             value={salaryForm.amount}
             onChange={(e) =>
               setSalaryForm({ ...salaryForm, amount: e.target.value })
@@ -260,9 +260,9 @@ export default function OverheadPage() {
             }
             className="border rounded px-2 py-2 text-sm bg-card"
           >
-            <option value="weekly">weekly</option>
-            <option value="monthly">monthly</option>
-            <option value="yearly">yearly</option>
+            <option value="weekly">{t("app.setOverhead.weekly")}</option>
+            <option value="monthly">{t("app.setOverhead.monthly")}</option>
+            <option value="yearly">{t("app.setOverhead.yearly")}</option>
           </select>
           <button
             type="submit"
@@ -274,7 +274,7 @@ export default function OverheadPage() {
       </div>
 
       <div>
-        <h2 className="font-semibold text-foreground mb-3">Debt</h2>
+        <h2 className="font-semibold text-foreground mb-3">{t("app.setOverhead.debt")}</h2>
         <div className="space-y-2 mb-3">
           {debts.map((d) => (
             <div
@@ -283,21 +283,22 @@ export default function OverheadPage() {
             >
               <span>{d.name}</span>
               <span className="font-semibold">
-                ${Number(d.monthlyPayment).toLocaleString()}/mo
+                ${Number(d.monthlyPayment).toLocaleString()}
+                {t("app.setOverhead.perMo")}
               </span>
             </div>
           ))}
         </div>
         <form onSubmit={addDebt} className="grid grid-cols-2 gap-2">
           <input
-            placeholder="Name"
+            placeholder={t("app.field.name")}
             value={debtForm.name}
             onChange={(e) => setDebtForm({ ...debtForm, name: e.target.value })}
             className="border rounded px-3 py-2 text-sm col-span-2"
           />
           <input
             type="number"
-            placeholder="Principal"
+            placeholder={t("app.setOverhead.principal")}
             value={debtForm.principal}
             onChange={(e) =>
               setDebtForm({ ...debtForm, principal: e.target.value })
@@ -306,7 +307,7 @@ export default function OverheadPage() {
           />
           <input
             type="number"
-            placeholder="Monthly payment"
+            placeholder={t("app.setOverhead.monthlyPayment")}
             value={debtForm.monthlyPayment}
             onChange={(e) =>
               setDebtForm({ ...debtForm, monthlyPayment: e.target.value })
@@ -317,7 +318,7 @@ export default function OverheadPage() {
             type="submit"
             className="col-span-2 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
           >
-            Add Debt
+            {t("app.setOverhead.addDebt")}
           </button>
         </form>
       </div>

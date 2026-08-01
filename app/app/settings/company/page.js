@@ -11,6 +11,7 @@ import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
 import { CURRENCIES } from "@/lib/currency";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function industryLabel(slug) {
   return INDUSTRIES.find((i) => i.slug === slug)?.label || slug;
@@ -110,6 +111,7 @@ const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function CompanySettingsPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -285,9 +287,9 @@ export default function CompanySettingsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Company Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.company")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your business details, hours, taxes, and regional preferences.
+          {t("app.setCompany.subtitle")}
         </p>
       </div>
 
@@ -297,15 +299,15 @@ export default function CompanySettingsPage() {
           directly into what's offered when building a new quote and which
           Products & Services can be linked to which quote type. */}
       <SectionCard
-        title="Industry & Quote Types"
-        description="What you told us your business does, and which quote types that unlocked."
+        title={t("app.setCompany.industryTitle")}
+        description={t("app.setCompany.industryDesc")}
       >
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-2">
-            Industries
+            {t("app.setCompany.industries")}
           </h3>
           {industries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None selected.</p>
+            <p className="text-sm text-muted-foreground">{t("app.setCompany.noneSelected")}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {industries.map((slug) => (
@@ -323,18 +325,18 @@ export default function CompanySettingsPage() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-foreground">
-              Enabled quote types
+              {t("app.setCompany.enabledQuoteTypes")}
             </h3>
             <Link
               href="/app/settings/services"
               className="text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              Manage
+              {t("app.setCompany.manage")}
             </Link>
           </div>
           {quoteTypes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              None turned on yet — go to Settings → Services.
+              {t("app.setCompany.noQuoteTypes")}
             </p>
           ) : (
             <div className="flex flex-wrap gap-2">
@@ -345,7 +347,7 @@ export default function CompanySettingsPage() {
                 >
                   {c.label}
                   {!c.isSystem && (
-                    <span className="text-amber-600 dark:text-amber-400"> · custom</span>
+                    <span className="text-amber-600 dark:text-amber-400">{t("app.setCompany.custom")}</span>
                   )}
                 </span>
               ))}
@@ -355,11 +357,11 @@ export default function CompanySettingsPage() {
       </SectionCard>
 
       {/* Company details */}
-      <SectionCard title="Company Details">
+      <SectionCard title={t("app.setCompany.detailsTitle")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Company name
+              {t("app.setCompany.companyName")}
             </label>
             <input
               className={inputClass}
@@ -369,7 +371,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Phone number
+              {t("app.setCompany.phoneNumber")}
             </label>
             <input
               className={inputClass}
@@ -379,7 +381,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Email address
+              {t("app.setCompany.emailAddress")}
             </label>
             <input
               type="email"
@@ -390,7 +392,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Website URL
+              {t("app.setCompany.websiteUrl")}
             </label>
             <input
               className={inputClass}
@@ -414,12 +416,12 @@ export default function CompanySettingsPage() {
           <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
           <div>
             <div className="text-sm font-medium text-foreground">
-              {slug ? `${slug}.fieldquo.com` : "Your subdomain"}
+              {slug ? `${slug}.fieldquo.com` : t("app.setCompany.yourSubdomain")}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Build and publish a one-page site under Settings →{" "}
+              {t("app.setCompany.subdomainHint")}{" "}
               <Link href="/app/settings/website" className="underline">
-                Your website
+                {t("app.settings.website")}
               </Link>
               .
             </div>
@@ -428,13 +430,13 @@ export default function CompanySettingsPage() {
 
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">
-            Street address
+            {t("app.setCompany.streetAddress")}
           </label>
           <AddressAutocomplete
             value={form.address}
             onChange={(v) => set("address", v)}
             onPlaceSelected={handlePlaceSelected}
-            placeholder="Start typing your street address..."
+            placeholder={t("app.setCompany.addressPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -442,7 +444,7 @@ export default function CompanySettingsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              City
+              {t("app.field.city")}
             </label>
             <input
               className={inputClass}
@@ -452,7 +454,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Province
+              {t("app.field.province")}
             </label>
             <input
               className={inputClass}
@@ -462,7 +464,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Postal code
+              {t("app.setCompany.postalCode")}
             </label>
             <input
               className={inputClass}
@@ -472,7 +474,7 @@ export default function CompanySettingsPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Country
+              {t("app.setCompany.country")}
             </label>
             <input
               className={inputClass}
@@ -492,8 +494,8 @@ export default function CompanySettingsPage() {
           Hours", which is how an estimator's day off ends up published as a
           company closure. */}
       <SectionCard
-        title="Opening hours"
-        description="When your business is open. Shown on your website and used for the opening hours that appear in Google search results."
+        title={t("app.setCompany.openingHoursTitle")}
+        description={t("app.setCompany.openingHoursDesc")}
       >
         <OpeningHoursEditor
           value={form.businessHours}
@@ -504,18 +506,18 @@ export default function CompanySettingsPage() {
 
       {/* Booking availability — per-user, drives the booking calendar. */}
       <SectionCard
-        title="Booking availability"
-        description="Which times can be booked online. Separate from your opening hours — the office can be open on a day nobody is free to visit."
+        title={t("app.setCompany.bookingTitle")}
+        description={t("app.setCompany.bookingDesc")}
       >
         <div className="flex items-start justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            Manage the bookable hours offered on your booking page.
+            {t("app.setCompany.bookingManage")}
           </p>
           <button
             onClick={() => setHoursModalOpen(true)}
             className="border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-muted shrink-0"
           >
-            Edit
+            {t("app.action.edit")}
           </button>
         </div>
 
@@ -530,7 +532,7 @@ export default function CompanySettingsPage() {
                   key={dayOfWeek}
                   className="flex items-center justify-between px-4 py-2.5"
                 >
-                  <dt className="text-sm text-foreground">{label}</dt>
+                  <dt className="text-sm text-foreground">{t(`app.setCompany.day${dayOfWeek}`, label)}</dt>
                   <dd
                     className={`text-sm tabular-nums ${
                       day ? "text-foreground font-medium" : "text-muted-foreground"
@@ -538,7 +540,7 @@ export default function CompanySettingsPage() {
                   >
                     {day
                       ? `${formatTime(day.startTime)} – ${formatTime(day.endTime)}`
-                      : "Closed"}
+                      : t("app.setCompany.closed")}
                   </dd>
                 </div>
               );
@@ -548,8 +550,7 @@ export default function CompanySettingsPage() {
 
         {hours?.length === 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            No hours set yet — every day is treated as closed for online
-            booking. Choose Edit to set them.
+            {t("app.setCompany.noHoursSet")}
           </p>
         )}
       </SectionCard>
@@ -563,22 +564,22 @@ export default function CompanySettingsPage() {
           Bring it back with the listing it refers to. */}
 
       {/* Tax settings */}
-      <SectionCard title="Tax Settings">
+      <SectionCard title={t("app.setCompany.taxTitle")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Tax ID name
+              {t("app.setCompany.taxIdName")}
             </label>
             <input
               className={inputClass}
-              placeholder="e.g. GST"
+              placeholder={t("app.setCompany.taxIdNamePlaceholder")}
               value={form.taxIdName}
               onChange={(e) => set("taxIdName", e.target.value)}
             />
           </div>
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Tax ID number
+              {t("app.setCompany.taxIdNumber")}
             </label>
             <input
               className={inputClass}
@@ -588,24 +589,23 @@ export default function CompanySettingsPage() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground -mt-2">
-          Tax ID name and number will appear on invoices.
+          {t("app.setCompany.taxIdHint")}
         </p>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-foreground">Tax Rates</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("app.setCompany.taxRates")}</h3>
             <button
               onClick={() => setShowNewRate((v) => !v)}
               className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
             >
-              <Plus size={14} /> Create tax rate
+              <Plus size={14} /> {t("app.setCompany.createTaxRate")}
             </button>
           </div>
 
           {taxRates.length === 0 && !showNewRate && (
             <p className="text-sm text-muted-foreground">
-              No tax rates yet — create one or more to apply them to quotes and
-              invoices.
+              {t("app.setCompany.noTaxRates")}
             </p>
           )}
 
@@ -621,14 +621,14 @@ export default function CompanySettingsPage() {
                     <span className="text-muted-foreground">— {Number(r.rate)}%</span>
                     {r.isDefault && (
                       <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-                        Default
+                        {t("app.setCompany.default")}
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleDeleteTaxRate(r.id)}
                     className="text-muted-foreground hover:text-red-500"
-                    aria-label={`Delete ${r.name}`}
+                    aria-label={t("app.setCompany.deleteRate", { name: r.name })}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -644,7 +644,7 @@ export default function CompanySettingsPage() {
             >
               <input
                 required
-                placeholder="Name (e.g. GST)"
+                placeholder={t("app.setCompany.rateNamePlaceholder")}
                 value={newRate.name}
                 onChange={(e) =>
                   setNewRate({ ...newRate, name: e.target.value })
@@ -655,7 +655,7 @@ export default function CompanySettingsPage() {
                 required
                 type="number"
                 step="0.001"
-                placeholder="Rate %"
+                placeholder={t("app.setCompany.ratePlaceholder")}
                 value={newRate.rate}
                 onChange={(e) =>
                   setNewRate({ ...newRate, rate: e.target.value })
@@ -670,13 +670,13 @@ export default function CompanySettingsPage() {
                     setNewRate({ ...newRate, isDefault: e.target.checked })
                   }
                 />
-                Default
+                {t("app.setCompany.default")}
               </label>
               <button
                 type="submit"
                 className="bg-inverted text-inverted-foreground px-3 py-1.5 rounded-lg text-sm font-semibold"
               >
-                Add
+                {t("app.action.add")}
               </button>
             </form>
           )}
@@ -690,27 +690,24 @@ export default function CompanySettingsPage() {
             onChange={(e) => set("autoApplyLocalTax", e.target.checked)}
           />
           <span>
-            Automatically apply the local tax rate of the client, instead of
-            manually picking one of the rates above on every quote/invoice.
+            {t("app.setCompany.autoApplyTax")}
             {/* Honoured by the quote builder via lib/tax/resolveTaxRate.js.
                 It only ever selects between the rates listed above — nothing
                 is invented, and an unmatched province falls back to your
                 default. */}
             <span className="block text-xs text-muted-foreground mt-1">
-              Matches the client&apos;s province against the rates above. If
-              there&apos;s no match, your default rate is used and the quote
-              says so.
+              {t("app.setCompany.autoApplyTaxHint")}
             </span>
           </span>
         </label>
       </SectionCard>
 
       {/* Regional settings */}
-      <SectionCard title="Regional Settings">
+      <SectionCard title={t("app.setCompany.regionalTitle")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Country
+              {t("app.setCompany.country")}
             </label>
             <input
               className={inputClass}
@@ -718,14 +715,13 @@ export default function CompanySettingsPage() {
               onChange={(e) => set("country", e.target.value)}
             />
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Info size={11} /> Filled in automatically from your address
-              above.
+              <Info size={11} /> {t("app.setCompany.countryAuto")}
             </p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Billing currency
+              {t("app.setCompany.billingCurrency")}
             </label>
             <select
               className={inputClass}
@@ -739,14 +735,13 @@ export default function CompanySettingsPage() {
               ))}
             </select>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Info size={11} /> The currency your quotes, invoices and client
-              payments are shown and charged in.
+              <Info size={11} /> {t("app.setCompany.currencyHint")}
             </p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Time zone
+              {t("app.setCompany.timeZone")}
             </label>
             <select
               className={inputClass}
@@ -763,7 +758,7 @@ export default function CompanySettingsPage() {
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Date format
+              {t("app.setCompany.dateFormat")}
             </label>
             <select
               className={inputClass}
@@ -780,14 +775,13 @@ export default function CompanySettingsPage() {
                 and emails format dates in the client's own language — see
                 lib/format/companyDate.js. */}
             <p className="text-xs text-muted-foreground mt-1">
-              Used on your screens. Client documents follow the client&apos;s
-              language.
+              {t("app.setCompany.dateFormatHint")}
             </p>
           </div>
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              First day of the week
+              {t("app.setCompany.weekStart")}
             </label>
             <select
               className={inputClass}
@@ -796,7 +790,7 @@ export default function CompanySettingsPage() {
             >
               {WEEK_START_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {t(`app.setCompany.day${o.value}`, o.label)}
                 </option>
               ))}
             </select>
@@ -810,13 +804,13 @@ export default function CompanySettingsPage() {
           which vary with the AdminSidebar's collapsed state. Keeping it in
           normal flow avoids that fragility. */}
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-        {saved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
+        {saved && <span className="text-sm text-green-600 dark:text-green-400">{t("app.action.saved")}</span>}
         <button
           onClick={handleSave}
           disabled={saving}
           className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Update Settings"}
+          {saving ? t("app.action.saving") : t("app.setCompany.updateSettings")}
         </button>
       </div>
 
