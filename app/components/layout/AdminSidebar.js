@@ -424,7 +424,7 @@ export default function AdminSidebar() {
       {/* h-14 is load-bearing, not decorative: SettingsSidebar's own mobile bar
           sticks at top-14 so the two stack instead of overlapping. Changing this
           height means changing that offset. */}
-      <div className="lg:hidden sticky top-0 z-40 h-14 flex items-center gap-2 px-3 bg-sidebar text-sidebar-foreground border-b border-sidebar-border">
+      <div className="lg:hidden sticky top-0 z-40 h-14 flex items-center gap-2 px-3 text-sidebar-foreground border-b border-sidebar-border/60 bg-sidebar/80 supports-[backdrop-filter]:bg-sidebar/65 backdrop-blur-xl backdrop-saturate-150">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
@@ -460,10 +460,10 @@ export default function AdminSidebar() {
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-black/30"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-sidebar text-sidebar-foreground shadow-xl flex flex-col">
+          <aside className="absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] bg-sidebar text-sidebar-foreground shadow-2xl flex flex-col">
             <SidebarContent forceExpanded />
           </aside>
         </div>

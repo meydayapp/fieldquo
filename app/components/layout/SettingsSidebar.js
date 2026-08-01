@@ -271,7 +271,7 @@ export default function SettingsSidebar() {
       {/* top-14, not top-0: AdminSidebar's mobile bar is h-14 and sticks above
           this one. At top-0 the two would occupy the same 56px and this bar
           would be hidden behind it. */}
-      <div className="lg:hidden sticky top-14 z-30 bg-card/95 backdrop-blur border-b border-border">
+      <div className="lg:hidden sticky top-14 z-30 border-b border-border/60 bg-card/70 supports-[backdrop-filter]:bg-card/60 backdrop-blur-xl backdrop-saturate-150">
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
@@ -292,8 +292,10 @@ export default function SettingsSidebar() {
             className="absolute inset-0 bg-black/40"
             onClick={() => setSheetOpen(false)}
           />
-          <div className="absolute inset-x-0 bottom-0 top-14 bg-card rounded-t-2xl flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+          <div className="absolute inset-x-0 bottom-0 top-14 bg-card/95 supports-[backdrop-filter]:bg-card/85 backdrop-blur-xl rounded-t-2xl flex flex-col shadow-[0_-8px_40px_rgba(0,0,0,0.18)]">
+            {/* Grab handle — the modern bottom-sheet affordance. */}
+            <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-muted-foreground/25 shrink-0" />
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 shrink-0">
               <span className="font-bold text-foreground">{t("app.settings.title")}</span>
               <button
                 type="button"
