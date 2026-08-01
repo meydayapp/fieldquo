@@ -835,7 +835,20 @@ export function appCoverage(code) {
   return covered / APP_MESSAGE_KEYS.length;
 }
 
-/** Languages whose interface catalogue is complete. */
+// Languages whose interface strings were drafted by an assistant and have NOT
+// had a native-speaker review. They still appear in the language picker with an
+// honest "needs review" label and a per-key English fallback, but they're held
+// out of APP_LANGUAGES (the offered/complete set) until a human clears them —
+// money screens especially must never ship unverified copy (AGENTS.md).
+// Remove a code from this set once a fluent speaker has checked it.
+export const APP_REVIEW_PENDING = new Set(["es", "uk", "pa", "tl"]);
+
+/** True once a language is safe to present as a finished interface. */
+export function appReviewed(code) {
+  return code === "en" || code === "fr" || !APP_REVIEW_PENDING.has(code);
+}
+
+/** Languages whose interface catalogue is complete AND human-reviewed. */
 export const APP_LANGUAGES = Object.keys(APP_MESSAGES).filter(
-  (code) => appCoverage(code) === 1,
+  (code) => appCoverage(code) === 1 && appReviewed(code),
 );

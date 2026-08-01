@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, Globe } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
-import { appCoverage } from "@/app/i18n/appMessages";
+import { appCoverage, appReviewed } from "@/app/i18n/appMessages";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 /**
@@ -25,6 +25,15 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 function Coverage({ code }) {
   const pct = Math.round(appCoverage(code) * 100);
   if (pct === 100) {
+    // Complete but not yet human-checked: say so rather than badge it "100%"
+    // clean, which reads as verified. A fluent reviewer clears it in code.
+    if (!appReviewed(code)) {
+      return (
+        <span className="text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
+          Interface 100% · needs review
+        </span>
+      );
+    }
     return (
       <span className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
         Interface 100%
