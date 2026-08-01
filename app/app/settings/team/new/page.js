@@ -15,6 +15,7 @@ import {
 } from "@/lib/permissions";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -42,6 +43,7 @@ function emptyPermissionValues() {
 }
 
 export default function NewUserPage() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   const [personal, setPersonal] = useState({
@@ -164,10 +166,11 @@ export default function NewUserPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 pb-16">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">New User</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.setTeamNew.title")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          They'll get an email invite to set up their own login. Everything
-          below is saved now and applied automatically once they accept.
+          {t("app.setTeamNew.subtitle")}
         </p>
       </div>
 
@@ -181,7 +184,7 @@ export default function NewUserPage() {
         {/* Personal information */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="text-base font-semibold text-foreground">
-            Personal Information
+            {t("app.setTeamNew.personalInfo")}
           </h2>
 
           <div className="flex items-center gap-4">
@@ -198,7 +201,9 @@ export default function NewUserPage() {
             </div>
             <label className="flex items-center gap-2 text-sm font-medium text-foreground border border-border rounded-full px-4 py-2 cursor-pointer hover:bg-muted">
               <Upload size={14} />
-              {uploading ? "Uploading..." : "Upload image"}
+              {uploading
+                ? t("app.setTeamNew.uploading")
+                : t("app.setTeamNew.uploadImage")}
               <input
                 type="file"
                 accept="image/*"
@@ -212,7 +217,7 @@ export default function NewUserPage() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Full name
+                {t("app.setTeamNew.fullName")}
               </label>
               <input
                 required
@@ -225,7 +230,7 @@ export default function NewUserPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Email address
+                {t("app.setTeamNew.emailAddress")}
               </label>
               <input
                 required
@@ -239,7 +244,7 @@ export default function NewUserPage() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium text-foreground block mb-1">
-                Mobile phone number
+                {t("app.setTeamNew.mobilePhone")}
               </label>
               <input
                 className={inputClass}
@@ -255,7 +260,7 @@ export default function NewUserPage() {
             </div>
             <div className="sm:col-span-2">
               <label className="text-sm font-medium text-foreground block mb-1">
-                Street address
+                {t("app.setTeamNew.streetAddress")}
               </label>
               <AddressAutocomplete
                 value={personal.address}
@@ -266,7 +271,7 @@ export default function NewUserPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                City
+                {t("app.field.city")}
               </label>
               <input
                 className={inputClass}
@@ -278,7 +283,7 @@ export default function NewUserPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Province
+                {t("app.field.province")}
               </label>
               <input
                 className={inputClass}
@@ -290,7 +295,7 @@ export default function NewUserPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Postal code
+                {t("app.setTeamNew.postalCode")}
               </label>
               <input
                 className={inputClass}
@@ -302,7 +307,7 @@ export default function NewUserPage() {
             </div>
             <div>
               <label className="text-sm font-medium text-foreground block mb-1">
-                Country
+                {t("app.setTeamNew.country")}
               </label>
               <input
                 className={inputClass}
@@ -316,11 +321,11 @@ export default function NewUserPage() {
 
           <div>
             <label className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-1">
-              Labour cost
+              {t("app.setTeamNew.labourCost")}
               <Info
                 size={13}
                 className="text-muted-foreground"
-                title="Their true hourly cost to the business (wage + burden) — used for job costing, not shown to clients."
+                title={t("app.setTeamNew.labourCostHint")}
               />
             </label>
             <div className="relative w-40">
@@ -331,7 +336,7 @@ export default function NewUserPage() {
                 type="number"
                 step="0.01"
                 className={`${inputClass} pl-6`}
-                placeholder="Employee cost / hr"
+                placeholder={t("app.setTeamNew.labourCostPlaceholder")}
                 value={laborCostPerHour}
                 onChange={(e) => setLaborCostPerHour(e.target.value)}
               />
@@ -341,7 +346,9 @@ export default function NewUserPage() {
 
         {/* Permissions */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-          <h2 className="text-base font-semibold text-foreground">Permissions</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            {t("app.setTeamNew.permissions")}
+          </h2>
 
           <label className="flex items-start gap-2.5 text-sm bg-muted border border-border rounded-lg p-3">
             <input
@@ -352,13 +359,11 @@ export default function NewUserPage() {
             />
             <span>
               <span className="font-medium text-foreground">
-                Make administrator
+                {t("app.setTeamNew.makeAdmin")}
               </span>
               <br />
               <span className="text-muted-foreground">
-                This allows them access to everything within the account —
-                including billing, reports, client list editing, and all user
-                permissions.
+                {t("app.setTeamNew.makeAdminDesc")}
               </span>
             </span>
           </label>
@@ -367,8 +372,7 @@ export default function NewUserPage() {
             <>
               <div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Start with a preset permission level, and customize further as
-                  needed.
+                  {t("app.setTeamNew.presetIntro")}
                 </p>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {Object.entries(PERMISSION_PRESETS).map(([key, preset]) => (
@@ -397,9 +401,11 @@ export default function NewUserPage() {
                         : "border-border text-muted-foreground"
                     }`}
                   >
-                    <div className="font-medium text-foreground">Custom</div>
+                    <div className="font-medium text-foreground">
+                      {t("app.setTeamNew.custom")}
+                    </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      Set each permission below individually.
+                      {t("app.setTeamNew.customDesc")}
                     </div>
                   </div>
                 </div>
@@ -468,7 +474,7 @@ export default function NewUserPage() {
         {/* Communications */}
         <div className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="text-base font-semibold text-foreground">
-            Communications
+            {t("app.setTeamNew.communications")}
           </h2>
 
           <label className="flex items-start gap-2.5 text-sm">
@@ -480,22 +486,21 @@ export default function NewUserPage() {
             />
             <span>
               <span className="font-medium text-foreground">
-                Email subscriptions
+                {t("app.setTeamNew.emailSubs")}
               </span>
               <br />
               <span className="text-muted-foreground">
-                Receive occasional surveys to tell us how we're doing.
+                {t("app.setTeamNew.emailSubsDesc")}
               </span>
             </span>
           </label>
 
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Invitation language
+              {t("app.setTeamNew.invitationLanguage")}
             </label>
             <p className="text-xs text-muted-foreground mb-1.5">
-              The chosen language only applies to the invitation and can't be
-              changed once sent.
+              {t("app.setTeamNew.invitationLangHint")}
             </p>
             <select
               className={`${inputClass} max-w-xs`}
@@ -517,14 +522,16 @@ export default function NewUserPage() {
             onClick={() => router.push("/app/settings/team")}
             className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
           >
-            Cancel
+            {t("app.action.cancel")}
           </button>
           <button
             type="submit"
             disabled={saving}
             className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
-            {saving ? "Sending invite..." : "Send Invite"}
+            {saving
+              ? t("app.setTeamNew.sendingInvite")
+              : t("app.setTeamNew.sendInvite")}
           </button>
         </div>
       </form>

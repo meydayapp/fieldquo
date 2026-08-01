@@ -31,6 +31,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, X, ArrowLeft, Check } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const REASONS = [
   { key: "too_expensive", label: "It costs too much right now" },
@@ -47,6 +48,7 @@ const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 export default function CancelFlow({ open, onClose, onCancelled, periodEnd, formatDate }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState("why");
   const [reason, setReason] = useState(null);
   const [note, setNote] = useState("");
@@ -97,7 +99,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
         body: JSON.stringify({ offer: key, reason }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "We couldn't apply that.");
+        await reportResponseError(res, t("app.cancelFlow.applyFailed", "We couldn't apply that."));
         return;
       }
       const d = await res.json();
@@ -117,7 +119,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
         body: JSON.stringify({ reason, note }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "We couldn't cancel just now.");
+        await reportResponseError(res, t("app.cancelFlow.cancelFailed", "We couldn't cancel just now."));
         return;
       }
       onCancelled?.();
@@ -135,22 +137,22 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
               type="button"
               onClick={() => setStep(step === "confirm" && offers.length ? "offer" : "why")}
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Back"
+              aria-label={t("app.action.back", "Back")}
             >
               <ArrowLeft size={18} />
             </button>
           )}
           <h2 className="font-bold text-foreground">
-            {step === "why" && "Before you go"}
-            {step === "offer" && "One thing first"}
-            {step === "confirm" && "Cancel your plan"}
-            {step === "kept" && "Sorted"}
+            {step === "why" && t("app.cancelFlow.beforeYouGo", "Before you go")}
+            {step === "offer" && t("app.cancelFlow.oneThingFirst", "One thing first")}
+            {step === "confirm" && t("app.cancelFlow.cancelYourPlan", "Cancel your plan")}
+            {step === "kept" && t("app.cancelFlow.sorted", "Sorted")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="ml-auto text-muted-foreground hover:text-foreground"
-            aria-label="Close"
+            aria-label={t("app.action.close", "Close")}
           >
             <X size={18} />
           </button>
@@ -165,26 +167,26 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
             {value?.worthShowing && (
               <div className="rounded-xl bg-muted px-4 py-3">
                 <p className="text-sm text-foreground">
-                  You&apos;ve built up{" "}
-                  <strong>{value.quotes} quotes</strong>
+                  {t("app.cancelFlow.builtUp", "You've built up")}{" "}
+                  <strong>{value.quotes} {t("app.cancelFlow.quotesWord", "quotes")}</strong>
                   {value.quotesWon > 0 && (
                     <>
                       {" "}
-                      — <strong>{value.quotesWon} won</strong>, worth{" "}
+                      — <strong>{value.quotesWon} {t("app.cancelFlow.wonWord", "won")}</strong>, {t("app.cancelFlow.worthWord", "worth")}{" "}
                       <strong>{money(value.wonTotal)}</strong>
                     </>
                   )}
-                  , <strong>{value.clients} clients</strong> and{" "}
-                  <strong>{value.invoices} invoices</strong> in here.
+                  , <strong>{value.clients} {t("app.cancelFlow.clientsWord", "clients")}</strong> {t("app.cancelFlow.andWord", "and")}{" "}
+                  <strong>{value.invoices} {t("app.cancelFlow.invoicesWord", "invoices")}</strong> {t("app.cancelFlow.inHere", "in here.")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  All of it stays exactly where it is if you come back.
+                  {t("app.cancelFlow.allStays", "All of it stays exactly where it is if you come back.")}
                 </p>
               </div>
             )}
 
             <p className="text-sm text-muted-foreground">
-              What&apos;s making you cancel? It changes what we can do about it.
+              {t("app.cancelFlow.whyPrompt", "What's making you cancel? It changes what we can do about it.")}
             </p>
 
             <div className="space-y-1.5">
@@ -196,7 +198,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                   onClick={() => chooseReason(r.key)}
                   className="w-full text-left px-4 py-3 rounded-lg border border-border hover:border-inverted hover:bg-muted text-sm text-foreground disabled:opacity-50"
                 >
-                  {r.label}
+                  {t(`app.cancelFlow.reason.${r.key}`, r.label)}
                 </button>
               ))}
             </div>
@@ -208,7 +210,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
               onClick={() => setStep("confirm")}
               className="text-sm text-muted-foreground underline"
             >
-              Skip this and cancel
+              {t("app.cancelFlow.skipCancel", "Skip this and cancel")}
             </button>
           </div>
         )}
@@ -248,7 +250,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
               onClick={() => setStep("confirm")}
               className="text-sm text-muted-foreground underline"
             >
-              No thanks — cancel my account
+              {t("app.cancelFlow.noThanksCancel", "No thanks — cancel my account")}
             </button>
           </div>
         )}
@@ -264,20 +266,16 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                       formatDate is what every other date in the product uses —
                       a cancellation screen is the worst place to show someone a
                       date they have to decode. */}
-                  You&apos;ve paid to{" "}
-                  <strong>{formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString()}</strong>, so
-                  you keep working normally until then. Nothing is charged after
-                  that.
+                  {t("app.cancelFlow.paidTo", "You've paid to")}{" "}
+                  <strong>{formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString()}</strong>{t("app.cancelFlow.paidToRest", ", so you keep working normally until then. Nothing is charged after that.")}
                 </>
               ) : (
-                <>Your plan will stop at the end of the period you&apos;ve paid for.</>
+                <>{t("app.cancelFlow.planWillStop", "Your plan will stop at the end of the period you've paid for.")}</>
               )}
             </p>
 
             <p className="text-sm text-muted-foreground">
-              Your quotes, clients, jobs and invoices stay in your account.
-              Nothing is deleted, and turning the plan back on brings it all
-              back.
+              {t("app.cancelFlow.dataStays", "Your quotes, clients, jobs and invoices stay in your account. Nothing is deleted, and turning the plan back on brings it all back.")}
             </p>
 
             {/* Free text, after the multiple choice rather than instead of it.
@@ -285,13 +283,13 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                 the actual reason usually is. */}
             <label className="block">
               <span className="text-sm font-medium text-foreground">
-                Anything you want to tell us?
+                {t("app.cancelFlow.tellUs", "Anything you want to tell us?")}
               </span>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                placeholder="Optional — but it's the only way we find out what to fix."
+                placeholder={t("app.cancelFlow.notePlaceholder", "Optional — but it's the only way we find out what to fix.")}
                 className="mt-1.5 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
               />
             </label>
@@ -304,14 +302,14 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-red-600 text-white text-sm font-semibold disabled:opacity-50"
               >
                 {busy && <Loader2 size={14} className="animate-spin" />}
-                Cancel my plan
+                {t("app.cancelFlow.cancelMyPlan", "Cancel my plan")}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="px-5 py-2.5 rounded-full border border-border text-sm text-foreground"
               >
-                Keep my plan
+                {t("app.cancelFlow.keepMyPlan", "Keep my plan")}
               </button>
             </div>
           </div>
@@ -325,7 +323,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
             </div>
             <p className="font-semibold text-foreground">{accepted}</p>
             <p className="text-sm text-muted-foreground">
-              It&apos;s applied to your next invoice — nothing else to do.
+              {t("app.cancelFlow.keptDone", "It's applied to your next invoice — nothing else to do.")}
             </p>
             <button
               type="button"
@@ -336,7 +334,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
               }}
               className="px-5 py-2.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
             >
-              Done
+              {t("app.action.done", "Done")}
             </button>
           </div>
         )}

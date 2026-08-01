@@ -12,10 +12,12 @@ import { useRouter } from "next/navigation";
 import { Plus, Star, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const GROUPS = ["Automated", "Marketing", "Custom"];
 
 export default function EmailTemplatesPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,12 +53,12 @@ export default function EmailTemplatesPage() {
     if (res.ok) {
       setSeedMsg(
         data.created > 0
-          ? `Added ${data.created} default template${data.created === 1 ? "" : "s"}.`
-          : "You already have a template for every automated type.",
+          ? t("app.emailTemplates.seedAdded", "Added {count} default templates.", { count: data.created })
+          : t("app.emailTemplates.seedAllPresent", "You already have a template for every automated type."),
       );
       load();
     } else {
-      setSeedMsg(data.error || "Could not seed defaults");
+      setSeedMsg(data.error || t("app.emailTemplates.seedError", "Could not seed defaults"));
     }
     setSeeding(false);
   }
@@ -153,11 +155,11 @@ export default function EmailTemplatesPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Email Templates</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.emailTemplates.title", "Email Templates")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Customize the emails your clients get. The template marked{" "}
-            <strong>Active</strong> for each type is the one that's actually
-            sent — build as many drafts and variations as you want.
+            {t("app.emailTemplates.descPart1", "Customize the emails your clients get. The template marked")}{" "}
+            <strong>{t("app.status.active", "Active")}</strong>{" "}
+            {t("app.emailTemplates.descPart2", "for each type is the one that's actually sent — build as many drafts and variations as you want.")}
           </p>
           {seedMsg && <p className="text-xs text-muted-foreground mt-2">{seedMsg}</p>}
         </div>
@@ -166,7 +168,7 @@ export default function EmailTemplatesPage() {
           disabled={seeding}
           className="flex items-center gap-2 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted disabled:opacity-60 shrink-0"
         >
-          <Sparkles size={14} /> {seeding ? "Adding…" : "Add default templates"}
+          <Sparkles size={14} /> {seeding ? t("app.emailTemplates.adding", "Adding…") : t("app.emailTemplates.addDefaults", "Add default templates")}
         </button>
       </div>
 
@@ -175,7 +177,7 @@ export default function EmailTemplatesPage() {
         return (
           <div key={group}>
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              {group}
+              {t(`app.emailTemplates.group${group}`, group)}
             </h2>
             <div className="space-y-4">
               {typesInGroup.map(([type, meta]) => {
@@ -191,13 +193,13 @@ export default function EmailTemplatesPage() {
                         onClick={() => openCreate(type)}
                         className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
                       >
-                        <Plus size={14} /> New Template
+                        <Plus size={14} /> {t("app.emailTemplates.newTemplate", "New Template")}
                       </button>
                     </div>
 
                     {typeTemplates.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        No templates yet — using the built-in default.
+                        {t("app.emailTemplates.noTemplates", "No templates yet — using the built-in default.")}
                       </p>
                     ) : (
                       <div className="divide-y divide-border">
@@ -271,7 +273,9 @@ export default function EmailTemplatesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold text-foreground mb-4">
-              New {TEMPLATE_TYPE_META[creatingType]?.label} template
+              {t("app.emailTemplates.newModalTitle", "New {label} template", {
+                label: TEMPLATE_TYPE_META[creatingType]?.label,
+              })}
             </h2>
             {createError && (
               <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2 mb-3">
@@ -282,7 +286,7 @@ export default function EmailTemplatesPage() {
               <input
                 required
                 autoFocus
-                placeholder="Template name"
+                placeholder={t("app.emailTemplates.namePlaceholder", "Template name")}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
@@ -292,7 +296,7 @@ export default function EmailTemplatesPage() {
                 disabled={creating}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {creating ? "Creating…" : "Create & edit"}
+                {creating ? t("app.emailTemplates.creating", "Creating…") : t("app.emailTemplates.createAndEdit", "Create & edit")}
               </button>
             </form>
           </div>

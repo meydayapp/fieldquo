@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function WorkAreasPage() {
+  const { t } = useTranslation();
   const [workAreas, setWorkAreas] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,15 +73,15 @@ export default function WorkAreasPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Work Areas</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.setWorkAreas.title", "Work Areas")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Group tasks by project or zone and assign your team.
+          {t("app.setWorkAreas.subtitle", "Group tasks by project or zone and assign your team.")}
         </p>
       </div>
 
       <form onSubmit={handleCreate} className="flex gap-2">
         <input
-          placeholder="New work area name"
+          placeholder={t("app.setWorkAreas.namePlaceholder", "New work area name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="border rounded px-3 py-2 text-sm flex-1"

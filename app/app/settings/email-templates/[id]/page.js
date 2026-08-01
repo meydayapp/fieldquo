@@ -53,6 +53,7 @@ import {
 import { renderTemplateSections } from "@/lib/email/renderTemplateSections";
 import ReplyToPromptModal from "@/app/components/settings/ReplyToPromptModal";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PREVIEW_MERGE_DATA = {
   clientName: "Jane Doe",
@@ -111,6 +112,7 @@ const inputClass =
 
 // ── Small reusable alignment segmented control ──────────────────────────
 function AlignControl({ value = "left", onChange }) {
+  const { t } = useTranslation();
   const opts = [
     { v: "left", Icon: AlignLeft },
     { v: "center", Icon: AlignCenter },
@@ -123,7 +125,7 @@ function AlignControl({ value = "left", onChange }) {
           key={v}
           type="button"
           onClick={() => onChange(v)}
-          aria-label={`Align ${v}`}
+          aria-label={t("app.emailEditor.alignAria", "Align {dir}", { dir: v })}
           aria-pressed={value === v}
           className={`px-2.5 py-1.5 ${
             value === v
@@ -140,6 +142,7 @@ function AlignControl({ value = "left", onChange }) {
 
 // ── Per-block fields (switches on block type) ───────────────────────────
 function BlockFields({ block, update, setFocus }) {
+  const { t } = useTranslation();
   const fieldRow = "flex flex-wrap items-center gap-2";
 
   if (block.type === "heading") {
@@ -161,9 +164,9 @@ function BlockFields({ block, update, setFocus }) {
             onChange={(e) => update("size", e.target.value)}
             className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
           >
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
+            <option value="small">{t("app.emailEditor.sizeSmall", "Small")}</option>
+            <option value="medium">{t("app.emailEditor.sizeMedium", "Medium")}</option>
+            <option value="large">{t("app.emailEditor.sizeLarge", "Large")}</option>
           </select>
         </div>
       </div>
@@ -189,14 +192,14 @@ function BlockFields({ block, update, setFocus }) {
     return (
       <div className="space-y-2">
         <input
-          placeholder="Image URL"
+          placeholder={t("app.emailEditor.imageUrlPlaceholder", "Image URL")}
           className={inputClass}
           value={block.url || ""}
           onFocus={() => setFocus("url")}
           onChange={(e) => update("url", e.target.value)}
         />
         <input
-          placeholder="Alt text"
+          placeholder={t("app.emailEditor.altTextPlaceholder", "Alt text")}
           className={inputClass}
           value={block.alt || ""}
           onFocus={() => setFocus("alt")}
@@ -212,8 +215,8 @@ function BlockFields({ block, update, setFocus }) {
             onChange={(e) => update("width", e.target.value)}
             className="border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
           >
-            <option value="full">Full width</option>
-            <option value="half">Half width</option>
+            <option value="full">{t("app.emailEditor.widthFull", "Full width")}</option>
+            <option value="half">{t("app.emailEditor.widthHalf", "Half width")}</option>
           </select>
         </div>
       </div>
@@ -224,14 +227,14 @@ function BlockFields({ block, update, setFocus }) {
     return (
       <div className="space-y-2">
         <input
-          placeholder="Button label"
+          placeholder={t("app.emailEditor.buttonLabelPlaceholder", "Button label")}
           className={inputClass}
           value={block.label || ""}
           onFocus={() => setFocus("label")}
           onChange={(e) => update("label", e.target.value)}
         />
         <input
-          placeholder="Link URL (or {{quoteUrl}})"
+          placeholder={t("app.emailEditor.linkUrlPlaceholder", "Link URL (or {{quoteUrl}})")}
           className={inputClass}
           value={block.url || ""}
           onFocus={() => setFocus("url")}
@@ -243,7 +246,7 @@ function BlockFields({ block, update, setFocus }) {
             onChange={(v) => update("align", v)}
           />
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Button
+            {t("app.emailEditor.buttonColorLabel", "Button")}
             <input
               type="color"
               value={block.bg || "#111827"}
@@ -252,7 +255,7 @@ function BlockFields({ block, update, setFocus }) {
             />
           </label>
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Text
+            {t("app.emailEditor.textColorLabel", "Text")}
             <input
               type="color"
               value={block.color || "#ffffff"}
@@ -285,28 +288,27 @@ function BlockFields({ block, update, setFocus }) {
   }
 
   if (block.type === "divider") {
-    return <p className="text-xs text-muted-foreground">A horizontal divider line.</p>;
+    return <p className="text-xs text-muted-foreground">{t("app.emailEditor.dividerDesc", "A horizontal divider line.")}</p>;
   }
 
   if (block.type === "summary") {
     return (
       <p className="text-xs text-muted-foreground">
-        Automatically shows the quote or invoice number and total — nothing to
-        configure.
+        {t("app.emailEditor.summaryDesc", "Automatically shows the quote or invoice number and total — nothing to configure.")}
       </p>
     );
   }
 
   if (block.type === "lineItems") {
     const toggles = [
-      ["showQuantity", "Quantity"],
-      ["showUnitPrice", "Unit price"],
-      ["showSubtotals", "Line totals"],
+      ["showQuantity", t("app.emailEditor.toggleQuantity", "Quantity")],
+      ["showUnitPrice", t("app.emailEditor.toggleUnitPrice", "Unit price")],
+      ["showSubtotals", t("app.emailEditor.toggleLineTotals", "Line totals")],
     ];
     return (
       <div className="space-y-3">
         <input
-          placeholder="Section title (optional)"
+          placeholder={t("app.emailEditor.sectionTitlePlaceholder", "Section title (optional)")}
           className={inputClass}
           value={block.title ?? ""}
           onFocus={() => setFocus("title")}
@@ -329,8 +331,7 @@ function BlockFields({ block, update, setFocus }) {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Pulls the real line items from the quote or invoice this email is
-          sent for. Hidden automatically when there aren&apos;t any.
+          {t("app.emailEditor.lineItemsHelp", "Pulls the real line items from the quote or invoice this email is sent for. Hidden automatically when there aren't any.")}
         </p>
       </div>
     );
@@ -361,7 +362,7 @@ function BlockFields({ block, update, setFocus }) {
                   )
                 }
                 className="text-muted-foreground hover:text-red-500 p-1 shrink-0"
-                aria-label={`Remove stage ${i + 1}`}
+                aria-label={t("app.emailEditor.removeStageAria", "Remove stage {num}", { num: i + 1 })}
               >
                 <Trash2 size={14} />
               </button>
@@ -370,10 +371,10 @@ function BlockFields({ block, update, setFocus }) {
         </div>
         <button
           type="button"
-          onClick={() => update("stages", [...stages, "New stage"])}
+          onClick={() => update("stages", [...stages, t("app.emailEditor.newStage", "New stage")])}
           className="text-xs text-muted-foreground hover:text-foreground underline"
         >
-          + Add stage
+          {t("app.emailEditor.addStage", "+ Add stage")}
         </button>
 
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
@@ -384,15 +385,14 @@ function BlockFields({ block, update, setFocus }) {
             className="mt-0.5 rounded border-border accent-primary"
           />
           <span>
-            Set the current stage automatically from the project&apos;s status
-            when the email sends.
+            {t("app.emailEditor.autoStageLabel", "Set the current stage automatically from the project's status when the email sends.")}
           </span>
         </label>
 
         {block.useMergeField === false && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground shrink-0">
-              Current stage
+              {t("app.emailEditor.currentStage", "Current stage")}
             </span>
             <select
               value={block.activeStage ?? 0}
@@ -409,7 +409,7 @@ function BlockFields({ block, update, setFocus }) {
         )}
         {block.useMergeField !== false && (
           <p className="text-xs text-muted-foreground">
-            The preview shows the stage this template is normally sent at.
+            {t("app.emailEditor.previewStageNote", "The preview shows the stage this template is normally sent at.")}
           </p>
         )}
       </div>
@@ -421,6 +421,7 @@ function BlockFields({ block, update, setFocus }) {
 
 // ── One sortable block card ─────────────────────────────────────────────
 function SortableBlock({ block, update, remove, setFocus }) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -453,7 +454,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
             type="button"
             {...attributes}
             {...listeners}
-            aria-label="Drag to reorder"
+            aria-label={t("app.emailEditor.dragToReorder", "Drag to reorder")}
             className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1 p-1 rounded"
           >
             <GripVertical size={18} />
@@ -466,7 +467,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
           type="button"
           onClick={() => remove(block.id)}
           className="text-muted-foreground hover:text-red-500 p-1"
-          aria-label="Remove block"
+          aria-label={t("app.emailEditor.removeBlock", "Remove block")}
         >
           <Trash2 size={15} />
         </button>
@@ -482,6 +483,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
 }
 
 export default function EmailTemplateEditorPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
 
   const [template, setTemplate] = useState(null);
@@ -665,9 +667,9 @@ export default function EmailTemplateEditorPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
-      setTestMsg({ ok: true, text: `Test sent to ${testEmail.trim()}` });
+      setTestMsg({ ok: true, text: t("app.emailEditor.testSent", "Test sent to {email}", { email: testEmail.trim() }) });
     } else {
-      setTestMsg({ ok: false, text: data.error || "Couldn't send the test." });
+      setTestMsg({ ok: false, text: data.error || t("app.emailEditor.testError", "Couldn't send the test.") });
     }
     setSendingTest(false);
   }
@@ -684,7 +686,7 @@ export default function EmailTemplateEditorPage() {
   if (!template) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <p className="text-sm text-muted-foreground">Template not found.</p>
+        <p className="text-sm text-muted-foreground">{t("app.editPdf.templateNotFound", "Template not found.")}</p>
       </div>
     );
   }
@@ -705,7 +707,7 @@ export default function EmailTemplateEditorPage() {
             <Link
               href="/app/settings/email-templates"
               className="text-muted-foreground hover:text-foreground shrink-0"
-              aria-label="Back to templates"
+              aria-label={t("app.emailEditor.backToTemplates", "Back to templates")}
             >
               <ArrowLeft size={18} />
             </Link>
@@ -726,11 +728,11 @@ export default function EmailTemplateEditorPage() {
               }`}
             >
               <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
-              {isActive ? "Active" : activating ? "Activating…" : "Set active"}
+              {isActive ? t("app.status.active", "Active") : activating ? t("app.emailEditor.activating", "Activating…") : t("app.emailEditor.setActive", "Set active")}
             </button>
             {savedFlash && (
               <span className="text-xs text-emerald-600 dark:text-emerald-400 hidden sm:inline">
-                Saved
+                {t("app.action.saved", "Saved")}
               </span>
             )}
             <button
@@ -739,7 +741,7 @@ export default function EmailTemplateEditorPage() {
               className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-60"
             >
               <Save size={14} />
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("app.action.saving", "Saving…") : t("app.action.save", "Save")}
             </button>
           </div>
         </div>
@@ -754,7 +756,7 @@ export default function EmailTemplateEditorPage() {
                 : "text-muted-foreground"
             }`}
           >
-            <Pencil size={14} /> Edit
+            <Pencil size={14} /> {t("app.action.edit", "Edit")}
           </button>
           <button
             onClick={() => setMobileView("preview")}
@@ -764,7 +766,7 @@ export default function EmailTemplateEditorPage() {
                 : "text-muted-foreground"
             }`}
           >
-            <Eye size={14} /> Preview
+            <Eye size={14} /> {t("app.action.preview", "Preview")}
           </button>
         </div>
       </div>
@@ -788,10 +790,10 @@ export default function EmailTemplateEditorPage() {
           >
             <Star size={13} className={isActive ? "fill-emerald-700" : ""} />
             {isActive
-              ? "Active template"
+              ? t("app.emailEditor.activeTemplate", "Active template")
               : activating
-                ? "Activating…"
-                : "Set as active"}
+                ? t("app.emailEditor.activating", "Activating…")
+                : t("app.emailEditor.setAsActive", "Set as active")}
           </button>
 
           {/* Subject line */}
@@ -800,19 +802,18 @@ export default function EmailTemplateEditorPage() {
               htmlFor="template-subject"
               className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2"
             >
-              Subject line
+              {t("app.emailEditor.subjectLabel", "Subject line")}
             </label>
             <input
               id="template-subject"
               className={inputClass}
-              placeholder="Your quote from {{companyName}} is ready"
+              placeholder={t("app.emailEditor.subjectPlaceholder", "Your quote from {{companyName}} is ready")}
               value={subject}
               onFocus={() => setLastFocused({ subject: true })}
               onChange={(e) => setSubject(e.target.value)}
             />
             <p className="text-xs text-muted-foreground mt-1.5">
-              Merge fields work here too. Left blank, the built-in subject for
-              this template type is used.
+              {t("app.emailEditor.subjectHelper", "Merge fields work here too. Left blank, the built-in subject for this template type is used.")}
             </p>
           </div>
 
@@ -824,10 +825,10 @@ export default function EmailTemplateEditorPage() {
               className="w-full flex items-center justify-between text-left"
             >
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Look &amp; feel
+                {t("app.emailEditor.lookAndFeel", "Look & feel")}
               </span>
               <span className="text-xs text-muted-foreground">
-                {theme ? "Customized" : "Using your branding"}
+                {theme ? t("app.emailEditor.customized", "Customized") : t("app.emailEditor.usingBranding", "Using your branding")}
               </span>
             </button>
 
@@ -835,7 +836,7 @@ export default function EmailTemplateEditorPage() {
               <div className="mt-3 space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Accent
+                    {t("app.emailEditor.accentLabel", "Accent")}
                     <input
                       type="color"
                       value={theme?.accent || company.brandColor || "#06356b"}
@@ -844,7 +845,7 @@ export default function EmailTemplateEditorPage() {
                     />
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Header
+                    {t("app.emailEditor.headerLabel", "Header")}
                     <input
                       type="color"
                       value={theme?.headerBg || "#1A1917"}
@@ -853,7 +854,7 @@ export default function EmailTemplateEditorPage() {
                     />
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Background
+                    {t("app.emailEditor.backgroundLabel", "Background")}
                     <input
                       type="color"
                       value={theme?.bg || "#F8F4EF"}
@@ -871,7 +872,7 @@ export default function EmailTemplateEditorPage() {
                   >
                     {FONT_OPTIONS.map((f) => (
                       <option key={f.value} value={f.value}>
-                        {f.label}
+                        {t(`app.emailEditor.font_${f.value}`, f.label)}
                       </option>
                     ))}
                   </select>
@@ -884,7 +885,7 @@ export default function EmailTemplateEditorPage() {
                       }
                       className="rounded border-border accent-primary"
                     />
-                    Header
+                    {t("app.emailEditor.headerLabel", "Header")}
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <input
@@ -895,7 +896,7 @@ export default function EmailTemplateEditorPage() {
                       }
                       className="rounded border-border accent-primary"
                     />
-                    Footer
+                    {t("app.emailEditor.footerLabel", "Footer")}
                   </label>
                 </div>
 
@@ -905,13 +906,12 @@ export default function EmailTemplateEditorPage() {
                     onClick={() => setTheme(null)}
                     className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
-                    Reset to my company branding
+                    {t("app.emailEditor.resetBranding", "Reset to my company branding")}
                   </button>
                 )}
                 {!company.logoUrl && (
                   <p className="text-xs text-muted-foreground">
-                    No logo uploaded — the header shows your company name
-                    instead. Add one in Settings &gt; Branding.
+                    {t("app.emailEditor.noLogoNote", "No logo uploaded — the header shows your company name instead. Add one in Settings > Branding.")}
                   </p>
                 )}
               </div>
@@ -921,7 +921,7 @@ export default function EmailTemplateEditorPage() {
           {/* Merge fields */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Insert a merge field
+              {t("app.emailEditor.insertMergeField", "Insert a merge field")}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {MERGE_FIELDS.map((f) => (
@@ -931,8 +931,8 @@ export default function EmailTemplateEditorPage() {
                   disabled={!lastFocused}
                   title={
                     lastFocused
-                      ? "Insert into the field you last clicked"
-                      : "Click into a text field first"
+                      ? t("app.emailEditor.mergeFieldEnabledTitle", "Insert into the field you last clicked")
+                      : t("app.emailEditor.mergeFieldDisabledTitle", "Click into a text field first")
                   }
                   className="text-xs bg-muted hover:bg-accent disabled:opacity-40 disabled:hover:bg-muted text-foreground px-2 py-1 rounded-full"
                 >
@@ -944,7 +944,7 @@ export default function EmailTemplateEditorPage() {
 
           {sections.length === 0 && (
             <p className="text-sm text-muted-foreground px-1">
-              No blocks yet — add one below.
+              {t("app.emailEditor.noBlocks", "No blocks yet — add one below.")}
             </p>
           )}
 
@@ -978,7 +978,7 @@ export default function EmailTemplateEditorPage() {
               onClick={() => setAddOpen((v) => !v)}
               className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-xl py-3 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
             >
-              <Plus size={14} /> Add block
+              <Plus size={14} /> {t("app.emailEditor.addBlock", "Add block")}
             </button>
             {addOpen && (
               <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg p-1.5">
@@ -998,12 +998,12 @@ export default function EmailTemplateEditorPage() {
           {/* Send a test */}
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Send a test
+              {t("app.emailEditor.sendTest", "Send a test")}
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="email"
-                placeholder="you@email.com"
+                placeholder={t("app.emailEditor.testEmailPlaceholder", "you@email.com")}
                 value={testEmail}
                 onChange={(e) => setTestEmail(e.target.value)}
                 className={inputClass}
@@ -1014,7 +1014,7 @@ export default function EmailTemplateEditorPage() {
                 className="bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60 shrink-0"
               >
                 <Send size={14} />
-                {sendingTest ? "Sending…" : "Send"}
+                {sendingTest ? t("app.action.sending", "Sending…") : t("app.action.send", "Send")}
               </button>
             </div>
             {testMsg && (
@@ -1038,12 +1038,12 @@ export default function EmailTemplateEditorPage() {
           <div className="lg:sticky lg:top-32">
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Preview (sample data)
+                {t("app.emailEditor.previewSampleData", "Preview (sample data)")}
               </div>
               <div className="inline-flex rounded-lg border border-border overflow-hidden">
                 <button
                   onClick={() => setPreviewDevice("mobile")}
-                  aria-label="Mobile preview"
+                  aria-label={t("app.emailEditor.mobilePreview", "Mobile preview")}
                   aria-pressed={previewDevice === "mobile"}
                   className={`px-2.5 py-1.5 ${
                     previewDevice === "mobile"
@@ -1055,7 +1055,7 @@ export default function EmailTemplateEditorPage() {
                 </button>
                 <button
                   onClick={() => setPreviewDevice("desktop")}
-                  aria-label="Desktop preview"
+                  aria-label={t("app.emailEditor.desktopPreview", "Desktop preview")}
                   aria-pressed={previewDevice === "desktop"}
                   className={`px-2.5 py-1.5 ${
                     previewDevice === "desktop"
@@ -1069,7 +1069,7 @@ export default function EmailTemplateEditorPage() {
             </div>
             <div className="bg-muted border border-border rounded-xl p-3 flex justify-center">
               <iframe
-                title="Email preview"
+                title={t("app.emailEditor.emailPreview", "Email preview")}
                 srcDoc={previewHtml}
                 // Belt-and-braces with the inert-link styles: no scripts, no
                 // form submits, no top-level navigation out of the editor.

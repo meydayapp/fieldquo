@@ -23,8 +23,10 @@ import {
   Download,
 } from "lucide-react";
 import { SECTION_META, sectionsForType } from "@/lib/documentSections/sectionMeta";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function EditPdfTemplatePage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
 
@@ -84,7 +86,7 @@ export default function EditPdfTemplatePage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't save.");
+      if (!res.ok) throw new Error(d?.error || t("app.editPdf.saveError", "Couldn't save."));
       router.push("/app/settings/templates");
     } catch (err) {
       setError(err.message);
@@ -103,7 +105,7 @@ export default function EditPdfTemplatePage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't generate a preview.");
+        throw new Error(d?.error || t("app.editPdf.previewError", "Couldn't generate a preview."));
       }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -124,7 +126,7 @@ export default function EditPdfTemplatePage() {
     return (
       <div className="max-w-2xl">
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
-          {error || "Template not found."}
+          {error || t("app.editPdf.templateNotFound", "Template not found.")}
         </div>
       </div>
     );
@@ -141,14 +143,14 @@ export default function EditPdfTemplatePage() {
         href="/app/settings/templates"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> PDF Templates
+        <ArrowLeft size={14} /> {t("app.pdfTemplates.title", "PDF Templates")}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Edit layout</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.editPdf.editLayout", "Edit layout")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {template.type === "invoice_pdf" ? "Invoice" : "Quote"} PDF
-          {template.isDefault && " · currently in use"}
+          {template.type === "invoice_pdf" ? t("app.editPdf.invoiceWord", "Invoice") : t("app.editPdf.quoteWord", "Quote")} PDF
+          {template.isDefault && t("app.editPdf.currentlyInUse", " · currently in use")}
         </p>
       </div>
 
@@ -161,7 +163,7 @@ export default function EditPdfTemplatePage() {
 
       <div className="bg-card border border-border rounded-xl p-5">
         <label className="block text-sm font-medium text-foreground mb-1">
-          Name
+          {t("app.field.name", "Name")}
         </label>
         <input
           value={name}
@@ -169,28 +171,26 @@ export default function EditPdfTemplatePage() {
           className="w-full border border-border rounded-lg px-3 py-2 text-sm"
         />
         <p className="text-xs text-muted-foreground mt-1">
-          For your reference only — clients never see this.
+          {t("app.editPdf.nameHelper", "For your reference only — clients never see this.")}
         </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Sections, top to bottom</h2>
+        <h2 className="font-semibold text-foreground">{t("app.editPdf.sectionsHeading", "Sections, top to bottom")}</h2>
 
         {missingRecommended.length > 0 && (
           <div className="mt-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-            You&apos;ve removed{" "}
+            {t("app.editPdf.youveRemoved", "You've removed")}{" "}
             {missingRecommended
               .map((t) => SECTION_META[t].label.toLowerCase())
-              .join(" and ")}
-            . The PDF will still generate, but it won&apos;t look like a
-            finished document.
+              .join(t("app.editPdf.and", " and "))}
+            {t("app.editPdf.stillGenerates", ". The PDF will still generate, but it won't look like a finished document.")}
           </div>
         )}
 
         {sections.length === 0 ? (
           <p className="text-sm text-muted-foreground mt-3">
-            No sections. Add at least one below, or this template produces a
-            blank page.
+            {t("app.editPdf.noSections", "No sections. Add at least one below, or this template produces a blank page.")}
           </p>
         ) : (
           <div className="mt-4 divide-y divide-border border border-border rounded-lg">
@@ -219,7 +219,7 @@ export default function EditPdfTemplatePage() {
                       onClick={() => move(i, -1)}
                       disabled={i === 0}
                       className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
-                      aria-label="Move up"
+                      aria-label={t("app.editPdf.moveUp", "Move up")}
                     >
                       <ArrowUp size={14} />
                     </button>
@@ -227,7 +227,7 @@ export default function EditPdfTemplatePage() {
                       onClick={() => move(i, 1)}
                       disabled={i === sections.length - 1}
                       className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
-                      aria-label="Move down"
+                      aria-label={t("app.editPdf.moveDown", "Move down")}
                     >
                       <ArrowDown size={14} />
                     </button>
@@ -236,7 +236,7 @@ export default function EditPdfTemplatePage() {
                         setSections(sections.filter((_, j) => j !== i))
                       }
                       className="p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-400"
-                      aria-label="Remove section"
+                      aria-label={t("app.editPdf.removeSection", "Remove section")}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -250,7 +250,7 @@ export default function EditPdfTemplatePage() {
         {addable.length > 0 && (
           <div className="mt-4">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              Add a section
+              {t("app.editPdf.addSection", "Add a section")}
             </div>
             <div className="flex flex-wrap gap-2">
               {addable.map((type) => (
@@ -279,7 +279,7 @@ export default function EditPdfTemplatePage() {
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
-          Save
+          {t("app.action.save", "Save")}
         </button>
         <button
           onClick={preview}
@@ -291,13 +291,13 @@ export default function EditPdfTemplatePage() {
           ) : (
             <Download size={14} />
           )}
-          Preview with sample data
+          {t("app.editPdf.previewSample", "Preview with sample data")}
         </button>
         <Link
           href="/app/settings/templates"
           className="text-sm font-semibold text-muted-foreground px-2 py-2.5"
         >
-          Cancel
+          {t("app.action.cancel", "Cancel")}
         </Link>
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   Mail,
   Contact,
 } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
@@ -46,6 +47,7 @@ function emptyForm() {
 const ELIGIBLE_TEMPLATE_TYPES = ["marketing_email", "custom_email"];
 
 export default function MarketingPage() {
+  const { t } = useTranslation();
   const [campaigns, setCampaigns] = useState([]);
   const [members, setMembers] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -85,7 +87,7 @@ export default function MarketingPage() {
     e.preventDefault();
     setError("");
     if (!form.name.trim()) {
-      setError("Campaign name is required");
+      setError(t("app.marketing.nameRequired"));
       return;
     }
     setSaving(true);
@@ -96,7 +98,8 @@ export default function MarketingPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not create campaign");
+      if (!res.ok)
+        throw new Error(data.error || t("app.marketing.createError"));
       setForm(emptyForm());
       setShowModal(false);
       await load();
@@ -115,12 +118,10 @@ export default function MarketingPage() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Megaphone size={22} /> Marketing
+            <Megaphone size={22} /> {t("app.nav.marketing")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            Run and track your campaigns — paid ads, email blasts, and
-            door-to-door pamphlet distribution, with routes, assignments, and
-            doorstep follow-ups in one place.
+            {t("app.marketing.subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -128,13 +129,13 @@ export default function MarketingPage() {
             href="/app/marketing/subscribers"
             className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
           >
-            <Contact size={14} /> Subscribers
+            <Contact size={14} /> {t("app.marketing.subscribers")}
           </Link>
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
           >
-            <Plus size={14} /> New Campaign
+            <Plus size={14} /> {t("app.marketing.newCampaign")}
           </button>
         </div>
       </div>
@@ -149,7 +150,7 @@ export default function MarketingPage() {
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <Megaphone size={40} className="mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            No campaigns yet. Create one to start tracking your marketing.
+            {t("app.marketing.empty")}
           </p>
         </div>
       ) : (
@@ -170,17 +171,22 @@ export default function MarketingPage() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {TYPE_LABELS[c.type] || c.type}
+                  {t("app.marketing.type." + c.type, TYPE_LABELS[c.type] || c.type)}
                 </p>
 
                 {c.type === "pamphlet" ? (
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span className="flex items-center gap-1">
-                        <MapPin size={12} /> {c.visitedCount}/{c.stopCount}{" "}
-                        stops
+                        <MapPin size={12} />{" "}
+                        {t("app.marketing.stops", {
+                          visited: c.visitedCount,
+                          total: c.stopCount,
+                        })}
                       </span>
-                      <span>{c.spokeCount} spoke</span>
+                      <span>
+                        {t("app.marketing.spoke", { count: c.spokeCount })}
+                      </span>
                     </div>
                     <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
@@ -192,24 +198,31 @@ export default function MarketingPage() {
                 ) : c.type === "email" ? (
                   <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Mail size={12} /> {c.template?.name || "no template"}
+                      <Mail size={12} />{" "}
+                      {c.template?.name || t("app.marketing.noTemplate")}
                     </span>
                     {c.sentAt ? (
                       <span className="text-emerald-700 dark:text-emerald-300">
-                        Sent to {c.recipientCount ?? 0}
+                        {t("app.marketing.sentTo", {
+                          count: c.recipientCount ?? 0,
+                        })}
                       </span>
                     ) : (
-                      <span>Not sent yet</span>
+                      <span>{t("app.marketing.notSentYet")}</span>
                     )}
                   </div>
                 ) : (
                   <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
                     {c.budget != null && (
-                      <span>Budget ${Number(c.budget).toLocaleString()}</span>
+                      <span>
+                        {t("app.marketing.budgetAmount", {
+                          amount: Number(c.budget).toLocaleString(),
+                        })}
+                      </span>
                     )}
                     {c.externalUrl && (
                       <span className="flex items-center gap-1">
-                        <ExternalLink size={12} /> linked
+                        <ExternalLink size={12} /> {t("app.marketing.linked")}
                       </span>
                     )}
                   </div>
@@ -247,7 +260,7 @@ export default function MarketingPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-foreground">
-                New Campaign
+                {t("app.marketing.newCampaign")}
               </h2>
               <button onClick={() => setShowModal(false)}>
                 <X size={18} className="text-muted-foreground" />
@@ -264,7 +277,7 @@ export default function MarketingPage() {
               <input
                 autoFocus
                 required
-                placeholder="Campaign name"
+                placeholder={t("app.marketing.namePlaceholder")}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={inputClass}
@@ -274,15 +287,15 @@ export default function MarketingPage() {
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
                 className={inputClass}
               >
-                <option value="pamphlet">Pamphlet distribution</option>
-                <option value="meta_ads">Meta / paid ads</option>
-                <option value="email">Email blast</option>
-                <option value="other">Other</option>
+                <option value="pamphlet">{t("app.marketing.type.pamphlet")}</option>
+                <option value="meta_ads">{t("app.marketing.type.meta_ads")}</option>
+                <option value="email">{t("app.marketing.type.email")}</option>
+                <option value="other">{t("app.marketing.type.other")}</option>
               </select>
 
               <div>
                 <label className="text-xs text-muted-foreground block mb-1">
-                  Assign to
+                  {t("app.marketing.assignTo")}
                 </label>
                 <select
                   value={form.assignedToId}
@@ -291,7 +304,7 @@ export default function MarketingPage() {
                   }
                   className={inputClass}
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t("app.marketing.unassigned")}</option>
                   {members.map((m) => (
                     <option key={m.user?.id} value={m.user?.id}>
                       {m.user?.name || m.user?.email}
@@ -303,7 +316,7 @@ export default function MarketingPage() {
               {isEmail && (
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1">
-                    Template to send
+                    {t("app.marketing.templateToSend")}
                   </label>
                   <select
                     required
@@ -314,7 +327,7 @@ export default function MarketingPage() {
                     className={inputClass}
                   >
                     <option value="" disabled>
-                      Choose a template…
+                      {t("app.marketing.chooseTemplate")}
                     </option>
                     {templates.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -324,11 +337,11 @@ export default function MarketingPage() {
                   </select>
                   {templates.length === 0 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      No marketing/custom templates yet — create one in{" "}
+                      {t("app.marketing.noTemplatesPre")}{" "}
                       <a href="/app/settings/email-templates" className="underline">
-                        Email Templates
+                        {t("app.marketing.emailTemplatesLink")}
                       </a>{" "}
-                      first.
+                      {t("app.marketing.noTemplatesPost")}
                     </p>
                   )}
                 </div>
@@ -339,7 +352,7 @@ export default function MarketingPage() {
                   <input
                     type="number"
                     step="0.01"
-                    placeholder="Budget (optional)"
+                    placeholder={t("app.marketing.budgetPlaceholder")}
                     value={form.budget}
                     onChange={(e) =>
                       setForm({ ...form, budget: e.target.value })
@@ -347,7 +360,7 @@ export default function MarketingPage() {
                     className={inputClass}
                   />
                   <input
-                    placeholder="Link (Meta Ads Manager, etc.)"
+                    placeholder={t("app.marketing.linkPlaceholder")}
                     value={form.externalUrl}
                     onChange={(e) =>
                       setForm({ ...form, externalUrl: e.target.value })
@@ -362,7 +375,9 @@ export default function MarketingPage() {
                 disabled={saving || (isEmail && !form.templateId)}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Creating..." : "Create Campaign"}
+                {saving
+                  ? t("app.marketing.creating")
+                  : t("app.marketing.createCampaign")}
               </button>
             </form>
           </div>

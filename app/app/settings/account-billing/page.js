@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 import CancelFlow from "./CancelFlow";
 function money(n) {
@@ -19,6 +20,7 @@ function daysLeft(date) {
 }
 
 export default function AccountBillingPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [subscription, setSubscription] = useState(null);
   const [plans, setPlans] = useState([]);
@@ -72,16 +74,16 @@ export default function AccountBillingPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Couldn't check your subscription with Stripe.");
+        setError(data.error || t("app.billing.checkFailed", "Couldn't check your subscription with Stripe."));
       } else if (data.reconciled) {
         await load();
       } else {
         // pending / nothing found — say which, rather than leaving the page
         // looking like the payment vanished.
-        setSyncNote(data.message || "Stripe has nothing new for this company yet.");
+        setSyncNote(data.message || t("app.billing.nothingNew", "Stripe has nothing new for this company yet."));
       }
     } catch {
-      setError("Couldn't reach the server to check your subscription.");
+      setError(t("app.billing.checkUnreachable", "Couldn't reach the server to check your subscription."));
     } finally {
       setSyncing(false);
     }
@@ -135,7 +137,7 @@ export default function AccountBillingPage() {
         body: JSON.stringify({ planId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not start checkout");
+      if (!res.ok) throw new Error(data.error || t("app.billing.checkoutFailed", "Could not start checkout"));
       window.location.href = data.checkoutUrl;
     } catch (err) {
       setError(err.message);
@@ -152,7 +154,7 @@ export default function AccountBillingPage() {
       });
       const data = await res.json();
       if (!res.ok)
-        throw new Error(data.error || "Could not open billing portal");
+        throw new Error(data.error || t("app.billing.portalFailed", "Could not open billing portal"));
       window.location.href = data.url;
     } catch (err) {
       setError(err.message);
@@ -178,9 +180,9 @@ export default function AccountBillingPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Account & Billing</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.billing.title", "Account & Billing")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your plan, seats, and payment details.
+          {t("app.billing.subtitle", "Your plan, seats, and payment details.")}
         </p>
       </div>
 
@@ -196,7 +198,7 @@ export default function AccountBillingPage() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-semibold text-foreground">
-                {subscription?.plan?.name || "No active plan"}
+                {subscription?.plan?.name || t("app.billing.noActivePlan", "No active plan")}
               </h2>
               {subscription?.status && (
                 <span
@@ -214,20 +216,20 @@ export default function AccountBillingPage() {
             </div>
             {subscription?.plan && (
               <p className="text-sm text-muted-foreground mt-1">
-                {money(subscription.plan.priceMonthly)}/month
+                {money(subscription.plan.priceMonthly)}{t("app.billing.perMonth", "/month")}
                 {subscription.plan.maxUsers
-                  ? ` · up to ${subscription.plan.maxUsers} users`
+                  ? ` · ${t("app.billing.upToUsers", "up to {count} users", { count: subscription.plan.maxUsers })}`
                   : ""}
               </p>
             )}
             {isTrialing && trialDays !== null && (
               <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 font-medium">
-                Trial ends in {trialDays} day{trialDays === 1 ? "" : "s"}
+                {t("app.billing.trialEnds", "Trial ends in {days} day{plural}", { days: trialDays, plural: trialDays === 1 ? "" : "s" })}
               </p>
             )}
             {!isTrialing && subscription?.currentPeriodEnd && (
               <p className="text-xs text-muted-foreground mt-2">
-                Next billing date{" "}
+                {t("app.billing.nextBillingDate", "Next billing date")}{" "}
                 {formatDate(subscription.currentPeriodEnd)}
               </p>
             )}
@@ -238,14 +240,12 @@ export default function AccountBillingPage() {
                 twice. */}
             {!subscription?.plan && !syncing && (
               <p className="text-sm text-muted-foreground mt-2 max-w-md">
-                If you&apos;ve already paid, your plan may not have reached us
-                yet. Check with Stripe below — nothing is charged again.
+                {t("app.billing.recoveryHint", "If you've already paid, your plan may not have reached us yet. Check with Stripe below — nothing is charged again.")}
               </p>
             )}
             {syncing && (
               <p className="text-sm text-muted-foreground mt-2 inline-flex items-center gap-1.5">
-                <Loader2 size={13} className="animate-spin" /> Checking with
-                Stripe…
+                <Loader2 size={13} className="animate-spin" /> {t("app.billing.checkingStripe", "Checking with Stripe…")}
               </p>
             )}
             {syncNote && !syncing && (
@@ -268,7 +268,7 @@ export default function AccountBillingPage() {
             ) : (
               <RefreshCw size={14} />
             )}
-            Check with Stripe
+            {t("app.billing.checkWithStripe", "Check with Stripe")}
           </button>
           <button
             onClick={handleManageBilling}
@@ -276,14 +276,14 @@ export default function AccountBillingPage() {
             className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted disabled:opacity-60"
           >
             <ExternalLink size={14} />
-            {openingPortal ? "Opening..." : "Manage billing & payment method"}
+            {openingPortal ? t("app.billing.opening", "Opening...") : t("app.billing.manageBilling", "Manage billing & payment method")}
           </button>
           {subscription?.status && subscription.status !== "canceled" && (
             <button
               onClick={() => setShowCancelConfirm(true)}
               className="text-sm font-medium text-red-600 dark:text-red-400 px-4 py-2 rounded-full hover:bg-red-50 dark:bg-red-950/40"
             >
-              Cancel plan
+              {t("app.billing.cancelPlan", "Cancel plan")}
             </button>
           )}
         </div>
@@ -291,7 +291,7 @@ export default function AccountBillingPage() {
 
       {/* Available plans */}
       <div>
-        <h2 className="text-base font-semibold text-foreground mb-3">Plans</h2>
+        <h2 className="text-base font-semibold text-foreground mb-3">{t("app.billing.plansHeading", "Plans")}</h2>
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map((plan) => {
             const isCurrent = plan.id === currentPlanId;
@@ -305,16 +305,16 @@ export default function AccountBillingPage() {
                 <h3 className="font-semibold text-foreground">{plan.name}</h3>
                 <p className="text-2xl font-bold text-foreground mt-1">
                   {money(plan.priceMonthly)}
-                  <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                  <span className="text-sm font-normal text-muted-foreground">{t("app.billing.perMonthShort", "/mo")}</span>
                 </p>
                 {plan.maxUsers && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Up to {plan.maxUsers} users
+                    {t("app.billing.upToUsersCap", "Up to {count} users", { count: plan.maxUsers })}
                   </p>
                 )}
                 {plan.aiCopilotEnabled && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    FieldQuo AI included
+                    {t("app.billing.aiIncluded", "FieldQuo AI included")}
                   </p>
                 )}
                 <button
@@ -327,17 +327,17 @@ export default function AccountBillingPage() {
                   }`}
                 >
                   {isCurrent
-                    ? "Current plan"
+                    ? t("app.billing.currentPlan", "Current plan")
                     : busyPlanId === plan.id
-                      ? "Redirecting..."
-                      : "Choose plan"}
+                      ? t("app.billing.redirecting", "Redirecting...")
+                      : t("app.billing.choosePlan", "Choose plan")}
                 </button>
               </div>
             );
           })}
           {plans.length === 0 && (
             <p className="text-sm text-muted-foreground col-span-3">
-              No plans configured yet.
+              {t("app.billing.noPlans", "No plans configured yet.")}
             </p>
           )}
         </div>

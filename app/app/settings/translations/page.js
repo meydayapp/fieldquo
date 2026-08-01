@@ -20,8 +20,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function TranslationsPage() {
+  const { t } = useTranslation();
   const [language, setLanguage] = useState("fr");
   const [data, setData] = useState(null);
   const [drafts, setDrafts] = useState({});
@@ -36,7 +38,7 @@ export default function TranslationsPage() {
     try {
       const res = await fetch(`/api/settings/translations?language=${language}`);
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't load translations.");
+      if (!res.ok) throw new Error(d?.error || t("app.translations.loadFailed", "Couldn't load translations."));
       setData(d);
       setDrafts(
         Object.fromEntries(d.items.map((i) => [i.id, { ...i.translation }])),
@@ -77,7 +79,7 @@ export default function TranslationsPage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't save.");
+      if (!res.ok) throw new Error(d?.error || t("app.translations.saveFailed", "Couldn't save."));
       setSavedId(item.id);
       setTimeout(() => setSavedId(""), 2000);
       await load();
@@ -95,11 +97,9 @@ export default function TranslationsPage() {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Translations</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.translations.title", "Translations")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          The wording clients see on quotes and invoices written in another
-          language. Drafts are generated for you — but nothing here is used with
-          confidence until you&apos;ve read it.
+          {t("app.translations.subtitle", "The wording clients see on quotes and invoices written in another language. Drafts are generated for you — but nothing here is used with confidence until you've read it.")}
         </p>
       </div>
 
@@ -121,14 +121,14 @@ export default function TranslationsPage() {
           <span className="text-sm text-muted-foreground">
             {data.missing > 0 ? (
               <span className="text-amber-700 dark:text-amber-300 font-medium">
-                {data.missing} still missing
+                {t("app.translations.stillMissing", "{count} still missing", { count: data.missing })}
               </span>
             ) : (
               <span className="text-green-700 dark:text-green-300 font-medium">
-                All {data.total} translated
+                {t("app.translations.allTranslated", "All {count} translated", { count: data.total })}
               </span>
             )}
-            {data.unreviewed > 0 && ` · ${data.unreviewed} drafted, unread`}
+            {data.unreviewed > 0 && ` · ${t("app.translations.draftedUnread", "{count} drafted, unread", { count: data.unreviewed })}`}
           </span>
         )}
       </div>
@@ -144,8 +144,7 @@ export default function TranslationsPage() {
         <div className="animate-pulse h-72 bg-accent rounded-xl" />
       ) : rows.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-10 text-center text-sm text-muted-foreground">
-          No services yet. Add them under Settings → Products &amp; Services and
-          drafts will appear here.
+          {t("app.translations.emptyState", "No services yet. Add them under Settings → Products & Services and drafts will appear here.")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -164,19 +163,19 @@ export default function TranslationsPage() {
               >
                 <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                   <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {item.type === "product" ? "Product" : "Service"}
+                    {item.type === "product" ? t("app.translations.productLabel", "Product") : t("app.translations.serviceLabel", "Service")}
                   </div>
                   {item.missing ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                      <AlertTriangle size={12} /> Not translated
+                      <AlertTriangle size={12} /> {t("app.translations.notTranslated", "Not translated")}
                     </span>
                   ) : item.reviewed ? (
                     <span className="inline-flex items-center gap-1.5 text-xs text-green-700 dark:text-green-300">
-                      <Check size={12} /> Reviewed
+                      <Check size={12} /> {t("app.translations.reviewed", "Reviewed")}
                     </span>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      Drafted — not read yet
+                      {t("app.translations.draftedNotRead", "Drafted — not read yet")}
                     </span>
                   )}
                 </div>
@@ -211,7 +210,7 @@ export default function TranslationsPage() {
                           [item.id]: { ...draft, name: e.target.value },
                         }))
                       }
-                      placeholder="Name"
+                      placeholder={t("app.field.name", "Name")}
                       className="w-full border border-border rounded-lg px-3 py-2 text-sm"
                     />
                     {item.source.description && (
@@ -227,7 +226,7 @@ export default function TranslationsPage() {
                           }))
                         }
                         rows={2}
-                        placeholder="Description"
+                        placeholder={t("app.translations.descriptionPlaceholder", "Description")}
                         className="w-full border border-border rounded-lg px-3 py-2 text-sm mt-2"
                       />
                     )}
@@ -241,10 +240,10 @@ export default function TranslationsPage() {
                         {savingId === item.id && (
                           <Loader2 size={11} className="animate-spin" />
                         )}
-                        {item.reviewed && !dirty ? "Saved" : "Mark reviewed"}
+                        {item.reviewed && !dirty ? t("app.action.saved", "Saved") : t("app.translations.markReviewed", "Mark reviewed")}
                       </button>
                       {savedId === item.id && (
-                        <span className="text-xs text-green-700 dark:text-green-300">Saved</span>
+                        <span className="text-xs text-green-700 dark:text-green-300">{t("app.action.saved", "Saved")}</span>
                       )}
                     </div>
                   </div>

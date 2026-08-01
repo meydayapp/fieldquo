@@ -1,5 +1,8 @@
 // app/app/settings/product-updates/page.js
+"use client";
+
 import { PRODUCT_UPDATES } from "@/lib/data/productUpdates";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function formatDate(dateStr) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
@@ -10,11 +13,12 @@ function formatDate(dateStr) {
 }
 
 export default function ProductUpdatesPage() {
+  const { t } = useTranslation();
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Product Updates</h1>
-        <p className="text-sm text-muted-foreground mt-1">What's new in FieldQuo.</p>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.productUpdates.title", "Product Updates")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("app.productUpdates.subtitle", "What's new in FieldQuo.")}</p>
       </div>
 
       <div className="space-y-4">

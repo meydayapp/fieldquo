@@ -25,8 +25,10 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ReferPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export default function ReferPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channel, contact, name }),
       });
-      setSent(`Invite sent to ${res.to}.`);
+      setSent(t("app.refer.inviteSent", { to: res.to }));
       setContact("");
       setName("");
       await load();
@@ -92,7 +94,7 @@ export default function ReferPage() {
   if (!data)
     return (
       <div className="max-w-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
-        {error || "Couldn't load your referral details."}
+        {error || t("app.refer.loadError")}
       </div>
     );
 
@@ -101,11 +103,11 @@ export default function ReferPage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Refer &amp; Earn</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.nav.refer")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Send another business owner your link. They get {months} months free
-          when they sign up — and you get {months} months free once they become
-          a paying customer.
+          {t("app.refer.subtitle", { months })}
         </p>
       </div>
 
@@ -118,7 +120,7 @@ export default function ReferPage() {
 
       <div className="bg-card border border-border rounded-xl p-5">
         <label className="text-sm font-medium text-foreground block mb-2">
-          Your link
+          {t("app.refer.yourLink")}
         </label>
         <div className="flex items-center gap-2">
           <input
@@ -132,25 +134,26 @@ export default function ReferPage() {
             className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold shrink-0"
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? "Copied" : "Copy"}
+            {copied ? t("app.action.copied") : t("app.refer.copy")}
           </button>
         </div>
         {/* The link is your company name on purpose — it survives being read
             down a phone or printed on a van. */}
         <p className="text-xs text-muted-foreground mt-2">
-          Short enough to say out loud. Put it on a business card, an invoice
-          footer, or a van.
+          {t("app.refer.linkHint")}
         </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Send an invite</h2>
+        <h2 className="font-semibold text-foreground mb-3">
+          {t("app.refer.sendInvite")}
+        </h2>
 
         <form onSubmit={invite} className="space-y-3">
           <div className="flex gap-2">
             {[
-              { key: "email", label: "Email", icon: Mail },
-              { key: "sms", label: "Text", icon: MessageSquare },
+              { key: "email", label: t("app.field.email"), icon: Mail },
+              { key: "sms", label: t("app.refer.channelText"), icon: MessageSquare },
             ].map((c) => {
               const Icon = c.icon;
               return (
@@ -180,7 +183,9 @@ export default function ReferPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                {channel === "email" ? "Their email" : "Their mobile number"}
+                {channel === "email"
+                  ? t("app.refer.theirEmail")
+                  : t("app.refer.theirMobile")}
               </label>
               <input
                 // Remounts when the channel changes. Swapping `type` on a live
@@ -193,21 +198,23 @@ export default function ReferPage() {
                 type={channel === "email" ? "email" : "tel"}
                 placeholder={
                   channel === "email"
-                    ? "them@theircompany.com"
-                    : "(416) 555-0142"
+                    ? t("app.refer.emailPlaceholder")
+                    : t("app.refer.phonePlaceholder")
                 }
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Their name{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
+                {t("app.refer.theirName")}{" "}
+                <span className="text-muted-foreground font-normal">
+                  {t("app.refer.optionalParen")}
+                </span>
               </label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Dave"
+                placeholder={t("app.refer.namePlaceholder")}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
             </div>
@@ -220,12 +227,14 @@ export default function ReferPage() {
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
             >
               {sending && <Loader2 size={14} className="animate-spin" />}
-              Send invite
+              {t("app.refer.sendInviteBtn")}
             </button>
             {/* Say why it's greyed out rather than leaving someone to guess. */}
             {!contact.trim() && !sending && (
               <span className="text-xs text-muted-foreground">
-                Enter their {channel === "email" ? "email" : "number"} to send.
+                {channel === "email"
+                  ? t("app.refer.enterEmail")
+                  : t("app.refer.enterNumber")}
               </span>
             )}
           </div>
@@ -236,7 +245,7 @@ export default function ReferPage() {
         {/* Stated plainly rather than discovered at the limit. The cap exists
             so this can't be used as a bulk channel. */}
         <p className="text-xs text-muted-foreground mt-3">
-          We send one message and don&apos;t follow up. Up to 20 invites a day.
+          {t("app.refer.rateNote")}
         </p>
       </div>
 
@@ -244,26 +253,28 @@ export default function ReferPage() {
         <div className="flex items-center gap-2 mb-1">
           <Gift size={16} className="text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">
-            {data.monthsEarned || 0} free month
-            {data.monthsEarned === 1 ? "" : "s"} earned
+            {data.monthsEarned === 1
+              ? t("app.refer.monthEarnedOne", { count: data.monthsEarned })
+              : t("app.refer.monthsEarnedOther", {
+                  count: data.monthsEarned || 0,
+                })}
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Added to your account automatically when a business you referred makes
-          their first payment.
+          {t("app.refer.earnedNote")}
         </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
-            Businesses you&apos;ve referred
+            {t("app.refer.referredTitle")}
           </h2>
         </div>
         <div className="divide-y divide-border">
           {data.referred?.length === 0 && (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-              None yet — send an invite above, or share your link.
+              {t("app.refer.referredEmpty")}
             </p>
           )}
           {data.referred?.map((c) => (
@@ -276,11 +287,11 @@ export default function ReferPage() {
               </span>
               {c.rewarded ? (
                 <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 shrink-0">
-                  <Check size={11} /> {months} months earned
+                  <Check size={11} /> {t("app.refer.monthsBadge", { months })}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-muted text-muted-foreground shrink-0">
-                  <Clock size={11} /> Signed up — not yet paying
+                  <Clock size={11} /> {t("app.refer.notYetPaying")}
                 </span>
               )}
             </div>
@@ -292,7 +303,7 @@ export default function ReferPage() {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="text-base font-semibold text-foreground">
-              Invites sent
+              {t("app.refer.invitesSentTitle")}
             </h2>
           </div>
           <div className="divide-y divide-border">
@@ -305,11 +316,14 @@ export default function ReferPage() {
                   {i.email || i.phone}
                 </span>
                 <span className="text-xs text-muted-foreground shrink-0">
-                  {i.channel === "sms" ? "Text" : "Email"} ·{" "}
+                  {i.channel === "sms"
+                    ? t("app.refer.channelText")
+                    : t("app.field.email")}{" "}
+                  ·{" "}
                   {i.status === "redeemed"
-                    ? "Signed up"
+                    ? t("app.refer.signedUp")
                     : i.status === "failed"
-                      ? "Failed"
+                      ? t("app.refer.failed")
                       : formatDate(i.createdAt)}
                 </span>
               </div>

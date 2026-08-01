@@ -25,6 +25,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PDF_TYPES = [
   {
@@ -40,6 +41,7 @@ const PDF_TYPES = [
 ];
 
 export default function PdfTemplatesPage() {
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(null); // type being created
@@ -51,7 +53,7 @@ export default function PdfTemplatesPage() {
     setError("");
     try {
       const res = await fetch("/api/settings/document-templates");
-      if (!res.ok) throw new Error("Couldn't load templates.");
+      if (!res.ok) throw new Error(t("app.pdfTemplates.loadError", "Couldn't load templates."));
       const data = await res.json();
       // The endpoint returns every type; this page owns the PDF ones only.
       setTemplates(
@@ -64,7 +66,7 @@ export default function PdfTemplatesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -84,7 +86,7 @@ export default function PdfTemplatesPage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't create that.");
+      if (!res.ok) throw new Error(d?.error || t("app.pdfTemplates.createError", "Couldn't create that."));
       setCreating(null);
       setName("");
       await load();
@@ -142,12 +144,14 @@ export default function PdfTemplatesPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">PDF Templates</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.pdfTemplates.title", "PDF Templates")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          The layout of the quote and invoice PDFs your clients receive. Looking
-          for the emails themselves?{" "}
+          {t(
+            "app.pdfTemplates.subtitle",
+            "The layout of the quote and invoice PDFs your clients receive. Looking for the emails themselves?",
+          )}{" "}
           <Link href="/app/settings/email-templates" className="underline">
-            Email Templates
+            {t("app.emailTemplates.title", "Email Templates")}
           </Link>
           .
         </p>
@@ -171,8 +175,8 @@ export default function PdfTemplatesPage() {
           >
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-semibold text-foreground">{meta.label}</h2>
-                <p className="text-sm text-muted-foreground mt-0.5">{meta.blurb}</p>
+                <h2 className="font-semibold text-foreground">{t(`app.pdfTemplates.${meta.type}Label`, meta.label)}</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{t(`app.pdfTemplates.${meta.type}Blurb`, meta.blurb)}</p>
               </div>
               <button
                 onClick={() => {
@@ -181,7 +185,7 @@ export default function PdfTemplatesPage() {
                 }}
                 className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg shrink-0"
               >
-                <Plus size={13} /> New
+                <Plus size={13} /> {t("app.pdfTemplates.newButton", "New")}
               </button>
             </div>
 
@@ -191,7 +195,7 @@ export default function PdfTemplatesPage() {
                   autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="What should this layout be called?"
+                  placeholder={t("app.pdfTemplates.namePlaceholder", "What should this layout be called?")}
                   className="w-full border border-border rounded-lg px-3 py-2 text-sm"
                 />
                 <div className="flex gap-2 flex-wrap">
@@ -203,7 +207,7 @@ export default function PdfTemplatesPage() {
                     {busyId === "create" && (
                       <Loader2 size={13} className="animate-spin" />
                     )}
-                    Start from the standard layout
+                    {t("app.pdfTemplates.startStandard", "Start from the standard layout")}
                   </button>
                   {mine.length > 0 && (
                     <button
@@ -216,14 +220,14 @@ export default function PdfTemplatesPage() {
                       disabled={busyId === "create"}
                       className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
                     >
-                      <Copy size={13} /> Copy the current one
+                      <Copy size={13} /> {t("app.pdfTemplates.copyCurrent", "Copy the current one")}
                     </button>
                   )}
                   <button
                     onClick={() => setCreating(null)}
                     className="text-sm font-semibold text-muted-foreground px-2"
                   >
-                    Cancel
+                    {t("app.action.cancel", "Cancel")}
                   </button>
                 </div>
               </div>
@@ -234,8 +238,10 @@ export default function PdfTemplatesPage() {
                 <FileText size={22} className="text-muted-foreground mx-auto" />
                 {/* Reassurance, not a warning. Nothing is broken here. */}
                 <p className="text-sm text-muted-foreground mt-2">
-                  Using the standard layout. Your PDFs already work — make one
-                  only if you want to change the order or drop a section.
+                  {t(
+                    "app.pdfTemplates.emptyState",
+                    "Using the standard layout. Your PDFs already work — make one only if you want to change the order or drop a section.",
+                  )}
                 </p>
               </div>
             ) : (
@@ -297,8 +303,10 @@ export default function PdfTemplatesPage() {
 
             {mine.length > 0 && !hasDefault && (
               <p className="text-xs text-amber-700 dark:text-amber-300 mt-3">
-                None of these is marked as in use, so PDFs are still coming out
-                on the standard layout. Pick one with &ldquo;Use this&rdquo;.
+                {t(
+                  "app.pdfTemplates.noDefaultWarning",
+                  "None of these is marked as in use, so PDFs are still coming out on the standard layout. Pick one with “Use this”.",
+                )}
               </p>
             )}
           </div>

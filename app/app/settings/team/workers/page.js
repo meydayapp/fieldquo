@@ -19,12 +19,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, Info, Check, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // hiredOn is a calendar day. Both reading it into the <input type="date"> and
 // displaying it must use the UTC getters, or the date shifts a day each way.
 const dateInput = (d) => isoDateOnly(d);
 
 export default function WorkersPage() {
+  const { t } = useTranslation();
   const [workers, setWorkers] = useState(null);
   const [error, setError] = useState("");
 
@@ -52,7 +54,7 @@ export default function WorkersPage() {
       const data = await fetchJson(`/api/workers/${workerId}/connect`, {
         method: "POST",
       });
-      if (!data?.url) throw new Error("Stripe didn't return an onboarding link.");
+      if (!data?.url) throw new Error(t("app.setWorkers.noStripeLink"));
       window.location.href = data.url;
     } catch (err) {
       setError(err.message);
@@ -70,9 +72,11 @@ export default function WorkersPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Workers</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.setWorkers.title")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Everyone on the books — their pay rate, start date, and payout status.
+          {t("app.setWorkers.subtitle")}
         </p>
       </div>
 
@@ -87,9 +91,9 @@ export default function WorkersPage() {
         <div className="rounded-lg border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 flex items-start gap-2">
           <AlertTriangle size={15} className="mt-0.5 shrink-0" />
           <div>
-            No pay rate set for{" "}
-            {missingRate.map((w) => w.name).join(", ")}. Payroll can&apos;t work
-            out their hours or their paid leave until it has one.
+            {t("app.setWorkers.missingRate", {
+              names: missingRate.map((w) => w.name).join(", "),
+            })}
           </div>
         </div>
       )}
@@ -105,22 +109,21 @@ export default function WorkersPage() {
         ))}
         {!workers.length && (
           <p className="text-sm text-muted-foreground">
-            Nobody yet. Team members get a worker record when they accept their
-            invitation.
+            {t("app.setWorkers.empty")}
           </p>
         )}
       </div>
 
       <p className="text-xs text-muted-foreground flex items-start gap-1.5">
         <Info size={13} className="mt-0.5 shrink-0" />
-        Employee or contractor isn&apos;t editable here — switching it has tax
-        consequences, so it&apos;s deliberately a deactivate-and-re-add.
+        {t("app.setWorkers.typeNote")}
       </p>
     </div>
   );
 }
 
 function WorkerRow({ worker, reload, onConnect }) {
+  const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: worker.name || "",
@@ -168,7 +171,9 @@ function WorkerRow({ worker, reload, onConnect }) {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block sm:col-span-2">
-            <span className="text-xs font-medium text-muted-foreground">Name</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("app.field.name")}
+            </span>
             <input
               required
               value={form.name}
@@ -178,7 +183,7 @@ function WorkerRow({ worker, reload, onConnect }) {
           </label>
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
-              Pay rate ($/hour)
+              {t("app.setWorkers.payRate")}
             </span>
             <input
               type="number"
@@ -186,13 +191,13 @@ function WorkerRow({ worker, reload, onConnect }) {
               min="0"
               value={form.hourlyRate}
               onChange={(e) => setForm({ ...form, hourlyRate: e.target.value })}
-              placeholder="not set"
+              placeholder={t("app.setWorkers.notSet")}
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
           </label>
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
-              Start date
+              {t("app.setWorkers.startDate")}
             </span>
             <input
               type="date"
@@ -201,8 +206,7 @@ function WorkerRow({ worker, reload, onConnect }) {
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
             <span className="mt-1 block text-[11px] text-muted-foreground">
-              Leave blank if you don&apos;t know — holiday entitlement is then
-              granted in full rather than pro-rated from a guess.
+              {t("app.setWorkers.startDateHint")}
             </span>
           </label>
         </div>
@@ -214,7 +218,7 @@ function WorkerRow({ worker, reload, onConnect }) {
             onChange={(e) => setForm({ ...form, active: e.target.checked })}
             className="rounded border-border"
           />
-          Active (included in payroll and scheduling)
+          {t("app.setWorkers.activeLabel")}
         </label>
 
         {error && (
@@ -229,14 +233,14 @@ function WorkerRow({ worker, reload, onConnect }) {
             onClick={() => setEditing(false)}
             className="rounded-lg border border-border px-4 py-2 text-sm"
           >
-            Cancel
+            {t("app.action.cancel")}
           </button>
           <button
             disabled={busy}
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-60"
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
-            Save
+            {t("app.action.save")}
           </button>
         </div>
       </form>
@@ -250,43 +254,47 @@ function WorkerRow({ worker, reload, onConnect }) {
           {worker.name}
           {worker.active === false && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
-              inactive
+              {t("app.setWorkers.inactive")}
             </span>
           )}
           {saved && (
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
-              <Check size={12} /> saved
+              <Check size={12} /> {t("app.setWorkers.saved")}
             </span>
           )}
         </div>
         <div className="text-xs text-muted-foreground capitalize">
           {worker.type}
-          {worker.hourlyRate != null ? ` · $${worker.hourlyRate}/hr` : " · no rate set"}
+          {worker.hourlyRate != null
+            ? t("app.setWorkers.ratePerHr", { rate: worker.hourlyRate })
+            : t("app.setWorkers.noRateSet")}
           {worker.hiredOn
-            ? ` · started ${formatDateOnly(worker.hiredOn)}`
+            ? t("app.setWorkers.startedOn", {
+                date: formatDateOnly(worker.hiredOn),
+              })
             : ""}
-          {!worker.userId && " · no login"}
+          {!worker.userId && t("app.setWorkers.noLogin")}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {worker.type === "contractor" &&
           (worker.stripeConnectedAccountId ? (
             <span className="text-xs text-green-600 dark:text-green-400">
-              Stripe connected
+              {t("app.setWorkers.stripeConnected")}
             </span>
           ) : (
             <button
               onClick={onConnect}
               className="text-xs border border-border rounded-full px-3 py-1.5"
             >
-              Connect Stripe
+              {t("app.setWorkers.connectStripe")}
             </button>
           ))}
         <button
           onClick={() => setEditing(true)}
           className="text-xs border border-border rounded-full px-3 py-1.5"
         >
-          Edit
+          {t("app.action.edit")}
         </button>
       </div>
     </div>

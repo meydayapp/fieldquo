@@ -21,12 +21,14 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useSession } from "@/lib/auth-client";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const DEFAULTS = { startTime: "08:00", endTime: "16:00" };
 
 // One editable week. Mobile-first: each row stacks under `sm` so the time
 // inputs never squeeze off the side of a phone.
 function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
+  const { t } = useTranslation();
   const get = (d) => rows.find((r) => r.dayOfWeek === d);
 
   function toggle(dayOfWeek) {
@@ -69,7 +71,7 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
                   onChange={(e) => update(dayOfWeek, "startTime", e.target.value)}
                   className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
                 />
-                <span className="text-muted-foreground text-sm">to</span>
+                <span className="text-muted-foreground text-sm">{t("app.setAvailability.to", "to")}</span>
                 <input
                   type="time"
                   value={day.endTime}
@@ -77,11 +79,11 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
                   className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
                 />
                 {invalid && (
-                  <span className="text-xs text-red-600">End must be after start</span>
+                  <span className="text-xs text-red-600">{t("app.setAvailability.endAfterStart", "End must be after start")}</span>
                 )}
               </div>
             ) : (
-              <span className="text-xs text-muted-foreground">Not scheduled</span>
+              <span className="text-xs text-muted-foreground">{t("app.setAvailability.notScheduled", "Not scheduled")}</span>
             )}
           </div>
         );
@@ -91,6 +93,7 @@ function WeekEditor({ rows, setRows, weekStartsOn, accentClass }) {
 }
 
 export default function AvailabilityPage() {
+  const { t } = useTranslation();
   const { weekStartsOn } = useCompanyPreferences();
   const { data: session } = useSession();
   const [bookable, setBookable] = useState([]);
@@ -155,11 +158,11 @@ export default function AvailabilityPage() {
     ? bookable
         .map((b) => {
           const shift = working.find((w) => w.dayOfWeek === b.dayOfWeek);
-          if (!shift) return { dayOfWeek: b.dayOfWeek, reason: "you're not scheduled to work" };
+          if (!shift) return { dayOfWeek: b.dayOfWeek, reason: t("app.setAvailability.reasonNotScheduled", "you're not scheduled to work") };
           if (b.startTime < shift.startTime || b.endTime > shift.endTime) {
             return {
               dayOfWeek: b.dayOfWeek,
-              reason: `outside your ${shift.startTime}–${shift.endTime} shift`,
+              reason: t("app.setAvailability.reasonOutsideShift", "outside your {start}–{end} shift", { start: shift.startTime, end: shift.endTime }),
             };
           }
           return null;
@@ -181,11 +184,11 @@ export default function AvailabilityPage() {
   const targetName =
     team.find((m) => m.userId === targetId)?.user?.name ||
     team.find((m) => m.userId === targetId)?.user?.email ||
-    "This person";
+    t("app.setAvailability.thisPerson", "This person");
 
   async function handleSave() {
     if (anyInvalid) {
-      showError("Fix the highlighted times — each day needs a start before its end.");
+      showError(t("app.setAvailability.fixTimes", "Fix the highlighted times — each day needs a start before its end."));
       return;
     }
     setSaving(true);
@@ -208,7 +211,7 @@ export default function AvailabilityPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      showError(err.message || "Could not save");
+      showError(err.message || t("app.setAvailability.saveError", "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -222,19 +225,19 @@ export default function AvailabilityPage() {
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8 pb-28">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          {editingSomeoneElse ? `${targetName}'s hours` : "Your hours"}
+          {editingSomeoneElse ? t("app.setAvailability.personHours", "{name}'s hours", { name: targetName }) : t("app.setAvailability.yourHours", "Your hours")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {editingSomeoneElse ? "Their" : "Your"} shift and{" "}
-          {editingSomeoneElse ? "their" : "your"} bookable window are separate.
-          They might work 8–4 but only take client bookings 2–4 — set both here.
+          {editingSomeoneElse ? t("app.setAvailability.their", "Their") : t("app.setAvailability.your", "Your")} {t("app.setAvailability.shiftAnd", "shift and")}{" "}
+          {editingSomeoneElse ? t("app.setAvailability.theirLower", "their") : t("app.setAvailability.yourLower", "your")}{" "}
+          {t("app.setAvailability.bookableSeparate", "bookable window are separate. They might work 8–4 but only take client bookings 2–4 — set both here.")}
         </p>
       
 
         {canPickPerson && (
           <label className="block mt-4">
             <span className="text-xs font-semibold text-muted-foreground block mb-1">
-              Whose hours
+              {t("app.setAvailability.whoseHours", "Whose hours")}
             </span>
             <select
               value={targetId || meId || ""}
@@ -244,14 +247,13 @@ export default function AvailabilityPage() {
               {team.map((m) => (
                 <option key={m.userId} value={m.userId}>
                   {m.user?.name || m.user?.email}
-                  {m.userId === meId ? " (you)" : ""}
+                  {m.userId === meId ? t("app.setAvailability.youSuffix", " (you)") : ""}
                 </option>
               ))}
             </select>
             {editingSomeoneElse && (
               <span className="mt-1 block text-[11px] text-amber-700 dark:text-amber-400">
-                You&apos;re editing someone else&apos;s hours. They&apos;ll see the
-                change on their own schedule.
+                {t("app.setAvailability.editingWarning", "You're editing someone else's hours. They'll see the change on their own schedule.")}
               </span>
             )}
           </label>
@@ -260,10 +262,10 @@ export default function AvailabilityPage() {
 
       <section>
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
-          <Clock size={15} className="text-muted-foreground" /> Working hours
+          <Clock size={15} className="text-muted-foreground" /> {t("app.setAvailability.workingHours", "Working hours")}
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
-          Your shift. Used for scheduling and timesheets. Never shown to clients.
+          {t("app.setAvailability.workingHint", "Your shift. Used for scheduling and timesheets. Never shown to clients.")}
         </p>
         <WeekEditor
           rows={working}
@@ -275,11 +277,10 @@ export default function AvailabilityPage() {
 
       <section>
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
-          <CalendarCheck size={15} className="text-muted-foreground" /> Bookable hours
+          <CalendarCheck size={15} className="text-muted-foreground" /> {t("app.setAvailability.bookableHours", "Bookable hours")}
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
-          When clients can book you on your public calendar and website. Usually a
-          narrower window than your shift.
+          {t("app.setAvailability.bookableHint", "When clients can book you on your public calendar and website. Usually a narrower window than your shift.")}
         </p>
         <WeekEditor
           rows={bookable}
@@ -292,17 +293,16 @@ export default function AvailabilityPage() {
             <p className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
               <span>
-                Clients could book you when you&apos;re not working:{" "}
-                {mismatches.map((m) => `${dayName(m.dayOfWeek)} (${m.reason})`).join(", ")}.
-                That&apos;s allowed — just check it&apos;s intentional.
+                {t("app.setAvailability.mismatchLead", "Clients could book you when you're not working:")}{" "}
+                {mismatches.map((m) => `${dayName(m.dayOfWeek)} (${m.reason})`).join(", ")}
+                {t("app.setAvailability.mismatchTail", ". That's allowed — just check it's intentional.")}
               </span>
             </p>
           </div>
         )}
         {bookable.length === 0 && (
           <p className="mt-3 text-xs text-muted-foreground">
-            With no bookable hours you won&apos;t appear as an option on your
-            company&apos;s booking page.
+            {t("app.setAvailability.noBookable", "With no bookable hours you won't appear as an option on your company's booking page.")}
           </p>
         )}
       </section>
@@ -312,7 +312,7 @@ export default function AvailabilityPage() {
       <div className="fixed bottom-0 left-0 right-0 sm:left-64 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-3">
         {saved && (
           <span className="text-sm text-green-600 flex items-center gap-1.5">
-            <Check size={15} /> Saved
+            <Check size={15} /> {t("app.action.saved", "Saved")}
           </span>
         )}
         <button
@@ -321,7 +321,7 @@ export default function AvailabilityPage() {
           className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
-          Save hours
+          {t("app.setAvailability.saveHours", "Save hours")}
         </button>
       </div>
     </div>

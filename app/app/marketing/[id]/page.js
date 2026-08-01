@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import EmailCampaignDetail from "@/app/components/marketing/EmailCampaignDetail";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -34,13 +35,14 @@ const STATUS_META = {
 // line through them. No JS SDK (avoids the multi-load Google Maps conflict
 // MiniMap.js documents); just an <img>.
 function RouteMap({ stops }) {
+  const { t } = useTranslation();
   const pts = stops.filter(
     (s) => s.latitude != null && s.longitude != null,
   );
   if (pts.length === 0) {
     return (
       <div className="w-full h-48 rounded-xl bg-muted border border-border flex items-center justify-center text-xs text-muted-foreground">
-        Add addresses to see the route
+        {t("app.mkDetail.addAddressesHint")}
       </div>
     );
   }
@@ -69,7 +71,7 @@ function RouteMap({ stops }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={`https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`}
-        alt="Pamphlet route"
+        alt={t("app.mkDetail.routeAlt")}
         className="w-full h-[200px] object-cover"
       />
     </div>
@@ -77,6 +79,7 @@ function RouteMap({ stops }) {
 }
 
 export default function CampaignDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [campaign, setCampaign] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +122,7 @@ export default function CampaignDetailPage() {
         await load();
       } else {
         const d = await res.json();
-        setError(d.error || "Could not add address");
+        setError(d.error || t("app.mkDetail.addAddressError"));
       }
     } finally {
       setAddingStop(false);
@@ -160,7 +163,7 @@ export default function CampaignDetailPage() {
         body: JSON.stringify(convertForm),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not convert");
+      if (!res.ok) throw new Error(data.error || t("app.mkDetail.convertError"));
       setConvertStop(null);
       await load();
     } catch (err) {
@@ -182,9 +185,11 @@ export default function CampaignDetailPage() {
   if (!campaign) {
     return (
       <div className="p-4 sm:p-6 max-w-3xl mx-auto">
-        <p className="text-sm text-muted-foreground">Campaign not found.</p>
+        <p className="text-sm text-muted-foreground">
+          {t("app.mkDetail.notFound")}
+        </p>
         <Link href="/app/marketing" className="text-sm text-foreground underline">
-          Back to Marketing
+          {t("app.mkDetail.backToMarketing")}
         </Link>
       </div>
     );
@@ -201,7 +206,7 @@ export default function CampaignDetailPage() {
             href="/app/marketing"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
           >
-            <ArrowLeft size={14} /> Back to Marketing
+            <ArrowLeft size={14} /> {t("app.mkDetail.backToMarketing")}
           </Link>
           <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
         </div>
@@ -225,17 +230,20 @@ export default function CampaignDetailPage() {
           href="/app/marketing"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
-          <ArrowLeft size={14} /> Back to Marketing
+          <ArrowLeft size={14} /> {t("app.mkDetail.backToMarketing")}
         </Link>
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-foreground">{campaign.name}</h1>
           <span className="text-sm text-muted-foreground">
-            {visited}/{stops.length} visited
+            {t("app.mkDetail.visitedCount", {
+              visited,
+              total: stops.length,
+            })}
           </span>
         </div>
         {campaign.assignedTo && (
           <p className="text-sm text-muted-foreground mt-1">
-            Assigned to {campaign.assignedTo.name}
+            {t("app.mkDetail.assignedTo", { name: campaign.assignedTo.name })}
           </p>
         )}
       </div>
@@ -255,7 +263,7 @@ export default function CampaignDetailPage() {
       >
         <div className="flex-1">
           <label className="text-xs text-muted-foreground block mb-1">
-            Add an address to the route
+            {t("app.mkDetail.addAddressLabel")}
           </label>
           <AddressAutocomplete
             value={newStop.address}
@@ -263,7 +271,7 @@ export default function CampaignDetailPage() {
             onPlaceSelected={({ address, lat, lng }) =>
               setNewStop({ address, latitude: lat, longitude: lng })
             }
-            placeholder="Start typing a street address..."
+            placeholder={t("app.mkDetail.addressPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -272,7 +280,8 @@ export default function CampaignDetailPage() {
           disabled={addingStop}
           className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60 shrink-0"
         >
-          <Plus size={14} /> {addingStop ? "Adding..." : "Add"}
+          <Plus size={14} />{" "}
+          {addingStop ? t("app.mkDetail.adding") : t("app.action.add")}
         </button>
       </form>
 
@@ -280,8 +289,7 @@ export default function CampaignDetailPage() {
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {stops.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-            No addresses yet. Add some above and they'll be ordered into an
-            efficient route automatically.
+            {t("app.mkDetail.noAddresses")}
           </p>
         ) : (
           <div className="divide-y divide-border">
@@ -301,7 +309,7 @@ export default function CampaignDetailPage() {
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full ${meta.cls}`}
                         >
-                          {meta.label}
+                          {t("app.mkStop." + stop.status, meta.label)}
                         </span>
                         {stop.client && (
                           <span className="text-xs text-blue-600 dark:text-blue-400">
@@ -323,7 +331,7 @@ export default function CampaignDetailPage() {
                           }
                           className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
-                          <Check size={12} /> Delivered
+                          <Check size={12} /> {t("app.mkStop.delivered")}
                         </button>
                         <button
                           onClick={() =>
@@ -331,18 +339,18 @@ export default function CampaignDetailPage() {
                           }
                           className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
-                          <UserX size={12} /> Not home
+                          <UserX size={12} /> {t("app.mkStop.not_home")}
                         </button>
                         <button
                           onClick={() => openConvert(stop)}
                           className="flex items-center gap-1 text-xs border border-border rounded-full px-2.5 py-1 hover:bg-muted"
                         >
-                          <MessageSquare size={12} /> Spoke to owner
+                          <MessageSquare size={12} /> {t("app.mkStop.spoke")}
                         </button>
                         <button
                           onClick={() => deleteStop(stop.id)}
                           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-red-500 px-1.5 py-1"
-                          aria-label="Remove stop"
+                          aria-label={t("app.mkDetail.removeStop")}
                         >
                           <Trash2 size={12} />
                         </button>
@@ -357,7 +365,7 @@ export default function CampaignDetailPage() {
                             href={`/app/quotes/new?clientId=${stop.client.id}`}
                             className="flex items-center gap-1 text-xs font-medium text-foreground"
                           >
-                            <FileText size={12} /> Create quote
+                            <FileText size={12} /> {t("app.mkDetail.createQuote")}
                           </Link>
                         </div>
                       )}
@@ -382,21 +390,20 @@ export default function CampaignDetailPage() {
           >
             <div className="flex items-center justify-between mb-1">
               <h2 className="text-lg font-semibold text-foreground">
-                Spoke to owner
+                {t("app.mkStop.spoke")}
               </h2>
               <button onClick={() => setConvertStop(null)}>
                 <X size={18} className="text-muted-foreground" />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              {convertStop.address} — save them as a client, and optionally book
-              a visit right now.
+              {t("app.mkDetail.convertBody", { address: convertStop.address })}
             </p>
 
             <form onSubmit={handleConvert} className="space-y-3">
               <input
                 autoFocus
-                placeholder="Homeowner name"
+                placeholder={t("app.mkDetail.homeownerName")}
                 value={convertForm.clientName}
                 onChange={(e) =>
                   setConvertForm({ ...convertForm, clientName: e.target.value })
@@ -404,7 +411,7 @@ export default function CampaignDetailPage() {
                 className={inputClass}
               />
               <input
-                placeholder="Phone (optional)"
+                placeholder={t("app.mkDetail.phoneOptional")}
                 value={convertForm.clientPhone}
                 onChange={(e) =>
                   setConvertForm({
@@ -416,7 +423,7 @@ export default function CampaignDetailPage() {
               />
               <div>
                 <label className="text-xs text-muted-foreground block mb-1 flex items-center gap-1">
-                  <CalendarPlus size={12} /> Schedule a visit (optional)
+                  <CalendarPlus size={12} /> {t("app.mkDetail.scheduleVisit")}
                 </label>
                 <input
                   type="datetime-local"
@@ -430,8 +437,7 @@ export default function CampaignDetailPage() {
                   className={inputClass}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Booking a visit needs appointment permissions — if you don't
-                  have them, leave this blank and just save the client.
+                  {t("app.mkDetail.bookingHint")}
                 </p>
               </div>
 
@@ -440,7 +446,7 @@ export default function CampaignDetailPage() {
                 disabled={converting}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {converting ? "Saving..." : "Save"}
+                {converting ? t("app.action.saving") : t("app.action.save")}
               </button>
             </form>
           </div>

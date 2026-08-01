@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PayrollPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [payouts, setPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +47,11 @@ export default function PayrollPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Payroll</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.payroll.title")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Run contractor payouts for approved hours.
+          {t("app.payrollRun.subtitle")}
         </p>
       </div>
 
@@ -56,7 +60,9 @@ export default function PayrollPage() {
         className="bg-card border border-border rounded-xl p-4 flex gap-2 items-end"
       >
         <div>
-          <label className="text-xs text-muted-foreground">Period start</label>
+          <label className="text-xs text-muted-foreground">
+            {t("app.payroll.periodStart")}
+          </label>
           <input
             type="date"
             required
@@ -68,7 +74,9 @@ export default function PayrollPage() {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Period end</label>
+          <label className="text-xs text-muted-foreground">
+            {t("app.payroll.periodEnd")}
+          </label>
           <input
             type="date"
             required
@@ -82,13 +90,15 @@ export default function PayrollPage() {
           disabled={running}
           className="bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          {running ? "Running..." : "Run Payouts"}
+          {running ? t("app.payrollRun.running") : t("app.payrollRun.runPayouts")}
         </button>
       </form>
 
       <div className="bg-card border border-border rounded-xl divide-y divide-border">
         {payouts.length === 0 && (
-          <p className="px-5 py-6 text-sm text-muted-foreground">No payouts yet.</p>
+          <p className="px-5 py-6 text-sm text-muted-foreground">
+            {t("app.payrollRun.noPayouts")}
+          </p>
         )}
         {payouts.map((p) => (
           <div

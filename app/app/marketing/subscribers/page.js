@@ -9,11 +9,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function SubscribersPage() {
+  const { t } = useTranslation();
   const [subscribers, setSubscribers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -44,10 +46,15 @@ export default function SubscribersPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      setImportMsg(`Imported ${data.imported} of ${data.total} clients with an email on file.`);
+      setImportMsg(
+        t("app.subs.imported", {
+          imported: data.imported,
+          total: data.total,
+        }),
+      );
       load();
     } else {
-      setImportMsg(data.error || "Import failed");
+      setImportMsg(data.error || t("app.subs.importFailed"));
     }
     setImporting(false);
   }
@@ -63,7 +70,7 @@ export default function SubscribersPage() {
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not add subscriber");
+      if (!res.ok) throw new Error(data.error || t("app.subs.addError"));
       setForm({ email: "", name: "", phone: "" });
       setShowAdd(false);
       await load();
@@ -116,14 +123,18 @@ export default function SubscribersPage() {
           href="/app/marketing"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
-          <ArrowLeft size={14} /> Back to Marketing
+          <ArrowLeft size={14} /> {t("app.subs.backToMarketing")}
         </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Subscribers</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              {t("app.subs.title")}
+            </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {subscribedCount} subscribed of {subscribers.length} total — this
-              is who an Email blast campaign sends to.
+              {t("app.subs.subtitle", {
+                subscribed: subscribedCount,
+                total: subscribers.length,
+              })}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -132,13 +143,16 @@ export default function SubscribersPage() {
               disabled={importing}
               className="flex items-center gap-2 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold hover:bg-muted disabled:opacity-60"
             >
-              <Download size={14} /> {importing ? "Importing…" : "Import from Clients"}
+              <Download size={14} />{" "}
+              {importing
+                ? t("app.subs.importing")
+                : t("app.subs.importFromClients")}
             </button>
             <button
               onClick={() => setShowAdd(true)}
               className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-2 rounded-lg text-sm font-semibold"
             >
-              <Plus size={14} /> Add
+              <Plus size={14} /> {t("app.action.add")}
             </button>
           </div>
         </div>
@@ -148,7 +162,7 @@ export default function SubscribersPage() {
       {subscribers.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            No subscribers yet — import your clients or add someone manually.
+            {t("app.subs.empty")}
           </p>
         </div>
       ) : (
@@ -163,12 +177,12 @@ export default function SubscribersPage() {
                   {s.name && <span className="text-xs text-muted-foreground">{s.email}</span>}
                   {!s.subscribed && (
                     <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                      Unsubscribed
+                      {t("app.subs.unsubscribed")}
                     </span>
                   )}
                   {s.source === "client_import" && (
                     <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-full">
-                      From clients
+                      {t("app.subs.fromClients")}
                     </span>
                   )}
                 </div>
@@ -180,13 +194,15 @@ export default function SubscribersPage() {
                   disabled={busyId === s.id}
                   className="text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
-                  {s.subscribed ? "Unsubscribe" : "Resubscribe"}
+                  {s.subscribed
+                    ? t("app.subs.unsubscribe")
+                    : t("app.subs.resubscribe")}
                 </button>
                 <button
                   onClick={() => handleDelete(s.id)}
                   disabled={busyId === s.id}
                   className="text-muted-foreground hover:text-red-500"
-                  aria-label={`Remove ${s.email}`}
+                  aria-label={t("app.subs.removeAria", { email: s.email })}
                 >
                   <Trash2 size={14} />
                 </button>
@@ -205,7 +221,9 @@ export default function SubscribersPage() {
             className="bg-card rounded-2xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Subscriber</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">
+              {t("app.subs.addSubscriber")}
+            </h2>
             {error && (
               <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2 mb-3">
                 {error}
@@ -216,19 +234,19 @@ export default function SubscribersPage() {
                 required
                 autoFocus
                 type="email"
-                placeholder="Email"
+                placeholder={t("app.field.email")}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className={inputClass}
               />
               <input
-                placeholder="Name (optional)"
+                placeholder={t("app.subs.nameOptional")}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={inputClass}
               />
               <input
-                placeholder="Phone (optional)"
+                placeholder={t("app.subs.phoneOptional")}
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className={inputClass}
@@ -238,7 +256,7 @@ export default function SubscribersPage() {
                 disabled={saving}
                 className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
               >
-                {saving ? "Adding…" : "Add Subscriber"}
+                {saving ? t("app.subs.adding") : t("app.subs.addSubscriber")}
               </button>
             </form>
           </div>

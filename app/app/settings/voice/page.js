@@ -23,6 +23,7 @@ import {
   Headset, Phone, Loader2, Check, Plus, AlertTriangle, Copy, Info,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
@@ -42,6 +43,7 @@ function Card({ title, hint, children, step }) {
 }
 
 export default function VoiceSettingsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export default function VoiceSettingsPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/voice");
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't load the receptionist settings.");
+      await reportResponseError(res, t("app.setVoice.loadError", "Couldn't load the receptionist settings."));
       return null;
     }
     const d = await res.json();
@@ -93,7 +95,7 @@ export default function VoiceSettingsPage() {
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't save.");
+        await reportResponseError(res, t("app.setVoice.saveError", "Couldn't save."));
         return false;
       }
       const d = await res.json().catch(() => ({}));
@@ -119,7 +121,7 @@ export default function VoiceSettingsPage() {
         body: JSON.stringify({ source, numberType, ...extra }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't set up a number.");
+        await reportResponseError(res, t("app.setVoice.numberError", "Couldn't set up a number."));
         return;
       }
       await load();
@@ -137,7 +139,7 @@ export default function VoiceSettingsPage() {
         body: JSON.stringify({ cents }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't start the payment.");
+        await reportResponseError(res, t("app.setVoice.paymentError", "Couldn't start the payment."));
         return;
       }
       const { checkoutUrl } = await res.json();
@@ -166,7 +168,7 @@ export default function VoiceSettingsPage() {
   if (!data) {
     return (
       <div className="p-4 sm:p-6 text-sm text-muted-foreground">
-        This page couldn&apos;t be loaded.
+        {t("app.setVoice.loadFailed", "This page couldn't be loaded.")}
       </div>
     );
   }
@@ -179,11 +181,10 @@ export default function VoiceSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Headset size={20} className="text-muted-foreground" />
-          Phone receptionist
+          {t("app.setVoice.title", "Phone receptionist")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Answers the calls you can&apos;t, takes the details, and books visits
-          against your real availability. It never quotes a price.
+          {t("app.setVoice.subtitle", "Answers the calls you can't, takes the details, and books visits against your real availability. It never quotes a price.")}
         </p>
       </div>
 
@@ -193,8 +194,7 @@ export default function VoiceSettingsPage() {
         <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex gap-3">
           <Info size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-sm text-amber-900 dark:text-amber-200">
-            The phone service isn&apos;t connected on this deployment yet, so
-            numbers can&apos;t be set up. Everything else on this page works.
+            {t("app.setVoice.notConfigured", "The phone service isn't connected on this deployment yet, so numbers can't be set up. Everything else on this page works.")}
           </p>
         </div>
       )}
@@ -202,8 +202,8 @@ export default function VoiceSettingsPage() {
       {/* ── 1. A number ─────────────────────────────────────────────────── */}
       <Card
         step="1."
-        title="Your number"
-        hint="What the receptionist answers on."
+        title={t("app.setVoice.numberTitle", "Your number")}
+        hint={t("app.setVoice.numberHint", "What the receptionist answers on.")}
       >
         {number ? (
           <div className="space-y-3">
@@ -214,14 +214,14 @@ export default function VoiceSettingsPage() {
               </span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {number.source === "forwarded"
-                  ? "your number, forwarded"
+                  ? t("app.setVoice.badgeForwarded", "your number, forwarded")
                   : number.numberType === "toll_free"
-                    ? "toll-free"
-                    : "local"}
+                    ? t("app.setVoice.badgeTollFree", "toll-free")
+                    : t("app.setVoice.badgeLocal", "local")}
               </span>
               {number.monthlyCents > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  {money(number.monthlyCents)}/month
+                  {money(number.monthlyCents)}{t("app.setVoice.perMonth", "/month")}
                 </span>
               )}
             </div>
@@ -231,11 +231,10 @@ export default function VoiceSettingsPage() {
             {number.forwarding && (
               <div className="rounded-lg bg-muted p-4">
                 <p className="text-sm text-foreground font-medium">
-                  Dial one of these from the phone you want forwarded
+                  {t("app.setVoice.dialTitle", "Dial one of these from the phone you want forwarded")}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 mb-3">
-                  Most people want the first one. Your phone rings as usual, and
-                  only the calls you miss reach the receptionist.
+                  {t("app.setVoice.dialHint", "Most people want the first one. Your phone rings as usual, and only the calls you miss reach the receptionist.")}
                 </p>
                 <div className="space-y-2">
                   {number.forwarding.map((f) => (
@@ -251,7 +250,7 @@ export default function VoiceSettingsPage() {
                         type="button"
                         onClick={() => copy(f.code, f.code)}
                         className="text-muted-foreground hover:text-foreground"
-                        aria-label={`Copy ${f.code}`}
+                        aria-label={t("app.setVoice.copyCode", "Copy {code}", { code: f.code })}
                       >
                         {copied === f.code ? <Check size={14} /> : <Copy size={14} />}
                       </button>
@@ -259,8 +258,7 @@ export default function VoiceSettingsPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
-                  These work on most carriers. If yours doesn&apos;t take them,
-                  their support can set it up in a minute.
+                  {t("app.setVoice.carriersNote", "These work on most carriers. If yours doesn't take them, their support can set it up in a minute.")}
                 </p>
               </div>
             )}
@@ -278,7 +276,7 @@ export default function VoiceSettingsPage() {
                   <p className="font-semibold text-foreground">{s.label}</p>
                   {s.recommended && (
                     <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
-                      Recommended
+                      {t("app.setVoice.recommended", "Recommended")}
                     </span>
                   )}
                 </div>
@@ -296,8 +294,8 @@ export default function VoiceSettingsPage() {
                     does something else is worse than one that isn't there. */}
                 {s.key === "forwarded" && (
                   <NumberInput
-                    placeholder="Your current business number"
-                    cta="Set it up"
+                    placeholder={t("app.setVoice.forwardedPlaceholder", "Your current business number")}
+                    cta={t("app.setVoice.forwardedCta", "Set it up")}
                     disabled={busy || !configured}
                     onSubmit={(n) => getNumber("forwarded", "local", { publicNumber: n })}
                   />
@@ -322,8 +320,8 @@ export default function VoiceSettingsPage() {
                 {s.key === "ported" && (
                   <>
                     <NumberInput
-                      placeholder="The number you want to move"
-                      cta="Start the port"
+                      placeholder={t("app.setVoice.portedPlaceholder", "The number you want to move")}
+                      cta={t("app.setVoice.portedCta", "Start the port")}
                       disabled={busy || !configured}
                       onSubmit={(n) => getNumber("ported", "local", { publicNumber: n })}
                     />
@@ -333,9 +331,7 @@ export default function VoiceSettingsPage() {
                         pretending it's instant is how a business line goes
                         dark on a Tuesday. */}
                     <p className="text-xs text-muted-foreground mt-2">
-                      We&apos;ll email you what your current provider needs.
-                      Your existing number keeps working the whole time, and
-                      nothing switches over until the transfer completes.
+                      {t("app.setVoice.portedNote", "We'll email you what your current provider needs. Your existing number keeps working the whole time, and nothing switches over until the transfer completes.")}
                     </p>
                   </>
                 )}
@@ -348,17 +344,17 @@ export default function VoiceSettingsPage() {
       {/* ── 2. Credit ───────────────────────────────────────────────────── */}
       <Card
         step="2."
-        title="Credit"
-        hint={`${credit.centsPerMinute}¢ a minute, rounded up, one minute minimum. No monthly fee — you only pay for calls it actually takes.`}
+        title={t("app.setVoice.creditTitle", "Credit")}
+        hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. No monthly fee — you only pay for calls it actually takes.", { cents: credit.centsPerMinute })}
       >
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
           <span className="text-sm text-muted-foreground">
-            about {credit.minutes} minute{credit.minutes === 1 ? "" : "s"}
+            {t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"}
           </span>
           {credit.low && (
             <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle size={13} /> running low
+              <AlertTriangle size={13} /> {t("app.setVoice.runningLow", "running low")}
             </span>
           )}
         </div>
@@ -388,7 +384,7 @@ export default function VoiceSettingsPage() {
         {credit.entries.length > 0 && (
           <details className="mt-4">
             <summary className="text-sm text-muted-foreground cursor-pointer">
-              Where the credit went
+              {t("app.setVoice.creditLog", "Where the credit went")}
             </summary>
             <ul className="mt-2 space-y-1">
               {credit.entries.map((e, i) => (
@@ -420,33 +416,32 @@ export default function VoiceSettingsPage() {
       {/* ── 3. What it says ─────────────────────────────────────────────── */}
       <Card
         step="3."
-        title="What it says"
-        hint="It will never give a price, promise a time it hasn't checked, or claim to be a person."
+        title={t("app.setVoice.saysTitle", "What it says")}
+        hint={t("app.setVoice.saysHint", "It will never give a price, promise a time it hasn't checked, or claim to be a person.")}
       >
         <div className="space-y-4">
           <label className="block">
-            <span className="text-sm font-medium text-foreground">Greeting</span>
+            <span className="text-sm font-medium text-foreground">{t("app.setVoice.greeting", "Greeting")}</span>
             <input
               value={form.greeting}
               onChange={(e) => setForm({ ...form, greeting: e.target.value })}
-              placeholder="Thanks for calling, how can I help?"
+              placeholder={t("app.setVoice.greetingPlaceholder", "Thanks for calling, how can I help?")}
               className="mt-1.5 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
             />
           </label>
 
           <label className="block">
             <span className="text-sm font-medium text-foreground">
-              Anything it should know
+              {t("app.setVoice.instructions", "Anything it should know")}
             </span>
             <span className="block text-xs text-muted-foreground mt-0.5 mb-1.5">
-              Tone, what to emphasise, what you don&apos;t do. It can&apos;t
-              override the rules above — it still won&apos;t quote.
+              {t("app.setVoice.instructionsHint", "Tone, what to emphasise, what you don't do. It can't override the rules above — it still won't quote.")}
             </span>
             <textarea
               value={form.instructions}
               onChange={(e) => setForm({ ...form, instructions: e.target.value })}
               rows={4}
-              placeholder="We don't do commercial work. If they mention a leak, treat it as urgent."
+              placeholder={t("app.setVoice.instructionsPlaceholder", "We don't do commercial work. If they mention a leak, treat it as urgent.")}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
             />
           </label>
@@ -454,9 +449,7 @@ export default function VoiceSettingsPage() {
           {liveWarning && (
             <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-              Saved here, but we couldn&apos;t update the live phone agent.
-              It&apos;s still using the previous wording — try saving again in a
-              moment.
+              {t("app.setVoice.liveWarning", "Saved here, but we couldn't update the live phone agent. It's still using the previous wording — try saving again in a moment.")}
             </p>
           )}
 
@@ -467,7 +460,7 @@ export default function VoiceSettingsPage() {
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : saved ? <Check size={15} /> : null}
-            {saved ? "Saved" : "Save"}
+            {saved ? t("app.action.saved", "Saved") : t("app.action.save", "Save")}
           </button>
         </div>
       </Card>
@@ -475,11 +468,11 @@ export default function VoiceSettingsPage() {
       {/* ── 4. The switch ───────────────────────────────────────────────── */}
       <Card
         step="4."
-        title="Answer my calls"
+        title={t("app.setVoice.answerTitle", "Answer my calls")}
         hint={
           canEnable
-            ? "Turn it on when you're ready. You can turn it off just as fast."
-            : "Set up a number and add some credit first — otherwise it would pick up and fail."
+            ? t("app.setVoice.answerHintReady", "Turn it on when you're ready. You can turn it off just as fast.")
+            : t("app.setVoice.answerHintNotReady", "Set up a number and add some credit first — otherwise it would pick up and fail.")
         }
       >
         <button
@@ -493,7 +486,7 @@ export default function VoiceSettingsPage() {
           }`}
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Headset size={16} />}
-          {agent?.enabled ? "It's answering — turn off" : "Start answering calls"}
+          {agent?.enabled ? t("app.setVoice.answerOn", "It's answering — turn off") : t("app.setVoice.answerOff", "Start answering calls")}
         </button>
       </Card>
 
@@ -503,8 +496,8 @@ export default function VoiceSettingsPage() {
           the same number-and-credit floor as answering. */}
       <Card
         step="5."
-        title="Call clients back automatically"
-        hint="The assistant rings clients who asked to be contacted — when you approve their quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good."
+        title={t("app.setVoice.outboundTitle", "Call clients back automatically")}
+        hint={t("app.setVoice.outboundHint", "The assistant rings clients who asked to be contacted — when you approve their quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good.")}
       >
         <button
           type="button"
@@ -517,15 +510,15 @@ export default function VoiceSettingsPage() {
           }`}
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Phone size={16} />}
-          {data?.outbound?.enabled ? "It's calling clients — turn off" : "Turn on quote callbacks"}
+          {data?.outbound?.enabled ? t("app.setVoice.outboundOn", "It's calling clients — turn off") : t("app.setVoice.outboundOff", "Turn on quote callbacks")}
         </button>
 
         {data?.outbound?.enabled && (
           <p className="text-xs text-muted-foreground mt-3">
             {data.outbound.queued > 0
-              ? `${data.outbound.queued} call${data.outbound.queued === 1 ? "" : "s"} waiting to go out.`
-              : "No calls waiting. The next approved quote will queue one."}{" "}
-            A client who asks to stop being called is taken off immediately and for good.
+              ? t("app.setVoice.outboundQueued", "{count} call{plural} waiting to go out.", { count: data.outbound.queued, plural: data.outbound.queued === 1 ? "" : "s" })
+              : t("app.setVoice.outboundNone", "No calls waiting. The next approved quote will queue one.")}{" "}
+            {t("app.setVoice.outboundStopNote", "A client who asks to stop being called is taken off immediately and for good.")}
           </p>
         )}
       </Card>
@@ -536,8 +529,8 @@ export default function VoiceSettingsPage() {
           Needs a phone number; crew are matched by the phone on their profile. */}
       <Card
         step="6."
-        title="Let the crew text in photos and updates"
-        hint="Your crew send photos or a quick note to your number, and it files them to the right job automatically — asking which one when the day has more than one."
+        title={t("app.setVoice.crewTitle", "Let the crew text in photos and updates")}
+        hint={t("app.setVoice.crewHint", "Your crew send photos or a quick note to your number, and it files them to the right job automatically — asking which one when the day has more than one.")}
       >
         <button
           type="button"
@@ -550,12 +543,11 @@ export default function VoiceSettingsPage() {
           }`}
         >
           {busy ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
-          {data?.crewInbox?.enabled ? "Crew inbox is on — turn off" : "Turn on the crew inbox"}
+          {data?.crewInbox?.enabled ? t("app.setVoice.crewOn", "Crew inbox is on — turn off") : t("app.setVoice.crewOff", "Turn on the crew inbox")}
         </button>
         {data?.crewInbox?.enabled && (
           <p className="text-xs text-muted-foreground mt-3">
-            Crew are matched by the phone number on their profile (Settings →
-            Team). A text from an unknown number is logged but not filed.
+            {t("app.setVoice.crewNote", "Crew are matched by the phone number on their profile (Settings → Team). A text from an unknown number is logged but not filed.")}
           </p>
         )}
       </Card>

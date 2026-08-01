@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Plus, Clock, Mail } from "lucide-react";
 import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const ROLE_LABELS = {
   owner: "Owner",
@@ -30,6 +31,7 @@ function timeAgo(date, dateFormat) {
 }
 
 export default function TeamOverviewPage() {
+  const { t } = useTranslation();
   const { dateFormat } = useCompanyPreferences();
   const [members, setMembers] = useState([]);
   const [pending, setPending] = useState([]);
@@ -81,7 +83,7 @@ export default function TeamOverviewPage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't save.");
+        throw new Error(d?.error || t("app.setTeam.errSave"));
       }
       await load();
     } catch (err) {
@@ -104,7 +106,7 @@ export default function TeamOverviewPage() {
         body: JSON.stringify({ role }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't change role.");
+      if (!res.ok) throw new Error(data?.error || t("app.setTeam.errRole"));
       await load();
     } catch (err) {
       setError(err.message);
@@ -130,18 +132,18 @@ export default function TeamOverviewPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Manage Team</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.setTeam.title")}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-            Add or manage team members that need to log into FieldQuo in the
-            office or in the field. Dispatch them to job sites or give them
-            access to more FieldQuo features.
+            {t("app.setTeam.subtitle")}
           </p>
         </div>
         <Link
           href="/app/settings/team/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
         >
-          <Plus size={14} /> Add User
+          <Plus size={14} /> {t("app.setTeam.addUser")}
         </Link>
       </div>
 
@@ -156,10 +158,11 @@ export default function TeamOverviewPage() {
           {seats.used}
           {seats.limit ? ` / ${seats.limit}` : ""}
         </span>{" "}
-        active users {seats.limit ? "and unallocated licenses" : ""}
+        {t("app.setTeam.activeUsers")}{" "}
+        {seats.limit ? t("app.setTeam.unallocatedLicenses") : ""}
         {seats.limit && seats.used >= seats.limit && (
           <span className="text-amber-600 dark:text-amber-400 font-medium">
-            · At your plan's limit
+            {t("app.setTeam.atPlanLimit")}
           </span>
         )}
       </div>
@@ -169,28 +172,28 @@ export default function TeamOverviewPage() {
           href="/app/settings/team/workers"
           className="border border-border rounded-full px-4 py-2"
         >
-          Workers
+          {t("app.setTeam.workers")}
         </Link>
         <Link
           href="/app/settings/team/timesheets"
           className="border border-border rounded-full px-4 py-2"
         >
-          Timesheets
+          {t("app.nav.timesheets")}
         </Link>
         <Link
           href="/app/settings/team/payroll"
           className="border border-border rounded-full px-4 py-2"
         >
-          Payroll
+          {t("app.nav.payroll")}
         </Link>
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          <span>Name / Email</span>
-          <span>Role</span>
-          <span>Last Login</span>
-          <span>Active</span>
+          <span>{t("app.setTeam.nameEmail")}</span>
+          <span>{t("app.setTeam.role")}</span>
+          <span>{t("app.setTeam.lastLogin")}</span>
+          <span>{t("app.status.active")}</span>
         </div>
 
         <div className="divide-y divide-border">
@@ -214,8 +217,8 @@ export default function TeamOverviewPage() {
                   className="text-xs bg-muted px-2.5 py-1 rounded-full w-fit"
                   title={
                     m.role === "owner"
-                      ? "Owners can only be changed by another owner"
-                      : "You can only change roles below your own"
+                      ? t("app.setTeam.ownerChangeHint")
+                      : t("app.setTeam.roleBelowHint")
                   }
                 >
                   {ROLE_LABELS[m.role] || m.role}
@@ -260,7 +263,7 @@ export default function TeamOverviewPage() {
                   title={
                     canEdit(m)
                       ? undefined
-                      : "You can only deactivate members below your own role"
+                      : t("app.setTeam.deactivateHint")
                   }
                   onChange={(e) =>
                     updateMember(m.userId, { active: e.target.checked })
@@ -282,7 +285,7 @@ export default function TeamOverviewPage() {
                 <div className="text-xs text-muted-foreground">{p.email}</div>
               </div>
               <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-full flex items-center gap-1 w-fit">
-                <Mail size={11} /> Invited
+                <Mail size={11} /> {t("app.setTeam.invited")}
               </span>
               <span className="text-xs text-muted-foreground">—</span>
               <span className="text-xs text-muted-foreground">—</span>
@@ -291,15 +294,14 @@ export default function TeamOverviewPage() {
 
           {members.length === 0 && pending.length === 0 && (
             <p className="px-5 py-8 text-sm text-muted-foreground text-center">
-              No team members yet.
+              {t("app.setTeam.noMembers")}
             </p>
           )}
         </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        The account used to register FieldQuo is the owner — at least one
-        account always needs a top-level (owner or admin) role.
+        {t("app.setTeam.ownerNote")}
       </p>
     </div>
   );
