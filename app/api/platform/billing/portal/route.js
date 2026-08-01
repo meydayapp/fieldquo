@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { createBillingPortalSession } from "@/lib/platform/stripeBilling";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Company-facing (getCurrentMember, same pattern as the checkout route) —
 // opens Stripe's hosted billing portal so they can update their card, see
@@ -35,6 +36,11 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // Origin from the request (falls back to NEXT_PUBLIC_APP_URL) — never an
+  // undefined `baseUrl`, which Stripe rejects and surfaces three layers away as
+  // "the string did not match the expected pattern".
+  const baseUrl = getAppOrigin(request);
 
   const url = await createBillingPortalSession({
     stripeCustomerId: subscription.stripeCustomerId,

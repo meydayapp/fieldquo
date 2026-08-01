@@ -129,7 +129,7 @@ function stageFor(entityType, entity) {
   return 0;
 }
 
-function mergeDataFor(entityType, entity) {
+function mergeDataFor(entityType, entity, request) {
   const base = {
     clientName: entity.client?.contactName || entity.client?.name || "",
     clientAddress: entity.client?.address || "",
@@ -226,7 +226,7 @@ export async function GET(request) {
         continue; // already logged (race or already handled) — skip silently
       }
 
-      const mergeData = mergeDataFor(finder.entityType, entity);
+      const mergeData = mergeDataFor(finder.entityType, entity, request);
       const html = renderTemplateSections(rule.template.sections, mergeData, {
         company: entity.company || {},
         theme: rule.template.theme || null,

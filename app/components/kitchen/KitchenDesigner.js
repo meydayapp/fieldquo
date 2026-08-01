@@ -64,6 +64,7 @@ import {
   WALLS,
   KINDS,
   islandModules,
+  islandSideModules,
   islandFrontModules,
   islandBackModules,
   islandLeftModules,
@@ -1521,7 +1522,7 @@ export default function KitchenDesigner({
               w={ew}
               h={eh}
               el={faceEl}
-              color={colorFor(el, cfg.finish)}
+              color={colorFor(faceEl, cfg.finish)}
               style={cfg.finish?.doorStyle}
             />
           )}

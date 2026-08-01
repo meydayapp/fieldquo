@@ -253,6 +253,7 @@ export default function AppointmentsPage() {
 }
 
 function NewAppointmentModal({ members, onClose, onCreated }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     clientName: "",
     clientPhone: "",

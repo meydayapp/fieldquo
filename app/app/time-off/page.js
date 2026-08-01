@@ -169,6 +169,7 @@ export default function TimeOffPage() {
 // ── My time off ────────────────────────────────────────────────────────────
 
 function MyTimeOff({ data, reload }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   if (!data) {
@@ -254,6 +255,7 @@ function MyTimeOff({ data, reload }) {
 }
 
 function BalanceCard({ balance }) {
+  const { t } = useTranslation();
   const isMoney = balance.policy?.accrualMethod === "percent_of_gross";
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -304,6 +306,7 @@ function BalanceCard({ balance }) {
 }
 
 function RequestForm({ policies, balances, onDone, onCancel }) {
+  const { t } = useTranslation();
   const today = iso(new Date());
   const [form, setForm] = useState({
     policyId: policies[0]?.id || "",
@@ -571,6 +574,7 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
 // ── Team ───────────────────────────────────────────────────────────────────
 
 function TeamTimeOff({ data, reload }) {
+  const { t } = useTranslation();
   if (!data) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">

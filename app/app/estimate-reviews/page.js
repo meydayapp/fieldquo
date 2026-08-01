@@ -104,6 +104,7 @@ export default function EstimateReviewsPage() {
 }
 
 function ReviewCard({ q, canApprove, busy, onApprove }) {
+  const { t } = useTranslation();
   const d = q.estimateData || {};
   const m = d.measurement || {};
   const range = d.range || {};
