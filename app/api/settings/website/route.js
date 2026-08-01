@@ -299,12 +299,26 @@ export async function POST(request) {
   const { member, error, status } = await requireAdmin(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const quota = await checkAiQuota(member.companyId);
-  if (!quota.allowed) {
-    return NextResponse.json(
-      { error: quota.reason, quotaExceeded: true },
-      { status: 429 },
-    );
+  const body = await request.json().catch(() => ({}));
+
+  // An explicit template / style pick is deterministic — no model is called, so
+  // it neither needs nor spends AI quota, and a company that has hit its quota
+  // (or has no AI key at all, as on localhost) can still rearrange their page.
+  // Only a prompt-driven Regenerate, which actually writes copy, is gated.
+  const forceComposition = COMPOSITION_KEYS.includes(body.composition)
+    ? body.composition
+    : null;
+  const forceStyle = SITE_STYLE_KEYS.includes(body.styleKey) ? body.styleKey : null;
+  const isForcedSwitch = Boolean(forceComposition || forceStyle);
+
+  if (!isForcedSwitch) {
+    const quota = await checkAiQuota(member.companyId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: quota.reason, quotaExceeded: true },
+        { status: 429 },
+      );
+    }
   }
 
   const company = await db.company.findUnique({
@@ -313,8 +327,6 @@ export async function POST(request) {
   });
   if (!company)
     return NextResponse.json({ error: "Company not found" }, { status: 404 });
-
-  const body = await request.json().catch(() => ({}));
 
   // The page as currently SAVED. generateSite carries images across from it,
   // so pressing Regenerate rewrites the words without discarding the job
@@ -357,6 +369,10 @@ export async function POST(request) {
       areas,
       interview: body.interview || {},
       existingBlocks: Array.isArray(existing?.blocks) ? existing.blocks : [],
+      // A clicked template / style from the chooser — honoured deterministically
+      // (see generateSite). null on a normal prompt-driven Regenerate.
+      forceComposition,
+      forceStyle,
       onUsage: (u) =>
         recordAiUsage({
           companyId: member.companyId,

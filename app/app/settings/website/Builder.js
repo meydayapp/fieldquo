@@ -53,6 +53,10 @@ export default function Builder({ data, onReload }) {
   const site = data?.site || null;
   const [blocks, setBlocks] = useState(site?.blocks || []);
   const [styleKey, setStyleKey] = useState(site?.styleKey || "modern");
+  // The layout preset currently applied, so the picker can show which one is
+  // live. Not persisted as a column — it's implied by the section order — so it
+  // seeds null and lights up once the company picks or regenerates.
+  const [composition, setComposition] = useState(site?.composition || null);
   const [subdomain, setSubdomain] = useState(site?.subdomain || data?.suggestedSubdomain || "");
   const [thread, setThread] = useState(data?.chat || []);
   const [prompt, setPrompt] = useState("");
@@ -154,6 +158,7 @@ export default function Builder({ data, onReload }) {
       const nextBlocks = result.blocks || [];
       setBlocks(nextBlocks);
       if (result.styleKey) setStyleKey(result.styleKey);
+      if (result.composition) setComposition(result.composition);
 
       // Say what actually changed, in the company's terms. "Done" tells them
       // nothing and makes the next prompt a guess.
@@ -189,6 +194,54 @@ export default function Builder({ data, onReload }) {
         handEdited: false,
       });
       setHandEdited(false);
+      await onReload?.();
+    } catch (err) {
+      setError(err.message);
+      say("assistant", t("app.siteBuilder.sendFailed", "That didn't work: {message}", { message: err.message }));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ── Pick a template / style directly ──────────────────────────────────────
+  //
+  // The deterministic path. Unlike a prompt-driven Regenerate this writes no
+  // copy — it re-lays-out the same business in a chosen shape — so it's instant,
+  // spends no AI quota, and works on localhost where there's no model key. It
+  // carries the company's photos AND their wording across (see carryCopy in
+  // generateSite), which is why it needs no "this will overwrite your edits"
+  // warning: nothing of theirs is lost, only rearranged.
+  async function applyTemplate({ composition, styleKey: nextStyle }) {
+    if (busy) return;
+    setError("");
+    setBusy(true);
+    try {
+      const result = await fetchJson("/api/settings/website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(composition ? { composition } : {}),
+          ...(nextStyle ? { styleKey: nextStyle } : {}),
+          interview: site?.interview || {},
+        }),
+      });
+      const nextBlocks = result.blocks || [];
+      setBlocks(nextBlocks);
+      if (result.styleKey) setStyleKey(result.styleKey);
+      if (result.composition) setComposition(result.composition);
+
+      const label =
+        (composition && (data?.compositions || []).find((c) => c.key === composition)?.label) ||
+        (nextStyle && (data?.siteStyles || []).find((s) => s.key === nextStyle)?.label) ||
+        t("app.siteBuilder.newLook", "a new look");
+      say(
+        "assistant",
+        t("app.siteBuilder.appliedTemplate", "Applied {label}. Your photos and wording carried over — edit anything, then Save.", { label }),
+      );
+
+      // Preserve the hand-edited flag: a re-layout keeps their words, so a
+      // later Regenerate should still warn before rewriting them.
+      await persist(nextBlocks, result.styleKey || nextStyle || styleKey, { handEdited });
       await onReload?.();
     } catch (err) {
       setError(err.message);
@@ -543,6 +596,65 @@ export default function Builder({ data, onReload }) {
             )}
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           </div>
+
+          {/* ── Templates: pick a layout & style directly ──────────────────
+              The deterministic chooser. Every chip is one click, applies
+              instantly, spends no AI, and keeps their photos and wording (the
+              server carries both across). Five layouts × the styles below is the
+              real "different templates" — a menu, not a single generated page. */}
+          {(data?.compositions?.length > 0 || data?.siteStyles?.length > 0) && (
+            <div className="shrink-0 border-t border-border p-3 space-y-2.5">
+              {data?.compositions?.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                    {t("app.siteBuilder.layout", "Layout")}
+                  </div>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                    {data.compositions.map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => applyTemplate({ composition: c.key })}
+                        className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${
+                          composition === c.key
+                            ? "border-foreground bg-inverted text-inverted-foreground"
+                            : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {data?.siteStyles?.length > 0 && (
+                <div>
+                  <div className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                    {t("app.siteBuilder.style", "Style")}
+                  </div>
+                  <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                    {data.siteStyles.map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        disabled={busy}
+                        title={s.hint}
+                        onClick={() => applyTemplate({ styleKey: s.key })}
+                        className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${
+                          styleKey === s.key
+                            ? "border-foreground bg-inverted text-inverted-foreground"
+                            : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/40"
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── The prompt, always at the bottom, always the main control ── */}
           <div className="shrink-0 border-t border-border p-3">
