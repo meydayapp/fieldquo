@@ -1998,6 +1998,23 @@ const en = {
   "app.kitchen.clientSavedVersion": "Your client saved their own version of this layout",
   "app.kitchen.onDate": "on {date}",
   "app.kitchen.loadTheirVersion": "Load their version",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "Time clock",
+  "app.clock.title": "Time clock",
+  "app.clock.loadError": "Couldn't load the time clock.",
+  "app.clock.punchError": "Couldn't record that.",
+  "app.clock.notWorker": "You're not set up as a worker yet. Ask an admin to add you under Team.",
+  "app.clock.onTheClock": "On the clock",
+  "app.clock.since": "Since {time}",
+  "app.clock.notClockedIn": "You're clocked out.",
+  "app.clock.clockIn": "Clock in",
+  "app.clock.clockOut": "Clock out",
+  "app.clock.today": "Today",
+  "app.clock.hoursValue": "{hours} h",
+  "app.clock.noneToday": "No entries yet today.",
+  "app.clock.open": "Open",
+  "app.clock.reviewNote": "Your hours go to your manager to review and approve.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -3940,6 +3957,23 @@ const fr = {
   "app.kitchen.clientSavedVersion": "Votre client a enregistré sa propre version de cette disposition",
   "app.kitchen.onDate": "le {date}",
   "app.kitchen.loadTheirVersion": "Charger leur version",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "Pointeuse",
+  "app.clock.title": "Pointeuse",
+  "app.clock.loadError": "Impossible de charger la pointeuse.",
+  "app.clock.punchError": "Impossible d'enregistrer.",
+  "app.clock.notWorker": "Vous n'êtes pas encore configuré comme intervenant. Demandez à un administrateur de vous ajouter sous Équipe.",
+  "app.clock.onTheClock": "En service",
+  "app.clock.since": "Depuis {time}",
+  "app.clock.notClockedIn": "Vous êtes hors service.",
+  "app.clock.clockIn": "Pointer l'entrée",
+  "app.clock.clockOut": "Pointer la sortie",
+  "app.clock.today": "Aujourd'hui",
+  "app.clock.hoursValue": "{hours} h",
+  "app.clock.noneToday": "Aucune entrée aujourd'hui.",
+  "app.clock.open": "En cours",
+  "app.clock.reviewNote": "Vos heures sont transmises à votre gestionnaire pour révision et approbation.",
 };
 
 
@@ -5837,6 +5871,23 @@ const es = {
   "app.timesheets.clockOut": "Registrar salida",
   "app.timesheets.inProgress": "En curso",
   "app.timesheets.noWorkers": "Agrega primero un trabajador en Trabajadores, luego registra sus horas aquí.",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "Reloj de tiempo",
+  "app.clock.title": "Reloj de tiempo",
+  "app.clock.loadError": "No se pudo cargar el reloj de tiempo.",
+  "app.clock.punchError": "No se pudo registrar.",
+  "app.clock.notWorker": "Aún no estás configurado como trabajador. Pide a un administrador que te agregue en Equipo.",
+  "app.clock.onTheClock": "En turno",
+  "app.clock.since": "Desde {time}",
+  "app.clock.notClockedIn": "Estás fuera de turno.",
+  "app.clock.clockIn": "Registrar entrada",
+  "app.clock.clockOut": "Registrar salida",
+  "app.clock.today": "Hoy",
+  "app.clock.hoursValue": "{hours} h",
+  "app.clock.noneToday": "Aún no hay entradas hoy.",
+  "app.clock.open": "Abierto",
+  "app.clock.reviewNote": "Tus horas se envían a tu gerente para revisar y aprobar.",
 };
 
 const uk = {
@@ -7733,6 +7784,23 @@ const uk = {
   "app.timesheets.clockOut": "Відмітити вихід",
   "app.timesheets.inProgress": "У процесі",
   "app.timesheets.noWorkers": "Спершу додайте працівника в розділі Працівники, потім записуйте його години тут.",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "Табельний годинник",
+  "app.clock.title": "Табельний годинник",
+  "app.clock.loadError": "Не вдалося завантажити табельний годинник.",
+  "app.clock.punchError": "Не вдалося записати.",
+  "app.clock.notWorker": "Вас ще не налаштовано як працівника. Попросіть адміністратора додати вас у розділі Команда.",
+  "app.clock.onTheClock": "На зміні",
+  "app.clock.since": "З {time}",
+  "app.clock.notClockedIn": "Ви не на зміні.",
+  "app.clock.clockIn": "Відмітити прихід",
+  "app.clock.clockOut": "Відмітити вихід",
+  "app.clock.today": "Сьогодні",
+  "app.clock.hoursValue": "{hours} год",
+  "app.clock.noneToday": "Сьогодні ще немає записів.",
+  "app.clock.open": "Відкрито",
+  "app.clock.reviewNote": "Ваші години надсилаються керівнику на перевірку та затвердження.",
 };
 
 const pa = {
@@ -9629,6 +9697,23 @@ const pa = {
   "app.timesheets.clockOut": "ਕਲਾਕ ਆਊਟ",
   "app.timesheets.inProgress": "ਜਾਰੀ ਹੈ",
   "app.timesheets.noWorkers": "ਪਹਿਲਾਂ ਵਰਕਰ ਹੇਠ ਇੱਕ ਵਰਕਰ ਸ਼ਾਮਲ ਕਰੋ, ਫਿਰ ਉਸ ਦੇ ਘੰਟੇ ਇੱਥੇ ਦਰਜ ਕਰੋ।",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "ਟਾਈਮ ਕਲਾਕ",
+  "app.clock.title": "ਟਾਈਮ ਕਲਾਕ",
+  "app.clock.loadError": "ਟਾਈਮ ਕਲਾਕ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
+  "app.clock.punchError": "ਇਹ ਦਰਜ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
+  "app.clock.notWorker": "ਤੁਹਾਨੂੰ ਹਾਲੇ ਵਰਕਰ ਵਜੋਂ ਸੈੱਟ ਨਹੀਂ ਕੀਤਾ ਗਿਆ। ਕਿਸੇ ਐਡਮਿਨ ਨੂੰ ਟੀਮ ਹੇਠ ਤੁਹਾਨੂੰ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਕਹੋ।",
+  "app.clock.onTheClock": "ਡਿਊਟੀ ਤੇ",
+  "app.clock.since": "{time} ਤੋਂ",
+  "app.clock.notClockedIn": "ਤੁਸੀਂ ਕਲਾਕ ਆਊਟ ਹੋ।",
+  "app.clock.clockIn": "ਕਲਾਕ ਇਨ",
+  "app.clock.clockOut": "ਕਲਾਕ ਆਊਟ",
+  "app.clock.today": "ਅੱਜ",
+  "app.clock.hoursValue": "{hours} ਘੰਟੇ",
+  "app.clock.noneToday": "ਅੱਜ ਹਾਲੇ ਕੋਈ ਐਂਟਰੀ ਨਹੀਂ।",
+  "app.clock.open": "ਖੁੱਲ੍ਹਾ",
+  "app.clock.reviewNote": "ਤੁਹਾਡੇ ਘੰਟੇ ਸਮੀਖਿਆ ਅਤੇ ਮਨਜ਼ੂਰੀ ਲਈ ਤੁਹਾਡੇ ਮੈਨੇਜਰ ਕੋਲ ਜਾਂਦੇ ਹਨ।",
 };
 
 const tl = {
@@ -11525,6 +11610,23 @@ const tl = {
   "app.timesheets.clockOut": "Mag-clock out",
   "app.timesheets.inProgress": "Kasalukuyang ginagawa",
   "app.timesheets.noWorkers": "Magdagdag muna ng manggagawa sa ilalim ng Mga Manggagawa, tapos itala ang kanilang oras dito.",
+
+  // ── added by i18n-screens workflow ──
+  "app.nav.clock": "Time clock",
+  "app.clock.title": "Time clock",
+  "app.clock.loadError": "Hindi ma-load ang time clock.",
+  "app.clock.punchError": "Hindi maitala iyon.",
+  "app.clock.notWorker": "Hindi ka pa naka-set up bilang manggagawa. Hilingin sa admin na idagdag ka sa Team.",
+  "app.clock.onTheClock": "Naka-clock in",
+  "app.clock.since": "Simula {time}",
+  "app.clock.notClockedIn": "Naka-clock out ka.",
+  "app.clock.clockIn": "Mag-clock in",
+  "app.clock.clockOut": "Mag-clock out",
+  "app.clock.today": "Ngayon",
+  "app.clock.hoursValue": "{hours} h",
+  "app.clock.noneToday": "Wala pang entry ngayon.",
+  "app.clock.open": "Bukas",
+  "app.clock.reviewNote": "Ang iyong oras ay napupunta sa iyong manager para suriin at aprubahan.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };

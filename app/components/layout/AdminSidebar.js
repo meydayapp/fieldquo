@@ -88,6 +88,7 @@ const NAV_GROUPS = [
       // job; splitting them across two menus is why people ask where things are.
       { key: "app.nav.team", href: "/app/settings/team", icon: UserCog },
       { key: "app.nav.teamSchedule", href: "/app/schedule", icon: Calendar },
+      { key: "app.nav.clock", href: "/app/clock", icon: Clock },
       { key: "app.nav.timesheets", href: "/app/settings/team/timesheets", icon: Clock },
       // Top-level, not buried in settings: everyone uses it, not just admins.
       { key: "app.nav.timeOff", href: "/app/time-off", icon: CalendarClock },
