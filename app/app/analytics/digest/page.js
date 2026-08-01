@@ -3,8 +3,10 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, AlertTriangle, TrendingDown } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function DigestPage() {
+  const { t } = useTranslation();
   const [digests, setDigests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
@@ -33,16 +35,18 @@ export default function DigestPage() {
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-lg md:text-xl font-semibold">Monthly Digest</h1>
+        <h1 className="text-lg md:text-xl font-semibold">{t("app.digest.title", "Monthly Digest")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Automated summaries of how your business performed each month.
+          {t("app.digest.subtitle", "Automated summaries of how your business performed each month.")}
         </p>
       </div>
 
       {digests.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
-          No digests yet — your first monthly summary will appear here after
-          your first full month of activity.
+          {t(
+            "app.digest.empty",
+            "No digests yet — your first monthly summary will appear here after your first full month of activity.",
+          )}
         </div>
       )}
 
@@ -69,8 +73,11 @@ export default function DigestPage() {
                   {flags.length > 0 && (
                     <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
                       <AlertTriangle size={12} />
-                      {flags.length} {flags.length === 1 ? "flag" : "flags"}{" "}
-                      this month
+                      {flags.length}{" "}
+                      {flags.length === 1
+                        ? t("app.digest.flag", "flag")
+                        : t("app.digest.flags", "flags")}{" "}
+                      {t("app.digest.thisMonth", "this month")}
                     </div>
                   )}
                 </div>

@@ -16,6 +16,7 @@ import { Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -76,6 +77,7 @@ function PercentMap({ title, map, onChange }) {
 }
 
 function TradeCard({ trade, canEdit, onSaved }) {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(trade.enabled);
   const [config, setConfig] = useState(trade.config || {});
   const [saving, setSaving] = useState(false);
@@ -84,7 +86,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
   const rateKey =
     trade.trade === "roofing" ? "ratePerSquare" : trade.trade === "stair" ? "ratePerTread" : "ratePerSqft";
   const rateSuffix =
-    trade.trade === "roofing" ? "/ square" : trade.trade === "stair" ? "/ tread" : "/ sqft";
+    trade.trade === "roofing" ? t("app.setInstantQuotes.perSquare", "/ square") : trade.trade === "stair" ? t("app.setInstantQuotes.perTread", "/ tread") : t("app.setInstantQuotes.perSqft", "/ sqft");
 
   function patch(next) {
     setConfig((c) => ({ ...c, ...next }));
@@ -99,11 +101,11 @@ function TradeCard({ trade, canEdit, onSaved }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trade: trade.trade, enabled, config }),
       });
-      setSavedNote("Saved");
+      setSavedNote(t("app.action.saved"));
       onSaved?.();
     } catch (err) {
       // Server refuses to enable an unpriced trade; surface its message.
-      showError(err.message || "Could not save");
+      showError(err.message || t("app.setInstantQuotes.couldNotSave", "Could not save"));
       setEnabled(trade.enabled); // roll the toggle back to the known-good state
     } finally {
       setSaving(false);
@@ -127,12 +129,12 @@ function TradeCard({ trade, canEdit, onSaved }) {
         <div>
           <h3 className="text-base font-semibold text-foreground">{trade.label}</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-md">
-            {MEASURE_COPY[trade.measure]}
+            {t(`app.setInstantQuotes.measure.${trade.measure}`, MEASURE_COPY[trade.measure])}
           </p>
         </div>
         <label className="flex items-center gap-2 shrink-0">
           <span className="text-sm text-muted-foreground">
-            {enabled ? "On" : "Off"}
+            {enabled ? t("app.setInstantQuotes.on", "On") : t("app.setInstantQuotes.off", "Off")}
           </span>
           <input
             type="checkbox"
@@ -146,8 +148,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
 
       {trade.isDefaults && (
         <p className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
-          These are typical starting figures, not your prices. Edit them to your
-          market, then save — nothing is offered to homeowners until you do.
+          {t("app.setInstantQuotes.defaultsNote", "These are typical starting figures, not your prices. Edit them to your market, then save — nothing is offered to homeowners until you do.")}
         </p>
       )}
 
@@ -158,12 +159,12 @@ function TradeCard({ trade, canEdit, onSaved }) {
             revealing a number. */}
         <div>
           <div className="text-sm font-medium text-foreground mb-2">
-            What the homeowner sees
+            {t("app.setInstantQuotes.homeownerSees", "What the homeowner sees")}
           </div>
           <div className="flex flex-col gap-2">
             {[
-              { key: "gated", label: "Don't show a price", hint: "They submit and we say a quote is on the way." },
-              { key: "range", label: "Show an estimated range", hint: "A range instantly; exact price after you review. Converts better." },
+              { key: "gated", label: t("app.setInstantQuotes.visGatedLabel", "Don't show a price"), hint: t("app.setInstantQuotes.visGatedHint", "They submit and we say a quote is on the way.") },
+              { key: "range", label: t("app.setInstantQuotes.visRangeLabel", "Show an estimated range"), hint: t("app.setInstantQuotes.visRangeHint", "A range instantly; exact price after you review. Converts better.") },
             ].map((opt) => {
               const current = (config.estimateVisibility || "gated") === opt.key;
               return (
@@ -196,7 +197,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
         {trade.hasMaterials && trade.trade !== "cabinet_refacing" && (
           <div>
             <div className="text-sm font-medium text-foreground mb-2">
-              Materials &amp; sell rates
+              {t("app.setInstantQuotes.materialsAndRates", "Materials & sell rates")}
             </div>
             <div className="space-y-2">
               {materials.map((m, i) => (
@@ -208,7 +209,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                       next[i] = { ...m, label: e.target.value };
                       patch({ materials: next });
                     }}
-                    placeholder="Material name"
+                    placeholder={t("app.setInstantQuotes.materialNamePlaceholder", "Material name")}
                     className="flex-1 min-w-0 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
                   />
                   <span className="text-sm text-muted-foreground">$</span>
@@ -228,7 +229,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                     type="button"
                     onClick={() => patch({ materials: materials.filter((_, j) => j !== i) })}
                     className="text-muted-foreground hover:text-red-600 p-1"
-                    aria-label="Remove material"
+                    aria-label={t("app.setInstantQuotes.removeMaterial", "Remove material")}
                   >
                     <Trash2 size={15} />
                   </button>
@@ -247,7 +248,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
               }
               className="mt-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
-              <Plus size={14} /> Add material
+              <Plus size={14} /> {t("app.setInstantQuotes.addMaterial", "Add material")}
             </button>
           </div>
         )}
@@ -255,20 +256,20 @@ function TradeCard({ trade, canEdit, onSaved }) {
         {/* Cabinet refacing unit prices */}
         {trade.trade === "cabinet_refacing" && (
           <div className="flex flex-wrap gap-4">
-            <NumField label="Per door" prefix="$" value={config.perDoor} onChange={(v) => patch({ perDoor: v })} />
-            <NumField label="Per drawer" prefix="$" value={config.perDrawer} onChange={(v) => patch({ perDrawer: v })} />
-            <NumField label="Per box linear ft" prefix="$" value={config.perBoxLinearFt} onChange={(v) => patch({ perBoxLinearFt: v })} />
+            <NumField label={t("app.setInstantQuotes.perDoor", "Per door")} prefix="$" value={config.perDoor} onChange={(v) => patch({ perDoor: v })} />
+            <NumField label={t("app.setInstantQuotes.perDrawer", "Per drawer")} prefix="$" value={config.perDrawer} onChange={(v) => patch({ perDrawer: v })} />
+            <NumField label={t("app.setInstantQuotes.perBoxLinearFt", "Per box linear ft")} prefix="$" value={config.perBoxLinearFt} onChange={(v) => patch({ perBoxLinearFt: v })} />
           </div>
         )}
 
         {/* Lawn size tiers */}
         {trade.trade === "lawn_mowing" && (
           <div>
-            <div className="text-sm font-medium text-foreground mb-2">Per-visit price by lot size</div>
+            <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.perVisitByLotSize", "Per-visit price by lot size")}</div>
             <div className="space-y-2">
               {(config.tiers || []).map((t, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">up to</span>
+                  <span className="text-muted-foreground">{t("app.setInstantQuotes.upTo", "up to")}</span>
                   <input
                     type="number"
                     value={t.maxSqft ?? ""}
@@ -279,7 +280,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                     }}
                     className="w-28 rounded-lg border border-border bg-background px-2 py-1.5"
                   />
-                  <span className="text-muted-foreground">sqft →</span>
+                  <span className="text-muted-foreground">{t("app.setInstantQuotes.sqftArrow", "sqft →")}</span>
                   <span className="text-muted-foreground">$</span>
                   <input
                     type="number"
@@ -291,51 +292,51 @@ function TradeCard({ trade, canEdit, onSaved }) {
                     }}
                     className="w-24 rounded-lg border border-border bg-background px-2 py-1.5"
                   />
-                  <span className="text-muted-foreground">/ visit</span>
+                  <span className="text-muted-foreground">{t("app.setInstantQuotes.perVisit", "/ visit")}</span>
                 </div>
               ))}
             </div>
             <div className="mt-2">
-              <NumField label="Each extra acre over the top tier" prefix="$" width="w-24" value={config.pricePerAcreOver} onChange={(v) => patch({ pricePerAcreOver: v })} />
+              <NumField label={t("app.setInstantQuotes.extraAcre", "Each extra acre over the top tier")} prefix="$" width="w-24" value={config.pricePerAcreOver} onChange={(v) => patch({ pricePerAcreOver: v })} />
             </div>
           </div>
         )}
 
         {/* Surcharge maps per trade */}
         {trade.trade === "roofing" && (
-          <PercentMap title="Steep-pitch surcharge" map={config.steepnessSurcharge} onChange={(m) => patch({ steepnessSurcharge: m })} />
+          <PercentMap title={t("app.setInstantQuotes.steepPitchSurcharge", "Steep-pitch surcharge")} map={config.steepnessSurcharge} onChange={(m) => patch({ steepnessSurcharge: m })} />
         )}
         {trade.trade === "roofing" && (
-          <NumField label="Tear-off per square, per existing layer" prefix="$" width="w-24" value={config.tearOffPerSquarePerLayer} onChange={(v) => patch({ tearOffPerSquarePerLayer: v })} />
+          <NumField label={t("app.setInstantQuotes.tearOff", "Tear-off per square, per existing layer")} prefix="$" width="w-24" value={config.tearOffPerSquarePerLayer} onChange={(v) => patch({ tearOffPerSquarePerLayer: v })} />
         )}
         {trade.trade === "epoxy" && (
-          <PercentMap title="Surface-prep surcharge" map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />
+          <PercentMap title={t("app.setInstantQuotes.surfacePrepSurcharge", "Surface-prep surcharge")} map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />
         )}
         {trade.trade === "parging" && (
           <>
-            <PercentMap title="Access surcharge" map={config.accessSurcharge} onChange={(m) => patch({ accessSurcharge: m })} />
-            <PercentMap title="Condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
+            <PercentMap title={t("app.setInstantQuotes.accessSurcharge", "Access surcharge")} map={config.accessSurcharge} onChange={(m) => patch({ accessSurcharge: m })} />
+            <PercentMap title={t("app.setInstantQuotes.conditionSurcharge", "Condition surcharge")} map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
           </>
         )}
         {trade.trade === "stair" && (
-          <NumField label="Railing, per linear ft" prefix="$" value={config.railingPerFt} onChange={(v) => patch({ railingPerFt: v })} />
+          <NumField label={t("app.setInstantQuotes.railingPerFt", "Railing, per linear ft")} prefix="$" value={config.railingPerFt} onChange={(v) => patch({ railingPerFt: v })} />
         )}
         {trade.trade === "flooring" && (
-          <PercentMap title="Subfloor / removal surcharge" map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />
+          <PercentMap title={t("app.setInstantQuotes.subfloorSurcharge", "Subfloor / removal surcharge")} map={config.prepSurcharge} onChange={(m) => patch({ prepSurcharge: m })} />
         )}
         {trade.trade === "painting" && (
           <>
-            <PercentMap title="Interior vs exterior" map={config.scopeSurcharge} onChange={(m) => patch({ scopeSurcharge: m })} />
-            <PercentMap title="Surface condition surcharge" map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
+            <PercentMap title={t("app.setInstantQuotes.interiorExterior", "Interior vs exterior")} map={config.scopeSurcharge} onChange={(m) => patch({ scopeSurcharge: m })} />
+            <PercentMap title={t("app.setInstantQuotes.surfaceConditionSurcharge", "Surface condition surcharge")} map={config.conditionSurcharge} onChange={(m) => patch({ conditionSurcharge: m })} />
           </>
         )}
         {trade.trade === "countertop" && (
           <div>
-            <div className="text-sm font-medium text-foreground mb-2">Extras (added on top of the material rate)</div>
+            <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.countertopExtras", "Extras (added on top of the material rate)")}</div>
             <div className="flex flex-wrap gap-4">
-              <NumField label="Upgraded edge, per ft" prefix="$" value={config.edgePerFt} onChange={(v) => patch({ edgePerFt: v })} />
-              <NumField label="Per cutout (sink/cooktop)" prefix="$" value={config.cutoutFee} onChange={(v) => patch({ cutoutFee: v })} />
-              <NumField label="Backsplash, per sqft" prefix="$" value={config.backsplashPerSqft} onChange={(v) => patch({ backsplashPerSqft: v })} />
+              <NumField label={t("app.setInstantQuotes.upgradedEdge", "Upgraded edge, per ft")} prefix="$" value={config.edgePerFt} onChange={(v) => patch({ edgePerFt: v })} />
+              <NumField label={t("app.setInstantQuotes.perCutout", "Per cutout (sink/cooktop)")} prefix="$" value={config.cutoutFee} onChange={(v) => patch({ cutoutFee: v })} />
+              <NumField label={t("app.setInstantQuotes.backsplash", "Backsplash, per sqft")} prefix="$" value={config.backsplashPerSqft} onChange={(v) => patch({ backsplashPerSqft: v })} />
             </div>
           </div>
         )}
@@ -347,40 +348,40 @@ function TradeCard({ trade, canEdit, onSaved }) {
         {trade.trade === "junk_removal" && (
           <div className="space-y-4">
             <div>
-              <div className="text-sm font-medium text-foreground mb-2">The load (what a truckful costs)</div>
+              <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.theLoad", "The load (what a truckful costs)")}</div>
               <div className="flex flex-wrap gap-4">
-                <NumField label="One-item / min trip" prefix="$" value={centsToDollars(rates.loadCents?.minimum)} onChange={(v) => setLoad("minimum", v)} />
-                <NumField label="Quarter load" prefix="$" value={centsToDollars(rates.loadCents?.quarter)} onChange={(v) => setLoad("quarter", v)} />
-                <NumField label="Half load" prefix="$" value={centsToDollars(rates.loadCents?.half)} onChange={(v) => setLoad("half", v)} />
-                <NumField label="Full truck" prefix="$" value={centsToDollars(rates.loadCents?.full)} onChange={(v) => setLoad("full", v)} />
-                <NumField label="Volume units in a full truck" value={rates.fullLoadUnits} onChange={(v) => patch({ rates: { ...rates, fullLoadUnits: v === "" ? 1 : Number(v) } })} />
+                <NumField label={t("app.setInstantQuotes.oneItemMinTrip", "One-item / min trip")} prefix="$" value={centsToDollars(rates.loadCents?.minimum)} onChange={(v) => setLoad("minimum", v)} />
+                <NumField label={t("app.setInstantQuotes.quarterLoad", "Quarter load")} prefix="$" value={centsToDollars(rates.loadCents?.quarter)} onChange={(v) => setLoad("quarter", v)} />
+                <NumField label={t("app.setInstantQuotes.halfLoad", "Half load")} prefix="$" value={centsToDollars(rates.loadCents?.half)} onChange={(v) => setLoad("half", v)} />
+                <NumField label={t("app.setInstantQuotes.fullTruck", "Full truck")} prefix="$" value={centsToDollars(rates.loadCents?.full)} onChange={(v) => setLoad("full", v)} />
+                <NumField label={t("app.setInstantQuotes.fullTruckUnits", "Volume units in a full truck")} value={rates.fullLoadUnits} onChange={(v) => patch({ rates: { ...rates, fullLoadUnits: v === "" ? 1 : Number(v) } })} />
               </div>
             </div>
 
             <div>
-              <div className="text-sm font-medium text-foreground mb-2">Recycling &amp; disposal fees (what the depot charges you)</div>
+              <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.recyclingFees", "Recycling & disposal fees (what the depot charges you)")}</div>
               <div className="flex flex-wrap gap-4">
-                <NumField label="Fridge / AC (Freon)" prefix="$" value={centsToDollars(rates.refrigerantFeeCents)} onChange={(v) => setRate("refrigerantFeeCents", v)} />
-                <NumField label="TV / electronics" prefix="$" value={centsToDollars(rates.ewasteFeeCents)} onChange={(v) => setRate("ewasteFeeCents", v)} />
-                <NumField label="Mattress" prefix="$" value={centsToDollars(rates.mattressFeeCents)} onChange={(v) => setRate("mattressFeeCents", v)} />
-                <NumField label="Per tire" prefix="$" value={centsToDollars(rates.tirePerUnitCents)} onChange={(v) => setRate("tirePerUnitCents", v)} />
-                <NumField label="Heavy debris, per truck-bed" prefix="$" value={centsToDollars(rates.heavyPerLoadCents)} onChange={(v) => setRate("heavyPerLoadCents", v)} />
+                <NumField label={t("app.setInstantQuotes.fridgeAc", "Fridge / AC (Freon)")} prefix="$" value={centsToDollars(rates.refrigerantFeeCents)} onChange={(v) => setRate("refrigerantFeeCents", v)} />
+                <NumField label={t("app.setInstantQuotes.tvElectronics", "TV / electronics")} prefix="$" value={centsToDollars(rates.ewasteFeeCents)} onChange={(v) => setRate("ewasteFeeCents", v)} />
+                <NumField label={t("app.setInstantQuotes.mattress", "Mattress")} prefix="$" value={centsToDollars(rates.mattressFeeCents)} onChange={(v) => setRate("mattressFeeCents", v)} />
+                <NumField label={t("app.setInstantQuotes.perTire", "Per tire")} prefix="$" value={centsToDollars(rates.tirePerUnitCents)} onChange={(v) => setRate("tirePerUnitCents", v)} />
+                <NumField label={t("app.setInstantQuotes.heavyDebris", "Heavy debris, per truck-bed")} prefix="$" value={centsToDollars(rates.heavyPerLoadCents)} onChange={(v) => setRate("heavyPerLoadCents", v)} />
               </div>
             </div>
 
             <div>
-              <div className="text-sm font-medium text-foreground mb-2">Access surcharges (real labour)</div>
+              <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.accessSurcharges", "Access surcharges (real labour)")}</div>
               <div className="flex flex-wrap gap-4">
-                <NumField label="Per flight of stairs" prefix="$" value={centsToDollars(rates.stairsPerFlightCents)} onChange={(v) => setRate("stairsPerFlightCents", v)} />
-                <NumField label="Disassembly" prefix="$" value={centsToDollars(rates.disassemblyCents)} onChange={(v) => setRate("disassemblyCents", v)} />
-                <NumField label="Small demolition" prefix="$" value={centsToDollars(rates.demolitionCents)} onChange={(v) => setRate("demolitionCents", v)} />
-                <NumField label="Long carry" prefix="$" value={centsToDollars(rates.longCarryCents)} onChange={(v) => setRate("longCarryCents", v)} />
-                <NumField label="No elevator" prefix="$" value={centsToDollars(rates.noElevatorCents)} onChange={(v) => setRate("noElevatorCents", v)} />
-                <NumField label="Out of free area" prefix="$" value={centsToDollars(rates.outOfAreaCents)} onChange={(v) => setRate("outOfAreaCents", v)} />
+                <NumField label={t("app.setInstantQuotes.perFlight", "Per flight of stairs")} prefix="$" value={centsToDollars(rates.stairsPerFlightCents)} onChange={(v) => setRate("stairsPerFlightCents", v)} />
+                <NumField label={t("app.setInstantQuotes.disassembly", "Disassembly")} prefix="$" value={centsToDollars(rates.disassemblyCents)} onChange={(v) => setRate("disassemblyCents", v)} />
+                <NumField label={t("app.setInstantQuotes.smallDemolition", "Small demolition")} prefix="$" value={centsToDollars(rates.demolitionCents)} onChange={(v) => setRate("demolitionCents", v)} />
+                <NumField label={t("app.setInstantQuotes.longCarry", "Long carry")} prefix="$" value={centsToDollars(rates.longCarryCents)} onChange={(v) => setRate("longCarryCents", v)} />
+                <NumField label={t("app.setInstantQuotes.noElevator", "No elevator")} prefix="$" value={centsToDollars(rates.noElevatorCents)} onChange={(v) => setRate("noElevatorCents", v)} />
+                <NumField label={t("app.setInstantQuotes.outOfArea", "Out of free area")} prefix="$" value={centsToDollars(rates.outOfAreaCents)} onChange={(v) => setRate("outOfAreaCents", v)} />
               </div>
             </div>
 
-            <NumField label="Minimum charge" prefix="$" value={centsToDollars(rates.minimumCents)} onChange={(v) => setRate("minimumCents", v)} />
+            <NumField label={t("app.setInstantQuotes.minimumCharge", "Minimum charge")} prefix="$" value={centsToDollars(rates.minimumCents)} onChange={(v) => setRate("minimumCents", v)} />
 
             <JunkGuidance />
           </div>
@@ -389,7 +390,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
         {/* Shared knobs */}
         <div className="flex flex-wrap gap-4 pt-1">
           <NumField
-            label="Range width (±)"
+            label={t("app.setInstantQuotes.rangeWidth", "Range width (±)")}
             suffix="%"
             width="w-20"
             value={Math.round((Number(config.rangeBandPct) || 0) * 100)}
@@ -398,7 +399,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
           {/* Junk's minimum lives in its own rate card (in cents); the shared
               dollar minCharge would be a second, conflicting control. */}
           {trade.trade !== "junk_removal" && (
-            <NumField label="Minimum charge" prefix="$" value={config.minCharge} onChange={(v) => patch({ minCharge: v })} />
+            <NumField label={t("app.setInstantQuotes.minimumCharge", "Minimum charge")} prefix="$" value={config.minCharge} onChange={(v) => patch({ minCharge: v })} />
           )}
         </div>
       </div>
@@ -411,12 +412,12 @@ function TradeCard({ trade, canEdit, onSaved }) {
           className="inline-flex items-center gap-2 rounded-lg bg-inverted text-inverted-foreground px-4 py-2 text-sm font-medium disabled:opacity-50"
         >
           {saving && <Loader2 size={15} className="animate-spin" />}
-          {enabled ? "Save & enable" : "Save"}
+          {enabled ? t("app.setInstantQuotes.saveAndEnable", "Save & enable") : t("app.action.save")}
         </button>
         {savedNote && <span className="text-sm text-green-600">{savedNote}</span>}
         {!canEdit && (
           <span className="text-xs text-muted-foreground">
-            Only an owner or admin can edit pricing.
+            {t("app.setInstantQuotes.ownerAdminOnly", "Only an owner or admin can edit pricing.")}
           </span>
         )}
       </div>
@@ -425,6 +426,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
 }
 
 export default function InstantQuotesSettingsPage() {
+  const { t } = useTranslation();
   const [trades, setTrades] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
@@ -437,7 +439,7 @@ export default function InstantQuotesSettingsPage() {
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
     } catch (err) {
-      setError(err.message || "Could not load instant-quote settings");
+      setError(err.message || t("app.setInstantQuotes.couldNotLoad", "Could not load instant-quote settings"));
     }
   }
 
@@ -449,13 +451,10 @@ export default function InstantQuotesSettingsPage() {
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
       <div className="flex items-center gap-2 mb-1">
         <Zap size={20} className="text-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">Instant Quotes</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.setInstantQuotes.title", "Instant Quotes")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
-        Let homeowners get a real starting estimate from your website in
-        seconds — roof measured from their address, or an area they trace on a
-        map. Every estimate is a range they can request, and lands in your
-        review queue before anything is binding.
+        {t("app.setInstantQuotes.intro", "Let homeowners get a real starting estimate from your website in seconds — roof measured from their address, or an area they trace on a map. Every estimate is a range they can request, and lands in your review queue before anything is binding.")}
       </p>
 
       {error && (
@@ -466,7 +465,7 @@ export default function InstantQuotesSettingsPage() {
 
       {!trades && !error && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 size={16} className="animate-spin" /> Loading…
+          <Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}
         </div>
       )}
 
@@ -491,6 +490,7 @@ export default function InstantQuotesSettingsPage() {
  * quotes the terms itself. Off by default. See lib/estimate/financing.js.
  */
 function FinancingCard({ financing, canEdit, onSaved }) {
+  const { t } = useTranslation();
   const [enabled, setEnabled] = useState(Boolean(financing.enabled));
   const [note, setNote] = useState(financing.note || "");
   const [url, setUrl] = useState(financing.url || "");
@@ -510,7 +510,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
       setTimeout(() => setSaved(false), 2000);
       onSaved?.();
     } catch (err) {
-      alert(err.message || "Couldn't save financing.");
+      alert(err.message || t("app.setInstantQuotes.couldNotSaveFinancing", "Couldn't save financing."));
     } finally {
       setSaving(false);
     }
@@ -520,11 +520,9 @@ function FinancingCard({ financing, canEdit, onSaved }) {
     <section className="mt-4 rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Financing</h3>
+          <h3 className="text-base font-semibold text-foreground">{t("app.setInstantQuotes.financing", "Financing")}</h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-md">
-            Optional. FieldQuo doesn&apos;t provide financing and never shows a
-            monthly figure — this just lets homeowners know it&apos;s available,
-            in your words or via your provider.
+            {t("app.setInstantQuotes.financingIntro", "Optional. FieldQuo doesn't provide financing and never shows a monthly figure — this just lets homeowners know it's available, in your words or via your provider.")}
           </p>
         </div>
         <button
@@ -544,31 +542,31 @@ function FinancingCard({ financing, canEdit, onSaved }) {
       {enabled && (
         <div className="mt-4 space-y-3">
           <label className="block">
-            <span className="text-sm text-foreground">What to tell the homeowner</span>
+            <span className="text-sm text-foreground">{t("app.setInstantQuotes.whatToTell", "What to tell the homeowner")}</span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               maxLength={400}
-              placeholder="e.g. We offer financing on approved credit — ask us for details."
+              placeholder={t("app.setInstantQuotes.financingNotePlaceholder", "e.g. We offer financing on approved credit — ask us for details.")}
               className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground resize-none"
             />
             <span className="text-xs text-muted-foreground">
-              Your own wording — don&apos;t promise a rate or monthly amount you can&apos;t honour.
+              {t("app.setInstantQuotes.financingNoteHelp", "Your own wording — don't promise a rate or monthly amount you can't honour.")}
             </span>
           </label>
 
           <label className="block">
-            <span className="text-sm text-foreground">Provider link (optional)</span>
+            <span className="text-sm text-foreground">{t("app.setInstantQuotes.providerLink", "Provider link (optional)")}</span>
             <input
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://… (Shop Pay, Affirm, your bank)"
+              placeholder={t("app.setInstantQuotes.providerLinkPlaceholder", "https://… (Shop Pay, Affirm, your bank)")}
               className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
             />
             <span className="text-xs text-muted-foreground">
-              If set, homeowners get a button to your provider, who quotes the terms. Leave blank for &quot;ask us&quot;.
+              {t("app.setInstantQuotes.providerLinkHelp", "If set, homeowners get a button to your provider, who quotes the terms. Leave blank for \"ask us\".")}
             </span>
           </label>
         </div>
@@ -582,9 +580,9 @@ function FinancingCard({ financing, canEdit, onSaved }) {
             disabled={saving}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : null} Save
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null} {t("app.action.save")}
           </button>
-          {saved && <span className="text-sm text-emerald-600 dark:text-emerald-400">Saved</span>}
+          {saved && <span className="text-sm text-emerald-600 dark:text-emerald-400">{t("app.action.saved")}</span>}
         </div>
       )}
     </section>

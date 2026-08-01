@@ -38,17 +38,18 @@ import {
   Eye, Save, RefreshCw, ImagePlus, Check, AlertCircle, Globe, ChevronDown,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import PairPhotos from "./PairPhotos";
 import { BlockEditor } from "./SectionEditor";
 
-const EXAMPLES = [
-  "Bold and industrial. Lead with our before-and-after photos — we want to look like the biggest crew in town.",
-  "Quiet and high-end. Lots of white space, serif headings, one strong client quote near the top.",
-  "Friendly and local for families. People should be able to book online.",
-  "Keep it short — one page, just the basics and a way to reach us.",
-];
-
 export default function Builder({ data, onReload }) {
+  const { t } = useTranslation();
+  const EXAMPLES = [
+    t("app.siteBuilder.example1", "Bold and industrial. Lead with our before-and-after photos — we want to look like the biggest crew in town."),
+    t("app.siteBuilder.example2", "Quiet and high-end. Lots of white space, serif headings, one strong client quote near the top."),
+    t("app.siteBuilder.example3", "Friendly and local for families. People should be able to book online."),
+    t("app.siteBuilder.example4", "Keep it short — one page, just the basics and a way to reach us."),
+  ];
   const site = data?.site || null;
   const [blocks, setBlocks] = useState(site?.blocks || []);
   const [styleKey, setStyleKey] = useState(site?.styleKey || "modern");
@@ -159,18 +160,21 @@ export default function Builder({ data, onReload }) {
       const sections = nextBlocks.filter((b) => b.visible !== false).length;
       const bits = [];
       if (Array.isArray(result.promptIntent) && result.promptIntent.length) {
-        bits.push(`I read that as ${result.promptIntent.join(", ")}`);
+        bits.push(t("app.siteBuilder.readAs", "I read that as {intent}", { intent: result.promptIntent.join(", ") }));
       }
-      bits.push(`${sections} sections`);
+      bits.push(t("app.siteBuilder.sectionsCount", "{count} sections", { count: sections }));
       if (!result.generated) {
-        bits.push("written from your saved details — the writing assistant wasn't reachable, so the words are plainer than usual");
+        bits.push(t("app.siteBuilder.plainerWords", "written from your saved details — the writing assistant wasn't reachable, so the words are plainer than usual"));
       }
-      say("assistant", `Rebuilt your site: ${bits.join(" · ")}.`);
+      say("assistant", t("app.siteBuilder.rebuilt", "Rebuilt your site: {bits}.", { bits: bits.join(" · ") }));
 
       if (Array.isArray(result.droppedSections) && result.droppedSections.length) {
         say(
           "assistant",
-          `Left out ${result.droppedSections.map((d) => d.key).join(", ")} — ${result.droppedSections[0].reason}.`,
+          t("app.siteBuilder.leftOut", "Left out {sections} — {reason}.", {
+            sections: result.droppedSections.map((d) => d.key).join(", "),
+            reason: result.droppedSections[0].reason,
+          }),
         );
       }
 
@@ -188,7 +192,7 @@ export default function Builder({ data, onReload }) {
       await onReload?.();
     } catch (err) {
       setError(err.message);
-      say("assistant", `That didn't work: ${err.message}`);
+      say("assistant", t("app.siteBuilder.sendFailed", "That didn't work: {message}", { message: err.message }));
     } finally {
       setBusy(false);
     }
@@ -266,8 +270,8 @@ export default function Builder({ data, onReload }) {
       say(
         "assistant",
         r.generated
-          ? `Wrote your site in ${code.toUpperCase()} — ${r.sections} sections. Visitors get a language switcher in the header.`
-          : `Added ${code.toUpperCase()}, but the writing assistant wasn't reachable so the copy is the plainer factual version.`,
+          ? t("app.siteBuilder.langWrote", "Wrote your site in {lang} — {sections} sections. Visitors get a language switcher in the header.", { lang: code.toUpperCase(), sections: r.sections })
+          : t("app.siteBuilder.langAddedPlain", "Added {lang}, but the writing assistant wasn't reachable so the copy is the plainer factual version.", { lang: code.toUpperCase() }),
       );
       await onReload?.();
     } catch (err) {
@@ -287,7 +291,7 @@ export default function Builder({ data, onReload }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ languages: next }),
       });
-      say("assistant", `Removed ${code.toUpperCase()} from your site.`);
+      say("assistant", t("app.siteBuilder.langRemoved", "Removed {lang} from your site.", { lang: code.toUpperCase() }));
       await onReload?.();
     } catch (err) {
       setError(err.message);
@@ -330,7 +334,7 @@ export default function Builder({ data, onReload }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ urls }),
         });
-        say("assistant", `Added ${urls.length} photo${urls.length === 1 ? "" : "s"}. Want to pair any as before-and-after?`, { action: "pair" });
+        say("assistant", t("app.siteBuilder.photosAdded", "Added {count} photo{s}. Want to pair any as before-and-after?", { count: urls.length, s: urls.length === 1 ? "" : "s" }), { action: "pair" });
         await onReload?.();
       }
     } catch (err) {
@@ -352,12 +356,10 @@ export default function Builder({ data, onReload }) {
             <Sparkles size={22} className="text-white" />
           </span>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-[-0.02em] text-foreground">
-            What should your website say?
+            {t("app.siteBuilder.firstRunTitle", "What should your website say?")}
           </h1>
           <p className="text-base text-muted-foreground mt-3 max-w-xl mx-auto leading-relaxed">
-            Describe how it should look and feel. I already have your logo,
-            colours, services, hours and contact details — you don&apos;t need to
-            type any of that.
+            {t("app.siteBuilder.firstRunSubtitle", "Describe how it should look and feel. I already have your logo, colours, services, hours and contact details — you don't need to type any of that.")}
           </p>
 
           <div className="mt-8 relative">
@@ -376,13 +378,13 @@ export default function Builder({ data, onReload }) {
               }}
               rows={4}
               autoFocus
-              placeholder="Bold and industrial. Big headlines, and lead with our before-and-after photos…"
+              placeholder={t("app.siteBuilder.firstRunPlaceholder", "Bold and industrial. Big headlines, and lead with our before-and-after photos…")}
               className="w-full rounded-2xl border border-border bg-card px-4 py-4 pr-14 text-[15px] leading-relaxed resize-none shadow-sm focus:outline-none focus:ring-2 focus:ring-foreground/10"
             />
             <button
               onClick={() => send()}
               disabled={!prompt.trim() || busy}
-              aria-label="Build my site"
+              aria-label={t("app.siteBuilder.buildMySite", "Build my site")}
               className="absolute right-3 bottom-3 grid w-10 h-10 place-items-center rounded-xl text-white disabled:opacity-40 transition-opacity"
               style={{ background: "var(--brand,#111827)" }}
             >
@@ -406,7 +408,7 @@ export default function Builder({ data, onReload }) {
             <p className="mt-5 text-sm text-red-600 dark:text-red-400">{error}</p>
           )}
           <p className="mt-6 text-xs text-muted-foreground">
-            Nothing is public until you publish it.
+            {t("app.siteBuilder.nothingPublic", "Nothing is public until you publish it.")}
           </p>
         </div>
       </div>
@@ -421,11 +423,11 @@ export default function Builder({ data, onReload }) {
       <div className="shrink-0 flex items-center gap-2 px-4 sm:px-5 h-14 border-b border-border bg-card">
         <Globe size={16} className="text-muted-foreground shrink-0" />
         <span className="text-sm font-semibold text-foreground truncate">
-          {site?.subdomain ? `${site.subdomain}.fieldquo.com` : "Your website"}
+          {site?.subdomain ? `${site.subdomain}.fieldquo.com` : t("app.siteBuilder.yourWebsite", "Your website")}
         </span>
         {site?.published && (
           <span className="hidden sm:inline text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-            Live
+            {t("app.siteBuilder.live", "Live")}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -436,7 +438,7 @@ export default function Builder({ data, onReload }) {
               rel="noreferrer"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              <ExternalLink size={13} /> Open
+              <ExternalLink size={13} /> {t("app.siteBuilder.open", "Open")}
             </a>
           )}
           <button
@@ -445,14 +447,14 @@ export default function Builder({ data, onReload }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
           >
             {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-            Save
+            {t("app.action.save", "Save")}
           </button>
           <button
             onClick={() => save({ published: true })}
             disabled={saving}
             className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-3.5 py-1.5 text-xs font-bold disabled:opacity-60"
           >
-            <Eye size={12} /> {site?.published ? "Update" : "Publish"}
+            <Eye size={12} /> {site?.published ? t("app.siteBuilder.update", "Update") : t("app.siteBuilder.publish", "Publish")}
           </button>
         </div>
       </div>
@@ -463,7 +465,7 @@ export default function Builder({ data, onReload }) {
           <div ref={threadRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4">
             {thread.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Tell me what to change and I&apos;ll rebuild the page.
+                {t("app.siteBuilder.threadEmpty", "Tell me what to change and I'll rebuild the page.")}
               </p>
             )}
 
@@ -482,7 +484,7 @@ export default function Builder({ data, onReload }) {
                       onClick={() => setPairing(true)}
                       className="mt-2 block text-xs font-bold underline"
                     >
-                      Pair them up
+                      {t("app.siteBuilder.pairThemUp", "Pair them up")}
                     </button>
                   )}
                 </div>
@@ -536,7 +538,7 @@ export default function Builder({ data, onReload }) {
 
             {busy && (
               <p className="text-sm text-muted-foreground inline-flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin" /> Rebuilding…
+                <Loader2 size={14} className="animate-spin" /> {t("app.siteBuilder.rebuilding", "Rebuilding…")}
               </p>
             )}
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -555,13 +557,13 @@ export default function Builder({ data, onReload }) {
                   }
                 }}
                 rows={2}
-                placeholder="Make it bolder · lead with reviews · shorter page…"
+                placeholder={t("app.siteBuilder.iteratePlaceholder", "Make it bolder · lead with reviews · shorter page…")}
                 className="w-full rounded-xl border border-border bg-card px-3.5 py-2.5 pr-11 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-foreground/10"
               />
               <button
                 onClick={() => send()}
                 disabled={!prompt.trim() || busy}
-                aria-label="Send"
+                aria-label={t("app.action.send", "Send")}
                 className="absolute right-2 bottom-2 grid w-8 h-8 place-items-center rounded-lg text-white disabled:opacity-40"
                 style={{ background: "var(--brand,#111827)" }}
               >
@@ -574,13 +576,13 @@ export default function Builder({ data, onReload }) {
               className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
             >
               <ChevronDown size={12} className={advanced ? "rotate-180" : ""} />
-              Fine-tune
+              {t("app.siteBuilder.fineTune", "Fine-tune")}
             </button>
             {advanced && (
               <div className="mt-2 space-y-2">
                 <label className="block">
                   <span className="text-[11px] font-semibold text-muted-foreground">
-                    Web address
+                    {t("app.siteBuilder.webAddress", "Web address")}
                   </span>
                   <div className="flex items-center gap-1 mt-1">
                     <input
@@ -595,7 +597,7 @@ export default function Builder({ data, onReload }) {
                 </label>
                 <div>
                   <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                    Languages
+                    {t("app.siteBuilder.languages", "Languages")}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {(data?.availableLanguages || []).map((code) => {
@@ -607,7 +609,7 @@ export default function Builder({ data, onReload }) {
                           type="button"
                           disabled={Boolean(langBusy) || primary}
                           onClick={() => (on ? removeLanguage(code) : addLanguage(code))}
-                          title={primary ? "Your main language" : on ? "Remove" : "Write the site in this language"}
+                          title={primary ? t("app.siteBuilder.mainLanguage", "Your main language") : on ? t("app.action.remove", "Remove") : t("app.siteBuilder.writeInLanguage", "Write the site in this language")}
                           className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-full border uppercase font-bold disabled:opacity-60 ${
                             on
                               ? "border-foreground bg-inverted text-inverted-foreground"
@@ -622,9 +624,7 @@ export default function Builder({ data, onReload }) {
                     })}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                    Your main language is marked. Adding one writes the whole site
-                    in it and gives visitors a switcher — it doesn&apos;t
-                    machine-translate the page.
+                    {t("app.siteBuilder.languagesNote", "Your main language is marked. Adding one writes the whole site in it and gives visitors a switcher — it doesn't machine-translate the page.")}
                   </p>
                 </div>
 
@@ -632,14 +632,13 @@ export default function Builder({ data, onReload }) {
                   onClick={() => setPairing(true)}
                   className="w-full rounded-lg border border-border px-3 py-2 text-xs font-semibold text-left"
                 >
-                  Before &amp; after pairs
+                  {t("app.siteBuilder.beforeAfterPairs", "Before & after pairs")}
                   {data?.confirmedPairs?.length
-                    ? ` · ${data.confirmedPairs.length} set`
-                    : " · none yet"}
+                    ? t("app.siteBuilder.pairsSet", " · {count} set", { count: data.confirmedPairs.length })
+                    : t("app.siteBuilder.pairsNoneYet", " · none yet")}
                 </button>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Your logo, colours, services, hours, phone, email and address all
-                  come from your company settings and update the site automatically.
+                  {t("app.siteBuilder.companySettingsNote", "Your logo, colours, services, hours, phone, email and address all come from your company settings and update the site automatically.")}
                 </p>
               </div>
             )}
@@ -650,7 +649,7 @@ export default function Builder({ data, onReload }) {
         <div className="min-h-0 hidden lg:flex flex-col bg-muted/30">
           <div className="shrink-0 flex items-center gap-2 h-11 px-3 border-b border-border">
             <div className="flex rounded-lg border border-border overflow-hidden text-xs">
-              {[["preview", "Preview"], ["sections", "Sections"]].map(([key, label]) => (
+              {[["preview", t("app.action.preview", "Preview")], ["sections", t("app.siteBuilder.sections", "Sections")]].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setPane(key)}
@@ -669,7 +668,7 @@ export default function Builder({ data, onReload }) {
                     <button
                       key={key}
                       onClick={() => setDevice(key)}
-                      aria-label={key}
+                      aria-label={t(`app.siteBuilder.device.${key}`, key)}
                       className={`grid w-8 h-8 place-items-center rounded-lg ${
                         device === key ? "bg-inverted text-inverted-foreground" : "text-muted-foreground"
                       }`}
@@ -679,7 +678,7 @@ export default function Builder({ data, onReload }) {
                   ))}
                   <button
                     onClick={() => setPreviewKey((k) => k + 1)}
-                    aria-label="Refresh preview"
+                    aria-label={t("app.siteBuilder.refreshPreview", "Refresh preview")}
                     className="grid w-8 h-8 place-items-center rounded-lg text-muted-foreground"
                   >
                     <RefreshCw size={13} />
@@ -693,7 +692,7 @@ export default function Builder({ data, onReload }) {
                   className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-3 py-1.5 text-xs font-bold disabled:opacity-60"
                 >
                   {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                  Apply
+                  {t("app.action.apply", "Apply")}
                 </button>
               )}
             </div>
@@ -713,7 +712,7 @@ export default function Builder({ data, onReload }) {
                 <iframe
                   key={previewKey}
                   src={previewUrl}
-                  title="Your website"
+                  title={t("app.siteBuilder.yourWebsite", "Your website")}
                   className="bg-white rounded-xl shadow-lg border border-border"
                   style={
                     device === "mobile"
@@ -723,16 +722,14 @@ export default function Builder({ data, onReload }) {
                 />
               ) : (
                 <p className="text-sm text-muted-foreground mt-10">
-                  Save once and your site appears here.
+                  {t("app.siteBuilder.saveOnce", "Save once and your site appears here.")}
                 </p>
               )}
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               <p className="text-xs text-muted-foreground">
-                Reword anything by hand. Your logo, colours, services, hours and
-                contact details come from your company settings and aren&apos;t
-                editable here — changing them there updates the site.
+                {t("app.siteBuilder.sectionsNote", "Reword anything by hand. Your logo, colours, services, hours and contact details come from your company settings and aren't editable here — changing them there updates the site.")}
               </p>
               {blocks.map((block) => (
                 <BlockEditor
@@ -758,7 +755,7 @@ export default function Builder({ data, onReload }) {
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground"
           >
-            <ExternalLink size={14} /> Open preview
+            <ExternalLink size={14} /> {t("app.siteBuilder.openPreview", "Open preview")}
           </a>
         </div>
       )}
@@ -771,20 +768,19 @@ export default function Builder({ data, onReload }) {
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmRegen(null)} />
           <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
             <h2 className="font-bold text-foreground">
-              This will rewrite the words you edited
+              {t("app.siteBuilder.regenTitle", "This will rewrite the words you edited")}
             </h2>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              You&apos;ve changed some text by hand. Rebuilding writes new copy for
-              every section, so those edits will be replaced.
+              {t("app.siteBuilder.regenBody", "You've changed some text by hand. Rebuilding writes new copy for every section, so those edits will be replaced.")}
             </p>
             <ul className="mt-3 space-y-1.5 text-sm">
               <li className="flex items-start gap-2 text-foreground">
                 <Check size={15} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                Your photos, before-and-after pairs, logo and colours are kept
+                {t("app.siteBuilder.regenKept", "Your photos, before-and-after pairs, logo and colours are kept")}
               </li>
               <li className="flex items-start gap-2 text-muted-foreground">
                 <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                Headings and paragraphs you typed will be rewritten
+                {t("app.siteBuilder.regenRewritten", "Headings and paragraphs you typed will be rewritten")}
               </li>
             </ul>
             <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
@@ -792,13 +788,13 @@ export default function Builder({ data, onReload }) {
                 onClick={() => setConfirmRegen(null)}
                 className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
               >
-                Keep what I wrote
+                {t("app.siteBuilder.keepWhatIWrote", "Keep what I wrote")}
               </button>
               <button
                 onClick={() => send(confirmRegen, { confirmed: true })}
                 className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
               >
-                Rebuild anyway
+                {t("app.siteBuilder.rebuildAnyway", "Rebuild anyway")}
               </button>
             </div>
           </div>
@@ -810,23 +806,18 @@ export default function Builder({ data, onReload }) {
           <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmPublish(false)} />
           <div className="relative w-full max-w-md rounded-2xl bg-card p-5 shadow-xl">
             <h2 className="font-bold text-foreground">
-              {data.placeholderCount} stock photo
-              {data.placeholderCount === 1 ? "" : "s"} still on your site
+              {t("app.siteBuilder.stockPhotosTitle", "{count} stock photo{s} still on your site", { count: data.placeholderCount, s: data.placeholderCount === 1 ? "" : "s" })}
             </h2>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              I used stock photography so your page isn&apos;t empty. It&apos;s only
-              in the background of the header and similar spots — never in
-              &ldquo;Our work&rdquo;, because that section says the photos are jobs
-              you did.
+              {t("app.siteBuilder.stockPhotosBody1", "I used stock photography so your page isn't empty. It's only in the background of the header and similar spots — never in “Our work”, because that section says the photos are jobs you did.")}
             </p>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              You can publish now and swap them later, or add your own photos
-              first — your own work always sells better than a stock house.
+              {t("app.siteBuilder.stockPhotosBody2", "You can publish now and swap them later, or add your own photos first — your own work always sells better than a stock house.")}
             </p>
             <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <label className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold cursor-pointer">
                 {uploading ? <Loader2 size={13} className="animate-spin" /> : <ImagePlus size={13} />}
-                Add my photos
+                {t("app.siteBuilder.addMyPhotos", "Add my photos")}
                 <input
                   type="file"
                   accept="image/*"
@@ -842,7 +833,7 @@ export default function Builder({ data, onReload }) {
                 onClick={() => save({ published: true, confirmed: true })}
                 className="rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
               >
-                Publish anyway
+                {t("app.siteBuilder.publishAnyway", "Publish anyway")}
               </button>
             </div>
           </div>
@@ -858,7 +849,7 @@ export default function Builder({ data, onReload }) {
             setPairing(false);
             if (r?.blocks) setBlocks(r.blocks);
             setPreviewKey((k) => k + 1);
-            say("assistant", `Saved ${r?.pairs?.length || 0} before-and-after pair${r?.pairs?.length === 1 ? "" : "s"}.`);
+            say("assistant", t("app.siteBuilder.pairsSaved", "Saved {count} before-and-after pair{s}.", { count: r?.pairs?.length || 0, s: r?.pairs?.length === 1 ? "" : "s" }));
             await onReload?.();
           }}
         />

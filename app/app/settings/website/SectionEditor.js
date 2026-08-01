@@ -13,8 +13,10 @@ import { useState } from "react";
 import { X, ImagePlus, Eye, EyeOff, Loader2 } from "lucide-react";
 import { BLOCK_TYPES } from "@/app/data/siteBlocks";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export function BlockEditor({ block, onChange, onToggle, onError }) {
+  const { t } = useTranslation();
   const def = BLOCK_TYPES[block.type];
   if (!def) return null;
 
@@ -35,7 +37,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
             className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             {hidden ? <Eye size={13} /> : <EyeOff size={13} />}
-            {hidden ? "Show" : "Hide"}
+            {hidden ? t("app.sectionEditor.show", "Show") : t("app.sectionEditor.hide", "Hide")}
           </button>
         )}
       </div>
@@ -58,7 +60,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {VARIANT_LABELS[v] || v}
+                  {t(`app.sectionEditor.variant.${v}`, VARIANT_LABELS[v] || v)}
                 </button>
               ))}
             </div>
@@ -69,7 +71,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
               that lost the rest of the form. */}
           {def.derived && (
             <p className="text-xs text-muted-foreground">
-              {DERIVED_NOTES[block.type]}
+              {t(`app.sectionEditor.derived.${block.type}`, DERIVED_NOTES[block.type])}
             </p>
           )}
 
@@ -81,7 +83,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
                 value={block.content[field] || ""}
                 onChange={(e) => onChange({ [field]: e.target.value })}
                 rows={field === "body" ? 6 : 2}
-                placeholder={labelFor(field)}
+                placeholder={t(`app.sectionEditor.field.${field}`, labelFor(field))}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               />
             ) : (
@@ -89,7 +91,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
                 key={field}
                 value={block.content[field] || ""}
                 onChange={(e) => onChange({ [field]: e.target.value })}
-                placeholder={labelFor(field)}
+                placeholder={t(`app.sectionEditor.field.${field}`, labelFor(field))}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               />
             );
@@ -133,6 +135,7 @@ export function BlockEditor({ block, onChange, onToggle, onError }) {
  * and which are images, and that is already in the schema.
  */
 export function RepeatEditor({ def, block, onChange, onError }) {
+  const { t } = useTranslation();
   const key = def.repeats;
   const list = block.content[key] || [];
   const imageKeys = def.imagePair || [];
@@ -173,7 +176,7 @@ export function RepeatEditor({ def, block, onChange, onError }) {
               key={k}
               value={item[k] || ""}
               onChange={(e) => patch(i, k, e.target.value)}
-              placeholder={labelFor(k)}
+              placeholder={t(`app.sectionEditor.field.${k}`, labelFor(k))}
               className="w-full border border-border rounded px-2 py-1.5 text-sm bg-background"
             />
           ))}
@@ -181,7 +184,7 @@ export function RepeatEditor({ def, block, onChange, onError }) {
             type="button"
             onClick={() => write(list.filter((_, j) => j !== i))}
             className="absolute top-2 right-2 text-muted-foreground hover:text-red-600"
-            aria-label="Remove"
+            aria-label={t("app.action.remove", "Remove")}
           >
             <X size={13} />
           </button>
@@ -189,7 +192,7 @@ export function RepeatEditor({ def, block, onChange, onError }) {
       ))}
 
       {list.length === 0 && EMPTY_HINTS[block.type] && (
-        <p className="text-xs text-muted-foreground">{EMPTY_HINTS[block.type]}</p>
+        <p className="text-xs text-muted-foreground">{t(`app.sectionEditor.emptyHint.${block.type}`, EMPTY_HINTS[block.type])}</p>
       )}
 
       <button
@@ -199,7 +202,7 @@ export function RepeatEditor({ def, block, onChange, onError }) {
         }
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
       >
-        <ImagePlus size={13} className="rotate-45" /> Add {noun}
+        <ImagePlus size={13} className="rotate-45" /> {t(`app.sectionEditor.add.${noun}`, `Add ${noun}`)}
       </button>
     </div>
   );
@@ -216,6 +219,7 @@ const EMPTY_HINTS = {
 };
 
 export function ImageField({ value, onChange, onError }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   async function upload(file) {
@@ -247,7 +251,7 @@ export function ImageField({ value, onChange, onError }) {
             type="button"
             onClick={() => onChange(null)}
             className="absolute -top-2 -right-2 bg-card border border-border rounded-full p-1 text-muted-foreground"
-            aria-label="Remove image"
+            aria-label={t("app.sectionEditor.removeImage", "Remove image")}
           >
             <X size={12} />
           </button>
@@ -259,7 +263,7 @@ export function ImageField({ value, onChange, onError }) {
           ) : (
             <>
               <ImagePlus size={18} />
-              <span className="text-[11px] mt-1">Add photo</span>
+              <span className="text-[11px] mt-1">{t("app.sectionEditor.addPhoto", "Add photo")}</span>
             </>
           )}
           <input
@@ -275,6 +279,7 @@ export function ImageField({ value, onChange, onError }) {
 }
 
 export function ImageList({ images, onChange, onError }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
 
   async function upload(files) {
@@ -313,7 +318,7 @@ export function ImageList({ images, onChange, onError }) {
             type="button"
             onClick={() => onChange(images.filter((_, j) => j !== i))}
             className="absolute -top-2 -right-2 bg-card border border-border rounded-full p-1 text-muted-foreground"
-            aria-label="Remove photo"
+            aria-label={t("app.sectionEditor.removePhoto", "Remove photo")}
           >
             <X size={12} />
           </button>

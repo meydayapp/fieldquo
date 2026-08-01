@@ -13,15 +13,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
-
-const SUGGESTIONS = [
-  "Which clients haven't been invoiced yet?",
-  "What's my average quote value this month?",
-  "Which material costs went up the most?",
-  "How many quotes are still waiting on a response?",
-];
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function CopilotPage() {
+  const { t } = useTranslation();
+  const SUGGESTIONS = [
+    t("app.copilot.suggest1", "Which clients haven't been invoiced yet?"),
+    t("app.copilot.suggest2", "What's my average quote value this month?"),
+    t("app.copilot.suggest3", "Which material costs went up the most?"),
+    t("app.copilot.suggest4", "How many quotes are still waiting on a response?"),
+  ];
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -74,8 +75,10 @@ export default function CopilotPage() {
           FieldQuo AI
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Ask about your own quotes, invoices, clients and material costs. It
-          looks up real numbers rather than guessing.
+          {t(
+            "app.copilot.subtitle",
+            "Ask about your own quotes, invoices, clients and material costs. It looks up real numbers rather than guessing.",
+          )}
         </p>
       </div>
 
@@ -83,7 +86,7 @@ export default function CopilotPage() {
         {messages.length === 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Try asking
+              {t("app.copilot.tryAsking", "Try asking")}
             </p>
             {SUGGESTIONS.map((s) => (
               <button
@@ -132,7 +135,7 @@ export default function CopilotPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
-            placeholder="Ask about your business…"
+            placeholder={t("app.copilot.placeholder", "Ask about your business…")}
             className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
           />
           <button

@@ -4,8 +4,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function BenchmarkPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,10 +38,12 @@ export default function BenchmarkPage() {
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-lg md:text-xl font-semibold">How You Compare</h1>
+        <h1 className="text-lg md:text-xl font-semibold">{t("app.benchmark.title", "How You Compare")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your average quote pricing vs. the anonymized platform average, by
-          service category.
+          {t(
+            "app.benchmark.subtitle",
+            "Your average quote pricing vs. the anonymized platform average, by service category.",
+          )}
         </p>
         {/* /app/analytics/digest worked and was linked from NOTHING. It's the
             other half of this page — this one is "how do I compare", that one
@@ -49,30 +53,33 @@ export default function BenchmarkPage() {
           href="/app/analytics/digest"
           className="inline-flex items-center gap-1.5 text-sm text-foreground underline mt-2"
         >
-          Weekly digests
+          {t("app.benchmark.weeklyDigests", "Weekly digests")}
         </Link>
       </div>
 
       {!optedIn && (
         <div className="glass-effect rounded-lg p-4 mb-6 text-sm">
           <p className="mb-2">
-            Benchmarking is opt-in. Turn it on in Settings to see how your
-            pricing compares — your individual quotes are never shared, only
-            aggregated averages.
+            {t(
+              "app.benchmark.optInNote",
+              "Benchmarking is opt-in. Turn it on in Settings to see how your pricing compares — your individual quotes are never shared, only aggregated averages.",
+            )}
           </p>
           <a
             href="/settings/business-info"
             className="admin-btn-primary inline-block text-sm"
           >
-            Go to Settings
+            {t("app.benchmark.goToSettings", "Go to Settings")}
           </a>
         </div>
       )}
 
       {optedIn && rows.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
-          Not enough platform data yet for your region/category. Check back as
-          more companies join.
+          {t(
+            "app.benchmark.notEnoughData",
+            "Not enough platform data yet for your region/category. Check back as more companies join.",
+          )}
         </div>
       )}
 
@@ -98,19 +105,19 @@ export default function BenchmarkPage() {
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{row.label}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
-                  {row.sampleSize} quotes in your region this quarter
+                  {t("app.benchmark.sampleLine", { count: row.sampleSize })}
                 </div>
               </div>
 
               <div className="flex items-center gap-6 sm:gap-8">
                 <div>
-                  <div className="text-xs text-muted-foreground">Your average</div>
+                  <div className="text-xs text-muted-foreground">{t("app.benchmark.yourAverage", "Your average")}</div>
                   <div className="font-semibold">
                     ${row.yourAvgPrice.toLocaleString()}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Platform average</div>
+                  <div className="text-xs text-muted-foreground">{t("app.benchmark.platformAverage", "Platform average")}</div>
                   <div className="font-semibold">
                     ${row.platformAvgPrice.toLocaleString()}
                   </div>

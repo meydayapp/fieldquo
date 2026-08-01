@@ -19,8 +19,10 @@
 import { useState } from "react";
 import { Check, X, Loader2, ArrowRight, Images } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) {
+  const { t } = useTranslation();
   // Which photo is being placed. "before" first, because that's the one only a
   // person knows.
   const [picking, setPicking] = useState("before");
@@ -71,10 +73,10 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
 
   const step =
     picking === "before"
-      ? "Tap the BEFORE photo"
+      ? t("app.pairPhotos.tapBefore", "Tap the BEFORE photo")
       : picking === "after"
-        ? "Now tap the AFTER photo"
-        : "Name the job";
+        ? t("app.pairPhotos.tapAfter", "Now tap the AFTER photo")
+        : t("app.pairPhotos.nameJob", "Name the job");
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
@@ -82,15 +84,19 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
       <div className="relative w-full sm:max-w-2xl max-h-[92vh] bg-card rounded-t-2xl sm:rounded-2xl flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div>
-            <h2 className="font-bold text-foreground">Before &amp; after</h2>
+            <h2 className="font-bold text-foreground">{t("app.pairPhotos.title", "Before & after")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {made.length} pair{made.length === 1 ? "" : "s"} ·{" "}
-              {available.length} photo{available.length === 1 ? "" : "s"} left
+              {t("app.pairPhotos.summary", "{pairs} pair{ps} · {photos} photo{phs} left", {
+                pairs: made.length,
+                ps: made.length === 1 ? "" : "s",
+                photos: available.length,
+                phs: available.length === 1 ? "" : "s",
+              })}
             </p>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("app.action.close", "Close")}
             className="p-2 -mr-2 text-muted-foreground hover:text-foreground"
           >
             <X size={20} />
@@ -120,12 +126,12 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                         m.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)),
                       )
                     }
-                    placeholder="What was this job?"
+                    placeholder={t("app.pairPhotos.captionPlaceholder", "What was this job?")}
                     className="flex-1 min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                   />
                   <button
                     onClick={() => setMade((m) => m.filter((_, j) => j !== i))}
-                    aria-label="Remove pair"
+                    aria-label={t("app.pairPhotos.removePair", "Remove pair")}
                     className="p-1.5 text-muted-foreground hover:text-red-600 shrink-0"
                   >
                     <X size={14} />
@@ -162,7 +168,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                     value={draft.caption}
                     onChange={(e) => setDraft((d) => ({ ...d, caption: e.target.value }))}
                     onKeyDown={(e) => e.key === "Enter" && addPair()}
-                    placeholder="e.g. Kitchen respray — Aylmer"
+                    placeholder={t("app.pairPhotos.jobPlaceholder", "e.g. Kitchen respray — Aylmer")}
                     className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm"
                   />
                   <div className="flex gap-2">
@@ -170,7 +176,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                       onClick={addPair}
                       className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-4 py-2 text-sm font-bold"
                     >
-                      <Check size={14} /> Add this pair
+                      <Check size={14} /> {t("app.pairPhotos.addThisPair", "Add this pair")}
                     </button>
                     <button
                       onClick={() => {
@@ -179,7 +185,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                       }}
                       className="rounded-full border border-border px-4 py-2 text-sm"
                     >
-                      Start over
+                      {t("app.pairPhotos.startOver", "Start over")}
                     </button>
                   </div>
                 </div>
@@ -202,7 +208,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
                         <img src={url} alt="" className="w-full h-full object-cover" />
                         {isDraftBefore && (
                           <span className="absolute bottom-1 left-1 right-1 rounded bg-foreground/90 text-[10px] font-bold text-background py-0.5">
-                            BEFORE
+                            {t("app.pairPhotos.beforeBadge", "BEFORE")}
                           </span>
                         )}
                       </button>
@@ -216,8 +222,8 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
               <Images size={22} className="mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 {pool.length < 2
-                  ? "Add at least two photos and you can pair them here."
-                  : "Every photo is paired up."}
+                  ? t("app.pairPhotos.needTwoPhotos", "Add at least two photos and you can pair them here.")
+                  : t("app.pairPhotos.allPaired", "Every photo is paired up.")}
               </p>
             </div>
           )}
@@ -229,7 +235,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
 
         <div className="shrink-0 border-t border-border px-5 py-3 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm">
-            Cancel
+            {t("app.action.cancel", "Cancel")}
           </button>
           <button
             onClick={save}
@@ -237,7 +243,7 @@ export default function PairPhotos({ pool = [], pairs = [], onSaved, onClose }) 
             className="inline-flex items-center gap-2 rounded-full bg-inverted text-inverted-foreground px-5 py-2 text-sm font-bold disabled:opacity-60"
           >
             {busy && <Loader2 size={14} className="animate-spin" />}
-            {made.length ? `Use ${made.length} pair${made.length === 1 ? "" : "s"}` : "Save"}
+            {made.length ? t("app.pairPhotos.usePairs", "Use {count} pair{s}", { count: made.length, s: made.length === 1 ? "" : "s" }) : t("app.action.save", "Save")}
           </button>
         </div>
       </div>

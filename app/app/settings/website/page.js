@@ -30,9 +30,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import Builder from "./Builder";
 
 export default function WebsiteSettingsPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -61,7 +63,7 @@ export default function WebsiteSettingsPage() {
   if (!data) {
     return (
       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-24">
-        <Loader2 size={16} className="animate-spin" /> Loading your website…
+        <Loader2 size={16} className="animate-spin" /> {t("app.setWebsite.loading", "Loading your website…")}
       </div>
     );
   }

@@ -15,6 +15,7 @@ import { ArrowLeft, Loader2, Check, BadgeCheck, Ban, Info, Download } from "luci
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { formatDateOnly } from "@/lib/format/companyDate";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -34,6 +35,7 @@ const STATUS_STYLE = {
 };
 
 export default function PayRunPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [run, setRun] = useState(null);
   const [error, setError] = useState("");
@@ -72,7 +74,7 @@ export default function PayRunPage() {
       <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
         <p className="text-sm text-red-600">{error}</p>
         <Link href="/app/payroll" className="text-sm underline mt-2 inline-block">
-          Back to payroll
+          {t("app.payrollRun.backToPayroll", "Back to payroll")}
         </Link>
       </div>
     );
@@ -80,7 +82,7 @@ export default function PayRunPage() {
   if (!run) {
     return (
       <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8 flex items-center gap-2 text-muted-foreground text-sm">
-        <Loader2 size={16} className="animate-spin" /> Loading…
+        <Loader2 size={16} className="animate-spin" /> {t("app.state.loading")}
       </div>
     );
   }
@@ -91,7 +93,7 @@ export default function PayRunPage() {
         href="/app/payroll"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Payroll
+        <ArrowLeft size={14} /> {t("app.nav.payroll")}
       </Link>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -100,21 +102,25 @@ export default function PayRunPage() {
             {date(run.periodStart)} – {date(run.periodEnd)}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {run.lines.length} {run.lines.length === 1 ? "person" : "people"} · {run.region} labels
-            {run.approvedAt ? ` · approved ${stamp(run.approvedAt)}` : ""}
-            {run.paidAt ? ` · recorded paid ${stamp(run.paidAt)}` : ""}
+            {run.lines.length}{" "}
+            {run.lines.length === 1
+              ? t("app.payrollRun.person", "person")
+              : t("app.payrollRun.people", "people")}{" "}
+            · {t("app.payrollRun.regionLabels", { region: run.region })}
+            {run.approvedAt ? ` · ${t("app.payrollRun.approvedOn", { date: stamp(run.approvedAt) })}` : ""}
+            {run.paidAt ? ` · ${t("app.payrollRun.recordedPaidOn", { date: stamp(run.paidAt) })}` : ""}
           </p>
         </div>
         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[run.status] || ""}`}>
-          {run.status === "paid" ? "paid (recorded)" : run.status}
+          {run.status === "paid" ? t("app.payrollRun.paidRecorded", "paid (recorded)") : run.status}
         </span>
       </div>
 
       <div className="flex gap-4 flex-wrap rounded-xl border border-border bg-card p-4">
         {[
-          ["Gross", run.grossTotal],
-          ["Deductions", run.deductionTotal],
-          ["Net to pay", run.netTotal],
+          [t("app.payrollRun.gross", "Gross"), run.grossTotal],
+          [t("app.payrollRun.deductions", "Deductions"), run.deductionTotal],
+          [t("app.payrollRun.netToPay", "Net to pay"), run.netTotal],
         ].map(([l, v]) => (
           <div key={l}>
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{l}</div>
@@ -135,14 +141,14 @@ export default function PayRunPage() {
                 className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60"
               >
                 {busy ? <Loader2 size={14} className="animate-spin" /> : <BadgeCheck size={14} />}
-                Approve run
+                {t("app.payrollRun.approveRun", "Approve run")}
               </button>
               <button
                 onClick={() => act("cancel")}
                 disabled={busy}
                 className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold text-red-600 disabled:opacity-60"
               >
-                <Ban size={14} /> Cancel
+                <Ban size={14} /> {t("app.action.cancel")}
               </button>
             </>
           )}
@@ -153,7 +159,7 @@ export default function PayRunPage() {
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-bold disabled:opacity-60"
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              Record as paid
+              {t("app.payrollRun.recordAsPaid", "Record as paid")}
             </button>
           )}
           {/* A plain link, not a fetch: the browser handles the download and
@@ -162,7 +168,7 @@ export default function PayRunPage() {
             href={`/api/payroll/runs/${run.id}/export`}
             className="inline-flex items-center gap-2 border border-border rounded-full px-4 py-2 text-sm font-semibold"
           >
-            <Download size={14} /> Export CSV
+            <Download size={14} /> {t("app.payrollRun.exportCsv", "Export CSV")}
           </a>
         </div>
       )}
@@ -170,8 +176,10 @@ export default function PayRunPage() {
       {run.status === "approved" && (
         <p className="text-xs text-muted-foreground flex items-start gap-1.5">
           <Info size={13} className="mt-0.5 shrink-0" />
-          Approved and visible to your team as payslips. Pay them through your bank
-          or payroll provider, then record it here.
+          {t(
+            "app.payrollRun.approvedNote",
+            "Approved and visible to your team as payslips. Pay them through your bank or payroll provider, then record it here.",
+          )}
         </p>
       )}
 
@@ -215,7 +223,7 @@ export default function PayRunPage() {
                 ))}
               </ul>
               <div className="flex justify-between text-sm font-bold text-foreground border-t border-border mt-2 pt-2">
-                <span>Net</span>
+                <span>{t("app.payrollRun.net", "Net")}</span>
                 <span className="tabular-nums">{money(l.net)}</span>
               </div>
               {/* Only offered once approved — a draft's numbers can still
@@ -226,13 +234,15 @@ export default function PayRunPage() {
                   href={`/api/payroll/runs/${run.id}/payslip/${l.id}`}
                   className="mt-3 inline-flex items-center gap-1.5 text-xs border border-border rounded-full px-3 py-1.5"
                 >
-                  <Download size={12} /> Payslip PDF
+                  <Download size={12} /> {t("app.payrollRun.payslipPdf", "Payslip PDF")}
                 </a>
               )}
               {/* Honest about provenance: deductions are the company's figures. */}
               <p className="text-[11px] text-muted-foreground mt-2">
-                Deductions use the rates saved in your payroll settings. FieldQuo does
-                the arithmetic; confirm the rates with your accountant.
+                {t(
+                  "app.payrollRun.deductionsNote",
+                  "Deductions use the rates saved in your payroll settings. FieldQuo does the arithmetic; confirm the rates with your accountant.",
+                )}
               </p>
             </div>
           </details>

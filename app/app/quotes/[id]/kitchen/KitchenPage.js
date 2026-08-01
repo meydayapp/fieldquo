@@ -17,8 +17,10 @@ import { useTheme } from "@/app/providers/ThemeProvider";
 import { designerTheme } from "@/lib/kitchen/designerTheme";
 import { reportResponseError } from "@/lib/clientErrors";
 import KitchenDesigner from "@/app/components/kitchen/KitchenDesigner";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function KitchenPage({ company }) {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
   const { isDark } = useTheme();
@@ -106,7 +108,7 @@ export default function KitchenPage({ company }) {
     return (
       <div className="p-4 sm:p-6">
         <p className="text-sm text-muted-foreground">
-          This quote couldn&apos;t be loaded.
+          {t("app.kitchen.loadError", "This quote couldn't be loaded.")}
         </p>
       </div>
     );
@@ -125,7 +127,7 @@ export default function KitchenPage({ company }) {
           <ArrowLeft size={14} /> {data.quoteNumber}
         </Link>
         <h1 className="text-lg sm:text-xl font-semibold text-foreground">
-          Kitchen designer
+          {t("app.kitchen.title", "Kitchen designer")}
         </h1>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -139,11 +141,11 @@ export default function KitchenPage({ company }) {
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
             >
               {copied ? <Check size={15} /> : <Link2 size={15} />}
-              {copied ? "Copied" : "Client link"}
+              {copied ? t("app.action.copied") : t("app.kitchen.clientLink", "Client link")}
             </button>
           ) : (
             <span className="text-xs text-muted-foreground">
-              Send the quote to get a client design link
+              {t("app.kitchen.sendToGetLink", "Send the quote to get a client design link")}
             </span>
           )}
 
@@ -161,7 +163,11 @@ export default function KitchenPage({ company }) {
               ) : (
                 <Save size={15} />
               )}
-              {saving ? "Pricing…" : saved ? "Saved & repriced" : "Save & reprice quote"}
+              {saving
+                ? t("app.kitchen.pricing", "Pricing…")
+                : saved
+                  ? t("app.kitchen.savedRepriced", "Saved & repriced")
+                  : t("app.kitchen.saveReprice", "Save & reprice quote")}
             </button>
           )}
         </div>
@@ -169,10 +175,10 @@ export default function KitchenPage({ company }) {
 
       {locked && (
         <div className="rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          This quote has already been sent, so the design is read-only.
-          Duplicate the quote to change it — a sent quote is a commitment, and
-          repricing one underneath the client leaves you both looking at
-          different numbers.
+          {t(
+            "app.kitchen.lockedNote",
+            "This quote has already been sent, so the design is read-only. Duplicate the quote to change it — a sent quote is a commitment, and repricing one underneath the client leaves you both looking at different numbers.",
+          )}
         </div>
       )}
 
@@ -183,9 +189,9 @@ export default function KitchenPage({ company }) {
         <div className="rounded-lg border border-border bg-card px-4 py-3 flex flex-wrap items-center gap-3">
           <UserCheck size={16} className="text-muted-foreground shrink-0" />
           <p className="text-sm text-foreground flex-1 min-w-[12rem]">
-            Your client saved their own version of this layout
+            {t("app.kitchen.clientSavedVersion", "Your client saved their own version of this layout")}
             {data.clientDesignAt
-              ? ` on ${new Date(data.clientDesignAt).toLocaleDateString()}`
+              ? ` ${t("app.kitchen.onDate", { date: new Date(data.clientDesignAt).toLocaleDateString() })}`
               : ""}
             .
           </p>
@@ -198,7 +204,7 @@ export default function KitchenPage({ company }) {
               }}
               className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
             >
-              Load their version
+              {t("app.kitchen.loadTheirVersion", "Load their version")}
             </button>
           )}
         </div>
