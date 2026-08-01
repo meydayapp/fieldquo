@@ -893,25 +893,25 @@ function Testimonials({ block, theme, accent2, S, t }) {
     // One quote, very large. A grid of one card looks like three failed to load,
     // and one good testimonial is the common case for a company just starting
     // out — so this is the honest treatment of it, not a consolation prize.
-    const t = items[0];
+    const item = items[0];
     return (
       <Section theme={theme} alt S={S}>
         <div className={S?.headingAlign === "center" ? "text-center" : ""}>
           <div className={S?.headingAlign === "center" ? "flex justify-center" : ""}>
-            <Eyebrow accent2={accent2}>{t.eyebrowTestimonials}</Eyebrow>
+            <Eyebrow accent2={accent2}>{item.eyebrowTestimonials}</Eyebrow>
           </div>
-          <div className="flex gap-1 mb-6" style={{ color: accent2, justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }} aria-label={t.fiveStars}>
+          <div className="flex gap-1 mb-6" style={{ color: accent2, justifyContent: S?.headingAlign === "center" ? "center" : "flex-start" }} aria-label={item.fiveStars}>
             {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={20} fill="currentColor" strokeWidth={0} />)}
           </div>
           <blockquote
             className={`${S?.h2 || "text-3xl sm:text-4xl font-extrabold"} m-0 max-w-4xl leading-[1.2] ${S?.headingAlign === "center" ? "mx-auto" : ""}`}
             style={{ color: theme.inkOnWash, textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}
           >
-            “{t.quote}”
+            “{item.quote}”
           </blockquote>
-          {t.author && (
+          {item.author && (
             <p className="mt-6 text-base font-semibold" style={{ color: theme.inkMutedOnWash }}>
-              — {t.author}
+              — {item.author}
             </p>
           )}
         </div>
@@ -924,13 +924,13 @@ function Testimonials({ block, theme, accent2, S, t }) {
       <Section theme={theme} alt wide S={S}>
         <Heading theme={theme} onWash center={S?.headingAlign === "center"} eyebrow={t.eyebrowTestimonials} accent2={accent2} S={S}>{heading}</Heading>
         <div className="-mx-5 sm:-mx-8 px-5 sm:px-8 overflow-x-auto snap-x snap-mandatory flex gap-4 pb-2">
-          {items.map((t, i) => (
+          {items.map((item, i) => (
             <figure key={i} className={`shrink-0 snap-start w-[82%] sm:w-[46%] lg:w-[32%] ${S?.radius || "rounded-2xl"} p-6 m-0 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-              <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={t.fiveStars}>
+              <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={item.fiveStars}>
                 {[0, 1, 2, 3, 4].map((x) => <Star key={x} size={15} fill="currentColor" strokeWidth={0} />)}
               </div>
-              <blockquote className="text-base leading-relaxed m-0" style={{ color: theme.ink }}>{t.quote}</blockquote>
-              {t.author && <figcaption className="mt-4 text-sm font-semibold" style={{ color: theme.ink }}>{t.author}</figcaption>}
+              <blockquote className="text-base leading-relaxed m-0" style={{ color: theme.ink }}>{item.quote}</blockquote>
+              {item.author && <figcaption className="mt-4 text-sm font-semibold" style={{ color: theme.ink }}>{item.author}</figcaption>}
             </figure>
           ))}
         </div>
@@ -942,16 +942,16 @@ function Testimonials({ block, theme, accent2, S, t }) {
     <Section theme={theme} alt wide S={S}>
       <Heading theme={theme} onWash center eyebrow={t.eyebrowTestimonials} accent2={accent2} S={S}>{heading}</Heading>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {items.map((t, i) => (
+        {items.map((item, i) => (
           <figure key={i} className={`${S?.radius || "rounded-2xl"} p-6 shadow-sm`} style={{ backgroundColor: theme.paper || "#fff", border: `1px solid ${theme.border}` }}>
-            <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={t.fiveStars}>
+            <div className="flex gap-0.5 mb-3" style={{ color: accent2 }} aria-label={item.fiveStars}>
               {[0, 1, 2, 3, 4].map((s) => <Star key={s} size={15} fill="currentColor" strokeWidth={0} />)}
             </div>
-            <blockquote className="text-base leading-relaxed" style={{ color: theme.ink }}>{t.quote}</blockquote>
-            {t.author && (
+            <blockquote className="text-base leading-relaxed" style={{ color: theme.ink }}>{item.quote}</blockquote>
+            {item.author && (
               <figcaption className="mt-5 flex items-center gap-3">
-                <span className="grid w-10 h-10 rounded-full place-items-center text-sm font-bold" style={{ backgroundColor: theme.accentWash, color: theme.accentText }}>{initials(t.author)}</span>
-                <span className="text-sm font-semibold" style={{ color: theme.ink }}>{t.author}</span>
+                <span className="grid w-10 h-10 rounded-full place-items-center text-sm font-bold" style={{ backgroundColor: theme.accentWash, color: theme.accentText }}>{initials(item.author)}</span>
+                <span className="text-sm font-semibold" style={{ color: theme.ink }}>{item.author}</span>
               </figcaption>
             )}
           </figure>

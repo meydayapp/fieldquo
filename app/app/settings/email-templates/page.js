@@ -96,19 +96,19 @@ export default function EmailTemplatesPage() {
     }
   }
 
-  async function handleDuplicate(t) {
-    setBusyId(t.id);
+  async function handleDuplicate(tpl) {
+    setBusyId(tpl.id);
     const res = await fetch("/api/settings/document-templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: t.type, name: `${t.name} (copy)` }),
+      body: JSON.stringify({ type: tpl.type, name: `${tpl.name} (copy)` }),
     });
     if (res.ok) {
       const created = await res.json();
       await fetch(`/api/settings/document-templates/${created.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sections: t.sections }),
+        body: JSON.stringify({ sections: tpl.sections }),
       });
       load();
     } else {
@@ -181,7 +181,7 @@ export default function EmailTemplatesPage() {
             </h2>
             <div className="space-y-4">
               {typesInGroup.map(([type, meta]) => {
-                const typeTemplates = templates.filter((t) => t.type === type);
+                const typeTemplates = templates.filter((tpl) => tpl.type === type);
                 return (
                   <div
                     key={type}
@@ -203,14 +203,14 @@ export default function EmailTemplatesPage() {
                       </p>
                     ) : (
                       <div className="divide-y divide-border">
-                        {typeTemplates.map((t) => (
+                        {typeTemplates.map((tpl) => (
                           <div
-                            key={t.id}
+                            key={tpl.id}
                             className="flex items-center justify-between py-2.5"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-foreground">{t.name}</span>
-                              {t.isDefault && (
+                              <span className="text-sm text-foreground">{tpl.name}</span>
+                              {tpl.isDefault && (
                                 <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">
                                   <Star size={11} className="fill-emerald-700" />
                                   Active
@@ -218,35 +218,35 @@ export default function EmailTemplatesPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-3">
-                              {!t.isDefault && (
+                              {!tpl.isDefault && (
                                 <button
-                                  onClick={() => handleActivate(t.id)}
-                                  disabled={busyId === t.id}
+                                  onClick={() => handleActivate(tpl.id)}
+                                  disabled={busyId === tpl.id}
                                   className="text-xs font-medium text-muted-foreground hover:text-foreground"
                                 >
                                   Set Active
                                 </button>
                               )}
                               <Link
-                                href={`/app/settings/email-templates/${t.id}`}
+                                href={`/app/settings/email-templates/${tpl.id}`}
                                 className="text-muted-foreground hover:text-foreground"
-                                aria-label={`Edit ${t.name}`}
+                                aria-label={`Edit ${tpl.name}`}
                               >
                                 <Pencil size={14} />
                               </Link>
                               <button
-                                onClick={() => handleDuplicate(t)}
-                                disabled={busyId === t.id}
+                                onClick={() => handleDuplicate(tpl)}
+                                disabled={busyId === tpl.id}
                                 className="text-muted-foreground hover:text-foreground"
-                                aria-label={`Duplicate ${t.name}`}
+                                aria-label={`Duplicate ${tpl.name}`}
                               >
                                 <Copy size={14} />
                               </button>
                               <button
-                                onClick={() => handleDelete(t.id)}
-                                disabled={busyId === t.id}
+                                onClick={() => handleDelete(tpl.id)}
+                                disabled={busyId === tpl.id}
                                 className="text-muted-foreground hover:text-red-500"
-                                aria-label={`Delete ${t.name}`}
+                                aria-label={`Delete ${tpl.name}`}
                               >
                                 <Trash2 size={14} />
                               </button>

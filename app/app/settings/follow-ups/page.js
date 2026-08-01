@@ -52,8 +52,8 @@ export default function FollowUpsPage() {
     load();
   }, []);
 
-  const eligibleTemplates = templates.filter((t) =>
-    ELIGIBLE_TEMPLATE_TYPES.includes(t.type),
+  const eligibleTemplates = templates.filter((tpl) =>
+    ELIGIBLE_TEMPLATE_TYPES.includes(tpl.type),
   );
 
   function openNew() {
@@ -299,9 +299,9 @@ export default function FollowUpsPage() {
                   <option value="" disabled>
                     {t("app.setFollowUps.chooseTemplate")}
                   </option>
-                  {eligibleTemplates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({TEMPLATE_TYPE_META[t.type]?.label})
+                  {eligibleTemplates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>
+                      {tpl.name} ({TEMPLATE_TYPE_META[tpl.type]?.label})
                     </option>
                   ))}
                 </select>

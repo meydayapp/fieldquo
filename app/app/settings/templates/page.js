@@ -57,8 +57,8 @@ export default function PdfTemplatesPage() {
       const data = await res.json();
       // The endpoint returns every type; this page owns the PDF ones only.
       setTemplates(
-        (Array.isArray(data) ? data : []).filter((t) =>
-          PDF_TYPES.some((p) => p.type === t.type),
+        (Array.isArray(data) ? data : []).filter((tpl) =>
+          PDF_TYPES.some((p) => p.type === tpl.type),
         ),
       );
     } catch (err) {
@@ -97,12 +97,12 @@ export default function PdfTemplatesPage() {
     }
   }
 
-  async function makeDefault(t) {
-    setBusyId(t.id);
+  async function makeDefault(tpl) {
+    setBusyId(tpl.id);
     setError("");
     try {
       const res = await fetch(
-        `/api/settings/document-templates/${t.id}/activate`,
+        `/api/settings/document-templates/${tpl.id}/activate`,
         { method: "POST" },
       );
       if (!res.ok) {
@@ -117,11 +117,11 @@ export default function PdfTemplatesPage() {
     }
   }
 
-  async function remove(t) {
-    setBusyId(t.id);
+  async function remove(tpl) {
+    setBusyId(tpl.id);
     setError("");
     try {
-      const res = await fetch(`/api/settings/document-templates/${t.id}`, {
+      const res = await fetch(`/api/settings/document-templates/${tpl.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -165,8 +165,8 @@ export default function PdfTemplatesPage() {
       )}
 
       {PDF_TYPES.map((meta) => {
-        const mine = templates.filter((t) => t.type === meta.type);
-        const hasDefault = mine.some((t) => t.isDefault);
+        const mine = templates.filter((tpl) => tpl.type === meta.type);
+        const hasDefault = mine.some((tpl) => tpl.isDefault);
 
         return (
           <div
@@ -214,7 +214,7 @@ export default function PdfTemplatesPage() {
                       onClick={() =>
                         create(
                           meta.type,
-                          (mine.find((t) => t.isDefault) || mine[0]).id,
+                          (mine.find((tpl) => tpl.isDefault) || mine[0]).id,
                         )
                       }
                       disabled={busyId === "create"}
@@ -246,34 +246,34 @@ export default function PdfTemplatesPage() {
               </div>
             ) : (
               <div className="mt-4 divide-y divide-border border border-border rounded-lg">
-                {mine.map((t) => (
+                {mine.map((tpl) => (
                   <div
-                    key={t.id}
+                    key={tpl.id}
                     className={`flex items-center justify-between gap-3 px-4 py-3 ${
-                      busyId === t.id ? "opacity-60" : ""
+                      busyId === tpl.id ? "opacity-60" : ""
                     }`}
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground truncate">
-                          {t.name}
+                          {tpl.name}
                         </span>
-                        {t.isDefault && (
+                        {tpl.isDefault && (
                           <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-inverted text-inverted-foreground shrink-0">
                             <Star size={9} /> In use
                           </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {(Array.isArray(t.sections) ? t.sections : []).length}{" "}
+                        {(Array.isArray(tpl.sections) ? tpl.sections : []).length}{" "}
                         sections
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 shrink-0">
-                      {!t.isDefault && (
+                      {!tpl.isDefault && (
                         <button
-                          onClick={() => makeDefault(t)}
+                          onClick={() => makeDefault(tpl)}
                           disabled={Boolean(busyId)}
                           className="text-sm font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
@@ -281,14 +281,14 @@ export default function PdfTemplatesPage() {
                         </button>
                       )}
                       <Link
-                        href={`/app/settings/templates/${t.id}/edit`}
+                        href={`/app/settings/templates/${tpl.id}/edit`}
                         className="text-muted-foreground hover:text-foreground"
                         aria-label="Edit template"
                       >
                         <Pencil size={15} />
                       </Link>
                       <button
-                        onClick={() => remove(t)}
+                        onClick={() => remove(tpl)}
                         disabled={Boolean(busyId)}
                         className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
                         aria-label="Delete template"

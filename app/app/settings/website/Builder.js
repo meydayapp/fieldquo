@@ -104,7 +104,7 @@ export default function Builder({ data, onReload }) {
     if (site?.subdomain) setSubdomain(site.subdomain);
     // Only adopt the stored thread when we don't have one in hand — a live
     // conversation must not be replaced by the persisted copy mid-session.
-    setThread((t) => (t.length ? t : data?.chat || []));
+    setThread((prev) => (prev.length ? prev : data?.chat || []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [site?.id, site?.blocks?.length]);
 
@@ -119,7 +119,7 @@ export default function Builder({ data, onReload }) {
     : null;
 
   const say = useCallback((role, text, meta) => {
-    setThread((t) => [...t, { role, text, at: new Date().toISOString(), ...(meta ? { meta } : {}) }]);
+    setThread((prev) => [...prev, { role, text, at: new Date().toISOString(), ...(meta ? { meta } : {}) }]);
   }, []);
 
   // ── Generate / iterate ───────────────────────────────────────────────────

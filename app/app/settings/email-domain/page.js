@@ -101,8 +101,8 @@ export default function EmailDomainPage() {
   // someone sit refreshing the page is a poor experience.
   useEffect(() => {
     if (data?.emailDomainStatus !== "pending") return;
-    const t = setInterval(() => recheck(true), 30000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => recheck(true), 30000);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.emailDomainStatus]);
 

@@ -61,8 +61,8 @@ export default function ClientMessagesPage() {
         </p>
       </div>
 
-      {(types || []).map((t) => (
-        <MessageEditor key={t.key} type={t} onSaved={load} />
+      {(types || []).map((type) => (
+        <MessageEditor key={type.key} type={type} onSaved={load} />
       ))}
     </div>
   );
@@ -131,7 +131,7 @@ function MessageEditor({ type, onSaved }) {
           <button
             key={tk.token}
             type="button"
-            onClick={() => setText((t) => `${t}{${tk.token}}`)}
+            onClick={() => setText((prevText) => `${prevText}{${tk.token}}`)}
             title={tk.hint}
             className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-mono"
           >

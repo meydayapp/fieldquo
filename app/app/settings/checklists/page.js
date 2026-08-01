@@ -38,13 +38,13 @@ export default function ChecklistsPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [t, c] = await Promise.all([
+      const [tpls, c] = await Promise.all([
         fetch("/api/settings/checklists").then((r) => (r.ok ? r.json() : [])),
         fetch("/api/settings/service-categories").then((r) =>
           r.ok ? r.json() : [],
         ),
       ]);
-      setTemplates(Array.isArray(t) ? t : []);
+      setTemplates(Array.isArray(tpls) ? tpls : []);
       // Only offer services the company actually turned on — the rest would
       // be noise in the dropdown.
       setCategories(
@@ -291,32 +291,32 @@ export default function ChecklistsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {templates.map((t) => {
-            const items = Array.isArray(t.items) ? t.items : [];
+          {templates.map((tpl) => {
+            const items = Array.isArray(tpl.items) ? tpl.items : [];
             return (
               <div
-                key={t.id}
+                key={tpl.id}
                 className={`bg-card border border-border rounded-xl p-5 ${
-                  busyId === t.id ? "opacity-60" : ""
+                  busyId === tpl.id ? "opacity-60" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <div className="font-semibold text-foreground">{t.name}</div>
+                    <div className="font-semibold text-foreground">{tpl.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {items.length} step{items.length === 1 ? "" : "s"}
-                      {t.category?.label && ` · ${t.category.label}`}
+                      {tpl.category?.label && ` · ${tpl.category.label}`}
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
                     <button
-                      onClick={() => edit(t)}
+                      onClick={() => edit(tpl)}
                       className="text-sm font-semibold text-muted-foreground hover:text-foreground"
                     >
                       Edit
                     </button>
                     <button
-                      onClick={() => remove(t)}
+                      onClick={() => remove(tpl)}
                       disabled={Boolean(busyId)}
                       className="text-muted-foreground hover:text-red-600 dark:text-red-400 disabled:opacity-50"
                       aria-label="Delete checklist"

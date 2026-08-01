@@ -438,7 +438,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
   };
 
   const label =
-    BLOCK_TYPES.find((t) => t.type === block.type)?.label || block.type;
+    BLOCK_TYPES.find((bt) => bt.type === block.type)?.label || block.type;
 
   return (
     <div
@@ -982,13 +982,13 @@ export default function EmailTemplateEditorPage() {
             </button>
             {addOpen && (
               <div className="absolute z-10 mt-1 w-full bg-card border border-border rounded-xl shadow-lg p-1.5">
-                {BLOCK_TYPES.map((t) => (
+                {BLOCK_TYPES.map((bt) => (
                   <button
-                    key={t.type}
-                    onClick={() => addBlock(t.type)}
+                    key={bt.type}
+                    onClick={() => addBlock(bt.type)}
                     className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-muted text-foreground"
                   >
-                    {t.label}
+                    {bt.label}
                   </button>
                 ))}
               </div>

@@ -303,15 +303,15 @@ export default function VoiceSettingsPage() {
 
                 {s.key === "purchased" && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {pricing.numberTypes.map((t) => (
+                    {pricing.numberTypes.map((type) => (
                       <button
-                        key={t.key}
+                        key={type.key}
                         type="button"
                         disabled={busy || !configured}
-                        onClick={() => getNumber(s.key, t.key)}
+                        onClick={() => getNumber(s.key, type.key)}
                         className="px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
                       >
-                        {t.label} — {money(t.monthlyCents)}/mo, {t.perMinuteCents}¢/min
+                        {type.label} — {money(type.monthlyCents)}/mo, {type.perMinuteCents}¢/min
                       </button>
                     ))}
                   </div>
@@ -360,22 +360,22 @@ export default function VoiceSettingsPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          {pricing.topups.map((t) => (
+          {pricing.topups.map((topup) => (
             <button
-              key={t.cents}
+              key={topup.cents}
               type="button"
               disabled={busy}
-              onClick={() => topUp(t.cents)}
+              onClick={() => topUp(topup.cents)}
               className={`px-4 py-2 rounded-full border text-sm disabled:opacity-50 ${
-                t.popular
+                topup.popular
                   ? "border-inverted bg-inverted text-inverted-foreground font-semibold"
                   : "border-border text-foreground hover:bg-muted"
               }`}
             >
-              {t.label}
+              {topup.label}
               <span className="opacity-70">
                 {" "}
-                · {Math.floor(t.cents / credit.centsPerMinute)} min
+                · {Math.floor(topup.cents / credit.centsPerMinute)} min
               </span>
             </button>
           ))}

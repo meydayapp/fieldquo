@@ -84,7 +84,7 @@ export default function MarketingPage() {
         .then((data) =>
           setTemplates(
             Array.isArray(data)
-              ? data.filter((t) => ELIGIBLE_TEMPLATE_TYPES.includes(t.type))
+              ? data.filter((tpl) => ELIGIBLE_TEMPLATE_TYPES.includes(tpl.type))
               : [],
           ),
         )
@@ -344,9 +344,9 @@ export default function MarketingPage() {
                     <option value="" disabled>
                       {t("app.marketing.chooseTemplate")}
                     </option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
+                    {templates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name}
                       </option>
                     ))}
                   </select>

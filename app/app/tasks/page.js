@@ -51,13 +51,13 @@ export default function TasksPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [t, m] = await Promise.all([
+      const [taskList, m] = await Promise.all([
         fetch("/api/tasks").then((r) => (r.ok ? r.json() : [])),
         // Assignee list. Non-fatal if it fails — the page still works, you
         // just can't hand a task to someone else.
         fetch("/api/settings/members").then((r) => (r.ok ? r.json() : [])),
       ]);
-      setTasks(Array.isArray(t) ? t : []);
+      setTasks(Array.isArray(taskList) ? taskList : []);
       setMembers(Array.isArray(m) ? m : []);
     } catch {
       setError(t("app.tasks.loadError"));
@@ -73,15 +73,15 @@ export default function TasksPage() {
   const visible = useMemo(() => {
     const today = startOfToday();
     return tasks
-      .filter((t) =>
-        showDone ? true : !["done", "cancelled"].includes(t.status),
+      .filter((task) =>
+        showDone ? true : !["done", "cancelled"].includes(task.status),
       )
-      .map((t) => ({
-        ...t,
+      .map((task) => ({
+        ...task,
         overdue:
-          t.dueDate &&
-          new Date(t.dueDate) < today &&
-          !["done", "cancelled"].includes(t.status),
+          task.dueDate &&
+          new Date(task.dueDate) < today &&
+          !["done", "cancelled"].includes(task.status),
       }))
       .sort((a, b) => {
         // Overdue first, then priority, then soonest due date. Undated tasks
@@ -98,7 +98,7 @@ export default function TasksPage() {
   }, [tasks, showDone]);
 
   const openCount = tasks.filter(
-    (t) => !["done", "cancelled"].includes(t.status),
+    (task) => !["done", "cancelled"].includes(task.status),
   ).length;
 
   async function toggle(task) {
@@ -107,7 +107,7 @@ export default function TasksPage() {
     setError("");
     const before = tasks;
     setTasks((prev) =>
-      prev.map((t) => (t.id === task.id ? { ...t, status } : t)),
+      prev.map((item) => (item.id === task.id ? { ...item, status } : item)),
     );
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {

@@ -68,8 +68,8 @@ export default function ProductsPage() {
   }, [search]);
 
   useEffect(() => {
-    const t = setTimeout(load, 250); // debounce search
-    return () => clearTimeout(t);
+    const timer = setTimeout(load, 250); // debounce search
+    return () => clearTimeout(timer);
   }, [load]);
 
   useEffect(() => setPage(1), [search, pageSize]);

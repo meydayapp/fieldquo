@@ -246,9 +246,9 @@ export default function CustomFieldsPage() {
                 }
                 className={inputClass}
               >
-                {FIELD_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {FIELD_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
                   </option>
                 ))}
               </select>

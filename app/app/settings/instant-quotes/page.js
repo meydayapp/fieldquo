@@ -267,15 +267,15 @@ function TradeCard({ trade, canEdit, onSaved }) {
           <div>
             <div className="text-sm font-medium text-foreground mb-2">{t("app.setInstantQuotes.perVisitByLotSize", "Per-visit price by lot size")}</div>
             <div className="space-y-2">
-              {(config.tiers || []).map((t, i) => (
+              {(config.tiers || []).map((tier, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <span className="text-muted-foreground">{t("app.setInstantQuotes.upTo", "up to")}</span>
                   <input
                     type="number"
-                    value={t.maxSqft ?? ""}
+                    value={tier.maxSqft ?? ""}
                     onChange={(e) => {
                       const next = [...config.tiers];
-                      next[i] = { ...t, maxSqft: e.target.value === "" ? "" : Number(e.target.value) };
+                      next[i] = { ...tier, maxSqft: e.target.value === "" ? "" : Number(e.target.value) };
                       patch({ tiers: next });
                     }}
                     className="w-28 rounded-lg border border-border bg-background px-2 py-1.5"
@@ -284,10 +284,10 @@ function TradeCard({ trade, canEdit, onSaved }) {
                   <span className="text-muted-foreground">$</span>
                   <input
                     type="number"
-                    value={t.pricePerVisit ?? ""}
+                    value={tier.pricePerVisit ?? ""}
                     onChange={(e) => {
                       const next = [...config.tiers];
-                      next[i] = { ...t, pricePerVisit: e.target.value === "" ? "" : Number(e.target.value) };
+                      next[i] = { ...tier, pricePerVisit: e.target.value === "" ? "" : Number(e.target.value) };
                       patch({ tiers: next });
                     }}
                     className="w-24 rounded-lg border border-border bg-background px-2 py-1.5"
@@ -470,8 +470,8 @@ export default function InstantQuotesSettingsPage() {
       )}
 
       <div className="space-y-4">
-        {trades?.map((t) => (
-          <TradeCard key={t.trade} trade={t} canEdit={canEdit} onSaved={load} />
+        {trades?.map((trade) => (
+          <TradeCard key={trade.trade} trade={trade} canEdit={canEdit} onSaved={load} />
         ))}
       </div>
 

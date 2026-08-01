@@ -61,7 +61,7 @@ export default function BookingPageSettings() {
     // Optimistic, then reconciled from the server's answer — the buffer is
     // clamped server-side, so echoing back what was typed would show 600 when
     // 120 was stored.
-    setTravel((t) => ({ ...t, ...patch }));
+    setTravel((prev) => ({ ...prev, ...patch }));
     const res = await fetch("/api/settings/business-info", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

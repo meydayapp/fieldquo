@@ -26,7 +26,7 @@ export default function Hero() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const active = TABS.find((t) => t.key === activeTab);
+  const active = TABS.find((tab) => tab.key === activeTab);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

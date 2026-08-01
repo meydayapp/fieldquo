@@ -261,20 +261,20 @@ export default function MaterialCostsPage() {
                   {t("app.setMaterialCosts.paintByTier")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                  {PAINT_TIERS.map((t) => (
-                    <div key={t.key}>
+                  {PAINT_TIERS.map((tier) => (
+                    <div key={tier.key}>
                       <label className="text-xs font-medium text-muted-foreground block mb-1">
-                        {t.label}
+                        {tier.label}
                       </label>
                       <input
                         type="number"
                         step={0.01}
                         className={inputClass}
-                        value={draft.paintTiers?.[t.key] ?? ""}
+                        value={draft.paintTiers?.[tier.key] ?? ""}
                         onChange={(e) =>
                           updateField(
                             categoryKey,
-                            ["paintTiers", t.key],
+                            ["paintTiers", tier.key],
                             Number(e.target.value),
                           )
                         }

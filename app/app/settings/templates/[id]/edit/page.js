@@ -43,11 +43,11 @@ export default function EditPdfTemplatePage() {
     try {
       const res = await fetch(`/api/settings/document-templates/${id}`);
       if (!res.ok) throw new Error("Couldn't load this template.");
-      const t = await res.json();
-      setTemplate(t);
-      setName(t.name || "");
+      const tpl = await res.json();
+      setTemplate(tpl);
+      setName(tpl.name || "");
       setSections(
-        (Array.isArray(t.sections) ? t.sections : [])
+        (Array.isArray(tpl.sections) ? tpl.sections : [])
           .slice()
           .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
       );
@@ -132,9 +132,9 @@ export default function EditPdfTemplatePage() {
     );
 
   const used = new Set(sections.map((s) => s.type));
-  const addable = sectionsForType(template.type).filter((t) => !used.has(t));
+  const addable = sectionsForType(template.type).filter((type) => !used.has(type));
   const missingRecommended = sectionsForType(template.type).filter(
-    (t) => SECTION_META[t].recommended && !used.has(t),
+    (type) => SECTION_META[type].recommended && !used.has(type),
   );
 
   return (
@@ -182,7 +182,7 @@ export default function EditPdfTemplatePage() {
           <div className="mt-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
             {t("app.editPdf.youveRemoved", "You've removed")}{" "}
             {missingRecommended
-              .map((t) => SECTION_META[t].label.toLowerCase())
+              .map((type) => SECTION_META[type].label.toLowerCase())
               .join(t("app.editPdf.and", " and "))}
             {t("app.editPdf.stillGenerates", ". The PDF will still generate, but it won't look like a finished document.")}
           </div>
