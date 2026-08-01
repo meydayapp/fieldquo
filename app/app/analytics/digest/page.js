@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, AlertTriangle, TrendingDown } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function DigestPage() {
@@ -10,15 +11,20 @@ export default function DigestPage() {
   const [digests, setDigests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/analytics/digests")
-      .then((r) => r.json())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await fetchJson("/api/analytics/digests");
         setDigests(res);
-        setLoading(false);
         if (res[0]) setOpenId(res[0].id);
-      });
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) {
@@ -41,7 +47,13 @@ export default function DigestPage() {
         </p>
       </div>
 
-      {digests.length === 0 && (
+      {error && (
+        <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 mb-6 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      {!error && digests.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           {t(
             "app.digest.empty",

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Receipt, Plus, Search, ArrowRight } from "lucide-react";
+import { Receipt, Plus, Search, ArrowRight, AlertCircle } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -18,12 +18,22 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/invoices")
-      .then((r) => r.json())
-      .then((data) => setInvoices(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const res = await fetch("/api/invoices");
+        if (!res.ok) throw new Error("Couldn't load invoices.");
+        const data = await res.json();
+        setInvoices(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const filtered = invoices.filter((inv) => {
@@ -72,6 +82,13 @@ export default function InvoicesPage() {
           <Plus size={16} /> {t("app.invoices.new")}
         </Link>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">

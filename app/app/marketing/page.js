@@ -14,6 +14,7 @@ import {
   Contact,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { fetchJson } from "@/lib/fetchJson";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
@@ -56,11 +57,19 @@ export default function MarketingPage() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Separate from `error`, which lives inside the create modal. A failed
+  // campaigns load used to fall through to `r.ok ? … : []` and render an empty
+  // list — indistinguishable from "no campaigns yet". This surfaces it.
+  const [loadError, setLoadError] = useState("");
 
-  function load() {
-    return fetch("/api/marketing/campaigns")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setCampaigns(Array.isArray(data) ? data : []));
+  async function load() {
+    try {
+      const data = await fetchJson("/api/marketing/campaigns");
+      setCampaigns(Array.isArray(data) ? data : []);
+      setLoadError("");
+    } catch (err) {
+      setLoadError(err.message || "Could not load campaigns");
+    }
   }
 
   useEffect(() => {
@@ -139,6 +148,12 @@ export default function MarketingPage() {
           </button>
         </div>
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
+          {loadError}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid sm:grid-cols-2 gap-4 animate-pulse">

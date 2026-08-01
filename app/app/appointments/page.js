@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, MapPin, User as UserIcon, ShieldAlert, X, Car, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -55,18 +56,28 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/appointments").then((r) => r.json()),
-      fetch("/api/settings/members").then((r) => r.json()),
-    ]).then(([appts, mem]) => {
-      setAppointments(appts);
-      setMembers(mem);
-      setLoading(false);
-    });
+    // Was a bare Promise.all(...).then(): if either request 500'd, r.json()
+    // threw, the .then never ran, and setLoading(false) never fired — the page
+    // sat on its skeleton forever with nothing to report.
+    (async () => {
+      try {
+        const [appts, mem] = await Promise.all([
+          fetchJson("/api/appointments"),
+          fetchJson("/api/settings/members"),
+        ]);
+        setAppointments(appts);
+        setMembers(mem);
+      } catch (err) {
+        setError(err.message || "Could not load appointments");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const filtered =
@@ -124,6 +135,10 @@ export default function AppointmentsPage() {
           ),
         )}
       </div>
+
+      {error && (
+        <p className="text-sm rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 mb-4">{error}</p>
+      )}
 
       {loading && (
         <div className="animate-pulse space-y-3">

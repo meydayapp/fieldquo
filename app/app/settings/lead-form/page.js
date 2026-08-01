@@ -29,6 +29,7 @@
 
 import { useState, useEffect } from "react";
 import { Copy, Check, ExternalLink, FileText, CalendarDays, Zap } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function ShareBlock({ icon: Icon, title, description, url, embed }) {
@@ -103,12 +104,18 @@ export default function LeadFormPage() {
   const { t } = useTranslation();
   const [slug, setSlug] = useState("");
   const [origin, setOrigin] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    fetch("/api/settings/business-info")
-      .then((r) => r.json())
-      .then((data) => setSlug(data.bookingSlug || data.slug || ""));
+    (async () => {
+      try {
+        const data = await fetchJson("/api/settings/business-info");
+        setSlug(data.bookingSlug || data.slug || "");
+      } catch (err) {
+        setError(err.message);
+      }
+    })();
   }, []);
 
   const quoteUrl = `${origin}/quote/${slug}`;
@@ -148,10 +155,16 @@ window.addEventListener("message", function (e) {
   if (!slug) {
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto">
-        <div className="animate-pulse space-y-3">
-          <div className="h-6 w-48 bg-accent rounded" />
-          <div className="h-32 bg-accent rounded-xl" />
-        </div>
+        {error ? (
+          <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+            {error}
+          </div>
+        ) : (
+          <div className="animate-pulse space-y-3">
+            <div className="h-6 w-48 bg-accent rounded" />
+            <div className="h-32 bg-accent rounded-xl" />
+          </div>
+        )}
       </div>
     );
   }

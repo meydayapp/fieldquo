@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
+import { Briefcase, Plus, Search, ArrowRight, AlertCircle } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -22,12 +22,22 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/jobs")
-      .then((r) => r.json())
-      .then((data) => setJobs(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const res = await fetch("/api/jobs");
+        if (!res.ok) throw new Error("Couldn't load jobs.");
+        const data = await res.json();
+        setJobs(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const filtered = jobs.filter((j) => {
@@ -64,6 +74,13 @@ export default function JobsPage() {
           <Plus size={16} /> {t("app.jobs.new")}
         </Link>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex gap-2 overflow-x-auto pb-1">

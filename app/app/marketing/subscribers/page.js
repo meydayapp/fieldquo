@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
@@ -25,13 +26,22 @@ export default function SubscribersPage() {
   const [form, setForm] = useState({ email: "", name: "", phone: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Separate from `error`, which lives inside the add-subscriber modal. A failed
+  // list load used to fall through to `r.ok ? … : []` and render an empty list,
+  // indistinguishable from "no subscribers yet". This surfaces it on the page.
+  const [loadError, setLoadError] = useState("");
 
-  function load() {
+  async function load() {
     setLoading(true);
-    return fetch("/api/marketing/subscribers")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setSubscribers(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    try {
+      const data = await fetchJson("/api/marketing/subscribers");
+      setSubscribers(Array.isArray(data) ? data : []);
+      setLoadError("");
+    } catch (err) {
+      setLoadError(err.message || "Could not load subscribers");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -158,6 +168,12 @@ export default function SubscribersPage() {
         </div>
         {importMsg && <p className="text-xs text-muted-foreground mt-2">{importMsg}</p>}
       </div>
+
+      {loadError && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
+          {loadError}
+        </div>
+      )}
 
       {subscribers.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">

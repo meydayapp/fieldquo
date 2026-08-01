@@ -4,20 +4,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function BenchmarkPage() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/analytics/benchmark")
-      .then((r) => r.json())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await fetchJson("/api/analytics/benchmark");
         setData(res);
+      } catch (err) {
+        setError(err.message);
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   if (loading) {
@@ -57,7 +63,13 @@ export default function BenchmarkPage() {
         </Link>
       </div>
 
-      {!optedIn && (
+      {error && (
+        <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 mb-6 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      {!error && !optedIn && (
         <div className="glass-effect rounded-lg p-4 mb-6 text-sm">
           <p className="mb-2">
             {t(
@@ -74,7 +86,7 @@ export default function BenchmarkPage() {
         </div>
       )}
 
-      {optedIn && rows.length === 0 && (
+      {!error && optedIn && rows.length === 0 && (
         <div className="glass-effect rounded-lg p-6 text-center text-sm text-muted-foreground">
           {t(
             "app.benchmark.notEnoughData",

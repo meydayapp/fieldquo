@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, Trash2, Search } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NewInvoicePage() {
@@ -29,19 +30,25 @@ export default function NewInvoicePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/clients").then((r) => r.json()),
-      fetch("/api/settings/business-info").then((r) => r.json()),
-    ]).then(([clientsData, businessInfo]) => {
-      const list = Array.isArray(clientsData) ? clientsData : [];
-      setClients(list);
-      if (preselectedClientId) {
-        const match = list.find((c) => c.id === preselectedClientId);
-        if (match) setSelectedClient(match);
+    (async () => {
+      try {
+        const [clientsData, businessInfo] = await Promise.all([
+          fetchJson("/api/clients"),
+          fetchJson("/api/settings/business-info"),
+        ]);
+        const list = Array.isArray(clientsData) ? clientsData : [];
+        setClients(list);
+        if (preselectedClientId) {
+          const match = list.find((c) => c.id === preselectedClientId);
+          if (match) setSelectedClient(match);
+        }
+        setTaxRate(Number(businessInfo?.taxRate || 0));
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-      setTaxRate(Number(businessInfo?.taxRate || 0));
-      setLoading(false);
-    });
+    })();
   }, [preselectedClientId]);
 
   const filteredClients = clients.filter((c) =>

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload } from "lucide-react";
+import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload, AlertCircle } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 export default function ClientsPage() {
@@ -11,12 +11,22 @@ export default function ClientsPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => r.json())
-      .then((data) => setClients(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    async function load() {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) throw new Error("Couldn't load clients.");
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   const filtered = clients.filter((c) => {
@@ -69,6 +79,13 @@ export default function ClientsPage() {
           </Link>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+          {error}
+        </div>
+      )}
 
       <div className="relative max-w-sm">
         <Search

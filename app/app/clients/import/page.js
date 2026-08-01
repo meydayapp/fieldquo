@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import { Upload } from "lucide-react";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function ImportClientsPage() {
@@ -43,17 +44,18 @@ export default function ImportClientsPage() {
 
   async function handleImport() {
     setImporting(true);
-    const res = await fetch("/api/clients/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
-    });
-    const data = await res.json();
-    setImporting(false);
-    if (res.ok) {
+    setError("");
+    try {
+      const data = await fetchJson("/api/clients/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
       setResult(data);
-    } else {
-      setError(data.error || t("app.clientImport.failed"));
+    } catch (err) {
+      setError(err.message || t("app.clientImport.failed"));
+    } finally {
+      setImporting(false);
     }
   }
 
