@@ -5,11 +5,13 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 export default function NewJobPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   // Support being opened pre-scoped to a client (e.g. from a client page).
@@ -40,11 +42,11 @@ export default function NewJobPage() {
     e.preventDefault();
     setError("");
     if (!selectedClientId) {
-      setError("Select a client for this job");
+      setError(t("app.jobNew.selectClient"));
       return;
     }
     if (!title.trim()) {
-      setError("Job title is required");
+      setError(t("app.jobNew.titleRequired"));
       return;
     }
     setSaving(true);
@@ -65,8 +67,8 @@ export default function NewJobPage() {
         // clearly rather than a generic failure.
         throw new Error(
           res.status === 403
-            ? "You don't have permission to create jobs."
-            : data.error || "Could not create job",
+            ? t("app.jobNew.noPermission")
+            : data.error || t("app.jobNew.createError"),
         );
       }
       router.push(`/app/jobs/${data.id}`);
@@ -83,9 +85,9 @@ export default function NewJobPage() {
           href="/app/jobs"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
         >
-          <ArrowLeft size={14} /> Back to Jobs
+          <ArrowLeft size={14} /> {t("app.job.backToJobs")}
         </Link>
-        <h1 className="text-2xl font-bold text-foreground">New Job</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.jobs.new")}</h1>
       </div>
 
       {error && (
@@ -100,7 +102,7 @@ export default function NewJobPage() {
       >
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">
-            Client <span className="text-red-500">*</span>
+            {t("app.job.client")} <span className="text-red-500">*</span>
           </label>
           {selectedClient ? (
             <div className="flex items-center justify-between border border-border rounded-lg px-3 py-2.5">
@@ -112,7 +114,7 @@ export default function NewJobPage() {
                 onClick={() => setSelectedClientId("")}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
-                Change
+                {t("app.jobNew.change")}
               </button>
             </div>
           ) : (
@@ -125,7 +127,7 @@ export default function NewJobPage() {
                 <input
                   value={clientSearch}
                   onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Search clients..."
+                  placeholder={t("app.clients.search")}
                   className={`${inputClass} pl-9`}
                 />
               </div>
@@ -142,12 +144,12 @@ export default function NewJobPage() {
                 ))}
                 {filteredClients.length === 0 && (
                   <p className="px-3 py-3 text-sm text-muted-foreground">
-                    No clients found.{" "}
+                    {t("app.jobNew.noClients")}{" "}
                     <Link
                       href="/app/clients/new"
                       className="text-foreground underline"
                     >
-                      Add one
+                      {t("app.jobNew.addOne")}
                     </Link>
                   </p>
                 )}
@@ -158,13 +160,13 @@ export default function NewJobPage() {
 
         <div>
           <label className="text-sm font-medium text-foreground block mb-1">
-            Job title <span className="text-red-500">*</span>
+            {t("app.jobNew.jobTitle")} <span className="text-red-500">*</span>
           </label>
           <input
             className={inputClass}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Kitchen cabinet refinishing"
+            placeholder={t("app.jobNew.titlePlaceholder")}
           />
         </div>
 
@@ -174,23 +176,23 @@ export default function NewJobPage() {
             checked={recurring}
             onChange={(e) => setRecurring(e.target.checked)}
           />
-          This is a recurring job
+          {t("app.jobNew.recurringJob")}
         </label>
 
         {recurring && (
           <div>
             <label className="text-sm font-medium text-foreground block mb-1">
-              Recurrence
+              {t("app.jobNew.recurrence")}
             </label>
             <select
               className={inputClass}
               value={recurrenceRule}
               onChange={(e) => setRecurrenceRule(e.target.value)}
             >
-              <option value="">Select frequency...</option>
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Every 2 weeks</option>
-              <option value="monthly">Monthly</option>
+              <option value="">{t("app.jobNew.selectFrequency")}</option>
+              <option value="weekly">{t("app.jobNew.weekly")}</option>
+              <option value="biweekly">{t("app.jobNew.biweekly")}</option>
+              <option value="monthly">{t("app.jobNew.monthly")}</option>
             </select>
           </div>
         )}
@@ -200,14 +202,14 @@ export default function NewJobPage() {
             href="/app/jobs"
             className="text-sm font-medium text-muted-foreground px-4 py-2.5"
           >
-            Cancel
+            {t("app.action.cancel")}
           </Link>
           <button
             type="submit"
             disabled={saving}
             className="bg-inverted text-inverted-foreground px-6 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
           >
-            {saving ? "Creating..." : "Create Job"}
+            {saving ? t("app.jobNew.creating") : t("app.jobNew.createJob")}
           </button>
         </div>
       </form>

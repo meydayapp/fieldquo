@@ -12,10 +12,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const STATUSES = ["scheduled", "in_progress", "completed", "cancelled"];
 
 export default function EditJobPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
 
@@ -34,7 +36,7 @@ export default function EditJobPage() {
     (async () => {
       try {
         const res = await fetch(`/api/jobs/${id}`);
-        if (!res.ok) throw new Error("Couldn't load this job.");
+        if (!res.ok) throw new Error(t("app.jobEdit.loadError"));
         const data = await res.json();
         if (cancelled) return;
         setJob(data);
@@ -71,7 +73,7 @@ export default function EditJobPage() {
         }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't save.");
+      if (!res.ok) throw new Error(data?.error || t("app.jobEdit.saveError"));
       router.push(`/app/jobs/${id}`);
     } catch (err) {
       setError(err.message);
@@ -88,7 +90,7 @@ export default function EditJobPage() {
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto">
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
-          {error || "Job not found."}
+          {error || t("app.jobEdit.notFound")}
         </div>
       </div>
     );
@@ -99,11 +101,11 @@ export default function EditJobPage() {
         href={`/app/jobs/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Back to job
+        <ArrowLeft size={14} /> {t("app.jobEdit.backToJob")}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Edit job</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.jobEdit.editJob")}</h1>
         <p className="text-sm text-muted-foreground mt-1">{job.client?.name}</p>
       </div>
 
@@ -117,7 +119,7 @@ export default function EditJobPage() {
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Title
+            {t("app.jobEdit.title")}
           </label>
           <input
             value={title}
@@ -128,7 +130,7 @@ export default function EditJobPage() {
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Status
+            {t("app.jobEdit.status")}
           </label>
           <select
             value={status}
@@ -150,26 +152,25 @@ export default function EditJobPage() {
               checked={recurring}
               onChange={(e) => setRecurring(e.target.checked)}
             />
-            This job repeats
+            {t("app.jobEdit.repeats")}
           </label>
 
           {recurring && (
             <div className="mt-3">
               <label className="block text-sm font-medium text-foreground mb-1">
-                How often
+                {t("app.jobEdit.howOften")}
               </label>
               <input
                 value={recurrenceRule}
                 onChange={(e) => setRecurrenceRule(e.target.value)}
-                placeholder="Every 2 weeks"
+                placeholder={t("app.jobEdit.howOftenPlaceholder")}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm"
               />
               {/* Honest about what this does today. Nothing reads
                   recurrenceRule to generate visits automatically yet, so
                   promising a schedule would be a lie. */}
               <p className="text-xs text-muted-foreground mt-1">
-                A note for your team — visits still get added by hand from the
-                job page.
+                {t("app.jobEdit.manualNote")}
               </p>
             </div>
           )}
@@ -183,13 +184,13 @@ export default function EditJobPage() {
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
-          Save changes
+          {t("app.jobEdit.saveChanges")}
         </button>
         <Link
           href={`/app/jobs/${id}`}
           className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
         >
-          Cancel
+          {t("app.action.cancel")}
         </Link>
       </div>
     </div>

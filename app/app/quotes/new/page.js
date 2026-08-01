@@ -34,8 +34,10 @@ import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
 import QuoteTotalsBar from "@/app/components/quotes/builder/QuoteTotalsBar";
 import ClientPicker from "@/app/components/quotes/builder/ClientPicker";
 import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NewQuotePage() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   const [clients, setClients] = useState([]);
@@ -97,18 +99,18 @@ export default function NewQuotePage() {
   const TOUR_STEPS = [
     {
       target: "[data-tour='client-picker']",
-      title: "Start with a client",
-      body: "Search an existing client or add a new one.",
+      title: t("app.quoteNew.tourClientTitle"),
+      body: t("app.quoteNew.tourClientBody"),
     },
     {
       target: "[data-tour='service-picker']",
-      title: "Add your services",
-      body: "Click a service to add it — your own pricing fills in automatically.",
+      title: t("app.quoteNew.tourServiceTitle"),
+      body: t("app.quoteNew.tourServiceBody"),
     },
     {
       target: "[data-tour='totals']",
-      title: "Review and send",
-      body: "Check the total, then save as a draft or send it right away.",
+      title: t("app.quoteNew.tourReviewTitle"),
+      body: t("app.quoteNew.tourReviewBody"),
     },
   ];
 
@@ -458,8 +460,8 @@ export default function NewQuotePage() {
     if (!newClient.name.trim()) {
       setError(
         newClient.type === "company"
-          ? "Enter the company name."
-          : "Enter the client's name.",
+          ? t("app.quoteNew.enterCompanyName")
+          : t("app.quoteNew.enterClientName"),
       );
       return;
     }
@@ -499,11 +501,11 @@ export default function NewQuotePage() {
   async function handleSave(status) {
     setError("");
     if (!selectedClient) {
-      setError("Select or create a client first");
+      setError(t("app.quoteNew.selectClientFirst"));
       return;
     }
     if (scopeGroups.length === 0) {
-      setError("Add at least one service to the quote");
+      setError(t("app.quoteNew.addServiceFirst"));
       return;
     }
 
@@ -566,7 +568,7 @@ export default function NewQuotePage() {
     if (!res.ok) {
       const data = await res.json();
       setSaving("");
-      setError(data.error || "Could not create quote");
+      setError(data.error || t("app.quoteNew.createError"));
       return;
     }
 
@@ -593,7 +595,7 @@ export default function NewQuotePage() {
         // it's still a draft instead of leaving them to guess.
         router.push(
           `/app/quotes/${quote.id}?sendError=${encodeURIComponent(
-            data?.error || "The quote was saved but the email didn't send.",
+            data?.error || t("app.quoteNew.sendFailedSaved"),
           )}`,
         );
         return;
@@ -615,9 +617,9 @@ export default function NewQuotePage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">New Quote</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.quotes.new")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Build a quote from your enabled services.
+          {t("app.quoteNew.subtitle")}
         </p>
       </div>
 
@@ -756,12 +758,12 @@ export default function NewQuotePage() {
 
       {/* Notes */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">Notes</h2>
+        <h2 className="font-semibold text-foreground mb-2">{t("app.field.notes")}</h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          placeholder="Anything the client should know..."
+          placeholder={t("app.quoteNew.notesPlaceholder")}
           className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
         />
       </div>

@@ -17,8 +17,10 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function CrewInboxPage() {
+  const { t } = useTranslation();
   const { formatDateTime } = useCompanyPreferences();
   const [messages, setMessages] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export default function CrewInboxPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/crew/messages");
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't load the crew inbox.");
+      await reportResponseError(res, t("app.crewInbox.loadError"));
       return;
     }
     setMessages((await res.json()).messages || []);
@@ -46,7 +48,7 @@ export default function CrewInboxPage() {
         body: JSON.stringify({ id, jobId }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't file that.");
+        await reportResponseError(res, t("app.crewInbox.fileError"));
         return;
       }
       await load();
@@ -74,27 +76,26 @@ export default function CrewInboxPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-[12rem]">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageSquare size={22} /> Crew inbox
+            <MessageSquare size={22} /> {t("app.nav.crewInbox")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Photos and updates your crew texted in. Filed ones are on their jobs.
+            {t("app.crewInbox.subtitle")}
           </p>
         </div>
         <Link
           href="/app/settings/voice"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
         >
-          <Settings size={15} /> Set it up
+          <Settings size={15} /> {t("app.crewInbox.setUp")}
         </Link>
       </div>
 
       {list.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <MessageSquare size={22} className="mx-auto text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground mt-3">Nothing yet</p>
+          <p className="text-sm font-medium text-foreground mt-3">{t("app.crewInbox.empty")}</p>
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            When your crew text photos or updates to your number, they show up
-            here and file to the right job automatically.
+            {t("app.crewInbox.emptyHint")}
           </p>
         </div>
       )}
@@ -103,7 +104,7 @@ export default function CrewInboxPage() {
         <section>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5 mb-2">
             <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400" />
-            Needs you — pick the job ({pending.length})
+            {t("app.crewInbox.needsYou", { count: pending.length })}
           </h2>
           <div className="space-y-2">
             {pending.map((m) => (
@@ -113,7 +114,7 @@ export default function CrewInboxPage() {
                 <Thumbs photos={m.photos} count={m.photoCount} />
                 <div className="mt-3">
                   <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
-                    <HelpCircle size={12} /> Which job is this for?
+                    <HelpCircle size={12} /> {t("app.crewInbox.whichJob")}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {m.candidates.map((c) => (
@@ -129,7 +130,7 @@ export default function CrewInboxPage() {
                     ))}
                     {m.candidates.length === 0 && (
                       <span className="text-xs text-muted-foreground">
-                        No job was on their schedule that day.
+                        {t("app.crewInbox.noCandidates")}
                       </span>
                     )}
                   </div>
@@ -144,7 +145,7 @@ export default function CrewInboxPage() {
         <section>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5 mb-2">
             <UserX size={15} className="text-muted-foreground" />
-            From numbers not on your team ({unknown.length})
+            {t("app.crewInbox.unknownHeading", { count: unknown.length })}
           </h2>
           <div className="space-y-2">
             {unknown.map((m) => (
@@ -153,9 +154,9 @@ export default function CrewInboxPage() {
                 {m.body && <p className="text-sm text-foreground mt-2">{m.body}</p>}
                 <Thumbs photos={m.photos} count={m.photoCount} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Add this number to a crew member in{" "}
-                  <Link href="/app/settings/team" className="underline">Team</Link> and
-                  their texts will file automatically.
+                  {t("app.crewInbox.addNumberPre")}{" "}
+                  <Link href="/app/settings/team" className="underline">{t("app.crewInbox.teamLink")}</Link>{" "}
+                  {t("app.crewInbox.addNumberPost")}
                 </p>
               </div>
             ))}
@@ -165,7 +166,7 @@ export default function CrewInboxPage() {
 
       {rest.length > 0 && (
         <section>
-          <h2 className="text-sm font-bold text-foreground mb-2">Filed</h2>
+          <h2 className="text-sm font-bold text-foreground mb-2">{t("app.crewInbox.filed")}</h2>
           <div className="space-y-2">
             {rest.map((m) => (
               <div key={m.id} className="rounded-xl border border-border bg-card p-4">
@@ -174,7 +175,7 @@ export default function CrewInboxPage() {
                 <Thumbs photos={m.photos} count={m.photoCount} />
                 {m.filedTo && (
                   <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2 flex items-center gap-1">
-                    <Check size={12} /> Filed to {m.filedTo}
+                    <Check size={12} /> {t("app.crewInbox.filedTo", { name: m.filedTo })}
                   </p>
                 )}
               </div>

@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 const blankItem = () => ({
@@ -29,6 +30,7 @@ const blankItem = () => ({
 });
 
 export default function EditInvoicePage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
 
@@ -50,7 +52,7 @@ export default function EditInvoicePage() {
     (async () => {
       try {
         const res = await fetch(`/api/invoices/${id}`);
-        if (!res.ok) throw new Error("Couldn't load this invoice.");
+        if (!res.ok) throw new Error(t("app.invoiceEdit.loadError"));
         const inv = await res.json();
         if (cancelled) return;
 
@@ -110,7 +112,7 @@ export default function EditInvoicePage() {
 
   async function save() {
     if (!isDraft && !changeReason.trim()) {
-      setError("Give a reason for the change — it goes in the version history.");
+      setError(t("app.invoiceEdit.reasonRequired"));
       return;
     }
 
@@ -139,7 +141,7 @@ export default function EditInvoicePage() {
         }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't save changes.");
+      if (!res.ok) throw new Error(data?.error || t("app.invoiceEdit.saveError"));
       // On a non-draft edit the API returns a NEW invoice row, so follow the
       // id it hands back rather than returning to the one we came from.
       router.push(`/app/invoices/${data?.id || id}`);
@@ -158,7 +160,7 @@ export default function EditInvoicePage() {
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto">
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
-          {error || "Invoice not found."}
+          {error || t("app.invoiceEdit.notFound")}
         </div>
       </div>
     );
@@ -169,16 +171,16 @@ export default function EditInvoicePage() {
         href={`/app/invoices/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Back to {invoice.invoiceNumber}
+        <ArrowLeft size={14} /> {t("app.invoiceEdit.backTo")} {invoice.invoiceNumber}
       </Link>
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Edit {invoice.invoiceNumber}
+          {t("app.action.edit")} {invoice.invoiceNumber}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {invoice.client?.name}
-          {invoice.version > 1 && ` · version ${invoice.version}`}
+          {invoice.version > 1 && t("app.invoiceEdit.version", { n: invoice.version })}
         </p>
       </div>
 
@@ -186,18 +188,16 @@ export default function EditInvoicePage() {
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3 text-sm text-blue-900 dark:text-blue-200 flex items-start gap-2">
           <History size={16} className="shrink-0 mt-0.5" />
           <div>
-            This invoice has already been sent, so saving creates{" "}
-            <strong>version {(invoice.version || 1) + 1}</strong> rather than
-            overwriting it. The current version stays on file.
+            {t("app.invoiceEdit.sentWarnBefore")}{" "}
+            <strong>{t("app.invoiceEdit.versionN", { n: (invoice.version || 1) + 1 })}</strong>{" "}
+            {t("app.invoiceEdit.sentWarnAfter")}
           </div>
         </div>
       )}
 
       {money(invoice.amountPaid) > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          ${money(invoice.amountPaid).toFixed(2)} has already been paid against
-          this invoice. Lowering the total below that leaves a credit you&apos;ll
-          need to settle with the client.
+          ${money(invoice.amountPaid).toFixed(2)} {t("app.invoiceEdit.amountPaidWarn")}
         </div>
       )}
 
@@ -209,13 +209,13 @@ export default function EditInvoicePage() {
       )}
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-4">Line items</h2>
+        <h2 className="font-semibold text-foreground mb-4">{t("app.invoiceEdit.lineItems")}</h2>
 
         <div className="hidden sm:flex gap-2 px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          <span className="flex-1">Description</span>
-          <span className="w-20">Qty</span>
-          <span className="w-28">Rate</span>
-          <span className="w-28 text-right">Amount</span>
+          <span className="flex-1">{t("app.invoiceEdit.description")}</span>
+          <span className="w-20">{t("app.invoiceEdit.qty")}</span>
+          <span className="w-28">{t("app.invoiceEdit.rate")}</span>
+          <span className="w-28 text-right">{t("app.invoiceEdit.amount")}</span>
           <span className="w-9" />
         </div>
 
@@ -225,7 +225,7 @@ export default function EditInvoicePage() {
               <input
                 value={item.description || ""}
                 onChange={(e) => updateItem(i, "description", e.target.value)}
-                placeholder="Description"
+                placeholder={t("app.invoiceEdit.description")}
                 className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
               />
               <input
@@ -256,7 +256,7 @@ export default function EditInvoicePage() {
                 onClick={() =>
                   setLineItems((prev) => prev.filter((_, j) => j !== i))
                 }
-                aria-label="Remove line"
+                aria-label={t("app.invoiceEdit.removeLine")}
                 className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
               >
                 <Trash2 size={15} />
@@ -269,7 +269,7 @@ export default function EditInvoicePage() {
           onClick={() => setLineItems((prev) => [...prev, blankItem()])}
           className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <Plus size={14} /> Add line
+          <Plus size={14} /> {t("app.invoiceEdit.addLine")}
         </button>
       </div>
 
@@ -277,7 +277,7 @@ export default function EditInvoicePage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Discount
+              {t("app.invoiceEdit.discount")}
             </label>
             <input
               type="number"
@@ -290,7 +290,7 @@ export default function EditInvoicePage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Tax rate (%)
+              {t("app.invoiceEdit.taxRate")}
             </label>
             <input
               type="number"
@@ -307,12 +307,12 @@ export default function EditInvoicePage() {
                 checked={taxEnabled}
                 onChange={(e) => setTaxEnabled(e.target.checked)}
               />
-              Apply tax
+              {t("app.invoiceEdit.applyTax")}
             </label>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Due date
+              {t("app.invoiceEdit.dueDate")}
             </label>
             <input
               type="date"
@@ -325,7 +325,7 @@ export default function EditInvoicePage() {
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Notes
+            {t("app.field.notes")}
           </label>
           <textarea
             value={notes}
@@ -338,29 +338,28 @@ export default function EditInvoicePage() {
         {!isDraft && (
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Reason for this change <span className="text-red-600 dark:text-red-400">*</span>
+              {t("app.invoiceEdit.changeReasonLabel")} <span className="text-red-600 dark:text-red-400">*</span>
             </label>
             <input
               value={changeReason}
               onChange={(e) => setChangeReason(e.target.value)}
-              placeholder="Client added a second bathroom"
+              placeholder={t("app.invoiceEdit.changeReasonPlaceholder")}
               className="w-full border border-border rounded-lg px-3 py-2 text-sm"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Stored with the version so anyone reading the history later knows
-              what happened.
+              {t("app.invoiceEdit.changeReasonHelp")}
             </p>
           </div>
         )}
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
-          <Row label="Subtotal" value={totals.subtotal} />
+          <Row label={t("app.invoiceEdit.subtotal")} value={totals.subtotal} />
           {money(discount) > 0 && (
-            <Row label="Discount" value={-money(discount)} />
+            <Row label={t("app.invoiceEdit.discount")} value={-money(discount)} />
           )}
-          <Row label="Tax" value={totals.tax} />
+          <Row label={t("app.invoiceEdit.tax")} value={totals.tax} />
           <div className="flex justify-between font-semibold text-foreground text-base pt-1">
-            <span>Total</span>
+            <span>{t("app.invoiceEdit.total")}</span>
             <span>${totals.total.toFixed(2)}</span>
           </div>
         </div>
@@ -373,13 +372,13 @@ export default function EditInvoicePage() {
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
-          {isDraft ? "Save changes" : "Save as new version"}
+          {isDraft ? t("app.invoiceEdit.saveChanges") : t("app.invoiceEdit.saveNewVersion")}
         </button>
         <Link
           href={`/app/invoices/${id}`}
           className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
         >
-          Cancel
+          {t("app.action.cancel")}
         </Link>
       </div>
     </div>

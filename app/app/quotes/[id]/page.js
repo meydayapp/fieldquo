@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -27,6 +28,7 @@ const STATUS_STYLES = {
 };
 
 export default function QuoteDetailPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { id } = useParams();
 
@@ -77,7 +79,7 @@ export default function QuoteDetailPage() {
         body: JSON.stringify({ kind }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't send the email.");
+      if (!res.ok) throw new Error(data?.error || t("app.quoteDetail.sendError"));
 
       // Merge rather than refetch: the response carries exactly the fields
       // that changed, and a refetch would blank the page for a moment on the
@@ -107,7 +109,7 @@ export default function QuoteDetailPage() {
       // and nobody knows why.
       setError(
         (await res.json().catch(() => null))?.error ||
-          "Couldn't update the quote's status.",
+          t("app.quoteDetail.statusError"),
       );
     }
     setActionLoading(false);
@@ -120,7 +122,7 @@ export default function QuoteDetailPage() {
     const data = await res.json();
     setActionLoading(false);
     if (!res.ok) {
-      setError(data.error || "Could not convert to invoice");
+      setError(data.error || t("app.quoteDetail.convertError"));
       return;
     }
     router.push(`/app/invoices/${data.id}`);
@@ -141,7 +143,7 @@ export default function QuoteDetailPage() {
   if (!quote)
     return (
       <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
-        Quote not found.
+        {t("app.quoteDetail.notFound")}
       </div>
     );
 
@@ -170,7 +172,7 @@ export default function QuoteDetailPage() {
         href="/app/quotes"
         className="flex items-center gap-1 text-sm text-muted-foreground"
       >
-        <ArrowLeft size={14} /> Back to Quotes
+        <ArrowLeft size={14} /> {t("app.quoteDetail.backToQuotes")}
       </Link>
 
       {error && (
@@ -210,7 +212,7 @@ export default function QuoteDetailPage() {
               ) : (
                 <Send size={14} />
               )}
-              {quote.sentAt ? "Send again" : "Send"}
+              {quote.sentAt ? t("app.quoteDetail.sendAgain") : t("app.action.send")}
             </button>
           )}
           {quote.status === "sent" && quote.sentAt && (
@@ -224,7 +226,7 @@ export default function QuoteDetailPage() {
               ) : (
                 <Mail size={14} />
               )}
-              Follow up
+              {t("app.quoteDetail.followUp")}
             </button>
           )}
           {["sent", "draft"].includes(quote.status) && (
@@ -232,7 +234,7 @@ export default function QuoteDetailPage() {
               href={`/app/quote-approval/${id}`}
               className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
             >
-              <Link2 size={14} /> Get approved
+              <Link2 size={14} /> {t("app.quoteDetail.getApproved")}
             </Link>
           )}
           {quote.status === "accepted" && !quote.invoices?.length && (
@@ -241,7 +243,7 @@ export default function QuoteDetailPage() {
               disabled={actionLoading}
               className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
             >
-              <RefreshCw size={14} /> Convert to Invoice
+              <RefreshCw size={14} /> {t("app.quoteDetail.convertToInvoice")}
             </button>
           )}
           {/* Only offered when this quote actually IS a kitchen. Showing it on
@@ -252,14 +254,14 @@ export default function QuoteDetailPage() {
               href={`/app/quotes/${id}/kitchen`}
               className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
             >
-              <Ruler size={14} /> Kitchen designer
+              <Ruler size={14} /> {t("app.quoteDetail.kitchenDesigner")}
             </Link>
           )}
           <Link
             href={`/app/quotes/${id}/edit`}
             className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold"
           >
-            <Pencil size={14} /> Edit
+            <Pencil size={14} /> {t("app.action.edit")}
           </Link>
           <button
             onClick={() => setShowDelete(true)}
@@ -277,7 +279,7 @@ export default function QuoteDetailPage() {
       {justSent && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
           <CheckCircle2 size={16} className="shrink-0" />
-          Sent to <span className="font-medium">{justSent}</span>.
+          {t("app.quoteDetail.sentTo")} <span className="font-medium">{justSent}</span>.
         </div>
       )}
 
@@ -285,7 +287,7 @@ export default function QuoteDetailPage() {
         <div className="bg-card border border-border rounded-lg px-4 py-3 space-y-1.5">
           {quote.sentAt && (
             <TrailRow
-              label="Emailed"
+              label={t("app.quoteDetail.emailed")}
               at={quote.sentAt}
               detail={quote.sentToEmail}
             />
@@ -294,8 +296,8 @@ export default function QuoteDetailPage() {
             <TrailRow
               label={
                 quote.followUpCount > 1
-                  ? `Followed up (${quote.followUpCount}×)`
-                  : "Followed up"
+                  ? t("app.quoteDetail.followedUpN", { count: quote.followUpCount })
+                  : t("app.quoteDetail.followedUp")
               }
               at={quote.followUpSentAt}
             />
@@ -305,7 +307,7 @@ export default function QuoteDetailPage() {
           {["accepted", "declined"].includes(quote.status) &&
             quote.clientDesignAt && (
               <TrailRow
-                label={quote.status === "accepted" ? "Approved" : "Declined"}
+                label={quote.status === "accepted" ? t("app.status.approved") : t("app.status.declined")}
                 at={quote.clientDesignAt}
                 tone={quote.status === "accepted" ? "positive" : "muted"}
               />
@@ -315,7 +317,7 @@ export default function QuoteDetailPage() {
 
       {quote.invoices?.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
-          Already converted to invoice{" "}
+          {t("app.quoteDetail.alreadyConverted")}{" "}
           <Link
             href={`/app/invoices/${quote.invoices[0].id}`}
             className="underline font-medium"
@@ -348,7 +350,7 @@ export default function QuoteDetailPage() {
 
         {quote.notes && (
           <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Notes</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1">{t("app.field.notes")}</h3>
             <p className="text-sm text-muted-foreground">{quote.notes}</p>
           </div>
         )}
@@ -356,7 +358,7 @@ export default function QuoteDetailPage() {
         {quote.addOns?.length > 0 && (
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">
-              Optional extras
+              {t("app.quoteDetail.optionalExtras")}
             </h3>
             <div className="space-y-1">
               {quote.addOns.map((a) => (
@@ -374,7 +376,7 @@ export default function QuoteDetailPage() {
                     {a.description}
                     {a.selected && (
                       <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300">
-                        added by client
+                        {t("app.quoteDetail.addedByClient")}
                       </span>
                     )}
                   </span>
@@ -394,7 +396,7 @@ export default function QuoteDetailPage() {
         {Array.isArray(quote.clientPhotos) && quote.clientPhotos.length > 0 && (
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">
-              Photos & videos from the client
+              {t("app.quoteDetail.clientMedia")}
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {quote.clientPhotos.map((m, i) => {
@@ -420,7 +422,7 @@ export default function QuoteDetailPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt={m?.caption || "Client photo"}
+                      alt={m?.caption || t("app.quoteDetail.clientPhotoAlt")}
                       className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
                     />
                   </a>
@@ -432,15 +434,15 @@ export default function QuoteDetailPage() {
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
+            <span>{t("app.quoteDetail.subtotal")}</span>
             <span>${Number(quote.subtotal).toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Tax</span>
+            <span>{t("app.quoteDetail.tax")}</span>
             <span>${Number(quote.tax).toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base">
-            <span>Quoted total</span>
+            <span>{t("app.quoteDetail.quotedTotal")}</span>
             <span>${Number(quote.total).toFixed(2)}</span>
           </div>
 
@@ -451,7 +453,7 @@ export default function QuoteDetailPage() {
             quote.acceptedTotal !== undefined &&
             Number(quote.acceptedTotal) !== Number(quote.total) && (
               <div className="flex justify-between font-semibold text-green-700 dark:text-green-400 text-base pt-1">
-                <span>Approved with extras</span>
+                <span>{t("app.quoteDetail.approvedWithExtras")}</span>
                 <span>${Number(quote.acceptedTotal).toFixed(2)}</span>
               </div>
             )}
@@ -462,8 +464,8 @@ export default function QuoteDetailPage() {
         isOpen={showDelete}
         onClose={() => setShowDelete(false)}
         onConfirm={handleDelete}
-        title="Delete Quote"
-        message="This quote and its line items will be permanently removed."
+        title={t("app.quoteDetail.deleteTitle")}
+        message={t("app.quoteDetail.deleteMessage")}
         itemName={quote.quoteNumber}
       />
     </div>
@@ -478,10 +480,15 @@ export default function QuoteDetailPage() {
  * tells you whether it's time to chase.
  */
 function TrailRow({ label, at, detail, tone }) {
+  const { t } = useTranslation();
   const when = new Date(at);
   const days = Math.floor((Date.now() - when.getTime()) / 86400000);
   const ago =
-    days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+    days === 0
+      ? t("app.quoteDetail.today")
+      : days === 1
+        ? t("app.quoteDetail.yesterday")
+        : t("app.quoteDetail.daysAgo", { days });
 
   return (
     <div className="flex items-baseline justify-between gap-3 flex-wrap text-sm">

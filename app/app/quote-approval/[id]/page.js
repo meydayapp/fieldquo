@@ -24,6 +24,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -32,6 +33,7 @@ const money = (n) =>
   });
 
 export default function QuoteApprovalPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const { id } = useParams();
 
@@ -52,7 +54,7 @@ export default function QuoteApprovalPage() {
       setQuote(q);
       setShare(s);
     } catch {
-      setError("Couldn't load this quote.");
+      setError(t("app.quoteApproval.loadError"));
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export default function QuoteApprovalPage() {
         body: JSON.stringify({ rotate }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't create the link.");
+      if (!res.ok) throw new Error(data?.error || t("app.quoteApproval.linkError"));
       setShare(data);
     } catch (err) {
       setError(err.message);
@@ -87,7 +89,7 @@ export default function QuoteApprovalPage() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Couldn't reach the clipboard — select the link and copy it.");
+      setError(t("app.quoteApproval.clipboardError"));
     }
   }
 
@@ -101,7 +103,7 @@ export default function QuoteApprovalPage() {
         body: JSON.stringify({ status }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't update the quote.");
+      if (!res.ok) throw new Error(data?.error || t("app.quoteApproval.updateError"));
       await load();
     } catch (err) {
       setError(err.message);
@@ -118,7 +120,7 @@ export default function QuoteApprovalPage() {
   if (!quote)
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto text-sm text-muted-foreground">
-        Quote not found.
+        {t("app.quoteApproval.notFound")}
       </div>
     );
 
@@ -130,11 +132,11 @@ export default function QuoteApprovalPage() {
         href={`/app/quotes/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Back to {quote.quoteNumber}
+        <ArrowLeft size={14} /> {t("app.quoteApproval.backTo", { number: quote.quoteNumber })}
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Get this approved</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.quoteApproval.title")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {quote.quoteNumber} · {quote.client?.name} · {money(quote.total)}
         </p>
@@ -149,20 +151,17 @@ export default function QuoteApprovalPage() {
 
       {quote.status === "draft" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          This quote is still a draft. The public link stays closed until it&apos;s
-          marked as sent — clients can&apos;t open a quote you&apos;re still
-          working on.
+          {t("app.quoteApproval.draftNotice")}
         </div>
       )}
 
       {/* Share link */}
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <Link2 size={16} className="text-muted-foreground" /> Client link
+          <Link2 size={16} className="text-muted-foreground" /> {t("app.quoteApproval.clientLink")}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Anyone with this link can see the quote and approve it. Send it only to
-          the client.
+          {t("app.quoteApproval.clientLinkHint")}
         </p>
 
         {share?.url ? (
@@ -180,11 +179,11 @@ export default function QuoteApprovalPage() {
               >
                 {copied ? (
                   <>
-                    <Check size={14} className="text-green-600 dark:text-green-400" /> Copied
+                    <Check size={14} className="text-green-600 dark:text-green-400" /> {t("app.action.copied")}
                   </>
                 ) : (
                   <>
-                    <Copy size={14} /> Copy
+                    <Copy size={14} /> {t("app.quoteApproval.copy")}
                   </>
                 )}
               </button>
@@ -197,7 +196,7 @@ export default function QuoteApprovalPage() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
               >
-                <ExternalLink size={13} /> Preview what they see
+                <ExternalLink size={13} /> {t("app.quoteApproval.previewWhatTheySee")}
               </a>
               <button
                 onClick={() => createLink(true)}
@@ -209,12 +208,11 @@ export default function QuoteApprovalPage() {
                 ) : (
                   <RefreshCw size={13} />
                 )}
-                Replace link
+                {t("app.quoteApproval.replaceLink")}
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Replacing the link kills the old one. Use it if the wrong person
-              got a copy — but any email already sent will stop working.
+              {t("app.quoteApproval.replaceHint")}
             </p>
           </>
         ) : (
@@ -224,19 +222,19 @@ export default function QuoteApprovalPage() {
             className="mt-4 inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
           >
             {busy === "create" && <Loader2 size={14} className="animate-spin" />}
-            Create client link
+            {t("app.quoteApproval.createClientLink")}
           </button>
         )}
       </div>
 
       {/* Where it stands */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Where it stands</h2>
+        <h2 className="font-semibold text-foreground">{t("app.quoteApproval.whereItStands")}</h2>
 
         <dl className="mt-4 grid gap-4 sm:grid-cols-3 text-sm">
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-              Status
+              {t("app.quoteApproval.statusLabel")}
             </dt>
             <dd className="mt-1 font-medium text-foreground capitalize">
               {quote.status}
@@ -244,22 +242,22 @@ export default function QuoteApprovalPage() {
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-              Sent
+              {t("app.quoteApproval.sentLabel")}
             </dt>
             <dd className="mt-1 text-foreground">
               {quote.sentAt
                 ? formatDate(quote.sentAt)
-                : "Not yet"}
+                : t("app.quoteApproval.notYet")}
             </dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-              Valid until
+              {t("app.quoteApproval.validUntil")}
             </dt>
             <dd className="mt-1 text-foreground">
               {quote.validUntil
                 ? formatDate(quote.validUntil)
-                : "No expiry"}
+                : t("app.quoteApproval.noExpiry")}
             </dd>
           </div>
         </dl>
@@ -267,17 +265,16 @@ export default function QuoteApprovalPage() {
 
       {/* Record a decision made elsewhere */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Record their answer</h2>
+        <h2 className="font-semibold text-foreground">{t("app.quoteApproval.recordAnswer")}</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          If they told you over the phone or in person, log it here so the
-          pipeline stays accurate.
+          {t("app.quoteApproval.recordHint")}
         </p>
 
         {decided ? (
           <div className="mt-4 text-sm text-muted-foreground">
-            Already marked{" "}
-            <span className="font-semibold text-foreground">{quote.status}</span>.
-            Change it from the quote page if that was wrong.
+            {t("app.quoteApproval.alreadyMarked")}{" "}
+            <span className="font-semibold text-foreground">{quote.status}</span>.{" "}
+            {t("app.quoteApproval.changeIfWrong")}
           </div>
         ) : (
           <div className="mt-4 flex gap-3 flex-wrap">
@@ -289,7 +286,7 @@ export default function QuoteApprovalPage() {
               {busy === "accepted" && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              They approved it
+              {t("app.quoteApproval.theyApproved")}
             </button>
             <button
               onClick={() => record("declined")}
@@ -299,7 +296,7 @@ export default function QuoteApprovalPage() {
               {busy === "declined" && (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              They declined
+              {t("app.quoteApproval.theyDeclined")}
             </button>
           </div>
         )}

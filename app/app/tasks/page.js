@@ -19,6 +19,7 @@ import {
   ListChecks,
   X,
 } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const PRIORITY_STYLES = {
   urgent: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -36,6 +37,7 @@ function startOfToday() {
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
   const [showDone, setShowDone] = useState(false);
@@ -58,7 +60,7 @@ export default function TasksPage() {
       setTasks(Array.isArray(t) ? t : []);
       setMembers(Array.isArray(m) ? m : []);
     } catch {
-      setError("Couldn't load tasks.");
+      setError(t("app.tasks.loadError"));
     } finally {
       setLoading(false);
     }
@@ -115,7 +117,7 @@ export default function TasksPage() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || "Couldn't update that task.");
+        throw new Error(d?.error || t("app.tasks.updateError"));
       }
     } catch (err) {
       setTasks(before);
@@ -141,7 +143,7 @@ export default function TasksPage() {
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't create that task.");
+      if (!res.ok) throw new Error(d?.error || t("app.tasks.createError"));
       setDraft(null);
       await load();
     } catch (err) {
@@ -160,9 +162,9 @@ export default function TasksPage() {
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.tasks.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {openCount} open{openCount === 1 ? "" : ""}
+            {openCount} {t("app.tasks.open")}{openCount === 1 ? "" : ""}
           </p>
         </div>
         <button
@@ -177,7 +179,7 @@ export default function TasksPage() {
           }
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full"
         >
-          <Plus size={14} /> New task
+          <Plus size={14} /> {t("app.tasks.new")}
         </button>
       </div>
 
@@ -191,11 +193,11 @@ export default function TasksPage() {
       {draft && (
         <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">New task</h2>
+            <h2 className="font-semibold text-foreground">{t("app.tasks.new")}</h2>
             <button
               onClick={() => setDraft(null)}
               className="text-muted-foreground hover:text-foreground"
-              aria-label="Close"
+              aria-label={t("app.action.close")}
             >
               <X size={16} />
             </button>
@@ -205,7 +207,7 @@ export default function TasksPage() {
             autoFocus
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            placeholder="What needs doing?"
+            placeholder={t("app.tasks.titlePlaceholder")}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
           <textarea
@@ -213,7 +215,7 @@ export default function TasksPage() {
             onChange={(e) =>
               setDraft({ ...draft, description: e.target.value })
             }
-            placeholder="Any detail worth keeping (optional)"
+            placeholder={t("app.tasks.descPlaceholder")}
             rows={2}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm"
           />
@@ -221,7 +223,7 @@ export default function TasksPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Due
+                {t("app.tasks.due")}
               </label>
               <input
                 type="date"
@@ -234,7 +236,7 @@ export default function TasksPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Priority
+                {t("app.tasks.priority")}
               </label>
               <select
                 value={draft.priority}
@@ -252,7 +254,7 @@ export default function TasksPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Assign to
+                {t("app.tasks.assignTo")}
               </label>
               <select
                 value={draft.assignedToId}
@@ -261,7 +263,7 @@ export default function TasksPage() {
                 }
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               >
-                <option value="">Nobody</option>
+                <option value="">{t("app.tasks.nobody")}</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.user?.id || m.userId}>
                     {m.user?.name || m.user?.email}
@@ -277,7 +279,7 @@ export default function TasksPage() {
             className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
           >
             {saving && <Loader2 size={14} className="animate-spin" />}
-            Add task
+            {t("app.tasks.add")}
           </button>
         </div>
       )}
@@ -286,7 +288,7 @@ export default function TasksPage() {
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <ListChecks size={30} className="text-muted-foreground mx-auto" />
           <p className="mt-3 font-medium text-foreground">
-            {showDone ? "Nothing here" : "Nothing outstanding"}
+            {showDone ? t("app.tasks.emptyDone") : t("app.tasks.emptyOpen")}
           </p>
         </div>
       ) : (
@@ -336,7 +338,7 @@ export default function TasksPage() {
                     )}
                     {task.overdue && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-600 text-white">
-                        overdue
+                        {t("app.tasks.overdue")}
                       </span>
                     )}
                   </div>
@@ -350,7 +352,7 @@ export default function TasksPage() {
                   <div className="text-xs text-muted-foreground mt-1 flex gap-2 flex-wrap">
                     {task.dueDate && (
                       <span>
-                        Due{" "}
+                        {t("app.tasks.due")}{" "}
                         {new Date(task.dueDate).toLocaleDateString("en-CA", {
                           month: "short",
                           day: "numeric",
@@ -373,7 +375,7 @@ export default function TasksPage() {
         onClick={() => setShowDone((v) => !v)}
         className="text-sm text-muted-foreground hover:text-foreground"
       >
-        {showDone ? "Hide completed" : "Show completed"}
+        {showDone ? t("app.tasks.hideCompleted") : t("app.tasks.showCompleted")}
       </button>
     </div>
   );

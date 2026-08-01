@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
@@ -37,6 +38,7 @@ function duration(sec) {
 }
 
 export default function ReceptionistPage() {
+  const { t } = useTranslation();
   const { formatDateTime } = useCompanyPreferences();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function ReceptionistPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/voice/calls");
     if (!res.ok) {
-      await reportResponseError(res, "Couldn't load your calls.");
+      await reportResponseError(res, t("app.receptionist.loadError"));
       return;
     }
     setData(await res.json());
@@ -64,7 +66,7 @@ export default function ReceptionistPage() {
         body: JSON.stringify({ id }),
       });
       if (!res.ok) {
-        await reportResponseError(res, "Couldn't update that call.");
+        await reportResponseError(res, t("app.receptionist.updateError"));
         return;
       }
       await load();
@@ -92,17 +94,17 @@ export default function ReceptionistPage() {
       <div className="flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-[12rem]">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Headset size={22} /> Receptionist
+            <Headset size={22} /> {t("app.nav.receptionist")}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Calls it has taken for you, and what came of them.
+            {t("app.receptionist.subtitle")}
           </p>
         </div>
         <Link
           href="/app/settings/voice"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
         >
-          <Settings size={15} /> Set it up
+          <Settings size={15} /> {t("app.receptionist.setUp")}
         </Link>
       </div>
 
@@ -112,16 +114,15 @@ export default function ReceptionistPage() {
       {calls.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-8 text-center">
           <Phone size={22} className="mx-auto text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground mt-3">No calls yet</p>
+          <p className="text-sm font-medium text-foreground mt-3">{t("app.receptionist.empty")}</p>
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            Once the receptionist is answering, every call shows up here with
-            what was said, what came of it, and what it cost.
+            {t("app.receptionist.emptyHint")}
           </p>
           <Link
             href="/app/settings/voice"
             className="inline-block mt-4 px-5 py-2.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
           >
-            Set up the receptionist
+            {t("app.receptionist.setUpCta")}
           </Link>
         </div>
       )}
@@ -130,7 +131,7 @@ export default function ReceptionistPage() {
         <section>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5 mb-2">
             <AlertTriangle size={15} className="text-amber-600 dark:text-amber-400" />
-            Needs you ({flagged.length})
+            {t("app.receptionist.needsYou", { count: flagged.length })}
           </h2>
           <div className="space-y-2">
             {flagged.map((c) => (
@@ -150,7 +151,7 @@ export default function ReceptionistPage() {
       {rest.length > 0 && (
         <section>
           {flagged.length > 0 && (
-            <h2 className="text-sm font-bold text-foreground mb-2">Everything else</h2>
+            <h2 className="text-sm font-bold text-foreground mb-2">{t("app.receptionist.everythingElse")}</h2>
           )}
           <div className="space-y-2">
             {rest.map((c) => (
@@ -164,6 +165,7 @@ export default function ReceptionistPage() {
 }
 
 function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
+  const { t } = useTranslation();
   return (
     <div
       className={`rounded-xl border p-4 ${
@@ -178,11 +180,11 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             summary ("confirmed the quote") only makes sense with the arrow. */}
         {call.direction === "outbound" && (
           <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
-            <PhoneOutgoing size={11} /> We called
+            <PhoneOutgoing size={11} /> {t("app.receptionist.weCalled")}
           </span>
         )}
         <span className="font-semibold text-foreground tabular-nums">
-          {call.from || "Unknown number"}
+          {call.from || t("app.receptionist.unknownNumber")}
         </span>
         <span className="text-xs text-muted-foreground">
           {call.at ? formatDateTime(call.at) : ""}
@@ -204,12 +206,12 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             href="/app/leads"
             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
           >
-            <UserPlus size={13} /> Saved as a lead
+            <UserPlus size={13} /> {t("app.receptionist.savedAsLead")}
           </Link>
         )}
         {call.bookingId && (
           <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-            <CalendarCheck size={13} /> Booked a visit
+            <CalendarCheck size={13} /> {t("app.receptionist.bookedVisit")}
           </span>
         )}
         {call.recordingUrl && (
@@ -219,7 +221,7 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
           >
-            <Play size={13} /> Listen
+            <Play size={13} /> {t("app.receptionist.listen")}
           </a>
         )}
 
@@ -231,7 +233,7 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-inverted text-inverted-foreground font-semibold disabled:opacity-50"
           >
             {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-            I&apos;ve dealt with it
+            {t("app.receptionist.dealtWith")}
           </button>
         )}
       </div>

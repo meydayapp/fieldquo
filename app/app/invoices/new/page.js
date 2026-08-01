@@ -4,8 +4,10 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, Trash2, Search } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NewInvoicePage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get("clientId");
@@ -82,11 +84,11 @@ export default function NewInvoicePage() {
   async function handleSave(status) {
     setError("");
     if (!selectedClient) {
-      setError("Select a client first");
+      setError(t("app.invoiceNew.selectClientFirst"));
       return;
     }
     if (lineItems.every((item) => !item.description.trim())) {
-      setError("Add at least one line item");
+      setError(t("app.invoiceNew.addLineItem"));
       return;
     }
 
@@ -111,7 +113,7 @@ export default function NewInvoicePage() {
 
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error || "Could not create invoice");
+      setError(data.error || t("app.invoiceNew.createError"));
       return;
     }
 
@@ -127,9 +129,9 @@ export default function NewInvoicePage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">New Invoice</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("app.invoices.new")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Create a standalone invoice.
+          {t("app.invoiceNew.subtitle")}
         </p>
       </div>
 
@@ -140,7 +142,7 @@ export default function NewInvoicePage() {
       )}
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-3">Client</h2>
+        <h2 className="font-semibold text-foreground mb-3">{t("app.invoiceNew.clientHeading")}</h2>
         {selectedClient ? (
           <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3">
             <div>
@@ -155,7 +157,7 @@ export default function NewInvoicePage() {
               onClick={() => setSelectedClient(null)}
               className="text-sm text-muted-foreground underline"
             >
-              Change
+              {t("app.invoiceNew.change")}
             </button>
           </div>
         ) : (
@@ -168,14 +170,14 @@ export default function NewInvoicePage() {
               <input
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
-                placeholder="Search clients..."
+                placeholder={t("app.clients.search")}
                 className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-sm"
               />
             </div>
             {clientSearch && (
               <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto">
                 {filteredClients.length === 0 && (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">No matches.</p>
+                  <p className="px-3 py-3 text-sm text-muted-foreground">{t("app.invoiceNew.noMatches")}</p>
                 )}
                 {filteredClients.map((c) => (
                   <button
@@ -200,7 +202,7 @@ export default function NewInvoicePage() {
 
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-foreground">Line Items</h2>
+          <h2 className="font-semibold text-foreground">{t("app.invoiceNew.lineItems")}</h2>
         </div>
         <div className="space-y-2">
           {lineItems.map((item, i) => (
@@ -216,13 +218,13 @@ export default function NewInvoicePage() {
                 onChange={(e) =>
                   updateLineItem(i, "description", e.target.value)
                 }
-                placeholder="Description"
+                placeholder={t("app.invoiceNew.description")}
                 className="w-full sm:col-span-5 border border-border rounded px-2 py-2 sm:py-1.5 text-sm"
               />
               <div className="flex items-end gap-2 sm:contents">
               <label className="flex-1 sm:contents">
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Qty
+                  {t("app.invoiceNew.qty")}
                 </span>
               <input
                 type="number"
@@ -235,7 +237,7 @@ export default function NewInvoicePage() {
               </label>
               <label className="flex-1 sm:contents">
                 <span className="sm:hidden block text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Rate
+                  {t("app.invoiceNew.rate")}
                 </span>
               <input
                 type="number"
@@ -252,7 +254,7 @@ export default function NewInvoicePage() {
               </div>
               <button
                 onClick={() => removeLineItem(i)}
-                aria-label="Remove line"
+                aria-label={t("app.invoiceNew.removeLine")}
                 className="sm:col-span-1 shrink-0 p-2 sm:p-0 pb-2 sm:pb-0 text-muted-foreground"
               >
                 <X size={14} />
@@ -265,12 +267,12 @@ export default function NewInvoicePage() {
           onClick={addLineItem}
           className="text-xs font-medium text-foreground flex items-center gap-1 mt-3"
         >
-          <Plus size={12} /> Add line item
+          <Plus size={12} /> {t("app.invoiceNew.addLineItemBtn")}
         </button>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">Due Date</h2>
+        <h2 className="font-semibold text-foreground mb-2">{t("app.invoiceNew.dueDate")}</h2>
         <input
           type="date"
           value={dueDate}
@@ -280,7 +282,7 @@ export default function NewInvoicePage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">Notes</h2>
+        <h2 className="font-semibold text-foreground mb-2">{t("app.field.notes")}</h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -296,19 +298,19 @@ export default function NewInvoicePage() {
             checked={taxEnabled}
             onChange={(e) => setTaxEnabled(e.target.checked)}
           />
-          Apply tax ({taxRate}%)
+          {t("app.invoiceNew.applyTax", { rate: taxRate })}
         </label>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
+            <span>{t("app.invoiceNew.subtotal")}</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Tax</span>
+            <span>{t("app.invoiceNew.tax")}</span>
             <span>${tax.toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
-            <span>Total</span>
+            <span>{t("app.invoiceNew.total")}</span>
             <span>${total.toFixed(2)}</span>
           </div>
         </div>
@@ -320,14 +322,14 @@ export default function NewInvoicePage() {
           disabled={saving}
           className="border border-border px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          Save as Draft
+          {t("app.invoiceNew.saveDraft")}
         </button>
         <button
           onClick={() => handleSave("sent")}
           disabled={saving}
           className="bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Save & Send"}
+          {saving ? t("app.action.saving") : t("app.invoiceNew.saveSend")}
         </button>
       </div>
     </div>

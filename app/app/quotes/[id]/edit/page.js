@@ -18,10 +18,12 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle } from "lucide-react";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
 
 export default function EditQuotePage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const router = useRouter();
 
@@ -43,7 +45,7 @@ export default function EditQuotePage() {
     (async () => {
       try {
         const res = await fetch(`/api/quotes/${id}`);
-        if (!res.ok) throw new Error("Couldn't load this quote.");
+        if (!res.ok) throw new Error(t("app.quoteEdit.loadError"));
         const q = await res.json();
         if (cancelled) return;
 
@@ -52,7 +54,7 @@ export default function EditQuotePage() {
           (q.scopeGroups || []).map((g) => ({
             id: g.id,
             categoryId: g.categoryId,
-            label: g.label || g.category?.label || "Scope",
+            label: g.label || g.category?.label || t("app.quoteEdit.scopeFallback"),
             lineItems: Array.isArray(g.lineItems) ? g.lineItems : [],
           })),
         );
@@ -166,7 +168,7 @@ export default function EditQuotePage() {
         }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't save changes.");
+      if (!res.ok) throw new Error(data?.error || t("app.quoteEdit.saveError"));
       router.push(`/app/quotes/${id}`);
     } catch (err) {
       setError(err.message);
@@ -183,7 +185,7 @@ export default function EditQuotePage() {
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto">
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl p-5 text-sm text-red-700 dark:text-red-300">
-          {error || "Quote not found."}
+          {error || t("app.quoteEdit.notFound")}
         </div>
       </div>
     );
@@ -194,21 +196,19 @@ export default function EditQuotePage() {
         href={`/app/quotes/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} /> Back to {quote.quoteNumber}
+        <ArrowLeft size={14} /> {t("app.quoteEdit.backTo")} {quote.quoteNumber}
       </Link>
 
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Edit {quote.quoteNumber}
+          {t("app.action.edit")} {quote.quoteNumber}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">{quote.client?.name}</p>
       </div>
 
       {quote.status === "accepted" && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
-          This quote has already been accepted. Changing the price now means the
-          client agreed to different numbers than the ones on record — send a
-          revised copy if you change anything material.
+          {t("app.quoteEdit.acceptedWarning")}
         </div>
       )}
 
@@ -221,7 +221,7 @@ export default function EditQuotePage() {
 
       {groups.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-          This quote has no scope groups. Rebuild it from the quote builder.
+          {t("app.quoteEdit.noScopeGroups")}
         </div>
       ) : (
         groups.map((g, gi) => (
@@ -254,7 +254,7 @@ export default function EditQuotePage() {
                     onChange={(e) =>
                       updateItem(gi, li, "description", e.target.value)
                     }
-                    placeholder="Description"
+                    placeholder={t("app.quoteEdit.description")}
                     className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
                   />
                   <input
@@ -284,7 +284,7 @@ export default function EditQuotePage() {
                   </div>
                   <button
                     onClick={() => removeItem(gi, li)}
-                    aria-label="Remove line"
+                    aria-label={t("app.quoteEdit.removeLine")}
                     className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
                   >
                     <Trash2 size={15} />
@@ -297,7 +297,7 @@ export default function EditQuotePage() {
               onClick={() => addItem(gi)}
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
             >
-              <Plus size={14} /> Add line
+              <Plus size={14} /> {t("app.quoteEdit.addLine")}
             </button>
           </div>
         ))
@@ -306,7 +306,7 @@ export default function EditQuotePage() {
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            Notes
+            {t("app.field.notes")}
           </label>
           <textarea
             value={notes}
@@ -319,7 +319,7 @@ export default function EditQuotePage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Discount
+              {t("app.quoteEdit.discount")}
             </label>
             <input
               type="number"
@@ -332,7 +332,7 @@ export default function EditQuotePage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Tax rate (%)
+              {t("app.quoteEdit.taxRate")}
             </label>
             <input
               type="number"
@@ -349,12 +349,12 @@ export default function EditQuotePage() {
                 checked={taxEnabled}
                 onChange={(e) => setTaxEnabled(e.target.checked)}
               />
-              Charge tax on this quote
+              {t("app.quoteEdit.chargeTax")}
             </label>
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Valid until
+              {t("app.quoteEdit.validUntil")}
             </label>
             <input
               type="date"
@@ -366,13 +366,13 @@ export default function EditQuotePage() {
         </div>
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
-          <Row label="Subtotal" value={totals.subtotal} />
+          <Row label={t("app.quoteEdit.subtotal")} value={totals.subtotal} />
           {money(discount) > 0 && (
-            <Row label="Discount" value={-money(discount)} />
+            <Row label={t("app.quoteEdit.discount")} value={-money(discount)} />
           )}
-          <Row label="Tax" value={totals.tax} />
+          <Row label={t("app.quoteEdit.tax")} value={totals.tax} />
           <div className="flex justify-between font-semibold text-foreground text-base pt-1">
-            <span>Total</span>
+            <span>{t("app.quoteEdit.total")}</span>
             <span>${totals.total.toFixed(2)}</span>
           </div>
         </div>
@@ -382,19 +382,16 @@ export default function EditQuotePage() {
           copy too — the extras are the last thing they read before deciding. */}
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">
-          What happens next
+          {t("app.quoteEdit.whatHappensNext")}
         </label>
         <p className="text-xs text-muted-foreground mb-2">
-          Timeline, site access, payment schedule, warranty. Shown to the
-          client above the approve button.
+          {t("app.quoteEdit.whatHappensNextHint")}
         </p>
         <textarea
           value={processNotes}
           onChange={(e) => setProcessNotes(e.target.value)}
           rows={5}
-          placeholder={
-            "We'll confirm a start date within 2 business days of approval.\nWork typically takes 3-4 days.\n50% on approval, balance on completion.\nLabour warranted for 2 years."
-          }
+          placeholder={t("app.quoteEdit.processNotesPlaceholder")}
           className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
         />
       </div>
@@ -412,13 +409,13 @@ export default function EditQuotePage() {
           className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
         >
           {saving && <Loader2 size={14} className="animate-spin" />}
-          Save changes
+          {t("app.quoteEdit.saveChanges")}
         </button>
         <Link
           href={`/app/quotes/${id}`}
           className="border border-border text-foreground px-5 py-2.5 rounded-full text-sm font-semibold"
         >
-          Cancel
+          {t("app.action.cancel")}
         </Link>
       </div>
     </div>

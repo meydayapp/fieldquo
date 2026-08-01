@@ -17,6 +17,7 @@ import {
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -26,6 +27,7 @@ const STATUS_STYLES = {
 };
 
 export default function InvoiceDetailPage() {
+  const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const router = useRouter();
   const { id } = useParams();
@@ -68,7 +70,7 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Couldn't send the email.");
+      if (!res.ok) throw new Error(data?.error || t("app.invoiceDetail.sendError"));
       setInvoice((inv) => ({ ...inv, ...data }));
       setJustSent(data.to);
       setTimeout(() => setJustSent(""), 6000);
@@ -91,7 +93,7 @@ export default function InvoiceDetailPage() {
     } else {
       setError(
         (await res.json().catch(() => null))?.error ||
-          "Couldn't update the invoice's status.",
+          t("app.invoiceDetail.statusUpdateError"),
       );
     }
     setActionLoading(false);
@@ -111,7 +113,7 @@ export default function InvoiceDetailPage() {
     });
     if (!res.ok) {
       const data = await res.json();
-      setError(data.error || "Could not record payment");
+      setError(data.error || t("app.invoiceDetail.recordPaymentError"));
       return;
     }
     const refreshed = await fetch(`/api/invoices/${id}`).then((r) => r.json());
@@ -135,7 +137,7 @@ export default function InvoiceDetailPage() {
         body: JSON.stringify({}),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || "Could not send the request");
+      if (!res.ok) throw new Error(data?.error || t("app.invoiceDetail.requestError"));
       setRequested(data);
     } catch (err) {
       setError(err.message);
@@ -177,7 +179,7 @@ export default function InvoiceDetailPage() {
   if (!invoice)
     return (
       <div className="p-4 sm:p-6 max-w-4xl mx-auto text-sm text-muted-foreground">
-        Invoice not found.
+        {t("app.invoiceDetail.notFound")}
       </div>
     );
 
@@ -190,7 +192,7 @@ export default function InvoiceDetailPage() {
         href="/app/invoices"
         className="flex items-center gap-1 text-sm text-muted-foreground"
       >
-        <ArrowLeft size={14} /> Back to Invoices
+        <ArrowLeft size={14} /> {t("app.invoiceDetail.backToInvoices")}
       </Link>
 
       {error && (
@@ -202,7 +204,7 @@ export default function InvoiceDetailPage() {
       {justSent && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
           <Check size={16} className="shrink-0" />
-          Invoice emailed to <span className="font-medium">{justSent}</span>.
+          {t("app.invoiceDetail.emailedTo")} <span className="font-medium">{justSent}</span>.
         </div>
       )}
 
@@ -212,7 +214,7 @@ export default function InvoiceDetailPage() {
       {invoice.sentAt && (
         <div className="bg-card border border-border rounded-lg px-4 py-3 flex items-baseline justify-between gap-3 flex-wrap text-sm">
           <span className="font-medium text-foreground">
-            Emailed
+            {t("app.invoiceDetail.emailed")}
             {invoice.sentToEmail && (
               <span className="font-normal text-muted-foreground">
                 {" "}
@@ -237,15 +239,13 @@ export default function InvoiceDetailPage() {
           <div className="flex items-start gap-2">
             <Check size={16} className="shrink-0 mt-0.5" />
             <div>
-              Payment request sent to <strong>{requested.to}</strong> for $
+              {t("app.invoiceDetail.paymentRequestSentTo")} <strong>{requested.to}</strong> {t("app.invoiceDetail.forAmount")}
               {Number(requested.balance).toFixed(2)}.
               {/* The email still goes out — the client just can't pay through
                   it. Better they hear from you than get a dead button. */}
               {requested.onlinePaymentsEnabled === false && (
                 <div className="mt-1 text-amber-800 dark:text-amber-300">
-                  Stripe isn&apos;t connected yet, so the email asks them to
-                  contact you instead of offering a card payment. Finish setup
-                  in Settings → Payments.
+                  {t("app.invoiceDetail.stripeNotConnected")}
                 </div>
               )}
             </div>
@@ -283,7 +283,7 @@ export default function InvoiceDetailPage() {
               ) : (
                 <Send size={14} />
               )}
-              {invoice.sentAt ? "Send again" : "Send"}
+              {invoice.sentAt ? t("app.invoiceDetail.sendAgain") : t("app.action.send")}
             </button>
           )}
           {invoice.status !== "paid" && (
@@ -291,7 +291,7 @@ export default function InvoiceDetailPage() {
               onClick={() => setShowPayment(true)}
               className="flex items-center gap-1.5 bg-green-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
             >
-              <DollarSign size={14} /> Record Payment
+              <DollarSign size={14} /> {t("app.invoiceDetail.recordPayment")}
             </button>
           )}
           {/* Only meaningful once the invoice has left the office and there's
@@ -307,7 +307,7 @@ export default function InvoiceDetailPage() {
               ) : (
                 <Mail size={14} />
               )}
-              Request Payment
+              {t("app.invoiceDetail.requestPayment")}
             </button>
           )}
           {["draft", "sent"].includes(invoice.status) && (
@@ -315,7 +315,7 @@ export default function InvoiceDetailPage() {
               href={`/app/invoices/${id}/edit`}
               className="border border-border px-4 py-2 rounded-full text-sm font-semibold"
             >
-              Edit
+              {t("app.action.edit")}
             </Link>
           )}
           <button
@@ -351,34 +351,34 @@ export default function InvoiceDetailPage() {
 
         {invoice.notes && (
           <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">Notes</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-1">{t("app.field.notes")}</h3>
             <p className="text-sm text-muted-foreground">{invoice.notes}</p>
           </div>
         )}
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
+            <span>{t("app.invoiceDetail.subtotal")}</span>
             <span>${Number(invoice.subtotal).toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
-            <span>Tax</span>
+            <span>{t("app.invoiceDetail.tax")}</span>
             <span>${Number(invoice.tax).toFixed(2)}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base">
-            <span>Total</span>
+            <span>{t("app.invoiceDetail.total")}</span>
             <span>${Number(invoice.total).toFixed(2)}</span>
           </div>
           {amountPaid > 0 && (
             <>
               <div className="flex justify-between text-green-600 dark:text-green-400">
-                <span>Paid</span>
+                <span>{t("app.invoiceDetail.paid")}</span>
                 <span>-${amountPaid.toFixed(2)}</span>
               </div>
               <div
                 className={`flex justify-between font-semibold text-base ${amountDue > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
               >
-                <span>Balance Due</span>
+                <span>{t("app.invoiceDetail.balanceDue")}</span>
                 <span>${amountDue.toFixed(2)}</span>
               </div>
             </>
@@ -388,7 +388,7 @@ export default function InvoiceDetailPage() {
         {invoice.payments?.length > 0 && (
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">
-              Payment History
+              {t("app.invoiceDetail.paymentHistory")}
             </h3>
             <div className="space-y-1">
               {invoice.payments.map((p) => (
@@ -411,13 +411,13 @@ export default function InvoiceDetailPage() {
       {showPayment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl w-full max-w-sm p-6">
-            <h2 className="font-semibold mb-4">Record Payment</h2>
+            <h2 className="font-semibold mb-4">{t("app.invoiceDetail.recordPayment")}</h2>
             <form onSubmit={handleAddPayment} className="space-y-3">
               <input
                 required
                 type="number"
                 step="0.01"
-                placeholder={`Amount (up to $${amountDue.toFixed(2)})`}
+                placeholder={t("app.invoiceDetail.amountPlaceholder", { amount: amountDue.toFixed(2) })}
                 value={payment.amount}
                 onChange={(e) =>
                   setPayment({ ...payment, amount: e.target.value })
@@ -431,12 +431,12 @@ export default function InvoiceDetailPage() {
                 }
                 className="w-full border rounded px-3 py-2 text-sm bg-card"
               >
-                <option value="cash">Cash</option>
-                <option value="e_transfer">E-Transfer</option>
-                <option value="cheque">Cheque</option>
+                <option value="cash">{t("app.invoiceDetail.cash")}</option>
+                <option value="e_transfer">{t("app.invoiceDetail.eTransfer")}</option>
+                <option value="cheque">{t("app.invoiceDetail.cheque")}</option>
               </select>
               <input
-                placeholder="Notes (optional)"
+                placeholder={t("app.invoiceDetail.notesOptional")}
                 value={payment.notes}
                 onChange={(e) =>
                   setPayment({ ...payment, notes: e.target.value })
@@ -449,13 +449,13 @@ export default function InvoiceDetailPage() {
                   onClick={() => setShowPayment(false)}
                   className="flex-1 border border-border py-2 rounded-full text-sm font-semibold"
                 >
-                  Cancel
+                  {t("app.action.cancel")}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 bg-inverted text-inverted-foreground py-2 rounded-full text-sm font-semibold"
                 >
-                  Record
+                  {t("app.invoiceDetail.record")}
                 </button>
               </div>
             </form>
@@ -467,8 +467,8 @@ export default function InvoiceDetailPage() {
         isOpen={showDelete}
         onClose={() => setShowDelete(false)}
         onConfirm={handleDelete}
-        title="Delete Invoice"
-        message="This invoice and its payment records will be permanently removed."
+        title={t("app.invoiceDetail.deleteTitle")}
+        message={t("app.invoiceDetail.deleteMessage")}
         itemName={invoice.invoiceNumber}
       />
     </div>
