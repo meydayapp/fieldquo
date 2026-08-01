@@ -25,8 +25,20 @@ Once one deploy lands, **everything below goes live at once.**
 - **Junk removal** — full volume-priced service + self-serve instant quote + item picker + rate card + starter FAQ/guide.
 - **Trade calculators** — Countertop, Flooring, Painting, Stair, all as company-editable instant-quote trades.
 - **Photo + video upload** on every quote/self-quote (stored, viewable, referenced).
-- **App i18n** — ~71 of ~86 `/app` screens wired to `t()` in **6 languages** (en, fr, es, uk, pa, tl). 1600+ keys, full parity, build-verified. The final ~10 screens were in progress when this was written.
-- **Glassy admin nav** — translucent/blurred mobile top bars, polished drawers, drawer width clamped so it never eats the screen; `settings/services` mobile overflow fixed.
+- **App i18n — COMPLETE.** Every `/app` screen wired to `t()` in **6 languages** (en, fr, es, uk, pa, tl). **1869 keys × 6, full parity**, `npm run check:all` green (39 suites).
+- **Glassy admin nav** — translucent/blurred mobile top bars, polished drawers + bottom sheet (grab handle), drawer width clamped so it never eats the screen.
+- **Mobile fixes** — `settings/services`, and the **invoice + quote line-item editors** no longer crush the description field against the money inputs on a phone (they stack, then go inline on desktop).
+
+## ⏸️ Deliberately NOT done blind (needs the deploy to verify)
+
+You asked for a broad "make every page beautiful / not claustrophobic" pass and a
+sliding-panel sidebar (settings nav nesting into the main drawer). I did the
+**safe, concrete** parts (above). I intentionally **stopped short of open-ended
+aesthetic rewrites** because I can't see the app (no browser/DB access here, and
+the deploy is stuck) — restyling ~80 screens blind would risk regressions you
+can't review. Once ONE deploy lands and you can look at it, point me at what
+feels off and I'll iterate with eyes on it. The sidebar-nesting idea is a good
+one but it's a nav restructure that specifically needs visual iteration.
 
 ## ⚠️ Needs YOUR review before it's "live" in those languages
 
