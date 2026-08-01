@@ -248,7 +248,7 @@ export default function EditQuotePage() {
 
             <div className="space-y-2">
               {g.lineItems.map((item, li) => (
-                <div key={li} className="flex gap-2 items-start">
+                <div key={li} className="flex flex-col sm:flex-row gap-2 sm:items-start">
                   <input
                     value={item.description || ""}
                     onChange={(e) =>
@@ -257,38 +257,42 @@ export default function EditQuotePage() {
                     placeholder={t("app.quoteEdit.description")}
                     className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
                   />
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={item.quantity ?? 1}
-                    onChange={(e) =>
-                      updateItem(gi, li, "quantity", e.target.value)
-                    }
-                    className="w-20 border border-border rounded-lg px-3 py-2 text-sm"
-                  />
-                  <div className="relative w-32 shrink-0">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                      $
-                    </span>
+                  {/* Mobile: qty/amount/delete drop below the description instead
+                      of crushing it against the fixed-width money fields. */}
+                  <div className="flex gap-2 items-start">
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
-                      value={item.amount ?? 0}
+                      step="1"
+                      value={item.quantity ?? 1}
                       onChange={(e) =>
-                        updateItem(gi, li, "amount", e.target.value)
+                        updateItem(gi, li, "quantity", e.target.value)
                       }
-                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2 text-sm"
+                      className="flex-1 sm:flex-none sm:w-20 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
                     />
+                    <div className="relative flex-1 sm:flex-none sm:w-32 min-w-0 shrink-0">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.amount ?? 0}
+                        onChange={(e) =>
+                          updateItem(gi, li, "amount", e.target.value)
+                        }
+                        className="w-full border border-border rounded-lg pl-7 pr-3 py-2 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeItem(gi, li)}
+                      aria-label={t("app.quoteEdit.removeLine")}
+                      className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => removeItem(gi, li)}
-                    aria-label={t("app.quoteEdit.removeLine")}
-                    className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
-                  >
-                    <Trash2 size={15} />
-                  </button>
                 </div>
               ))}
             </div>

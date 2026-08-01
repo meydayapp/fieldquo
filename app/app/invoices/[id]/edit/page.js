@@ -221,46 +221,51 @@ export default function EditInvoicePage() {
 
         <div className="space-y-2">
           {lineItems.map((item, i) => (
-            <div key={i} className="flex gap-2 items-center">
+            // Mobile: description on its own line, then qty/rate/amount/delete
+            // below — otherwise the fixed-width money fields crush the
+            // description to nothing on a phone. Inline again from sm: up.
+            <div key={i} className="flex flex-col sm:flex-row gap-2 sm:items-center">
               <input
                 value={item.description || ""}
                 onChange={(e) => updateItem(i, "description", e.target.value)}
                 placeholder={t("app.invoiceEdit.description")}
                 className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
               />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={item.quantity ?? 1}
-                onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                className="w-20 border border-border rounded-lg px-3 py-2 text-sm"
-              />
-              <div className="relative w-28 shrink-0">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  $
-                </span>
+              <div className="flex gap-2 items-center">
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  value={item.rate ?? 0}
-                  onChange={(e) => updateItem(i, "rate", e.target.value)}
-                  className="w-full border border-border rounded-lg pl-7 pr-2 py-2 text-sm"
+                  value={item.quantity ?? 1}
+                  onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                  className="flex-1 sm:flex-none sm:w-20 min-w-0 border border-border rounded-lg px-3 py-2 text-sm"
                 />
+                <div className="relative flex-1 sm:flex-none sm:w-28 min-w-0 shrink-0">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.rate ?? 0}
+                    onChange={(e) => updateItem(i, "rate", e.target.value)}
+                    className="w-full border border-border rounded-lg pl-7 pr-2 py-2 text-sm"
+                  />
+                </div>
+                <span className="w-24 sm:w-28 text-right text-sm font-medium text-foreground shrink-0">
+                  ${money(item.amount).toFixed(2)}
+                </span>
+                <button
+                  onClick={() =>
+                    setLineItems((prev) => prev.filter((_, j) => j !== i))
+                  }
+                  aria-label={t("app.invoiceEdit.removeLine")}
+                  className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
-              <span className="w-28 text-right text-sm font-medium text-foreground shrink-0">
-                ${money(item.amount).toFixed(2)}
-              </span>
-              <button
-                onClick={() =>
-                  setLineItems((prev) => prev.filter((_, j) => j !== i))
-                }
-                aria-label={t("app.invoiceEdit.removeLine")}
-                className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-2 shrink-0"
-              >
-                <Trash2 size={15} />
-              </button>
             </div>
           ))}
         </div>
