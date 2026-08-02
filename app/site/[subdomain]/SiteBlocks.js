@@ -237,17 +237,14 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
       : `${linkBase}${langPrefix}/${slug}${linkSuffix}`;
   const homeHref = `${linkBase}${langPrefix}${linkSuffix}` || "/";
 
-  // The bold and editorial styles want the hero photo to run to the top of the
-  // viewport, so their header floats over it rather than sitting on a solid bar.
-  // Only when the FIRST block is actually an image-led hero — floating white
-  // links over a pale wash would be unreadable, and that's the failure this
-  // check exists to prevent.
-  const first = blocks[0];
-  const heroIsImageLed =
-    first?.type === "hero" &&
-    Boolean(first.content?.backgroundImage) &&
-    ["banner", "overlay"].includes(first.content?.variant);
-  const overlay = S?.header === "overlay" && heroIsImageLed;
+  // The header is always a solid, in-flow sticky bar. It used to float over the
+  // hero (absolute) for some styles, but on a phone the clearance was tight and
+  // the top line of the heading slipped UNDER it — reported repeatedly. A solid
+  // in-flow header takes its own space, so the hero always starts below it and
+  // nothing can ever render under it. Templates still differ by hero layout,
+  // type, buttons and section rhythm; losing the transparent-over-photo trick is
+  // a cheap price for a header that never eats the headline.
+  const overlay = false;
 
   return (
     <header
