@@ -73,6 +73,14 @@ export default function RootLayout({ children }) {
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The NO_FLASH script sets the `dark` class and style.colorScheme on
+      // <html> BEFORE React hydrates — that's the whole point of it, to avoid a
+      // light-then-dark flash. The LanguageProvider also rewrites lang/dir on
+      // mount. Both make the hydrated <html> differ from the server's, which
+      // React would otherwise warn about on every page. Suppression is scoped to
+      // this one element's attributes (not its children), so it silences the
+      // intended script mutation without hiding real mismatches anywhere else.
+      suppressHydrationWarning
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
