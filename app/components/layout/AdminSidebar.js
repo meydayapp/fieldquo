@@ -321,29 +321,35 @@ export default function AdminSidebar() {
               </div>
             </div>
           ))}
+
+          {/* Secondary — AI, help, plan, settings, appearance. Kept INSIDE the
+              scroll area rather than pinned, so the drawer's fixed footer stays
+              small. Pinning all of this is what made the bottom section eat half
+              the mobile screen. FieldQuo AI still leads it (its own slot above a
+              divider) — the feature most worth noticing. */}
+          <div className="pt-4 mt-3 border-t border-sidebar-border space-y-1">
+            <NavLink
+              item={{ key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
+              forceExpanded={forceExpanded}
+            />
+            {BOTTOM_ITEMS.map((item) => (
+              <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
+            ))}
+            {/* Theme control — /app and /platform are the only themeable
+                surfaces, so it lives here rather than the marketing header.
+                Hidden collapsed; the segmented control needs its targets legible. */}
+            {showLabel && (
+              <div className="px-3 pt-2 flex items-center justify-between">
+                <span className="text-xs text-sidebar-foreground/60">Appearance</span>
+                <ThemeToggle compact />
+              </div>
+            )}
+          </div>
         </nav>
 
-        <div className="px-3 py-4 border-t border-sidebar-border space-y-1">
-          {/* Its own slot, above the divider. FieldQuo AI is a different mode
-              of using the app rather than another section of it, and it's the
-              feature most worth people noticing. */}
-          <NavLink
-            item={{ key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
-            forceExpanded={forceExpanded}
-          />
-
-          {/* Theme control. Lives here rather than in the marketing header
-              because /app and /platform are the only themeable surfaces —
-              offering the choice on a page that can't honour it is worse than
-              not offering it. Hidden when the rail is collapsed; the segmented
-              control needs its three targets to be legible. */}
-          {showLabel && (
-            <div className="px-3 pb-3 flex items-center justify-between">
-              <span className="text-xs text-sidebar-foreground/60">Appearance</span>
-              <ThemeToggle compact />
-            </div>
-          )}
-
+        {/* Pinned footer — deliberately minimal (who am I + trial + get out), so
+            it never dominates the drawer on a phone. Everything else scrolls. */}
+        <div className="px-3 py-3 border-t border-sidebar-border space-y-1">
           {/* Profile + trial countdown */}
           {session?.user && (
             <Link
@@ -377,14 +383,6 @@ export default function AdminSidebar() {
             </Link>
           )}
           {showLabel ? <TrialBadge /> : <TrialBadge collapsed />}
-
-          {BOTTOM_ITEMS.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              forceExpanded={forceExpanded}
-            />
-          ))}
 
           <button
             onClick={handleLogout}
