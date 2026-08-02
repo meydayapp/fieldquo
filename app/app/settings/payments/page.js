@@ -26,6 +26,7 @@ export default function PaymentsPage() {
   const [openingDashboard, setOpeningDashboard] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [savingFinancing, setSavingFinancing] = useState(false);
   const [error, setError] = useState("");
 
   function loadCompany() {
@@ -111,6 +112,30 @@ export default function PaymentsPage() {
       setError(err.message || t("app.setPayments.dashboardError"));
     } finally {
       setOpeningDashboard(false);
+    }
+  }
+
+  // Optimistic toggle for "offer Affirm alongside card". We flip the local copy
+  // first so the switch responds instantly, then persist. On failure we roll it
+  // back — a switch that silently didn't save is exactly the dead control this
+  // codebase keeps having to hunt down.
+  async function toggleFinancing() {
+    if (savingFinancing) return;
+    const next = !company?.offerFinancing;
+    setError("");
+    setSavingFinancing(true);
+    setCompany((c) => ({ ...c, offerFinancing: next }));
+    try {
+      await fetchJson("/api/settings/business-info", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerFinancing: next }),
+      });
+    } catch (err) {
+      setCompany((c) => ({ ...c, offerFinancing: !next }));
+      setError(err.message || t("app.setPayments.financingSaveError"));
+    } finally {
+      setSavingFinancing(false);
     }
   }
 
@@ -319,6 +344,43 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
+
+      {/* Pay-over-time is only meaningful once the company can actually take
+          payments, so it rides on the active Stripe connection rather than
+          standing alone. */}
+      {active && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h2 className="font-semibold text-foreground">
+                {t("app.setPayments.financingTitle")}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("app.setPayments.financingDesc")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                {t("app.setPayments.financingActivateNote")}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(company?.offerFinancing)}
+              onClick={toggleFinancing}
+              disabled={savingFinancing}
+              className={`relative shrink-0 mt-1 inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-60 ${
+                company?.offerFinancing ? "bg-green-600" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                  company?.offerFinancing ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {t("app.setPayments.neverSees")}

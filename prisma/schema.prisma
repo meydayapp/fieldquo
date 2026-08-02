@@ -468,6 +468,13 @@ model Company {
   taxIdNumber       String?
   autoApplyLocalTax Boolean @default(true)
 
+  /// Offer clients pay-over-time financing (Affirm) at invoice checkout, on top
+  /// of paying by card. Off by default: it's the company's call, it only works
+  /// where their Stripe account has Affirm activated (US/CA), and it only shows
+  /// for invoice amounts in Affirm's supported range — so the Stripe layer gates
+  /// it and falls back to card so a mis-config can never break the pay link.
+  offerFinancing Boolean @default(false)
+
   timezone     String? @default("America/Toronto")
 
   /// How many hours before an appointment to text the client a reminder. Null

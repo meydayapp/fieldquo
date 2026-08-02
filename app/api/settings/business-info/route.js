@@ -110,6 +110,9 @@ export async function GET(request) {
       stripeAccountId: true,
       stripeOnboarded: true,
       stripeChargesEnabled: true,
+      // Offer Affirm pay-over-time alongside card on the invoice pay page.
+      // Opt-in: the connected account must have Affirm activated in Stripe.
+      offerFinancing: true,
     },
   });
 
@@ -170,6 +173,7 @@ export async function PATCH(request) {
     travelBufferMinutes,
     arrivalWindowMinutes,
     sitePublished,
+    offerFinancing,
   } = body;
 
   // Replacing a logo used to leave the old file on Cloudinary forever. On a
@@ -297,6 +301,9 @@ export async function PATCH(request) {
           businessHours === null ? null : normaliseHours(businessHours),
       }),
       ...(sitePublished !== undefined && { sitePublished }),
+      ...(offerFinancing !== undefined && {
+        offerFinancing: Boolean(offerFinancing),
+      }),
     },
   });
 
