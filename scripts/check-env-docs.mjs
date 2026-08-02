@@ -21,6 +21,14 @@ const DOC = "docs/VERCEL.md";
 // rows in the tables, so they're exempt from the row check.
 const PLATFORM_PROVIDED = new Set(["NODE_ENV", "VERCEL_URL"]);
 
+// Read ONLY by local operator scripts that never run on Vercel — account
+// recovery, one-off maintenance. They are terminal arguments the operator types
+// at the moment they run the script, not deployment configuration. Listing them
+// in VERCEL.md would be worse than omitting them: it tells the owner to set a
+// Vercel env var that does nothing, on the one page they consult to work out why
+// a deploy is misbehaving. Exempt, like the platform-provided set above.
+const LOCAL_ONLY = new Set(["ADMIN_EMAIL", "NEW_ADMIN_PASSWORD"]);
+
 function walk(dir, out = []) {
   let entries;
   try { entries = readdirSync(dir); } catch { return out; }
@@ -57,6 +65,7 @@ try {
 
 const undocumented = [...used]
   .filter(([name]) => !PLATFORM_PROVIDED.has(name))
+  .filter(([name]) => !LOCAL_ONLY.has(name))
   .filter(([name]) => !doc.includes(name));
 
 // The other direction: a documented variable nothing reads is a checklist item
