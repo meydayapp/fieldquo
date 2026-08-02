@@ -2618,7 +2618,15 @@ model CompanySite {
   // app/data/siteBlocks.js for the shapes. Json rather than a Block table
   // because the whole page is always read and written together — a relational
   // split would buy queryability nobody needs and cost a join per section.
+  //
+  // `blocks` is the ORIGINAL single-page model and stays as the Home page's
+  // content for backward compatibility — every existing site has it and nothing
+  // migrates. `pages` is the multi-page model layered on top: an ordered list of
+  // { id, slug, title, nav, blocks } so a site can have Home / Services / About
+  // / Work / Contact as real pages with a real menu. Null `pages` means "single
+  // page" and the renderer falls back to `blocks` as Home — see lib/site/pages.js.
   blocks Json?
+  pages  Json?
 
   // Nothing is public until this is true. Distinct from having blocks: a
   // company can generate, edit and preview for a week before going live.
