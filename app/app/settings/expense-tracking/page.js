@@ -154,9 +154,13 @@ export default function ExpenseTrackingPage() {
 
   const loadSummary = useCallback(() => {
     setLoading(true);
+    // Guard res.ok — feeding an error body into setSummary crashed the render.
     return fetch(`/api/expenses/summary?month=${monthParam(monthDate)}`)
-      .then((r) => r.json())
-      .then(setSummary)
+      .then(async (r) => {
+        if (!r.ok) return reportResponseError(r);
+        setSummary(await r.json());
+      })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [monthDate]);
 

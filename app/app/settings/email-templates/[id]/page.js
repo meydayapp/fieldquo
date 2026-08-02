@@ -525,17 +525,22 @@ export default function EmailTemplateEditorPage() {
   );
 
   useEffect(() => {
+    // Guard res.ok and clear the skeleton in .finally — before, a failed load
+    // set the error body as the template and never turned loading off, hanging
+    // the editor on the skeleton.
     fetch(`/api/settings/document-templates/${id}`)
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (r) => {
+        if (!r.ok) return reportResponseError(r);
+        const data = await r.json();
         setTemplate(data);
         setName(data.name || "");
         setSubject(data.subject || "");
         setSections(Array.isArray(data.sections) ? data.sections : []);
         setTheme(data.theme || null);
         setIsActive(!!data.isDefault);
-        setLoading(false);
-      });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [id]);
 
   // Branding is read-only here — it's edited on Settings > Branding. Failing
