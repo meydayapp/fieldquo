@@ -82,7 +82,7 @@ export default function CopilotPage() {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-4">
         {messages.length === 0 && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">

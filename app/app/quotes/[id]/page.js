@@ -41,9 +41,14 @@ export default function QuoteDetailPage() {
   const [justSent, setJustSent] = useState("");
 
   useEffect(() => {
+    // Guard res.ok: on a 404/401 the route returns { error }, and setting that
+    // as the quote made `if (!quote)` pass, rendering the detail body with a
+    // $NaN total instead of the not-found screen. Leave quote null on failure so
+    // the existing not-found branch shows.
     fetch(`/api/quotes/${id}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then(setQuote)
+      .catch(() => setQuote(null))
       .finally(() => setLoading(false));
   }, [id]);
 

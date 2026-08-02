@@ -160,18 +160,20 @@ export default function EditJobPage() {
               <label className="block text-sm font-medium text-foreground mb-1">
                 {t("app.jobEdit.howOften")}
               </label>
-              <input
+              {/* A constrained select, matching jobs/new — the recurring-visit
+                  cron only understands weekly/biweekly/monthly, so free text
+                  ("every 2 weeks") would save fine and then silently generate no
+                  next visit. Reuses the jobNew option keys. */}
+              <select
                 value={recurrenceRule}
                 onChange={(e) => setRecurrenceRule(e.target.value)}
-                placeholder={t("app.jobEdit.howOftenPlaceholder")}
                 className="w-full border border-border rounded-lg px-3 py-2 text-sm"
-              />
-              {/* Honest about what this does today. Nothing reads
-                  recurrenceRule to generate visits automatically yet, so
-                  promising a schedule would be a lie. */}
-              <p className="text-xs text-muted-foreground mt-1">
-                {t("app.jobEdit.manualNote")}
-              </p>
+              >
+                <option value="">{t("app.jobNew.selectFrequency")}</option>
+                <option value="weekly">{t("app.jobNew.weekly")}</option>
+                <option value="biweekly">{t("app.jobNew.biweekly")}</option>
+                <option value="monthly">{t("app.jobNew.monthly")}</option>
+              </select>
             </div>
           )}
         </div>

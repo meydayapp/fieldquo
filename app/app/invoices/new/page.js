@@ -100,32 +100,37 @@ export default function NewInvoicePage() {
     }
 
     setSaving(true);
+    // try/finally so a rejected fetch (network drop) can't leave setSaving(true)
+    // and both save buttons stuck disabled with no error shown.
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: selectedClient.id,
+          lineItems,
+          subtotal,
+          tax,
+          total,
+          notes,
+          dueDate: dueDate || null,
+          status,
+        }),
+      });
 
-    const res = await fetch("/api/invoices", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: selectedClient.id,
-        lineItems,
-        subtotal,
-        tax,
-        total,
-        notes,
-        dueDate: dueDate || null,
-        status,
-      }),
-    });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || t("app.invoiceNew.createError"));
+        return;
+      }
 
-    setSaving(false);
-
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || t("app.invoiceNew.createError"));
-      return;
+      const invoice = await res.json();
+      router.push(`/app/invoices/${invoice.id}`);
+    } catch {
+      setError(t("app.invoiceNew.createError"));
+    } finally {
+      setSaving(false);
     }
-
-    const invoice = await res.json();
-    router.push(`/app/invoices/${invoice.id}`);
   }
 
   if (loading)

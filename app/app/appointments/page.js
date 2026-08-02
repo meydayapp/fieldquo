@@ -345,7 +345,7 @@ function NewAppointmentModal({ members, onClose, onCreated }) {
               }
               className="w-full border rounded px-3 py-2 text-sm mt-1 bg-card"
             >
-              <option value="">Unassigned</option>
+              <option value="">{t("app.appts.unassigned")}</option>
               {members.map((m) => (
                 <option key={m.userId} value={m.userId}>
                   {m.user.name}

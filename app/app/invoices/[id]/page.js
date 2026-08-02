@@ -50,9 +50,13 @@ export default function InvoiceDetailPage() {
   const [justSent, setJustSent] = useState("");
 
   useEffect(() => {
+    // Guard res.ok: a 404/401 returns { error }, and setting that as the invoice
+    // made `if (!invoice)` pass, rendering a $NaN page instead of not-found.
+    // Leave invoice null on failure so the not-found branch shows.
     fetch(`/api/invoices/${id}`)
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then(setInvoice)
+      .catch(() => setInvoice(null))
       .finally(() => setLoading(false));
   }, [id]);
 

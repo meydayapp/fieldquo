@@ -19,6 +19,7 @@ import {
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import EmailCampaignDetail from "@/app/components/marketing/EmailCampaignDetail";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { reportResponseError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -130,16 +131,20 @@ export default function CampaignDetailPage() {
   }
 
   async function updateStop(stopId, patch) {
-    await fetch(`/api/marketing/stops/${stopId}`, {
+    const res = await fetch(`/api/marketing/stops/${stopId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patch),
     });
+    // Without this a failed status change reloaded the old state silently — the
+    // button looked like it did nothing rather than telling you why.
+    if (!res.ok) return reportResponseError(res);
     await load();
   }
 
   async function deleteStop(stopId) {
-    await fetch(`/api/marketing/stops/${stopId}`, { method: "DELETE" });
+    const res = await fetch(`/api/marketing/stops/${stopId}`, { method: "DELETE" });
+    if (!res.ok) return reportResponseError(res);
     await load();
   }
 

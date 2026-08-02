@@ -13,7 +13,6 @@ import {
   ClipboardList,
   AlertCircle,
   X,
-  GripVertical,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -208,7 +207,6 @@ export default function ChecklistsPage() {
             <div className="space-y-2">
               {draft.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <GripVertical size={14} className="text-muted-foreground shrink-0" />
                   <input
                     value={item}
                     onChange={(e) =>
