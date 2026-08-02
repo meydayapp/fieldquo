@@ -2,14 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  FileText,
-  Calendar,
-  Receipt,
-  BarChart3,
-  ArrowRight,
-} from "lucide-react";
+import { FileText, Calendar, Receipt, BarChart3 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import DemoBooking from "./DemoBooking";
 
 // Keys and icons only — copy lives in the catalog under hero.tabs.*
 const TABS = [
@@ -22,26 +17,8 @@ const TABS = [
 export default function Hero() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("quotes");
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   const active = TABS.find((tab) => tab.key === activeTab);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      await fetch("/api/marketing/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source: "hero_demo_request" }),
-      });
-      setSubmitted(true);
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <section className="bg-linear-to-b from-muted to-card">
@@ -53,34 +30,9 @@ export default function Hero() {
           {t("hero.subtitle")}
         </p>
 
-        {/* Demo request — new company, no usage stats yet, so this replaces a stats band */}
-        {!submitted ? (
-          <form
-            onSubmit={handleSubmit}
-            className="mt-8 max-w-md mx-auto flex flex-col sm:flex-row gap-3"
-          >
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("hero.emailPlaceholder")}
-              className="flex-1 px-4 py-3 rounded-full border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 bg-brand-accent text-brand-accent-foreground px-6 py-3 rounded-full text-sm font-semibold hover:brightness-95 transition disabled:opacity-60"
-            >
-              {submitting ? t("hero.sending") : t("hero.requestDemo")}
-              <ArrowRight size={16} />
-            </button>
-          </form>
-        ) : (
-          <div className="mt-8 max-w-md mx-auto bg-green-50 border border-green-200 text-green-800 text-sm rounded-full px-6 py-3">
-            {t("hero.demoThanks")}
-          </div>
-        )}
+        {/* Book a live demo — a real 30-min slot beats "we'll email you back",
+            which is where most demo requests quietly die. */}
+        <DemoBooking />
       </div>
 
       {/* Tabbed feature preview */}
