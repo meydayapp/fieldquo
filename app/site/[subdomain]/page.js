@@ -45,6 +45,10 @@ async function loadSite(subdomain, { preview = false } = {}) {
     select: {
       companyId: true,
       blocks: true,
+      // Without this the renderer never saw the multi-page structure and treated
+      // every site as one page — so the menu never appeared even though pages
+      // were being saved. A column written and not read.
+      pages: true,
       styleKey: true,
       published: true,
       seoTitle: true,
