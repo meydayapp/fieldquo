@@ -69,6 +69,8 @@ export default function Builder({ data, onReload }) {
   const [error, setError] = useState("");
   const [device, setDevice] = useState("desktop");
   const [previewKey, setPreviewKey] = useState(0);
+  // Which page the preview iframe is showing (multi-page sites only).
+  const [previewPage, setPreviewPage] = useState("home");
   const [pairing, setPairing] = useState(false);
   // Preview | Sections, the way open-lovable toggles Preview | Code. Not code:
   // a contractor cannot debug React, and the thing they actually want to reach is
@@ -124,7 +126,7 @@ export default function Builder({ data, onReload }) {
   }, [thread, busy]);
 
   const previewUrl = site?.subdomain
-    ? `/site/${site.subdomain}?preview=1&v=${previewKey}`
+    ? `/site/${site.subdomain}${previewPage && previewPage !== "home" ? `/${previewPage}` : ""}?preview=1&v=${previewKey}`
     : null;
 
   const say = useCallback((role, text, meta) => {
@@ -833,6 +835,24 @@ export default function Builder({ data, onReload }) {
               )}
             </div>
           </div>
+
+          {/* Page tabs — jump the preview between the site's pages. Only for a
+              multi-page site; a one-pager has just Home. */}
+          {pane === "preview" && Array.isArray(pages) && pages.length > 1 && (
+            <div className="shrink-0 flex items-center gap-1 px-3 py-2 border-b border-border overflow-x-auto">
+              {pages.map((p) => (
+                <button
+                  key={p.slug || p.id}
+                  onClick={() => { setPreviewPage(p.slug); setPreviewKey((k) => k + 1); }}
+                  className={`shrink-0 px-2.5 py-1 rounded-md text-xs font-semibold ${
+                    previewPage === p.slug ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {p.title}
+                </button>
+              ))}
+            </div>
+          )}
 
           {pane === "preview" ? (
             // Desktop fills the pane; mobile is a fixed 390px frame centred in
