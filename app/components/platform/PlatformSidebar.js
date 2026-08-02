@@ -21,6 +21,7 @@ import {
   Sparkles,
   LifeBuoy,
   AlertTriangle,
+  CalendarCheck,
 } from "lucide-react";
 
 const ITEMS = [
@@ -41,6 +42,7 @@ const ITEMS = [
     icon: Tags,
   },
   { label: "Demo accounts", href: "/platform/demo", icon: Beaker },
+  { label: "Demo bookings", href: "/platform/demos", icon: CalendarCheck },
   { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
   { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },
