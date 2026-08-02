@@ -469,6 +469,21 @@ model Company {
   autoApplyLocalTax Boolean @default(true)
 
   timezone     String? @default("America/Toronto")
+
+  /// How many hours before an appointment to text the client a reminder. Null
+  /// (the default) means OFF — a company opts in, because every reminder is a
+  /// billable SMS the contractor pays for, and auto-texting every client
+  /// without them choosing it is a surprise on the invoice, not a feature. The
+  /// reminder cron does nothing for a company that hasn't set this.
+  appointmentReminderHours Int?
+
+  /// The company's OWN provisioned SMS-capable number (E.164), used as the
+  /// "from" on client-facing texts so they come from the business, not the
+  /// shared FieldQuo line. Null = use the shared system number (with the company
+  /// name in the body). This is NOT a free-text field a company types their cell
+  /// into — carriers block sending from a number you don't control — it's set
+  /// only when a real SMS number has been bought or hosted for them.
+  smsFromNumber String?
   dateFormat   String? @default("MM/DD/YYYY")
   weekStartsOn Int?    @default(0) // 0 = Sunday, 1 = Monday
   // The currency this company BILLS ITS CLIENTS in — quotes, invoices, the
@@ -1287,6 +1302,10 @@ model Appointment {
   requiresSupervisor Boolean           @default(false)
   status             AppointmentStatus @default(scheduled)
   notes              String?
+  /// Once-only guard so the reminder cron can't text the same client twice for
+  /// the same appointment (same pattern as Job.reviewRequestedAt). Null until a
+  /// reminder actually goes out.
+  reminderSentAt     DateTime?
   createdById        String
   createdBy          User              @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
   assignedToId       String?

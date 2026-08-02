@@ -18,6 +18,10 @@ export default function NotificationsPage() {
   const [rules, setRules] = useState([]);
   const [threshold, setThreshold] = useState("");
   const [active, setActive] = useState(true);
+  // Appointment reminder lead time in hours, or null for off.
+  const [reminderHours, setReminderHours] = useState(null);
+  const [remSaving, setRemSaving] = useState(false);
+  const [remSaved, setRemSaved] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,6 +41,12 @@ export default function NotificationsPage() {
       if (large) {
         setThreshold(large.threshold != null ? String(Number(large.threshold)) : "");
         setActive(large.active !== false);
+      }
+
+      const rem = await fetch("/api/settings/appointment-reminders");
+      if (rem.ok) {
+        const d = await rem.json().catch(() => null);
+        setReminderHours(d?.hours ?? null);
       }
     } catch (err) {
       setError(err.message);
@@ -75,10 +85,44 @@ export default function NotificationsPage() {
     }
   }
 
+  async function saveReminders(hours) {
+    setRemSaving(true);
+    setError("");
+    setRemSaved(false);
+    // Optimistic: reflect the choice immediately, roll back if the save fails.
+    const previous = reminderHours;
+    setReminderHours(hours);
+    try {
+      const res = await fetch("/api/settings/appointment-reminders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error || t("app.setNotifications.saveError"));
+      setReminderHours(d?.hours ?? null);
+      setRemSaved(true);
+      setTimeout(() => setRemSaved(false), 3000);
+    } catch (err) {
+      setReminderHours(previous);
+      setError(err.message);
+    } finally {
+      setRemSaving(false);
+    }
+  }
+
   if (loading)
     return (
       <div className="animate-pulse h-72 bg-accent rounded-xl max-w-2xl" />
     );
+
+  // Off + the lead times the API accepts. Kept in step with ALLOWED there.
+  const REMINDER_OPTIONS = [
+    { value: null, label: t("app.setReminders.off", "Off") },
+    { value: 2, label: t("app.setReminders.h2", "2 hours before") },
+    { value: 24, label: t("app.setReminders.h24", "24 hours before") },
+    { value: 48, label: t("app.setReminders.h48", "48 hours before") },
+  ];
 
   const existing = rules.find((r) => r.type === "large_quote");
 
@@ -166,6 +210,55 @@ export default function NotificationsPage() {
             </span>
           )}
         </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <Bell size={18} className="text-muted-foreground mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <h2 className="font-semibold text-foreground">
+              {t("app.setReminders.title", "Appointment reminders")}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {t("app.setReminders.desc", "Text the client a reminder before their appointment. Sent from your business name; clients can reply STOP to opt out.")}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {REMINDER_OPTIONS.map((opt) => {
+            const on = reminderHours === opt.value;
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                disabled={remSaving}
+                onClick={() => saveReminders(opt.value)}
+                className={`px-4 py-2 rounded-full border text-sm font-medium disabled:opacity-60 ${
+                  on
+                    ? "border-inverted bg-inverted text-inverted-foreground"
+                    : "border-border text-foreground hover:bg-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="text-xs text-muted-foreground border-t border-border pt-3">
+          {t("app.setReminders.note", "Each reminder is a text message billed to your account. We never text a client who has opted out, and never more than once per appointment.")}
+          {remSaving && (
+            <span className="inline-flex items-center gap-1.5 ml-2">
+              <Loader2 size={12} className="animate-spin" /> {t("app.action.saving")}
+            </span>
+          )}
+          {remSaved && (
+            <span className="inline-flex items-center gap-1.5 ml-2 text-green-700 dark:text-green-300">
+              <Check size={12} /> {t("app.action.saved")}
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
