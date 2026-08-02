@@ -188,25 +188,25 @@ export default function TeamOverviewPage() {
         </Link>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+      <div className="bg-card border border-border rounded-xl overflow-x-auto">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[560px]">
           <span>{t("app.setTeam.nameEmail")}</span>
           <span>{t("app.setTeam.role")}</span>
           <span>{t("app.setTeam.lastLogin")}</span>
           <span>{t("app.status.active")}</span>
         </div>
 
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border min-w-[560px]">
           {members.map((m) => (
             <div
               key={m.userId}
               className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 items-center"
             >
-              <div>
-                <div className="text-sm font-medium text-foreground">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-foreground truncate">
                   {m.user.name}
                 </div>
-                <div className="text-xs text-muted-foreground">{m.user.email}</div>
+                <div className="text-xs text-muted-foreground truncate">{m.user.email}</div>
               </div>
 
               {/* Read-only badge when this member is at or above the viewer's

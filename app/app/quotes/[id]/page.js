@@ -201,7 +201,7 @@ export default function QuoteDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">{quote.client?.name}</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Shown while the quote is still live, not only while it's a draft.
               Re-sending a quote a client says they never received is one of
               the most common things anyone needs to do, and the old button
