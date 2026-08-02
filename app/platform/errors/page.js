@@ -58,13 +58,20 @@ export default function PlatformErrorsPage() {
 
   async function resolve(ids) {
     setBusy(true);
+    setError("");
     try {
-      await fetch("/api/platform/errors", {
+      const res = await fetch("/api/platform/errors", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Request failed (${res.status}).`);
+      }
       await load();
+    } catch (e) {
+      setError(e.message);
     } finally {
       setBusy(false);
     }

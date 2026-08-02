@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -28,9 +29,22 @@ export default function NewJobPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/clients")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setClients(Array.isArray(data) ? data : []));
+    // An empty client list blocks job creation, so a failed load must not be
+    // silent — surface it and leave the list empty rather than feeding an
+    // error body into the data setter.
+    (async () => {
+      try {
+        const res = await fetch("/api/clients");
+        if (!res.ok) {
+          reportResponseError(res);
+          return;
+        }
+        const data = await res.json();
+        setClients(Array.isArray(data) ? data : []);
+      } catch {
+        showError("Couldn't load clients. Check your connection and try again.");
+      }
+    })();
   }, []);
 
   const filteredClients = clients.filter((c) =>

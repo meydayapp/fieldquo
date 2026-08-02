@@ -20,7 +20,7 @@ import {
   RECIPE_EDITABLE_FIELDS,
   CONSUMABLE_EDITABLE_FIELDS,
 } from "@/app/data/materialRecipes";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CATEGORY_META = {
@@ -75,13 +75,24 @@ export default function MaterialCostsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/settings/material-recipes")
-      .then((r) => r.json())
-      .then((data) => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/material-recipes");
+        if (!res.ok) {
+          // Was silent: a failed load hung on the skeleton forever and
+          // swallowed the error. Don't feed a 4xx/5xx body into the setters.
+          await reportResponseError(res);
+          return;
+        }
+        const data = await res.json();
         setRecipes(data);
         setDrafts(JSON.parse(JSON.stringify(data)));
+      } catch {
+        showError(t("app.error.network", "Couldn't load material costs. Check your connection and retry."));
+      } finally {
         setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   function updateField(categoryKey, path, value) {

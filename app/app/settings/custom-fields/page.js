@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const SECTIONS = [
@@ -66,8 +66,16 @@ export default function CustomFieldsPage() {
   function load() {
     setLoading(true);
     return fetch("/api/custom-fields")
-      .then((r) => r.json())
-      .then((data) => setFields(Array.isArray(data) ? data : []))
+      .then(async (res) => {
+        // Was silent: a failed load left an empty page with no error at all.
+        if (!res.ok) {
+          await reportResponseError(res);
+          return;
+        }
+        const data = await res.json();
+        setFields(Array.isArray(data) ? data : []);
+      })
+      .catch(() => showError("Couldn't load custom fields. Check your connection and try again."))
       .finally(() => setLoading(false));
   }
 

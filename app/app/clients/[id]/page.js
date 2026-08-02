@@ -24,6 +24,7 @@ import {
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -44,10 +45,23 @@ export default function ClientDetailPage() {
   // Shown as "Company default (X)" in the picker so null reads as a real choice.
   const [companyLanguage, setCompanyLanguage] = useState("en");
 
-  function load() {
-    return fetch(`/api/clients/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setClient);
+  async function load() {
+    try {
+      const res = await fetch(`/api/clients/${id}`);
+      if (!res.ok) {
+        // A genuine 404 is a legitimate empty state — the not-found panel below
+        // already says so, so don't also toast. Anything else (403, 500, …) is
+        // a real failure that must not masquerade as "no such client".
+        if (res.status !== 404) reportResponseError(res);
+        setClient(null);
+        return;
+      }
+      setClient(await res.json());
+    } catch {
+      // Network rejection: surface it instead of silently showing not-found.
+      setClient(null);
+      showError(t("app.clientDetail.loadError", "Couldn't load this client."));
+    }
   }
 
   useEffect(() => {

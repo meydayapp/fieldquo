@@ -115,27 +115,35 @@ export default function NewQuotePage() {
   ];
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/clients").then((r) => r.json()),
-      fetch("/api/settings/service-categories").then((r) => r.json()),
-      fetch("/api/settings/business-info").then((r) => r.json()),
-      fetch("/api/products").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/workers").then((r) => (r.ok ? r.json() : [])),
-      // Company-specific overrides on the internal cost recipe (primer/top
-      // coat coverage, per-gallon costs, coat counts, consumables, labour
-      // minutes) — see Settings > Material Costs. Resolved server-side
-      // (defaults merged with any saved overrides), so this is just fed
-      // straight into estimateQuoteCost() as-is.
-      fetch("/api/settings/material-recipes").then((r) => (r.ok ? r.json() : {})),
-    ]).then(
-      ([
-        clientsData,
-        categoriesData,
-        businessInfo,
-        productsData,
-        workersData,
-        recipesData,
-      ]) => {
+    (async () => {
+      try {
+        const [
+          clientsData,
+          categoriesData,
+          businessInfo,
+          productsData,
+          workersData,
+          recipesData,
+        ] = await Promise.all([
+          // fetchJson throws on a non-ok/HTML-error response instead of feeding
+          // a 404/500 body into a state setter — a failed load surfaces below
+          // rather than rendering a corrupt builder.
+          fetchJson("/api/clients"),
+          fetchJson("/api/settings/service-categories"),
+          fetchJson("/api/settings/business-info"),
+          // Optional data: the builder still works without these, so a failure
+          // degrades to the empty fallback rather than blocking the whole page.
+          fetch("/api/products").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/workers").then((r) => (r.ok ? r.json() : [])),
+          // Company-specific overrides on the internal cost recipe (primer/top
+          // coat coverage, per-gallon costs, coat counts, consumables, labour
+          // minutes) — see Settings > Material Costs. Resolved server-side
+          // (defaults merged with any saved overrides), so this is just fed
+          // straight into estimateQuoteCost() as-is.
+          fetch("/api/settings/material-recipes").then((r) =>
+            r.ok ? r.json() : {},
+          ),
+        ]);
         setClients(Array.isArray(clientsData) ? clientsData : []);
         setCategories(
           Array.isArray(categoriesData)
@@ -153,10 +161,15 @@ export default function NewQuotePage() {
         setCompanyLanguage(businessInfo?.defaultLanguage || "en");
         setProducts(Array.isArray(productsData) ? productsData : []);
         setWorkers(Array.isArray(workersData) ? workersData : []);
-        setRecipeOverrides(recipesData && typeof recipesData === "object" ? recipesData : {});
+        setRecipeOverrides(
+          recipesData && typeof recipesData === "object" ? recipesData : {},
+        );
+      } catch (e) {
+        setError(e?.message || t("app.quoteNew.createError"));
+      } finally {
         setLoading(false);
-      },
-    );
+      }
+    })();
   }, []);
 
   // A product with no linked quote types is available everywhere (e.g. a

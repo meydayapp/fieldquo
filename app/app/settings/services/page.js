@@ -25,9 +25,23 @@ export default function ServiceSettingsPage() {
   const [seedMsg, setSeedMsg] = useState(null);
 
   useEffect(() => {
-    fetch("/api/settings/service-categories")
-      .then((r) => r.json())
-      .then(setCategories);
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/service-categories");
+        // Was fire-and-forget: a 404/500 body was fed straight into
+        // setCategories, so an error object rendered as a corrupt page and a
+        // non-array crashed the .map below. Surface the failure, keep the list
+        // empty so the existing empty state shows.
+        if (!res.ok) {
+          await reportResponseError(res);
+          return;
+        }
+        const data = await res.json();
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (err) {
+        await reportResponseError(err);
+      }
+    })();
   }, []);
 
   const update = (id, patch) => {

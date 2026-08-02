@@ -98,10 +98,23 @@ export default function CampaignDetailPage() {
   });
   const [converting, setConverting] = useState(false);
 
-  function load() {
-    return fetch(`/api/marketing/campaigns/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setCampaign);
+  async function load() {
+    // A non-ok response used to be mapped to null, which the UI renders as a
+    // bland "not found" even when the request actually failed (500, network).
+    // Surface the real error instead of masking it, and never feed an error
+    // body into setCampaign.
+    try {
+      const res = await fetch(`/api/marketing/campaigns/${id}`);
+      if (!res.ok) {
+        await reportResponseError(res);
+        setCampaign(null);
+        return;
+      }
+      setCampaign(await res.json());
+    } catch (err) {
+      setError(err.message || t("app.mkDetail.addAddressError"));
+      setCampaign(null);
+    }
   }
 
   useEffect(() => {

@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // Rules should point at a template meant for this kind of automated send —
@@ -36,16 +36,33 @@ export default function FollowUpsPage() {
     templateId: "",
   });
 
-  function load() {
+  async function load() {
     setLoading(true);
-    return Promise.all([
-      fetch("/api/settings/follow-up-rules").then((r) => r.json()),
-      fetch("/api/settings/document-templates").then((r) => r.json()),
-    ]).then(([rulesData, templatesData]) => {
+    try {
+      const [rulesRes, templatesRes] = await Promise.all([
+        fetch("/api/settings/follow-up-rules"),
+        fetch("/api/settings/document-templates"),
+      ]);
+      // Was silent: a failed load cleared loading only on success and never
+      // parsed an error, so any non-ok/rejection hung the skeleton forever.
+      if (!rulesRes.ok) {
+        await reportResponseError(rulesRes);
+        return;
+      }
+      if (!templatesRes.ok) {
+        await reportResponseError(templatesRes);
+        return;
+      }
+      const rulesData = await rulesRes.json();
+      const templatesData = await templatesRes.json();
       setRules(Array.isArray(rulesData) ? rulesData : []);
       setTemplates(Array.isArray(templatesData) ? templatesData : []);
+    } catch {
+      // Network-level rejection (offline, DNS, aborted): no Response to read.
+      showError("Couldn't load follow-up rules. Check your connection and retry.");
+    } finally {
       setLoading(false);
-    });
+    }
   }
 
   useEffect(() => {

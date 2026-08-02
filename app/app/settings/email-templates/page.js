@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, Star, Copy, Trash2, Pencil, Sparkles } from "lucide-react";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const GROUPS = ["Automated", "Marketing", "Custom"];
@@ -29,12 +29,21 @@ export default function EmailTemplatesPage() {
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState("");
 
-  function load() {
+  async function load() {
     setLoading(true);
-    return fetch("/api/settings/document-templates")
-      .then((r) => r.json())
-      .then((data) => setTemplates(Array.isArray(data) ? data : []))
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch("/api/settings/document-templates");
+      if (!res.ok) {
+        reportResponseError(res);
+        return;
+      }
+      const data = await res.json();
+      setTemplates(Array.isArray(data) ? data : []);
+    } catch {
+      showError(t("app.emailTemplates.loadError", "Could not load templates"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -16,8 +16,15 @@ export default function PayrollPage() {
 
   useEffect(() => {
     fetch("/api/payouts")
-      .then((r) => r.json())
-      .then((data) => setPayouts(Array.isArray(data) ? data : []))
+      .then(async (res) => {
+        // Was silent: a failed GET fell through to "No payouts yet".
+        if (!res.ok) return reportResponseError(res);
+        const data = await res.json();
+        setPayouts(Array.isArray(data) ? data : []);
+      })
+      .catch(() =>
+        showError(t("app.payrollRun.loadFailed", "Couldn't load payouts.")),
+      )
       .finally(() => setLoading(false));
   }, []);
 

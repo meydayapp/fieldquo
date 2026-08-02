@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function WorkAreasPage() {
@@ -14,14 +14,27 @@ export default function WorkAreasPage() {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/work-areas").then((r) => r.json()),
-      fetch("/api/settings/members").then((r) => r.json()),
-    ]).then(([wa, m]) => {
-      setWorkAreas(Array.isArray(wa) ? wa : []);
-      setMembers(Array.isArray(m) ? m : []);
-      setLoading(false);
-    });
+    (async () => {
+      try {
+        const [waRes, mRes] = await Promise.all([
+          fetch("/api/work-areas"),
+          fetch("/api/settings/members"),
+        ]);
+        // Don't feed an error body into the setters — leave lists empty so the
+        // page renders normally instead of choking on a 404/500 payload.
+        if (!waRes.ok) return reportResponseError(waRes);
+        if (!mRes.ok) return reportResponseError(mRes);
+        const wa = await waRes.json();
+        const m = await mRes.json();
+        setWorkAreas(Array.isArray(wa) ? wa : []);
+        setMembers(Array.isArray(m) ? m : []);
+      } catch {
+        // Was silent: a network rejection left the page stuck on the skeleton.
+        showError("Couldn't load work areas. Check your connection and retry.");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   async function handleCreate(e) {

@@ -46,10 +46,22 @@ export default function AccountBillingPage() {
 
   function load() {
     return Promise.all([
-      fetch("/api/settings/subscription").then((r) => r.json()),
-      fetch("/api/settings/plans").then((r) => (r.ok ? r.json() : [])),
-    ]).then(([sub, planList]) => {
-      setSubscription(sub);
+      fetch("/api/settings/subscription"),
+      fetch("/api/settings/plans"),
+    ]).then(async ([subRes, planRes]) => {
+      // A non-ok subscription response is an { error } body, not a plan — the
+      // "no plan" case is a 200 with plan:null. Feeding a 401/500 body into
+      // setSubscription would render a corrupt page and, worse, look like "No
+      // active plan" to someone who's paying. Leave the data empty so the
+      // recovery path shows, and say what actually failed.
+      if (!subRes.ok) {
+        setSubscription(null);
+        setPlans([]);
+        setError(t("app.billing.loadFailed", "Couldn't load your subscription. Please try again."));
+        return;
+      }
+      setSubscription(await subRes.json());
+      const planList = planRes.ok ? await planRes.json() : [];
       setPlans(Array.isArray(planList) ? planList : []);
     });
   }
@@ -115,6 +127,11 @@ export default function AccountBillingPage() {
         if (fromPortal && wasLockedRef.current) {
           window.location.href = "/app";
         }
+      })
+      .catch(() => {
+        // A network rejection from load()/reconcile() must not vanish and leave
+        // the page looking like there's simply no plan.
+        setError(t("app.billing.loadUnreachable", "Couldn't reach the server to load your billing. Please try again."));
       })
       .finally(() => {
         setLoading(false);
