@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
+import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -57,6 +58,17 @@ export async function PATCH(request, { params }) {
         },
       }),
     }).catch((err) => console.error("On-my-way SMS failed:", err.message));
+  }
+
+  // A completed visit on a recurring job spawns the next one immediately, so the
+  // crew closing out today's clean sees next week's already on the calendar
+  // instead of waiting for the nightly cron. ensureUpcomingVisit is idempotent
+  // (it no-ops when a future visit already exists), so this and the cron can't
+  // double-book. Never let it block the status update that just saved.
+  if (status === "completed" && visit.job.recurring) {
+    await ensureUpcomingVisit(db, _params.id).catch((err) =>
+      console.error("[recurring next-visit] failed:", err.message),
+    );
   }
 
   return NextResponse.json(updated);
