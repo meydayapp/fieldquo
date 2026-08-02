@@ -332,7 +332,7 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
           )}
           <a
             href={`/quote/${company.slug}`}
-            className={`inline-flex items-center gap-1.5 text-sm font-bold px-3.5 sm:px-4 py-2.5 whitespace-nowrap transition-transform hover:-translate-y-0.5 ${S?.pill || "rounded-full"}`}
+            className={`inline-flex items-center gap-1.5 text-sm px-3.5 sm:px-4 py-2.5 whitespace-nowrap transition-transform hover:-translate-y-0.5 ${S?.button?.weight || "font-bold"} ${S?.button?.shape || S?.pill || "rounded-full"}`}
             style={{ backgroundColor: fill.bg, color: fill.fg }}
           >
             {/* Shorter label on a phone. "Get a quote" plus a long company name
@@ -349,12 +349,14 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
 
 /* ────────────────────────────── Hero ────────────────────────────── */
 
-function HeroActions({ company, theme, fill, ctaLabel, onImage, center, t }) {
+function HeroActions({ company, theme, fill, ctaLabel, onImage, center, t, S }) {
+  const b = S?.button || {};
+  const base = `inline-flex items-center gap-2 text-sm transition-transform hover:-translate-y-0.5 ${b.pad || "px-7 py-3.5"} ${b.shape || "rounded-full"} ${b.weight || "font-bold"}`;
   return (
     <div className={`mt-9 flex flex-wrap gap-3 ${center ? "justify-center" : ""}`}>
       <a
         href={`/quote/${company.slug}`}
-        className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold shadow-lg transition-transform hover:-translate-y-0.5"
+        className={`${base} ${b.shadow || "shadow-lg"}`}
         style={{ backgroundColor: fill.bg, color: fill.fg }}
       >
         {ctaLabel || t.ctaFreeQuote}
@@ -362,7 +364,7 @@ function HeroActions({ company, theme, fill, ctaLabel, onImage, center, t }) {
       {company.phone && (
         <a
           href={`tel:${company.phone}`}
-          className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold border-2 transition-colors"
+          className={`${base} border-2`}
           style={{ borderColor: onImage ? "#ffffff" : theme.border, color: onImage ? "#ffffff" : theme.accentText }}
         >
           <Phone size={15} /> {t.call} {company.phone}
@@ -403,7 +405,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
               {subhead}
             </p>
           )}
-          <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
+          <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} S={S} />
         </div>
       </section>
     );
@@ -428,7 +430,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
                   {subhead}
                 </p>
               )}
-              <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
+              <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} S={S} />
             </div>
             {/* Bleeds past the container on the right — the asymmetry is the
                 point. -mr on desktop only; on a phone it sits normally, because
@@ -468,7 +470,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
                 {subhead}
               </p>
             )}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} S={S} />
           </div>
         </div>
       </section>
@@ -489,7 +491,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
               {title}
             </h1>
             {subhead && <p className="mt-5 text-lg sm:text-xl leading-relaxed max-w-[34ch]" style={{ color: theme.inkMutedOnWash }}>{subhead}</p>}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} t={t} S={S} />
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -513,7 +515,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
           <div className="max-w-6xl mx-auto">
             <h1 className={`${S?.h1 || "text-4xl sm:text-6xl font-extrabold tracking-[-0.03em]"} leading-[1.02] max-w-2xl`} style={{ color: "#fff", textWrap: "balance", ...(S?.serif ? { fontFamily: "Georgia, 'Times New Roman', serif" } : {}) }}>{title}</h1>
             {subhead && <p className="mt-4 text-lg sm:text-xl leading-relaxed max-w-xl" style={{ color: "rgba(255,255,255,.92)" }}>{subhead}</p>}
-            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} />
+            <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage t={t} S={S} />
           </div>
         </div>
       </section>
@@ -547,7 +549,7 @@ function Hero({ block, company, theme, fill, accent2, S, t }) {
             {subhead}
           </p>
         )}
-        <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage={Boolean(backgroundImage)} center t={t} />
+        <HeroActions company={company} theme={theme} fill={fill} ctaLabel={ctaLabel} onImage={Boolean(backgroundImage)} center t={t} S={S} />
       </div>
     </section>
   );
@@ -1437,7 +1439,7 @@ function CtaBand({ block, company, theme, fill, S, t }) {
           {quoteHref && (
             <a
               href={quoteHref}
-              className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold ${S?.pill || "rounded-full"}`}
+              className={`inline-flex items-center justify-center gap-2 text-sm ${S?.button?.pad || "px-6 py-3.5"} ${S?.button?.weight || "font-bold"} ${S?.button?.shape || S?.pill || "rounded-full"}`}
               style={{ backgroundColor: band.fg, color: band.bg }}
             >
               <FileText size={16} /> {buttonLabel || t.ctaFreeQuote}
@@ -1446,7 +1448,7 @@ function CtaBand({ block, company, theme, fill, S, t }) {
           {bookHref && (
             <a
               href={bookHref}
-              className={`inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm font-bold border-2 ${S?.pill || "rounded-full"}`}
+              className={`inline-flex items-center justify-center gap-2 text-sm ${S?.button?.pad || "px-6 py-3.5"} ${S?.button?.weight || "font-bold"} border-2 ${S?.button?.shape || S?.pill || "rounded-full"}`}
               style={{ borderColor: band.fg, color: band.fg }}
             >
               <CalendarDays size={16} /> {t.ctaBook}
