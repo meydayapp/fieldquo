@@ -22,7 +22,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
  * on the others read as a fact about this language rather than a warning
  * someone forgot to remove.
  */
-function Coverage({ code }) {
+function Coverage({ code, t }) {
   const pct = Math.round(appCoverage(code) * 100);
   if (pct === 100) {
     // Complete but not yet human-checked: say so rather than badge it "100%"
@@ -30,25 +30,27 @@ function Coverage({ code }) {
     if (!appReviewed(code)) {
       return (
         <span className="text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
-          Interface 100% · needs review
+          {t("app.langSettings.coverageNeedsReview", "Interface 100% · needs review")}
         </span>
       );
     }
     return (
       <span className="text-xs text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-        Interface 100%
+        {t("app.langSettings.coverageComplete", "Interface 100%")}
       </span>
     );
   }
   return (
     <span className="text-xs text-muted-foreground whitespace-nowrap">
-      {pct > 0 ? `Interface ${pct}%` : "Interface in English"}
+      {pct > 0
+        ? t("app.langSettings.coveragePartial", "Interface {pct}%", { pct })
+        : t("app.langSettings.coverageEnglish", "Interface in English")}
     </span>
   );
 }
 
 export default function LanguageSettingsPage() {
-  const { changeLanguage } = useTranslation();
+  const { t, changeLanguage } = useTranslation();
 
   const [personal, setPersonal] = useState(null); // null = inherit
   const [companyDefault, setCompanyDefault] = useState("en");
@@ -64,7 +66,7 @@ export default function LanguageSettingsPage() {
         setPersonal(data.language ?? null);
         setCompanyDefault(data.defaultLanguage || "en");
       })
-      .catch(() => setError("Couldn't load language settings."))
+      .catch(() => setError(t("app.langSettings.loadError", "Couldn't load language settings.")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -78,7 +80,7 @@ export default function LanguageSettingsPage() {
         body: JSON.stringify(patch),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Couldn't save.");
+      if (!res.ok) throw new Error(data.error || t("app.langSettings.saveError", "Couldn't save."));
 
       setPersonal(data.language ?? null);
       setCompanyDefault(data.defaultLanguage || "en");
@@ -113,10 +115,10 @@ export default function LanguageSettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Globe size={20} className="text-muted-foreground" />
-          Language
+          {t("app.langSettings.title", "Language")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          What language your clients&apos; quotes, invoices and emails go out in.
+          {t("app.langSettings.subtitle", "What language your clients' quotes, invoices and emails go out in.")}
         </p>
       </div>
 
@@ -128,7 +130,7 @@ export default function LanguageSettingsPage() {
 
       {/* Personal */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Your language</h2>
+        <h2 className="font-semibold text-foreground">{t("app.langSettings.yourLanguage", "Your language")}</h2>
         {/* ── Still telling the truth, with a better answer ──────────────────
             This used to say the interface was English-only, because User.language
             was written here and read by nothing. It is read now — the app layout
@@ -142,13 +144,10 @@ export default function LanguageSettingsPage() {
             (appCoverage), so it can't drift out of date the way a hardcoded
             sentence would. */}
         <p className="text-sm text-muted-foreground mt-1 mb-2">
-          What you read the app in. Each option below shows how much of the
-          interface is translated — the rest falls back to English.
+          {t("app.langSettings.yourLanguageHint", "What you read the app in. Each option below shows how much of the interface is translated — the rest falls back to English.")}
         </p>
         <p className="text-sm text-muted-foreground mb-4">
-          This is separate from what your <em>clients</em> see. Quotes, invoices,
-          PDFs and the emails carrying them go out in the client&apos;s own
-          language in every supported language, whatever you read the app in.
+          {t("app.langSettings.clientsNote", "This is separate from what your clients see. Quotes, invoices, PDFs and the emails carrying them go out in the client's own language in every supported language, whatever you read the app in.")}
         </p>
 
         <div className="space-y-2">
@@ -162,7 +161,7 @@ export default function LanguageSettingsPage() {
             }`}
           >
             <span className="text-sm text-foreground">
-              Match company default
+              {t("app.langSettings.matchDefault", "Match company default")}
               <span className="text-muted-foreground">
                 {" "}
                 —{" "}
@@ -189,7 +188,7 @@ export default function LanguageSettingsPage() {
                 <span className="text-muted-foreground"> — {l.name}</span>
               </span>
               <span className="flex items-center gap-3">
-                <Coverage code={l.code} />
+                <Coverage code={l.code} t={t} />
                 {personal === l.code && (
                   <Check size={16} className="text-foreground" />
                 )}
@@ -201,11 +200,9 @@ export default function LanguageSettingsPage() {
 
       {/* Company default */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground">Company default</h2>
+        <h2 className="font-semibold text-foreground">{t("app.langSettings.companyDefault", "Company default")}</h2>
         <p className="text-sm text-muted-foreground mt-1 mb-4">
-          Used for team members who haven&apos;t picked a language, and for
-          quotes and invoices to clients who don&apos;t have one set. Owners and
-          admins only.
+          {t("app.langSettings.companyDefaultHint", "Used for team members who haven't picked a language, and for quotes and invoices to clients who don't have one set. Owners and admins only.")}
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -226,21 +223,19 @@ export default function LanguageSettingsPage() {
         </div>
 
         <p className="text-xs text-muted-foreground mt-4">
-          Changing this moves everyone who hasn&apos;t set their own language.
-          It does not change quotes already sent — those keep the language they
-          were sent in.
+          {t("app.langSettings.companyDefaultNote", "Changing this moves everyone who hasn't set their own language. It does not change quotes already sent — those keep the language they were sent in.")}
         </p>
       </div>
 
       <div className="flex items-center gap-3 text-sm">
         {saving && (
           <span className="text-muted-foreground flex items-center gap-1.5">
-            <Loader2 size={14} className="animate-spin" /> Saving…
+            <Loader2 size={14} className="animate-spin" /> {t("app.action.saving", "Saving…")}
           </span>
         )}
-        {savedFlash && <span className="text-emerald-600 dark:text-emerald-400">Saved</span>}
+        {savedFlash && <span className="text-emerald-600 dark:text-emerald-400">{t("app.action.saved", "Saved")}</span>}
         <span className="text-muted-foreground">
-          Currently showing:{" "}
+          {t("app.langSettings.currentlyShowing", "Currently showing:")}{" "}
           {LANGUAGES.find((l) => l.code === effective)?.nativeName || effective}
         </span>
       </div>
