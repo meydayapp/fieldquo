@@ -16,10 +16,13 @@
 export const HELP_CATEGORIES = [
   { key: "getting-started", label: "Getting started" },
   { key: "quoting", label: "Quoting & invoicing" },
+  { key: "jobs-clients", label: "Jobs & clients" },
+  { key: "booking-leads", label: "Booking & leads" },
   { key: "instant-quotes", label: "Instant quotes" },
   { key: "getting-paid", label: "Getting paid" },
   { key: "email-domains", label: "Email & website" },
   { key: "team-scheduling", label: "Team & scheduling" },
+  { key: "on-the-go", label: "On the go (mobile)" },
   { key: "troubleshooting", label: "Troubleshooting" },
 ];
 
@@ -335,6 +338,187 @@ export const HELP_ARTICLES = [
         "Team members request time off from the Time off screen.",
         "Approve or decline from the same screen — approved time off shows on the team schedule.",
       ] },
+    ],
+  },
+
+  // ── Jobs & clients ──
+  {
+    slug: "add-clients",
+    category: "jobs-clients",
+    audience: "company",
+    title: "Add and manage your clients",
+    summary: "Your client list is the address book every quote, job and invoice pulls from.",
+    body: [
+      { p: "A client only has to be added once — after that they're a click away on any quote, job or invoice." },
+      { h: "Steps" },
+      { steps: [
+        "Go to Clients → New client.",
+        "Enter their name and at least one way to reach them (email or phone). Email lets you send quotes and invoices; phone lets you send texts.",
+        "Add their address if you want it on documents and to plan travel time.",
+        "Save. They'll now appear when you start a quote, job or invoice.",
+      ] },
+      { note: "Have a spreadsheet of clients? Use Clients → Import to bring them all in at once." },
+    ],
+  },
+  {
+    slug: "manage-jobs",
+    category: "jobs-clients",
+    audience: "company",
+    title: "Turn an accepted quote into a scheduled job",
+    summary: "When a client accepts a quote, a job is created — put it on the calendar and track the work.",
+    body: [
+      { p: "A job is the actual work: scheduled visits, notes, photos and, when it's done, the invoice." },
+      { h: "Steps" },
+      { steps: [
+        "When a client accepts a quote, a job is created automatically — find it under Jobs (new ones show as “Needs a date”).",
+        "Open the job and add a visit: pick the date and, if you have a team, who's going.",
+        "On the day, the crew can add notes and photos to the visit.",
+        "When the work is finished, mark the job complete — then create the invoice from it.",
+      ] },
+      { note: "You can also create a job directly with Jobs → New job if there was no quote." },
+    ],
+  },
+
+  // ── Quoting & invoicing ──
+  {
+    slug: "create-invoice",
+    category: "quoting",
+    audience: "company",
+    title: "Create and send an invoice",
+    summary: "Bill a client for completed work — and let them pay online.",
+    body: [
+      { h: "Steps" },
+      { steps: [
+        "Click New → Invoice (or open a completed job and invoice it — the line items carry over).",
+        "Pick the client, check the line items and total, and set a due date.",
+        "Save & Send — this emails the invoice to the client's email on file, with a link to pay.",
+      ] },
+      { note: "No email goes out if the client has no email on their record. Add one first, or send them the invoice link yourself." },
+    ],
+  },
+
+  // ── Getting paid ──
+  {
+    slug: "record-payment",
+    category: "getting-paid",
+    audience: "company",
+    title: "Record a payment",
+    summary: "Mark an invoice paid — automatically when they pay online, or by hand for cash and cheques.",
+    body: [
+      { p: "Online card payments (once Stripe is connected) mark themselves paid. For cash, cheque or e-transfer, record it yourself so your numbers stay right." },
+      { h: "Steps" },
+      { steps: [
+        "Open the invoice.",
+        "Choose Record payment, enter the amount and how they paid.",
+        "The invoice updates to paid (or part-paid), and it counts toward your revenue and cash-flow figures.",
+      ] },
+    ],
+  },
+
+  // ── Booking & leads ──
+  {
+    slug: "online-booking",
+    category: "booking-leads",
+    audience: "company",
+    title: "Let clients book you online",
+    summary: "Share one link and let homeowners pick a time from your real availability.",
+    body: [
+      { p: "The booking page shows only the times you're actually free, so you never get double-booked." },
+      { h: "Steps" },
+      { steps: [
+        "Set when you're available under Settings → Availability.",
+        "Open Settings → Booking page to see your booking link and adjust visit length and buffer.",
+        "Share the link — on your website, in texts, in your email signature.",
+        "Bookings land on your schedule automatically, and the client gets a confirmation.",
+      ] },
+    ],
+  },
+  {
+    slug: "lead-form",
+    category: "booking-leads",
+    audience: "company",
+    title: "Capture leads with your quote-request form",
+    summary: "A form homeowners fill in to ask for a quote — it becomes a lead you can follow up.",
+    body: [
+      { h: "Steps" },
+      { steps: [
+        "Set up what you ask for under Settings → Lead form.",
+        "Add the form to your FieldQuo website, or share its link.",
+        "Every submission shows up under Leads, with the details and any photos the homeowner attached.",
+        "Turn a promising one into a quote with a click.",
+      ] },
+      { note: "The public form never shows your prices — it collects what you need to quote, nothing more." },
+    ],
+  },
+  {
+    slug: "work-leads",
+    category: "booking-leads",
+    audience: "company",
+    title: "Work your leads pipeline",
+    summary: "Move each lead from New to Won so nothing falls through the cracks.",
+    body: [
+      { p: "The Leads board has a column per stage: New, Contacted, Converted (Won) and Lost." },
+      { h: "Steps" },
+      { steps: [
+        "Open Leads. New requests land in the first column.",
+        "Once you've reached out, use Mark contacted to move it along.",
+        "When they accept, Mark won — or send them a quote, which does it for you.",
+        "If it goes nowhere, mark it Lost so your board stays honest.",
+      ] },
+    ],
+  },
+
+  // ── FieldQuo AI ──
+  {
+    slug: "fieldquo-ai",
+    category: "getting-started",
+    audience: "company",
+    title: "Ask FieldQuo AI about your business",
+    summary: "A built-in assistant that answers questions about your own numbers, quotes and jobs.",
+    body: [
+      { p: "FieldQuo AI reads your own data — never anyone else's — and answers in plain language. It can also draft client messages for you." },
+      { h: "Try asking" },
+      { steps: [
+        "“What's my quote-to-job conversion this month?”",
+        "“Are there any notes on next week's jobs?”",
+        "“How's the Smith job going — are we over the hours we quoted?”",
+        "“Draft a friendly reminder for invoice #1042.”",
+      ] },
+      { note: "It only answers about your business. It won't write essays or answer trivia — that keeps it fast and focused." },
+    ],
+  },
+
+  // ── On the go (mobile) ──
+  {
+    slug: "mobile-basics",
+    category: "on-the-go",
+    audience: "company",
+    title: "Using FieldQuo on your phone",
+    summary: "Everything works in your phone's browser — no app to install.",
+    body: [
+      { p: "Open FieldQuo in your phone's browser and sign in. It's built for a phone in a driveway on a slow connection." },
+      { h: "Getting around" },
+      { steps: [
+        "Tap the menu icon (top-left) to open the navigation, then tap where you want to go.",
+        "Use the “+” Create button for a fast new quote, job or invoice.",
+        "Add it to your home screen (your browser's Share → Add to Home Screen) so it opens like an app.",
+      ] },
+    ],
+  },
+  {
+    slug: "mobile-clock",
+    category: "on-the-go",
+    audience: "company",
+    title: "Clock in and check your schedule on the go",
+    summary: "For crews in the field: see today's work and track your hours from your phone.",
+    body: [
+      { h: "Steps" },
+      { steps: [
+        "Open the menu and go to Clock to clock in when you start and out when you finish — your hours are recorded for timesheets.",
+        "Check Schedule to see the visits assigned to you.",
+        "On a job's visit, add notes and photos while you're on site.",
+      ] },
+      { note: "You only see your own published shifts and the jobs assigned to you — not the whole company's." },
     ],
   },
 ];
