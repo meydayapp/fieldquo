@@ -36,6 +36,7 @@ import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/busin
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { resolveSiteStyle } from "@/lib/site/siteStyles";
+import { resolvePages, findPage, navPages, HOME_SLUG } from "@/lib/site/pages";
 import { categoryLabel } from "@/lib/i18n/translateContent";
 
 async function loadSite(subdomain, { preview = false } = {}) {
@@ -161,7 +162,7 @@ export async function generateMetadata({ params, language: langParam }) {
   };
 }
 
-export default async function CompanySitePage({ params, searchParams, language: langParam }) {
+export default async function CompanySitePage({ params, searchParams, language: langParam, pageSlug: pageSlugParam }) {
   const { subdomain } = await params;
   // Next 16: searchParams is a Promise, like params.
   const query = (await searchParams) || {};
@@ -197,11 +198,27 @@ export default async function CompanySitePage({ params, searchParams, language: 
     : {};
   const translated = language !== primary ? translations[language] : null;
 
-  let blocks = Array.isArray(translated?.blocks)
+  // ── Which page ──────────────────────────────────────────────────────────
+  //
+  // resolvePages wraps a legacy single-page site (flat `blocks`, no `pages`) as
+  // one Home page, so this is a no-op for every existing site: home resolves to
+  // all of `blocks` exactly as before. A multi-page site selects the requested
+  // page; the language layer carries its own per-page copy when present.
+  const sourceBlocks = Array.isArray(translated?.blocks)
     ? translated.blocks
     : Array.isArray(site.blocks)
       ? site.blocks
       : [];
+  const sourcePages = Array.isArray(translated?.pages) ? translated.pages : site.pages;
+  const pages = resolvePages({ blocks: sourceBlocks, pages: sourcePages });
+  const page = findPage(pages, pageSlugParam || HOME_SLUG);
+  // An unknown page slug is a 404, same as an unknown language — not a silent
+  // fall-through to Home, which would index a broken link as the homepage.
+  if (!page) notFound();
+
+  let blocks = page.blocks;
+  // The header menu needs the whole site's nav-visible pages, not just this one.
+  const menu = navPages(pages);
 
   // Auto-fill an empty gallery with real before/after job photos. A gallery the
   // company has curated (uploaded its own images) always wins; this only fills
@@ -373,6 +390,14 @@ export default async function CompanySitePage({ params, searchParams, language: 
         style={resolveSiteStyle(site.styleKey)}
         language={language}
         languages={enabled}
+        menu={menu}
+        currentPage={page.slug}
+        // In production the subdomain rewrite makes "/services" resolve; but the
+        // editor preview loads the site at /site/<sub>?preview=1 on the main
+        // domain, so its menu links need the full path and the preview flag or
+        // they'd navigate out of the iframe.
+        linkBase={query.preview === "1" ? `/site/${subdomain}` : ""}
+        linkSuffix={query.preview === "1" ? "?preview=1" : ""}
       />
     </div>
   );

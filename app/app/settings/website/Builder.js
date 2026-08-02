@@ -57,6 +57,10 @@ export default function Builder({ data, onReload }) {
   // live. Not persisted as a column — it's implied by the section order — so it
   // seeds null and lights up once the company picks or regenerates.
   const [composition, setComposition] = useState(site?.composition || null);
+  // The multi-page structure (Home / Services / Work / …). Null for a legacy
+  // single-page site. The Sections pane edits `blocks` = the Home page; `pages`
+  // carries the rest so a save preserves them.
+  const [pages, setPages] = useState(Array.isArray(site?.pages) ? site.pages : null);
   const [subdomain, setSubdomain] = useState(site?.subdomain || data?.suggestedSubdomain || "");
   const [thread, setThread] = useState(data?.chat || []);
   const [prompt, setPrompt] = useState("");
@@ -104,6 +108,7 @@ export default function Builder({ data, onReload }) {
 
     seededFor.current = incoming;
     setBlocks(site?.blocks || []);
+    setPages(Array.isArray(site?.pages) ? site.pages : null);
     if (site?.styleKey) setStyleKey(site.styleKey);
     if (site?.subdomain) setSubdomain(site.subdomain);
     // Only adopt the stored thread when we don't have one in hand — a live
@@ -159,6 +164,7 @@ export default function Builder({ data, onReload }) {
       setBlocks(nextBlocks);
       if (result.styleKey) setStyleKey(result.styleKey);
       if (result.composition) setComposition(result.composition);
+      if (Array.isArray(result.pages)) setPages(result.pages);
 
       // Say what actually changed, in the company's terms. "Done" tells them
       // nothing and makes the next prompt a guess.
@@ -189,6 +195,7 @@ export default function Builder({ data, onReload }) {
         seoTitle: result.seoTitle,
         seoDescription: result.seoDescription,
         interviewStyle: message,
+        pages: result.pages,
         // Nothing of theirs is left in the copy now, so there is nothing to warn
         // about next time.
         handEdited: false,
@@ -229,6 +236,7 @@ export default function Builder({ data, onReload }) {
       setBlocks(nextBlocks);
       if (result.styleKey) setStyleKey(result.styleKey);
       if (result.composition) setComposition(result.composition);
+      if (Array.isArray(result.pages)) setPages(result.pages);
 
       const label =
         (composition && (data?.compositions || []).find((c) => c.key === composition)?.label) ||
@@ -241,7 +249,7 @@ export default function Builder({ data, onReload }) {
 
       // Preserve the hand-edited flag: a re-layout keeps their words, so a
       // later Regenerate should still warn before rewriting them.
-      await persist(nextBlocks, result.styleKey || nextStyle || styleKey, { handEdited });
+      await persist(nextBlocks, result.styleKey || nextStyle || styleKey, { handEdited, pages: result.pages });
       await onReload?.();
     } catch (err) {
       setError(err.message);
@@ -251,10 +259,23 @@ export default function Builder({ data, onReload }) {
     }
   }
 
+  // Keep the multi-page structure and the flat blocks in step: the Sections
+  // pane edits `blocks` = the Home page, so on every save the Home entry in
+  // `pages` is rewritten with the current blocks and the other pages ride along
+  // untouched. Passing `extra.pages` (a fresh generation) wins over state.
+  function pagesForSave(homeBlocks, override) {
+    const src = override ?? pages;
+    if (!Array.isArray(src) || !src.length) return null;
+    return src.map((p, i) => (i === 0 ? { ...p, blocks: homeBlocks } : p));
+  }
+
   async function persist(nextBlocks, nextStyle, extra = {}) {
+    const home = nextBlocks ?? blocks;
+    const payloadPages = pagesForSave(home, extra.pages);
     const payload = {
       subdomain,
-      blocks: nextBlocks ?? blocks,
+      blocks: home,
+      ...(payloadPages ? { pages: payloadPages } : {}),
       styleKey: nextStyle ?? styleKey,
       ...(extra.seoTitle ? { seoTitle: extra.seoTitle } : {}),
       ...(extra.seoDescription ? { seoDescription: extra.seoDescription } : {}),
@@ -283,12 +304,15 @@ export default function Builder({ data, onReload }) {
     setSaving(true);
     setError("");
     try {
+      const savePages = pagesForSave(blocks);
       await fetchJson("/api/settings/website", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subdomain,
           blocks,
+          // Keep the Home page in step with the Sections-pane edits.
+          ...(savePages ? { pages: savePages } : {}),
           styleKey,
           ...(published !== undefined ? { published } : {}),
           chat: [...thread].slice(-40),

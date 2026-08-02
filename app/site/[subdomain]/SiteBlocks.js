@@ -21,10 +21,11 @@
 // never becomes a colour or a raw style string. See app/data/siteBlocks.js.
 
 import {
-  Phone, Mail, MapPin, FileText, CalendarDays, Clock,
+  Phone, Mail, MapPin, FileText, CalendarDays, Clock, Menu,
   Wrench, Home, Paintbrush, Hammer, Ruler, Sparkles, ShieldCheck, Star,
 } from "lucide-react";
 import { neutralPair } from "@/lib/documents/theme";
+import { HOME_SLUG } from "@/lib/site/pages";
 import { resolveSiteStyle, DEFAULT_SITE_STYLE } from "@/lib/site/siteStyles";
 import { groupHours, openState, formatTime } from "@/lib/company/businessHours";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
@@ -44,7 +45,7 @@ function accent2Of(company, theme) {
   return typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s) ? s : theme.accentText;
 }
 
-export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [] }) {
+export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "" }) {
   // `t` is the copy table for THIS site's language. Threaded to every block
   // rather than imported inside each, so one page always renders in one language
   // and a block can't accidentally read a different one.
@@ -59,7 +60,7 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
 
   return (
     <>
-      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} />
+      <SiteHeader company={company} theme={theme} fill={fill} accent2={accent2} blocks={visible} S={S} t={t} language={language} languages={languages} subdomain={subdomain} menu={menu} currentPage={currentPage} linkBase={linkBase} linkSuffix={linkSuffix} />
       <main>
         {visible.map((block) => {
           const props = { block, company, theme, fill, subdomain, accent2, S, t };
@@ -210,7 +211,7 @@ const navEntry = (type, t) =>
       }
     : null;
 
-function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain }) {
+function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languages = [], subdomain, menu = [], currentPage, linkBase = "", linkSuffix = "" }) {
   const state = openState(company.businessHours, company.timezone);
   const neutral = neutralPair(theme);
   // Deduped by anchor id, not by block type: `beforeafter` and `gallery` both
@@ -221,6 +222,20 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
     const entry = navEntry(b.type, t);
     if (entry && !nav.some((n) => n.id === entry.id)) nav.push(entry);
   }
+
+  // Multi-page (real menu) vs single-page (anchor nav). A site with more than
+  // just Home gets true page links; a one-pager keeps scrolling-section anchors.
+  const isMulti = menu.length > 1;
+  // Language prefix so a menu link on the French page stays French: primary
+  // language lives at the root, others under /<code>.
+  const langPrefix = language && language !== languages[0] ? `/${language}` : "";
+  // linkBase/linkSuffix let the editor preview build full in-iframe URLs; in
+  // production they're empty and the subdomain rewrite handles routing.
+  const pageHref = (slug) =>
+    slug === HOME_SLUG
+      ? `${linkBase}${langPrefix}${linkSuffix}` || "/"
+      : `${linkBase}${langPrefix}/${slug}${linkSuffix}`;
+  const homeHref = `${linkBase}${langPrefix}${linkSuffix}` || "/";
 
   // The bold and editorial styles want the hero photo to run to the top of the
   // viewport, so their header floats over it rather than sitting on a solid bar.
@@ -251,7 +266,7 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
             long company name meets a phone-width header. It was shrink-0, so at
             375px the name held its full width and pushed the "Get a quote"
             button off the right edge of the screen. */}
-        <a href="#" className="flex items-center gap-3 min-w-0 flex-1 lg:flex-initial overflow-hidden">
+        <a href={homeHref} className="flex items-center gap-3 min-w-0 flex-1 lg:flex-initial overflow-hidden">
           {company.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logoUrl} alt={company.name} className="h-9 w-auto max-w-[170px] object-contain" />
@@ -278,9 +293,24 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
           )}
         </a>
 
-        {/* Anchor nav — makes the page navigate like a multi-page site. Hidden
-            on small screens where the scroll + CTA are enough. */}
-        {nav.length > 0 && (
+        {/* The menu. Multi-page sites get real page links; a one-pager keeps
+            the scrolling-section anchors. Desktop only — mobile uses the
+            disclosure menu on the right. */}
+        {isMulti ? (
+          <nav className="hidden md:flex items-center gap-6 mx-auto">
+            {menu.map((p) => (
+              <a
+                key={p.slug}
+                href={pageHref(p.slug)}
+                aria-current={p.slug === currentPage ? "page" : undefined}
+                className={`text-sm transition-colors hover:opacity-70 ${p.slug === currentPage ? "font-bold" : "font-medium"}`}
+                style={{ color: overlay ? "rgba(255,255,255,.92)" : (p.slug === currentPage ? theme.accentText : theme.inkMuted) }}
+              >
+                {p.title}
+              </a>
+            ))}
+          </nav>
+        ) : nav.length > 0 ? (
           <nav className="hidden md:flex items-center gap-6 mx-auto">
             {nav.map((n) => (
               <a
@@ -293,7 +323,7 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
               </a>
             ))}
           </nav>
-        )}
+        ) : null}
 
         <div className="flex items-center gap-3 shrink-0">
           {/* ── Language switcher ────────────────────────────────────────────
@@ -341,6 +371,37 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
             <span className="sm:hidden">{t.ctaQuoteShort}</span>
             <span className="hidden sm:inline">{t.ctaQuote}</span>
           </a>
+
+          {/* Mobile menu — a native <details> disclosure so it needs no client
+              JavaScript (this header is server-rendered). Only for multi-page
+              sites; a one-pager has nowhere to navigate but the scroll. */}
+          {isMulti && (
+            <details className="md:hidden relative">
+              <summary
+                className="list-none cursor-pointer grid place-items-center w-9 h-9 rounded-lg"
+                aria-label={t.menu || "Menu"}
+                style={{ color: overlay ? "#fff" : theme.accentText }}
+              >
+                <Menu size={22} />
+              </summary>
+              <div
+                className="absolute right-0 top-full mt-2 w-56 rounded-xl border shadow-xl p-2 z-50"
+                style={{ borderColor: theme.border, backgroundColor: theme.paper || "#ffffff" }}
+              >
+                {menu.map((p) => (
+                  <a
+                    key={p.slug}
+                    href={pageHref(p.slug)}
+                    aria-current={p.slug === currentPage ? "page" : undefined}
+                    className={`block px-3 py-2.5 rounded-lg text-sm hover:bg-black/5 ${p.slug === currentPage ? "font-bold" : "font-medium"}`}
+                    style={{ color: p.slug === currentPage ? theme.accentText : theme.ink }}
+                  >
+                    {p.title}
+                  </a>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
     </header>

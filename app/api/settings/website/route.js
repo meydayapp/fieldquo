@@ -26,6 +26,8 @@ import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
+import { buildPages } from "@/lib/site/buildPages";
+import { pageSlug, HOME_SLUG } from "@/lib/site/pages";
 import { siteGaps } from "@/lib/site/gaps";
 import { countPlaceholders, isPlaceholder } from "@/lib/site/placeholderImages";
 import { SITE_LANGUAGES } from "@/lib/site/siteCopy";
@@ -237,6 +239,24 @@ export async function PUT(request) {
     subdomain,
     ...(body.languages === undefined ? {} : {}),
     blocks: sanitiseBlocks(body.blocks),
+    // The multi-page structure. Each page's blocks go through the SAME sanitiser
+    // as the flat blocks — the security boundary between "what a browser sent"
+    // and "what's served publicly" applies per page. Slugs are normalised; Home
+    // is pinned to the first entry. Absent/invalid `pages` leaves the column
+    // untouched, so a single-page save can't wipe a multi-page site.
+    ...(Array.isArray(body.pages) && body.pages.length
+      ? {
+          pages: body.pages
+            .filter((p) => p && Array.isArray(p.blocks))
+            .map((p, i) => ({
+              id: String(p.id || `${p.slug || "page"}_${i}`).slice(0, 60),
+              slug: i === 0 ? HOME_SLUG : pageSlug(p.slug) || `page-${i}`,
+              title: String(p.title || "Page").slice(0, 60),
+              nav: p.nav !== false,
+              blocks: sanitiseBlocks(p.blocks),
+            })),
+        }
+      : {}),
     seoTitle: str(body.seoTitle, 70),
     seoDescription: str(body.seoDescription, 200),
     // Clamped to the closed set — a styleKey from a browser can never become an
@@ -382,13 +402,38 @@ export async function POST(request) {
         }),
     });
 
-    return NextResponse.json(result);
+    // Split the generated single page into a real multi-page site (Home /
+    // Services / Our Work / About / Book / Get a quote / Contact). Deterministic,
+    // so no extra model spend, and it only arranges the copy the generator
+    // already wrote. `blocks` stays as the Home page's content for backward
+    // compatibility and for consumers that still read a flat page.
+    const available = {
+      services: services.length > 0,
+      photos: photos.length > 0,
+      photoPairs: photoPairs.length > 0,
+      testimonials: testimonials.length > 0,
+      areas: areas.length > 0,
+      hours:
+        Array.isArray(company.businessHours) &&
+        company.businessHours.some((d) => d && typeof d === "object" && !d.closed),
+    };
+    const pages = buildPages(result.blocks, available);
+    return NextResponse.json({ ...result, pages, blocks: pages[0].blocks });
   } catch (err) {
     console.error("[settings/website] generation failed:", err);
     // A failed generation still returns a usable site rather than an error
     // screen — the whole point of the factual fallback.
+    const fallbackBlocks = siteFromCompany({ company, services, testimonials, photos, photoPairs, areas });
+    const fallbackPages = buildPages(fallbackBlocks, {
+      services: services.length > 0,
+      photos: photos.length > 0,
+      photoPairs: photoPairs.length > 0,
+      testimonials: testimonials.length > 0,
+      areas: areas.length > 0,
+    });
     return NextResponse.json({
-      blocks: siteFromCompany({ company, services, testimonials, photos, photoPairs, areas }),
+      blocks: fallbackPages[0].blocks,
+      pages: fallbackPages,
       seoTitle: null,
       seoDescription: null,
       generated: false,
