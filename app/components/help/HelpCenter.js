@@ -121,8 +121,12 @@ export default function HelpCenter({ audience, title, intro }) {
         </button>
       )}
 
-      {cats.length === 0 && (
-        <p className="text-sm text-muted-foreground">No articles match “{query}”.</p>
+      {query && (
+        <p className="text-sm text-muted-foreground mb-4">
+          {filtered.length === 0
+            ? `No articles match “${query}”.`
+            : `${filtered.length} ${filtered.length === 1 ? "result" : "results"} for “${query}”`}
+        </p>
       )}
 
       <div className="space-y-6">

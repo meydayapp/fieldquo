@@ -13,7 +13,7 @@ export default function HelpPage() {
     <HelpCenter
       audience="company"
       title={t("app.help.title")}
-      intro="Guides for getting the most out of FieldQuo — setup, quoting, instant quotes, payments and more."
+      intro="Step-by-step guides for everything in FieldQuo — quotes, jobs, invoices, getting paid, booking, your website, your team, and using it on your phone. Search, or browse by topic below."
     />
   );
 }
