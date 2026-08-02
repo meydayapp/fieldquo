@@ -232,7 +232,7 @@ export default function BrandingPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/png,image/jpeg"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
               onChange={handleFileSelect}
               className="hidden"
             />

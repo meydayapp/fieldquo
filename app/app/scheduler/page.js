@@ -90,9 +90,16 @@ export default function SchedulerPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <CalendarDays size={20} className="text-foreground" />
-        <h1 className="text-2xl font-bold text-foreground">{t("app.scheduler.title")}</h1>
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={20} className="text-foreground" />
+          <h1 className="text-2xl font-bold text-foreground">{t("app.scheduler.title")}</h1>
+        </div>
+        {isManager && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("app.scheduler.managerSubtitle", "Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.")}
+          </p>
+        )}
       </div>
 
       {/* Week nav */}

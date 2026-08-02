@@ -164,6 +164,11 @@ export default function ServiceSettingsPage() {
       </p>
 
       <div className="space-y-3">
+        {categories.length === 0 && (
+          <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
+            {t("app.setServices.emptyState")}
+          </div>
+        )}
         {categories.map((c) => (
           <div
             key={c.id}

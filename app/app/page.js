@@ -153,6 +153,9 @@ export default function DashboardPage() {
               ? `${Math.round(overview.conversionRate * 100)}%`
               : "—"}
           </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            {t("app.dash.conversionRateCaption", "% of sent quotes clients accepted")}
+          </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -210,7 +213,11 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-border">
             {recentQuotes.length === 0 && (
-              <p className="px-5 py-6 text-sm text-muted-foreground">{t("app.dash.noQuotes")}</p>
+              <p className="px-5 py-6 text-sm text-muted-foreground">
+                <Link href="/app/quotes/new" className="text-foreground underline">
+                  {t("app.dash.noQuotesCta", "No quotes yet — create your first quote")}
+                </Link>
+              </p>
             )}
             {recentQuotes.map((q) => (
               <Link
@@ -247,7 +254,9 @@ export default function DashboardPage() {
           <div className="divide-y divide-border">
             {upcomingAppointments.length === 0 && (
               <p className="px-5 py-6 text-sm text-muted-foreground">
-                {t("app.dash.nothingScheduled")}
+                <Link href="/app/appointments" className="text-foreground underline">
+                  {t("app.dash.nothingScheduledCta", "Nothing scheduled yet — book an appointment")}
+                </Link>
               </p>
             )}
             {upcomingAppointments.map((a) => (

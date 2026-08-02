@@ -25,7 +25,7 @@ function initials(name) {
   );
 }
 
-const ROLE_LABEL = { owner: "Owner", admin: "Manager", supervisor: "Estimator", employee: "Team" };
+const ROLE_LABEL = { owner: "Owner", admin: "Admin", supervisor: "Supervisor", employee: "Employee" };
 
 function when(iso) {
   return new Date(iso).toLocaleString(undefined, {

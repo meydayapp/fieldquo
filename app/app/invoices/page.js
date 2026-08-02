@@ -137,6 +137,19 @@ export default function InvoicesPage() {
           <p className="text-sm text-muted-foreground">
             {search ? "No invoices match your search." : "No invoices yet."}
           </p>
+          {!search && (
+            <>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("app.invoices.emptyHint", "Invoices bill a client for completed work")}
+              </p>
+              <Link
+                href="/app/invoices/new"
+                className="text-sm font-medium text-foreground underline mt-2 inline-block"
+              >
+                {t("app.invoices.empty", "Create your first invoice")}
+              </Link>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">

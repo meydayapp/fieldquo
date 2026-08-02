@@ -16,6 +16,17 @@ const STATUS_STYLES = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
+// Human labels for statuses. Raw values like "unscheduled" / "in_progress"
+// mean nothing to a contractor — translate through app.status.* (with the
+// existing camelCase keys the rest of the app uses for shared statuses).
+const STATUS_LABEL_KEYS = {
+  unscheduled: ["app.status.unscheduled", "Needs a date"],
+  scheduled: ["app.status.scheduled", "Scheduled"],
+  in_progress: ["app.status.inProgress", "In progress"],
+  completed: ["app.status.completed", "Completed"],
+  cancelled: ["app.status.cancelled", "Cancelled"],
+};
+
 export default function JobsPage() {
   const { t } = useTranslation();
   const [jobs, setJobs] = useState([]);
@@ -39,6 +50,16 @@ export default function JobsPage() {
     }
     load();
   }, []);
+
+  const statusLabel = (s) => {
+    const k = STATUS_LABEL_KEYS[s];
+    return k ? t(k[0], k[1]) : s.replace("_", " ");
+  };
+
+  // "No jobs in this view." only makes sense when a filter or search is
+  // narrowing things down. With zero jobs and nothing applied, this is a
+  // brand-new account that has never had a job — show a real first-run state.
+  const hasActiveFilter = filter !== "all" || search.trim() !== "";
 
   const filtered = jobs.filter((j) => {
     if (filter !== "all" && j.status !== filter) return false;
@@ -95,7 +116,7 @@ export default function JobsPage() {
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {s.replace("_", " ")}
+                {s === "all" ? t("app.jobs.filterAll", "All") : statusLabel(s)}
               </button>
             ),
           )}
@@ -117,7 +138,24 @@ export default function JobsPage() {
       {filtered.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center">
           <Briefcase size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
+          {hasActiveFilter ? (
+            <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                {t(
+                  "app.jobs.emptyFirstRun",
+                  "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
+                )}
+              </p>
+              <Link
+                href="/app/jobs/new"
+                className="inline-flex items-center gap-2 mt-4 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+              >
+                <Plus size={16} /> {t("app.jobs.new")}
+              </Link>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
@@ -139,7 +177,7 @@ export default function JobsPage() {
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLES[job.status]}`}
                     >
-                      {job.status.replace("_", " ")}
+                      {statusLabel(job.status)}
                     </span>
                     {job.recurring && (
                       <span className="text-xs px-2 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shrink-0">

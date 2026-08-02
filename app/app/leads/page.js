@@ -21,7 +21,7 @@ const COLUMNS = [
   { key: "contacted", label: "Contacted", tone: "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900" },
   {
     key: "converted",
-    label: "Converted",
+    label: "Won",
     tone: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900",
   },
   { key: "lost", label: "Lost", tone: "bg-muted border-border" },
@@ -237,8 +237,8 @@ export default function LeadsPage() {
                             className="inline-flex items-center gap-1 text-xs font-semibold text-foreground hover:text-foreground disabled:opacity-50"
                           >
                             {NEXT_STATUS[lead.status] === "contacted"
-                              ? "Contacted"
-                              : "Won"}
+                              ? t("app.leads.markContacted", "Mark contacted")
+                              : t("app.leads.markWon", "Mark won")}
                             <ArrowRight size={11} />
                           </button>
                         )}

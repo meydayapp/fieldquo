@@ -217,6 +217,14 @@ export default function NewInvoicePage() {
           <h2 className="font-semibold text-foreground">{t("app.invoiceNew.lineItems")}</h2>
         </div>
         <div className="space-y-2">
+          {/* Desktop-only header row; mobile keeps the per-input inline labels below. */}
+          <div className="hidden sm:grid sm:grid-cols-12 sm:gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="sm:col-span-5">{t("app.invoiceNew.description")}</span>
+            <span className="sm:col-span-2">{t("app.invoiceNew.qty")}</span>
+            <span className="sm:col-span-2">{t("app.invoiceNew.rate")}</span>
+            <span className="sm:col-span-2 text-right">{t("app.invoiceNew.amount", "Amount")}</span>
+            <span className="sm:col-span-1" />
+          </div>
           {lineItems.map((item, i) => (
             // Mobile stacks; desktop keeps the twelve-column row. Same shape as
             // the quote builder's LineItemsTable — an invoice mirrors a quote,
@@ -328,7 +336,10 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end">
+      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
+        <p className="text-xs text-muted-foreground mr-auto max-w-xs">
+          {t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")}
+        </p>
         <button
           onClick={() => handleSave("draft")}
           disabled={saving}
