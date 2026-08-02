@@ -38,20 +38,29 @@ export default function ServiceSettingsPage() {
 
   const save = async () => {
     setSaving(true);
-    await fetch("/api/settings/service-categories", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        categories: categories.map((c) => ({
-          categoryId: c.id,
-          enabled: c.enabled,
-          pricingModel: c.pricingModel,
-          defaultRate: c.defaultRate,
-          unit: c.unit,
-        })),
-      }),
-    });
-    setSaving(false);
+    try {
+      const res = await fetch("/api/settings/service-categories", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categories: categories.map((c) => ({
+            categoryId: c.id,
+            enabled: c.enabled,
+            pricingModel: c.pricingModel,
+            defaultRate: c.defaultRate,
+            unit: c.unit,
+          })),
+        }),
+      });
+      // Was fire-and-forget: a rejected save looked exactly like a successful
+      // one, so a company could turn a service off, see "Saved", and have it
+      // quietly revert. Surface the failure instead.
+      if (!res.ok) await reportResponseError(res);
+    } catch (err) {
+      await reportResponseError(err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   async function handleSeedStandard(categoryId, label) {
