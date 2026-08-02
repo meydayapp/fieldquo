@@ -247,20 +247,19 @@ export default function AdminSidebar() {
           </button>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {/* Home */}
-          <NavLink
-            item={{ key: "app.nav.home", href: "/app", icon: Home }}
-            forceExpanded={forceExpanded}
-          />
-
-          {/* + Quick add */}
+        {/* Create — pinned ABOVE the scroll area. Two reasons: its flyout is
+            absolutely positioned to the side, and inside the nav's overflow-y-auto
+            that also clips horizontally, so the popup rendered off-screen and the
+            button looked dead. And starting a quote / job / invoice is the main
+            reason people reach for the sidebar, so it earns a solid primary
+            button rather than a dashed afterthought. */}
+        <div className="px-3 pt-3">
           <div className="relative" ref={forceExpanded ? null : quickAddRef}>
             <button
               type="button"
               onClick={() => setQuickAddOpen((v) => !v)}
               title={showLabel ? undefined : t("app.quickAdd.title")}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium border border-dashed border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold bg-sidebar-primary text-sidebar-primary-foreground hover:brightness-110 ${
                 showLabel ? "" : "justify-center"
               }`}
             >
@@ -269,11 +268,7 @@ export default function AdminSidebar() {
             </button>
 
             {quickAddOpen && (
-              <div
-                className={`absolute z-50 top-0 ${
-                  showLabel ? "left-full ml-2" : "left-full ml-2"
-                } w-52 bg-card rounded-xl shadow-lg border border-border p-2`}
-              >
+              <div className="absolute z-50 top-0 left-full ml-2 w-52 bg-card rounded-xl shadow-lg border border-border p-2">
                 {QUICK_ADD_ITEMS.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -291,6 +286,18 @@ export default function AdminSidebar() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* min-h-0 lets this flex child actually shrink so overflow-y-auto
+            scrolls it — without it the nav keeps its full content height, the
+            column overflows, and the fixed bottom section (AI, profile, help,
+            logout) rides up over it. That overlap was the "two sidebars" feel. */}
+        <nav className="flex-1 min-h-0 px-3 py-4 space-y-1 overflow-y-auto">
+          {/* Home */}
+          <NavLink
+            item={{ key: "app.nav.home", href: "/app", icon: Home }}
+            forceExpanded={forceExpanded}
+          />
 
           {NAV_GROUPS.map((group) => (
             <div key={group.key} className="pt-3 first:pt-1">
