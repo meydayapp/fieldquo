@@ -27,6 +27,7 @@ import { SITE_STYLES, SITE_STYLE_KEYS } from "@/lib/site/siteStyles";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
 import { COMPOSITION_PRESETS, COMPOSITION_KEYS } from "@/lib/site/composition";
 import { buildPages } from "@/lib/site/buildPages";
+import { applyStyleStructure } from "@/lib/site/styleLayout";
 import { pageSlug, HOME_SLUG } from "@/lib/site/pages";
 import { siteGaps } from "@/lib/site/gaps";
 import { countPlaceholders, isPlaceholder } from "@/lib/site/placeholderImages";
@@ -417,7 +418,12 @@ export async function POST(request) {
         Array.isArray(company.businessHours) &&
         company.businessHours.some((d) => d && typeof d === "object" && !d.closed),
     };
-    const pages = buildPages(result.blocks, available);
+    // Stamp the template's STRUCTURE onto the blocks (hero + services layout)
+    // before splitting into pages, so a Minimal site and a Bold site differ in
+    // arrangement, not just typeface — the thing that made every template look
+    // identical.
+    const structured = applyStyleStructure(result.blocks, result.styleKey);
+    const pages = buildPages(structured, available);
     return NextResponse.json({ ...result, pages, blocks: pages[0].blocks });
   } catch (err) {
     console.error("[settings/website] generation failed:", err);
