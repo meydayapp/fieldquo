@@ -173,6 +173,10 @@ export default function CompanySettingsPage() {
           // guess published on its website and in its search listing.
           businessHours: data?.businessHours ?? null,
           sitePublished: !!data?.sitePublished,
+          // Opt-in to the anonymized industry benchmark. Written here and read
+          // by the benchmark page, which was a dead CTA linking to a page that
+          // never toggled it.
+          shareAnonymizedPricing: !!data?.shareAnonymizedPricing,
         });
         setTaxRates(Array.isArray(data?.taxRates) ? data.taxRates : []);
         setIndustries(Array.isArray(data?.industries) ? data.industries : []);
@@ -697,6 +701,26 @@ export default function CompanySettingsPage() {
                 default. */}
             <span className="block text-xs text-muted-foreground mt-1">
               {t("app.setCompany.autoApplyTaxHint")}
+            </span>
+          </span>
+        </label>
+      </SectionCard>
+
+      <SectionCard
+        title={t("app.setCompany.benchmarkTitle", "Industry benchmark")}
+        description={t("app.setCompany.benchmarkDesc", "Compare your pricing and conversion against similar trades — anonymously.")}
+      >
+        <label className="flex items-start gap-2.5 text-sm text-foreground">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={form.shareAnonymizedPricing}
+            onChange={(e) => set("shareAnonymizedPricing", e.target.checked)}
+          />
+          <span>
+            {t("app.setCompany.benchmarkLabel", "Share my anonymized figures to unlock benchmarks")}
+            <span className="block text-xs text-muted-foreground mt-1">
+              {t("app.setCompany.benchmarkHint", "Your numbers are pooled with other companies and never shown individually. You can turn this off any time.")}
             </span>
           </span>
         </label>
