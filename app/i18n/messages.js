@@ -168,6 +168,9 @@ const en = {
   "faq.items.onlinePayment.q": "Can my clients pay their invoices online?",
   "faq.items.onlinePayment.a":
     "Yes. Connect your own Stripe account and clients can pay directly from the invoice email — the money goes straight to you.",
+  "faq.items.financing.q": "Can my clients pay over time?",
+  "faq.items.financing.a":
+    "Yes. Turn on Affirm in Settings → Payments and clients can split an invoice into monthly payments at checkout — while you're still paid in full, up front.",
   "faq.items.permissions.q":
     "Can I control what my employees can see and do?",
   "faq.items.permissions.a":
@@ -358,6 +361,9 @@ const fr = {
     "Mes clients peuvent-ils payer leurs factures en ligne?",
   "faq.items.onlinePayment.a":
     "Oui. Connectez votre propre compte Stripe et vos clients paient directement depuis le courriel de facture — l'argent vous revient directement.",
+  "faq.items.financing.q": "Mes clients peuvent-ils payer en plusieurs fois?",
+  "faq.items.financing.a":
+    "Oui. Activez Affirm dans Paramètres → Paiements et vos clients peuvent régler une facture en versements mensuels au moment du paiement, pendant que vous êtes payé intégralement et d'avance.",
   "faq.items.permissions.q":
     "Puis-je contrôler ce que mes employés voient et font?",
   "faq.items.permissions.a":
@@ -541,6 +547,9 @@ const es = {
   "faq.items.onlinePayment.q": "¿Mis clientes pueden pagar en línea?",
   "faq.items.onlinePayment.a":
     "Sí. Conecta tu propia cuenta de Stripe y tus clientes pagan directamente desde el correo de la factura — el dinero llega directo a ti.",
+  "faq.items.financing.q": "¿Mis clientes pueden pagar a plazos?",
+  "faq.items.financing.a":
+    "Sí. Activa Affirm en Configuración → Pagos y tus clientes pueden dividir una factura en pagos mensuales al finalizar la compra, mientras tú cobras el total por adelantado.",
   "faq.items.permissions.q":
     "¿Puedo controlar lo que ven y hacen mis empleados?",
   "faq.items.permissions.a":
@@ -692,6 +701,9 @@ const uk = {
   "faq.items.onlinePayment.q": "Чи можуть клієнти оплачувати рахунки онлайн?",
   "faq.items.onlinePayment.a":
     "Так. Підключіть власний обліковий запис Stripe, і клієнти зможуть платити прямо з листа з рахунком — гроші надходять безпосередньо вам.",
+  "faq.items.financing.q": "Чи можуть мої клієнти платити частинами?",
+  "faq.items.financing.a":
+    "Так. Увімкніть Affirm у Налаштування → Платежі, і клієнти зможуть розділити оплату рахунку на щомісячні платежі під час оформлення, а ви отримуєте повну суму одразу.",
   "faq.items.permissions.q":
     "Чи можу я контролювати, що бачать і роблять мої працівники?",
   "faq.items.permissions.a":
@@ -876,6 +888,9 @@ const pa = {
   "faq.items.onlinePayment.q": "ਕੀ ਮੇਰੇ ਗਾਹਕ ਆਨਲਾਈਨ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ?",
   "faq.items.onlinePayment.a":
     "ਹਾਂ। ਆਪਣਾ Stripe ਖਾਤਾ ਜੋੜੋ ਅਤੇ ਗਾਹਕ ਸਿੱਧਾ ਇਨਵੌਇਸ ਈਮੇਲ ਤੋਂ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ — ਪੈਸੇ ਸਿੱਧੇ ਤੁਹਾਨੂੰ ਜਾਂਦੇ ਹਨ।",
+  "faq.items.financing.q": "ਕੀ ਮੇਰੇ ਗਾਹਕ ਸਮੇਂ ਨਾਲ ਭੁਗਤਾਨ ਕਰ ਸਕਦੇ ਹਨ?",
+  "faq.items.financing.a":
+    "ਹਾਂ। ਸੈਟਿੰਗਜ਼ → ਭੁਗਤਾਨ ਵਿੱਚ Affirm ਚਾਲੂ ਕਰੋ ਅਤੇ ਗਾਹਕ ਚੈੱਕਆਊਟ 'ਤੇ ਇਨਵੌਇਸ ਨੂੰ ਮਹੀਨਾਵਾਰ ਕਿਸ਼ਤਾਂ ਵਿੱਚ ਵੰਡ ਸਕਦੇ ਹਨ, ਜਦਕਿ ਤੁਹਾਨੂੰ ਪੂਰੀ ਰਕਮ ਪਹਿਲਾਂ ਹੀ ਮਿਲ ਜਾਂਦੀ ਹੈ।",
   "faq.items.permissions.q":
     "ਕੀ ਮੈਂ ਕੰਟਰੋਲ ਕਰ ਸਕਦਾ ਹਾਂ ਕਿ ਮੇਰੇ ਕਰਮਚਾਰੀ ਕੀ ਵੇਖਣ ਤੇ ਕਰਨ?",
   "faq.items.permissions.a":
@@ -1063,6 +1078,9 @@ const tl = {
     "Puwede bang magbayad online ang mga kliyente ko?",
   "faq.items.onlinePayment.a":
     "Oo. Ikonekta ang sarili mong Stripe account at makakabayad ang kliyente diretso mula sa invoice email — diretso sa iyo ang pera.",
+  "faq.items.financing.q": "Puwede bang magbayad nang hulugan ang mga kliyente ko?",
+  "faq.items.financing.a":
+    "Oo. I-on ang Affirm sa Settings → Payments at puwedeng hatiin ng mga kliyente ang invoice sa buwanang hulog sa checkout, habang buo pa rin ang bayad sa iyo nang maaga.",
   "faq.items.permissions.q":
     "Makokontrol ko ba kung ano ang nakikita at ginagawa ng mga empleyado ko?",
   "faq.items.permissions.a":

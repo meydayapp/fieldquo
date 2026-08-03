@@ -9,6 +9,7 @@
 export const FAQS = [
   { id: "install" },
   { id: "onlinePayment" },
+  { id: "financing" },
   { id: "permissions" },
   { id: "trade" },
   { id: "contract" },

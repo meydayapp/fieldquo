@@ -119,6 +119,64 @@ export const HELP_ARTICLES = [
       { note: "This is separate from your FieldQuo subscription. Stripe pays you directly; FieldQuo never holds your money." },
     ],
   },
+  {
+    slug: "offer-financing",
+    category: "getting-paid",
+    audience: "company",
+    title: "Let clients pay over time (Affirm)",
+    summary: "Offer monthly payments on invoices while you're still paid in full, up front.",
+    body: [
+      { p: "Affirm lets your client split an invoice into monthly payments at checkout. You're paid the full amount right away — Affirm covers the rest and collects from the client. It appears next to the card option on the pay page." },
+      { h: "Turn it on" },
+      { steps: [
+        "First activate Affirm in your Stripe dashboard (Stripe → Settings → Payment methods → Affirm). FieldQuo can't do this step for you.",
+        "In FieldQuo, go to Settings → Payments and switch on 'Offer pay-over-time (Affirm)'.",
+        "Send an invoice as usual — Affirm shows at checkout for eligible amounts.",
+      ] },
+      { note: "Available on invoices between $50 and $30,000 in USD or CAD. If Affirm isn't active on your Stripe account yet, the pay link quietly falls back to card only — it never breaks." },
+    ],
+  },
+  {
+    slug: "import-subcontractor-quote",
+    category: "quoting",
+    audience: "company",
+    title: "Add a subcontractor's quote to your own",
+    summary: "Got a quote from another FieldQuo contractor? Pull it into your quote as a marked-up cost.",
+    body: [
+      { p: "If another company that uses FieldQuo sends you a quote — say an electrician quoting a job you're bidding as the general contractor — you can add their price to your own quote as a cost, mark it up, and it becomes a line your client sees. You pay the subcontractor their price; your client sees only your marked-up total, never the subcontractor or your markup." },
+      { h: "How to add it" },
+      { steps: [
+        "Open the quote link they emailed you, while signed in to FieldQuo.",
+        "In the panel below their quote, choose which of your open quotes to add it to.",
+        "Pick a markup (10/20/30% or custom) to cover your profit and overhead, and choose whether it shows as one blended line or itemised.",
+        "Click Add to my quote.",
+      ] },
+      { h: "Changing or swapping it later" },
+      { steps: [
+        "On your quote's page, the 'Subcontractor costs' section lists everything you imported.",
+        "Use the pencil to change the markup any time before the quote is decided — your client price updates automatically.",
+        "Use the trash icon to remove one — for example, to drop a losing bid and add the one you're going with instead.",
+      ] },
+      { note: "The subcontractor's price is fixed (it's the quote they gave you), so it's read-only in the quote editor — but your markup is always yours to change. Once your client approves and the job starts, the subcontractor cost flows into that job's costs automatically." },
+    ],
+  },
+  {
+    slug: "quote-used-by-another-company",
+    category: "quoting",
+    audience: "company",
+    title: "When your quote is used in another company's project",
+    summary: "What the 'Used in another company's quote' note and its status mean.",
+    body: [
+      { p: "When another FieldQuo company adds one of your quotes to their own project as a cost, a note appears on that quote's page — 'Used in another company's quote' — with a status showing where it stands." },
+      { h: "What each status means" },
+      { steps: [
+        "Pending their client's approval — they've chosen your quote, but their own client hasn't approved yet. You're the frontrunner, not hired.",
+        "Confirmed — their client approved, or the job has started. You're good to go.",
+        "Not proceeding — their quote was declined, so this job isn't happening.",
+      ] },
+      { note: "You never see their markup or what they charge their client — that stays their business. You only see that your quote was used and where it stands." },
+    ],
+  },
 
   // ── Email & website ──
   {
