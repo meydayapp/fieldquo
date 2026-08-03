@@ -1,0 +1,131 @@
+// app/app/quotes/[id]/ImportedCostsPanel.js
+//
+// Importer (GC) side, on the GC's own quote detail. Lists the subcontractor
+// quotes pulled INTO this quote as costs — the sub's price, the markup, the
+// resulting client price — and lets the GC remove one. Removing a losing bid
+// and importing the winner is how "the one they move forward with is the one
+// that's added" actually works.
+//
+// Editable only while the quote is open; once decided, its costs are a record.
+"use client";
+
+import { useEffect, useState } from "react";
+import { Layers, Trash2, Loader2, Clock, CheckCircle2, MinusCircle } from "lucide-react";
+import { formatMoney } from "@/lib/currency";
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+const STATUS = {
+  pending: { key: "app.quoteImports.pending", Icon: Clock, cls: "text-amber-600 dark:text-amber-400" },
+  confirmed: { key: "app.quoteImports.confirmed", Icon: CheckCircle2, cls: "text-green-600 dark:text-green-400" },
+  cancelled: { key: "app.quoteImports.cancelled", Icon: MinusCircle, cls: "text-muted-foreground" },
+};
+
+export default function ImportedCostsPanel({ quoteId, currency, editable, onTotalChange }) {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState(null);
+  const [removing, setRemoving] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/quotes/${quoteId}/imports`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setRows(d?.asImporter || []);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [quoteId]);
+
+  if (!rows || rows.length === 0) return null;
+
+  const money = (n) => formatMoney(n, currency);
+
+  async function remove(importId) {
+    if (removing) return;
+    setRemoving(importId);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/imports/${importId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || "Couldn't remove that cost.");
+      setRows((prev) => prev.filter((r) => r.id !== importId));
+      if (typeof onTotalChange === "function" && data?.targetTotal != null)
+        onTotalChange(data.targetTotal);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRemoving("");
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Layers size={16} className="text-muted-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">
+          {t("app.importedCosts.title")}
+        </h2>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {t("app.importedCosts.subtitle")}
+      </p>
+
+      {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+
+      <ul className="space-y-2">
+        {rows.map((r) => {
+          const s = STATUS[r.status] || STATUS.pending;
+          const { Icon } = s;
+          return (
+            <li
+              key={r.id}
+              className="rounded-lg border border-border px-3 py-2.5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {r.label || r.sourceCompanyName || "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {money(r.costAmount)} + {Math.round(r.markupPercent)}% ={" "}
+                    <span className="font-medium text-foreground">
+                      {money(r.clientPrice)}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`inline-flex items-center gap-1 text-xs font-medium ${s.cls}`}>
+                    <Icon size={13} />
+                    {t(s.key)}
+                  </span>
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() => remove(r.id)}
+                      disabled={removing === r.id}
+                      aria-label={t("app.importedCosts.remove")}
+                      className="p-1.5 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                    >
+                      {removing === r.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

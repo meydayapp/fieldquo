@@ -85,14 +85,15 @@ export default function ContractorImportPanel({ token }) {
             Start free — first month free
           </a>
           <a
-            href="/login"
+            href={`/login?next=${encodeURIComponent(`/q/${token}`)}`}
             className="inline-flex items-center gap-1.5 border border-black/15 text-[#2d2520] px-5 py-2.5 rounded-full text-sm font-semibold"
           >
             Sign in
           </a>
         </div>
         <p className="text-xs text-[#2d2520]/45 mt-3">
-          Already have an account? Sign in, then reopen this link to add it.
+          Already have an account? Sign in and we&apos;ll bring you right back
+          here.
         </p>
       </Frame>
     );

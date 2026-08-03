@@ -1,16 +1,32 @@
 // app/app/login/page.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
+
+// Only ever an internal path. Guards against `?next=//evil.com` and absolute
+// URLs turning the login form into an open redirect.
+function safeNext(raw) {
+  if (typeof raw !== "string") return "/app";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/app";
+  return raw;
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Where to land after login. Default /app; set from ?next when a flow (e.g.
+  // "add this quote to your project") sent the contractor here to sign in.
+  // Read from window rather than useSearchParams to avoid forcing a Suspense
+  // boundary on this route — the same pattern the quote pages use.
+  const [next, setNext] = useState("/app");
+  useEffect(() => {
+    setNext(safeNext(new URLSearchParams(window.location.search).get("next")));
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +45,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/app");
+    router.push(next);
     router.refresh();
   };
 
@@ -91,7 +107,10 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Don't have an account?{" "}
-          <Link href="/signup" className="font-medium text-foreground underline">
+          <Link
+            href={next !== "/app" ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
+            className="font-medium text-foreground underline"
+          >
             Start your free trial
           </Link>
         </p>

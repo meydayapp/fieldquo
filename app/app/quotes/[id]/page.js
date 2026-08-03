@@ -19,6 +19,8 @@ import {
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ImportedByPanel from "./ImportedByPanel";
+import ImportedCostsPanel from "./ImportedCostsPanel";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -331,6 +333,20 @@ export default function QuoteDetailPage() {
           </Link>
         </div>
       )}
+
+      {/* Sub-side of a cross-company import: shows if another company pulled
+          this quote into their project, with an honest pending/confirmed state.
+          Self-hides when it hasn't been imported. */}
+      <ImportedByPanel quoteId={id} />
+
+      {/* Importer side: subcontractor costs pulled INTO this quote, removable
+          while it's still open. Self-hides when there are none. */}
+      <ImportedCostsPanel
+        quoteId={id}
+        currency={quote.company?.currency}
+        editable={["draft", "sent"].includes(quote.status)}
+        onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
+      />
 
       <div className="bg-card border border-border rounded-xl p-6 space-y-6">
         {quote.scopeGroups?.map((group) => (
