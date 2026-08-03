@@ -96,6 +96,18 @@ export async function PATCH(request, { params }) {
     scopeGroups,
   } = body;
 
+  // Line-item edits are only valid while the quote is open. Editing scope groups
+  // on a decided (accepted/declined) quote would rewrite what was agreed and —
+  // through reconcileImportsForQuote below — could delete a subcontractor cost
+  // already materialised into a job expense, silently corrupting job costing.
+  // Status-only changes (accept/decline/send) carry no scopeGroups and are fine.
+  if (scopeGroups && !["draft", "sent"].includes(existing.status)) {
+    return NextResponse.json(
+      { error: "This quote is already decided — its line items can't be changed." },
+      { status: 400 },
+    );
+  }
+
   const scalarData = {
     ...(status !== undefined && {
       status,

@@ -22,6 +22,7 @@ export const HELP_CATEGORIES = [
   { key: "getting-paid", label: "Getting paid" },
   { key: "email-domains", label: "Email & website" },
   { key: "team-scheduling", label: "Team & scheduling" },
+  { key: "reports", label: "Reports & insights" },
   { key: "on-the-go", label: "On the go (mobile)" },
   { key: "troubleshooting", label: "Troubleshooting" },
 ];
@@ -577,6 +578,64 @@ export const HELP_ARTICLES = [
         "On a job's visit, add notes and photos while you're on site.",
       ] },
       { note: "You only see your own published shifts and the jobs assigned to you — not the whole company's." },
+    ],
+  },
+  {
+    slug: "recurring-jobs",
+    category: "jobs-clients",
+    audience: "company",
+    title: "Set up a repeating job",
+    summary: "For maintenance, cleaning, or seasonal work that happens on a schedule.",
+    body: [
+      { p: "If you service the same client on a regular cadence — weekly lawn care, monthly cleaning, quarterly maintenance — you can mark a job as recurring instead of re-creating it each time." },
+      { h: "Steps" },
+      { steps: [
+        "Go to Jobs → New job (or open a job and Edit).",
+        "Turn on Recurring and choose how often it repeats.",
+        "Save. The next visit is scheduled automatically on the cadence you set.",
+      ] },
+      { note: "Each occurrence is its own visit you can reschedule, add notes/photos to, and invoice separately — changing one doesn't rewrite the others." },
+    ],
+  },
+  {
+    slug: "track-expenses",
+    category: "jobs-clients",
+    audience: "company",
+    title: "Track expenses and tie them to a job",
+    summary: "Record what you spend so your job costs — materials, subcontractors, overhead — are captured.",
+    body: [
+      { p: "FieldQuo keeps your costs alongside your revenue so you can see where the money goes, not just what came in." },
+      { h: "Record an expense" },
+      { steps: [
+        "Go to Settings → Expense tracking.",
+        "Add an expense — amount, category, and the date.",
+        "Associate it with a specific job when it belongs to one, or mark it as overhead when it's a general business cost.",
+      ] },
+      { h: "Where costs come from automatically" },
+      { steps: [
+        "Subcontractor quotes you import onto a quote become job expenses once that quote turns into a job.",
+        "Overhead you set in Settings → Overhead is factored into your pricing.",
+        "Materials you configure in Settings → Materials feed cost estimates on quotes.",
+      ] },
+      { note: "Restricted team members only see the expenses they entered; owners and admins see all of them." },
+    ],
+  },
+  {
+    slug: "reports-and-insights",
+    category: "reports",
+    audience: "company",
+    title: "See how your business is doing",
+    summary: "Your dashboard, the monthly digest, and how you compare — where to find the numbers.",
+    body: [
+      { p: "FieldQuo pulls your quotes, jobs and payments together into a few plain-English views so you don't have to build a spreadsheet." },
+      { h: "Where to look" },
+      { steps: [
+        "Dashboard (Home) — your revenue goal, recent quotes, and what's coming up.",
+        "Monthly Digest (Analytics → Monthly Digest) — a monthly summary of what happened in your business.",
+        "How You Compare (Analytics → How You Compare) — how your numbers stack up as a benchmark.",
+        "FieldQuo AI — ask questions about your own quotes, jobs and invoices in plain language.",
+      ] },
+      { note: "Every number here is your company's own data. FieldQuo AI never sees another company's information, and comparisons use anonymised figures." },
     ],
   },
 ];

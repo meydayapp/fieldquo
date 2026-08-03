@@ -4,6 +4,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 // Expects rows already parsed client-side (Papa Parse) into
 // [{ name, email, phone, address, city, province }, ...]
@@ -11,6 +16,17 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Same gate as POST /api/clients — bulk import must not be a back door around
+  // the client-create permission. A view-only member could otherwise create
+  // unlimited clients here, the exact action the single-create path forbids.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "clientsProperties", "full_edit", "import clients");
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 
   const { rows } = await request.json();
   if (!Array.isArray(rows) || rows.length === 0) {

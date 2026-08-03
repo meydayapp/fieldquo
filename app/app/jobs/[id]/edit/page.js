@@ -14,7 +14,9 @@ import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-const STATUSES = ["scheduled", "in_progress", "completed", "cancelled"];
+// Includes `unscheduled` — the state auto-created jobs start in — so the
+// dropdown can represent (and not silently overwrite) it.
+const STATUSES = ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"];
 
 export default function EditJobPage() {
   const { t } = useTranslation();

@@ -125,6 +125,32 @@ export default function NewInvoicePage() {
       }
 
       const invoice = await res.json();
+
+      // Actually send it. The POST above only creates the invoice (as a draft —
+      // the route doesn't read `status`); the "Save & Send" button promised an
+      // email, so it has to call the real send route, exactly like the quote
+      // new page does. Without this the button flipped a word and emailed nobody.
+      if (status === "sent") {
+        const sendRes = await fetch(`/api/invoices/${invoice.id}/send`, {
+          method: "POST",
+        });
+        if (!sendRes.ok) {
+          const data = await sendRes.json().catch(() => null);
+          // The invoice exists and their work is saved as a draft — land them on
+          // it with the reason, rather than an invoice marked sent that never left.
+          router.push(
+            `/app/invoices/${invoice.id}?sendError=${encodeURIComponent(
+              data?.error ||
+                t(
+                  "app.invoiceNew.sendFailedSaved",
+                  "Saved as a draft, but the email couldn't be sent. Open it and try Send again.",
+                ),
+            )}`,
+          );
+          return;
+        }
+      }
+
       router.push(`/app/invoices/${invoice.id}`);
     } catch {
       setError(t("app.invoiceNew.createError"));

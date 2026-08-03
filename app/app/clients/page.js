@@ -167,8 +167,8 @@ export default function ClientsPage() {
               </div>
 
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
-                <span>{client.quotes?.length ?? 0} quotes</span>
-                <span>{client.invoices?.length ?? 0} invoices</span>
+                <span>{client._count?.quotes ?? 0} quotes</span>
+                <span>{client._count?.invoices ?? 0} invoices</span>
               </div>
             </Link>
           ))}

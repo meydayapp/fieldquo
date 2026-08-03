@@ -60,6 +60,18 @@ export default function InvoiceDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Carried over from the new-invoice page when "Save & Send" saved the invoice
+  // but the email failed — so the user learns why it's still a draft instead of
+  // assuming the client got it. Mirrors the quote detail page.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sendError = params.get("sendError");
+    if (!sendError) return;
+    setError(sendError);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   /**
    * Actually emails the invoice.
    *

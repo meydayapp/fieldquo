@@ -32,6 +32,9 @@ export async function GET(request) {
       }),
     },
     orderBy: { createdAt: "desc" },
+    // The list cards show "N quotes / N invoices"; without these counts the
+    // relations are undefined and every card read "0 quotes / 0 invoices".
+    include: { _count: { select: { quotes: true, invoices: true } } },
   });
 
   return NextResponse.json(clients);

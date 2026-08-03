@@ -34,7 +34,10 @@ const STATUS_STYLES = {
   cancelled: "bg-muted text-muted-foreground border-border",
 };
 
-const JOB_STATUSES = ["scheduled", "in_progress", "completed", "cancelled"];
+// `unscheduled` included — it's where every auto-created job from an accepted
+// quote lands, so omitting it made the <select> show "scheduled" for a job the
+// badge above correctly called "unscheduled", and interacting silently flipped it.
+const JOB_STATUSES = ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"];
 
 function formatDateTime(value) {
   if (!value) return "Not scheduled";

@@ -59,6 +59,19 @@ export async function POST(request) {
     );
   }
 
+  // A quoteId from the request body must belong to THIS company. Without this,
+  // a caller could attach another company's quote — and materializeImportedCosts
+  // below would then inject expenses into that company's ledger and consume its
+  // imports. Scope it to the caller's company or reject.
+  if (quoteId) {
+    const ownsQuote = await db.quote.findFirst({
+      where: { id: quoteId, companyId: member.companyId },
+      select: { id: true },
+    });
+    if (!ownsQuote)
+      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  }
+
   const job = await db.job.create({
     data: {
       companyId: member.companyId,
@@ -79,6 +92,7 @@ export async function POST(request) {
       await materializeImportedCosts(db, {
         quoteId,
         jobId: job.id,
+        companyId: member.companyId,
         createdById: member.userId,
       });
     } catch (err) {

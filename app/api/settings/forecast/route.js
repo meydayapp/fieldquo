@@ -66,7 +66,11 @@ export async function PUT(request) {
     where: { companyId: member.companyId },
     create: {
       companyId: member.companyId,
-      ...(value === null ? {} : { jobsPerWeekCapacity: value }),
+      // 0 means "unknown", same as the update branch. Omitting the field let
+      // Prisma apply @default(3), so a brand-new company that saved a BLANK
+      // capacity got a fabricated 3 — and the minimum-price card then showed a
+      // real dollar floor derived from a number the user never entered.
+      jobsPerWeekCapacity: value === null ? 0 : value,
     },
     update: value === null ? { jobsPerWeekCapacity: 0 } : { jobsPerWeekCapacity: value },
     select: { jobsPerWeekCapacity: true },

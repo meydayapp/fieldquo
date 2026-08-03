@@ -9,6 +9,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { readableForeground } from "@/lib/brand/colour";
+import { formatMoney } from "@/lib/currency";
 import {
   Loader2,
   Building2,
@@ -18,12 +20,6 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-
-const money = (n) =>
-  Number(n ?? 0).toLocaleString("en-CA", {
-    style: "currency",
-    currency: "CAD",
-  });
 
 const date = (d) =>
   d
@@ -117,7 +113,15 @@ export default function ClientPortal({ token }) {
     );
 
   const c = data.company || {};
+  // The company's billing currency, not a hardcoded CAD — otherwise a US client
+  // saw their balance and "Pay $X" in CAD on the portal index, then the correct
+  // USD after tapping into the invoice. On a payment surface that mismatch reads
+  // as a bug.
+  const money = (n) => formatMoney(n, c.currency);
   const accent = c.brandColor || "#06356b";
+  // Measured foreground for elements ON the accent (the Pay button, the logo
+  // bubble). Hardcoded dark text was unreadable on a dark brand or the default.
+  const accentOn = readableForeground(accent);
 
   const invoices = data.invoices || [];
   const balance = invoices.reduce(
@@ -144,7 +148,7 @@ export default function ClientPortal({ token }) {
             className="h-11 w-11 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: accent }}
           >
-            <Building2 size={20} className="text-[#2d2520]" />
+            <Building2 size={20} style={{ color: accentOn }} />
           </div>
         )}
         <div>
@@ -221,8 +225,8 @@ export default function ClientPortal({ token }) {
                   <button
                     onClick={() => pay(inv.id)}
                     disabled={Boolean(payingId)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#2d2520] disabled:opacity-60 shrink-0"
-                    style={{ backgroundColor: accent }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 shrink-0"
+                    style={{ backgroundColor: accent, color: accentOn }}
                   >
                     {payingId === inv.id ? (
                       <Loader2 size={14} className="animate-spin" />

@@ -136,6 +136,11 @@ export async function POST(request, { params }) {
     },
   });
 
+  // Best-effort, like the consent + reminder writes below it. The appointment
+  // and booking rows are already committed; if Resend hiccups, the customer IS
+  // booked, so a failed confirmation email must not throw a 500 that tells them
+  // "couldn't book that time" — they'd retry, hit the slot-conflict guard, and
+  // walk away believing booking is broken while the slot is quietly taken.
   await sendBookingConfirmationEmail({
     to: clientEmail,
     // Zero means an exact time, which is the default. Nothing is widened on a
@@ -153,7 +158,9 @@ export async function POST(request, { params }) {
         : chosenMode === "video"
           ? "Video call — we'll email a link"
           : visitAddress || eventType.location || "On-site visit",
-  });
+  }).catch((err) =>
+    console.error("[booking] confirmation email failed:", err?.message),
+  );
 
   // ── Consent + a reminder call ─────────────────────────────────────────────
   //

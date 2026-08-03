@@ -257,8 +257,8 @@ export default function PortalInvoice({ token, invoiceId }) {
             <button
               onClick={pay}
               disabled={paying}
-              className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold text-[#2d2520] disabled:opacity-60"
-              style={{ backgroundColor: accent }}
+              className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold disabled:opacity-60"
+              style={{ backgroundColor: accent, color: accentOn }}
             >
               {paying ? (
                 <Loader2 size={15} className="animate-spin" />

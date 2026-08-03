@@ -11,6 +11,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { readableForeground } from "@/lib/brand/colour";
 import {
   Clock,
   MapPin,
@@ -291,6 +292,10 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   }
 
   const accent = company.brandColor || "#06356b";
+  // Measured, not assumed white/dark — a dark brand (or the default navy) makes
+  // hardcoded dark text on the accent unreadable. This is the "Confirm booking"
+  // button and the logo bubble: the two elements that sit ON the accent.
+  const accentOn = readableForeground(accent);
 
   if (confirmed) {
     return (
@@ -691,8 +696,8 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           <button
             type="submit"
             disabled={submitting || !form.name.trim() || !form.email.trim()}
-            className="mt-5 w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold text-[#2d2520] disabled:opacity-50"
-            style={{ backgroundColor: accent }}
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold disabled:opacity-50"
+            style={{ backgroundColor: accent, color: accentOn }}
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
             Confirm booking
@@ -730,7 +735,7 @@ function Header({ company, accent }) {
           className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
           style={{ backgroundColor: accent }}
         >
-          <Building2 size={16} className="text-[#2d2520]" />
+          <Building2 size={16} style={{ color: readableForeground(accent) }} />
         </div>
       )}
       <div className="min-w-0">
