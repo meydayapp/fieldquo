@@ -80,8 +80,14 @@ Roughly 64 Prisma models, 167 API routes, 62 `/app` pages, 12 `/platform` pages.
 
 These came from the product owner directly. Do not relax them without asking.
 
-1. **No public signup.** Accounts are created by invitation from inside a
-   company, or by hand. There is no open registration form.
+1. **Company signup is open; *joining* a company is invite-only.** A new
+   company can self-serve a trial from the public `/signup` form (first month
+   free — `TRIAL_PRICE` in `lib/pricing.js`). What is invite-only is being
+   added to an *existing* company —
+   employees are invited against that company's licensed seats — plus the
+   referral flow (invitee and referrer each get 3 free months) and FieldQuo's
+   own platform admins (backend). There is no self-serve way to add yourself to
+   a company you weren't invited to, and platform admin is never self-serve.
 2. **Impersonation is read-only and superadmin-only.** Enforced in
    `middleware.js` and again in `lib/currentMember.js`, deliberately twice.
    Hiding buttons is not access control.

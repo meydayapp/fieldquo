@@ -269,7 +269,9 @@ export default function SignupPage() {
             FieldQuo
           </Link>
           <p className="text-sm text-muted-foreground mt-2">
-            Start your free trial — $1 for the first month
+            {/* Off the trialLabel helper, never a hardcoded number — this line
+                had drifted to "$1" while the system actually charges $0. */}
+            Start your free trial — {trialLabel().toLowerCase()}
           </p>
         </div>
 
