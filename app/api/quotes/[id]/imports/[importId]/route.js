@@ -9,8 +9,54 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { removeImport, ImportError } from "@/lib/quotes/importQuote";
+import { removeImport, updateImportMarkup, ImportError } from "@/lib/quotes/importQuote";
 import { recordActivity } from "@/lib/activity/log";
+
+// Change the markup on an imported cost. The received cost stays fixed; only the
+// GC's markup (their profit/overhead) moves, rescaling the client price.
+export async function PATCH(request, { params }) {
+  const { id, importId } = await params;
+
+  const member = await getCurrentMember(request);
+  if (!member || !member.userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { markupPercent } = await request.json().catch(() => ({}));
+  if (markupPercent === undefined)
+    return NextResponse.json({ error: "markupPercent is required" }, { status: 400 });
+
+  const targetCompany = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { taxRate: true },
+  });
+
+  try {
+    const result = await updateImportMarkup({
+      db,
+      member,
+      quoteId: id,
+      importId,
+      markupPercent,
+      targetCompany,
+    });
+    await recordActivity(member, {
+      action: "quote.cost_markup_changed",
+      entityType: "quote",
+      entityId: id,
+      summary: `Changed a subcontractor cost markup to ${result.markupPercent}%`,
+      metadata: { importId, markupPercent: result.markupPercent },
+    });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    if (err instanceof ImportError)
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    console.error("[update import markup] failed:", err);
+    return NextResponse.json(
+      { error: "Couldn't update the markup. Please try again." },
+      { status: 500 },
+    );
+  }
+}
 
 export async function DELETE(request, { params }) {
   const { id, importId } = await params;

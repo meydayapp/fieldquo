@@ -38,7 +38,17 @@ export async function GET(request, { params }) {
   });
 
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(quote);
+
+  // Which scope groups came from an import — the editor renders these read-only
+  // (the received cost is fixed; the markup is edited from the quote page). The
+  // targetLineId of each import is the scope group id it created.
+  const imports = await db.quoteImport.findMany({
+    where: { targetQuoteId: id },
+    select: { targetLineId: true },
+  });
+  const importedGroupIds = imports.map((i) => i.targetLineId);
+
+  return NextResponse.json({ ...quote, importedGroupIds });
 }
 
 // Quotes are edited directly, not versioned — unlike invoices, there's no signed

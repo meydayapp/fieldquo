@@ -56,6 +56,10 @@ export default function EditQuotePage() {
             categoryId: g.categoryId,
             label: g.label || g.category?.label || t("app.quoteEdit.scopeFallback"),
             lineItems: Array.isArray(g.lineItems) ? g.lineItems : [],
+            // Imported subcontractor cost: shown read-only here (the cost is
+            // fixed and the markup is edited on the quote page), but still
+            // counted in the total and sent back with its id so it survives.
+            imported: (q.importedGroupIds || []).includes(g.id),
           })),
         );
         setNotes(q.notes || "");
@@ -227,28 +231,55 @@ export default function EditQuotePage() {
           {t("app.quoteEdit.noScopeGroups")}
         </div>
       ) : (
-        groups.map((g, gi) => (
+        groups.map((g, gi) => {
+          const locked = g.imported;
+          return (
           <div
             key={g.id || gi}
             className="bg-card border border-border rounded-xl p-5"
           >
             <div className="flex items-center justify-between gap-3 mb-4">
-              <input
-                value={g.label}
-                onChange={(e) =>
-                  setGroups((prev) =>
-                    prev.map((x, i) =>
-                      i === gi ? { ...x, label: e.target.value } : x,
-                    ),
-                  )
-                }
-                className="font-semibold text-foreground border-b border-transparent hover:border-border focus:border-border focus:outline-none py-0.5 min-w-0 flex-1"
-              />
+              {locked ? (
+                <span className="font-semibold text-foreground py-0.5 min-w-0 flex-1 truncate">
+                  {g.label}
+                </span>
+              ) : (
+                <input
+                  value={g.label}
+                  onChange={(e) =>
+                    setGroups((prev) =>
+                      prev.map((x, i) =>
+                        i === gi ? { ...x, label: e.target.value } : x,
+                      ),
+                    )
+                  }
+                  className="font-semibold text-foreground border-b border-transparent hover:border-border focus:border-border focus:outline-none py-0.5 min-w-0 flex-1"
+                />
+              )}
               <span className="text-sm font-semibold text-muted-foreground shrink-0">
                 ${totals.groupSubtotals[gi].toFixed(2)}
               </span>
             </div>
 
+            {locked ? (
+              // Read-only: a subcontractor cost imported from another company's
+              // quote. The lines and total are fixed; the markup is changed on
+              // the quote page (ImportedCostsPanel), not by hand-editing here.
+              <div className="space-y-1.5">
+                {g.lineItems.map((item, li) => (
+                  <div key={li} className="flex justify-between gap-3 text-sm text-muted-foreground">
+                    <span className="min-w-0 truncate">{item.description}</span>
+                    <span className="tabular-nums shrink-0">
+                      ${Number(item.amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+                <p className="text-[11px] text-muted-foreground pt-2 mt-1 border-t border-border">
+                  {t("app.quoteEdit.importedLocked")}
+                </p>
+              </div>
+            ) : (
+            <>
             <div className="space-y-2">
               {g.lineItems.map((item, li) => (
                 <div key={li} className="flex flex-col sm:flex-row gap-2 sm:items-start">
@@ -306,8 +337,11 @@ export default function EditQuotePage() {
             >
               <Plus size={14} /> {t("app.quoteEdit.addLine")}
             </button>
+            </>
+            )}
           </div>
-        ))
+          );
+        })
       )}
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
