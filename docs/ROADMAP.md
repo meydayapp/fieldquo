@@ -254,6 +254,28 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Contractor-to-contractor quotes (GC ↔ subcontractor)** (`QuoteImport`
+  model, `lib/quotes/importedStatus.js`, `lib/quotes/importQuote.js`,
+  `/api/quotes/received/[token]`, `/api/quotes/[id]/imports`,
+  `ContractorImportPanel`, `ImportedByPanel`, `ImportedCostsPanel`). A GC who
+  receives a sub's quote in FieldQuo pulls it into their own quote as a
+  marked-up cost line; the sub is paid the original price. **Commit status is
+  DERIVED** from the GC quote's stage (draft/sent = pending; accepted/job/invoice
+  = confirmed; declined = cancelled) — never stored. One linkage row, two
+  role-scoped projections: the importer sees cost + markup + client price, the
+  source sees only that they were imported and the status (never the GC's
+  margin). White-label preserved: the panel self-hides for individual clients
+  (homeowners) and shows only for business recipients / logged-in contractors.
+  `/login?next=` brings a signing-in contractor back to import.
+  - **Deferred, on purpose:** (1) the subcontractor snapshot cost isn't yet
+    materialised as a Job `Expense`, so it doesn't flow into job-costing/margin
+    analytics — it's read on the GC's quote but not in costing. (2) Deleting the
+    auto-created "Subcontractors" scope group via the normal quote *editor*
+    (rather than the panel's Remove button) would leave a dangling `QuoteImport`
+    row — the editor save path doesn't yet reconcile imports. Sanctioned removal
+    is the Remove button. (3) Signup→import auto-return isn't wired (signup ends
+    at Stripe checkout); the copy honestly says "reopen the link".
+
 - **Client media on every quote — photos AND video** (`lib/media/validate.js`,
   `MediaUploader`, `/api/self-quote/[companySlug]/upload`). One validator is the
   boundary for both the authenticated `/api/upload` (now accepts video) and the
