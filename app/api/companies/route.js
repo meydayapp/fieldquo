@@ -39,6 +39,9 @@ export async function POST(request) {
     serviceCategoryIds,
     // Carried through from /refer/<code> or ?ref=<code>. See lib/referrals.
     referralCode,
+    // Where to send the user after checkout — set when signup began from a flow
+    // like "add this quote to your project". Validated to an internal path below.
+    next,
   } = await request.json();
 
   if (!name) {
@@ -229,7 +232,15 @@ export async function POST(request) {
     // browser. /app reads it and calls /api/platform/billing/reconcile-session
     // so the Subscription row exists immediately even if the
     // checkout.session.completed webhook is delayed or never arrives.
-    successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}`,
+    // Carry a validated internal `next` through checkout so /app can bounce the
+    // new contractor back to where they started (e.g. the received quote).
+    // Internal-path only — never an absolute URL — so this can't become an open
+    // redirect through the signup flow.
+    successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
+      typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
+        ? `&next=${encodeURIComponent(next)}`
+        : ""
+    }`,
     cancelUrl: `${baseUrl}/signup`,
   });
 

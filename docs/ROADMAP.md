@@ -266,15 +266,18 @@ they set the pattern.
   source sees only that they were imported and the status (never the GC's
   margin). White-label preserved: the panel self-hides for individual clients
   (homeowners) and shows only for business recipients / logged-in contractors.
-  `/login?next=` brings a signing-in contractor back to import.
-  - **Deferred, on purpose:** (1) the subcontractor snapshot cost isn't yet
-    materialised as a Job `Expense`, so it doesn't flow into job-costing/margin
-    analytics — it's read on the GC's quote but not in costing. (2) Deleting the
-    auto-created "Subcontractors" scope group via the normal quote *editor*
-    (rather than the panel's Remove button) would leave a dangling `QuoteImport`
-    row — the editor save path doesn't yet reconcile imports. Sanctioned removal
-    is the Remove button. (3) Signup→import auto-return isn't wired (signup ends
-    at Stripe checkout); the copy honestly says "reopen the link".
+  `/login?next=` and `/signup?next=` both bring the contractor back to import.
+  - **Job costing:** when the GC quote becomes a job, each import's snapshot cost
+    is materialised as a `Subcontractor` Expense on the job (`materializeImportedCosts`,
+    idempotent via `QuoteImport.expenseId`), so it flows into margin/costing.
+    Removing the import (or deleting its group) deletes the expense too.
+  - **Editor reconciliation:** the quote PATCH now reconciles scope groups by id
+    (`reconcileScopeGroups`) instead of wiping+recreating — so an imported group's
+    linkage survives an editor save — and `reconcileImportsForQuote` drops any
+    import whose group the GC deleted, expense and all. No dangling state either way.
+  - **Signup auto-return:** a validated internal `?next` threads signup →
+    `/api/companies` → Stripe `success_url` → `/app`, which bounces the new
+    contractor back to the quote once the subscription reconciles.
 
 - **Client media on every quote — photos AND video** (`lib/media/validate.js`,
   `MediaUploader`, `/api/self-quote/[companySlug]/upload`). One validator is the

@@ -153,9 +153,12 @@ export default function EditQuotePage() {
           // reverts, so reopening re-ticks it and the next save re-adds tax.
           taxEnabled,
           validUntil: validUntil || null,
-          // The API replaces scope groups wholesale (deleteMany + create), so
-          // this has to be the complete set, not a delta.
+          // The complete set (not a delta). `id` is sent so the API can
+          // reconcile groups by identity instead of regenerating them — that's
+          // what keeps an imported subcontractor cost's linkage intact across an
+          // edit. New groups have no id and are created.
           scopeGroups: groups.map((g) => ({
+            id: g.id,
             categoryId: g.categoryId,
             label: g.label,
             lineItems: g.lineItems.map((li) => ({

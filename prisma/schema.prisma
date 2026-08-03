@@ -1075,6 +1075,14 @@ model QuoteImport {
   // can tell competing options apart before committing one.
   label String?
 
+  // The Expense this cost was materialised into once the GC quote became a job,
+  // so it flows into job costing / margin. Null until a job exists. Kept as a
+  // link (not a boolean) so materialisation is idempotent — a second run sees
+  // it's already set — and so removing the import can delete the expense too.
+  // Not a relation: Expense.projectId is a loose job id, and we don't want an
+  // Expense delete to cascade back here.
+  expenseId String?
+
   createdAt   DateTime @default(now())
   createdById String?
 

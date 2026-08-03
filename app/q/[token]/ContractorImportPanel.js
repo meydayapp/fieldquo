@@ -79,7 +79,7 @@ export default function ContractorImportPanel({ token }) {
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           <a
-            href="/signup"
+            href={`/signup?next=${encodeURIComponent(`/q/${token}`)}`}
             className="inline-flex items-center gap-1.5 bg-[#06356b] text-white px-5 py-2.5 rounded-full text-sm font-semibold"
           >
             Start free — first month free
@@ -92,8 +92,7 @@ export default function ContractorImportPanel({ token }) {
           </a>
         </div>
         <p className="text-xs text-[#2d2520]/45 mt-3">
-          Already have an account? Sign in and we&apos;ll bring you right back
-          here.
+          Either way, we&apos;ll bring you right back here to add it.
         </p>
       </Frame>
     );

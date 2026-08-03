@@ -26,6 +26,9 @@ export default function SignupPage() {
   // referral cookie from a link someone clicked last month shouldn't silently
   // attach itself to an unrelated signup.
   const [referralCode, setReferralCode] = useState("");
+  // Where to return after checkout, when signup began from a flow like "add this
+  // quote to your project" (?next=/q/<token>). Internal paths only.
+  const [nextPath, setNextPath] = useState("");
   const [referrer, setReferrer] = useState(null);
   // Set when someone opens a signup link while already signed in to a company.
   // Referral offers are for businesses new to FieldQuo, so they can't redeem —
@@ -39,6 +42,11 @@ export default function SignupPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.name && setAlreadyOnFieldquo(d))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    if (raw && raw.startsWith("/") && !raw.startsWith("//")) setNextPath(raw);
   }, []);
 
   useEffect(() => {
@@ -235,6 +243,7 @@ export default function SignupPage() {
           employeeCount,
           serviceCategoryIds: selectedCategoryIds,
           referralCode: referralCode || undefined,
+          next: nextPath || undefined,
         }),
       });
 

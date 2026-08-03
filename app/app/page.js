@@ -44,8 +44,16 @@ export default function DashboardPage() {
       .catch((err) => console.error("[reconcile-session]", err))
       .finally(() => {
         params.delete("session_id");
+        // A signup that began from "add this quote to your project" carries
+        // where to return. Honour it only once the subscription is reconciled,
+        // and only for an internal path — never an open redirect.
+        const next = params.get("next");
+        params.delete("next");
         const qs = params.toString();
         window.history.replaceState(null, "", `/app${qs ? `?${qs}` : ""}`);
+        if (next && next.startsWith("/") && !next.startsWith("//")) {
+          window.location.href = next;
+        }
       });
   }, []);
 

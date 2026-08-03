@@ -10,6 +10,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { materializeImportedCosts } from "@/lib/quotes/importQuote";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -69,6 +70,21 @@ export async function POST(request) {
     },
     include: { client: true },
   });
+
+  // If this job was created from a quote that imported subcontractor costs,
+  // materialise them as job expenses so they reach job costing. Best-effort and
+  // idempotent (skips imports already materialised) — see materializeImportedCosts.
+  if (quoteId) {
+    try {
+      await materializeImportedCosts(db, {
+        quoteId,
+        jobId: job.id,
+        createdById: member.userId,
+      });
+    } catch (err) {
+      console.error("[jobs POST] materialise imported costs:", err?.message);
+    }
+  }
 
   return NextResponse.json(job, { status: 201 });
 }

@@ -10,6 +10,10 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import {
+  reconcileScopeGroups,
+  reconcileImportsForQuote,
+} from "@/lib/quotes/importQuote";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -82,37 +86,40 @@ export async function PATCH(request, { params }) {
     scopeGroups,
   } = body;
 
-  const updated = await db.quote.update({
-    where: { id },
-    data: {
-      ...(status !== undefined && {
-        status,
-        ...(status === "sent" && { sentAt: new Date() }),
-      }),
-      ...(subtotal !== undefined && { subtotal }),
-      ...(discount !== undefined && { discount }),
-      ...(tax !== undefined && { tax }),
-      ...(total !== undefined && { total }),
-      ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
-      ...(notes !== undefined && { notes }),
-      ...(processNotes !== undefined && { processNotes }),
-      ...(validUntil !== undefined && {
-        validUntil: validUntil ? new Date(validUntil) : null,
-      }),
-      ...(scopeGroups && {
-        scopeGroups: {
-          deleteMany: {},
-          create: scopeGroups.map((g, i) => ({
-            categoryId: g.categoryId,
-            label: g.label || null,
-            lineItems: g.lineItems || null,
-            subtotal: g.subtotal || 0,
-            sortOrder: i,
-          })),
-        },
-      }),
-    },
-    include: { client: true, scopeGroups: { include: { category: true } } },
+  const scalarData = {
+    ...(status !== undefined && {
+      status,
+      ...(status === "sent" && { sentAt: new Date() }),
+    }),
+    ...(subtotal !== undefined && { subtotal }),
+    ...(discount !== undefined && { discount }),
+    ...(tax !== undefined && { tax }),
+    ...(total !== undefined && { total }),
+    ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
+    ...(notes !== undefined && { notes }),
+    ...(processNotes !== undefined && { processNotes }),
+    ...(validUntil !== undefined && {
+      validUntil: validUntil ? new Date(validUntil) : null,
+    }),
+  };
+
+  // Scope groups are reconciled by id rather than wiped and recreated: an editor
+  // save used to regenerate every group id, which silently orphaned a
+  // QuoteImport's targetLineId (breaking its Remove control). Preserving ids
+  // keeps the linkage valid, and reconcileImportsForQuote then drops any import
+  // whose group the GC deleted — so a removed subcontractor line can't leave a
+  // dangling "imported" state on the sub's side. One transaction so a partial
+  // write can't leave groups and imports disagreeing.
+  const updated = await db.$transaction(async (tx) => {
+    await tx.quote.update({ where: { id }, data: scalarData });
+    if (scopeGroups) {
+      await reconcileScopeGroups(tx, id, scopeGroups);
+      await reconcileImportsForQuote(tx, id);
+    }
+    return tx.quote.findUnique({
+      where: { id },
+      include: { client: true, scopeGroups: { include: { category: true } } },
+    });
   });
 
   return NextResponse.json(updated);
