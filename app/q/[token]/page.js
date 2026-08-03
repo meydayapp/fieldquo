@@ -13,6 +13,7 @@
 export const dynamic = "force-dynamic";
 
 import QuoteApproval from "./QuoteApproval";
+import ContractorImportPanel from "./ContractorImportPanel";
 
 export const metadata = {
   title: "Your quote",
@@ -23,5 +24,14 @@ export const metadata = {
 
 export default async function PublicQuotePage({ params }) {
   const { token } = await params;
-  return <QuoteApproval token={token} />;
+  return (
+    <>
+      <QuoteApproval token={token} />
+      {/* Below the white-label document, and self-hiding for homeowners — see
+          ContractorImportPanel. The GC ↔ subcontractor import lives here. */}
+      <div className="px-4 pb-10">
+        <ContractorImportPanel token={token} />
+      </div>
+    </>
+  );
 }

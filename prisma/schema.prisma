@@ -428,6 +428,10 @@ model Company {
   clients               Client[]
   quotes                Quote[]
   invoices              Invoice[]
+  // Cross-company quote imports (GC ↔ subcontractor). AsSource: our quotes that
+  // other companies imported. AsTarget: other companies' quotes we imported.
+  quoteImportsAsSource  QuoteImport[] @relation("QuoteImportSourceCompany")
+  quoteImportsAsTarget  QuoteImport[] @relation("QuoteImportTargetCompany")
   appointments          Appointment[]
   tasks                 Task[]
   workAreas             WorkArea[]
@@ -937,6 +941,13 @@ model Quote {
   tasks        Task[]
   jobs         Job[]
 
+  // Cross-company quote import (general-contractor ↔ subcontractor). See model
+  // QuoteImport. As SOURCE: this quote was sent to another FieldQuo company who
+  // pulled it into their own quote as a marked-up cost. As TARGET: this quote
+  // pulled other companies' quotes in as cost lines.
+  importsAsSource QuoteImport[] @relation("QuoteImportSource")
+  importsAsTarget QuoteImport[] @relation("QuoteImportTarget")
+
   calledAt DateTime?
 
   tierGroupId String? // shared ID linking Good/Better/Best variants together
@@ -1006,6 +1017,71 @@ model Quote {
   reviewedAt     DateTime?
 
   @@unique([companyId, quoteNumber])
+}
+
+// A quote received FROM another FieldQuo company, pulled INTO this company's own
+// quote as a marked-up cost line. The cross-company join for the general
+// contractor ↔ subcontractor flow: a GC imports an electrician's quote, marks it
+// up, and it becomes a line on the GC's own quote to the homeowner, plus an
+// internal subcontractor cost that feeds job costing.
+//
+// Read by BOTH tenants, projected differently (see lib/quotes/importedStatus.js):
+//  • the importer (GC) sees the cost, the markup and the client price;
+//  • the source (sub) sees only THAT they were imported and the DERIVED
+//    pending/confirmed status — never the GC's markup or homeowner price.
+//
+// Commit status is NOT a column here. It is DERIVED from the importing quote's
+// stage (draft/sent = pending; accepted / has a job / invoiced = confirmed), so
+// the two can never disagree — a stored "confirmed" boolean is exactly the
+// write-once-read-never dead field this codebase keeps having to hunt down.
+model QuoteImport {
+  id String @id @default(cuid())
+
+  // ── Source: the subcontractor's quote being imported ──────────────────────
+  sourceQuoteId   String
+  sourceQuote     Quote   @relation("QuoteImportSource", fields: [sourceQuoteId], references: [id], onDelete: Cascade)
+  // Denormalised so a sub can list "who imported my quotes" without reaching
+  // across into the GC's tenant.
+  sourceCompanyId String
+  sourceCompany   Company @relation("QuoteImportSourceCompany", fields: [sourceCompanyId], references: [id], onDelete: Cascade)
+
+  // ── Target: the GC's own quote it was added to ────────────────────────────
+  targetQuoteId   String
+  targetQuote     Quote   @relation("QuoteImportTarget", fields: [targetQuoteId], references: [id], onDelete: Cascade)
+  targetCompanyId String
+  targetCompany   Company @relation("QuoteImportTargetCompany", fields: [targetCompanyId], references: [id], onDelete: Cascade)
+
+  // The `id` stamped on the line we appended to targetQuote.lineItems JSON, so
+  // an edit or removal can find that exact line again.
+  targetLineId String
+
+  // Snapshot of the sub's price at import time, in the GC's currency. A COPY, on
+  // purpose: the sub editing their quote later must not silently move a cost the
+  // GC already booked. The backlink (sourceQuoteId) is how the GC still reaches
+  // the live original.
+  snapshotAmount Decimal @db.Decimal(12, 2)
+
+  // Markup the GC applies on top of snapshotAmount to reach the client price.
+  // A percent (0/10/20/30 or custom). Client price is DERIVED — snapshot ×
+  // (1 + pct) — computed server-side, never accepted from the browser.
+  markupPercent Decimal @default(0) @db.Decimal(6, 2)
+
+  // How it appears on the GC's quote to the homeowner. "blended" = folded into
+  // one line per trade at the client price (default); "itemized" = its own
+  // visible line. The homeowner never sees the sub or the markup either way.
+  display String @default("blended")
+
+  // Optional label for the trade/line ("Electrical", "Countertops") so the GC
+  // can tell competing options apart before committing one.
+  label String?
+
+  createdAt   DateTime @default(now())
+  createdById String?
+
+  // A given source quote lands in a given target quote at most once.
+  @@unique([targetQuoteId, sourceQuoteId])
+  @@index([sourceCompanyId])
+  @@index([targetCompanyId])
 }
 
 // An optional extra offered at the bottom of a quote.
