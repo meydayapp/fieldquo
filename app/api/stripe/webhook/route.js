@@ -40,24 +40,42 @@ export async function POST(request) {
 
     case "checkout.session.completed": {
       const session = event.data.object;
-      const { invoiceId } = session.metadata;
+      const { invoiceId } = session.metadata || {};
       if (invoiceId) {
         await db.payment.create({
           data: {
             invoiceId,
-            amount: session.amount_total / 100,
+            amount: (session.amount_total || 0) / 100,
             method: "stripe",
             stripePaymentIntentId: session.payment_intent,
           },
         });
-        await db.invoice.update({
+
+        // Recompute the balance from ALL payments — the same way the manual
+        // path (app/api/payments) does — instead of assuming this one charge
+        // paid the invoice in full. A client can pay a DEPOSIT through Stripe:
+        // the old code left amountPaid stale (so a "paid" invoice still showed
+        // its full balance owing) and marked a partial payment as paid in full.
+        const inv = await db.invoice.findUnique({
           where: { id: invoiceId },
-          data: {
-            status: "paid",
-            stripePaymentIntentId: session.payment_intent,
-            paidVia: "stripe",
-          },
+          include: { payments: true },
         });
+        if (inv) {
+          const totalPaid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+          const amountDue = Math.max(0, Number(inv.total) - totalPaid);
+          const isPaid = amountDue <= 0.005;
+          await db.invoice.update({
+            where: { id: invoiceId },
+            data: {
+              amountPaid: totalPaid,
+              amountDue,
+              status: isPaid ? "paid" : inv.status,
+              paidDate: isPaid ? new Date() : inv.paidDate,
+              stripePaymentIntentId: session.payment_intent,
+              paidVia: "stripe",
+            },
+          });
+        }
       }
       break;
     }
