@@ -9,7 +9,7 @@ import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
-import { CURRENCIES } from "@/lib/currency";
+import { CURRENCIES, currencyForCountry, currencyMeta } from "@/lib/currency";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -168,6 +168,7 @@ export default function CompanySettingsPage() {
           dateFormat: data?.dateFormat || "MM/DD/YYYY",
           weekStartsOn: data?.weekStartsOn ?? 0,
           currency: data?.currency || "CAD",
+          servesAbroad: !!data?.servesAbroad,
           // Left as null when never set, NOT defaulted to a schedule. A
           // company that has said nothing about its hours must not have a
           // guess published on its website and in its search listing.
@@ -747,20 +748,39 @@ export default function CompanySettingsPage() {
             <label className="text-sm font-medium text-foreground block mb-1">
               {t("app.setCompany.billingCurrency")}
             </label>
-            <select
-              className={inputClass}
-              value={form.currency}
-              onChange={(e) => set("currency", e.target.value)}
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} — {c.label} ({c.symbol})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <Info size={11} /> {t("app.setCompany.currencyHint")}
-            </p>
+            {form.servesAbroad ? (
+              // Bills abroad → let them choose the currency.
+              <select
+                className={inputClass}
+                value={form.currency}
+                onChange={(e) => set("currency", e.target.value)}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} — {c.label} ({c.symbol})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              // Only serves its home country → currency is derived from country,
+              // shown read-only. A Canadian shop is never asked to pick between
+              // CAD/USD/EUR. Reflects the selected country live; the server
+              // enforces the same on save.
+              <div className={`${inputClass} flex items-center text-muted-foreground`}>
+                {(() => {
+                  const m = currencyMeta(currencyForCountry(form.country));
+                  return `${m.code} — ${m.label} (${m.symbol})`;
+                })()}
+              </div>
+            )}
+            <label className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={!!form.servesAbroad}
+                onChange={(e) => set("servesAbroad", e.target.checked)}
+              />
+              {t("app.setCompany.servesAbroad", "I serve clients outside my country (bill in other currencies)")}
+            </label>
           </div>
 
           <div>

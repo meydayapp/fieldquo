@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseHours } from "@/lib/company/businessHours";
 import { clampWindow } from "@/lib/booking/arrivalWindow";
+import { currencyForCountry } from "@/lib/currency";
 
 /**
  * Coordinates for a stored address that has none.
@@ -65,6 +66,7 @@ export async function GET(request) {
       // New — Company Settings page (address autocomplete + mini map)
       postalCode: true,
       country: true,
+      servesAbroad: true,
       latitude: true,
       longitude: true,
       website: true,
@@ -163,6 +165,7 @@ export async function PATCH(request) {
     taxIdNumber,
     autoApplyLocalTax,
     currency,
+    servesAbroad,
     timezone,
     dateFormat,
     weekStartsOn,
@@ -226,6 +229,22 @@ export async function PATCH(request) {
     }
   }
 
+  // Currency follows the country unless the company bills abroad. Enforced
+  // server-side (not just hidden in the UI) so a company that only serves its
+  // home country can't end up with a mismatched stored currency. Loads the
+  // current country/servesAbroad so a partial PATCH still resolves correctly.
+  let enforcedCurrency = currency; // used only when servesAbroad is on
+  if (servesAbroad !== undefined || country !== undefined || currency !== undefined) {
+    const cur = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { country: true, servesAbroad: true },
+    });
+    const nextServesAbroad =
+      servesAbroad !== undefined ? Boolean(servesAbroad) : Boolean(cur?.servesAbroad);
+    const nextCountry = country !== undefined ? country : cur?.country;
+    if (!nextServesAbroad) enforcedCurrency = currencyForCountry(nextCountry);
+  }
+
   const updated = await db.company.update({
     where: { id: member.companyId },
     data: {
@@ -286,7 +305,10 @@ export async function PATCH(request) {
       ...(arrivalWindowMinutes !== undefined && {
         arrivalWindowMinutes: clampWindow(arrivalWindowMinutes),
       }),
-      ...(currency !== undefined && { currency }),
+      // enforcedCurrency, not the raw body value: when the company doesn't serve
+      // abroad this is the country-derived currency regardless of what was sent.
+      ...(enforcedCurrency !== undefined && { currency: enforcedCurrency }),
+      ...(servesAbroad !== undefined && { servesAbroad: Boolean(servesAbroad) }),
       // Normalised on the way in, not trusted. This column is read by the
       // public website and by the structured data a search engine indexes, so
       // a close time earlier than the open time would become a Google listing

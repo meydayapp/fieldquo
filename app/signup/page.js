@@ -12,6 +12,8 @@ import PricingCard from "@/app/components/marketing/PricingCard";
 // add to imports at top of app/signup/page.js
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput, isValidPhone, isValidEmail } from "@/lib/validation";
+import { LANGUAGES } from "@/app/i18n/languages";
+import { COUNTRIES } from "@/lib/currency";
 
 export default function SignupPage() {
   const [step, setStep] = useState("plan");
@@ -80,6 +82,11 @@ export default function SignupPage() {
     address: "",
     city: "",
     province: "",
+    // The company's own language becomes their default interface language and
+    // the fallback for client documents. Country drives the billing currency
+    // (derived, not asked) — see lib/currency.js currencyForCountry.
+    language: "en",
+    country: "CA",
   });
 
   const [selectedIndustries, setSelectedIndustries] = useState([]);
@@ -238,6 +245,8 @@ export default function SignupPage() {
           address: form.address,
           city: form.city,
           province: form.province,
+          country: form.country,
+          language: form.language,
           industries: selectedIndustries,
           planId: isCustom ? null : selectedPlanId,
           employeeCount,
@@ -621,6 +630,49 @@ export default function SignupPage() {
                   placeholder="Auto-filled from address"
                   className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Country
+                </label>
+                <select
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {/* Sets the billing currency — a company only serving its home
+                    country is never asked to pick one. */}
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sets your billing currency.
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Language
+                </label>
+                <select
+                  value={form.language}
+                  onChange={(e) => setForm({ ...form, language: e.target.value })}
+                  className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.nativeName}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your default in the app.
+                </p>
               </div>
             </div>
 

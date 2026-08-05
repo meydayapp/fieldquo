@@ -503,6 +503,12 @@ model Company {
   // hardcoded CAD). Distinct from FieldQuo's own subscription currency.
   // See lib/currency.js for the supported set and Stripe mapping.
   currency     String? @default("CAD")
+  // Whether this company bills clients OUTSIDE its own country. Off by default:
+  // a company only serving its home country bills in one currency (derived from
+  // `country`), and the currency picker is hidden so a Canadian shop is never
+  // asked to choose between CAD/USD/EUR. Turned on only when they say they serve
+  // abroad — then they may pick a billing currency. See lib/currency.js.
+  servesAbroad Boolean @default(false)
 
   // When the business is OPEN — deliberately not AvailabilitySchedule, which
   // hangs off a user and answers "when can this person be booked". The two

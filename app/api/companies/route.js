@@ -18,6 +18,8 @@ import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin } from "@/lib/appUrl";
 import { applySignupReferral } from "@/lib/referrals";
+import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
+import { currencyForCountry } from "@/lib/currency";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -42,7 +44,19 @@ export async function POST(request) {
     // Where to send the user after checkout — set when signup began from a flow
     // like "add this quote to your project". Validated to an internal path below.
     next,
+    // The company's chosen interface language (default for staff + fallback for
+    // client documents). `country` is already destructured above and derives
+    // the billing currency.
+    language,
   } = await request.json();
+
+  // The company's default language, validated to a supported code (else English).
+  const defaultLanguage = isSupported(language) ? language : DEFAULT_LANGUAGE;
+  // Billing currency is DERIVED from country, never asked at signup — a Canadian
+  // company is billed in CAD without being shown USD/EUR. They can turn on
+  // "serves abroad" in settings later to bill in other currencies.
+  const homeCountry = String(country || "CA").toUpperCase();
+  const currency = currencyForCountry(homeCountry);
 
   if (!name) {
     return NextResponse.json(
@@ -129,7 +143,9 @@ export async function POST(request) {
       city: city || null,
       province: province || null,
       postalCode: postalCode || null,
-      country: country || null,
+      country: homeCountry,
+      defaultLanguage,
+      currency,
       industries: Array.isArray(industries) ? industries : [],
       onboardingStatus: "pending",
       trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
