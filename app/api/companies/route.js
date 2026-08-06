@@ -18,6 +18,7 @@ import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin } from "@/lib/appUrl";
 import { applySignupReferral } from "@/lib/referrals";
+import { redeemPromoCode } from "@/lib/platform/promoCodes";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
 
@@ -156,12 +157,17 @@ export async function POST(request) {
     data: { userId: session.user.id, companyId: company.id, role: "owner" },
   });
 
-  // Grant the new company its three free months and record who sent them.
-  // Deliberately after the company and member rows exist, and deliberately
-  // non-fatal — a bad or expired referral code must never be the reason
-  // someone can't finish signing up. applySignupReferral swallows its own
-  // errors and returns null.
-  const referral = await applySignupReferral({ company, code: referralCode });
+  // The code the signup carried is EITHER a platform promo code (influencer /
+  // tester — "FQ-XXXX", extra free months, no referrer) OR a company referral
+  // code. Try promo first: if it resolves as a promo (redeemable or not), it was
+  // a promo attempt and we don't also treat it as a referral. Only a null result
+  // (not a promo code at all) falls through to the referral path. Both are
+  // best-effort — a bad code must never block a signup.
+  const promo = await redeemPromoCode({ company, code: referralCode }).catch(() => null);
+  const referral =
+    promo === null
+      ? await applySignupReferral({ company, code: referralCode })
+      : null;
 
   // Better Auth generates its OWN id for the organization — it is NOT the same
   // as company.id, even though we pass company.id in as the slug. We capture
@@ -232,7 +238,10 @@ export async function POST(request) {
   // referral's returned value when present. This is what makes a referred
   // signup's FIRST Stripe trial the full 30 + referral, not 30 with the extra
   // months stranded in a column Stripe never sees.
-  const effectiveTrialEnd = referral?.trialEndsAt || company.trialEndsAt;
+  // Whichever path extended the trial (referral or a promo code) is the real
+  // free-until date Stripe should honour.
+  const effectiveTrialEnd =
+    referral?.trialEndsAt || (promo?.ok && promo.trialEndsAt) || company.trialEndsAt;
   const trialDays = Math.max(
     1,
     Math.ceil((effectiveTrialEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),

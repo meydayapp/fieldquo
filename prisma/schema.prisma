@@ -109,6 +109,46 @@ model PlatformAuditLog {
   createdAt       DateTime      @default(now())
 }
 
+// A platform-issued promo code — influencer or tester. UNLIKE a referral code
+// (company-owned, company-to-company, pays a credit to the referrer), these are
+// minted by FieldQuo superadmins to give a selected person a free head start.
+// There is no referrer and no credit to anyone — just extra free months for the
+// company that signs up with it. Single-use per link by default (generate more
+// as needed). `label`/`notes` record who we handed it to and are NEVER shown to
+// the redeemer.
+model PlatformPromoCode {
+  id               String    @id @default(cuid())
+  code             String    @unique
+  label            String? // who this was given to (influencer handle, tester name)
+  notes            String?
+  kind             String    @default("influencer") // "influencer" | "tester"
+  rewardMonths     Int       @default(3)
+  maxRedemptions   Int       @default(1)
+  redeemedCount    Int       @default(0)
+  expiresAt        DateTime?
+  active           Boolean   @default(true)
+  createdByAdminId String?
+  createdAt        DateTime  @default(now())
+
+  redemptions PlatformPromoRedemption[]
+
+  @@index([active])
+}
+
+model PlatformPromoRedemption {
+  id            String            @id @default(cuid())
+  promoCodeId   String
+  promoCode     PlatformPromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  // A company redeems at most one promo code, ever (globally unique) — so a
+  // stack of throwaway codes can't pile free months onto one account.
+  companyId     String            @unique
+  monthsGranted Int
+  redeemedAt    DateTime          @default(now())
+
+  @@unique([promoCodeId, companyId])
+  @@index([promoCodeId])
+}
+
 // Feedback and bug reports submitted by companies from inside the app.
 //
 // companyId/userId are plain ids rather than relations on purpose: feedback
