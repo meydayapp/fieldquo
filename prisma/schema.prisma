@@ -749,6 +749,8 @@ model User {
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
+  leadsAssigned         LeadRequest[]          @relation("LeadAssignee")
+  leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
 }
 
 // One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
@@ -986,6 +988,10 @@ model Quote {
   appointments Appointment[]
   tasks        Task[]
   jobs         Job[]
+  // The lead this quote was converted from, if any — the real link the old fake
+  // "Start quote" button never made. Lets a lead show "quoted" and a quote trace
+  // back to who asked. Optional: most quotes are created from scratch.
+  lead         LeadRequest? @relation("LeadQuote")
 
   // Cross-company quote import (general-contractor ↔ subcontractor). See model
   // QuoteImport. As SOURCE: this quote was sent to another FieldQuo company who
@@ -1752,6 +1758,47 @@ model LeadRequest {
   // land here. Carried onto the Quote when the lead is converted.
   clientPhotos  Json?
 
+  // The structured intake answers, kept ALONGSIDE the human-readable `message`
+  // blob (which used to be the only home for them). Shape: { fieldKey: value }.
+  // Scoring reads typed values here; conversion seeds the quote's scope from it.
+  intake        Json?
+  // Universal qualifiers now asked of every self-quote lead, captured
+  // structurally so they can actually be triaged — they were free-text hints
+  // nobody could sort or score on. Stored as stable keys, not display strings.
+  budgetBand    String?
+  timeline      String?
+
+  // Lead triage. `score` is 0–100; `temperature` is the hot/warm/cold band it
+  // maps to; `scoreReasons` is the human-readable "why" ([{ label, weight }]) so
+  // the number is never a black box a rep has to trust blind. Written when the
+  // lead is created and recomputed if the inputs change.
+  score         Int?
+  temperature   String?
+  scoreReasons  Json?
+
+  // Who's working it, and the quote it became. `quoteId` is the real link the
+  // old "Start quote" button never set: a converted lead's quote appears on the
+  // quotes list and points back here. Unique — one lead becomes at most one quote.
+  assignedToId  String?
+  assignedTo    User?            @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  quoteId       String?          @unique
+  quote         Quote?           @relation("LeadQuote", fields: [quoteId], references: [id])
+  notes         LeadNote[]
+  updatedAt     DateTime         @default(now()) @updatedAt
+}
+
+// A timeline note on a lead — the call-back log the kanban never had. Kept
+// separate from the lead's own `message` (which is the homeowner's words) so a
+// rep's "left a voicemail, trying again Tue" can't be confused with what the
+// client actually asked for.
+model LeadNote {
+  id        String      @id @default(cuid())
+  leadId    String
+  lead      LeadRequest @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?       @relation("LeadNoteAuthor", fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime    @default(now())
 }
 
 model ReferralLink {

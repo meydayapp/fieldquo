@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { normaliseMediaList } from "@/lib/media/validate";
+import { createScoredLead } from "@/lib/leads/createLead";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -15,12 +16,9 @@ import { DISCLOSURE } from "@/lib/voice/disclosure";
 // form. If your actual usage ends up identical, these two should probably merge —
 // worth revisiting once you see which one companies actually embed on their sites.
 /**
- * Flattens the structured answers into LeadRequest.message.
- *
- * LeadRequest has no field for arbitrary intake, and adding one would mean a
- * migration for something only this form produces. Formatting it as readable
- * lines keeps the leads list useful without inventing schema — and if this
- * form earns its keep, that's the moment to give it a real column.
+ * Builds the readable LeadRequest.message. The structured answers are ALSO kept
+ * verbatim in LeadRequest.intake now (scoring and quote conversion need typed
+ * values), but the message stays because staff read prose faster than JSON.
  */
 function buildMessage({ address, description, details }) {
   const answers =
@@ -57,6 +55,9 @@ export async function POST(request) {
     // Kept structured so whoever picks the lead up can see "40 doors" rather
     // than reading it out of a paragraph.
     details,
+    // The two universal qualifiers (validated to known keys server-side).
+    budgetBand,
+    timeline,
     language,
     // Photos/videos attached in the browser. Re-normalised below, never trusted.
     media,
@@ -78,17 +79,27 @@ export async function POST(request) {
 
   const clientMedia = normaliseMediaList(media);
 
-  const lead = await db.leadRequest.create({
-    data: {
-      companyId: company.id,
-      name,
-      email: email || null,
-      phone: phone || null,
-      categoryId: categoryId || null,
-      message: buildMessage({ address, description, details }),
-      source: "self_quote",
-      ...(clientMedia.length && { clientPhotos: clientMedia }),
-    },
+  // Address lives in the structured intake too, so a converted quote can seed
+  // the client's address without re-parsing the message blob.
+  const intake =
+    details && typeof details === "object"
+      ? { ...details, ...(address ? { address } : {}) }
+      : address
+        ? { address }
+        : null;
+
+  const lead = await createScoredLead({
+    companyId: company.id,
+    name,
+    email,
+    phone,
+    categoryId,
+    message: buildMessage({ address, description, details }),
+    source: "self_quote",
+    clientPhotos: clientMedia,
+    intake,
+    budgetBand,
+    timeline,
   });
 
   // Same as every other inbound form: they gave a number expecting a reply, so

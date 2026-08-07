@@ -44,6 +44,7 @@ export async function GET(request, { params }) {
     brandColor: true,
     phone: true,
     email: true,
+    currency: true,
     defaultLanguage: true,
     sendLanguages: true,
   });
@@ -79,6 +80,7 @@ export async function GET(request, { params }) {
       brandColor: company.brandColor,
       phone: company.phone,
       email: company.email,
+      currency: company.currency || "USD",
     },
     languages: Array.isArray(company.sendLanguages) && company.sendLanguages.length
       ? company.sendLanguages

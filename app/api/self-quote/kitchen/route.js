@@ -22,6 +22,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { createScoredLead } from "@/lib/leads/createLead";
 import { normaliseFinish, describeFinish } from "@/lib/kitchen/finishes";
 import { KINDS } from "@/lib/kitchen/geometry";
 import { resolveSender } from "@/lib/email/companySender";
@@ -93,7 +94,8 @@ function cleanConfig(c) {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const { companySlug, name, email, phone, address, notes } = body;
+  const { companySlug, name, email, phone, address, notes, budgetBand, timeline } =
+    body;
 
   if (!companySlug || !name || (!email && !phone)) {
     return NextResponse.json(
@@ -133,28 +135,29 @@ export async function POST(request) {
     return acc;
   }, {});
 
-  const lead = await db.leadRequest.create({
-    data: {
-      companyId: company.id,
-      name: String(name).slice(0, 200),
-      email: email ? String(email).slice(0, 200) : null,
-      phone: phone ? String(phone).slice(0, 60) : null,
-      categoryId,
-      // A readable summary as well as the JSON, because the leads list shows
-      // `message` and nobody should have to open the designer to find out
-      // whether a lead is worth opening the designer for.
-      message: [
-        address ? `Address: ${address}` : null,
-        `Room: ${Math.round(design.room.width)}" × ${Math.round(design.room.depth)}"`,
-        `${plural(counts.cabinet || 0, "cabinet")}, ${plural(counts.appliance || 0, "appliance")}`,
-        describeFinish(design.finish),
-        notes ? `Notes: ${String(notes).slice(0, 2000)}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-      source: "self_quote_kitchen",
-      kitchenDesign: design,
-    },
+  const lead = await createScoredLead({
+    companyId: company.id,
+    name: String(name).slice(0, 200),
+    email: email ? String(email).slice(0, 200) : null,
+    phone: phone ? String(phone).slice(0, 60) : null,
+    categoryId,
+    // A readable summary as well as the JSON, because the leads list shows
+    // `message` and nobody should have to open the designer to find out
+    // whether a lead is worth opening the designer for.
+    message: [
+      address ? `Address: ${address}` : null,
+      `Room: ${Math.round(design.room.width)}" × ${Math.round(design.room.depth)}"`,
+      `${plural(counts.cabinet || 0, "cabinet")}, ${plural(counts.appliance || 0, "appliance")}`,
+      describeFinish(design.finish),
+      notes ? `Notes: ${String(notes).slice(0, 2000)}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    source: "self_quote_kitchen",
+    kitchenDesign: design,
+    budgetBand,
+    timeline,
+    ...(address ? { intake: { address } } : {}),
   });
 
   // ── Their permission to ring them ───────────────────────────────────────

@@ -26,6 +26,7 @@ export const runtime = "nodejs";
 import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { createScoredLead } from "@/lib/leads/createLead";
 import { toE164 } from "@/lib/voice/numbers";
 import { cleanPhone, cleanText, TOOL_NAMES } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
@@ -167,15 +168,13 @@ async function saveCaller(ctx, args) {
           message,
         },
       })
-    : await db.leadRequest.create({
-        data: {
-          companyId: ctx.companyId,
-          name: name || "Caller",
-          phone: toE164(phone),
-          email: cleanText(args.email, 200),
-          message: message || "— taken by the phone assistant",
-          source: "phone_agent",
-        },
+    : await createScoredLead({
+        companyId: ctx.companyId,
+        name: name || "Caller",
+        phone: toE164(phone),
+        email: cleanText(args.email, 200),
+        message: message || "— taken by the phone assistant",
+        source: "phone_agent",
       });
 
   // They rang US, which is about as clear a request to be reachable as there

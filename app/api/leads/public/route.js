@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { createScoredLead } from "@/lib/leads/createLead";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -31,16 +32,14 @@ export async function POST(request) {
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const lead = await db.leadRequest.create({
-    data: {
-      companyId: company.id,
-      name,
-      email: email || null,
-      phone: phone || null,
-      categoryId: categoryId || null,
-      message: message || null,
-      source: source || "embed_form",
-    },
+  const lead = await createScoredLead({
+    companyId: company.id,
+    name,
+    email,
+    phone,
+    categoryId,
+    message,
+    source: source || "embed_form",
   });
 
   // A lead IS a request to be contacted — that's what a lead is. Recording it

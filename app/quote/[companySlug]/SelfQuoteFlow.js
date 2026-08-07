@@ -36,6 +36,38 @@ import MediaUploader from "@/app/components/MediaUploader";
 
 const FALLBACK_ACCENT = "#06356b";
 
+// The universal qualifiers, keyed to lib/leads/qualifiers.js. Timeline reads as
+// plain language; budget shows the company's currency symbol. These decide the
+// lead's hot/warm/cold score, so they're worth two taps.
+const TIMELINE_OPTIONS = [
+  { key: "asap", label: "As soon as possible" },
+  { key: "2_weeks", label: "Within 2 weeks" },
+  { key: "1_3_months", label: "In the next 1–3 months" },
+  { key: "exploring", label: "Just exploring for now" },
+];
+
+function budgetOptions(symbol) {
+  const s = symbol || "$";
+  return [
+    { key: "under_1k", label: `Under ${s}1,000` },
+    { key: "1k_5k", label: `${s}1,000 – ${s}5,000` },
+    { key: "5k_15k", label: `${s}5,000 – ${s}15,000` },
+    { key: "15k_plus", label: `${s}15,000+` },
+    { key: "unsure", label: "Not sure yet" },
+  ];
+}
+
+// Symbol for the few currencies FieldQuo onboards; falls back to the ISO code so
+// a stranger never sees "undefined". Not a full currency library — the label is
+// a rough band, not an invoice line.
+function currencySymbol(code) {
+  return (
+    { USD: "$", CAD: "$", AUD: "$", NZD: "$", EUR: "€", GBP: "£", MXN: "$" }[
+      code
+    ] || (code ? `${code} ` : "$")
+  );
+}
+
 export default function SelfQuoteFlow({ companySlug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +76,10 @@ export default function SelfQuoteFlow({ companySlug }) {
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [details, setDetails] = useState({});
+  // The two universal qualifiers — the whole point of the leads triage. Kept out
+  // of `details` (which is per-service intake) so they're always asked.
+  const [budgetBand, setBudgetBand] = useState("");
+  const [timeline, setTimeline] = useState("");
   const [description, setDescription] = useState("");
   const [media, setMedia] = useState([]); // photos/videos of the job
   const [contact, setContact] = useState({
@@ -99,6 +135,8 @@ export default function SelfQuoteFlow({ companySlug }) {
           categoryId: service?.id || null,
           description,
           details,
+          budgetBand: budgetBand || null,
+          timeline: timeline || null,
           media,
         }),
       });
@@ -305,6 +343,50 @@ export default function SelfQuoteFlow({ companySlug }) {
                 </div>
               )}
 
+              {/* The two qualifiers. Chip rows rather than selects: on a phone a
+                  tap beats a native picker, and seeing all the options at once
+                  is what makes people actually answer. */}
+              <div className="mb-4">
+                <label className="text-xs text-[#2d2520]/60">
+                  When are you hoping to start?
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  {TIMELINE_OPTIONS.map((o) => (
+                    <ChipButton
+                      key={o.key}
+                      active={timeline === o.key}
+                      accent={accent}
+                      onClick={() =>
+                        setTimeline((v) => (v === o.key ? "" : o.key))
+                      }
+                    >
+                      {o.label}
+                    </ChipButton>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs text-[#2d2520]/60">
+                  Rough budget?{" "}
+                  <span className="text-[#2d2520]/40">(optional)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2 mt-1.5">
+                  {budgetOptions(currencySymbol(c.currency)).map((o) => (
+                    <ChipButton
+                      key={o.key}
+                      active={budgetBand === o.key}
+                      accent={accent}
+                      onClick={() =>
+                        setBudgetBand((v) => (v === o.key ? "" : o.key))
+                      }
+                    >
+                      {o.label}
+                    </ChipButton>
+                  ))}
+                </div>
+              </div>
+
               <label className="text-xs text-[#2d2520]/60">
                 Anything else we should know?
               </label>
@@ -430,6 +512,23 @@ function Card({ accent, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+function ChipButton({ active, accent, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+      style={
+        active
+          ? { borderColor: accent, backgroundColor: `${accent}12`, color: "#2d2520" }
+          : { borderColor: "rgba(0,0,0,0.15)", color: "#2d2520" }
+      }
+    >
+      {children}
+    </button>
   );
 }
 

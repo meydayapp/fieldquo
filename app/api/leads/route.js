@@ -13,11 +13,43 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
+  const temperature = searchParams.get("temperature");
+  const source = searchParams.get("source");
+  const assignedToId = searchParams.get("assignedToId");
+  const q = (searchParams.get("q") || "").trim();
+  const sort = searchParams.get("sort"); // "score" | default recent
+
+  // "score" sorts hottest-first (nulls — unscored legacy leads — sink to the
+  // bottom), then most recent within a tier. Default stays newest-first.
+  const orderBy =
+    sort === "score"
+      ? [{ score: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }]
+      : [{ createdAt: "desc" }];
 
   const leads = await db.leadRequest.findMany({
-    where: { companyId: member.companyId, ...(status && { status }) },
-    include: { category: { select: { label: true } } },
-    orderBy: { createdAt: "desc" },
+    where: {
+      companyId: member.companyId,
+      ...(status && { status }),
+      ...(temperature && { temperature }),
+      ...(source && { source }),
+      ...(assignedToId && {
+        assignedToId: assignedToId === "unassigned" ? null : assignedToId,
+      }),
+      ...(q && {
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q } },
+          { message: { contains: q, mode: "insensitive" } },
+        ],
+      }),
+    },
+    include: {
+      category: { select: { label: true } },
+      assignedTo: { select: { id: true, name: true } },
+      quote: { select: { id: true, quoteNumber: true, status: true } },
+    },
+    orderBy,
   });
 
   // ── Who has asked not to be called ──────────────────────────────────────

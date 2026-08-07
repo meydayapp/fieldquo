@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { createScoredLead } from "@/lib/leads/createLead";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -23,16 +24,14 @@ export async function POST(request, { params }) {
 
   const { categoryId, message } = await request.json();
 
-  const lead = await db.leadRequest.create({
-    data: {
-      companyId: client.companyId,
-      name: client.name,
-      email: client.email,
-      phone: client.phone,
-      categoryId: categoryId || null,
-      message: message || null,
-      source: "client_portal",
-    },
+  const lead = await createScoredLead({
+    companyId: client.companyId,
+    name: client.name,
+    email: client.email,
+    phone: client.phone,
+    categoryId,
+    message,
+    source: "client_portal",
   });
 
   // An existing client asking for more work — the clearest consent there is,
