@@ -53,6 +53,10 @@ const SUBDOMAIN_PASSTHROUGH = [
   // get the drawing, not that tenant's marketing site.
   "/design",
   "/refer",
+  // Public lead funnels (/f/<company>/<funnel>). A stranger reaching a funnel
+  // from an ad linked on the tenant's own subdomain must get the funnel, not
+  // that tenant's marketing site.
+  "/f",
 ];
 
 const PLATFORM_BILLING_PASSTHROUGH = [

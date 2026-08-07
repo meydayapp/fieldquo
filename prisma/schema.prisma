@@ -487,6 +487,7 @@ model Company {
   workers               Worker[]
   shifts                Shift[]
   eventTypes            EventType[]
+  funnels               Funnel[]
   jobs                  Job[]
   jobChecklistTemplates JobChecklistTemplate[]
   leadRequests          LeadRequest[]
@@ -751,6 +752,7 @@ model User {
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
   leadsAssigned         LeadRequest[]          @relation("LeadAssignee")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
+  funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
 }
 
 // One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
@@ -1799,6 +1801,89 @@ model LeadNote {
   author    User?       @relation("LeadNoteAuthor", fields: [authorId], references: [id])
   body      String
   createdAt DateTime    @default(now())
+}
+
+// ============================================================
+// LEAD FUNNELS  (perspective.co-style mobile-first quiz funnels)
+// ============================================================
+//
+// A funnel is an ordered sequence of full-screen mobile STEPS a stranger taps
+// through — the "TikTok ad → quiz → qualified lead + booked estimate" loop. The
+// whole thing (steps, their blocks, answer options and branching) lives in one
+// `steps` JSON, exactly like CompanySite.blocks: the funnel is always read and
+// written as a unit, and a relational split would buy queryability nobody needs.
+//
+// The public render never trusts this JSON raw — app/data/funnelBlocks.js
+// sanitises it the same way sanitiseBlocks does for websites (clamp step kinds,
+// whitelist text fields, guard image URLs), so a browser POST can never turn a
+// stored funnel into a script or a layout it didn't define.
+model Funnel {
+  id          String       @id @default(cuid())
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  // Public URL segment: /f/<companySlug>/<slug>. Unique per company.
+  slug        String
+  status      FunnelStatus @default(draft)
+
+  // The ordered steps. Shape (see funnelBlocks.js): each step is
+  // { id, kind, ...fields, answers?: [{ id, label, value, weight?, next? }] }.
+  steps       Json
+  // Which channel template this came from — only for the analytics rollup
+  // ("your TikTok funnels convert at X"), never a layout switch.
+  channel     String?
+  // Per-funnel theme overrides; falls back to the company brand hex.
+  theme       Json?
+
+  // Ad-platform pixels, so the ad account can optimise toward booked estimates
+  // rather than clicks. IDs only — the pixel scripts are the platforms' own.
+  metaPixelId   String?
+  tiktokPixelId String?
+  ga4Id         String?
+
+  createdById String?
+  createdBy   User?    @relation("FunnelCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  responses FunnelResponse[]
+  events    FunnelEvent[]
+
+  @@unique([companyId, slug])
+}
+
+// One completed (or abandoned-with-contact) run through a funnel. `answers` is
+// every tap keyed by step/field; `leadId` is the LeadRequest it produced, so a
+// funnel lead sits in the same scored pipeline as every other inbound.
+model FunnelResponse {
+  id          String    @id @default(cuid())
+  funnelId    String
+  funnel      Funnel    @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  answers     Json
+  leadId      String?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// A single step-level analytics beacon (a step viewed, or the funnel completed),
+// tagged with an anonymous session id so drop-off between steps can be computed
+// — "60% quit at the budget question" is the whole point. Deliberately its own
+// rows rather than counters so the funnel view can slice by step and by day.
+model FunnelEvent {
+  id        String   @id @default(cuid())
+  funnelId  String
+  funnel    Funnel   @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  stepId    String
+  kind      String
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  @@index([funnelId, stepId])
+}
+
+enum FunnelStatus {
+  draft
+  published
 }
 
 model ReferralLink {

@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Home,
   Plus,
+  Filter,
   Calendar,
   Users,
   ClipboardList,
@@ -107,6 +108,7 @@ const NAV_GROUPS = [
     key: "app.nav.group.grow",
     items: [
       { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone },
+      { key: "app.nav.funnels", href: "/app/funnels", icon: Filter },
       { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
       { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare },
       { key: "app.nav.refer", href: "/app/settings/refer", icon: Gift },
