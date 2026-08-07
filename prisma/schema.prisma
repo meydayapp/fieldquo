@@ -2644,12 +2644,23 @@ model ReferralCredit {
   counterpartyCompanyId String?
 
   role   ReferralRole
-  months Int          @default(3)
+  // Referee ("referred") side: free months added to their trial. Referrer side
+  // no longer uses months — its reward is a dollar credit (below).
+  months Int          @default(1)
 
-  // The trial end date this credit produced, captured at grant time. Storing
-  // it means a later change to the reward size can't retroactively rewrite
-  // what a company was actually given.
+  // The trial end date this credit produced (referee side), captured at grant
+  // time. Storing it means a later change to the reward size can't retroactively
+  // rewrite what a company was actually given.
   appliedTrialEndsAt DateTime?
+
+  // Referrer side: the account credit earned, in cents, = one month of the
+  // REFERRED company's plan (their seats × their rate). Applied to the referrer's
+  // Stripe customer balance. stripeBalanceTxnId is set once actually applied;
+  // null means earned-but-not-yet-applied (e.g. the referrer has no Stripe
+  // customer yet because they're still on trial — applied when they start paying).
+  creditCents        Int?
+  currency           String?
+  stripeBalanceTxnId String?
 
   createdAt DateTime @default(now())
 
@@ -2657,6 +2668,8 @@ model ReferralCredit {
   // retry or a double-clicked button grants the reward twice.
   @@unique([companyId, role, counterpartyCompanyId])
   @@index([companyId])
+  // For the 50-referrals-per-month cap and the pending-credit sweep.
+  @@index([companyId, role, createdAt])
 }
 
 enum ReferralChannel {

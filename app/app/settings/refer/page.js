@@ -13,6 +13,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { formatMoney } from "@/lib/currency";
 import {
   Copy,
   Check,
@@ -98,7 +99,8 @@ export default function ReferPage() {
       </div>
     );
 
-  const months = data.rewardMonths || 3;
+  const currency = data.currency || "CAD";
+  const creditEarned = formatMoney((data.creditEarnedCents || 0) / 100, currency);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -107,7 +109,11 @@ export default function ReferPage() {
           {t("app.nav.refer")}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {t("app.refer.subtitle", { months })}
+          {t("app.refer.creditIntro")}
+        </p>
+        {/* The whale line the owner asked for: bigger teams earn more. */}
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("app.refer.creditBigger")}
         </p>
       </div>
 
@@ -253,15 +259,11 @@ export default function ReferPage() {
         <div className="flex items-center gap-2 mb-1">
           <Gift size={16} className="text-muted-foreground" />
           <h2 className="text-base font-semibold text-foreground">
-            {data.monthsEarned === 1
-              ? t("app.refer.monthEarnedOne", { count: data.monthsEarned })
-              : t("app.refer.monthsEarnedOther", {
-                  count: data.monthsEarned || 0,
-                })}
+            {t("app.refer.creditEarned", { amount: creditEarned })}
           </h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          {t("app.refer.earnedNote")}
+          {t("app.refer.creditEarnedNote")}
         </p>
       </div>
 
@@ -287,7 +289,7 @@ export default function ReferPage() {
               </span>
               {c.rewarded ? (
                 <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 shrink-0">
-                  <Check size={11} /> {t("app.refer.monthsBadge", { months })}
+                  <Check size={11} /> {t("app.refer.creditedBadge")}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-muted text-muted-foreground shrink-0">

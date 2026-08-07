@@ -9,7 +9,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { findReferrer, REWARD_MONTHS } from "@/lib/referrals";
+import { findReferrer, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 
 export async function GET(request, { params }) {
   const { code } = await params;
@@ -28,6 +28,6 @@ export async function GET(request, { params }) {
     code: referrer.referralCode,
     referrerName: referrer.name,
     referrerLogoUrl: referrer.logoUrl,
-    months: REWARD_MONTHS,
+    months: REFEREE_BONUS_MONTHS,
   });
 }

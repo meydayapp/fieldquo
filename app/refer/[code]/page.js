@@ -16,7 +16,10 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { findReferrer, REWARD_MONTHS } from "@/lib/referrals";
+import { findReferrer, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+
+// The new company's signup bonus, pluralised ("1 month free" / "2 months free").
+const MONTHS_FREE = `${REFEREE_BONUS_MONTHS} ${REFEREE_BONUS_MONTHS === 1 ? "month" : "months"} free`;
 
 export async function generateMetadata({ params }) {
   const { code } = await params;
@@ -27,7 +30,7 @@ export async function generateMetadata({ params }) {
   // Open Graph matters more here than on most pages — this link gets pasted
   // into WhatsApp and Facebook groups, where the preview card IS the pitch.
   const title = `${referrer.name} thinks you'd like FieldQuo`;
-  const description = `Quotes, invoices and scheduling for field-service businesses. ${REWARD_MONTHS} months free when you sign up through ${referrer.name}.`;
+  const description = `Quotes, invoices and scheduling for field-service businesses. ${MONTHS_FREE} when you sign up through ${referrer.name}.`;
 
   return {
     title,
@@ -68,7 +71,7 @@ export default async function ReferralLandingPage({ params }) {
               {referrer.name} uses FieldQuo
             </p>
             <h1 className="text-2xl font-bold text-[#2d2520] mt-2 leading-tight">
-              Get your first {REWARD_MONTHS} months free
+              Get your first {MONTHS_FREE}
             </h1>
             <p className="text-sm text-[#2d2520]/70 mt-3">
               Quotes, invoices, scheduling and payments for field-service
@@ -80,7 +83,7 @@ export default async function ReferralLandingPage({ params }) {
               href={`/signup?ref=${encodeURIComponent(referrer.referralCode)}`}
               className="mt-6 inline-block w-full bg-brand-accent text-brand-accent-foreground font-bold py-3.5 rounded-full"
             >
-              Claim {REWARD_MONTHS} months free
+              Claim {MONTHS_FREE}
             </Link>
 
             <p className="text-xs text-[#2d2520]/40 mt-3">

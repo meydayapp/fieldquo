@@ -24,7 +24,7 @@ import { lazyClient } from "@/lib/lazyClient";
 import { getCurrentMember } from "@/lib/currentMember";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
-import { REWARD_MONTHS } from "@/lib/referrals";
+import { REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 
 const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
@@ -136,7 +136,7 @@ export async function POST(request) {
       // Under 160 characters including the link, so it lands as one segment.
       // Identifies the sender and the product immediately — an unexplained
       // link from an unknown number gets deleted.
-      const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REWARD_MONTHS} months free: ${url}`;
+      const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free: ${url}`;
       const result = await sendSms({ to: phone, body: text });
       if (!result.success) throw new Error(result.error || "SMS failed");
       providerMessageId = result.sid;
@@ -236,7 +236,7 @@ function inviteHtml({ companyName, url, recipientName }) {
       </p>
       <p style="margin:0 0 22px">
         Sign up through their link and your first
-        <strong>${REWARD_MONTHS} months are free</strong>.
+        <strong>${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? " is" : "s are"} free</strong>.
       </p>
       <p style="margin:0 0 22px">
         <a href="${url}" style="background:#ff5a00;color:#0b1a2e;text-decoration:none;padding:13px 26px;border-radius:999px;font-weight:bold;display:inline-block">

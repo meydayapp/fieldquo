@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { getAppOrigin } from "@/lib/appUrl";
-import { referralCodeFor, REWARD_MONTHS } from "@/lib/referrals";
+import { referralCodeFor, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 
 // Plain company name, no random suffix: this becomes /refer/sunsetinc, which
 // gets read aloud, typed off a business card and printed on a van. A suffix
@@ -54,11 +54,11 @@ export async function GET(request) {
   });
 
   // Credits are the truth about what was actually granted — `referred` alone
-  // can't distinguish "signed up" from "paid, and you got your three months".
+  // can't distinguish "signed up" from "paid, and you earned your credit".
   const [credits, invites] = await Promise.all([
     db.referralCredit.findMany({
       where: { companyId: company.id, role: "referrer" },
-      select: { counterpartyCompanyId: true, months: true, createdAt: true },
+      select: { counterpartyCompanyId: true, creditCents: true, createdAt: true },
     }),
     db.referralInvite.findMany({
       where: { companyId: company.id },
@@ -80,15 +80,20 @@ export async function GET(request) {
   return NextResponse.json({
     referralCode,
     referralUrl: `${getAppOrigin(request)}/refer/${referralCode}`,
-    rewardMonths: REWARD_MONTHS,
+    // What the NEW company gets for signing up through the link.
+    refereeBonusMonths: REFEREE_BONUS_MONTHS,
+    // The referrer bills in their own currency; the credit is denominated in it.
+    currency: company.currency || "CAD",
     referred: referred.map((c) => ({
       ...c,
       // The distinction the old page couldn't make: a referral that signed up
-      // but hasn't paid earns nothing yet, and saying otherwise sets up a
-      // support conversation about a reward that never arrived.
+      // but hasn't paid (and verified) earns nothing yet, and saying otherwise
+      // sets up a support conversation about a reward that never arrived.
       rewarded: creditedIds.has(c.id),
     })),
-    monthsEarned: credits.reduce((sum, c) => sum + (c.months || 0), 0),
+    // Total account credit earned so far, in cents (one month of each referred
+    // company's plan). Bigger teams referred → bigger credit.
+    creditEarnedCents: credits.reduce((sum, c) => sum + (c.creditCents || 0), 0),
     rewardedCount: credits.length,
     invites,
   });
