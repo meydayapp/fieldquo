@@ -58,6 +58,7 @@ Lead ──▶ Quote ──▶ (client approves) ──▶ Job ──▶ Invoice
 - **Homeowner kitchen self-design** — they draw it, you price it.
 - **Lead scoring** — every lead auto-triaged hot / warm / cold, with a plain-English reason for the score.
 - **Leads pipeline** — a working board with search, filters, owner assignment, a call-back log, and one-tap convert-to-quote.
+- **Lead funnels** — mobile-first, tap-through quiz funnels for your ads and link-in-bio; build from a TikTok/Instagram/YouTube/Web template or describe it to AI, publish to a shareable link, and watch where people drop off.
 
 ### Do the work (jobs & scheduling)
 - **Accepted quote → job automatically.**
@@ -243,6 +244,21 @@ assignment**, status, and a **call-back notes log**. The **"Convert to quote"**
 button is now real — it builds a draft quote carrying the client, category, photos
 and the homeowner's answers, links the two, and drops the estimator straight into
 it. (It used to be a dead link to a blank page.)
+
+**Lead funnels** ✅ — Perspective.co-style, mobile-first **tap-through funnels** for
+paid social and link-in-bio — the "TikTok ad → 60-second quiz → qualified lead →
+booked estimate" loop. Build one from a **channel template** (TikTok / Instagram /
+YouTube / Web), or **describe it and let AI generate it** (grounded on your real
+services; falls back to a template if AI is unavailable — never a broken funnel).
+Each funnel is a sequence of full-screen steps — intro hook, single/multiple-choice
+questions (with branching), photo upload, contact form, thank-you — edited in a
+builder with a live branded preview. Budget and timeline questions **feed the same
+lead-scoring engine**, so a funnel drops a *scored* lead straight into the pipeline.
+Publish to a shareable `/f/…` link (QR-friendly, embeds on the site), wire up **Meta
+/ TikTok / GA4 pixels**, and read **per-step drop-off analytics** ("60% quit at the
+budget question"). Publishing is blocked unless the funnel actually captures a
+contact — no funnel that collects nothing. *English-first; a full i18n pass is a
+follow-up.*
 
 ## C. Do the work — Jobs & scheduling
 
