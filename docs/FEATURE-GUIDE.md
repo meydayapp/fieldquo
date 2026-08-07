@@ -54,9 +54,10 @@ Lead ──▶ Quote ──▶ (client approves) ──▶ Job ──▶ Invoice
 ### Get leads in
 - **Instant estimates** — a real starting price from your website in seconds (measured from the address or a traced map).
 - **Estimate review queue** — nothing auto-generated goes out until a human confirms it.
-- **Self-quote request form** — photos + job size, no prices, becomes a lead.
+- **Self-quote request form** — photos + job size + budget/timeline, no prices, becomes a scored lead.
 - **Homeowner kitchen self-design** — they draw it, you price it.
-- **Leads pipeline** — a kanban so nothing sits untouched.
+- **Lead scoring** — every lead auto-triaged hot / warm / cold, with a plain-English reason for the score.
+- **Leads pipeline** — a working board with search, filters, owner assignment, a call-back log, and one-tap convert-to-quote.
 
 ### Do the work (jobs & scheduling)
 - **Accepted quote → job automatically.**
@@ -218,15 +219,30 @@ exactly what the homeowner saw; a supervisor confirms the price before it can be
 sent. The send route hard-blocks an unreviewed estimate, so the gate is real.
 
 **Self-quote request form** ✅ — A public 3-step form (service → size + photos →
-contact) that returns **no prices** and produces a lead. Photos/video of the job
-come in with it.
+contact) that returns **no prices** and produces a lead. Now also asks two
+universal qualifiers — **when they want to start** and **rough budget** — which
+feed the lead-scoring engine. Photos/video of the job come in with it.
 
 **Homeowner kitchen self-design** ✅ — A homeowner lays out a kitchen and submits it
 as a lead; the cabinet maker prices it by hand and sends a real quote.
 
-**Leads pipeline** ✅ — A kanban (New → Contacted → Won → Lost) with drag-forward,
-"do not call" flags, attached photos, a rendered kitchen design, and one-click
-"Start quote" on a won lead.
+**Lead scoring — hot / warm / cold** ✅ — Every inbound lead (self-quote, kitchen
+designer, embed form, client portal, phone agent) is triaged the moment it lands,
+scored 0–100 from timeline urgency, stated budget, emergency flags, contactability
+and effort (photos, a drawn kitchen, a real description). It's a transparent,
+explainable heuristic — not a black box — so every lead carries a **"why this
+score"** breakdown the rep can see and overrule. "ASAP + $15k" lands hot; a burst
+pipe lands hot whatever the budget; "just exploring" lands cold.
+
+**Leads pipeline** ✅ — A working pipeline board (New → Contacted → Won → Lost),
+cards led by the temperature badge + budget/timeline, with search, a
+hot/warm/cold filter, and a hottest-first sort. Each card opens a **detail
+panel**: the score breakdown, editable qualifiers (re-triages on change), contact
+with "do not call", structured intake, photos, the drawn kitchen, **owner
+assignment**, status, and a **call-back notes log**. The **"Convert to quote"**
+button is now real — it builds a draft quote carrying the client, category, photos
+and the homeowner's answers, links the two, and drops the estimator straight into
+it. (It used to be a dead link to a blank page.)
 
 ## C. Do the work — Jobs & scheduling
 
