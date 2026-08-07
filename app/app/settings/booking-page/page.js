@@ -23,6 +23,7 @@ export default function BookingPageSettings() {
   // which was hardcoded to an hour, whatever the trade.
   const [visitMinutes, setVisitMinutes] = useState(60);
   const [savingVisit, setSavingVisit] = useState(false);
+  const [stripeReady, setStripeReady] = useState(false);
   // Which ways a client may meet them. Drives the choice on the public booking
   // page — with one mode selected the visitor isn't asked, because a control with
   // one option is a label.
@@ -45,6 +46,8 @@ export default function BookingPageSettings() {
     ])
       .then(([types, info]) => {
         setEventTypes(Array.isArray(types) ? types : []);
+        // Whether the company can actually collect a booking fee (Connect done).
+        setStripeReady(Boolean(info?.stripeChargesEnabled));
         if (info?.defaultVisitMinutes) setVisitMinutes(info.defaultVisitMinutes);
         if (Array.isArray(info?.bookingModes) && info.bookingModes.length) setModes(info.bookingModes);
         setTravel({
@@ -143,6 +146,27 @@ export default function BookingPageSettings() {
       await reportResponseError(res, t("app.setBooking.durationSaveError"));
     }
   }
+
+  // Save any patch (fee, promo, …) to one event type and reconcile it in place.
+  async function patchEventType(et, patch) {
+    const res = await fetch(`/api/event-types/${et.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setEventTypes((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } else {
+      await reportResponseError(res);
+    }
+  }
+
+  // Dollars in the UI, cents in the DB. Blank/0 → null ("free").
+  const toCents = (dollars) => {
+    const n = Math.round(Number(dollars) * 100);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -371,10 +395,8 @@ export default function BookingPageSettings() {
           </div>
         )}
         {eventTypes.map((et) => (
-          <div
-            key={et.id}
-            className="bg-card border border-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-          >
+          <div key={et.id} className="bg-card border border-border rounded-xl p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="min-w-0">
               <div className="font-medium text-foreground">{et.name}</div>
               <div className="text-xs text-muted-foreground">
@@ -410,6 +432,72 @@ export default function BookingPageSettings() {
               {t("app.status.active")}
             </label>
             </div>
+          </div>
+
+          {/* Fee for this booking type — a paid on-site / estimate visit. Free
+              when blank. Collected via Stripe Connect at booking; the contractor
+              can later credit it onto the client's invoice by hand. */}
+          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3">
+            <label className="text-sm">
+              <span className="block text-xs text-muted-foreground mb-1">
+                {t("app.setBooking.visitFee", "Visit fee")}
+              </span>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  defaultValue={et.feeCents ? (et.feeCents / 100).toString() : ""}
+                  onBlur={(e) => patchEventType(et, { feeCents: toCents(e.target.value) })}
+                  placeholder={t("app.setBooking.free", "Free")}
+                  className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                />
+              </div>
+            </label>
+
+            {et.feeCents > 0 && (
+              <>
+                <label className="text-sm">
+                  <span className="block text-xs text-muted-foreground mb-1">
+                    {t("app.setBooking.promoPrice", "Promo price")}
+                  </span>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      defaultValue={et.promoFeeCents ? (et.promoFeeCents / 100).toString() : ""}
+                      onBlur={(e) => patchEventType(et, { promoFeeCents: toCents(e.target.value) })}
+                      className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                    />
+                  </div>
+                </label>
+                <label className="flex items-center gap-2 text-sm pb-1.5">
+                  <input
+                    type="checkbox"
+                    checked={!!et.promoActive}
+                    disabled={!et.promoFeeCents}
+                    onChange={(e) => patchEventType(et, { promoActive: e.target.checked })}
+                  />
+                  {t("app.setBooking.promoOn", "Promo on")}
+                </label>
+              </>
+            )}
+          </div>
+
+          {/* Can't collect a fee without a connected payout account. Prompt it
+              rather than silently taking a fee that goes nowhere. */}
+          {et.feeCents > 0 && !stripeReady && (
+            <div className="mt-2 text-xs rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-3 py-2">
+              {t("app.setBooking.connectToCharge", "Connect Stripe to collect this fee —")}{" "}
+              <a href="/app/settings/payments" className="underline font-medium">
+                {t("app.setBooking.goToPayments", "set it up in Payments")}
+              </a>
+              .
+            </div>
+          )}
           </div>
         ))}
       </div>

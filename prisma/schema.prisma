@@ -1831,7 +1831,18 @@ model EventType {
   bufferAfter     Int      @default(0)
   location        String?
   active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
+
+  // Fee for this booking type (e.g. a paid on-site diagnostic / estimate visit).
+  // null or 0 = free. When set, the booking page collects it via the company's
+  // Stripe Connect account before confirming the slot. promoFeeCents is an
+  // optional promotional price shown instead of feeCents while promoActive is on
+  // (e.g. a $20 estimate special). The contractor can later credit a paid fee
+  // onto the client's invoice by hand (see Booking.feeCreditedInvoiceId).
+  feeCents      Int?
+  promoFeeCents Int?
+  promoActive   Boolean @default(false)
+
+  createdAt DateTime @default(now())
 
   bookings Booking[]
 
@@ -1854,6 +1865,17 @@ model Booking {
   status        BookingStatus @default(confirmed)
   appointmentId String?       @unique
   appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+
+  // Paid-visit fee, captured when this was a paid booking type. feePaidCents is
+  // what the client actually paid (promo price if a promo was on). The booking
+  // is only confirmed once payment succeeds — a pending_payment booking holds
+  // the slot until then. feeCreditedInvoiceId records the invoice the contractor
+  // later credited this fee onto (so it can't be credited twice).
+  feePaidCents             Int?
+  feeCurrency              String?
+  feeStripePaymentIntentId String?
+  feeCreditedInvoiceId     String?
+
   createdAt     DateTime      @default(now())
   /// Where the visit is. Collected from the client at booking time for
   /// in-person modes, and geocoded once so the scheduler can work out whether
@@ -2531,6 +2553,10 @@ enum LeadStatus {
 }
 
 enum BookingStatus {
+  // Slot held while the client pays the visit fee at checkout. Becomes
+  // `confirmed` when Stripe reports the payment succeeded; a never-paid hold is
+  // swept/cancelled so it doesn't block the slot forever.
+  pending_payment
   confirmed
   cancelled
   completed

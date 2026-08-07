@@ -27,7 +27,19 @@ export async function PATCH(request, { params }) {
     location,
     active,
     userId,
+    feeCents,
+    promoFeeCents,
+    promoActive,
   } = body;
+
+  // Fees are non-negative integer cents; 0 is stored as null ("free") so the
+  // booking page has one clear signal for "no charge". Clamped, not trusted.
+  const cleanCents = (v) => {
+    if (v === undefined) return undefined;
+    if (v === null || v === "") return null;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 100000000) : null;
+  };
 
   const updated = await db.eventType.update({
     where: { id: _params.id },
@@ -39,6 +51,11 @@ export async function PATCH(request, { params }) {
       ...(location !== undefined && { location }),
       ...(active !== undefined && { active }),
       ...(userId !== undefined && { userId }),
+      ...(cleanCents(feeCents) !== undefined && { feeCents: cleanCents(feeCents) }),
+      ...(cleanCents(promoFeeCents) !== undefined && {
+        promoFeeCents: cleanCents(promoFeeCents),
+      }),
+      ...(promoActive !== undefined && { promoActive: Boolean(promoActive) }),
     },
   });
 
