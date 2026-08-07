@@ -159,7 +159,7 @@ export default function LeadsPage() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[180px]">
+        <div className="relative flex-1 min-w-[180px]" data-tour="leads-search">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
@@ -168,7 +168,7 @@ export default function LeadsPage() {
             className="w-full border border-border rounded-full pl-9 pr-3 py-2 text-sm bg-card"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-full border border-border p-0.5">
+        <div className="flex items-center gap-1 rounded-full border border-border p-0.5" data-tour="leads-temp">
           {["", "hot", "warm", "cold"].map((k) => (
             <button
               key={k || "all"}
@@ -186,6 +186,7 @@ export default function LeadsPage() {
           onClick={() => setSort((s) => (s === "score" ? "recent" : "score"))}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full border border-border text-xs font-semibold text-foreground"
           title={t("app.leads.sortToggleHint")}
+          data-tour="leads-sort"
         >
           <Flame size={13} className={sort === "score" ? "text-red-500" : "text-muted-foreground"} />
           {sort === "score" ? t("app.leads.sortHottest") : t("app.leads.sortNewest")}

@@ -108,6 +108,7 @@ export default function FunnelsPage() {
         <button
           onClick={() => setShowNew((v) => !v)}
           className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold shrink-0"
+          data-tour="funnels-new"
         >
           <Plus size={15} /> New funnel
         </button>

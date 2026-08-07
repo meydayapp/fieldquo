@@ -437,7 +437,7 @@ export default function BookingPageSettings() {
           {/* Fee for this booking type — a paid on-site / estimate visit. Free
               when blank. Collected via Stripe Connect at booking; the contractor
               can later credit it onto the client's invoice by hand. */}
-          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3">
+          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3" data-tour="booking-fee">
             <label className="text-sm">
               <span className="block text-xs text-muted-foreground mb-1">
                 {t("app.setBooking.visitFee", "Visit fee")}

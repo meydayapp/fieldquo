@@ -220,6 +220,7 @@ export default function FunnelBuilderPage() {
           onClick={togglePublish}
           disabled={saving}
           className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-50"
+          data-tour="funnel-publish"
         >
           {funnel.status === "published" ? "Unpublish" : "Publish"}
         </button>
@@ -274,7 +275,7 @@ export default function FunnelBuilderPage() {
       {/* Builder grid */}
       <div className="grid gap-4 lg:grid-cols-[220px_1fr_300px]">
         {/* Step list */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-tour="funnel-steps">
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Steps</div>
           {steps.map((s, i) => (
             <div
