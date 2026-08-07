@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import {
@@ -147,15 +148,4 @@ export async function POST(request) {
   });
 
   return NextResponse.json(quote, { status: 201 });
-}
-
-// Server is the source of truth for sequential numbers — never generate this client-side.
-function getNextQuoteNumber(lastNumber) {
-  const year = new Date().getFullYear();
-  if (!lastNumber) return `Q-${year}-0001`;
-  const match = lastNumber.match(/(\d+)$/);
-  const nextSeq = match
-    ? String(Number(match[1]) + 1).padStart(4, "0")
-    : "0001";
-  return `Q-${year}-${nextSeq}`;
 }
