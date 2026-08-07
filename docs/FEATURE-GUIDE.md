@@ -72,7 +72,7 @@ Lead ──▶ Quote ──▶ (client approves) ──▶ Job ──▶ Invoice
 - **White-label booking page** — pick a real open time, branded as you.
 - **Meeting modes** — phone / video / on-site visit.
 - **Estimator picker** — book a specific person.
-- 🟡 **Paid estimate visits** — charge a diagnostic/estimate fee at booking, credit it to the job (config shipped; checkout in progress).
+- **Paid estimate visits** — charge a diagnostic/estimate fee (with optional promo price) by card at booking via your Stripe, then credit it back onto the job if they hire you.
 - **Embeddable booking + quote widgets** — one iframe into your existing site.
 
 ### Get paid
@@ -276,13 +276,19 @@ needless control; a visit can collect an address that filters times by drive tim
 **Estimator picker** ✅ — "Choose who you'd like to meet" when bookable members
 exist.
 
-**Paid estimate visits** 🟡 — *In progress.* The intent: charge a per-event-type fee
-(with an optional promo price, e.g. a "$20 estimate special") via Stripe Connect at
-booking, hold the slot until paid, and let the contractor credit the fee onto the
-client's invoice. **Shipped today:** the fee/promo config in Settings → Booking
-page and the "connect Stripe to collect" prompt. **Not yet:** the checkout step at
-booking and the invoice-credit button. *Configure it, but don't demo collecting it
-yet.*
+**Paid estimate visits** ✅ — Charge a per-event-type visit fee (with an optional
+promo price, e.g. a "$20 estimate special" instead of the standard $79) collected by
+**card at booking** through the company's own Stripe Connect. The fee is resolved
+entirely server-side — the browser never says what a visit costs, and a company that
+hasn't connected Stripe simply can't set one (the config shows a "connect Stripe to
+collect this fee" prompt). A paid slot is *held* (`pending_payment`) rather than
+booked: no appointment lands on the crew's calendar until the Stripe webhook confirms
+payment, at which point the client, appointment and branded confirmation are all
+created. The contractor later credits the paid fee back onto the client's invoice
+with a one-tap, reversible toggle on the invoice — the John-the-Plumber model, where
+the visit is free *if you go ahead with the work*. The credit records as its own
+`visit_credit` payment so it flows through the normal balance math and can be switched
+off again. Configure it in **Settings → Booking page** (per event type).
 
 **Embeddable widgets** ✅ — `/embed/[slug]/book` and `/embed/[slug]/quote` drop the
 real booking/quote flows into an existing website with no FieldQuo chrome; the

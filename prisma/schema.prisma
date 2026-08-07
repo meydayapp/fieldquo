@@ -2493,6 +2493,10 @@ enum PaymentMethod {
   cheque
   shop
   stripe
+  // A paid booking/visit fee the client already paid (via Stripe Connect at
+  // booking) that the contractor later credits onto this invoice. Tracked as
+  // its own method so it's distinguishable from money collected on the invoice.
+  visit_credit
 }
 
 enum PricingModel {

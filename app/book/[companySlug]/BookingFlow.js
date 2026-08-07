@@ -31,6 +31,20 @@ function isoDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// The fee is already resolved server-side (feeCents = what they pay, with
+// feeStandardCents set only when a promo is live). The browser just formats it.
+function moneyFromCents(cents, currency) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency || "USD",
+      minimumFractionDigits: Number.isInteger(cents / 100) ? 0 : 2,
+    }).format((cents || 0) / 100);
+  } catch {
+    return `$${((cents || 0) / 100).toFixed(0)}`;
+  }
+}
+
 export default function BookingFlow({ companySlug, initialEventSlug }) {
   const [company, setCompany] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -125,6 +139,21 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
       cancelled = true;
     };
   }, [companySlug, initialEventSlug]);
+
+  // Returned from the Stripe checkout for a paid visit fee — the webhook has
+  // confirmed the booking. Show a thank-you (the fresh page load has no form
+  // state, so the message is generic) and strip the param.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("booked") === "1") {
+      setConfirmed({ paid: true });
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (p.get("payment_cancelled") === "1") {
+      setSubmitError("Payment was cancelled — your time wasn't booked. You can try again.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const offered = company?.bookingModes?.length ? company.bookingModes : ["visit"];
@@ -259,10 +288,17 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
         }
         throw new Error(data?.error || "Couldn't book that time.");
       }
+      // Paid visit: the server held the slot and returned a Stripe checkout.
+      // Hand off to it — the booking confirms on the webhook once paid, and the
+      // client returns to ?booked=1. Stay "submitting" through the redirect so
+      // the button can't be double-tapped.
+      if (data?.requiresPayment && data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
       setConfirmed({ startTime: chosen, ...data });
     } catch (err) {
       setSubmitError(err.message);
-    } finally {
       setSubmitting(false);
     }
   }
@@ -309,18 +345,21 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             <Check size={26} style={{ color: accent }} />
           </div>
           <h2 className="text-lg font-bold text-[#2d2520]">You&apos;re booked</h2>
-          <p className="text-sm text-[#2d2520]/70 mt-2">
-            {new Date(confirmed.startTime).toLocaleString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
-          </p>
+          {confirmed.startTime && (
+            <p className="text-sm text-[#2d2520]/70 mt-2">
+              {new Date(confirmed.startTime).toLocaleString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
           <p className="text-sm text-[#2d2520]/60 mt-3">
-            A confirmation is on its way to {form.email}. {company.name} will be
-            in touch if anything changes.
+            {confirmed.paid
+              ? `Payment received — your visit is confirmed. A confirmation email is on its way, and ${company.name} will be in touch if anything changes.`
+              : `A confirmation is on its way${form.email ? ` to ${form.email}` : ""}. ${company.name} will be in touch if anything changes.`}
           </p>
         </div>
       </Shell>
@@ -396,6 +435,23 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                       {et.location && (
                         <span className="inline-flex items-center gap-1">
                           <MapPin size={11} /> {et.location}
+                        </span>
+                      )}
+                      {et.feeCents > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1.5 font-semibold"
+                          style={{ color: accent }}
+                        >
+                          {et.feeStandardCents ? (
+                            <>
+                              <span className="line-through opacity-50 font-normal">
+                                {moneyFromCents(et.feeStandardCents, company.currency)}
+                              </span>
+                              {moneyFromCents(et.feeCents, company.currency)}
+                            </>
+                          ) : (
+                            moneyFromCents(et.feeCents, company.currency)
+                          )}
                         </span>
                       )}
                     </div>
@@ -661,6 +717,33 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             {eventType.name} · {eventType.durationMinutes} min
           </p>
 
+          {eventType.feeCents > 0 && (
+            <div
+              className="rounded-xl px-3.5 py-3 mb-4 text-sm"
+              style={{ backgroundColor: `${accent}12`, color: "#2d2520" }}
+            >
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium">Visit fee</span>
+                <span className="font-semibold" style={{ color: accent }}>
+                  {eventType.feeStandardCents ? (
+                    <>
+                      <span className="line-through opacity-50 font-normal mr-1.5">
+                        {moneyFromCents(eventType.feeStandardCents, company.currency)}
+                      </span>
+                      {moneyFromCents(eventType.feeCents, company.currency)}
+                    </>
+                  ) : (
+                    moneyFromCents(eventType.feeCents, company.currency)
+                  )}
+                </span>
+              </div>
+              <p className="text-xs text-[#2d2520]/60 mt-1.5">
+                Paid now to hold your spot. If you go ahead with the work,{" "}
+                {company.name} can credit it back on your invoice.
+              </p>
+            </div>
+          )}
+
           {submitError && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3 flex items-start gap-2 text-sm text-red-700">
               <AlertCircle size={15} className="shrink-0 mt-0.5" />
@@ -700,7 +783,9 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             style={{ backgroundColor: accent, color: accentOn }}
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
-            Confirm booking
+            {eventType.feeCents > 0
+              ? `Pay ${moneyFromCents(eventType.feeCents, company.currency)} & book`
+              : "Confirm booking"}
           </button>
         </form>
       )}

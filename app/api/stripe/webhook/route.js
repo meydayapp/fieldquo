@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 
 // Handles Connect events (company payment setup + invoice payments) — a SEPARATE
 // webhook endpoint/secret from the Billing webhook. Never combine these two.
@@ -40,7 +41,73 @@ export async function POST(request) {
 
     case "checkout.session.completed": {
       const session = event.data.object;
-      const { invoiceId } = session.metadata || {};
+      const { invoiceId, bookingId } = session.metadata || {};
+
+      // A paid booking VISIT FEE cleared: turn the held slot into a real
+      // appointment, record the fee, confirm, and finalise (email/consent/
+      // reminder). Idempotent — a re-delivered event finds the booking already
+      // confirmed and does nothing.
+      if (bookingId) {
+        const held = await db.booking.findUnique({
+          where: { id: bookingId },
+          include: { eventType: { include: { company: true } } },
+        });
+        if (held && held.status === "pending_payment" && held.eventType) {
+          const company = held.eventType.company;
+          const eventType = held.eventType;
+
+          let client = await db.client.findFirst({
+            where: { companyId: company.id, email: held.clientEmail },
+          });
+          if (!client) {
+            client = await db.client.create({
+              data: {
+                companyId: company.id,
+                name: held.clientName,
+                email: held.clientEmail,
+                phone: held.clientPhone || null,
+              },
+            });
+          }
+
+          const appointment = await db.appointment.create({
+            data: {
+              companyId: company.id,
+              clientId: client.id,
+              scheduledAt: held.startTime,
+              location: held.address || eventType.location || null,
+              ...(held.latitude != null &&
+                held.longitude != null && {
+                  latitude: held.latitude,
+                  longitude: held.longitude,
+                }),
+              status: "scheduled",
+              createdById: eventType.userId,
+              assignedToId: eventType.userId,
+            },
+          });
+
+          const confirmed = await db.booking.update({
+            where: { id: held.id },
+            data: {
+              status: "confirmed",
+              appointmentId: appointment.id,
+              feePaidCents: session.amount_total || 0,
+              feeCurrency: session.currency || null,
+              feeStripePaymentIntentId: session.payment_intent || null,
+            },
+          });
+
+          await finalizeBooking({
+            company,
+            eventType,
+            booking: confirmed,
+            clientId: client.id,
+          });
+        }
+        break;
+      }
+
       if (invoiceId) {
         await db.payment.create({
           data: {

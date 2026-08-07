@@ -48,6 +48,9 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [justSent, setJustSent] = useState("");
+  // Paid booking/visit fees this client already paid that can be credited here.
+  const [creditInfo, setCreditInfo] = useState(null);
+  const [creditingId, setCreditingId] = useState("");
 
   useEffect(() => {
     // Guard res.ok: a 404/401 returns { error }, and setting that as the invoice
@@ -58,7 +61,36 @@ export default function InvoiceDetailPage() {
       .then(setInvoice)
       .catch(() => setInvoice(null))
       .finally(() => setLoading(false));
+    fetch(`/api/invoices/${id}/credit-visit-fee`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setCreditInfo)
+      .catch(() => {});
   }, [id]);
+
+  // Apply or remove a visit-fee credit, then refresh both the invoice (for the
+  // new balance) and the credit state (for which toggles are on).
+  async function handleVisitCredit(bookingId, apply) {
+    setCreditingId(bookingId);
+    setError("");
+    try {
+      const res = await fetch(`/api/invoices/${id}/credit-visit-fee`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, apply }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, setError, t("app.invoiceDetail.visitCreditError"));
+        return;
+      }
+      setCreditInfo(await res.json());
+      const refreshed = await fetch(`/api/invoices/${id}`).then((r) =>
+        r.ok ? r.json() : null,
+      );
+      if (refreshed) setInvoice(refreshed);
+    } finally {
+      setCreditingId("");
+    }
+  }
 
   // Carried over from the new-invoice page when "Save & Send" saved the invoice
   // but the email failed — so the user learns why it's still a draft instead of
@@ -401,6 +433,60 @@ export default function InvoiceDetailPage() {
           )}
         </div>
 
+        {creditInfo &&
+          (creditInfo.eligible?.length > 0 || creditInfo.applied?.length > 0) && (
+            <div className="pt-4 border-t border-border">
+              <h3 className="text-sm font-semibold text-foreground mb-1">
+                {t("app.invoiceDetail.visitCredit")}
+              </h3>
+              <p className="text-xs text-muted-foreground mb-2">
+                {t("app.invoiceDetail.visitCreditHint")}
+              </p>
+              <div className="space-y-2">
+                {creditInfo.applied?.map((c) => (
+                  <div
+                    key={c.bookingId}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      {c.eventName} — ${(c.feePaidCents / 100).toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => handleVisitCredit(c.bookingId, false)}
+                      disabled={creditingId === c.bookingId}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border disabled:opacity-60 inline-flex items-center gap-1.5"
+                    >
+                      {creditingId === c.bookingId && (
+                        <Loader2 size={13} className="animate-spin" />
+                      )}
+                      {t("app.invoiceDetail.visitCreditRemove")}
+                    </button>
+                  </div>
+                ))}
+                {creditInfo.eligible?.map((c) => (
+                  <div
+                    key={c.bookingId}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="text-muted-foreground">
+                      {c.eventName} — ${(c.feePaidCents / 100).toFixed(2)}
+                    </span>
+                    <button
+                      onClick={() => handleVisitCredit(c.bookingId, true)}
+                      disabled={creditingId === c.bookingId}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-inverted text-inverted-foreground disabled:opacity-60 inline-flex items-center gap-1.5"
+                    >
+                      {creditingId === c.bookingId && (
+                        <Loader2 size={13} className="animate-spin" />
+                      )}
+                      {t("app.invoiceDetail.visitCreditApply")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         {invoice.payments?.length > 0 && (
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-semibold text-foreground mb-2">
@@ -414,7 +500,9 @@ export default function InvoiceDetailPage() {
                 >
                   <span>
                     {formatDate(p.date)} —{" "}
-                    {p.method.replace("_", " ")}
+                    {p.method === "visit_credit"
+                      ? t("app.invoiceDetail.visitCreditLabel")
+                      : p.method.replace("_", " ")}
                   </span>
                   <span>${Number(p.amount).toFixed(2)}</span>
                 </div>

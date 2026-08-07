@@ -3,11 +3,12 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendBookingConfirmationEmail } from "@/app/admin/lib/email/templates";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
-import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
-import { onBookingConfirmed } from "@/lib/voice/triggers";
+import { finalizeBooking } from "@/lib/booking/finalizeBooking";
+import { effectiveBookingFeeCents } from "@/lib/booking/fee";
+import { createBookingFeeCheckoutSession } from "@/lib/stripe";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -44,13 +45,20 @@ export async function POST(request, { params }) {
   const start = new Date(startTime);
   const end = new Date(start.getTime() + eventType.durationMinutes * 60000);
 
-  // Re-check for a conflict right before booking (another visitor may have taken it)
+  // Re-check for a conflict right before booking (another visitor may have taken
+  // it). Includes recent pending_payment holds so two people can't both be sent
+  // to pay for the same slot; a hold older than 30 minutes is treated as
+  // abandoned and no longer blocks.
+  const holdSince = new Date(Date.now() - 30 * 60 * 1000);
   const conflict = await db.booking.findFirst({
     where: {
       eventType: { userId: eventType.userId },
-      status: "confirmed",
       startTime: { lt: end },
       endTime: { gt: start },
+      OR: [
+        { status: "confirmed" },
+        { status: "pending_payment", createdAt: { gte: holdSince } },
+      ],
     },
   });
 
@@ -106,6 +114,65 @@ export async function POST(request, { params }) {
     if (hit) visitPoint = { lat: hit.lat, lng: hit.lng };
   }
 
+  // ── Paid visit vs free booking ──────────────────────────────────────────
+  //
+  // The fee is resolved server-side (the browser never says what a visit costs).
+  const { feeCents } = effectiveBookingFeeCents(company, eventType);
+
+  if (feeCents > 0) {
+    // PAID: hold the slot with a pending_payment booking and send the client to
+    // Stripe. Deliberately NO appointment yet — an unpaid appointment must not
+    // appear on the crew's calendar. The webhook (metadata.bookingId) creates
+    // the appointment, records the fee, flips to confirmed, and finalises once
+    // payment lands.
+    if (!company.stripeAccountId) {
+      return NextResponse.json(
+        { error: "This company can't collect the booking fee yet." },
+        { status: 400 },
+      );
+    }
+    const held = await db.booking.create({
+      data: {
+        eventTypeId: eventType.id,
+        clientName,
+        clientEmail,
+        clientPhone: clientPhone || null,
+        startTime: start,
+        endTime: end,
+        mode: chosenMode,
+        address: visitAddress,
+        ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
+        status: "pending_payment",
+      },
+    });
+
+    const origin = getAppOrigin(request);
+    try {
+      const session = await createBookingFeeCheckoutSession({
+        bookingId: held.id,
+        company,
+        label: `${eventType.name} — visit fee`,
+        amountCents: feeCents,
+        successUrl: `${origin}/book/${companySlug}?booked=1`,
+        cancelUrl: `${origin}/book/${companySlug}?payment_cancelled=1`,
+      });
+      return NextResponse.json({
+        requiresPayment: true,
+        checkoutUrl: session.url,
+        feeCents,
+      });
+    } catch (err) {
+      // Couldn't start payment — release the hold so the slot frees immediately.
+      await db.booking.delete({ where: { id: held.id } }).catch(() => {});
+      console.error("[booking] fee checkout failed:", err?.message);
+      return NextResponse.json(
+        { error: "Couldn't start the payment. Please try again." },
+        { status: 502 },
+      );
+    }
+  }
+
+  // FREE: create the appointment + confirmed booking now.
   const appointment = await db.appointment.create({
     data: {
       companyId: company.id,
@@ -136,50 +203,9 @@ export async function POST(request, { params }) {
     },
   });
 
-  // Best-effort, like the consent + reminder writes below it. The appointment
-  // and booking rows are already committed; if Resend hiccups, the customer IS
-  // booked, so a failed confirmation email must not throw a 500 that tells them
-  // "couldn't book that time" — they'd retry, hit the slot-conflict guard, and
-  // walk away believing booking is broken while the slot is quietly taken.
-  await sendBookingConfirmationEmail({
-    to: clientEmail,
-    // Zero means an exact time, which is the default. Nothing is widened on a
-    // contractor's behalf without them asking.
-    arrivalWindowMinutes: chosenMode === "visit" ? company.arrivalWindowMinutes : 0,
-    companyName: company.name,
-    clientName,
-    eventTypeName: eventType.name,
-    startTime: start,
-    // What the client chose beats the event type's free-text label: "Phone or
-    // on-site visit" told them nothing about which one they're getting.
-    location:
-      chosenMode === "call"
-        ? `Phone call${company.phone ? ` — we'll ring you${clientPhone ? ` on ${clientPhone}` : ""}` : ""}`
-        : chosenMode === "video"
-          ? "Video call — we'll email a link"
-          : visitAddress || eventType.location || "On-site visit",
-  }).catch((err) =>
-    console.error("[booking] confirmation email failed:", err?.message),
-  );
-
-  // ── Consent + a reminder call ─────────────────────────────────────────────
-  //
-  // Booking a visit is an evidenced request to be contacted, so record the
-  // consent (with the exact disclosure they saw) — the reminder call and any
-  // future outbound contact check this row. Then queue the day-before reminder.
-  // Both best-effort: neither may fail the booking the customer just made.
-  if (clientPhone) {
-    await recordConsent({
-      companyId: company.id,
-      phone: clientPhone,
-      source: "booking",
-      disclosure: DISCLOSURE.booking,
-      clientId: client.id,
-    }).catch((err) => console.error("[booking] consent record failed:", err?.message));
-  }
-  await onBookingConfirmed({ bookingId: booking.id }).catch((err) =>
-    console.error("[booking] couldn't queue reminder:", err?.message),
-  );
+  // The confirmation email, consent record and reminder — shared with the paid
+  // path so the two can't drift. Best-effort: the booking already exists.
+  await finalizeBooking({ company, eventType, booking, clientId: client.id });
 
   return NextResponse.json(booking, { status: 201 });
 }
