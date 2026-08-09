@@ -71,5 +71,15 @@ export async function POST(request, { params }) {
     include: { assignedTo: { select: { id: true, name: true } } },
   });
 
+  // Scheduling a visit IS scheduling the job — flip it off "needs a date"
+  // automatically. Only from `unscheduled` so a completed/in-progress/cancelled
+  // job that gains a follow-up visit isn't dragged backwards to "scheduled".
+  if (job.status === "unscheduled") {
+    await db.job.update({
+      where: { id: _params.id },
+      data: { status: "scheduled" },
+    });
+  }
+
   return NextResponse.json(visit, { status: 201 });
 }

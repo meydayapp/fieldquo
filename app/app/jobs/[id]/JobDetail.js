@@ -197,6 +197,24 @@ export default function JobDetail({ jobId }) {
         </div>
       )}
 
+      {/* Needs a date — the clear call to action the badge only hinted at. A job
+          fresh off an accepted quote lands here unscheduled; scheduling a visit
+          (below) flips it to "scheduled" automatically. */}
+      {job.status === "unscheduled" && (
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200">
+            <Calendar size={16} className="shrink-0" />
+            This job needs a date. Schedule its first visit to get it on the calendar.
+          </div>
+          <Link
+            href={`/app/jobs/${jobId}/visits/new`}
+            className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0"
+          >
+            <Plus size={14} /> Schedule a visit
+          </Link>
+        </div>
+      )}
+
       {/* Client — the details someone needs before they set off */}
       <div data-tour="job-client" className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-4">{t("app.job.client")}</h2>

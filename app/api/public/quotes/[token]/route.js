@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
+import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 
@@ -369,7 +370,13 @@ export async function POST(request, { params }) {
   // the acceptance is already committed above.
   if (accepted) {
     try {
+      // Turn the won work into BOTH a schedulable job and a draft invoice, so
+      // the client approving from their end doesn't leave a staff member to
+      // remember to "convert to invoice" by hand. Both are idempotent and
+      // best-effort — the acceptance is already committed above, so a hiccup
+      // here must never make the client's approval appear to fail.
       const job = await ensureJobForAcceptedQuote(updated.id);
+      const { invoice } = await ensureInvoiceForQuote(updated.id);
       await recordActivity(
         { companyId: updated.companyId },
         {
@@ -377,12 +384,16 @@ export async function POST(request, { params }) {
           entityType: "quote",
           entityId: updated.id,
           actorName: "Client (approval link)",
-          summary: `Quote ${updated.quoteNumber} accepted by the client${job ? " — job created, ready to schedule" : ""}`,
-          metadata: { total: priced.total, jobId: job?.id || null },
+          summary: `Quote ${updated.quoteNumber} accepted by the client${job ? " — job created, ready to schedule" : ""}${invoice ? `, invoice ${invoice.invoiceNumber} drafted` : ""}`,
+          metadata: {
+            total: priced.total,
+            jobId: job?.id || null,
+            invoiceId: invoice?.id || null,
+          },
         },
       );
     } catch (err) {
-      console.error("[public quote] job/activity failed:", err);
+      console.error("[public quote] job/invoice/activity failed:", err);
     }
   }
 
