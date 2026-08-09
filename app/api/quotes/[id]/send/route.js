@@ -165,7 +165,14 @@ export async function POST(request, { params }) {
     const scopeGroups = await attachServiceSettings(db, member.companyId, scopeGroupsRaw);
     const pdfBuffer = await renderDocumentPdfBuffer({
       sections,
-      language: quote.language || fullCompany?.defaultLanguage || "en",
+      // Same client-aware precedence as the covering email above — the PDF and
+      // the email must never disagree. Reading quote.language alone skipped the
+      // client's own language, so a French client got an English PDF.
+      language: resolveClientLanguage({
+        document: quote,
+        client: quote.client,
+        company: fullCompany,
+      }),
       data: { ...quote, client: quote.client, scopeGroups },
       company: fullCompany,
     });

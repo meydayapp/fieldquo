@@ -59,7 +59,13 @@ export default function ContractorImportPanel({ token }) {
   // The sender viewing their own quote, or a homeowner's white-label quote —
   // show nothing at all.
   if (ctx.isOwnQuote) return null;
-  if (!ctx.canImport && !ctx.clientIsCompany) return null;
+  // Show ONLY to a signed-in contractor whose company differs from the sender's
+  // (a real import case). The old `clientIsCompany` branch treated "this quote
+  // was addressed to a business" as "the viewer is a different contractor" — but
+  // that business IS the recipient approving the quote, so it leaked the
+  // contractor-only "Add this to one of your quotes / Create a quote first" copy
+  // (and a FieldQuo recruitment pitch) onto a white-label client approval page.
+  if (!ctx.canImport) return null;
 
   const money = (n) => formatMoney(n, ctx.currency);
   const markup = useCustom ? Math.max(0, Number(customMarkup) || 0) : preset;

@@ -102,6 +102,10 @@ export async function POST(request) {
       discount: discount || 0,
       tax: tax || 0,
       total,
+      // Seed the balance so list views and emails that read amountDue are
+      // correct BEFORE any payment. It was defaulting to 0 (the column default),
+      // which made a brand-new invoice read as fully paid.
+      amountDue: total,
       dueDate: dueDate ? new Date(dueDate) : null,
       notes: notes || null,
       language: language || "en",

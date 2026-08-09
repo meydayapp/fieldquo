@@ -7,6 +7,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
+import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 
 export async function POST(request, { params }) {
@@ -51,9 +52,10 @@ export async function POST(request, { params }) {
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
-    // Written-in language, fixed at creation. Falls back to the
-    // company default for records created before this existed.
-    language: quote.language || company?.defaultLanguage || "en",
+    // Client-aware precedence: the quote's own language if set, else the
+    // client's language, else the company default. Reading quote.language alone
+    // gave a French client an English PDF when the quote wasn't stamped.
+    language: resolveDocumentLanguage(quote, quote.client, company),
     // `...quote` last would overwrite the enriched scopeGroups with the raw
     // ones — spread first, then the keys that matter.
     data: { ...quote, client: quote.client, scopeGroups },

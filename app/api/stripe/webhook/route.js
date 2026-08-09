@@ -6,6 +6,56 @@ import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 
+// Record an invoice payment from a completed/settled checkout session and
+// recompute the balance from ALL payments. Shared by the synchronous (card) path
+// and the asynchronous settlement path (Affirm et al.), so the two can't drift.
+//
+// Idempotent: Stripe can deliver the same event twice, and an async method fires
+// BOTH `checkout.session.completed` (unpaid) and later
+// `checkout.session.async_payment_succeeded` for one session — we must create at
+// most one Payment row per payment intent.
+async function recordInvoicePayment(session) {
+  const invoiceId = session.metadata?.invoiceId;
+  if (!invoiceId) return;
+
+  const already = await db.payment.findFirst({
+    where: { invoiceId, stripePaymentIntentId: session.payment_intent },
+    select: { id: true },
+  });
+  if (already) return;
+
+  await db.payment.create({
+    data: {
+      invoiceId,
+      amount: (session.amount_total || 0) / 100,
+      method: "stripe",
+      stripePaymentIntentId: session.payment_intent,
+    },
+  });
+
+  // Recompute from ALL payments — never assume this one charge paid in full. A
+  // client can pay a deposit through Stripe; the balance is the source of truth.
+  const inv = await db.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { payments: true },
+  });
+  if (!inv) return;
+  const totalPaid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
+  const amountDue = Math.max(0, Number(inv.total) - totalPaid);
+  const isPaid = amountDue <= 0.005;
+  await db.invoice.update({
+    where: { id: invoiceId },
+    data: {
+      amountPaid: totalPaid,
+      amountDue,
+      status: isPaid ? "paid" : inv.status,
+      paidDate: isPaid ? new Date() : inv.paidDate,
+      stripePaymentIntentId: session.payment_intent,
+      paidVia: "stripe",
+    },
+  });
+}
+
 // Handles Connect events (company payment setup + invoice payments) — a SEPARATE
 // webhook endpoint/secret from the Billing webhook. Never combine these two.
 export async function POST(request) {
@@ -108,42 +158,29 @@ export async function POST(request) {
         break;
       }
 
-      if (invoiceId) {
-        await db.payment.create({
-          data: {
-            invoiceId,
-            amount: (session.amount_total || 0) / 100,
-            method: "stripe",
-            stripePaymentIntentId: session.payment_intent,
-          },
-        });
-
-        // Recompute the balance from ALL payments — the same way the manual
-        // path (app/api/payments) does — instead of assuming this one charge
-        // paid the invoice in full. A client can pay a DEPOSIT through Stripe:
-        // the old code left amountPaid stale (so a "paid" invoice still showed
-        // its full balance owing) and marked a partial payment as paid in full.
-        const inv = await db.invoice.findUnique({
-          where: { id: invoiceId },
-          include: { payments: true },
-        });
-        if (inv) {
-          const totalPaid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
-          const amountDue = Math.max(0, Number(inv.total) - totalPaid);
-          const isPaid = amountDue <= 0.005;
-          await db.invoice.update({
-            where: { id: invoiceId },
-            data: {
-              amountPaid: totalPaid,
-              amountDue,
-              status: isPaid ? "paid" : inv.status,
-              paidDate: isPaid ? new Date() : inv.paidDate,
-              stripePaymentIntentId: session.payment_intent,
-              paidVia: "stripe",
-            },
-          });
-        }
+      // Only record a payment here for SYNCHRONOUS methods (card), which are
+      // already `paid` at completion. An asynchronous method (Affirm, and other
+      // delayed-notification methods) completes the session as `unpaid`/
+      // `processing` and only settles later via async_payment_succeeded —
+      // recording it now would mark an unsettled invoice paid.
+      if (invoiceId && session.payment_status === "paid") {
+        await recordInvoicePayment(session);
       }
+      break;
+    }
+
+    // Affirm and other delayed-notification methods settle here, minutes after
+    // the client returned to the portal. This is the event that actually marks
+    // the invoice paid for those methods — its absence was why an Affirm payment
+    // that succeeded in Stripe left the invoice showing a full balance owing.
+    case "checkout.session.async_payment_succeeded": {
+      await recordInvoicePayment(event.data.object);
+      break;
+    }
+
+    // The delayed payment failed (e.g. Affirm declined after redirect). Nothing
+    // to record — the invoice stays unpaid, which is already its state.
+    case "checkout.session.async_payment_failed": {
       break;
     }
   }

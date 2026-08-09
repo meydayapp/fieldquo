@@ -712,7 +712,6 @@ export default function SignupPage() {
             </button>
           </form>
         )}
-        // replace the industry step's button grid and Continue condition
         {step === "industry" && (
           <div className="max-w-md mx-auto">
             <h2 className="font-semibold text-foreground mb-1">

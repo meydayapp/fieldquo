@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
+import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 
 export async function POST(request, { params }) {
@@ -39,7 +40,7 @@ export async function POST(request, { params }) {
     sections,
     // Written-in language, fixed at creation. Falls back to the
     // company default for records created before this existed.
-    language: invoice.language || company?.defaultLanguage || "en",
+    language: resolveDocumentLanguage(invoice, invoice.client, company),
     // scopeGroups was [], so ScopeGroupsSection fell to the flat lineItems
     // path and rendered an unlabelled card. Invoices genuinely are one flat
     // list — they're not grouped by service — so give that list a heading

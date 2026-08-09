@@ -106,6 +106,9 @@ export async function POST(request, { params }) {
       discount: quote.discount,
       tax: useAccepted ? quote.acceptedTax : quote.tax,
       total: useAccepted ? quote.acceptedTotal : quote.total,
+      // Seed the balance owing (see invoices/route.js) so it's correct before
+      // any payment rather than defaulting to 0 = "looks fully paid".
+      amountDue: useAccepted ? quote.acceptedTotal : quote.total,
       language: quote.language,
     },
     include: { client: true },
