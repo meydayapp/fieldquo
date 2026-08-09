@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
+import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 
 // Only ever an internal path. Guards against `?next=//evil.com` and absolute
 // URLs turning the login form into an open redirect.
@@ -50,15 +51,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted px-4">
+    <>
+      <MarketingHeader />
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-foreground"
-          >
-            FieldQuo
-          </Link>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Welcome back
+          </h1>
           <p className="text-sm text-muted-foreground mt-2">Log in to your account</p>
         </div>
 
@@ -115,6 +115,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

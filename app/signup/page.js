@@ -8,6 +8,7 @@ import { calculatePricing , TRIAL_PRICE, trialLabel } from "@/lib/pricing";
 import { INDUSTRIES } from "@/app/data/industries";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
+import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 
 // add to imports at top of app/signup/page.js
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -277,19 +278,18 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted px-4 py-12">
+    <>
+      <MarketingHeader />
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted px-4 py-12">
       <div className="w-full max-w-5xl">
         <div className="text-center mb-8">
-          <Link
-            href="/"
-            className="text-2xl font-bold tracking-tight text-foreground"
-          >
-            FieldQuo
-          </Link>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Start your free trial
+          </h1>
           <p className="text-sm text-muted-foreground mt-2">
             {/* Off the trialLabel helper, never a hardcoded number — this line
                 had drifted to "$1" while the system actually charges $0. */}
-            Start your free trial — {trialLabel().toLowerCase()}
+            {trialLabel()}
           </p>
         </div>
 
@@ -849,6 +849,7 @@ export default function SignupPage() {
           </Link>
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
