@@ -116,7 +116,7 @@ export default function TimeOffPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header data-tour="timeoff-header" className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
             <CalendarDays size={22} />{t("app.timeOff.title")}</h1>

@@ -260,7 +260,7 @@ export default function AvailabilityPage() {
         )}
 </div>
 
-      <section>
+      <section data-tour="avail-working">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
           <Clock size={15} className="text-muted-foreground" /> {t("app.setAvailability.workingHours", "Working hours")}
         </h2>
@@ -275,7 +275,7 @@ export default function AvailabilityPage() {
         />
       </section>
 
-      <section>
+      <section data-tour="avail-bookable">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-2 mb-1">
           <CalendarCheck size={15} className="text-muted-foreground" /> {t("app.setAvailability.bookableHours", "Bookable hours")}
         </h2>

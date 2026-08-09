@@ -135,12 +135,14 @@ export default function MarketingPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link
+            data-tour="marketing-subscribers"
             href="/app/marketing/subscribers"
             className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
           >
             <Contact size={14} /> {t("app.marketing.subscribers")}
           </Link>
           <button
+            data-tour="marketing-new"
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
           >

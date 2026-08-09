@@ -103,7 +103,7 @@ export default function SchedulerPage() {
       </div>
 
       {/* Week nav */}
-      <div className="flex items-center justify-between gap-2 mb-4">
+      <div data-tour="scheduler-week" className="flex items-center justify-between gap-2 mb-4">
         <div className="flex items-center gap-1">
           <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="p-2 rounded-lg border border-border hover:bg-muted" aria-label={t("app.scheduler.prevWeek", "Previous week")}>
             <ChevronLeft size={16} />
@@ -121,6 +121,7 @@ export default function SchedulerPage() {
       {isManager && (
         <div className="flex items-center gap-2 mb-4">
           <button
+            data-tour="scheduler-add"
             onClick={() => setModal({ dateStr: ymd(new Date() >= weekStart && new Date() < weekEnd ? new Date() : weekStart) })}
             className="inline-flex items-center gap-1.5 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2"
           >

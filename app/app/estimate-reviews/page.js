@@ -63,7 +63,7 @@ export default function EstimateReviewsPage() {
 
   return (
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
-      <div className="flex items-center gap-2 mb-1">
+      <div data-tour="reviews-header" className="flex items-center gap-2 mb-1">
         <BadgeCheck size={20} className="text-foreground" />
         <h1 className="text-2xl font-bold text-foreground">{t("app.reviews.title")}</h1>
       </div>

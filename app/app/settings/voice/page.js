@@ -27,9 +27,9 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
-function Card({ title, hint, children, step }) {
+function Card({ title, hint, children, step, dataTour }) {
   return (
-    <section className="bg-card border border-border rounded-xl p-5">
+    <section data-tour={dataTour} className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-baseline gap-2">
         {step && (
           <span className="text-xs font-bold text-muted-foreground tabular-nums">{step}</span>
@@ -201,6 +201,7 @@ export default function VoiceSettingsPage() {
 
       {/* ── 1. A number ─────────────────────────────────────────────────── */}
       <Card
+        dataTour="voice-number"
         step="1."
         title={t("app.setVoice.numberTitle", "Your number")}
         hint={t("app.setVoice.numberHint", "What the receptionist answers on.")}
@@ -343,6 +344,7 @@ export default function VoiceSettingsPage() {
 
       {/* ── 2. Credit ───────────────────────────────────────────────────── */}
       <Card
+        dataTour="voice-credit"
         step="2."
         title={t("app.setVoice.creditTitle", "Credit")}
         hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. No monthly fee — you only pay for calls it actually takes.", { cents: credit.centsPerMinute })}
@@ -467,6 +469,7 @@ export default function VoiceSettingsPage() {
 
       {/* ── 4. The switch ───────────────────────────────────────────────── */}
       <Card
+        dataTour="voice-answer"
         step="4."
         title={t("app.setVoice.answerTitle", "Answer my calls")}
         hint={

@@ -155,7 +155,7 @@ export default function TimesheetsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div data-tour="timesheets-header">
           <h1 className="text-2xl font-bold text-foreground">
             {t("app.timesheets.title")}
           </h1>
@@ -165,6 +165,7 @@ export default function TimesheetsPage() {
         </div>
         {workers.length > 0 && (
           <button
+            data-tour="timesheets-add"
             onClick={() => {
               setFormError("");
               setShowForm((v) => !v);
@@ -279,7 +280,7 @@ export default function TimesheetsPage() {
         </form>
       )}
 
-      <div className="bg-card border border-border rounded-xl divide-y divide-border">
+      <div data-tour="timesheets-list" className="bg-card border border-border rounded-xl divide-y divide-border">
         {entries.length === 0 && (
           <p className="px-5 py-6 text-sm text-muted-foreground">
             {t("app.timesheets.empty")}

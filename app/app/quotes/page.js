@@ -72,6 +72,7 @@ export default function QuotesPage() {
           <p className="text-sm text-muted-foreground mt-1">{t("app.quotes.subtitle")}</p>
         </div>
         <Link
+          data-tour="quotes-new"
           href="/app/quotes/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
@@ -86,7 +87,7 @@ export default function QuotesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div data-tour="quotes-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Total", value: stats.total },
           { label: "Draft", value: stats.draft },
@@ -103,7 +104,7 @@ export default function QuotesPage() {
         ))}
       </div>
 
-      <div className="relative max-w-sm">
+      <div data-tour="quotes-search" className="relative max-w-sm">
         <Search
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"

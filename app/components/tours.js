@@ -135,6 +135,164 @@ export const TOURS = [
       },
     ],
   },
+  {
+    key: "quotes-v1",
+    match: (p) => p === "/app/quotes",
+    steps: [
+      { target: "[data-tour='quotes-new']", title: "Build a quote", body: "Start a new branded quote for a client — pick services, set pricing, then send it to get approved and paid." },
+      { target: "[data-tour='quotes-stats']", title: "Track the pipeline", body: "See at a glance how many quotes are draft, sent and accepted." },
+      { target: "[data-tour='quotes-search']", title: "Find any quote", body: "Search by quote number or client name across everything you've sent." },
+    ],
+  },
+  {
+    key: "quote-new-v1",
+    match: (p) => p === "/app/quotes/new",
+    steps: [
+      { target: "[data-tour='client-picker']", title: "Pick the client", body: "Choose an existing client or add a new one — the quote and its emails go to them." },
+      { target: "[data-tour='service-picker']", title: "Add your services", body: "Tap the services you're quoting; each drops in priced line items you can fine-tune." },
+      { target: "[data-tour='totals']", title: "Review and send", body: "Check the total, then save as a draft or send it to the client for approval." },
+    ],
+  },
+  {
+    key: "estimate-reviews-v1",
+    match: (p) => p === "/app/estimate-reviews",
+    steps: [
+      { target: "[data-tour='reviews-header']", title: "Approve instant estimates", body: "Prices your website quoted a homeowner land here first — confirm or adjust the figure before the quote can be sent." },
+    ],
+  },
+  {
+    key: "jobs-v1",
+    match: (p) => p === "/app/jobs",
+    steps: [
+      { target: "[data-tour='jobs-filters']", title: "Work you've won", body: "Jobs are scheduled work for a client — many appear automatically when a quote is accepted. Filter by status to see what needs a date or what's in progress." },
+      { target: "[data-tour='jobs-new']", title: "Add a job", body: "Create a job by hand when the work didn't come from a quote." },
+      { target: "[data-tour='jobs-search']", title: "Find a job", body: "Search by job title or client name." },
+    ],
+  },
+  {
+    key: "job-builder-v1",
+    match: (p) => p.startsWith("/app/jobs/") && p !== "/app/jobs/new" && p.split("/").length === 4,
+    steps: [
+      { target: "[data-tour='job-status']", title: "Move the job along", body: "Update the status as work progresses — from needs-a-date through to completed." },
+      { target: "[data-tour='job-client']", title: "Everything for the crew", body: "Client name, phone and a tap-to-navigate address — what someone needs before they set off." },
+      { target: "[data-tour='job-visits']", title: "Schedule the visits", body: "A job is done across one or more visits, each with its own date, assignee, checklist and photos. Add them here." },
+    ],
+  },
+  {
+    key: "invoices-v1",
+    match: (p) => p === "/app/invoices",
+    steps: [
+      { target: "[data-tour='invoices-new']", title: "Bill for completed work", body: "Raise an invoice for a client, then send it and collect payment." },
+      { target: "[data-tour='invoices-stats']", title: "Know what you're owed", body: "Total billed, what's been paid, and what's still outstanding — always in view." },
+      { target: "[data-tour='invoices-search']", title: "Find an invoice", body: "Search by invoice number or client name." },
+    ],
+  },
+  {
+    key: "invoice-new-v1",
+    match: (p) => p === "/app/invoices/new",
+    steps: [
+      { target: "[data-tour='invoice-client']", title: "Who's being billed", body: "Search and pick the client this invoice goes to." },
+      { target: "[data-tour='invoice-items']", title: "List the work", body: "Add a line per item with quantity and rate; the totals add up as you go." },
+      { target: "[data-tour='invoice-save']", title: "Save or send", body: "Save it as a draft, or send it to email the invoice straight to the client." },
+    ],
+  },
+  {
+    key: "appointments-v1",
+    match: (p) => p === "/app/appointments",
+    steps: [
+      { target: "[data-tour='appts-new']", title: "Book a visit", body: "Add an appointment with a client, a time and a site address, and assign it to someone." },
+      { target: "[data-tour='appts-filters']", title: "See what's coming", body: "Appointments list in time order with drive times between stops; filter by status to focus." },
+    ],
+  },
+  {
+    key: "tasks-v1",
+    match: (p) => p === "/app/tasks",
+    steps: [
+      { target: "[data-tour='tasks-new']", title: "Your team's to-do list", body: "Tasks are internal reminders — follow up a client, order material, chase a deposit. Unlike a job, they're not scheduled work at a site." },
+      { target: "[data-tour='tasks-showdone']", title: "Nothing slips", body: "Overdue and high-priority tasks rise to the top; flip this to review what's already done." },
+    ],
+  },
+  {
+    key: "marketing-v1",
+    match: (p) => p === "/app/marketing",
+    steps: [
+      { target: "[data-tour='marketing-new']", title: "Run a campaign", body: "Track pamphlet drops, paid ads or an email blast — each with its own budget and progress." },
+      { target: "[data-tour='marketing-subscribers']", title: "Your audience", body: "Manage the contacts your email campaigns go out to." },
+    ],
+  },
+  {
+    key: "availability-v1",
+    match: (p) => p === "/app/settings/availability",
+    steps: [
+      { target: "[data-tour='avail-working']", title: "Your shift", body: "Working hours are when you're on the clock — used for scheduling and timesheets, never shown to clients." },
+      { target: "[data-tour='avail-bookable']", title: "When clients can book you", body: "Bookable hours are the public window on your booking page — usually narrower than your shift." },
+    ],
+  },
+  {
+    key: "scheduler-v1",
+    match: (p) => p === "/app/scheduler",
+    steps: [
+      { target: "[data-tour='scheduler-week']", title: "Plan the week", body: "This is staff shift scheduling — step through the week to see who's rostered each day." },
+      { target: "[data-tour='scheduler-add']", title: "Draft, then publish", body: "Add shifts as drafts, then Publish so your team can see them — nothing shows to a worker until you do." },
+    ],
+  },
+  {
+    key: "schedule-v1",
+    match: (p) => p === "/app/schedule",
+    steps: [
+      { target: "[data-tour='schedule-header']", title: "The team at a glance", body: "A read-only view of everyone's weekly hours and what's booked in the next two weeks. People set their own hours under Settings → Availability." },
+    ],
+  },
+  {
+    key: "expense-tracking-v1",
+    match: (p) => p === "/app/settings/expense-tracking",
+    steps: [
+      { target: "[data-tour='expense-add']", title: "Log what you spend", body: "Record an expense and tag it to a job, to overhead, or as general spend." },
+      { target: "[data-tour='expense-kpis']", title: "Burn and runway", body: "See this month's spend, your monthly burn rate and how many months of runway that leaves." },
+      { target: "[data-tour='expense-ai']", title: "Ask for a read-out", body: "Generate a plain-English summary that flags anything unusual in your spending." },
+    ],
+  },
+  {
+    key: "payroll-v1",
+    match: (p) => p === "/app/payroll",
+    steps: [
+      { target: "[data-tour='payroll-header']", title: "Payslips and pay runs", body: "FieldQuo works out pay from approved hours and your saved rates — you still move the money yourself." },
+      { target: "[data-tour='payroll-run']", title: "Run a period", body: "Pick the dates and calculate; only approved timesheets are included, so approve hours first." },
+    ],
+  },
+  {
+    key: "time-off-v1",
+    match: (p) => p === "/app/time-off",
+    steps: [
+      { target: "[data-tour='timeoff-header']", title: "Book and track time off", body: "See your balances, request vacation or sick days, and — if you manage people — approve theirs from the Team tab." },
+    ],
+  },
+  {
+    key: "timesheets-v1",
+    match: (p) => p === "/app/settings/team/timesheets",
+    steps: [
+      { target: "[data-tour='timesheets-header']", title: "Hours worked", body: "Every clock-in and manual entry lands here for you to review before it's paid." },
+      { target: "[data-tour='timesheets-add']", title: "Add hours by hand", body: "Log time after the fact — pick the worker, the date and the start and end times." },
+      { target: "[data-tour='timesheets-list']", title: "Approve before payroll", body: "Clock out open entries and approve hours; only approved time flows into a pay run." },
+    ],
+  },
+  {
+    key: "voice-v1",
+    match: (p) => p === "/app/settings/voice",
+    steps: [
+      { target: "[data-tour='voice-number']", title: "A number to answer on", body: "Get a new number or forward your own — this is what the AI receptionist picks up." },
+      { target: "[data-tour='voice-credit']", title: "Pay per minute", body: "Calls draw down prepaid credit — your 30 free trial minutes are already loaded. Top up here to keep the line live." },
+      { target: "[data-tour='voice-answer']", title: "Turn it on", body: "Once you've got a number and credit, switch the receptionist on to start catching missed calls." },
+    ],
+  },
+  {
+    key: "payments-v1",
+    match: (p) => p === "/app/settings/payments",
+    steps: [
+      { target: "[data-tour='payments-header']", title: "Get paid by card", body: "Connect a payment provider so clients can pay quotes and invoices online." },
+      { target: "[data-tour='payments-stripe']", title: "Connect Stripe", body: "FieldQuo uses your own Stripe account — finish the connection here and the status shows once you're live." },
+    ],
+  },
 ];
 
 export function tourForPath(pathname) {

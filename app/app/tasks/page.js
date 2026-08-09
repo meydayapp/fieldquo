@@ -168,6 +168,7 @@ export default function TasksPage() {
           </p>
         </div>
         <button
+          data-tour="tasks-new"
           onClick={() =>
             setDraft({
               title: "",
@@ -372,6 +373,7 @@ export default function TasksPage() {
       )}
 
       <button
+        data-tour="tasks-showdone"
         onClick={() => setShowDone((v) => !v)}
         className="text-sm text-muted-foreground hover:text-foreground"
       >

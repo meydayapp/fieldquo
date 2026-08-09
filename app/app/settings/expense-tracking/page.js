@@ -287,6 +287,7 @@ export default function ExpenseTrackingPage() {
           </p>
         </div>
         <button
+          data-tour="expense-add"
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
@@ -324,7 +325,7 @@ export default function ExpenseTrackingPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="expense-kpis" className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label={t("app.setExpenses.kpiTracked")}
           value={money(totalThisMonth)}
@@ -360,7 +361,7 @@ export default function ExpenseTrackingPage() {
       </div>
 
       {/* AI Summary */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="expense-ai" className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles size={16} className="text-muted-foreground" />

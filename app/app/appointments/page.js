@@ -112,13 +112,14 @@ export default function AppointmentsPage() {
           </p>
         </div>
         <button
+          data-tour="appts-new"
           onClick={() => setShowForm(true)}
           className="inline-flex items-center justify-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-5 py-2.5 rounded-lg disabled:opacity-60 shrink-0"
         >
           <Plus size={16} />{t("app.appts.new")}</button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div data-tour="appts-filters" className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-4 px-4 sm:mx-0 sm:px-0">
         {["all", "scheduled", "needs_supervisor", "completed", "cancelled"].map(
           (s) => (
             <button

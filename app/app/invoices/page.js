@@ -76,6 +76,7 @@ export default function InvoicesPage() {
           </p>
         </div>
         <Link
+          data-tour="invoices-new"
           href="/app/invoices/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
@@ -90,7 +91,7 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div data-tour="invoices-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.invoices.totalBilled")}</div>
           <div className="text-xl font-bold text-foreground mt-1">
@@ -118,7 +119,7 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
+      <div data-tour="invoices-search" className="relative max-w-sm">
         <Search
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"

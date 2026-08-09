@@ -139,7 +139,7 @@ export default function PayrollPage() {
   return (
     <div className="max-w-4xl px-4 sm:px-6 py-6 sm:py-8 space-y-8">
       <div>
-        <div className="flex items-center gap-2 mb-1">
+        <div data-tour="payroll-header" className="flex items-center gap-2 mb-1">
           <Wallet size={20} className="text-foreground" />
           <h1 className="text-2xl font-bold text-foreground">{t("app.payroll.title")}</h1>
         </div>
@@ -221,7 +221,7 @@ export default function PayrollPage() {
       {/* ── Run payroll: only for those who may ── */}
       {showRunner ? (
         <>
-          <section className="rounded-xl border border-border bg-card p-5">
+          <section data-tour="payroll-run" className="rounded-xl border border-border bg-card p-5">
             <h2 className="font-semibold text-foreground mb-1 flex items-center gap-2">
               <Calculator size={16} className="text-muted-foreground" />{t("app.payroll.newRun")}</h2>
             <p className="text-xs text-muted-foreground mb-4">

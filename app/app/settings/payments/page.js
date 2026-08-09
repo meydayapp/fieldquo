@@ -186,7 +186,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
-      <div>
+      <div data-tour="payments-header">
         <h1 className="text-2xl font-bold text-foreground">{t("app.settings.payments")}</h1>
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setPayments.subtitle")}
@@ -199,7 +199,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl p-6">
+      <div data-tour="payments-stripe" className="bg-card border border-border rounded-xl p-6">
         {active && (
           <div className="flex items-start gap-3">
             <CheckCircle2

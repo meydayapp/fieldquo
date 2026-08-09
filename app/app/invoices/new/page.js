@@ -179,7 +179,7 @@ export default function NewInvoicePage() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="invoice-client" className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-3">{t("app.invoiceNew.clientHeading")}</h2>
         {selectedClient ? (
           <div className="flex items-center justify-between bg-muted rounded-lg px-4 py-3">
@@ -238,7 +238,7 @@ export default function NewInvoicePage() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="invoice-items" className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-foreground">{t("app.invoiceNew.lineItems")}</h2>
         </div>
@@ -362,7 +362,7 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
+      <div data-tour="invoice-save" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
         <p className="text-xs text-muted-foreground mr-auto max-w-xs">
           {t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")}
         </p>

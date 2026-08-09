@@ -74,7 +74,7 @@ export default function QuoteTotalsBar({
 
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
           where the sidebar collapses. */}
-      <div className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-between gap-3 z-40">
+      <div data-tour="totals" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-between gap-3 z-40">
         <div className="min-w-0">
           <div className="text-[11px] text-muted-foreground leading-none">
             {taxEnabled ? "Total incl. tax" : "Total, no tax"}

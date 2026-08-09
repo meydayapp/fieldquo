@@ -89,6 +89,7 @@ export default function JobsPage() {
           </p>
         </div>
         <Link
+          data-tour="jobs-new"
           href="/app/jobs/new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
@@ -104,7 +105,7 @@ export default function JobsPage() {
       )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div data-tour="jobs-filters" className="flex gap-2 overflow-x-auto pb-1">
           {["all", "unscheduled", "scheduled", "in_progress", "completed", "cancelled"].map(
             (s) => (
               <button
@@ -121,7 +122,7 @@ export default function JobsPage() {
             ),
           )}
         </div>
-        <div className="relative max-w-xs w-full sm:w-auto">
+        <div data-tour="jobs-search" className="relative max-w-xs w-full sm:w-auto">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"

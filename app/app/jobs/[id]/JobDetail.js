@@ -171,6 +171,7 @@ export default function JobDetail({ jobId }) {
 
         <div className="flex items-center gap-2 shrink-0">
           <select
+            data-tour="job-status"
             value={job.status}
             disabled={busy}
             onChange={(e) => setStatus(e.target.value)}
@@ -197,7 +198,7 @@ export default function JobDetail({ jobId }) {
       )}
 
       {/* Client — the details someone needs before they set off */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="job-client" className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-4">{t("app.job.client")}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field icon={User} label="Name" value={job.client?.name} />
@@ -252,7 +253,7 @@ export default function JobDetail({ jobId }) {
       </div>
 
       {/* Visits */}
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="job-visits" className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
             <h2 className="font-semibold text-foreground">{t("app.job.visits")}</h2>
