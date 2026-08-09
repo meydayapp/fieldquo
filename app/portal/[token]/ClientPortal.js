@@ -10,7 +10,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { readableForeground } from "@/lib/brand/colour";
-import { formatMoney } from "@/lib/currency";
+import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import {
   Loader2,
   Building2,
@@ -20,15 +21,6 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-
-const date = (d) =>
-  d
-    ? new Date(d).toLocaleDateString("en-CA", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : "";
 
 export default function ClientPortal({ token }) {
   const [data, setData] = useState(null);
@@ -113,11 +105,18 @@ export default function ClientPortal({ token }) {
     );
 
   const c = data.company || {};
+  // The client's language, resolved server-side (client.language → company
+  // default → en), driving labels, money and dates alike.
+  const language = data.language || "en";
+  const labels = documentLabels(language);
+  const copy = clientDocCopy(language);
   // The company's billing currency, not a hardcoded CAD — otherwise a US client
   // saw their balance and "Pay $X" in CAD on the portal index, then the correct
   // USD after tapping into the invoice. On a payment surface that mismatch reads
-  // as a bug.
-  const money = (n) => formatMoney(n, c.currency);
+  // as a bug. Only the formatting locale shifts with the language.
+  const fmt = documentFormatters(language, c.currency);
+  const money = fmt.money;
+  const date = fmt.date;
   const accent = c.brandColor || "#06356b";
   // Measured foreground for elements ON the accent (the Pay button, the logo
   // bubble). Hardcoded dark text was unreadable on a dark brand or the default.
@@ -154,7 +153,7 @@ export default function ClientPortal({ token }) {
         <div>
           <div className="font-bold text-[#2d2520]">{c.name}</div>
           <div className="text-sm text-[#2d2520]/50">
-            Account for {data.clientName}
+            {copy.accountFor(data.clientName)}
           </div>
         </div>
       </div>
@@ -162,9 +161,7 @@ export default function ClientPortal({ token }) {
       {justPaid && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-6 flex items-start gap-2 text-sm text-green-800">
           <Check size={16} className="shrink-0 mt-0.5" />
-          <div>
-            Payment received — thank you. It can take a minute to show below.
-          </div>
+          <div>{copy.paymentReceived}</div>
         </div>
       )}
 
@@ -178,24 +175,24 @@ export default function ClientPortal({ token }) {
       {/* Balance first — it's the only thing most people open this for. */}
       <div className="bg-white border border-black/10 rounded-2xl p-6 mb-6">
         <div className="text-xs uppercase tracking-wider text-[#2d2520]/40">
-          Balance owing
+          {copy.balanceOwing}
         </div>
         <div className="text-3xl font-bold text-[#2d2520] mt-1 tabular-nums">
           {money(balance)}
         </div>
         {balance <= 0 ? (
           <p className="text-sm text-[#2d2520]/50 mt-2">
-            Nothing outstanding. Thank you.
+            {copy.nothingOutstanding}
           </p>
         ) : (
           <p className="text-sm text-[#2d2520]/60 mt-2">
-            Across {unpaid.length} invoice{unpaid.length === 1 ? "" : "s"}.
+            {copy.acrossInvoices(unpaid.length)}
           </p>
         )}
       </div>
 
       {invoices.length > 0 && (
-        <Section icon={Receipt} title="Invoices">
+        <Section icon={Receipt} title={copy.invoicesHeading}>
           {invoices.map((inv) => {
             const due = Math.max(
               0,
@@ -216,8 +213,8 @@ export default function ClientPortal({ token }) {
                   <div className="text-xs text-[#2d2520]/50 mt-0.5">
                     {money(inv.total)}
                     {Number(inv.amountPaid) > 0 &&
-                      ` · ${money(inv.amountPaid)} paid`}
-                    {inv.dueDate && ` · due ${date(inv.dueDate)}`}
+                      ` · ${copy.paidNote(money(inv.amountPaid))}`}
+                    {inv.dueDate && ` · ${copy.dueNote(date(inv.dueDate))}`}
                   </div>
                 </a>
 
@@ -233,11 +230,11 @@ export default function ClientPortal({ token }) {
                     ) : (
                       <CreditCard size={14} />
                     )}
-                    Pay {money(due)}
+                    {copy.pay(money(due))}
                   </button>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 shrink-0">
-                    <Check size={14} /> Paid
+                    <Check size={14} /> {copy.paid}
                   </span>
                 )}
               </div>
@@ -247,7 +244,7 @@ export default function ClientPortal({ token }) {
       )}
 
       {data.quotes?.length > 0 && (
-        <Section icon={FileText} title="Quotes">
+        <Section icon={FileText} title={copy.quotesHeading}>
           {data.quotes.map((q) => (
             <div
               key={q.id}
@@ -272,7 +269,7 @@ export default function ClientPortal({ token }) {
                     href={`/q/${q.shareToken}`}
                     className="text-sm font-semibold underline text-[#2d2520]"
                   >
-                    Review
+                    {copy.review}
                   </a>
                 )}
               </div>
@@ -282,9 +279,7 @@ export default function ClientPortal({ token }) {
       )}
 
       <p className="text-center text-xs text-[#2d2520]/40 mt-10">
-        Questions about any of this? Contact {c.name}
-        {c.phone ? ` at ${c.phone}` : ""}
-        {c.email ? ` · ${c.email}` : ""}.
+        {copy.portalQuestions(c.name, c.phone, c.email)}
       </p>
     </Shell>
   );

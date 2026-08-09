@@ -22,16 +22,8 @@ import {
   Building2,
 } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
-import { formatMoney } from "@/lib/currency";
-
-const date = (d) =>
-  d
-    ? new Date(d).toLocaleDateString("en-CA", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-    : "";
+import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 
 export default function PortalInvoice({ token, invoiceId }) {
   const [data, setData] = useState(null);
@@ -88,12 +80,21 @@ export default function PortalInvoice({ token, invoiceId }) {
 
   const invoice = data?.invoices?.find((i) => i.id === invoiceId);
 
+  // The client's language, resolved server-side and shared by the whole portal.
+  // Derived before the not-found branch so even that message lands translated.
+  const language = data?.language || "en";
+  const labels = documentLabels(language);
+  const copy = clientDocCopy(language);
+  const fmt = documentFormatters(language, data?.company?.currency);
+  const money = fmt.money;
+  const date = fmt.date;
+
   if (!invoice)
     return (
-      <Shell token={token}>
+      <Shell token={token} backLabel={copy.backToAccount}>
         <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
           <p className="font-semibold text-[#2d2520]">
-            {error || "That invoice isn't on your account."}
+            {error || copy.invoiceNotFound}
           </p>
         </div>
       </Shell>
@@ -103,8 +104,6 @@ export default function PortalInvoice({ token, invoiceId }) {
   const accent = c.brandColor || "#06356b";
   // Measured, not assumed white — see the quote page for why.
   const accentOn = readableForeground(accent);
-  // Show amounts in the company's billing currency (falls back to CAD).
-  const money = (n) => formatMoney(n, c.currency);
   const items = Array.isArray(invoice.lineItems) ? invoice.lineItems : [];
   const due = Math.max(
     0,
@@ -114,7 +113,7 @@ export default function PortalInvoice({ token, invoiceId }) {
     invoice.dueDate && due > 0.005 && new Date(invoice.dueDate) < new Date();
 
   return (
-    <Shell token={token}>
+    <Shell token={token} backLabel={copy.backToAccount}>
       <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
         {/* Same brand rule as the quote page. A client who approved a quote
             and then lands here should recognise it as the same company —
@@ -158,10 +157,10 @@ export default function PortalInvoice({ token, invoiceId }) {
             </div>
             <div className="text-right shrink-0">
               <div
-                className="text-lg font-bold tracking-[0.15em] leading-none"
+                className="text-lg font-bold tracking-[0.15em] leading-none uppercase"
                 style={{ color: accent }}
               >
-                INVOICE
+                {labels.invoice}
               </div>
               <div className="font-mono text-sm text-[#2d2520] mt-1">
                 {invoice.invoiceNumber}
@@ -170,7 +169,7 @@ export default function PortalInvoice({ token, invoiceId }) {
                 <div
                   className={`text-xs mt-1 ${overdue ? "text-red-700" : "text-[#2d2520]/55"}`}
                 >
-                  {overdue ? "Was due" : "Due"} {date(invoice.dueDate)}
+                  {overdue ? copy.wasDue : copy.due} {date(invoice.dueDate)}
                 </div>
               )}
             </div>
@@ -180,7 +179,7 @@ export default function PortalInvoice({ token, invoiceId }) {
         <div className="px-6 sm:px-8 py-5">
           {items.length === 0 ? (
             <p className="text-sm text-[#2d2520]/50">
-              No itemised breakdown on this invoice.
+              {copy.noItemisedBreakdown}
             </p>
           ) : (
             <div className="space-y-2">
@@ -206,7 +205,7 @@ export default function PortalInvoice({ token, invoiceId }) {
           {invoice.notes && (
             <div className="mt-5 pt-4 border-t border-black/5">
               <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
-                Notes
+                {labels.notes}
               </h3>
               <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
                 {invoice.notes}
@@ -215,17 +214,17 @@ export default function PortalInvoice({ token, invoiceId }) {
           )}
 
           <div className="mt-5 pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label="Subtotal" value={invoice.subtotal} currency={c.currency} />
+            <Row label={labels.subtotal} value={invoice.subtotal} money={money} />
             {Number(invoice.discount) > 0 && (
-              <Row label="Discount" value={-Number(invoice.discount)} currency={c.currency} />
+              <Row label={labels.discount} value={-Number(invoice.discount)} money={money} />
             )}
-            <Row label="Tax" value={invoice.tax} currency={c.currency} />
+            <Row label={labels.tax} value={invoice.tax} money={money} />
             <div className="flex justify-between pt-1 font-semibold text-[#2d2520]">
-              <span>Total</span>
+              <span>{labels.total}</span>
               <span className="tabular-nums">{money(invoice.total)}</span>
             </div>
             {Number(invoice.amountPaid) > 0 && (
-              <Row label="Paid" value={-Number(invoice.amountPaid)} currency={c.currency} />
+              <Row label={copy.paid} value={-Number(invoice.amountPaid)} money={money} />
             )}
           </div>
 
@@ -236,8 +235,8 @@ export default function PortalInvoice({ token, invoiceId }) {
             className="mt-4 flex items-center justify-between rounded-xl px-4 py-3.5"
             style={{ backgroundColor: accent, color: accentOn }}
           >
-            <span className="text-sm font-bold tracking-wide">
-              {due > 0.005 ? "BALANCE DUE" : "PAID IN FULL"}
+            <span className="text-sm font-bold tracking-wide uppercase">
+              {due > 0.005 ? labels.balanceDue : copy.paidInFull}
             </span>
             <span className="text-2xl font-bold tabular-nums">
               {money(due > 0.005 ? due : invoice.total)}
@@ -265,11 +264,11 @@ export default function PortalInvoice({ token, invoiceId }) {
               ) : (
                 <CreditCard size={15} />
               )}
-              Pay {money(due)}
+              {copy.pay(money(due))}
             </button>
           ) : (
             <div className="flex items-center justify-center gap-2 text-sm font-semibold text-green-700">
-              <Check size={16} /> Paid in full — thank you
+              <Check size={16} /> {copy.paidInFullThanks}
             </div>
           )}
         </div>
@@ -278,7 +277,7 @@ export default function PortalInvoice({ token, invoiceId }) {
   );
 }
 
-function Shell({ token, children }) {
+function Shell({ token, children, backLabel = "Back to your account" }) {
   return (
     <div className="min-h-screen bg-[#f5f2ec] py-8 sm:py-14 px-4">
       <div className="max-w-2xl mx-auto">
@@ -286,7 +285,7 @@ function Shell({ token, children }) {
           href={`/portal/${token}`}
           className="inline-flex items-center gap-1.5 text-sm text-[#2d2520]/60 hover:text-[#2d2520] mb-5"
         >
-          <ArrowLeft size={14} /> Back to your account
+          <ArrowLeft size={14} /> {backLabel}
         </Link>
         {children}
       </div>
@@ -294,11 +293,11 @@ function Shell({ token, children }) {
   );
 }
 
-function Row({ label, value, currency }) {
+function Row({ label, value, money }) {
   return (
     <div className="flex justify-between text-[#2d2520]/70">
       <span>{label}</span>
-      <span className="tabular-nums">{formatMoney(value, currency)}</span>
+      <span className="tabular-nums">{money(value)}</span>
     </div>
   );
 }

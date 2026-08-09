@@ -17,6 +17,7 @@ import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
 import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
+import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -42,7 +43,7 @@ async function loadQuote(token) {
   const quote = await db.quote.findUnique({
     where: { shareToken: token },
     include: {
-      client: { select: { name: true, email: true, address: true } },
+      client: { select: { name: true, email: true, address: true, language: true } },
       company: {
         // No id. `present()` returns this object wholesale to an
         // unauthenticated caller, and quote.companyId below covers the one
@@ -58,6 +59,11 @@ async function loadQuote(token) {
           paymentTerms: true,
           paymentMethods: true,
           currency: true,
+          // The company default is only the fallback in resolveClientLanguage,
+          // below the quote's own language and the client's preference — but
+          // the page still needs it to land somewhere sensible for a client
+          // who never set a language on an older quote with none frozen.
+          defaultLanguage: true,
         },
       },
       scopeGroups: {
@@ -130,7 +136,16 @@ function present(quote) {
   return {
     quoteNumber: quote.quoteNumber,
     status: quote.status,
-    language: quote.language,
+    // The fully RESOLVED language, not the raw quote.language, so the page
+    // matches the PDF and the covering email exactly: quote.language →
+    // client.language → company.defaultLanguage → en. A quote created before
+    // languages existed (no frozen language) still reaches the client's own
+    // preference instead of silently defaulting to English on screen.
+    language: resolveClientLanguage({
+      document: quote,
+      client: quote.client,
+      company: quote.company,
+    }),
     notes: quote.notes,
     processNotes: quote.processNotes,
     validUntil: quote.validUntil,
@@ -357,10 +372,12 @@ export async function POST(request, { params }) {
     });
   }
 
-  // Tell the people who need to act on it. Best-effort: a mail failure must
-  // not make the client think their approval didn't register.
+  // Tell the people who need to act on it, and — on acceptance — send the
+  // signed quote PDF to the client too, so both sides keep the same document.
+  // Best-effort: a mail failure must not make the client think their approval
+  // didn't register.
   try {
-    await notifyCompany(updated, quote, decision, priced);
+    await dispatchDecisionEmails(updated, quote, decision, priced);
   } catch (err) {
     console.error("[public quote] notification failed:", err);
   }
@@ -406,13 +423,23 @@ export async function POST(request, { params }) {
   });
 }
 
-async function notifyCompany(updated, quote, decision, priced) {
+// Everything the outcome sets in motion by email. On a decline this is what it
+// always was: a plain internal note to the owners/admins. On an ACCEPTANCE it
+// also renders the approved quote as a PDF and sends that same signed document
+// to both sides — the client keeps a copy of what they agreed to, and the
+// company's copy carries the attachment rather than just a link.
+//
+// The PDF engine (@react-pdf/renderer) is imported lazily here, never at module
+// top: the far commoner path through this file is a stranger's GET, which has
+// no business loading a rendering engine to format a percentage.
+async function dispatchDecisionEmails(updated, quote, decision, priced) {
   const { Resend } = await import("resend");
   const { lazyClient } = await import("@/lib/lazyClient");
   const { SENDER_SELECT } = await import("@/lib/email/resend");
   const { resolveSender } = await import("@/lib/email/companySender");
 
   const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
+  const accepted = decision === "accepted";
 
   const [company, members] = await Promise.all([
     db.company.findUnique({
@@ -430,49 +457,159 @@ async function notifyCompany(updated, quote, decision, priced) {
     }),
   ]);
 
-  const to = members.map((m) => m.user?.email).filter(Boolean);
-  if (!to.length) return;
+  const { from, replyTo } = await resolveSender(company || {}, updated.companyId);
 
-  const { from } = await resolveSender(company || {}, updated.companyId);
+  // The document's own language, resolved the same way the covering email and
+  // the PDF were at send time — so the signed copy the client now receives is
+  // in the language they read the quote in.
+  const language = resolveClientLanguage({
+    document: quote,
+    client: quote.client,
+    company: quote.company,
+  });
+
+  // Rendered once, on acceptance only, and shared by both emails. Best-effort:
+  // a PDF hiccup must not stop either notification — an approval that lands
+  // without an attachment still beats one that never lands.
+  let pdfBuffer = null;
+  if (accepted) {
+    try {
+      pdfBuffer = await renderApprovedQuotePdf(quote, updated.companyId, priced, language);
+    } catch (err) {
+      console.error("[public quote] approved PDF render failed:", err?.message);
+    }
+  }
+
+  const attachments =
+    accepted && pdfBuffer?.length
+      ? [{ filename: `Quote-${updated.quoteNumber}.pdf`, content: pdfBuffer }]
+      : undefined;
+
   const base = getAppOrigin();
-  const verb = decision === "accepted" ? "approved" : "declined";
+  const verb = accepted ? "approved" : "declined";
   const fmt = (n) =>
     Number(n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
 
-  // Extras go in the subject line, not buried in the body. Someone skimming
-  // notifications on a phone should see that this approval is worth more than
-  // the quote they sent — that's the whole return on offering them.
-  const tookExtras = decision === "accepted" && priced?.chosen?.length > 0;
-  const subject = tookExtras
-    ? `${quote.client?.name || "A client"} approved ${updated.quoteNumber} — plus ${fmt(priced.extras)} in extras`
-    : `${quote.client?.name || "A client"} ${verb} ${updated.quoteNumber}`;
+  // ── The internal note (owners/admins) ──────────────────────────────────────
+  const to = members.map((m) => m.user?.email).filter(Boolean);
+  if (to.length) {
+    // Extras go in the subject line, not buried in the body. Someone skimming
+    // notifications on a phone should see that this approval is worth more than
+    // the quote they sent — that's the whole return on offering them.
+    const tookExtras = accepted && priced?.chosen?.length > 0;
+    const subject = tookExtras
+      ? `${quote.client?.name || "A client"} approved ${updated.quoteNumber} — plus ${fmt(priced.extras)} in extras`
+      : `${quote.client?.name || "A client"} ${verb} ${updated.quoteNumber}`;
 
-  const extrasBlock = tookExtras
-    ? `<p style="margin-top:16px"><strong>They also added:</strong></p>
-       <ul style="padding-left:18px">
-         ${priced.chosen
-           .map(
-             (a) =>
-               `<li>${escapeHtml(a.description)} — ${fmt(Number(a.amount))}</li>`,
-           )
-           .join("")}
-       </ul>
-       <p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
-    : decision === "accepted" && priced
-      ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
-      : "";
+    const extrasBlock = tookExtras
+      ? `<p style="margin-top:16px"><strong>They also added:</strong></p>
+         <ul style="padding-left:18px">
+           ${priced.chosen
+             .map(
+               (a) =>
+                 `<li>${escapeHtml(a.description)} — ${fmt(Number(a.amount))}</li>`,
+             )
+             .join("")}
+         </ul>
+         <p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
+      : accepted && priced
+        ? `<p><strong>Approved total: ${fmt(priced.total)}</strong></p>`
+        : "";
 
-  await resend.emails.send({
-    from,
-    to,
-    subject,
-    html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
-      <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong> ${verb} quote
-      <strong>${updated.quoteNumber}</strong>.</p>
-      ${extrasBlock}
-      <p><a href="${base}/app/quotes/${updated.id}">Open the quote →</a></p>
-    </div>`,
+    await resend.emails.send({
+      from,
+      to,
+      subject,
+      attachments,
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto">
+        <p><strong>${escapeHtml(quote.client?.name || "A client")}</strong> ${verb} quote
+        <strong>${updated.quoteNumber}</strong>.</p>
+        ${extrasBlock}
+        <p><a href="${base}/app/quotes/${updated.id}">Open the quote →</a></p>
+      </div>`,
+    });
+  }
+
+  // ── The client's copy of the signed quote ───────────────────────────────────
+  // Only on acceptance, only if we have somewhere to send it and a rendered PDF.
+  // Nothing FieldQuo-branded here: the From line, the covering note and the
+  // attachment all read as the contractor's own.
+  const clientTo = (quote.client?.email || quote.sentToEmail || "").trim();
+  if (accepted && clientTo && pdfBuffer?.length) {
+    const { emailCopy } = await import("@/lib/i18n/emailCopy");
+    const { clientDocCopy } = await import("@/lib/i18n/clientDocCopy");
+    const ec = emailCopy(language);
+    const dc = clientDocCopy(language);
+    const companyName = quote.company?.name || "";
+    const clientFirst = String(quote.client?.name || "").split(" ")[0] || "";
+
+    const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#2d2520">
+      <p>${escapeHtml(ec.greeting(clientFirst))}</p>
+      <p>${escapeHtml(dc.approvedCopyIntro(companyName))}</p>
+      <p style="color:#6b675f;font-size:13px">${escapeHtml(ec.questions(quote.company?.phone))}</p>
+      <p><strong>${escapeHtml(companyName)}</strong></p>
+    </div>`;
+    const text = [
+      ec.greeting(clientFirst),
+      "",
+      dc.approvedCopyIntro(companyName),
+      "",
+      ec.questions(quote.company?.phone),
+      companyName,
+    ]
+      .filter((l) => l !== "")
+      .join("\n");
+
+    await resend.emails.send({
+      from,
+      replyTo,
+      to: clientTo,
+      subject: `${dc.approvedTitle} — ${updated.quoteNumber}`,
+      html,
+      text,
+      attachments,
+    });
+  }
+}
+
+// Renders the approved quote to a PDF buffer, using the same engine, sections
+// and client-aware language as the original send (app/api/quotes/[id]/send).
+// The accepted subtotal/tax/total are threaded in so the signed copy shows the
+// figure the client actually agreed to — extras included — not the pre-add-on
+// quote total sitting on the row.
+async function renderApprovedQuotePdf(quote, companyId, priced, language) {
+  const { renderDocumentPdfBuffer } = await import(
+    "@/app/admin/lib/pdf/renderDocumentPdf"
+  );
+  const { getDefaultSections } = await import(
+    "@/app/admin/lib/pdf/defaultSections"
+  );
+
+  const [fullCompany, template] = await Promise.all([
+    db.company.findUnique({ where: { id: companyId } }),
+    db.documentTemplate.findFirst({
+      where: { companyId, type: "quote_pdf", isDefault: true },
+    }),
+  ]);
+
+  const sections = template?.sections || getDefaultSections("quote_pdf");
+  // quote.scopeGroups already carry this company's customised service wording —
+  // attachServiceSettings ran in loadQuote — so the PDF resolves the identical
+  // content the client saw on the page.
+  const buffer = await renderDocumentPdfBuffer({
+    sections,
+    language,
+    data: {
+      ...quote,
+      client: quote.client,
+      scopeGroups: quote.scopeGroups,
+      subtotal: priced.subtotal,
+      tax: priced.tax,
+      total: priced.total,
+    },
+    company: fullCompany,
   });
+  return buffer?.length ? buffer : null;
 }
 
 // Client names and add-on text are typed by people and land in an HTML email.

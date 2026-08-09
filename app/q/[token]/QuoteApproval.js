@@ -12,7 +12,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
 import { readableForeground } from "@/lib/brand/colour";
 import SignaturePad from "@/app/components/SignaturePad";
-import { formatMoney } from "@/lib/currency";
+import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
@@ -38,10 +39,18 @@ export default function QuoteApproval({ token }) {
   const [sigConsent, setSigConsent] = useState(false);
   const canSign = sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
 
-  // Format in the COMPANY's billing currency (falls back to CAD until loaded /
-  // if unset). quote is null on the first renders, but money() is only called
-  // in the loaded quote view, so the optional chain is safe.
-  const money = (n) => formatMoney(n, quote?.company?.currency);
+  // The language is resolved server-side (quote.language → client.language →
+  // company default → en), so it matches the PDF and the covering email the
+  // client already received. Labels, dates and money all follow from it.
+  const language = quote?.language || "en";
+  const labels = documentLabels(language);
+  const copy = clientDocCopy(language);
+  // Currency stays the COMPANY's billing currency (falls back to CAD until
+  // loaded / if unset); only the formatting locale shifts with the language.
+  // quote is null on the first renders, but money()/date() are only called in
+  // the loaded quote view, so the optional chain is safe.
+  const fmt = documentFormatters(language, quote?.company?.currency);
+  const money = fmt.money;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +107,7 @@ export default function QuoteApproval({ token }) {
           setConfirming(null);
           return;
         }
-        throw new Error(data?.error || "Something went wrong. Try again.");
+        throw new Error(data?.error || copy.genericError);
       }
       setDecided(data.status);
       // The server's figure, not the one computed in this page. If they ever
@@ -237,10 +246,10 @@ export default function QuoteApproval({ token }) {
             </div>
             <div className="text-right shrink-0">
               <div
-                className="text-lg font-bold tracking-[0.15em] leading-none"
+                className="text-lg font-bold tracking-[0.15em] leading-none uppercase"
                 style={{ color: accent }}
               >
-                QUOTE
+                {labels.quote}
               </div>
               <div className="font-mono text-sm text-[#2d2520] mt-1">
                 {quote.quoteNumber}
@@ -250,19 +259,14 @@ export default function QuoteApproval({ token }) {
         </div>
 
         <div className="px-6 sm:px-8 py-6">
-          <p className="text-sm text-[#2d2520]/60">Prepared for</p>
+          <p className="text-sm text-[#2d2520]/60">{labels.preparedFor}</p>
           <p className="text-lg font-semibold text-[#2d2520]">
             {quote.client?.name}
           </p>
 
           {quote.validUntil && (
             <p className="text-sm mt-2 text-[#2d2520]/60">
-              Valid until{" "}
-              {new Date(quote.validUntil).toLocaleDateString("en-CA", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
+              {labels.validUntil} {fmt.date(quote.validUntil)}
             </p>
           )}
         </div>
@@ -331,8 +335,8 @@ export default function QuoteApproval({ token }) {
 
                   {g.included?.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-black/5">
-                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5">
-                        WHAT&apos;S INCLUDED
+                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5 uppercase">
+                        {copy.whatsIncluded}
                       </p>
                       <ul className="space-y-1">
                         {g.included.map((line, k) => (
@@ -363,12 +367,10 @@ export default function QuoteApproval({ token }) {
                 className="text-sm font-bold uppercase tracking-wide pb-2 mb-1 border-b"
                 style={{ color: accent, borderColor: `${accent}44` }}
               >
-                Optional extras
+                {copy.optionalExtras}
               </h2>
               <p className="text-xs text-[#2d2520]/50 mt-2 mb-3">
-                {locked
-                  ? "Chosen when this quote was approved."
-                  : "Tick anything you'd like added. The total updates as you go — nothing is charged until you approve."}
+                {locked ? copy.extrasChosen : copy.extrasTickHint}
               </p>
 
               <div className="space-y-2">
@@ -433,10 +435,10 @@ export default function QuoteApproval({ token }) {
           {quote.processSteps?.length > 0 && (
             <div className="pt-5 border-t border-black/5">
               <h3
-                className="text-xs font-bold tracking-wider mb-3"
+                className="text-xs font-bold tracking-wider mb-3 uppercase"
                 style={{ color: accent }}
               >
-                HOW THE WORK RUNS
+                {copy.howTheWorkRuns}
               </h3>
               <ol className="space-y-0">
                 {quote.processSteps.map((s, i) => {
@@ -492,10 +494,10 @@ export default function QuoteApproval({ token }) {
           {quote.paymentTerms && (
             <div className="pt-4 border-t border-black/5">
               <h3
-                className="text-xs font-bold tracking-wider mb-2.5"
+                className="text-xs font-bold tracking-wider mb-2.5 uppercase"
                 style={{ color: accent }}
               >
-                PAYMENT TERMS
+                {copy.paymentTerms}
               </h3>
               {quote.paymentSchedule?.length > 0 ? (
                 <div className="grid grid-cols-3 gap-2">
@@ -529,7 +531,7 @@ export default function QuoteApproval({ token }) {
           {quote.notes && (
             <div className="pt-4 border-t border-black/5">
               <h3 className="text-sm font-semibold text-[#2d2520] mb-1">
-                Notes
+                {labels.notes}
               </h3>
               <p className="text-sm text-[#2d2520]/70 whitespace-pre-wrap">
                 {quote.notes}
@@ -538,14 +540,14 @@ export default function QuoteApproval({ token }) {
           )}
 
           <div className="pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label="Subtotal" value={pricing.subtotal} currency={c.currency} />
+            <Row label={labels.subtotal} value={pricing.subtotal} money={money} />
             {quote.discount > 0 && (
-              <Row label="Discount" value={-quote.discount} currency={c.currency} />
+              <Row label={labels.discount} value={-quote.discount} money={money} />
             )}
-            <Row label="Tax" value={pricing.tax} currency={c.currency} />
+            <Row label={labels.tax} value={pricing.tax} money={money} />
             {pricing.extras > 0 && (
               <div className="flex justify-between text-[#2d2520]/70">
-                <span>Includes optional extras</span>
+                <span>{copy.includesOptionalExtras}</span>
                 <span className="tabular-nums">{money(pricing.extras)}</span>
               </div>
             )}
@@ -559,7 +561,9 @@ export default function QuoteApproval({ token }) {
             className="flex items-center justify-between rounded-xl px-4 py-3.5 -mt-1"
             style={{ backgroundColor: accent, color: accentOn }}
           >
-            <span className="text-sm font-bold tracking-wide">TOTAL</span>
+            <span className="text-sm font-bold tracking-wide uppercase">
+              {labels.total}
+            </span>
             <span className="text-2xl font-bold tabular-nums">
               {money(pricing.total)}
             </span>
@@ -570,49 +574,49 @@ export default function QuoteApproval({ token }) {
           {decided === "accepted" ? (
             <Settled
               tone="ok"
-              title="Approved — thank you"
-              body={`${c.name} has been notified and will be in touch about next steps.`}
+              title={copy.approvedTitle}
+              body={copy.approvedBody(c.name)}
             />
           ) : decided === "declined" ? (
             <Settled
               tone="muted"
-              title="Quote declined"
-              body={`${c.name} has been notified. If this was a mistake, give them a call.`}
+              title={copy.declinedTitle}
+              body={copy.declinedBody(c.name)}
             />
           ) : expired ? (
             <Settled
               tone="muted"
-              title="This quote has expired"
-              body={`Contact ${c.name} for an updated price.`}
+              title={copy.expiredTitle}
+              body={copy.expiredBody(c.name)}
             />
           ) : confirming ? (
             <div className="text-center">
               <p className="font-semibold text-[#2d2520]">
                 {confirming === "accepted"
-                  ? `Approve this quote for ${money(pricing.total)}?`
-                  : "Decline this quote?"}
+                  ? copy.approveConfirm(money(pricing.total))
+                  : copy.declineConfirm}
               </p>
               <p className="text-sm text-[#2d2520]/60 mt-1">
                 {confirming === "accepted"
                   ? pricing.extras > 0
-                    ? `Including ${money(pricing.extras)} of optional extras. This tells them to go ahead.`
-                    : "This tells them to go ahead."
-                  : "You can always ask for a revised quote."}
+                    ? copy.approveSubExtras(money(pricing.extras))
+                    : copy.approveSubPlain
+                  : copy.declineSub}
               </p>
 
               {confirming === "accepted" && (
                 <div className="mt-5 text-left max-w-sm mx-auto">
                   <label className="block text-sm font-medium text-[#2d2520] mb-1">
-                    Your full name
+                    {copy.yourFullName}
                   </label>
                   <input
                     value={sigName}
                     onChange={(e) => setSigName(e.target.value)}
-                    placeholder="Type your name"
+                    placeholder={copy.typeYourName}
                     className="w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm mb-3"
                   />
                   <label className="block text-sm font-medium text-[#2d2520] mb-1">
-                    Signature
+                    {copy.signature}
                   </label>
                   <SignaturePad onChange={setSigDataUrl} />
                   <label className="flex items-start gap-2 mt-3 text-xs text-[#2d2520]/80">
@@ -622,10 +626,7 @@ export default function QuoteApproval({ token }) {
                       onChange={(e) => setSigConsent(e.target.checked)}
                       className="mt-0.5"
                     />
-                    <span>
-                      I agree that signing here is my electronic signature and
-                      approves this quote for {money(pricing.total)}.
-                    </span>
+                    <span>{copy.signatureConsent(money(pricing.total))}</span>
                   </label>
                 </div>
               )}
@@ -641,14 +642,14 @@ export default function QuoteApproval({ token }) {
                   }}
                 >
                   {submitting && <Loader2 size={15} className="animate-spin" />}
-                  Yes, {confirming === "accepted" ? "approve" : "decline"}
+                  {confirming === "accepted" ? copy.yesApprove : copy.yesDecline}
                 </button>
                 <button
                   onClick={() => setConfirming(null)}
                   disabled={submitting}
                   className="px-6 py-3 rounded-full text-sm font-semibold border border-black/15 text-[#2d2520]"
                 >
-                  Go back
+                  {copy.goBack}
                 </button>
               </div>
               {actionError && (
@@ -661,13 +662,13 @@ export default function QuoteApproval({ token }) {
                 onClick={() => setConfirming("accepted")}
                 className="inline-flex items-center gap-2 bg-[#16a34a] text-white px-7 py-3 rounded-full text-sm font-semibold"
               >
-                <Check size={16} /> Approve this quote
+                <Check size={16} /> {copy.approveThisQuote}
               </button>
               <button
                 onClick={() => setConfirming("declined")}
                 className="inline-flex items-center gap-2 border border-black/15 text-[#2d2520] px-7 py-3 rounded-full text-sm font-semibold"
               >
-                <X size={16} /> Decline
+                <X size={16} /> {copy.decline}
               </button>
             </div>
           )}
@@ -675,8 +676,7 @@ export default function QuoteApproval({ token }) {
       </div>
 
       <p className="text-center text-xs text-[#2d2520]/40 mt-6">
-        Questions? Reply to the email, or call {c.name}
-        {c.phone ? ` at ${c.phone}` : ""}.
+        {copy.quoteQuestions(c.name, c.phone)}
       </p>
     </Shell>
   );
@@ -690,14 +690,14 @@ function Shell({ children }) {
   );
 }
 
-// `money` is component-scoped (it needs the quote's currency), so this
-// module-level helper takes the currency and formats itself — otherwise it
-// references a `money` that isn't in scope and crashes the whole page.
-function Row({ label, value, currency }) {
+// `money` is component-scoped (it carries the quote's currency AND the reader's
+// locale), so this module-level helper takes it as a prop rather than
+// referencing a `money` that isn't in scope — which would crash the whole page.
+function Row({ label, value, money }) {
   return (
     <div className="flex justify-between text-[#2d2520]/70">
       <span>{label}</span>
-      <span className="tabular-nums">{formatMoney(value, currency)}</span>
+      <span className="tabular-nums">{money(value)}</span>
     </div>
   );
 }
