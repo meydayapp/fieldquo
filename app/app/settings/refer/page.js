@@ -20,6 +20,8 @@ import {
   Gift,
   Mail,
   MessageSquare,
+  MessageCircle,
+  Smartphone,
   Loader2,
   AlertCircle,
   Clock,
@@ -34,6 +36,10 @@ export default function ReferPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  // Default desktop during SSR; the platform's Twilio can't text from trial
+  // accounts, so on a real phone we hand the invite to the user's OWN
+  // messaging app instead of routing it through us.
+  const [isMobile, setIsMobile] = useState(false);
 
   const [channel, setChannel] = useState("email");
   const [contact, setContact] = useState("");
@@ -55,6 +61,15 @@ export default function ReferPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    // A touch device with no hover — a phone, not a laptop with a touchscreen
+    // and a mouse. That's where the deep links belong and desktop email doesn't.
+    setIsMobile(
+      typeof window !== "undefined" &&
+        window.matchMedia?.("(hover: none) and (pointer: coarse)").matches,
+    );
+  }, []);
 
   async function invite(e) {
     e.preventDefault();
@@ -101,6 +116,17 @@ export default function ReferPage() {
 
   const currency = data.currency || "CAD";
   const creditEarned = formatMoney((data.creditEarnedCents || 0) / 100, currency);
+
+  // The invite the user sends from their OWN phone. Mirrors the spirit of the
+  // server SMS copy (identify the product, name the free months, end on the
+  // link) but carries no recipient — they pick the contact in their own app,
+  // which is the most cross-platform-safe way to prefill a message.
+  const bonusMonths = data.refereeBonusMonths;
+  const shareMessage = `Try FieldQuo — I use it for my quotes and invoices${
+    bonusMonths ? `, and you get ${bonusMonths} month${bonusMonths === 1 ? "" : "s"} free` : ""
+  }: ${data.referralUrl || ""}`;
+  const smsHref = `sms:?&body=${encodeURIComponent(shareMessage)}`;
+  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -149,6 +175,35 @@ export default function ReferPage() {
           {t("app.refer.linkHint")}
         </p>
       </div>
+
+      {/* On a phone, send from the user's own messaging app. The platform's
+          Twilio rejects sends from trial accounts, so routing referral texts
+          through us fails for exactly the newest companies — a deep link into
+          their own SMS/WhatsApp always works and comes from their number. */}
+      {isMobile && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">Share from your phone</h2>
+          <p className="text-sm text-muted-foreground mb-3">
+            Opens your own messaging app with the invite ready to send. You pick who it goes to.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href={smsHref}
+              className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              <Smartphone size={14} /> Text from my phone
+            </a>
+            <a
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold"
+            >
+              <MessageCircle size={14} /> WhatsApp
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-3">

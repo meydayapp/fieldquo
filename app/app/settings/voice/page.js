@@ -176,6 +176,15 @@ export default function VoiceSettingsPage() {
   const { agent, number, credit, pricing, sources, configured } = data;
   const canEnable = number?.status === "active" && credit.cents >= credit.centsPerMinute;
 
+  // The 30 free trial minutes are a real balance granted with the first number
+  // (see lib/voice/number/route.js — the "free minutes to try it out" entry).
+  // When that grant is still visibly present and nothing has been bought, say
+  // so: it's a live balance the receptionist works on, not a prompt to pay.
+  const freeOnly =
+    credit.cents > 0 &&
+    credit.entries.some((e) => e.kind === "adjustment" && /free/i.test(e.note || "")) &&
+    !credit.entries.some((e) => e.kind === "topup");
+
   return (
     <div className="max-w-3xl p-4 sm:p-6 space-y-6">
       <div>
@@ -260,6 +269,22 @@ export default function VoiceSettingsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
                   {t("app.setVoice.carriersNote", "These work on most carriers. If yours doesn't take them, their support can set it up in a minute.")}
+                </p>
+                {/* The common failure: an ignored call lands in the carrier's
+                    OWN voicemail instead of the receptionist. The carrier's
+                    no-answer voicemail can fire before the conditional forward,
+                    and tapping Decline usually triggers the busy path, not "no
+                    answer". Both are on the carrier's side, so name the fix
+                    rather than let it read as our bug. */}
+                <p className="text-xs text-muted-foreground mt-2">
+                  If ignored calls still reach your voicemail, your carrier&apos;s voicemail is
+                  answering first. Turn off carrier voicemail with your provider, or let the call
+                  ring out rather than tapping Decline — declining can send it straight to voicemail.
+                  Advanced: some carriers let you set the ring time before forwarding with{" "}
+                  <code className="px-1 py-0.5 rounded bg-background border border-border tabular-nums">
+                    *61*&lt;number&gt;*11*&lt;seconds&gt;#
+                  </code>
+                  .
                 </p>
               </div>
             )}
@@ -350,9 +375,12 @@ export default function VoiceSettingsPage() {
         hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. No monthly fee — you only pay for calls it actually takes.", { cents: credit.centsPerMinute })}
       >
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {/* "Balance" and not just a bare number: it sits right above the
+              purchase buttons, and a lone "$10.50" there reads as a price. */}
+          <span className="text-sm font-medium text-muted-foreground">Balance:</span>
           <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
           <span className="text-sm text-muted-foreground">
-            {t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"}
+            ({t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"})
           </span>
           {credit.low && (
             <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
@@ -361,7 +389,16 @@ export default function VoiceSettingsPage() {
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        {freeOnly && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Free trial minutes included — the receptionist can start answering on this now, no top-up needed.
+          </p>
+        )}
+
+        {/* Retitled so the buttons below read as "buy more", not the balance
+            above. They are Stripe purchases; the two were easy to conflate. */}
+        <p className="text-sm font-medium text-foreground mt-4">Add credit</p>
+        <div className="mt-2 flex flex-wrap gap-2">
           {pricing.topups.map((topup) => (
             <button
               key={topup.cents}
@@ -474,7 +511,9 @@ export default function VoiceSettingsPage() {
         title={t("app.setVoice.answerTitle", "Answer my calls")}
         hint={
           canEnable
-            ? t("app.setVoice.answerHintReady", "Turn it on when you're ready. You can turn it off just as fast.")
+            ? freeOnly
+              ? "Your free trial minutes are ready to use — turn it on whenever you like, no top-up needed."
+              : t("app.setVoice.answerHintReady", "Turn it on when you're ready. You can turn it off just as fast.")
             : t("app.setVoice.answerHintNotReady", "Set up a number and add some credit first — otherwise it would pick up and fail.")
         }
       >
