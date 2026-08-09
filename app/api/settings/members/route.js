@@ -86,9 +86,15 @@ export async function POST(request) {
 
   const limitCheck = await checkUserLimit(member.companyId);
   if (!limitCheck.allowed) {
+    // Structured, not just a sentence: the New User form keys off `code` to
+    // show an in-place "Add licenses" upgrade link, and `used`/`limit` let it
+    // say exactly how many seats are in use without a second round-trip.
     return NextResponse.json(
       {
         error: `Plan limit reached: ${limitCheck.currentCount}/${limitCheck.limit} users. Upgrade to invite more.`,
+        code: "seat_limit",
+        used: limitCheck.currentCount,
+        limit: limitCheck.limit,
       },
       { status: 402 },
     );

@@ -7,6 +7,7 @@ import { Plus, Clock, Mail } from "lucide-react";
 import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
 
 const ROLE_LABELS = {
   owner: "Owner",
@@ -166,6 +167,10 @@ export default function TeamOverviewPage() {
           </span>
         )}
       </div>
+
+      {seats.limit && seats.used >= seats.limit && (
+        <SeatUpgradePanel used={seats.used} limit={seats.limit} />
+      )}
 
       <div className="flex gap-2 text-sm">
         <Link

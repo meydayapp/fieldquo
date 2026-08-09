@@ -1,10 +1,11 @@
 // app/app/team/new/page.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Info, Upload, User as UserIcon } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
 import { formatPhoneInput } from "@/lib/validation";
 import {
   PERMISSION_CATEGORIES,
@@ -71,6 +72,28 @@ export default function NewUserPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Seat usage, so a company that's already out of licenses sees the upgrade
+  // panel before filling in the whole form — not only after the invite bounces.
+  // Same source the Team page reads.
+  const [seats, setSeats] = useState({ used: 0, limit: null });
+  const [seatLimited, setSeatLimited] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/members/pending")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.seats) return;
+        setSeats(data.seats);
+        if (data.seats.limit && data.seats.used >= data.seats.limit) {
+          setSeatLimited(true);
+        }
+      })
+      .catch(() => {
+        // Non-fatal — the seat panel is an early warning; the POST still
+        // enforces the real limit server-side.
+      });
+  }, []);
 
   function applyPreset(key) {
     setActivePreset(key);
@@ -158,6 +181,16 @@ export default function NewUserPage() {
       });
       router.push("/app/settings/team");
     } catch (err) {
+      // A seat-limit 402 comes back structured (see app/api/settings/members
+      // route). Reveal the in-place upgrade panel and point the error at it,
+      // rather than leaving the contractor with just a red sentence.
+      if (err.data?.code === "seat_limit") {
+        setSeatLimited(true);
+        setSeats({
+          used: err.data.used ?? seats.used,
+          limit: err.data.limit ?? seats.limit,
+        });
+      }
       setError(err.message);
       setSaving(false);
     }
@@ -177,7 +210,22 @@ export default function NewUserPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
+          {seatLimited && (
+            <>
+              {" "}
+              <a
+                href="#seat-upgrade"
+                className="font-semibold underline underline-offset-2"
+              >
+                {t("app.setTeam.addLicensesLink")}
+              </a>
+            </>
+          )}
         </div>
+      )}
+
+      {seatLimited && seats.limit && (
+        <SeatUpgradePanel used={seats.used} limit={seats.limit} />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">

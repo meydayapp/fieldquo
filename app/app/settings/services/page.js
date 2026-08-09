@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
+import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -15,6 +16,15 @@ export default function ServiceSettingsPage() {
   const { t } = useTranslation();
   const [categories, setCategories] = useState([]);
   const [saving, setSaving] = useState(false);
+
+  // The industries picked at signup drive which of the ~60 catalog categories
+  // are shown by default — mirrors the signup services step so a plumber lands
+  // on plumbing quote types instead of the whole trade catalog. Fetched from
+  // business-info rather than folded into the service-categories response,
+  // whose plain-array shape several other pages already depend on.
+  const [industries, setIndustries] = useState([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [showAllTrades, setShowAllTrades] = useState(false);
 
   const [showCustomModal, setShowCustomModal] = useState(false);
   const [customForm, setCustomForm] = useState(emptyCustomForm());
@@ -40,6 +50,21 @@ export default function ServiceSettingsPage() {
         setCategories(Array.isArray(data) ? data : []);
       } catch (err) {
         await reportResponseError(err);
+      }
+    })();
+
+    // Industries are read-only here (chosen at signup) — a failure just means
+    // no preset, so we fall back to showing everything rather than surfacing an
+    // error over what is a progressive enhancement.
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/business-info");
+        if (!res.ok) return;
+        const data = await res.json();
+        setIndustries(Array.isArray(data?.industries) ? data.industries : []);
+      } catch {
+        // Ignore — the list simply shows all trades when we don't know the
+        // company's industry.
       }
     })();
   }, []);
@@ -148,6 +173,32 @@ export default function ServiceSettingsPage() {
     );
   }, [fieldSearch]);
 
+  // The union of catalog keys the company's trade(s) actually sell. Empty when
+  // the industry is blank/unknown — same guard as signup, which then shows the
+  // full catalog rather than an empty list.
+  const presetKeys = useMemo(
+    () => categoryKeysForIndustries(industries),
+    [industries],
+  );
+
+  // What to render: search filters the label across everything; the trade
+  // filter hides only OTHER trades' system categories. A company's own custom
+  // categories (companyId set, isSystem false) always pass the trade filter —
+  // they were created deliberately and belong to no preset.
+  const visibleCategories = useMemo(() => {
+    const q = categorySearch.trim().toLowerCase();
+    return categories.filter((c) => {
+      if (q && !c.label.toLowerCase().includes(q)) return false;
+      if (!c.isSystem) return true;
+      if (showAllTrades || presetKeys.length === 0) return true;
+      return presetKeys.includes(c.key);
+    });
+  }, [categories, categorySearch, showAllTrades, presetKeys]);
+
+  // Only offer the "other trades" escape hatch when a preset is actually
+  // narrowing the list — with no preset, everything is already shown.
+  const hasPreset = presetKeys.length > 0;
+
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6">
       <div className="flex items-start justify-between gap-4 mb-1">
@@ -163,13 +214,41 @@ export default function ServiceSettingsPage() {
         {t("app.setServices.subtitle")}
       </p>
 
+      {categories.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+          <input
+            type="search"
+            value={categorySearch}
+            onChange={(e) => setCategorySearch(e.target.value)}
+            placeholder={t("app.setServices.searchPlaceholder")}
+            className="flex-1 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border"
+          />
+          {hasPreset && (
+            <button
+              type="button"
+              onClick={() => setShowAllTrades((v) => !v)}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground shrink-0 text-left sm:text-right"
+            >
+              {showAllTrades
+                ? t("app.setServices.showMyTrade")
+                : t("app.setServices.showOtherTrades")}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         {categories.length === 0 && (
           <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
             {t("app.setServices.emptyState")}
           </div>
         )}
-        {categories.map((c) => (
+        {categories.length > 0 && visibleCategories.length === 0 && (
+          <div className="border rounded-lg p-6 text-sm text-muted-foreground text-center">
+            {t("app.setServices.noMatch")}
+          </div>
+        )}
+        {visibleCategories.map((c) => (
           <div
             key={c.id}
             className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
