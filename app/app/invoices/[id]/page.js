@@ -316,7 +316,7 @@ export default function InvoiceDetailPage() {
           <p className="text-sm text-muted-foreground mt-1">{invoice.client?.name}</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Available while anything is still owed, not only on a draft —
               re-sending an invoice a client mislaid is routine, and the old
               button vanished the instant it was pressed. */}

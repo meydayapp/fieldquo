@@ -76,6 +76,41 @@ export async function POST(request) {
     );
   }
 
+  // Every linked id must belong to THIS company — otherwise a member could link
+  // a task to another tenant's client/quote/invoice and GET /api/tasks would
+  // read that tenant's client name back. Mirrors the guard on the jobs route.
+  const ownsOrNull = async (model, id) => {
+    if (!id) return true;
+    const row = await db[model].findFirst({
+      where: { id, companyId: member.companyId },
+      select: { id: true },
+    });
+    return Boolean(row);
+  };
+  const [okClient, okQuote, okInvoice, okArea] = await Promise.all([
+    ownsOrNull("client", clientId),
+    ownsOrNull("quote", quoteId),
+    ownsOrNull("invoice", invoiceId),
+    ownsOrNull("workArea", workAreaId),
+  ]);
+  if (!okClient || !okQuote || !okInvoice || !okArea) {
+    return NextResponse.json(
+      { error: "A linked record wasn't found for your company." },
+      { status: 400 },
+    );
+  }
+  if (assignedToId) {
+    const isMember = await db.member.findFirst({
+      where: { userId: assignedToId, companyId: member.companyId },
+      select: { id: true },
+    });
+    if (!isMember)
+      return NextResponse.json(
+        { error: "That person isn't on your team." },
+        { status: 400 },
+      );
+  }
+
   const task = await db.task.create({
     data: {
       companyId: member.companyId,

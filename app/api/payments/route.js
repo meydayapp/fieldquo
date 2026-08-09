@@ -61,6 +61,14 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+  // Recording money received is the highest-trust action in the app — a negative
+  // amount is truthy and would have passed, quietly INCREASING the balance due.
+  if (!(Number(amount) > 0)) {
+    return NextResponse.json(
+      { error: "Amount must be greater than zero" },
+      { status: 400 },
+    );
+  }
 
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, companyId: member.companyId },

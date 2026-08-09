@@ -44,14 +44,18 @@ export default function InvoicesPage() {
     );
   });
 
-  const totalBilled = invoices.reduce(
-    (sum, i) => sum + Number(i.total || 0),
+  // Money from the per-invoice figures, NOT from status — a partially-paid
+  // invoice stays "sent" until fully paid, so counting only status==="paid"
+  // reported $600 of a $1,000 invoice as $0 paid / $1,000 outstanding.
+  const totalBilled = invoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
+  const paidAmount = invoices.reduce(
+    (sum, i) => sum + Number(i.amountPaid || 0),
     0,
   );
-  const paidAmount = invoices
-    .filter((i) => i.status === "paid")
-    .reduce((sum, i) => sum + Number(i.total || 0), 0);
-  const outstanding = totalBilled - paidAmount;
+  const outstanding = invoices.reduce(
+    (sum, i) => sum + Number(i.amountDue ?? i.total ?? 0),
+    0,
+  );
 
   if (loading) {
     return (

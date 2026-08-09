@@ -86,6 +86,11 @@ export async function PATCH(request) {
       { status: 400 },
     );
   }
+  // Same allow-list as the per-lead route — an arbitrary string here would be
+  // stored and then silently bucketed into "new" by the board.
+  if (!["new", "contacted", "converted", "lost"].includes(status)) {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
 
   const existing = await db.leadRequest.findFirst({
     where: { id, companyId: member.companyId },
