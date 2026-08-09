@@ -26,6 +26,7 @@ import {
   Flame,
   FileText,
   Loader2,
+  Upload,
   ArrowRight,
 } from "lucide-react";
 
@@ -152,9 +153,17 @@ export default function LeadsPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("app.leads.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("app.leads.subtitle")}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t("app.leads.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("app.leads.subtitle")}</p>
+        </div>
+        <Link
+          href="/app/leads/import"
+          className="inline-flex items-center gap-1.5 border border-border px-3 py-2 rounded-full text-sm font-semibold text-foreground shrink-0"
+        >
+          <Upload size={15} /> {t("app.leads.import")}
+        </Link>
       </div>
 
       {/* Toolbar */}
