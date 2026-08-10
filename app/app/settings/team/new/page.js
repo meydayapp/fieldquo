@@ -78,6 +78,16 @@ export default function NewUserPage() {
   // Same source the Team page reads.
   const [seats, setSeats] = useState({ used: 0, limit: null });
   const [seatLimited, setSeatLimited] = useState(false);
+  // Buying licences is owner/admin only — a supervisor pressing Upgrade would
+  // just collect a 403, so they don't get the panel (see the Team page).
+  const [canBuySeats, setCanBuySeats] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/members/self/role")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCanBuySeats(["owner", "admin"].includes(d?.yourRole)))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/settings/members/pending")
@@ -210,7 +220,10 @@ export default function NewUserPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
           {error}
-          {seatLimited && (
+          {/* Only link to the panel when it's actually rendered — a supervisor
+              can't buy licences, so an anchor to a missing panel would be a
+              link that does nothing. */}
+          {seatLimited && canBuySeats && (
             <>
               {" "}
               <a
@@ -224,7 +237,7 @@ export default function NewUserPage() {
         </div>
       )}
 
-      {seatLimited && seats.limit && (
+      {seatLimited && seats.limit && canBuySeats && (
         <SeatUpgradePanel used={seats.used} limit={seats.limit} />
       )}
 

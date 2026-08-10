@@ -168,9 +168,16 @@ export default function TeamOverviewPage() {
         )}
       </div>
 
-      {seats.limit && seats.used >= seats.limit && (
-        <SeatUpgradePanel used={seats.used} limit={seats.limit} />
-      )}
+      {/* Billing is owner/admin only, so a supervisor seeing this would get a
+          403 the moment they pressed Upgrade — a control that looks live and
+          isn't. They still see the "at plan limit" badge above, which is the
+          honest half: it tells them why they can't invite, without offering an
+          action that isn't theirs to take. */}
+      {seats.limit &&
+        seats.used >= seats.limit &&
+        ["owner", "admin"].includes(grants.yourRole) && (
+          <SeatUpgradePanel used={seats.used} limit={seats.limit} />
+        )}
 
       <div className="flex gap-2 text-sm">
         <Link
