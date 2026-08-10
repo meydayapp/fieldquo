@@ -361,19 +361,49 @@ ServiceTitan cannot assemble for a one-van Ontario contractor.
 
 ---
 
-## 7. Known gap in what we already shipped
+## 7. `rewireTakeoff.js` — gap closed, with three things still open
 
-`lib/estimate/rewireTakeoff.js` is **NEC-only**. It tags every coefficient
-`[NEC …]` honestly, but it has **no jurisdiction key**, and its mandatory-circuit
-count uses NEC 210.11(C) — two small-appliance circuits. Under CEC 26-712 a
-Canadian kitchen of any size needs **≥2 circuits with ≤2 split receptacles
-each**, so a normal kitchen lands at **4 two-pole circuits**, and those breakers
-are the expensive ones (§1.2).
+**Closed.** `lib/estimate/rewireTakeoff.js` now takes `codeJurisdiction` as a
+fifth required intake fact (`"NEC"` | `"CEC"`), with no default: missing or
+invalid means `typical: null` and the question appears in `needsIntake`, and
+with the jurisdiction unknown the returned range brackets *both* codes rather
+than quietly picking one. `NEC_MANDATORY_CIRCUITS` became the jurisdiction-keyed
+`MANDATORY_CIRCUITS`. Quebec (`"QC"`, `"CSA_C22_10"`) is **refused, not
+computed**. `npm run check:rewire` covers it, mutation-tested.
 
-Receptacle *spacing* happens to be near-identical (NEC 12 ft vs CEC 3.6 m ≈
-11.8 ft), so the device count and cable model carry over. **The circuit and
-breaker count do not.** Canada is our primary market, so this must be fixed
-before the module reaches a Canadian quote.
+The CEC kitchen rule is implemented as stated in §1.2: counter receptacles are
+counted along the counter run at 1.8 m spacing (26-712(d)), circuits are
+`ceil(installed ÷ 2)` floored at 2 (26-722), each is two-pole and takes a second
+panel space, and each is priced as a two-pole AFCI (26-658). AFCI scope is
+modelled as a *shape* difference per §1.1 — under the CEC, lighting-only, 240 V
+and spare positions take a plain breaker.
+
+Receptacle spacing carried over as predicted: NEC 12 ft vs CEC 3.6 m ≈ 11.81 ft
+is a 1.6% difference, so the cable and sub-linearity model was left untouched.
+
+Measured on a 1,500 sqft 3bd/2ba: kitchen circuits 2 → 3, total 19 → 20, poles
+23 → 27 (150 A/30 → 200 A/40 panel), breaker bill $1,045 → $1,475, all-in
+$22,499 → $23,365 (+3.8%). The gap widens with the counter run — 4 kitchen
+circuits and +5.9% at 2,000 sqft.
+
+**Still open, in priority order:**
+
+1. **§1.2's "that is the multiplier" holds at kitchen scope, not whole-house.**
+   Three two-pole AFCIs at $195 against two plain single-poles is 19.5×, as the
+   doc says. But whole-house, on a like-for-like price list, the CEC branch is
+   *cheaper* than the NEC branch as currently modelled — because 26-658 exempts
+   lighting-only, 240 V and spare positions while our NEC branch charges an AFCI
+   on every circuit including the range and the spares. That NEC over-reach is
+   what the `RESIDENTIAL_PRODUCTIVITY_FACTOR` was fitted against, so correcting
+   it re-calibrates the model's only ground truth and needs its own pass.
+2. **Two price bases in one estimate.** CEC breakers are Canadian retail in CAD
+   (Part 3 §3.2); the rest of the material block is US trade price. Stated in
+   `assumptions[]` on every CEC result and overridable, but a Canadian trade
+   price list is the real fix.
+3. **The CEC 8-110 / 8-200 basic-load calculation is not implemented** — the
+   general-purpose circuit count still uses the NEC 220.12 3 VA/ft² shape under
+   both codes. Disclosed on every CEC result. Provincial editions (OESC 2024,
+   BC 2024, Alberta) are treated as C22.1:24, which is true today.
 
 ---
 
