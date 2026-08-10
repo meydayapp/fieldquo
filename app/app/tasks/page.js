@@ -10,12 +10,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Plus,
   Loader2,
   CheckCircle2,
   Circle,
   AlertCircle,
+  Briefcase,
   ListChecks,
   X,
 } from "lucide-react";
@@ -163,6 +165,15 @@ export default function TasksPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("app.tasks.title")}</h1>
+          {/* Plain English, deliberately in English only and not through t():
+              the tasks-v1 tour says the same thing in the same words, and the
+              two drifting apart is worse than one of them being untranslated.
+              The owner read "Jobs" and "Tasks" as the same feature — this line
+              is the answer to that, so it sits above the count, not below. */}
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            Tasks are internal reminders for you and your team. Jobs are
+            scheduled work at a client&apos;s address.
+          </p>
           <p className="text-sm text-muted-foreground mt-1">
             {openCount} {t("app.tasks.open")}{openCount === 1 ? "" : ""}
           </p>
@@ -364,6 +375,20 @@ export default function TasksPage() {
                       <span>· {task.assignedTo.name}</span>
                     )}
                     {task.client?.name && <span>· {task.client.name}</span>}
+                    {/* The job a lifecycle-generated task came from. A link,
+                        not a label: "Ask them for a review" is only actionable
+                        if you can get to the job without searching for it —
+                        and it's the clearest statement on this page that a
+                        task and a job are two different things. */}
+                    {task.job?.id && (
+                      <Link
+                        href={`/app/jobs/${task.job.id}`}
+                        className="inline-flex items-center gap-1 underline hover:text-foreground"
+                      >
+                        <Briefcase size={11} />
+                        {task.job.title}
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

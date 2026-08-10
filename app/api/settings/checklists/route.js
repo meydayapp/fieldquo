@@ -6,25 +6,34 @@
 // The consumer is JobVisit.checklistItems — a Json array the job detail page
 // already renders. Templates are the source those arrays are stamped from, so
 // a crew doesn't retype "mask the counters" on every kitchen.
+//
+// ── System templates ───────────────────────────────────────────────────────
+//
+// GET also returns the seeded per-trade library (companyId null, `isSystem`
+// on the way out) so the job page can OFFER a starter list. They are read
+// only through this route: POST/PATCH/DELETE all scope by companyId, so a
+// tenant can't edit or delete a row every other tenant sees. Taking one is a
+// copy — "Use this" POSTs the items back as the company's own — which is the
+// only way an edit to it stays that company's business.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import {
+  normalizeChecklistItems,
+  normalizePhase,
+} from "@/lib/jobs/checklistItems";
 
 // Items are stored as objects, not bare strings, because a visit's copy needs
 // somewhere to record completion. Keeping the shape identical between template
-// and visit means stamping one onto the other is a plain clone.
-function normalizeItems(items) {
-  if (!Array.isArray(items)) return [];
-  return items
-    .map((item) => {
-      const label =
-        typeof item === "string" ? item : item?.label || item?.text || "";
-      return String(label).trim();
-    })
-    .filter(Boolean)
-    .map((label) => ({ label, done: false }));
+// and visit means stamping one onto the other is a plain clone — see
+// lib/jobs/checklistItems.js, which owns that shape for every route.
+// forcePhase: a template is single-phase, so every item in it takes the
+// template's phase — otherwise moving a list from "during" to "post" would
+// leave its items claiming the old one.
+function normalizeItems(items, phase) {
+  return normalizeChecklistItems(items, { phase, forcePhase: true });
 }
 
 function requireManage(member) {
@@ -42,13 +51,44 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const templates = await db.jobChecklistTemplate.findMany({
+  const { searchParams } = new URL(request.url);
+  // Opt-in, because the settings screen lists what the company owns and the
+  // job page wants suggestions too. Defaulting to "include" would put 180-odd
+  // seeded rows into the settings list as if the company had written them.
+  const includeSystem = searchParams.get("includeSystem") === "1";
+
+  const own = await db.jobChecklistTemplate.findMany({
     where: { companyId: member.companyId },
     include: { category: { select: { id: true, label: true } } },
     orderBy: { createdAt: "asc" },
   });
 
-  return NextResponse.json(templates);
+  if (!includeSystem) return NextResponse.json(own);
+
+  // Only the trades this company actually turned on. The full seeded library
+  // is every trade FieldQuo knows about; a painter has no use for scrolling
+  // past a chimney sweep's flue-cap check to find "mask the baseboards".
+  const enabled = await db.companyServiceCategory.findMany({
+    where: { companyId: member.companyId, enabled: true },
+    select: { categoryId: true },
+  });
+  const enabledIds = enabled.map((row) => row.categoryId);
+
+  const system = enabledIds.length
+    ? await db.jobChecklistTemplate.findMany({
+        where: { companyId: null, categoryId: { in: enabledIds } },
+        include: { category: { select: { id: true, label: true } } },
+        orderBy: [{ categoryId: "asc" }, { phase: "asc" }],
+      })
+    : [];
+
+  return NextResponse.json([
+    ...own,
+    // Flagged rather than inferred from `companyId === null` at every call
+    // site — the flag is what the UI keys "Use this" off, and it should not be
+    // possible to forget the null check and offer an Edit button that 404s.
+    ...system.map((tpl) => ({ ...tpl, isSystem: true })),
+  ]);
 }
 
 export async function POST(request) {
@@ -63,13 +103,16 @@ export async function POST(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { name, items, categoryId } = await request.json().catch(() => ({}));
+  const { name, items, categoryId, phase } = await request
+    .json()
+    .catch(() => ({}));
 
   if (!String(name || "").trim()) {
     return NextResponse.json({ error: "Give it a name." }, { status: 400 });
   }
 
-  const normalized = normalizeItems(items);
+  const resolvedPhase = normalizePhase(phase);
+  const normalized = normalizeItems(items, resolvedPhase);
   if (normalized.length === 0) {
     return NextResponse.json(
       { error: "Add at least one item — an empty checklist does nothing." },
@@ -102,6 +145,7 @@ export async function POST(request) {
       companyId: member.companyId,
       name: String(name).trim(),
       items: normalized,
+      phase: resolvedPhase,
       categoryId: categoryId || null,
     },
     include: { category: { select: { id: true, label: true } } },
@@ -122,22 +166,42 @@ export async function PATCH(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { id, name, items, categoryId } = await request
+  const { id, name, items, categoryId, phase } = await request
     .json()
     .catch(() => ({}));
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
+  // companyId in the WHERE is what keeps a system row (companyId null) out of
+  // reach — a tenant editing the shared library would rewrite it for everyone.
   const existing = await db.jobChecklistTemplate.findFirst({
     where: { id, companyId: member.companyId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Re-phasing a list re-phases its items, since a visit's copy carries the
+  // phase per item. Without this the two disagree the moment someone moves a
+  // template from "during" to "post", and the grouping on the job page would
+  // show the same list under the wrong heading forever.
+  const resolvedPhase =
+    phase !== undefined ? normalizePhase(phase) : existing.phase;
+
+  // Rewrite the items whenever EITHER changed — a phase-only edit still has to
+  // restamp them, or the stored items keep the old phase and every future
+  // visit copies the disagreement forward.
+  const rewriteItems = items !== undefined || resolvedPhase !== existing.phase;
+
   const updated = await db.jobChecklistTemplate.update({
     where: { id },
     data: {
       ...(name !== undefined && { name: String(name).trim() }),
-      ...(items !== undefined && { items: normalizeItems(items) }),
+      ...(phase !== undefined && { phase: resolvedPhase }),
+      ...(rewriteItems && {
+        items: normalizeItems(
+          items !== undefined ? items : existing.items,
+          resolvedPhase,
+        ),
+      }),
       ...(categoryId !== undefined && { categoryId: categoryId || null }),
     },
     include: { category: { select: { id: true, label: true } } },

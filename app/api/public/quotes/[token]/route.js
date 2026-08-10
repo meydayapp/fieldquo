@@ -16,6 +16,7 @@ import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
 import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
+import { taskForAcceptedQuote } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
@@ -395,6 +396,11 @@ export async function POST(request, { params }) {
       // here must never make the client's approval appear to fail.
       const job = await ensureJobForAcceptedQuote(updated.id);
       const { invoice } = await ensureInvoiceForQuote(updated.id);
+      // ...and a note for whoever has to put it in the diary. The job above
+      // lands `unscheduled`, which is easy to miss on a list ordered by when
+      // work is happening. Idempotent on its own sourceKey and swallows its
+      // own errors, so it can't undo either of the two lines above.
+      await taskForAcceptedQuote(updated.id);
       await recordActivity(
         { companyId: updated.companyId },
         {

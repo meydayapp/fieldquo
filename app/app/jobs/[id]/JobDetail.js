@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
+import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import {
   ArrowLeft,
   Pencil,
@@ -23,8 +24,6 @@ import {
   Phone,
   Plus,
   FileText,
-  CheckCircle2,
-  Circle,
 } from "lucide-react";
 
 const STATUS_STYLES = {
@@ -335,30 +334,7 @@ export default function JobDetail({ jobId }) {
                     </div>
                   </div>
 
-                  {items.length > 0 && (
-                    <ul className="mt-3 space-y-1">
-                      {items.map((item, i) => (
-                        <li
-                          key={i}
-                          className="flex items-center gap-2 text-sm text-foreground"
-                        >
-                          {item?.done ? (
-                            <CheckCircle2
-                              size={14}
-                              className="text-emerald-600 dark:text-emerald-400 shrink-0"
-                            />
-                          ) : (
-                            <Circle size={14} className="text-muted-foreground shrink-0" />
-                          )}
-                          <span
-                            className={item?.done ? "text-muted-foreground line-through" : ""}
-                          >
-                            {item?.label || item?.text || "Untitled item"}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <VisitChecklist jobId={jobId} visit={v} onChanged={load} />
                 </div>
               );
             })}

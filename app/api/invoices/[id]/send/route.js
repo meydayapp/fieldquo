@@ -28,6 +28,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -158,6 +159,12 @@ export async function POST(request, { params }) {
     summary: `Sent invoice ${invoice.invoiceNumber} to ${to}`,
     metadata: { to, total: invoice.total },
   });
+
+  // A chase-it reminder a week out. After the send, never before: a task
+  // telling someone to follow up an invoice that never left is worse than no
+  // task. Keyed on the invoice id, so emailing a second copy doesn't produce a
+  // second reminder about the same debt.
+  await taskForSentInvoice(invoice.id);
 
   return NextResponse.json({ ...updated, to, messageId: result?.id || null });
 }

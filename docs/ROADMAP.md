@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 30 July 2026. **Update this file when you finish something.**
+Last updated: 9 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -253,6 +253,32 @@ endpoint with a tampered POST.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Job checklists (phased) + task automation**
+  (`lib/jobs/checklistItems.js`, `prisma/seed-checklists.js`,
+  `lib/tasks/autoCreate.js`, `app/components/jobs/VisitChecklist.js`,
+  `app/app/jobs/[id]/visits/new`).
+  - `JobChecklistTemplate.phase` is `pre | during | post`, and the phase is
+    stamped onto each item as it's copied to a visit, so a visit's list groups
+    itself without reading a template that may since have changed.
+  - 168 SYSTEM templates (`companyId` null, upserted on `systemKey`) across 56
+    trade keys — `npm run seed:checklists`, idempotent, re-run it after editing
+    the item lists. **They are offered, never auto-stamped.** A company that
+    hasn't picked a checklist has not stated a process; putting an invented one
+    on a real work order is the opening-hours mistake in another costume.
+  - Three lifecycle events now write a Task: quote accepted, invoice sent, job
+    completed. Idempotency is the `Task.sourceKey` UNIQUE constraint (P2002 is
+    swallowed as success), not a read-then-write check — the trigger points are
+    a public endpoint a client can double-click and two buttons staff can
+    double-click. All three are best-effort and cannot fail the parent action.
+  - Attribution: `Task.createdById` is required and there is no system user, so
+    auto-tasks borrow the company's owner (then an admin). A company with
+    neither — the seeded demo companies, which have no members by design — logs
+    and skips rather than inventing one.
+  - Fixed in passing: `/app/jobs/[id]/visits/new` did not exist and both "Add
+    visit" links 404'd; visit checklists rendered tick icons that could never be
+    ticked; `POST /visits` stored whatever JSON the browser sent, so a bare
+    string array rendered as a column of "Untitled item".
 
 - **Seat-sharing guard** (`AccountDevice`, `AccountAbuseStrike`,
   `Company.accountStatus`, `lib/security/deviceGuard.js`, `SeatSharingBanner`,

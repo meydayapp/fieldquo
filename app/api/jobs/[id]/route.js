@@ -9,6 +9,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { taskForCompletedJob } from "@/lib/tasks/autoCreate";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -78,6 +79,12 @@ export async function PATCH(request, { params }) {
     },
     include: { client: true },
   });
+
+  // Finishing the work is the moment to ask for the review, so leave a note on
+  // the to-do list. Only on the FIRST flip — `completing` is already the
+  // "wasn't completed before" test — and the task's own sourceKey makes a
+  // reopen-then-recomplete a no-op rather than a second nag.
+  if (completing) await taskForCompletedJob(id);
 
   return NextResponse.json(updated);
 }

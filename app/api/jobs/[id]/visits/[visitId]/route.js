@@ -7,6 +7,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
+import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -28,11 +29,22 @@ export async function PATCH(request, { params }) {
   const body = await request.json();
   const { status, checklistItems, photos, notes, scheduledAt } = body;
 
+  // keepDone: this is the crew ticking things off, so `done` is the payload,
+  // not noise to reset. No forcePhase either — a visit's list is mixed by
+  // design (pre/during/post all sit in one array) and each item stays where
+  // the template that contributed it put it.
+  const items =
+    checklistItems === undefined
+      ? undefined
+      : normalizeChecklistItems(checklistItems, { keepDone: true });
+
   const updated = await db.jobVisit.update({
     where: { id: _params.visitId },
     data: {
       ...(status !== undefined && { status }),
-      ...(checklistItems !== undefined && { checklistItems }),
+      ...(items !== undefined && {
+        checklistItems: items.length ? items : null,
+      }),
       ...(photos !== undefined && { photos }),
       ...(notes !== undefined && { notes }),
       ...(scheduledAt !== undefined && { scheduledAt: new Date(scheduledAt) }),

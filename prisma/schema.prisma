@@ -1617,10 +1617,23 @@ model Task {
   quote        Quote?       @relation(fields: [quoteId], references: [id])
   invoiceId    String?
   invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+  jobId        String?
+  job          Job?         @relation(fields: [jobId], references: [id])
   workAreaId   String?
   workArea     WorkArea?    @relation(fields: [workAreaId], references: [id])
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+
+  /// Identity of the LIFECYCLE EVENT that produced this task, e.g.
+  /// "quote_accepted:<quoteId>". Null for anything a person typed.
+  ///
+  /// Unique, because idempotency here has to survive a retried webhook, a
+  /// double-clicked Send and two servers racing — a "read then create" guard
+  /// loses all three. lib/tasks/autoCreate.js relies on the constraint itself
+  /// and swallows P2002, so the second attempt is a no-op rather than a
+  /// duplicate reminder nagging someone about a job they already scheduled.
+  sourceKey String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model WorkArea {
@@ -1678,6 +1691,11 @@ model Job {
   reviewRequestedAt DateTime?
   galleryPhotos JobPhoto[]
 
+  /// Back-relation for the office to-do list. A Task is internal admin ("ask
+  /// them for a review"); a JobVisit is work at an address. Deliberately not
+  /// merged with `visits` — conflating the two is exactly the confusion this
+  /// link exists to make legible on /app/tasks.
+  tasks Task[]
 }
 
 model JobVisit {
@@ -1695,14 +1713,44 @@ model JobVisit {
 }
 
 model JobChecklistTemplate {
-  id         String           @id @default(cuid())
-  companyId  String
-  company    Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name       String
-  items      Json
+  id String @id @default(cuid())
+
+  /// Null for the SYSTEM library seeded by prisma/seed-checklists.js — the
+  /// per-trade starter lists every company can see. A row with a companyId is
+  /// that company's own, and only they can read or edit it.
+  ///
+  /// System rows are OFFERED, never applied on their own: nothing stamps a
+  /// checklist onto a real visit unless somebody ticked it. A crew arriving to
+  /// find eight invented steps against their name is worse than no checklist.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name  String
+  items Json
+
+  /// pre · during · post — when in the visit this list belongs.
+  ///
+  /// A plain String rather than an enum: the three phases below are what a
+  /// working day actually has, but a trade that wants a fourth shouldn't need
+  /// a schema change, and lib/jobs/checklistItems.js already coerces anything
+  /// unrecognised back to "during".
+  ///
+  /// Defaults to "during" so every template written before phases existed
+  /// keeps meaning what it meant — the work steps.
+  phase String @default("during")
+
   categoryId String?
   category   ServiceCategory? @relation(fields: [categoryId], references: [id])
-  createdAt  DateTime         @default(now())
+
+  /// Stable identity for the seeded rows, e.g. "plumbing:pre". Only the seed
+  /// sets it; company templates leave it null. Unique so re-running the seed
+  /// upserts instead of piling up a second copy of every trade — the seed is
+  /// expected to be run again every time the item lists are improved.
+  systemKey String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
 }
 
 // ============================================================

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -60,12 +61,19 @@ export async function POST(request, { params }) {
     }
   }
 
+  // Normalised, not stored as posted. The browser sends whatever the picker
+  // assembled — bare strings from an older client, `{label}` from a template —
+  // and the job page reads `item.label`, so an unnormalised array rendered as
+  // a column of "Untitled item". Null (not []) when there's nothing, so "no
+  // checklist" stays distinguishable from "a checklist with no steps left".
+  const items = normalizeChecklistItems(checklistItems);
+
   const visit = await db.jobVisit.create({
     data: {
       jobId: _params.id,
       scheduledAt: new Date(scheduledAt),
       assignedToId: assignedToId || null,
-      checklistItems: checklistItems || null,
+      checklistItems: items.length ? items : null,
       notes: notes || null,
     },
     include: { assignedTo: { select: { id: true, name: true } } },

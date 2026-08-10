@@ -31,6 +31,7 @@
     "check:booking": "node --import ./scripts/alias-loader.mjs scripts/check-travel.mjs && node --import ./scripts/alias-loader.mjs scripts/check-arrival-window.mjs",
     "check:demo": "node --import ./scripts/alias-loader.mjs scripts/check-demo.mjs",
     "seed:demos": "node --import ./scripts/alias-loader.mjs scripts/seed-demos.mjs",
+    "seed:checklists": "node prisma/seed-checklists.js",
     "check:voice-outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound-prompt.mjs",
     "check:goal": "node --import ./scripts/alias-loader.mjs scripts/check-goal.mjs",
     "check:sms-template": "node --import ./scripts/alias-loader.mjs scripts/check-sms-template.mjs",

@@ -25,6 +25,10 @@ export async function GET(request) {
       assignedTo: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
       workArea: { select: { id: true, name: true } },
+      // Auto-created tasks ("ask them for a review") are only actionable if you
+      // can get to the job they came from — a title alone makes you search for
+      // it. Title and status only: the row shows a link, not a job summary.
+      job: { select: { id: true, title: true, status: true } },
     },
     orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
   });
@@ -56,6 +60,7 @@ export async function POST(request) {
     clientId,
     quoteId,
     invoiceId,
+    jobId,
     workAreaId,
   } = body;
 
@@ -87,13 +92,14 @@ export async function POST(request) {
     });
     return Boolean(row);
   };
-  const [okClient, okQuote, okInvoice, okArea] = await Promise.all([
+  const [okClient, okQuote, okInvoice, okJob, okArea] = await Promise.all([
     ownsOrNull("client", clientId),
     ownsOrNull("quote", quoteId),
     ownsOrNull("invoice", invoiceId),
+    ownsOrNull("job", jobId),
     ownsOrNull("workArea", workAreaId),
   ]);
-  if (!okClient || !okQuote || !okInvoice || !okArea) {
+  if (!okClient || !okQuote || !okInvoice || !okJob || !okArea) {
     return NextResponse.json(
       { error: "A linked record wasn't found for your company." },
       { status: 400 },
@@ -123,9 +129,13 @@ export async function POST(request) {
       clientId: clientId || null,
       quoteId: quoteId || null,
       invoiceId: invoiceId || null,
+      jobId: jobId || null,
       workAreaId: workAreaId || null,
     },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: {
+      assignedTo: { select: { id: true, name: true } },
+      job: { select: { id: true, title: true, status: true } },
+    },
   });
 
   return NextResponse.json(task, { status: 201 });
