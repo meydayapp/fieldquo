@@ -417,6 +417,160 @@ Block Renovation; Mike Holt's Forum; SmartBarrel; municipal permit schedules
 
 ---
 
+## Part 2B — Teardown of 8 real PLUMBING estimates
+
+A second document set (plumbing, plus one combined plumbing+electrical job),
+covering the US Midwest/South, California and Australia. **These contain five
+structures the electrical set did not**, and they are the most useful ideas in
+the whole research.
+
+### 2B.1 The five new structures
+
+**1. `$0.00` line items used as CONTRACT CLAUSES.** The strongest idea found
+anywhere in either set. On an $18,164 repipe:
+
+| Line | Qty | Price |
+|---|---|---|
+| Excavation Clause — *"cannot be held liable for landscaping/vegetation, or hitting unforeseen underground utilities… if rock or other obstructions are encountered the cost may increase…"* | 1.00 | **$0.00** |
+| General Damage Clause — *"cannot be held liable for damage during plumbing repairs, including cutting open walls, damaging floors, cutting concrete, or moving appliances…"* | 1.00 | **$0.00** |
+
+The exclusions sit **as visible line items in the price table**, not buried in a
+terms paragraph. The client reads them while reading the price, and accepts them
+by accepting the quote. §2.5 says buried exclusions are a top dispute cause —
+this is the fix, and it costs nothing to implement.
+
+**2. Equipment separated from a MANDATORY install package.**
+- `P-WH-238202002` — 50 Gallon Natural Gas Water Heater — **$2,664.00**
+  — *"[Price for Swap Out Only, **Must be Combined with Install Package**]"*
+- `P-WH-PGWI-9-0.75` — Economy Install Package for Gas Water Heaters — **$667.77**
+  (new hard lines, shut-off valve, gas flex line, gas valve, drain pan, upgraded
+  drain valve, T&P connection) — *Warranty: 2 Years Labor*
+
+The equipment price is honest and comparable ("is $2,664 a fair price for a
+Bradford White 50-gal?"), while the labour is separately priced and separately
+warranted. **The line carries a dependency rule** — a price book needs
+"requires" relationships between items, or a tech quotes a heater with no
+install.
+
+**3. Difficulty levels with PUBLISHED CRITERIA.** The electrical set had "Level
+1 / Level 3" as bare labels. Plumbing spells out what qualifies:
+
+> **Level 3 Water Repipe Fixture — $976 each × 12 fixtures = $11,712**
+> *Crawlspace under 24" high · Level 2 room with nasty environment · Sheetrock
+> access like slab home or finished basement (remember to add an additional half
+> or full day of demo for all sheetrock re-pipes) · Extremely tough drop ceiling
+> · All attic re-pipe fixtures are also level 3.*
+
+The criteria are on the document, so the level isn't a judgement call the client
+has to trust. **This is how a difficulty multiplier stops being a dispute.**
+
+**4. Fixture count as the unit of measure.** The repipe is priced `12 fixtures
+× $976`, with the count itemised on the document (master bath 3, hallway bath 3,
+kitchen/laundry 3, water heater + two hose spigots 3). Far more defensible than
+a lump sum, and it survives scope change — adding a bathroom has an obvious price.
+
+**5. Warranty matrix that varies by SERVICE TYPE.** From a Roto-Rooter work
+order (Indianapolis, Feb 2026):
+
+| Service | Residential | Commercial |
+|---|---|---|
+| Main / branch lines | 6 months | 30 days |
+| Toilet auger | **7 days** | 24 hours |
+| Plumbing repair | 6 months | 90 days |
+| Plumbing replacement | 1 year | 90 days |
+
+Plus an "Extended Guarantee — 1 year" checkbox. Warranty is not one company-wide
+term; it's **per service type and per customer class**. Elsewhere in the same set:
+10-year materials+labour on a repipe and a directional bore, 2-year on a PRV,
+1-year on a minor gas repair, 6-year parts / 2-year labour on a water heater.
+
+### 2B.2 Discounts done honestly (contrast with §1.4.7)
+
+The electrical set's "5% Same Day Discount ×2" is a pressure tactic. The plumbing
+set shows two discounts with a *real* economic basis:
+
+- **Combined Labor Discount −$956.00** — *"A discount due to increased efficiency
+  on a large job."* True: mobilisation is amortised.
+- **Addon Fixture Discount −$336.00** — *"25% off … fixtures when added to a
+  [larger job]."* True: the truck roll and access work are already paid for.
+
+**Design rule: a discount should name its economic reason, not a deadline.**
+
+### 2B.3 Other observed structures
+
+**Roto-Rooter work order (Indianapolis, 2026-02-20)** — labour-only pricing:
+Labour **$568.00**, Parts blank, Discount **−$85.20** (exactly 15%), **Total
+$482.80**. Work described in the tech's own words: *"Ran K/S from trap ~50 ft
+several times. Grease residue out. Tested O.K."* Terms NET 10 days, 1.5%/month
+late charge. Also carries a printed **upsell table** — Water Heater / Disposer /
+Sink / Toilet / Bathtub / Shower / Faucet / Drain, with columns *Estimated Cost*
+and **"You Save Today"**. The invoice is a sales surface.
+
+**Australian invoice (GST market)** — the anti-pattern, and instructive:
+| Line | Amount |
+|---|---|
+| Service Call | $130.00 |
+| Labour 1M (1 man-hour) | $130.00 |
+| Materials | $100.00 |
+| Pressure Test | $95.00 |
+| **Credit card surcharge** | **$12.50** |
+| Subtotal / GST 10% / **Total** | $467.50 / $46.75 / **$514.25** |
+
+Three things: the callout is billed **separately from and equal to** the first
+labour hour; a **credit-card surcharge is a line item** (normal and legal in AU,
+not in much of the US); and the work is described as **"As per verbal quote"** —
+the exact §2.5 dispute trigger, on a real document. It also embeds an upsell in
+the narrative (*"Pressure limiting valve needs to be installed, cost will be
+$700 + GST"*).
+
+**Combined-trade job** — "Washer Relocation, $4,600" as one flat line with a
+9-point bulleted scope spanning **plumbing AND electrical** (2" line, PEX, new
+120V line from breaker, remove heater, move the heat, box the pipe). Terms:
+*Deposit $1,600, balance due when complete.* A quoting tool must let one line
+item span trades — the client is buying an outcome, not two trades.
+
+**Tier names by philosophy, not metal.** "Bandaid solution" and "Middle of the
+Road" instead of Bronze/Silver/Gold. It frames the *trade-off* rather than
+implying the cheap option is inferior — and "Bandaid" is admirably honest about
+what a patch repair is.
+
+### 2B.4 Observed plumbing price points
+
+| Item | Observed |
+|---|---|
+| Service call / callout (AU) | $130 |
+| Labour, per man-hour (AU) | $130 |
+| Pressure test (AU) | $95 |
+| Drain clearing, labour only (Roto-Rooter, Indianapolis) | $568 before 15% discount → $482.80 |
+| Water re-pipe base fee | $1,000 |
+| Level 3 water repipe, **per fixture** | $976 (×12 = $11,712) |
+| Pressure regulator (PRV), heavy duty ¾" | $784 |
+| Washer box install | $560 |
+| Directional bore base fee (incl. up to 50 ft) | $4,468 |
+| Obstruction (waterline/sewer/gas in path) | $621 |
+| Minor gas repair | $311 |
+| 50-gal natural gas water heater (equipment only) | $2,664 |
+| Gas water heater economy install package | $667.77 |
+| "Brief assistance needed" (extra labour, difficult install) | $703.66 |
+| Municipal plumbing permit, residential | $238.50 |
+| Washer relocation (plumbing + electrical, flat) | $4,600 |
+
+### 2B.5 What this adds to the build
+
+On top of §1.1's seven models, plumbing adds five requirements:
+
+8. **Zero-priced clause lines** — exclusions and liability as visible line items.
+9. **Item dependencies** — "requires install package", enforced at quote time.
+10. **Difficulty levels with printed criteria**, not bare labels.
+11. **Per-service-type warranty matrix**, and per-customer-class where it differs.
+12. **Discounts that carry an economic reason** (combined labour, add-on
+    fixture), with same-day-only pressure discounts explicitly discouraged.
+
+Plus: credit-card surcharge as an optional line, GST/VAT by country, and a line
+item that can span trades.
+
+---
+
 ## Part 3 — Material costs (in progress)
 
 Retail material costs by category (breakers, panels, transfer switches, wire,
