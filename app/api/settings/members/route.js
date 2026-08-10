@@ -9,34 +9,83 @@
 // pending (invited-not-accepted) invites now live at
 // GET /api/settings/members/pending instead — called only by the new
 // Manage Team page.
+//
+// GET now returns one of TWO payloads, both still plain arrays: the full
+// Member row for callers holding "user:view", and ROSTER_SELECT (names, ids,
+// role, active) for everyone else. The array-ness is what the five consumer
+// pages depend on, so that contract is intact; what changed is that an
+// employee opening the tasks page no longer receives the whole team's pay
+// rates, home addresses and phone numbers.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission, toBetterAuthRole } from "@/lib/permissions";
+import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
 
+// What a caller WITHOUT "user:view" gets back. Deliberately not the Member row:
+// the full row carries laborCostPerHour, home address, phone number and the
+// permission grid, and this endpoint is the roster source for the work-areas,
+// availability, tasks, appointments and marketing pages — all of which need
+// nothing but a name to put in a dropdown. One employee reading another's pay
+// rate is a real incident, not a UI nit (see the payroll note in
+// lib/permissions.js), and it was one unauthenticated-by-role fetch away.
+const ROSTER_SELECT = {
+  id: true,
+  userId: true,
+  role: true,
+  active: true,
+  user: { select: { id: true, name: true, email: true, image: true } },
+};
+
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Best-effort, idempotent — see lib/team/reconcilePendingProfile.js.
-  await reconcilePendingProfiles(member.companyId).catch((err) =>
-    console.error("[settings/members] reconcile failed", err),
-  );
+  // Impersonation reads the full record on purpose — the platform console's
+  // contract is "view everything, edit nothing", and the writes below are
+  // blocked for it separately. Role "viewer" holds no PERMISSIONS entry, so
+  // without this line a support session would silently see less than the
+  // customer does.
+  const seesFullRecord = member.impersonation || can(member.role, "user:view");
 
-  // Same pattern, same reason: people accepted invitations before Worker rows
-  // were created on acceptance, and without one they have no timesheets, no
-  // payslips and no leave. Idempotent — see lib/team/ensureWorker.js.
-  await ensureWorkersForCompany(member.companyId).catch((err) =>
-    console.error("[settings/members] worker backfill failed", err?.message),
-  );
+  // Backfills, not reads. They were unconditional, which meant a read-only
+  // support session mutated the customer's data just by loading the page —
+  // and an employee's dropdown triggered a company-wide Worker sweep. Gated on
+  // "user:manage" (the people who could have caused the gap) and explicitly
+  // never under impersonation: `impersonation` implies role "viewer", which
+  // already fails `can()`, but this is the one GET in the codebase that writes
+  // and it should say so out loud rather than lean on that.
+  if (!member.impersonation && can(member.role, "user:manage")) {
+    // Best-effort, idempotent — see lib/team/reconcilePendingProfile.js.
+    await reconcilePendingProfiles(member.companyId).catch((err) =>
+      console.error("[settings/members] reconcile failed", err),
+    );
+
+    // Same pattern, same reason: people accepted invitations before Worker rows
+    // were created on acceptance, and without one they have no timesheets, no
+    // payslips and no leave. Idempotent — see lib/team/ensureWorker.js.
+    await ensureWorkersForCompany(member.companyId).catch((err) =>
+      console.error("[settings/members] worker backfill failed", err?.message),
+    );
+  }
+
+  if (!seesFullRecord) {
+    const roster = await db.member.findMany({
+      where: { companyId: member.companyId },
+      select: ROSTER_SELECT,
+      orderBy: { createdAt: "asc" },
+    });
+    // Still a plain array, and still carrying `user`, `userId` and `active` —
+    // the five pages listed above key off exactly those.
+    return NextResponse.json(roster);
+  }
 
   const members = await db.member.findMany({
     where: { companyId: member.companyId },
@@ -252,8 +301,16 @@ export async function POST(request) {
   return NextResponse.json(invite, { status: 201 });
 }
 
-// Change an existing member's role, active status, or the extended profile
-// fields (labor cost, permissions, contact info).
+// Change an existing member's active status or extended profile fields (labor
+// cost, contact info).
+//
+// NOT role, and NOT the permission grid. Both used to be writable here behind
+// nothing but "user:manage" — which supervisors hold — so a supervisor could
+// PATCH their own userId to role "owner" and take the company. The hierarchy
+// rules (no self-promotion, only roles below your own, last owner protected,
+// grants clamped to what you hold yourself) live in
+// PATCH /api/settings/members/[id]/role and are worth nothing if a second
+// endpoint writes the same column without them. There is one door now.
 export async function PATCH(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -268,9 +325,9 @@ export async function PATCH(request) {
     );
   }
 
+  const body = await request.json();
   const {
     userId,
-    role,
     active,
     phone,
     address,
@@ -280,11 +337,24 @@ export async function PATCH(request) {
     country,
     imageUrl,
     laborCostPerHour,
-    permissions,
-  } = await request.json();
+  } = body;
 
   if (!userId)
     return NextResponse.json({ error: "userId is required" }, { status: 400 });
+
+  // Refused rather than ignored. A stale client that still sends `role` here
+  // would otherwise get a 200 and a member whose role never changed, which is
+  // the "control that appears to work and doesn't" failure this codebase keeps
+  // getting swept for.
+  if (body.role !== undefined || body.permissions !== undefined) {
+    return NextResponse.json(
+      {
+        error:
+          "Role and permission changes go through PATCH /api/settings/members/[id]/role, which enforces the role hierarchy.",
+      },
+      { status: 400 },
+    );
+  }
 
   const target = await db.member.findUnique({
     where: { userId_companyId: { userId, companyId: member.companyId } },
@@ -292,17 +362,25 @@ export async function PATCH(request) {
   if (!target)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (target.role === "owner" && role && role !== "owner") {
-    return NextResponse.json(
-      { error: "The owner's role can't be changed here" },
-      { status: 400 },
-    );
+  // Deactivating the last active owner locks the company out of its own
+  // billing, invitations and role management with no way back in from the app.
+  // The role endpoint protects the owner seat on demotion; this is the same
+  // seat via the other door.
+  if (target.role === "owner" && active === false) {
+    const activeOwners = await db.member.count({
+      where: { companyId: member.companyId, role: "owner", active: true },
+    });
+    if (activeOwners <= 1) {
+      return NextResponse.json(
+        { error: "You can't deactivate the last owner." },
+        { status: 400 },
+      );
+    }
   }
 
   const updated = await db.member.update({
     where: { userId_companyId: { userId, companyId: member.companyId } },
     data: {
-      ...(role !== undefined && { role }),
       ...(active !== undefined && { active }),
       ...(phone !== undefined && { phone }),
       ...(address !== undefined && { address }),
@@ -312,7 +390,6 @@ export async function PATCH(request) {
       ...(country !== undefined && { country }),
       ...(imageUrl !== undefined && { imageUrl }),
       ...(laborCostPerHour !== undefined && { laborCostPerHour }),
-      ...(permissions !== undefined && { permissions }),
     },
   });
 

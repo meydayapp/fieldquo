@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { cancelSubscription } from "@/lib/platform/stripeBilling";
 import { notifyCancellation } from "@/lib/billing/notify";
 import { recordActivity } from "@/lib/activity/log";
@@ -21,13 +21,10 @@ export async function POST(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can cancel the plan" },
-      { status: 403 },
-    );
+  // Owner/admin, not "user:manage" — that permission is held by supervisors,
+  // whose job is scheduling people, not ending the company's subscription.
+  if (!isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
   const subscription = await db.subscription.findUnique({

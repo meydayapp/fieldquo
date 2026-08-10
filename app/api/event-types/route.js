@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -19,10 +20,24 @@ export async function GET(request) {
   return NextResponse.json(eventTypes);
 }
 
+// An event type is a public-facing object: it appears on /book, and its
+// feeCents/promoFeeCents are what a homeowner is charged to hold a slot. It had
+// no role gate, so any employee could add a bookable service — or price one —
+// on the company's public booking page. "user:manage" is the same bar the
+// booking-page settings screen sits behind.
 export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Only owners, admins and supervisors can change booking types" },
+      { status: err.status || 403 },
+    );
+  }
 
   const body = await request.json();
   const { name, durationMinutes, bufferBefore, bufferAfter, location, userId } =

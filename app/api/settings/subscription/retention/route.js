@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { recordActivity } from "@/lib/activity/log";
 import {
   offersFor,
@@ -30,10 +30,12 @@ import {
 async function requireOwner(request) {
   const member = await getCurrentMember(request);
   if (!member) return { error: "Unauthorized", status: 401 };
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return { error: "Only an owner or admin can change the plan.", status: 403 };
+  // The function was already called requireOwner and already said "owner or
+  // admin" — it just checked "user:manage", which supervisors hold. Accepting
+  // a retention offer changes what the company is billed (a discount coupon, a
+  // paused subscription, fewer seats); that isn't a scheduling decision.
+  if (!isBillingAdmin(member.role)) {
+    return { error: BILLING_ADMIN_ERROR, status: 403 };
   }
   return { member };
 }

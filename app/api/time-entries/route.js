@@ -69,6 +69,21 @@ export async function POST(request) {
   if (!worker)
     return NextResponse.json({ error: "Worker not found" }, { status: 404 });
 
+  // The same own-vs-everyone split the GET above applies, as a gate rather
+  // than a filter — you can't narrow a single insert. Company scope alone let
+  // any member open a shift on any colleague's timesheet, and hours are what
+  // payroll pays out and what a job gets costed at.
+  const full = await loadEnforceableMember(db, member.id);
+  if (
+    !hasLevel(full, "timeTracking", "view_record_edit_all") &&
+    worker.userId !== member.userId
+  ) {
+    return NextResponse.json(
+      { error: "You can only record time against your own timesheet." },
+      { status: 403 },
+    );
+  }
+
   // Prevent double clock-in — a worker can't have two open entries at once
   const openEntry = await db.timeEntry.findFirst({
     where: { workerId, clockOut: null },

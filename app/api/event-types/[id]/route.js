@@ -4,6 +4,22 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { requirePermission } from "@/lib/permissions";
+
+// Same gate as POST on the collection route, and for the same reason: this
+// handler writes feeCents/promoFeeCents, which is the amount a homeowner is
+// asked for on the public booking page. Neither handler had a role check.
+function manageGate(member) {
+  try {
+    requirePermission(member.role, "user:manage");
+    return null;
+  } catch (err) {
+    return NextResponse.json(
+      { error: "Only owners, admins and supervisors can change booking types" },
+      { status: err.status || 403 },
+    );
+  }
+}
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -11,6 +27,9 @@ export async function PATCH(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const denied = manageGate(member);
+  if (denied) return denied;
 
   const existing = await db.eventType.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -68,6 +87,9 @@ export async function DELETE(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const denied = manageGate(member);
+  if (denied) return denied;
 
   const existing = await db.eventType.findFirst({
     where: { id: _params.id, companyId: member.companyId },

@@ -185,7 +185,36 @@ export async function PATCH(request) {
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const calculation = CALCULATIONS.includes(body?.calculation) ? body.calculation : existing.calculation;
-  const slabs = calculation === "slabs" ? cleanSlabs(body?.slabs) : null;
+  const switchingCalculation = calculation !== existing.calculation;
+
+  // The rate fields are written only when the request actually carries them.
+  //
+  // They used to be rewritten unconditionally, and the UI's on/off button sends
+  // `{ id, active }` and nothing else — so `Number(undefined) || 0` turned a
+  // $250 deduction into $0, a 9% contribution into 0%, and a set of tax bands
+  // into null, every time somebody toggled a component off and on again. The
+  // component came back "enabled" and deducted nothing, which is a wrong
+  // payslip that looks correct.
+  //
+  // Switching the calculation type is the one case that still clears the other
+  // two columns: leaving a stale percent on a component now billed as a fixed
+  // amount is a different silent wrongness.
+  const rates = {};
+  if (switchingCalculation) {
+    rates.amount = calculation === "fixed" ? Number(body.amount) || 0 : null;
+    rates.percent = calculation === "percent" ? Number(body.percent) || 0 : null;
+    rates.slabs = calculation === "slabs" ? cleanSlabs(body?.slabs) : null;
+  } else {
+    if (calculation === "fixed" && body?.amount !== undefined) {
+      rates.amount = Number(body.amount) || 0;
+    }
+    if (calculation === "percent" && body?.percent !== undefined) {
+      rates.percent = Number(body.percent) || 0;
+    }
+    if (calculation === "slabs" && body?.slabs !== undefined) {
+      rates.slabs = cleanSlabs(body.slabs);
+    }
+  }
 
   const updated = await db.salaryComponent.update({
     where: { id },
@@ -193,9 +222,7 @@ export async function PATCH(request) {
       ...(body.name ? { name: String(body.name).trim() } : {}),
       ...(KINDS.includes(body?.kind) ? { kind: body.kind } : {}),
       calculation,
-      amount: calculation === "fixed" ? Number(body.amount) || 0 : null,
-      percent: calculation === "percent" ? Number(body.percent) || 0 : null,
-      slabs,
+      ...rates,
       ...(typeof body.active === "boolean" ? { active: body.active } : {}),
       ...(typeof body.appliesToAll === "boolean" ? { appliesToAll: body.appliesToAll } : {}),
     },

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -19,6 +20,21 @@ export async function PATCH(request, { params }) {
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Company scope was the only check here, so anyone could clock a colleague
+  // out — retroactively, at whatever time they chose, on the hours that feed
+  // payroll. Mirrors the list endpoint's own-vs-everyone split; the separate
+  // status gate below still applies on top.
+  const full = await loadEnforceableMember(db, member.id);
+  if (
+    !hasLevel(full, "timeTracking", "view_record_edit_all") &&
+    existing.worker?.userId !== member.userId
+  ) {
+    return NextResponse.json(
+      { error: "You can only change your own time entries." },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const { clockOut, status } = body;

@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingPortalSession } from "@/lib/platform/stripeBilling";
 import { getAppOrigin } from "@/lib/appUrl";
 
@@ -17,13 +17,11 @@ export async function POST(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage billing" },
-      { status: 403 },
-    );
+  // The portal shows invoices and the card on file and lets you cancel. That is
+  // owner/admin territory — "user:manage" reaches supervisors, who have no
+  // business reading the company's payment history.
+  if (!isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
   const subscription = await db.subscription.findUnique({
