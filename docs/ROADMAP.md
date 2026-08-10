@@ -249,10 +249,76 @@ endpoint with a tampered POST.
 
 ---
 
+## 7. The labour layer — sequencing matters more than the code
+
+From `docs/estimating-standards-and-licensing.md` §5–6. Three layers, different
+confidence and different legal footing; conflating them ships a control that
+appears to work.
+
+**7a. `TimeEntry` has no task dimension, and this blocks everything below it.**
+The model is `{workerId, jobId, clockIn, clockOut, hours}`, read only by payroll
+and the time clock. So a company can learn "this job took 40 hours" and can
+**never** learn "we take 0.93 h per opening". `JobVisit.checklistItems` is
+free-form JSON, which is the closest thing to a task taxonomy we have.
+
+This is the **longest-lead, lowest-visibility** item in the whole roadmap: the
+data has to be captured against a structured task taxonomy *before* it
+accumulates, or a year of actuals is worthless. It should be done before the
+labour seeds, not after. The catalogue keys in `app/data/*Catalog.js` are the
+natural taxonomy — join to those rather than inventing a second one.
+
+**7b. Seed hours thinly and mark the seeds honestly.** In preference order:
+licence Craftsman (see below) → run a structured time-study with 10–20 design
+partners → **ship no seed at all** and require the contractor to enter their own
+hour before a task is usable. All three are honest; the third also bootstraps 7a.
+
+**7c. Let actuals displace the seeds.** `contractor_factor` starts at 1.0 and
+shrinks toward the tenant's observed ratio as *n* grows, pooled at task-*family*
+level so it's useful after 20 jobs rather than 2,000. **Show provenance in the
+UI** — *Seeded — industry default* vs *Your average over 14 jobs* vs *Your
+average, 3 jobs — low confidence*. Absence of a contractor's data is not a
+statement about their speed. **Never cross tenants** (non-negotiable #8).
+
+**Owner action, gates 7b: contact Craftsman Book Company** (ben@costbook.com).
+They run a formal data-licensing programme for software developers — the only
+labour-unit publisher found that does. NECA is a single-individual licence;
+Gordian/RSMeans explicitly forbids building competing products from their data.
+Confirm SaaS embedding, per-tenant display, derivative rights, and whether
+Canadian area factors exist.
+
+**Do not** scrape or transcribe NECA, RSMeans, Hanscomb, Trade Service or any
+flat-rate book — and do not let a model launder them either. Constrain AI to
+reasoning over our own tables, the way `lib/site/generateSite.js` already does.
+
+---
+
 ## Recently completed (for context on conventions)
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Trade pricing research + rewire takeoff engine**
+  (`docs/trade-pricing-research.md`, `docs/plumbing-material-costs.md`,
+  `docs/estimating-standards-and-licensing.md`, `lib/estimate/rewireTakeoff.js`,
+  `scripts/check-rewire.mjs`).
+  - `rewireTakeoff.js` computes a rewire from **geometry and code rules**, not a
+    $/sq ft guess. Device count follows wall perimeter, which makes cable
+    sub-linear in floor area (`sqft^0.59`) — every published guide applies a flat
+    multiplier and over-buys ~35% of the cable at 3,000 sq ft.
+  - **It returns a range and refuses to return a number.** Five required intake
+    facts, `codeJurisdiction` among them with **no default**; missing *or
+    invalid* gives `typical: null` plus a `needsIntake` list, so no UI can render
+    a single price from square footage alone. Copy this gate for any estimator
+    where the unknowns swing the answer more than the knowns.
+  - **Jurisdiction is a first-class input.** CEC 26-712's split-receptacle rule
+    puts a Canadian kitchen on 4 two-pole AFCI circuits where the NEC needs 2
+    single-pole. Quebec (CSA C22.10, ~2015 vintage) is **refused, not computed**.
+  - Every coefficient tagged `[NEC]` / `[CEC]` / `[READ]` / `[DERIVED]` /
+    `[GUESS]`, and the three known simplifications print in `assumptions[]` on
+    every result rather than sitting silent in a comment.
+  - Legal posture for anything code-derived: **compute quantities, cite rule
+    numbers, reproduce no code text and no tables.** See
+    `docs/estimating-standards-and-licensing.md` §2.3.
 
 - **Job checklists (phased) + task automation**
   (`lib/jobs/checklistItems.js`, `prisma/seed-checklists.js`,
