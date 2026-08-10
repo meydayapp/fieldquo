@@ -15,6 +15,146 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput, isValidPhone, isValidEmail } from "@/lib/validation";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { COUNTRIES } from "@/lib/currency";
+import { isInternalPath } from "@/lib/appUrl";
+
+// "1 month free" / "3 months free". The banner hardcoded the plural and read
+// "1 months free" for the whole life of the current one-month offer. Same
+// shape as MONTHS_FREE on app/refer/[code]/page.js.
+function monthsFree(n) {
+  const count = Number(n) || 0;
+  return `${count} ${count === 1 ? "month" : "months"} free`;
+}
+
+// The company half of the form. Rendered by two steps — "account" (new login +
+// first business) and "business" (an existing login adding another) — as one
+// component rather than two copies, because the copy is the one that rots.
+//
+// Module scope on purpose: declared inside SignupPage it would be a new
+// component type on every render, remounting AddressAutocomplete and losing
+// focus mid-keystroke.
+function CompanyFields({ form, setForm, fieldErrors }) {
+  return (
+    <>
+      <div>
+        <label className="text-sm font-medium text-foreground">
+          Company name
+        </label>
+        <input
+          value={form.companyName}
+          onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
+            fieldErrors.companyName ? "border-red-400" : "border-border"
+          }`}
+        />
+        {fieldErrors.companyName && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+            {fieldErrors.companyName}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-foreground">Phone</label>
+        <input
+          type="tel"
+          value={form.phone}
+          onChange={(e) =>
+            setForm({ ...form, phone: formatPhoneInput(e.target.value) })
+          }
+          placeholder="555-123-4567"
+          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
+            fieldErrors.phone ? "border-red-400" : "border-border"
+          }`}
+        />
+        {fieldErrors.phone && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+            {fieldErrors.phone}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-foreground">Address</label>
+        <AddressAutocomplete
+          value={form.address}
+          onChange={(val) => setForm((f) => ({ ...f, address: val }))}
+          onPlaceSelected={({ address, city, province }) =>
+            setForm((f) => ({ ...f, address, city, province }))
+          }
+          placeholder="Start typing your address..."
+          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
+            fieldErrors.address ? "border-red-400" : "border-border"
+          }`}
+        />
+        {fieldErrors.address && (
+          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+            {fieldErrors.address}
+          </p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-medium text-foreground">City</label>
+          <input
+            value={form.city}
+            readOnly
+            placeholder="Auto-filled from address"
+            className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-foreground">Province</label>
+          <input
+            value={form.province}
+            readOnly
+            placeholder="Auto-filled from address"
+            className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-medium text-foreground">Country</label>
+          <select
+            value={form.country}
+            onChange={(e) => setForm({ ...form, country: e.target.value })}
+            className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {/* Sets the billing currency — a company only serving its home
+              country is never asked to pick one. */}
+          <p className="text-xs text-muted-foreground mt-1">
+            Sets your billing currency.
+          </p>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-foreground">Language</label>
+          <select
+            value={form.language}
+            onChange={(e) => setForm({ ...form, language: e.target.value })}
+            className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.nativeName}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Your default in the app.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function SignupPage() {
   const [step, setStep] = useState("plan");
@@ -49,7 +189,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("next");
-    if (raw && raw.startsWith("/") && !raw.startsWith("//")) setNextPath(raw);
+    if (isInternalPath(raw)) setNextPath(raw);
   }, []);
 
   useEffect(() => {
@@ -58,8 +198,8 @@ export default function SignupPage() {
     setReferralCode(code);
 
     // Confirm the code is real before promising anything. A typo'd link
-    // should not produce a banner claiming three free months that the API
-    // then silently declines to grant.
+    // should not produce a banner claiming free months that the API then
+    // silently declines to grant.
     fetch(`/api/public/refer/${encodeURIComponent(code)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d?.valid && setReferrer(d))
@@ -121,9 +261,26 @@ export default function SignupPage() {
   const hasSelection = isCustom || Boolean(selectedPlanId);
 
   useEffect(() => {
+    // ?plan=<id> is what the pricing page's "Start Free Trial" buttons carry.
+    // It was never read, so choosing a tier on /pricing landed here with
+    // nothing selected and the Continue button disabled.
+    //
+    // Applied inside this .then rather than in a separate effect keyed on
+    // `plans`, so it runs exactly once at load: an effect would re-assert the
+    // query's plan every time the list changed and fight anyone clicking a
+    // different card. Unknown ids are ignored rather than errored — a stale
+    // link should still let you pick.
+    const wantedPlanId = new URLSearchParams(window.location.search).get("plan");
+
     fetch("/api/marketing/plans")
       .then((r) => r.json())
-      .then((data) => setPlans(Array.isArray(data) ? data : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setPlans(list);
+        if (wantedPlanId && list.some((p) => p.id === wantedPlanId)) {
+          setSelectedPlanId(wantedPlanId);
+        }
+      })
       .catch(() => setPlans([]))
       .finally(() => setPlansLoading(false));
 
@@ -155,14 +312,36 @@ export default function SignupPage() {
       setError("For more than 40 employees, please contact sales.");
       return;
     }
-    // Already signed in? Skip account creation — they have one.
-    //
-    // Without this the flow walked them into a wall: pick a plan, fill in the
-    // whole account form, and signUp.email refuses because the address is already
-    // registered. Several minutes of typing for a guaranteed error. Someone
-    // signed in on this page is setting up a SECOND business, so the account step
-    // is the one step they don't need.
-    setStep(alreadyOnFieldquo ? "industry" : "account");
+    // Already signed in? Skip account CREATION — they have an account. They do
+    // not have the new company's details, and the account step was the only
+    // place that collected them, so skipping straight to "industry" posted an
+    // empty company name and dead-ended on a 400 with no field to correct.
+    // Hence a trimmed step that asks for the business and nothing else.
+    setStep(alreadyOnFieldquo ? "business" : "account");
+  }
+
+  // Company details for someone who already has a login. Same fields and same
+  // rules as the company half of the account step — kept as one validator so
+  // the two paths can't drift into disagreeing about what's required.
+  function validateBusiness() {
+    const errors = {};
+    if (!form.companyName.trim()) errors.companyName = "Company name is required";
+    if (form.phone && !isValidPhone(form.phone))
+      errors.phone = "Format: 555-123-4567";
+    if (!form.address.trim())
+      errors.address = "Start typing and select your address";
+    return errors;
+  }
+
+  function handleBusinessSubmit(e) {
+    e.preventDefault();
+    setError("");
+
+    const errors = validateBusiness();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    setStep("industry");
   }
 
   // replace handleAccountSubmit entirely
@@ -170,18 +349,14 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    const errors = {};
+    // Company rules come from the shared validator; the rest are the personal
+    // fields only this step collects.
+    const errors = validateBusiness();
     if (!form.firstName.trim()) errors.firstName = "First name is required";
     if (!form.lastName.trim()) errors.lastName = "Last name is required";
-    if (!form.companyName.trim())
-      errors.companyName = "Company name is required";
     if (!isValidEmail(form.email)) errors.email = "Enter a valid email address";
-    if (form.phone && !isValidPhone(form.phone))
-      errors.phone = "Format: 555-123-4567";
     if (!form.password || form.password.length < 8)
       errors.password = "At least 8 characters";
-    if (!form.address.trim())
-      errors.address = "Start typing and select your address";
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -333,7 +508,7 @@ export default function SignupPage() {
           <div className="max-w-md mx-auto mb-6 bg-brand-accent/10 border border-brand-accent/40 rounded-xl px-4 py-3 text-center">
             <p className="text-sm text-[#2d2520]">
               <strong>{referrer.referrerName}</strong> referred you —{" "}
-              <strong>{referrer.months} months free</strong> added to your trial.
+              <strong>{monthsFree(referrer.months)}</strong> added to your trial.
             </p>
           </div>
         )}
@@ -522,159 +697,29 @@ export default function SignupPage() {
 
             <div>
               <label className="text-sm font-medium text-foreground">
-                Company name
+                Email
               </label>
               <input
-                value={form.companyName}
-                onChange={(e) =>
-                  setForm({ ...form, companyName: e.target.value })
-                }
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="you@company.com"
                 className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.companyName ? "border-red-400" : "border-border"
+                  fieldErrors.email ? "border-red-400" : "border-border"
                 }`}
               />
-              {fieldErrors.companyName && (
+              {fieldErrors.email && (
                 <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {fieldErrors.companyName}
+                  {fieldErrors.email}
                 </p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="you@company.com"
-                  className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.email ? "border-red-400" : "border-border"
-                  }`}
-                />
-                {fieldErrors.email && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {fieldErrors.email}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      phone: formatPhoneInput(e.target.value),
-                    })
-                  }
-                  placeholder="555-123-4567"
-                  className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.phone ? "border-red-400" : "border-border"
-                  }`}
-                />
-                {fieldErrors.phone && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {fieldErrors.phone}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground">
-                Address
-              </label>
-              <AddressAutocomplete
-                value={form.address}
-                onChange={(val) => setForm((f) => ({ ...f, address: val }))}
-                onPlaceSelected={({ address, city, province }) =>
-                  setForm((f) => ({ ...f, address, city, province }))
-                }
-                placeholder="Start typing your address..."
-                className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.address ? "border-red-400" : "border-border"
-                }`}
-              />
-              {fieldErrors.address && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {fieldErrors.address}
-                </p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  City
-                </label>
-                <input
-                  value={form.city}
-                  readOnly
-                  placeholder="Auto-filled from address"
-                  className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Province
-                </label>
-                <input
-                  value={form.province}
-                  readOnly
-                  placeholder="Auto-filled from address"
-                  className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Country
-                </label>
-                <select
-                  value={form.country}
-                  onChange={(e) => setForm({ ...form, country: e.target.value })}
-                  className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                {/* Sets the billing currency — a company only serving its home
-                    country is never asked to pick one. */}
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sets your billing currency.
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Language
-                </label>
-                <select
-                  value={form.language}
-                  onChange={(e) => setForm({ ...form, language: e.target.value })}
-                  className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
-                >
-                  {LANGUAGES.map((l) => (
-                    <option key={l.code} value={l.code}>
-                      {l.nativeName}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Your default in the app.
-                </p>
-              </div>
-            </div>
+            <CompanyFields
+              form={form}
+              setForm={setForm}
+              fieldErrors={fieldErrors}
+            />
 
             <div>
               <label className="text-sm font-medium text-foreground">
@@ -701,6 +746,54 @@ export default function SignupPage() {
               className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
             >
               {submitting ? "Creating your account..." : "Continue"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep("plan")}
+              className="w-full text-sm text-muted-foreground"
+            >
+              ← Back to plans
+            </button>
+          </form>
+        )}
+        {/* The signed-in path. Everything the account step collects about the
+            BUSINESS, nothing it collects about the person — they already have a
+            login, and /api/companies needs a name or it 400s. */}
+        {step === "business" && (
+          <form
+            onSubmit={handleBusinessSubmit}
+            className="max-w-lg mx-auto bg-card border border-border rounded-xl p-6 space-y-4"
+          >
+            <div className="bg-muted rounded-lg px-4 py-3 text-sm text-foreground">
+              <strong>{selectedPlanName}</strong>
+              <br />
+              {trialLabel(pricing.trialTotal)}, then ${pricing.monthlyTotal}/mo
+            </div>
+
+            <div>
+              <h2 className="font-semibold text-foreground">
+                Your new business
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                This is the business your clients will see on quotes and
+                invoices. It's separate from{" "}
+                <strong>{alreadyOnFieldquo?.name}</strong> — nothing there
+                changes.
+              </p>
+            </div>
+
+            <CompanyFields
+              form={form}
+              setForm={setForm}
+              fieldErrors={fieldErrors}
+            />
+
+            <button
+              type="submit"
+              className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
+            >
+              Continue
             </button>
 
             <button
@@ -764,7 +857,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep(alreadyOnFieldquo ? "plan" : "account")}
+              onClick={() => setStep(alreadyOnFieldquo ? "business" : "account")}
               className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back

@@ -5,7 +5,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Menu, X, Phone } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { INDUSTRIES } from "@/app/data/industries";
 import { useSession } from "@/lib/auth-client";
@@ -152,8 +152,10 @@ export default function MarketingHeader() {
                 {t("nav.industries")} <ChevronDown size={14} />
               </button>
 
+              {/* w-[32rem], not w-lg — Tailwind has no `w-lg` utility, so the
+                  panel had no width at all and collapsed to its content. */}
               {industriesOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-lg">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-[32rem] max-w-[calc(100vw-2rem)]">
                   <div className="bg-card rounded-xl shadow-lg border border-border p-4 grid grid-cols-2 gap-1">
                     {INDUSTRIES.map((ind) => (
                       <Link
@@ -198,12 +200,10 @@ export default function MarketingHeader() {
                 tokens — see DARK_MODE_ENABLED in ThemeProvider. */}
             <LanguageSwitcher compact />
 
-            <a
-              href="tel:+18195551234"
-              className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-            >
-              <Phone size={14} /> (819) 555-1234
-            </a>
+            {/* No phone control here. The one that used to sit in this slot was
+                a 555 placeholder — a tappable "call us" on mobile that dialled
+                a number nobody owns. /contact is the real channel until there
+                is a real line to publish. */}
 
             {isPending ? (
               <div className="w-9 h-9 rounded-full bg-muted animate-pulse" />
@@ -309,13 +309,6 @@ export default function MarketingHeader() {
                   {t("nav.resources")}
                 </Link>
 
-                <a
-                  href="tel:+18195551234"
-                  className="flex items-center gap-2 px-3 py-3 text-base font-medium text-muted-foreground"
-                >
-                  <Phone size={16} /> (819) 555-1234
-                </a>
-
                 <div className="pt-4 mt-4 border-t border-border space-y-3">
                   {isLoggedIn ? (
                     <Link
@@ -362,9 +355,14 @@ export default function MarketingHeader() {
                     onClick={closeMobile}
                     className="block px-3 py-3"
                   >
-                    <div className="text-base font-medium">{item.label}</div>
+                    {/* Same t() calls as the desktop dropdown. PRODUCT_ITEMS
+                        carries keys and hrefs only, so item.label/description
+                        were undefined here — four blank tap targets. */}
+                    <div className="text-base font-medium">
+                      {t(`product.${item.key}.label`)}
+                    </div>
                     <div className="text-sm text-muted-foreground mt-0.5">
-                      {item.description}
+                      {t(`product.${item.key}.description`)}
                     </div>
                   </Link>
                 ))}

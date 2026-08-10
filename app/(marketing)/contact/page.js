@@ -2,22 +2,37 @@
 "use client";
 
 import { useState } from "react";
+import { fetchJson } from "@/lib/fetchJson";
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Inline rather than the global toast: ErrorToast is only mounted in the
+  // /app layout, so a dispatched error would go nowhere on the public site.
+  const [error, setError] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await fetch("/api/marketing/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, source: "contact_page" }),
-    });
-    setSubmitting(false);
-    setSubmitted(true);
+    setError("");
+    try {
+      // The old version awaited fetch and then declared success unconditionally,
+      // so a rejected or failing submission still showed "we'll get back to
+      // you" — the message was gone and nobody was waiting for it.
+      await fetchJson("/api/marketing/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, source: "contact_page" }),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err?.message || "We couldn't send your message. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -33,6 +48,11 @@ export default function ContactPage() {
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
           <input
             required
             placeholder="Your name"

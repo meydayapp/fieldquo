@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+import { isInternalPath } from "@/lib/appUrl";
 
-// Only ever an internal path. Guards against `?next=//evil.com` and absolute
-// URLs turning the login form into an open redirect.
+// Only ever an internal path. Guards against `?next=//evil.com`, `?next=/\evil.com`
+// and absolute URLs turning the login form into an open redirect. The rule
+// itself lives in lib/appUrl so every `next` sink applies the same one.
 function safeNext(raw) {
-  if (typeof raw !== "string") return "/app";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/app";
-  return raw;
+  return isInternalPath(raw) ? raw : "/app";
 }
 
 export default function LoginPage() {

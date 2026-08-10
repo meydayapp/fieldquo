@@ -26,9 +26,11 @@ const FOOTER_COLUMNS = [
   {
     titleKey: "nav.resources",
     links: [
+      // Only pages that exist. /resources/faq and /resources/blog were listed
+      // here and both 404'd — the catalogue keys are kept because they'd be
+      // wanted again the day those pages ship, but a link to nothing is worse
+      // than no link.
       { key: "footer.links.help", href: "/resources/help" },
-      { key: "footer.links.faq", href: "/resources/faq" },
-      { key: "footer.links.blog", href: "/resources/blog" },
       { key: "footer.links.contact", href: "/contact" },
     ],
   },
@@ -105,13 +107,9 @@ export default function MarketingFooter() {
           <p className="text-sm text-primary-foreground/80">
             © {new Date().getFullYear()} FieldQuo. {t("footer.rights")}
           </p>
+          {/* No phone number down here either — the one that was is documented
+              in MarketingHeader: a 555 placeholder rendered as a live tel: link. */}
           <div className="flex items-center gap-6">
-            <a
-              href="tel:+18195551234"
-              className="text-sm text-primary-foreground/80 hover:text-primary-foreground"
-            >
-              (819) 555-1234
-            </a>
             <Link
               href="/privacy"
               className="text-sm text-primary-foreground/80 hover:text-primary-foreground"

@@ -16,8 +16,8 @@ import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
-import { getAppOrigin } from "@/lib/appUrl";
-import { applySignupReferral } from "@/lib/referrals";
+import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
+import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
@@ -233,11 +233,11 @@ export async function POST(request) {
   const baseUrl = getAppOrigin(request);
 
   // Trial length Stripe should honour = however long this company is actually
-  // free for. applySignupReferral may have just extended trialEndsAt by 3
-  // months; `company` in memory still holds the base 30-day date, so read the
-  // referral's returned value when present. This is what makes a referred
-  // signup's FIRST Stripe trial the full 30 + referral, not 30 with the extra
-  // months stranded in a column Stripe never sees.
+  // free for. applySignupReferral may have just extended trialEndsAt by
+  // REFEREE_BONUS_MONTHS; `company` in memory still holds the base 30-day date,
+  // so read the referral's returned value when present. This is what makes a
+  // referred signup's FIRST Stripe trial the full 30 days + referral, not 30
+  // with the extra time stranded in a column Stripe never sees.
   // Whichever path extended the trial (referral or a promo code) is the real
   // free-until date Stripe should honour.
   const effectiveTrialEnd =
@@ -262,9 +262,7 @@ export async function POST(request) {
     // Internal-path only — never an absolute URL — so this can't become an open
     // redirect through the signup flow.
     successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
-      typeof next === "string" && next.startsWith("/") && !next.startsWith("//")
-        ? `&next=${encodeURIComponent(next)}`
-        : ""
+      isInternalPath(next) ? `&next=${encodeURIComponent(next)}` : ""
     }`,
     cancelUrl: `${baseUrl}/signup`,
   });
@@ -272,13 +270,17 @@ export async function POST(request) {
   return NextResponse.json({
     checkoutUrl: checkoutSession.url,
     // Null unless a referral was actually redeemed, so the client can show
-    // "3 free months from Sunset Inc" rather than guessing from the code it
+    // "a free month from Sunset Inc" rather than guessing from the code it
     // sent — which may have been rejected as self-referral or unknown.
+    //
+    // months comes from the constant that actually granted them. It was
+    // hardcoded to 3 while lib/referrals granted 1, so the confirmation
+    // promised three times what the trial had been extended by.
     referral: referral
       ? {
           referrerName: referral.referrer.name,
           trialEndsAt: referral.trialEndsAt,
-          months: 3,
+          months: REFEREE_BONUS_MONTHS,
         }
       : null,
   });

@@ -13,6 +13,7 @@ import {
   Circle,
 } from "lucide-react";
 
+import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 
@@ -51,7 +52,9 @@ export default function DashboardPage() {
         params.delete("next");
         const qs = params.toString();
         window.history.replaceState(null, "", `/app${qs ? `?${qs}` : ""}`);
-        if (next && next.startsWith("/") && !next.startsWith("//")) {
+        // A real redirect sink, so the check has to cover `/\evil.com` too —
+        // shared rule, see lib/appUrl.
+        if (isInternalPath(next)) {
           window.location.href = next;
         }
       });
