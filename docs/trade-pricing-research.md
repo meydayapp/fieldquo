@@ -1070,12 +1070,272 @@ optional line, never folded into $/sq ft.
 
 ---
 
-## Part 3 — Material costs (in progress)
+## Part 3 — Material costs
 
-Retail material costs by category (breakers, panels, transfer switches, wire,
-boxes/conduit, devices, lighting, safety), CAD and USD, to seed the **internal
-cost** side so the margin calculation is real rather than a guess. These are
-cost inputs, never client-facing prices.
+Retail material costs by category, to seed the **internal cost** side so the
+margin calculation is real rather than a guess. These are cost inputs, never
+client-facing prices (non-negotiable #4).
+
+### 3.0 Provenance and how to refresh
+
+**Currency CAD, read 2026-08-10, homedepot.ca store #7140/7274 (Gatineau QC),
+pre-tax, non-promotional retail shelf price.**
+
+Every figure below traces to **one retailer in one region**. lowes.com,
+supplyhouse.com, rona.ca, canadiantire.ca, amazon.ca and homedepot.com all
+blocked automated access (403/503/bot-detection), so there is **no
+cross-retailer validation**. Treat the numbers as a defensible starting point
+a contractor adjusts to their own supplier — which is what the design already
+assumes — not as a market survey.
+
+**How to refresh** (this matters; copper moves within a quarter): scraping
+product tiles fails. Home Depot Canada's own product API, called from inside a
+real browser session, returns structured JSON with `pricing.displayPrice.value`
+and `currencyIso`:
+
+```
+GET /api/search/v1/search?q=<term>&pageSize=<n>&lang=en
+```
+
+One call returns 40 priced products; ~15 calls covered every category below.
+
+### 3.1 The three fields a naive schema would omit
+
+The data argues that a material default cannot be a single number keyed on a
+name. Three dimensions each swing price more than brand choice normally does:
+
+| Dimension | Why | Worst observed |
+|---|---|---|
+| **Brand / line** | Legacy panels are a routine service call, not an edge case | Stab-Lok breakers run **2–3×** every modern equivalent |
+| **Pack or roll size** | Wire is priced per unit of quantity purchased | 12/2 NMD90 is **$2.46/m** on a 150 m roll and **$11.99/m** on a 5 m coil — **4.9×**, same cable |
+| **Scope** | Similar names, different products | 200 A 20-space panel: **$259** bare vs **$1,563** as an AFCI plug-on-neutral package — **6×** |
+
+Scope is the dangerous one, because the item names look alike and nothing on
+the shelf flags the difference.
+
+### 3.2 Breakers (each)
+
+| Item | Low | Typical | High |
+|---|---|---|---|
+| 1-pole 15 A | $12.98 | **$14.97** | $29.71 |
+| 1-pole 20 A | $12.98 | **$14.75** | $29.71 |
+| 1-pole 30 A | — | $22.85 | — |
+| 2-pole 15 A | $29.85 | $32.94 | $57.97 |
+| 2-pole 20 A | $27.97 | $35.95 | $57.97 |
+| 2-pole 30 A | $32.95 | $36.97 | $64.95 |
+| 2-pole 40 A | $36.85 | $40.75 | $64.95 |
+| 2-pole 50 A | $44.98 | $84.45 | $133.00 |
+| 2-pole 60 A | $44.98 | $57.75 | $148.00 |
+| Tandem | $28.97 | $40.97 | $61.75 |
+| Quad | $39.47 | $59.97 | $65.51 |
+| **AFCI 1-pole** | $89.97 | **$94.37** | $194.00 |
+| AFCI 2-pole 15 A | — | $195.00 | — |
+| GFCI breaker 1-pole | $152.00 | $164.00 | $177.00 |
+| GFCI breaker 2-pole | $202.78 | $249.00 | $287.00 |
+| Dual-function AFCI/GFCI 1-pole | $114.00 | $147.00 | $197.00 |
+| Main 2-pole 100 A | $83.97 | $108.98 | $119.00 |
+| Main 2-pole 125 A | $103.29 | $157.48 | **$526.59** |
+| Main 2-pole 200 A | — | $119.98 | — |
+| Main 2-pole 225 A | — | $178.00 | — |
+
+Brand facts that change defaults:
+
+- **GE is not carried in Canada at all.** Offering it as a brand gives Canadian
+  users a option with no retail reference behind it.
+- **Federal Pioneer / Stab-Lok** is 2–3× the modern equivalent across the board,
+  and is exactly what a 1970s–80s service call is standing in front of.
+- **Schneider sells two lines** at materially different prices (QO premium,
+  Homeline mid). Treating "Square D" as one brand is wrong.
+- Eaton BR is the cheap end on nearly every rating; QO the premium mainstream.
+- Schneider's AFCI splits **plug-on ($90.57) vs pigtail ($135–137)** — a
+  within-brand, within-rating split that has nothing to do with brand tier.
+
+Standard 1-pole 15/20 A is the one item that can safely carry a single default:
+three of five brands cluster at $12.98–14.97, so **~$14** is honest.
+
+### 3.3 Panels and service equipment (each)
+
+| Item | Low | Typical | High |
+|---|---|---|---|
+| Main-lug subpanel, small (4/8–8/16 ckt) | $57.98 | $88.75 | $119.00 |
+| Main-lug 125 A 20-space indoor | $174.00 | $188.50 | $232.00 |
+| Main-breaker 100 A 20 ckt | $168.00 | $168.00 | $203.00 |
+| Main-breaker 150 A 30–42 ckt | $239.25 | $279.00 | $319.00 |
+| Main-breaker 200 A 30 ckt | — | $259.00 | — |
+| Main-breaker 225 A 42 ckt | $288.00 | $321.90 | $350.00 |
+| Outdoor / rainproof 100 A | — | $217.00 | — |
+| Outdoor / rainproof 125 A | — | $227.85 | — |
+| Panel **package** 100 A 16sp | — | $339.00 | — |
+| Panel **package** 200 A 20sp | — | $429.00 | — |
+| Panel **package** 200 A 30sp AFCI plug-on-neutral | — | **$1,563.41** | — |
+| Service-entrance loadcentre 200 A 40–60 ckt | $943.00 | $953.00 | $963.00 |
+| Meter socket 100 A OH/UG | — | $197.00 | — |
+| Whole-home surge protector (Type 1/2) | $206.00 | $217.50 | $229.00 |
+
+Split into **three** catalogue items — bare panel, panel+breakers, code-compliant
+AFCI package — or the 200 A default is wrong by 6× at the extremes.
+
+### 3.4 Transfer switches and generator connection (each)
+
+| Item | Low | Typical | High |
+|---|---|---|---|
+| Manual transfer switch, single-circuit 15 A | — | $198.00 | — |
+| Manual transfer switch, single-load 60 A | $238.00 | $268.50 | $299.00 |
+| Manual, 6-circuit + inlet | — | $519.00 | — |
+| Manual, 8–10 circuit kit | $679.00 | $698.00 | $798.00 |
+| Manual, 10-circuit + inlet | — | $749.00 | — |
+| Automatic 100 A | — | $799.00 | — |
+| Automatic 200 A | — | $1,139.00 | — |
+| Automatic 200 A service-entrance rated (CSA) | — | $1,409.00 | — |
+| Generator inlet box 30 A (L14-30) | $74.28 | $105.00 | $129.00 |
+| Generator inlet box 50 A | — | $129.00 | — |
+| Generator cord 50 A, 20 ft | — | $394.00 | — |
+
+**Interlock kits are not sold by Home Depot Canada** — search returns nothing.
+That is the cheapest and very common alternative to a transfer switch, so the
+catalogue needs a supply-house figure here. Not priced.
+
+### 3.5 Wire and cable — ⚠️ copper is volatile, re-read before shipping
+
+Southwire throughout. Per-metre figures from rolls are computed (roll ÷ length).
+75 m ≈ 246 ft, 150 m ≈ 492 ft.
+
+**NMD90 (indoor branch circuit):**
+
+| Gauge | 75 m roll | 150 m roll | $/m bulk | $/ft bulk |
+|---|---|---|---|---|
+| 14/2 | $138–149 | $228 | $1.52–1.99 | $0.46–0.61 |
+| 14/3 | — | $329 | $2.19 | $0.67 |
+| 12/2 | $242–267 | $369 | $2.46–3.56 | $0.75–1.08 |
+| 12/3 | $325 | — | $4.33 | $1.32 |
+| 10/2 | $435 | — | $5.80 | $1.77 |
+| 10/3 | $575 | — | $7.67 | $2.34 |
+| 8/3 | (40 m $588) | — | $14.70 | $4.48 |
+| 6/3 | cut to length | — | $11.32 | $3.45 |
+
+**AC90 (BX) ≈ 1.6–1.9× NMD90** at bulk. **NMWU (direct burial) ≈ 1.9–2.4×
+NMD90.** Both are usable multipliers rather than separate tables.
+
+**RW90 single conductor** (services/feeders, sold cut by the metre): #14 $1.11 ·
+#12 $1.47 · #10 $2.45 · #8 $4.45 · #6 $5.97 · #2 $12.37 · 3/0 $26.75 per metre.
+
+**Two traps to encode:** short coils cost 2–3× bulk per metre, so *any* wire
+default must state the roll size it assumes; and 6/3 NMD90 is $11.32/m cut but
+$19.80/m as a 10 m coil — a 75% premium for packaging the same cable.
+
+**Not stocked: bare copper #6 and #4** — the two sizes actually used for
+residential grounding electrode conductors. Only #3 stranded ($8.23/m) exists.
+Genuine gap; needs a supply-house figure.
+
+### 3.6 Conduit, fittings and boxes
+
+**PVC Sch 40 grey, 10 ft stick:** ½" $8.35 · ¾" $10.88 · 1" $14.87 · 1¼" $21.45
+· 1½" $26.95 · 2" $35.55.
+
+**EMT steel, 10 ft:** ½" $17.45 · ¾" $26.94 · 1" $37.48 · 1¼" $49.95 · 1½"
+$59.95 · 2" $78.88. **EMT ≈ 2.1–2.2× PVC** at the same trade size —
+consistent enough to be a multiplier rather than a second table.
+
+**PVC fittings (each):** 90° elbow ½" $2.63 / ¾" $3.27 / 1" $4.42 / 2" $15.97 ·
+LB body ½" $8.66 / ¾" $9.88 / 1" $13.42 / 2" $35.53. Bulk boxes run 20–30% under
+the each price.
+
+**Boxes:** plastic 1-gang 18 in³ $2.87 · steel 1-gang 12.5 in³ $2.22 ($1.67 in a
+30-pack) · old-work/cut-in steel $10.53–14.48 · octagon ceiling 4" $13.67 ·
+weatherproof PVC 1-gang $12.67. **Fan-rated box + bar hanger: $21.97 new work,
+$31.95 rework** — a 45% rework premium worth carrying as two items.
+
+### 3.7 Devices (each)
+
+| Item | Low | Typical | High |
+|---|---|---|---|
+| Receptacle 15 A duplex standard | $2.60 (10-pk) | $3.28 | $5.97 |
+| Receptacle 15 A weather-resistant | $5.38 | $5.68 | $5.97 |
+| Receptacle 15 A commercial grade | $21.58 | $26.52 | $31.45 |
+| **GFCI receptacle 15 A** | $23.87 | $29.98 | $98.48 |
+| **GFCI receptacle 20 A** | $24.98 (3-pk) | $36.98 | $37.97 |
+| AFCI receptacle | $46.57 | $46.57 | $51.93 |
+| Dual-function AFCI/GFCI receptacle | — | $41.98 | — |
+| USB receptacle | $30.95 | $41.97 | $91.97 |
+| Weatherproof in-use cover 1-gang | $24.50 (2-pk) | $49.00 | — |
+| Switch single-pole 15 A | $1.58 | $2.57 | $3.38 |
+| **3-way switch** | $3.38 | $4.48 | $28.22 |
+| Dimmer, LED-compatible | $18.97 | $33.95 | $46.98 |
+| Smart switch (Wi-Fi) | $21.95 | $55.98 | $115.00 |
+| Wall plate 1-gang standard | $0.68 | $1.91 | $2.34 |
+| Wall plate screwless/designer | $3.37 | $6.28 | $11.98 |
+
+### 3.8 Lighting, fans and safety (each)
+
+Recessed LED 4"/6" retrofit $16.47–44.98 · premium/tunable $44.98–134 · housing
+(new construction IC/airtight) $19.98–83.72 · bath fan basic $39.99–94.98 ·
+bath fan w/ light or humidity sensor $138–309.
+
+**Smoke alarm hardwired + battery backup $52.00–66.97 · smoke/CO combo hardwired
+$99.97–109 · wireless-interconnect smoke/CO $269–289.** That last one is a 2.6×
+jump for the same functional description — separate line item, not a variant.
+
+### 3.9 Where a single default is most misleading
+
+Ranked by observed spread on functionally interchangeable items:
+
+| Rank | Item | Spread | Cause |
+|---|---|---|---|
+| 1 | Exterior wall lanterns | **13.3×** | homeowner choice |
+| 2 | Ceiling fans | **10.7×** | homeowner choice |
+| 3 | Panel bare vs. AFCI package | **6.0×** | **scope** |
+| 4 | Smart switches | 5.2× | feature tier |
+| 5 | Main breaker 2-pole 125 A | 5.1× | brand |
+| 6 | Wire, coil vs. bulk roll | 4.9× | **quantity** |
+| 7 | GFCI receptacles | 4.1× | aesthetics only |
+| 8 | Breaker 2-pole 60 A | 3.3× | brand |
+| 9 | Legacy Stab-Lok, all ratings | 2–3× | **legacy panel** |
+| 10 | AFCI breakers | 2.2× | brand + plug-on/pigtail |
+
+Ranks 1–2 should not be material defaults at all — they are **customer-selected
+allowances**, the same treatment the plumbing set gives fixtures (§2B).
+
+### 3.10 CAD vs USD
+
+Only **two matched SKUs** could be compared, because homedepot.com blocks both
+fetching and browser sessions:
+
+| Item | CAD | USD | Ratio |
+|---|---|---|---|
+| Square D QO 20 A 1-pole (QO120CP) | $20.97 | $16.98 | 1.235 |
+| Southwire 14/2 ~250 ft / 75 m | $149.00 | $114.00 | 1.307 |
+
+Nominal **CAD ≈ 1.24–1.31 × USD list**. Two points, one device and one wire —
+enough to sanity-check a conversion, not enough to trust to the percent.
+
+**Do not derive CAD defaults by converting USD ones.** If the live rate is in the
+1.35–1.40 range then Canadian shelf prices are at or *below* US prices after
+conversion, and a naive `USD × FX` default overprices Canadian materials by
+roughly 5–10%. The price ratio above is measured; that FX conclusion is not —
+the rate on 2026-08-10 could not be verified from any accessible source.
+
+### 3.11 Not verified — stated plainly
+
+- **Interlock kits** — not sold by the retailer; no price from any source.
+- **Bare copper #6 and #4** — not stocked; the sizes actually used for grounding.
+- **Meter-main combination units** — zero results; one meter socket SKU exists.
+- **200 A outdoor/rainproof panels** — not found; outdoor stock tops out at 125 A.
+- **RW90 2/0** — the listing shows "$4,799 each" against a cut-by-the-metre
+  description. Either a reel price or a data error. The $21–23/m in circulation
+  is interpolated between #2 and 3/0, **not read**.
+- **12/3 NMWU 30 m** ($13.30/m vs $5.92/m on the 75 m roll) and **14/3 NMD90
+  75 m** ($399 vs $329 for 150 m) are internally inconsistent listings, excluded
+  from the typical columns.
+- **Wholesale/contractor pricing** (Nedco, Gescan, Westburne, Ideal Supply) —
+  entirely inaccessible. Everything here is **retail**. Contractors on account
+  pay meaningfully less on commodities (wire, breakers, boxes) and close to
+  retail on homeowner-choice items. **Label the defaults "retail"** so users
+  know which direction to adjust.
+- **Regional variation within Canada** — one store, one region.
+
+### 3.12 Plumbing materials
+
+*Pending — research in flight.*
 
 ---
 
@@ -1101,6 +1361,16 @@ Design rules, decided from the evidence above:
 6. **Financing shows APR, term and total cost of credit**, not just a monthly.
 7. **Tax is per-jurisdiction and per-line-type**, defaulting to how the
    company's own province/state treats labour on real property.
+8. **A material default is not a number keyed on a name.** It carries
+   **brand/line**, **pack or roll size**, and **scope** (§3.1) — without those, a
+   contractor adjusting "breaker — $14" has no way to say their panel jobs are on
+   1970s Federal Pioneer gear at 3× the price.
+9. **Homeowner-choice items are allowances, not material defaults.** Fans (10.7×),
+   lanterns (13.3×) and plumbing fixtures vary by taste, not by trade. A default
+   there is a fiction; an allowance line is honest.
+10. **Material defaults are labelled "retail, <date>, <region>"** and say what
+    they assume, because that is the only way a user knows which direction to
+    adjust — and because copper moves within a quarter (§3.0).
 
 *Sources: Part 1 is a direct reading of 15 estimates supplied by the owner
 (Whittier CA, Seattle WA, Bay Area CA, Sacramento CA and unnamed markets, 2022–2025).
