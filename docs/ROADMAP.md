@@ -254,6 +254,28 @@ endpoint with a tampered POST.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Seat-sharing guard** (`AccountDevice`, `AccountAbuseStrike`,
+  `Company.accountStatus`, `lib/security/deviceGuard.js`, `SeatSharingBanner`,
+  the standing block in `lib/platform/companyHealth.js`). Detects one login
+  being used by a whole crew, warns, and after 3 strikes in 30 days sets
+  `accountStatus = "under_review"` and alerts a FieldQuo admin via `recordError`
+  (area `account_abuse`).
+  - **It never locks anyone out, by design.** Nothing reads `accountStatus` to
+    deny access — grep it: two display call sites, no gate. Adding one is a
+    product decision, not a refactor.
+  - **The two obvious signals are deliberately NOT used.** Concurrent sessions
+    and IP changes are both normal here (one person on phone + laptop; a crew on
+    mobile data changing address all morning). What is used: >6 distinct device
+    fingerprints on ONE login in 7 days, and >3 distinct /16 networks live in the
+    same 20 minutes. Both thresholds are set past "unusual" into "cannot be one
+    person" — under-flagging is the intended failure mode.
+  - The fingerprint (SHA-256 of user-agent + accept-language) is coarse on
+    purpose: no cookie, no canvas. It under-counts a uniform crew and
+    over-counts one person who changed browser, which is why the headroom.
+  - Hooked into `getCurrentMember` — throttled to once per 30 min per
+    (user, device), fire-and-forget, never throws, and never runs for an
+    impersonation session (the platform must not write into a tenant).
+
 - **Contractor-to-contractor quotes (GC ↔ subcontractor)** (`QuoteImport`
   model, `lib/quotes/importedStatus.js`, `lib/quotes/importQuote.js`,
   `/api/quotes/received/[token]`, `/api/quotes/[id]/imports`,

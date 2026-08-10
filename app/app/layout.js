@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
+import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
@@ -159,6 +160,11 @@ export default async function AppLayout({ children }) {
           billing — a warning you have to go and find is one nobody sees until
           they're locked out. */}
       <BillingBanner />
+      {/* Renders nothing unless the seat-sharing guard has actually recorded
+          something, which is the case for almost every company. Below the
+          billing banner deliberately: a card that failed is urgent and costs
+          them access, this is a note. Never blocks the app — see the file. */}
+      <SeatSharingBanner />
       {/* Mounted HERE, not at the root layout. Date format and week start are
           the COMPANY's preference and apply to their own screens; everything
           client-facing (/q, /portal, /book, /quote) formats by the client's

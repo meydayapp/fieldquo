@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, AlertTriangle, Check, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock } from "lucide-react";
+import { Loader2, AlertTriangle, Check, Mail, CreditCard, FileText, Bot, Webhook, Upload, Clock, Users } from "lucide-react";
 
 const AREA_ICON = {
   email: Mail,
@@ -20,6 +20,10 @@ const AREA_ICON = {
   webhook: Webhook,
   upload: Upload,
   cron: Clock,
+  // Not a failure in the same sense as the rest of this list — nothing broke.
+  // It lands here anyway because this is the queue staff actually open, and a
+  // seat-sharing flag that nobody sees is the same as no flag at all.
+  account_abuse: Users,
 };
 
 function when(iso) {
