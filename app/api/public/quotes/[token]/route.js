@@ -12,6 +12,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
+import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
 import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
@@ -444,7 +445,10 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
   const [company, members] = await Promise.all([
     db.company.findUnique({
       where: { id: updated.companyId },
-      select: SENDER_SELECT,
+      // currency on top of the sender fields: the totals below are formatted
+      // with it. It used to be hardcoded CAD, so a US or UK contractor read
+      // their own approvals with the wrong symbol attached.
+      select: { ...SENDER_SELECT, currency: true },
     }),
     db.member.findMany({
       where: {
@@ -487,8 +491,12 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
 
   const base = getAppOrigin();
   const verb = accepted ? "approved" : "declined";
-  const fmt = (n) =>
-    Number(n).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
+  // The company's own billing currency. No locale argument: this note goes to
+  // the owner/admin, and formatMoney fixes the SYMBOL from the currency while
+  // letting the reader's environment decide grouping — which is the right way
+  // round. currencyMeta() falls back to the default for a blank column, so an
+  // older company row that never set one still formats.
+  const fmt = (n) => formatMoney(n, company?.currency);
 
   // ── The internal note (owners/admins) ──────────────────────────────────────
   const to = members.map((m) => m.user?.email).filter(Boolean);

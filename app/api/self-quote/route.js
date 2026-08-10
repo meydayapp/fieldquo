@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
 
@@ -42,6 +43,11 @@ function humanise(key) {
 }
 
 export async function POST(request) {
+  // Public and unauthenticated — same throttle as the other lead intakes, so a
+  // script can't fill a contractor's pipeline with invented enquiries.
+  const limited = rateLimit(request, "self-quote");
+  if (limited) return limited;
+
   const body = await request.json();
   const {
     companySlug,

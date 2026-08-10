@@ -11,6 +11,22 @@ async function assertOwnership(companyId, id) {
   return product;
 }
 
+// A ServiceCategory is either seeded and shared (companyId null — the ~26
+// system quote types) or custom and owned by one company. The ids arrive from a
+// browser, so both cases have to be checked: an unfiltered `set` would let a
+// hand-posted request attach ANOTHER TENANT'S custom quote type to a product,
+// and would 500 outright on an id that doesn't exist at all.
+async function usableCategoryIds(companyId, categoryIds) {
+  const rows = await db.serviceCategory.findMany({
+    where: {
+      id: { in: categoryIds },
+      OR: [{ companyId: null }, { companyId }],
+    },
+    select: { id: true },
+  });
+  return new Set(rows.map((c) => c.id));
+}
+
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
@@ -33,6 +49,15 @@ export async function PATCH(request, { params }) {
     active,
     categoryIds,
   } = body;
+
+  if (Array.isArray(categoryIds) && categoryIds.length) {
+    const usable = await usableCategoryIds(member.companyId, categoryIds);
+    if (categoryIds.some((id) => !usable.has(id)))
+      return NextResponse.json(
+        { error: "One of those quote types isn't available to your company." },
+        { status: 400 },
+      );
+  }
 
   const updated = await db.product.update({
     where: { id: _params.id },

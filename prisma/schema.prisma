@@ -683,6 +683,32 @@ model Company {
 
   isDemo Boolean @default(false)
 
+  // ── Account standing (seat-sharing guard) ────────────────────────────────
+  //
+  // active | under_review | restricted.
+  //
+  // `under_review` IS A FLAG FOR A HUMAN, NOT A LOCKOUT. Nothing in the app
+  // may deny access, hide data or block a write because of this value without
+  // a product decision — the detector is a heuristic over a coarse device
+  // fingerprint (see lib/security/deviceGuard.js) and it will be wrong about
+  // some paying customer. It exists so a FieldQuo admin gets told to go and
+  // look, and so the customer sees an honest banner instead of being cut off
+  // by a rule nobody explained. The banner in app/components/layout is
+  // deliberately non-blocking for the same reason.
+  //
+  // `restricted` is reserved for a decision a person has already made and can
+  // only ever be set by hand; nothing writes it automatically.
+  //
+  // Separate from onboardingStatus (lifecycle) and from the billing gate
+  // (payment). Folding this into either would have coupled "we suspect seat
+  // sharing" to machinery that already denies access, which is exactly the
+  // outcome this must not have.
+  accountStatus       String    @default("active")
+  accountReviewedAt   DateTime?
+  accountReviewReason String?
+
+  abuseStrikes AccountAbuseStrike[]
+
   /// Which industry preset this demo is currently dressed as
   /// (see lib/demo/industries.js). Null on real companies.
   demoIndustry String?
@@ -753,6 +779,7 @@ model User {
   leadsAssigned         LeadRequest[]          @relation("LeadAssignee")
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
   funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
+  devices               AccountDevice[]
 }
 
 // One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
@@ -846,6 +873,73 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// ── Seat-sharing guard ─────────────────────────────────────────────────────
+//
+// One coarse row per (user, device setup). Written by lib/security/deviceGuard.js
+// so we can answer ONE question: how many genuinely different setups is a
+// single login being used from?
+//
+// NOT Session. Better Auth's Session table already holds ipAddress/userAgent,
+// and reusing it was the obvious first idea — but sessions are created and
+// destroyed on every sign-in, expiry and cookie clear, so counting them counts
+// LOGINS, not people. A contractor who signs in every morning on the same phone
+// would look like thirty devices in a month. This table collapses repeat visits
+// from the same setup onto one row, which is the only shape that makes
+// "how many different setups" a real number.
+//
+// deviceHash is a truncated SHA-256 of user-agent + accept-language. It is a
+// heuristic, not an identity: two identical iPhones on the same iOS version
+// hash the SAME (so this UNDER-counts a uniform crew), and one person changing
+// browser, clearing it, or taking an OS update hashes DIFFERENT. That
+// asymmetry is deliberate — see the thresholds in deviceGuard.js.
+model AccountDevice {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Denormalised from Member so the abuse query can group by tenant without a
+  // join. No FK: a device row surviving a company delete is harmless, and the
+  // cascade from User already covers the case that matters.
+  companyId String
+
+  deviceHash String
+  userAgent  String?
+  // Last seen source IP. Kept whole because support reviewing a flagged account
+  // needs to tell "two networks in one town" from "four cities at once", and a
+  // pre-truncated prefix can't answer that. Never shown raw in the platform
+  // console — only the /16 network is rendered there.
+  lastIp String?
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([userId, deviceHash])
+  @@index([companyId])
+}
+
+// One recorded suspicion. A strike is EVIDENCE, not a punishment — nothing in
+// the app reads these to deny anything. Three inside 30 days flips the company
+// to `under_review`, which is a note for a human.
+model AccountAbuseStrike {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Nullable so a future company-wide signal (one that isn't attributable to a
+  // single login) can be recorded here without inventing a user to blame.
+  userId String?
+
+  // distinct_devices | concurrent_networks
+  kind String
+  // The numbers behind the call: counts, the window, the /16 networks involved.
+  // Json so a new signal can record what's actually useful without a migration,
+  // and so support can see WHY rather than trusting the word "strike".
+  detail Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
 }
 
 // ── Better Auth organization plugin — separate from your own Member/Company models ──

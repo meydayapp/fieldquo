@@ -5,14 +5,16 @@
 // confirmation to the prospect and a heads-up to the superadmin(s) — both with a
 // calendar (.ics) invite so it lands on everyone's calendar.
 //
-// Two guards keep it honest: the submitted time must be one we actually offer
-// (isOfferedSlot re-derives the set — a hand-posted 3am timestamp is rejected),
-// and the DB's unique constraint on scheduledAt settles the race where two
-// prospects grab the same slot between the availability check and the write.
+// Three guards keep it honest: a per-IP throttle (the endpoint is public and
+// every booking emails two people), the submitted time must be one we actually
+// offer (isOfferedSlot re-derives the set — a hand-posted 3am timestamp is
+// rejected), and the DB's unique constraint on scheduledAt settles the race
+// where two prospects grab the same slot between the check and the write.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
 import { isOfferedSlot, SLOT_MINUTES, DEMO_TZ } from "@/lib/demo/slots";
 import { buildIcs } from "@/lib/calendar/ics";
 import { sendEmail } from "@/lib/email/resend";
@@ -21,6 +23,12 @@ import { getPlatformFrom } from "@/lib/email/platformSender";
 const bad = (error, status = 400) => NextResponse.json({ error }, { status });
 
 export async function POST(request) {
+  // A third guard on top of the two above, and a different kind: those keep one
+  // booking honest, this keeps someone from taking every slot on the sales
+  // calendar and sending an .ics to a stranger's inbox for each one.
+  const limited = rateLimit(request, "demo-book");
+  if (limited) return limited;
+
   const body = await request.json().catch(() => ({}));
   const name = String(body?.name || "").trim().slice(0, 120);
   const email = String(body?.email || "").trim().toLowerCase();

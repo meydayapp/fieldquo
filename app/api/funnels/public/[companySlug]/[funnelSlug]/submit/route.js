@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
@@ -14,6 +15,12 @@ import { DISCLOSURE } from "@/lib/voice/disclosure";
 // pipeline, plus a FunnelResponse for the funnel's own analytics. Same shape and
 // gates as /api/self-quote: no prices in, a lead out, consent recorded on phone.
 export async function POST(request, { params }) {
+  // Same throttle as the other public lead intakes. Note the bucket is the
+  // route, not the funnel — a flood is a flood whichever funnel slug it names,
+  // and per-slug buckets would just be a free multiplier for the attacker.
+  const limited = rateLimit(request, "funnel-submit");
+  if (limited) return limited;
+
   const { companySlug, funnelSlug } = await params;
   const body = await request.json().catch(() => ({}));
 

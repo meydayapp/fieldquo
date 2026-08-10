@@ -14,6 +14,12 @@ import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 // BOTH `checkout.session.completed` (unpaid) and later
 // `checkout.session.async_payment_succeeded` for one session — we must create at
 // most one Payment row per payment intent.
+//
+// The read-then-create below is a fast path, NOT the guarantee. Two deliveries
+// arriving together both pass the read and both insert, and the invoice ends up
+// showing twice the money that actually arrived. The real guard is the unique
+// index on Payment.stripePaymentIntentId; the P2002 catch is us losing that race
+// gracefully. Don't remove one believing the other covers it.
 async function recordInvoicePayment(session) {
   const invoiceId = session.metadata?.invoiceId;
   if (!invoiceId) return;
@@ -24,14 +30,23 @@ async function recordInvoicePayment(session) {
   });
   if (already) return;
 
-  await db.payment.create({
-    data: {
-      invoiceId,
-      amount: (session.amount_total || 0) / 100,
-      method: "stripe",
-      stripePaymentIntentId: session.payment_intent,
-    },
-  });
+  try {
+    await db.payment.create({
+      data: {
+        invoiceId,
+        amount: (session.amount_total || 0) / 100,
+        method: "stripe",
+        stripePaymentIntentId: session.payment_intent,
+      },
+    });
+  } catch (err) {
+    // P2002 = unique violation: the concurrent delivery won. It is recording
+    // the same payment and will recompute the same balance, so returning here
+    // is correct — retrying would only re-run identical work. Anything else is
+    // a real failure and must propagate, so Stripe retries the delivery.
+    if (err?.code !== "P2002") throw err;
+    return;
+  }
 
   // Recompute from ALL payments — never assume this one charge paid in full. A
   // client can pay a deposit through Stripe; the balance is the source of truth.

@@ -91,7 +91,12 @@ export async function POST(request) {
     invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0) +
     Number(amount);
   const amountDue = Math.max(0, Number(invoice.total) - totalPaid);
-  const isPaid = amountDue === 0;
+  // Half a cent, not zero — the same threshold every other balance recompute
+  // uses (the Stripe webhook, credit-visit-fee). Summing Decimals through
+  // Number leaves float residue, so an invoice paid off in instalments could
+  // land on 0.0000000001 owing and never be marked paid, and the difference
+  // between the two rules showed up as one path marking it and the other not.
+  const isPaid = amountDue <= 0.005;
 
   await db.invoice.update({
     where: { id: invoiceId },

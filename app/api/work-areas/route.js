@@ -23,6 +23,22 @@ export async function GET(request) {
   return NextResponse.json(workAreas);
 }
 
+// The ids in `userIds` arrive from a browser and are written straight into a
+// join table, so they get checked against this company's roster first — same
+// rule as assigning a lead owner (app/api/leads/[id]/route.js). Without it a
+// hand-posted request attaches a user from another tenant to a work area, and
+// from then on they appear in the assignment list of a company they've never
+// heard of. Rejects rather than silently dropping: quietly assigning three of
+// the four people you picked is the kind of control that looks like it worked.
+async function assertCompanyUsers(companyId, userIds) {
+  const found = await db.member.findMany({
+    where: { companyId, userId: { in: userIds } },
+    select: { userId: true },
+  });
+  const ok = new Set(found.map((m) => m.userId));
+  return userIds.filter((id) => !ok.has(id));
+}
+
 export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -42,6 +58,15 @@ export async function POST(request) {
 
   if (!name)
     return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  if (userIds?.length) {
+    const strangers = await assertCompanyUsers(member.companyId, userIds);
+    if (strangers.length)
+      return NextResponse.json(
+        { error: "Some of those people aren't on your team." },
+        { status: 400 },
+      );
+  }
 
   const workArea = await db.workArea.create({
     data: {
@@ -89,6 +114,15 @@ export async function PATCH(request) {
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  if (userIds.length) {
+    const strangers = await assertCompanyUsers(member.companyId, userIds);
+    if (strangers.length)
+      return NextResponse.json(
+        { error: "Some of those people aren't on your team." },
+        { status: 400 },
+      );
+  }
 
   await db.$transaction([
     db.workAreaAssignment.deleteMany({ where: { workAreaId } }),

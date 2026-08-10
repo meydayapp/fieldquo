@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
 import { createScoredLead } from "@/lib/leads/createLead";
 
 import { recordConsent } from "@/lib/voice/outbound";
@@ -12,6 +13,12 @@ import { onLeadCreated } from "@/lib/voice/triggers";
 // companySlug identifies which company's form this is, since the form is embedded
 // on THEIR website, not accessed through FieldQuo's own auth.
 export async function POST(request) {
+  // Throttled before the body is even read: every accepted submission books a
+  // consent row, may queue an outbound call and sends branded mail, so a loop
+  // against this URL spends the tenant's credits and their domain reputation.
+  const limited = rateLimit(request, "leads-public");
+  if (limited) return limited;
+
   const body = await request.json();
   const { companySlug, name, email, phone, categoryId, message, source } = body;
 

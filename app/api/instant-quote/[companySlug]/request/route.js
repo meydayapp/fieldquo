@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
@@ -17,6 +18,11 @@ import { resolveSender } from "@/lib/email/companySender";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
 
 export async function POST(request, { params }) {
+  // The heaviest of the public intakes — it re-measures, re-prices, writes a
+  // draft Quote and sends mail. Throttled first so none of that runs on a loop.
+  const limited = rateLimit(request, "instant-quote-request");
+  if (limited) return limited;
+
   const { companySlug } = await params;
   const company = await db.company.findUnique({
     where: { slug: companySlug },
