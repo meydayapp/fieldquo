@@ -1248,7 +1248,14 @@ model Payment {
   amount                Decimal       @default(0) @db.Decimal(12, 2)
   method                PaymentMethod @default(e_transfer)
   notes                 String?
-  stripePaymentIntentId String?
+  // Unique because Stripe re-delivers events, and an asynchronous method fires
+  // BOTH checkout.session.completed and checkout.session.async_payment_succeeded
+  // for one intent — a read-then-create guard lets two concurrent deliveries
+  // both pass and double-count amountPaid. The database settles the race.
+  //
+  // Nullable, and Postgres allows any number of NULLs in a unique index, so
+  // manual payments (cash, cheque, e-transfer) are untouched by this.
+  stripePaymentIntentId String?       @unique
   date                  DateTime      @default(now())
   createdAt             DateTime      @default(now())
 }
@@ -3175,6 +3182,13 @@ model VoiceAgent {
   /// calling", never negotiates). One per company, reused across all outbound
   /// purposes via per-call dynamic variables. See lib/voice/outboundPrompt.js.
   outboundProviderAgentId String?
+  /// Retell splits an agent in two: the AGENT (voice, language, webhook) and the
+  /// RESPONSE ENGINE — a "Retell LLM" object that owns the prompt, the opening
+  /// line and the tools. `/create-agent` takes a `response_engine.llm_id`, not a
+  /// prompt. We must keep both ids or every re-provision would orphan the old
+  /// LLM and create a new one. See lib/voice/provision.js.
+  providerLlmId         String?
+  outboundProviderLlmId String?
   provider        String  @default("retell")
 
   name     String  @default("Receptionist")

@@ -27,6 +27,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toE164 } from "@/lib/voice/numbers";
 import { chargeCall, canTakeCall } from "@/lib/voice/credits";
+import { syncNumberAttachment } from "@/lib/voice/provision";
 import { recordError } from "@/lib/platform/errorLog";
 
 /**
@@ -187,6 +188,11 @@ export async function POST(request) {
           message: `Voice credit exhausted for company ${number.companyId}`,
           metadata: { balanceCents: after.cents },
         }).catch(() => {});
+        // Stop answering rather than keep taking calls we can't bill. Detaching
+        // the agent is the only enforcement point we control — Retell has already
+        // accepted the call by the time we see it, so a check here can't refuse
+        // THIS one, but it does refuse the next. Reversed automatically on top-up.
+        await syncNumberAttachment(number.companyId).catch(() => {});
       }
 
       return NextResponse.json({ ok: true, billedSeconds: seconds });

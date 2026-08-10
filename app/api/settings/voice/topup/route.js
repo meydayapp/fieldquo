@@ -30,6 +30,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { getOrCreateStripeCustomer } from "@/lib/platform/stripeBilling";
 import { addCredit, normaliseTopup, minutesFor, balanceFor } from "@/lib/voice/credits";
+import { syncNumberAttachment } from "@/lib/voice/provision";
 import { activeNumber } from "@/lib/voice/numbers";
 
 async function requireAdmin(request) {
@@ -127,6 +128,11 @@ export async function GET(request) {
     summary: `Added $${(cents / 100).toFixed(2)} of phone credit`,
     metadata: { cents, stripeRef: session.id },
   });
+
+  // Back in credit — put the agent back on the number if the contractor still
+  // has the receptionist switched on. Without this, an account that ran dry
+  // stayed silent after paying, which reads as "the top-up didn't work".
+  await syncNumberAttachment(member.companyId).catch(() => {});
 
   const balance = await balanceFor(member.companyId);
   return NextResponse.json({ credited: true, cents, balance });
