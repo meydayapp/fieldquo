@@ -972,9 +972,23 @@ floor area. Modelled: **wire_ft ∝ sqft^0.74**, **openings ∝ sqft^0.76**.
 | 3,000 | **1.43** |
 
 The model tracks the published band up to ~2,500 sq ft and falls below it at
-3,000 — exactly where sub-linearity should bite. **A flat multiplier over-buys
-~25% of the cable on a 3,000 sq ft job.** So yes: a 3,000 sq ft home costs less
-*per square foot* than a 1,000 sq ft one, and the guides get that wrong.
+3,000 — exactly where sub-linearity should bite. So yes: a 3,000 sq ft home
+costs less *per square foot* than a 1,000 sq ft one, and the guides get that
+wrong.
+
+> **Superseded by the implementation.** The figures above are the first-pass
+> derivation. `lib/estimate/rewireTakeoff.js` builds a real room schedule and
+> measures **wire ∝ sqft^0.59** and **openings ∝ sqft^0.71** — *more*
+> sub-linear, not less, because home runs grow as √area (exponent 0.5) and drag
+> the blend below the device-count exponent. Implemented ft/sq ft runs 1.97 at
+> 1,000 → 1.74 at 1,500 → 1.30 at 3,000 → 1.11 at 4,000, so **a flat 1.75
+> multiplier over-buys ~35% of the cable on a 3,000 sq ft job**, not ~25%.
+> Direction and conclusion unchanged; magnitude larger. Trust the module.
+>
+> Mutation-testing also corrected a claim made here in draft: capping room areas
+> is *not* what makes the model sub-linear. Removing every cap still leaves it
+> sub-linear (0.78 vs 0.71 on device count) — perimeter ∝ √area does the work,
+> and the caps only deepen it by ~0.07 of exponent.
 
 ### 2E.2 The opening count — the gap in §2C is now closed
 
@@ -1335,7 +1349,28 @@ the rate on 2026-08-10 could not be verified from any accessible source.
 
 ### 3.12 Plumbing materials
 
-*Pending — research in flight.*
+**Done — see `docs/plumbing-material-costs.md`** (read 2026-08-10). Same rule:
+retail, cost inputs only, never client-facing. Four findings there change this
+part too:
+
+1. **It corroborates §3.10 from the other side.** Plumbing CAD/USD ratios run
+   **0.85–1.53 by category** — commodity pipe near or below parity, tank water
+   heaters at ~1.50. Two independent trades now say the same thing: **store
+   material cost per region, never `USD × FX`.**
+2. **A second working access path.** The homedepot.ca product API in §3.0 needs
+   a real browser session and is unreachable otherwise. Where it isn't
+   available, `r.jina.ai` as a text proxy renders *some* homedepot.ca category
+   pages with prices intact (water heaters, copper, ABS, PEX fittings — but not
+   toilets or PVC), and `kelloggsupplyco.com` serves full USD price lists
+   server-side. That is the only cross-retailer validation available to this
+   repo, and §3.0 currently has none.
+3. **Fitting *system* is a cost axis worth ~10×** (crimp vs push-fit). The
+   electrical analogue to check before shipping is wiring method — NM vs MC vs
+   EMT-and-wire on the same circuit.
+4. **The $2,664 water-heater equipment line from §2B.4 is decomposed** against
+   verified retail: **2.2–3.3× retail**, 4–6× likely wholesale, with install
+   billed separately. It is the strongest evidence in the repo for §2.5's
+   itemisation requirement.
 
 ---
 
