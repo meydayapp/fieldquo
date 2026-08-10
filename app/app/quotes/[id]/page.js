@@ -1,4 +1,25 @@
 // app/app/quotes/[id]/page.js
+//
+// The back-office view of a quote.
+//
+// ── Why this looks like the document and not like a form ────────────────────
+//
+// The PDF and the client-facing approval page at /q/[token] are the two things
+// a homeowner ever sees, and both are laid out as a document: brand rule,
+// masthead, "prepared for", scope groups as sections, one filled band carrying
+// the total. This screen showed the same data as an unstyled list of rows, so
+// the person selling the job was looking at something that bore no resemblance
+// to what their client was reading — which makes "check the quote before you
+// send it" a much weaker check than it should be.
+//
+// So the structure below deliberately mirrors lib/documentSections/* and
+// QuoteApproval.js. What it does NOT mirror is their colour handling: those
+// render for a stranger with no session and compute literal hex values from
+// Company.brandColor, while this page is inside /app, where BrandTheme has
+// already put the same brand colour into the semantic tokens. `bg-inverted`
+// here IS the company's colour, with a foreground picked by the same measured
+// contrast, and it stays legible in dark mode — which a hardcoded hex would
+// not.
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,10 +36,13 @@ import {
   Mail,
   Loader2,
   CheckCircle2,
+  Building2,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 
@@ -29,18 +53,52 @@ const STATUS_STYLES = {
   declined: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
+// Formatted exactly as it was before this page was restyled, and exactly as the
+// invoice detail page still does it. Prettier grouping is tempting, but quotes
+// and invoices sitting side by side with different money formatting reads as a
+// bug — that's a change to make in both places or neither.
+const money = (n) => `$${Number(n ?? 0).toFixed(2)}`;
+
 export default function QuoteDetailPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const { formatDate } = useCompanyPreferences();
+  // The document's own furniture — "Quote", "Prepared for" — from the same
+  // catalogue the PDF and the approval page use, in the STAFF's language here.
+  // Minting app-catalogue keys for words that are already translated six ways
+  // would be a second copy to keep in step, and English literals would put an
+  // English word in the middle of an otherwise French screen.
+  const labels = documentLabels(language);
   const router = useRouter();
   const { id } = useParams();
 
   const [quote, setQuote] = useState(null);
+  // Letterhead: logo, name, phone. GET /api/quotes/[id] doesn't return the
+  // company, and widening a shared API response for one screen's decoration is
+  // the wrong trade — this is the same endpoint the layout already reads for
+  // date preferences, so it's warm, and the masthead degrades to the brand mark
+  // alone if it fails.
+  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
   const [justSent, setJustSent] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d) setCompany(d);
+      })
+      // Swallowed on purpose: a missing letterhead costs a logo, and showing an
+      // error banner about it above a perfectly good quote would be noise.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     // Guard res.ok: on a 404/401 the route returns { error }, and setting that
@@ -173,35 +231,27 @@ export default function QuoteDetailPage() {
       /cabinet|kitchen|countertop|remodel/.test(g.category?.key || ""),
     );
 
+  const clientAddress = [
+    quote.client?.address,
+    quote.client?.city,
+    quote.client?.province,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-10">
-      <Link
-        href="/app/quotes"
-        className="flex items-center gap-1 text-sm text-muted-foreground"
-      >
-        <ArrowLeft size={14} /> {t("app.quoteDetail.backToQuotes")}
-      </Link>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
-          {error}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground">
-              {quote.quoteNumber}
-            </h1>
-            <span
-              className={`text-xs px-2 py-1 rounded-full ${STATUS_STYLES[quote.status]}`}
-            >
-              {quote.status}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">{quote.client?.name}</p>
-        </div>
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5 pb-10">
+      {/* The command strip. Deliberately above the document rather than inside
+          it: these are things the staff member does TO the quote, and a Delete
+          button sitting on the letterhead reads as part of what the client
+          receives. */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <Link
+          href="/app/quotes"
+          className="flex items-center gap-1 text-sm text-muted-foreground py-2"
+        >
+          <ArrowLeft size={14} /> {t("app.quoteDetail.backToQuotes")}
+        </Link>
 
         <div className="flex flex-wrap gap-2">
           {/* Shown while the quote is still live, not only while it's a draft.
@@ -279,6 +329,12 @@ export default function QuoteDetailPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+          {error}
+        </div>
+      )}
+
       {/* The email trail. Every banner here is written only after Resend
           accepted the message, so "Emailed 3 July" is a fact rather than an
           intention — which is what the old sentAt recorded, since the Send
@@ -348,45 +404,160 @@ export default function QuoteDetailPage() {
         onTotalChange={(total) => setQuote((q) => ({ ...q, total }))}
       />
 
-      <div className="bg-card border border-border rounded-xl p-6 space-y-6">
-        {quote.scopeGroups?.map((group) => (
-          <div key={group.id}>
-            <h3 className="font-semibold text-foreground mb-2">{group.label}</h3>
-            <div className="space-y-1">
-              {(group.lineItems || []).map((item, i) => (
-                <div
-                  key={i}
-                  className="flex justify-between text-sm text-foreground"
-                >
-                  <span>
-                    {item.description}{" "}
-                    {item.quantity > 1 && `× ${item.quantity}`}
-                  </span>
-                  <span>${Number(item.amount).toFixed(2)}</span>
+      {/* ── The document ──────────────────────────────────────────────────
+          Everything below is a mirror of what the client sees: the PDF built
+          from lib/documentSections/* and the approval page at /q/[token]. Same
+          order, same blocks, same shape. */}
+      <article className="bg-card border border-border rounded-2xl overflow-hidden">
+        {/* The brand rule, before anything else. Two weights of the company's
+            own colour, as in HeaderSection's PDF band — it reads as the quote
+            being ON their letterhead rather than in a generic frame. */}
+        <div className="flex h-1.5" aria-hidden="true">
+          <div className="flex-[2] bg-inverted" />
+          <div className="flex-1 bg-inverted opacity-50" />
+        </div>
+
+        <header className="px-5 sm:px-7 pt-5 pb-4 border-b border-border">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              {company?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={company.logoUrl}
+                  alt={company.name || ""}
+                  className="h-10 w-auto max-w-[160px] object-contain"
+                />
+              ) : (
+                <div className="h-10 w-10 rounded-lg bg-inverted text-inverted-foreground flex items-center justify-center shrink-0">
+                  <Building2 size={18} />
                 </div>
-              ))}
+              )}
+              {/* Only what came back. A placeholder company name here would be
+                  inventing the one thing on the page that has to be theirs. */}
+              {company?.name && (
+                <div className="min-w-0">
+                  <div className="font-semibold text-foreground truncate">
+                    {company.name}
+                  </div>
+                  {company.phone && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {company.phone}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="sm:text-right shrink-0">
+              <div className="text-[11px] font-bold tracking-[0.18em] uppercase text-muted-foreground">
+                {labels.quote}
+              </div>
+              <h1 className="text-xl font-bold text-foreground tabular-nums">
+                {quote.quoteNumber}
+              </h1>
+              <span
+                className={`inline-block mt-1 text-xs px-2 py-0.5 rounded-full ${STATUS_STYLES[quote.status]}`}
+              >
+                {quote.status}
+              </span>
             </div>
           </div>
-        ))}
+        </header>
 
-        {quote.notes && (
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">{t("app.field.notes")}</h3>
-            <p className="text-sm text-muted-foreground">{quote.notes}</p>
+        <div className="px-5 sm:px-7 py-5 border-b border-border grid gap-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground">
+              {labels.preparedFor}
+            </p>
+            <p className="text-base font-semibold text-foreground mt-0.5 break-words">
+              {quote.client?.name}
+            </p>
+            {quote.client?.contactName && (
+              <p className="text-sm text-muted-foreground">
+                {quote.client.contactName}
+              </p>
+            )}
+            {quote.client?.email && (
+              <p className="text-sm text-muted-foreground break-all">
+                {quote.client.email}
+              </p>
+            )}
+            {quote.client?.phone && (
+              <p className="text-sm text-muted-foreground">{quote.client.phone}</p>
+            )}
+            {clientAddress && (
+              <p className="text-sm text-muted-foreground">{clientAddress}</p>
+            )}
           </div>
+
+          {/* Dates in the company's chosen format, not a hardcoded locale —
+              this is staff reading their own data, which is the internal side
+              of the split described at the top of lib/format/companyDate.js. */}
+          <dl className="text-sm space-y-1 sm:text-right">
+            <Fact label={labels.date} value={formatDate(quote.createdAt)} />
+            {quote.validUntil && (
+              // Borrowed from the quote EDITOR's catalogue rather than adding a
+              // seventh translation of "Valid until" — same field, same words,
+              // one string to keep right.
+              <Fact
+                label={t("app.quoteEdit.validUntil")}
+                value={formatDate(quote.validUntil)}
+              />
+            )}
+          </dl>
+        </div>
+
+        {quote.scopeGroups?.length > 0 && (
+          <section className="px-5 sm:px-7 py-5 space-y-3">
+            {/* One card per service, as on the approval page. A flat list of
+                lines gives a three-trade quote no seams at all, which is how a
+                client ends up asking "so what's the painting costing me?" */}
+            {quote.scopeGroups.map((group) => (
+              <div
+                key={group.id}
+                className="rounded-xl border border-border overflow-hidden"
+              >
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-muted">
+                  <h2 className="font-semibold text-foreground text-sm truncate">
+                    {group.label || group.category?.label}
+                  </h2>
+                  {Number(group.subtotal) > 0 && (
+                    <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
+                      {money(group.subtotal)}
+                    </span>
+                  )}
+                </div>
+                <div className="px-4 py-1">
+                  {(group.lineItems || []).map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between gap-4 text-sm text-foreground py-1.5 border-b border-border last:border-0"
+                    >
+                      <span className="min-w-0">
+                        {item.description}
+                        {item.quantity > 1 && (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            × {item.quantity}
+                          </span>
+                        )}
+                      </span>
+                      <span className="tabular-nums shrink-0">
+                        {money(item.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
         )}
 
         {quote.addOns?.length > 0 && (
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-2">
-              {t("app.quoteDetail.optionalExtras")}
-            </h3>
-            <div className="space-y-1">
+          <Block title={t("app.quoteDetail.optionalExtras")}>
+            <div className="space-y-1.5">
               {quote.addOns.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex justify-between text-sm gap-3"
-                >
+                <div key={a.id} className="flex justify-between text-sm gap-3">
                   <span
                     className={
                       a.selected
@@ -402,23 +573,41 @@ export default function QuoteDetailPage() {
                     )}
                   </span>
                   <span
-                    className={
+                    className={`tabular-nums shrink-0 ${
                       a.selected ? "text-foreground" : "text-muted-foreground"
-                    }
+                    }`}
                   >
-                    ${Number(a.amount).toFixed(2)}
+                    {money(a.amount)}
                   </span>
                 </div>
               ))}
             </div>
-          </div>
+          </Block>
+        )}
+
+        {quote.processNotes && (
+          <Block title={t("app.quoteEdit.whatHappensNext")}>
+            {/* The wash-and-rule callout the approval page gives this text.
+                It's the block that answers "what am I agreeing to", so it
+                shouldn't read like a footnote here either. */}
+            <div className="rounded-lg bg-muted border-l-[3px] border-inverted px-4 py-3">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                {quote.processNotes}
+              </p>
+            </div>
+          </Block>
+        )}
+
+        {quote.notes && (
+          <Block title={t("app.field.notes")}>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {quote.notes}
+            </p>
+          </Block>
         )}
 
         {Array.isArray(quote.clientPhotos) && quote.clientPhotos.length > 0 && (
-          <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-2">
-              {t("app.quoteDetail.clientMedia")}
-            </h3>
+          <Block title={t("app.quoteDetail.clientMedia")}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {quote.clientPhotos.map((m, i) => {
                 const url = typeof m === "string" ? m : m?.url;
@@ -450,36 +639,56 @@ export default function QuoteDetailPage() {
                 );
               })}
             </div>
-          </div>
+          </Block>
         )}
 
-        <div className="pt-4 border-t border-border space-y-1 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <span>{t("app.quoteDetail.subtotal")}</span>
-            <span>${Number(quote.subtotal).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>{t("app.quoteDetail.tax")}</span>
-            <span>${Number(quote.tax).toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between font-semibold text-foreground text-base">
-            <span>{t("app.quoteDetail.quotedTotal")}</span>
-            <span>${Number(quote.total).toFixed(2)}</span>
-          </div>
-
-          {/* Shown only when it differs, so it reads as news rather than as
-              a second total to reconcile. This is the figure the invoice is
-              built from. */}
-          {quote.acceptedTotal !== null &&
-            quote.acceptedTotal !== undefined &&
-            Number(quote.acceptedTotal) !== Number(quote.total) && (
-              <div className="flex justify-between font-semibold text-green-700 dark:text-green-400 text-base pt-1">
-                <span>{t("app.quoteDetail.approvedWithExtras")}</span>
-                <span>${Number(quote.acceptedTotal).toFixed(2)}</span>
-              </div>
+        <div className="px-5 sm:px-7 py-5 border-t border-border">
+          {/* Right-aligned and narrow above sm, exactly as TotalsSection lays
+              the PDF out: a totals block spanning the full width reads as
+              another table, kept to a column it reads as a summary. */}
+          <div className="sm:w-3/5 sm:ml-auto space-y-1 text-sm">
+            <Row label={t("app.quoteDetail.subtotal")} value={money(quote.subtotal)} />
+            {/* Only when there is one — a "Discount $0.00" line invites the
+                question of why nothing was discounted. */}
+            {Number(quote.discount) > 0 && (
+              <Row
+                label={t("app.quoteEdit.discount")}
+                value={`-${money(quote.discount)}`}
+              />
             )}
+            <Row label={t("app.quoteDetail.tax")} value={money(quote.tax)} />
+
+            {/* The headline figure in a filled band in their colour, matching
+                the PDF and the approval page. Everything above it is quiet, so
+                the eye lands on the one number that matters instead of reading
+                three of similar weight to find it. */}
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-inverted text-inverted-foreground px-4 py-3 mt-2">
+              <span className="text-xs font-bold uppercase tracking-wide">
+                {t("app.quoteDetail.quotedTotal")}
+              </span>
+              <span className="text-xl font-bold tabular-nums">
+                {money(quote.total)}
+              </span>
+            </div>
+
+            {/* Shown only when it differs, so it reads as news rather than as
+                a second total to reconcile. This is the figure the invoice is
+                built from. */}
+            {quote.acceptedTotal !== null &&
+              quote.acceptedTotal !== undefined &&
+              Number(quote.acceptedTotal) !== Number(quote.total) && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-4 py-2.5 mt-1.5 text-green-800 dark:text-green-300">
+                  <span className="text-xs font-bold uppercase tracking-wide">
+                    {t("app.quoteDetail.approvedWithExtras")}
+                  </span>
+                  <span className="text-base font-bold tabular-nums">
+                    {money(quote.acceptedTotal)}
+                  </span>
+                </div>
+              )}
+          </div>
         </div>
-      </div>
+      </article>
 
       <DeleteConfirmModal
         isOpen={showDelete}
@@ -494,6 +703,44 @@ export default function QuoteDetailPage() {
 }
 
 /**
+ * A titled block inside the document.
+ *
+ * Every section on the PDF and the approval page is introduced by a small
+ * heading over a hairline; this keeps that rhythm rather than leaving each
+ * block to invent its own spacing.
+ */
+function Block({ title, children }) {
+  return (
+    <section className="px-5 sm:px-7 py-5 border-t border-border">
+      <h3 className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground mb-2">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+/** A label/value pair in the document's fact column. */
+function Fact({ label, value }) {
+  return (
+    <div>
+      <dt className="inline text-muted-foreground">{label} </dt>
+      <dd className="inline text-foreground font-medium tabular-nums">{value}</dd>
+    </div>
+  );
+}
+
+/** A quiet totals line. The loud one is the band, and there is only one. */
+function Row({ label, value }) {
+  return (
+    <div className="flex justify-between gap-3 text-muted-foreground">
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+/**
  * One line of the email trail.
  *
  * Absolute date AND relative age, because they answer different questions:
@@ -502,6 +749,11 @@ export default function QuoteDetailPage() {
  */
 function TrailRow({ label, at, detail, tone }) {
   const { t } = useTranslation();
+  // The company's chosen ordering, not a hardcoded en-CA. This is staff reading
+  // their own audit trail, which is precisely the case Company.dateFormat
+  // exists for — and a page that respects the setting in one place and ignores
+  // it two inches lower is how a preference stops being believed.
+  const { formatDateTime } = useCompanyPreferences();
   const when = new Date(at);
   const days = Math.floor((Date.now() - when.getTime()) / 86400000);
   const ago =
@@ -526,13 +778,7 @@ function TrailRow({ label, at, detail, tone }) {
         )}
       </span>
       <span className="text-muted-foreground tabular-nums">
-        {when.toLocaleString("en-CA", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })}
+        {formatDateTime(when)}
         <span className="text-muted-foreground/60"> · {ago}</span>
       </span>
     </div>
