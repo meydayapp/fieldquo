@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle } from "lucide-react";
-import { readableForeground } from "@/lib/brand/colour";
+import { readableForeground, ensureContrast } from "@/lib/brand/colour";
 import MediaUploader from "@/app/components/MediaUploader";
 
 const FALLBACK_ACCENT = "#06356b";
@@ -81,6 +81,11 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
 
   const accent = data?.company?.brandColor || FALLBACK_ACCENT;
   const accentOn = useMemo(() => readableForeground(accent), [accent]);
+  // The logo-stand-in glyph, drawn in the company's colour on an accentOn chip.
+  // ensureContrast leaves a dark brand exactly as it is (navy on white is
+  // already 12:1) and only steps a mid-tone far enough to clear the floor, so
+  // it stays their colour rather than being thrown away for black.
+  const monogramInk = useMemo(() => ensureContrast(accent, accentOn, 4.5), [accent, accentOn]);
 
   // Next step: an answer's branch target wins, else linear.
   function goNext(branchToId) {
@@ -174,7 +179,14 @@ export default function FunnelRunner({ companySlug, funnelSlug }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={c.logoUrl} alt={c.name} className="h-8 w-auto max-w-[140px] object-contain" />
           ) : (
-            <div className="h-8 w-8 rounded-lg grid place-items-center" style={{ backgroundColor: "#fff", color: accent }}>
+            // No logo: a chip standing in for one. The bubble was hardcoded
+            // white, which is a coin-flip — a pale brand put its own colour on
+            // white and vanished, and on a page whose background IS the accent
+            // an accent-on-accent bubble vanishes the other way. accentOn is
+            // already the measured partner of the accent, so it is both visible
+            // against the page and something the glyph can sit on; monogramInk
+            // then guarantees the glyph itself clears 4.5:1 on it.
+            <div className="h-8 w-8 rounded-lg grid place-items-center" style={{ backgroundColor: accentOn, color: monogramInk }}>
               <Building2 size={16} />
             </div>
           )}

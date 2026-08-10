@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
-import { readableForeground } from "@/lib/brand/colour";
+import { readableForeground, accessiblePair } from "@/lib/brand/colour";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
@@ -279,6 +279,14 @@ export default function QuoteApproval({ token }) {
           {quote.scopeGroups?.map((g, i) => {
             const groupAccent = g.accent || accent;
             const multi = (quote.scopeGroups || []).length > 1;
+            // The "01" badge sits ON the group's colour, and those colours are
+            // deliberately desaturated mid-tones (serviceContent.js), which is
+            // the one case where no foreground clears 4.5:1 — the clay reaches
+            // 4.36 against white and the ochre 4.39 against ink. So the badge
+            // fill nudges instead of the text, exactly as fillPair does for the
+            // document. The card's left border and wash keep the untouched
+            // colour, so the section still reads as that trade.
+            const badge = accessiblePair(groupAccent);
 
             return (
               <div
@@ -293,8 +301,8 @@ export default function QuoteApproval({ token }) {
                   <div className="flex items-center gap-2 min-w-0">
                     {multi && (
                       <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white shrink-0"
-                        style={{ backgroundColor: groupAccent }}
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                        style={{ backgroundColor: badge.bg, color: badge.fg }}
                       >
                         {String(i + 1).padStart(2, "0")}
                       </span>

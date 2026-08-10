@@ -31,6 +31,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { isPaidSubscription } from "@/lib/billing/access";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
@@ -78,6 +79,16 @@ async function loadSite(subdomain, { preview = false } = {}) {
           // town in Settings changes the public page without regenerating it.
           // The whole reason the areas block is `derived`.
           workAreas: { select: { name: true }, orderBy: { name: "asc" }, take: 40 },
+          // Only ever collapsed into the single boolean below — see the note
+          // where `company` is built. Selected narrowly for the same reason.
+          subscription: {
+            select: {
+              status: true,
+              pastDueSince: true,
+              canceledAt: true,
+              plan: { select: { priceMonthly: true } },
+            },
+          },
         },
       },
     },
@@ -176,10 +187,22 @@ export default async function CompanySitePage({ params, searchParams, language: 
   // workAreas comes back as [{ name }]; the renderer wants names. Flattened
   // here rather than in the component so the component stays a pure function of
   // its props and can be rendered in the editor preview with the same shape.
+  //
+  // `subscription` is destructured OFF rather than spread through: `company` is
+  // handed to client components (the booking and quote islands), so everything
+  // on it is serialised into the payload a stranger's browser receives. What
+  // this company pays us is nobody's business but theirs.
+  const { subscription, ...companyRow } = site.company;
   const company = {
-    ...site.company,
-    workAreas: (site.company.workAreas || []).map((a) => a.name).filter(Boolean),
+    ...companyRow,
+    workAreas: (companyRow.workAreas || []).map((a) => a.name).filter(Boolean),
   };
+
+  // The one sanctioned FieldQuo mention on a client-facing surface, and it is
+  // sanctioned on FREE sites only (see CLAUDE.md). Until now it rendered
+  // unconditionally, so every paying contractor was advertising us to every
+  // homeowner who opened their website.
+  const showFieldquoCredit = !isPaidSubscription(subscription);
   const theme = documentTheme(company);
   const fill = fillPair(theme);
 
@@ -402,6 +425,10 @@ export default async function CompanySitePage({ params, searchParams, language: 
         // they'd navigate out of the iframe.
         linkBase={query.preview === "1" ? `/site/${subdomain}` : ""}
         linkSuffix={query.preview === "1" ? "?preview=1" : ""}
+        // Passed in the preview too, and deliberately not forced off there: the
+        // editor's preview has to show what a visitor sees, credit included, or
+        // a free site's owner never learns it's on the page.
+        showFieldquoCredit={showFieldquoCredit}
       />
     </div>
   );

@@ -45,7 +45,12 @@ function accent2Of(company, theme) {
   return typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s) ? s : theme.accentText;
 }
 
-export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "" }) {
+// `showFieldquoCredit` defaults to FALSE, not true. A caller that forgets to
+// pass it renders a plain footer, which is merely a missing line; the other
+// default puts our name on a paying contractor's website, which is the bug this
+// prop exists to stop. Resolved from the plan in page.js — see
+// isPaidSubscription in lib/billing/access.js.
+export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, subdomain, style, language, languages = [], menu = [], currentPage, linkBase = "", linkSuffix = "", showFieldquoCredit = false }) {
   // `t` is the copy table for THIS site's language. Threaded to every block
   // rather than imported inside each, so one page always renders in one language
   // and a block can't accidentally read a different one.
@@ -93,7 +98,7 @@ export default function SiteBlocks({ blocks, company, theme, fill: fillPairIn, s
           );
         })}
       </main>
-      <SiteFooter company={company} theme={theme} accent2={accent2} t={t} />
+      <SiteFooter company={company} theme={theme} accent2={accent2} t={t} showFieldquoCredit={showFieldquoCredit} />
     </>
   );
 }
@@ -1518,7 +1523,11 @@ function CtaBand({ block, company, theme, fill, S, t }) {
   );
 }
 
-function SiteFooter({ company, theme, t }) {
+// The credit line is the price of a free website, and nothing else in this
+// component may mention FieldQuo. A contractor on a paid plan gets a footer
+// carrying their name and their copyright and no trace of ours — a homeowner
+// comparing three quotes must not be able to tell which of them share software.
+function SiteFooter({ company, theme, t, showFieldquoCredit = false }) {
   return (
     <footer className="px-5 sm:px-8 py-12 border-t" style={{ borderColor: theme.border }}>
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -1532,7 +1541,9 @@ function SiteFooter({ company, theme, t }) {
         </div>
         <div className="text-center sm:text-right text-xs" style={{ color: theme.inkFaint }}>
           <p>© {new Date().getFullYear()} {company.name}</p>
-          <p className="mt-1">{t.siteBy} <a href="https://www.fieldquo.com" className="underline">FieldQuo</a></p>
+          {showFieldquoCredit && (
+            <p className="mt-1">{t.siteBy} <a href="https://www.fieldquo.com" className="underline">FieldQuo</a></p>
+          )}
         </div>
       </div>
     </footer>

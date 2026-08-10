@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, Check, Save } from "lucide-react";
 import { designerTheme } from "@/lib/kitchen/designerTheme";
+import { readableForeground } from "@/lib/brand/colour";
 import KitchenDesigner from "@/app/components/kitchen/KitchenDesigner";
 
 export default function DesignClient() {
@@ -148,8 +149,12 @@ export default function DesignClient() {
               type="button"
               onClick={save}
               disabled={saving || !design}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold text-white disabled:opacity-50"
-              style={{ backgroundColor: theme.gold }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold disabled:opacity-50"
+              // `gold` is the historical name for the company's accent, not a
+              // colour — a contractor whose brand is yellow got white text on
+              // yellow here. designerTheme exposes six keys and no paired ink,
+              // so the pair is measured at the point of use.
+              style={{ backgroundColor: theme.gold, color: readableForeground(theme.gold) }}
             >
               {saving ? (
                 <Loader2 size={15} className="animate-spin" />

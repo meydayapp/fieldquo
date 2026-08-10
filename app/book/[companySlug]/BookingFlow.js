@@ -395,8 +395,11 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                       className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors flex items-center gap-3"
                     >
                       <span
-                        className="shrink-0 w-11 h-11 rounded-full grid place-items-center text-sm font-bold text-white"
-                        style={{ backgroundColor: accent }}
+                        className="shrink-0 w-11 h-11 rounded-full grid place-items-center text-sm font-bold"
+                        // accentOn, not white — this is the "logo bubble" the
+                        // comment beside accentOn already claimed to cover, and
+                        // white initials on a pale or yellow brand are invisible.
+                        style={{ backgroundColor: accent, color: accentOn }}
                       >
                         {initials || "★"}
                       </span>
