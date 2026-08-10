@@ -571,6 +571,150 @@ item that can span trades.
 
 ---
 
+## Part 2C — Deep benchmark pass: methodology traps and pricing STRUCTURE
+
+A second, much deeper research pass (~180 fetches). Its per-item ranges refine
+§2.1; what follows is only the material that **changes the build**.
+
+### 2C.1 Three methodology traps — read before trusting any cost guide
+
+**1. The aggregators are one source wearing three hats.** Angi, HomeGuide and
+HomeAdvisor are all IAC/Angi-owned, and the identical "$50–$130/hr" band appears
+verbatim on all three. HouseCall Pro's 2026 task table is **identical to Angi's**.
+Treating those as four confirmations is how a wrong number becomes "consensus".
+Genuinely independent reads: **Fixr, Thumbtack, Build-folio**, and individual
+contractor blogs.
+
+**2. Homewyse is a systematic high outlier** — ~1.6–2× consensus on every device
+task, with material/labour/supplies listed as three identical line items (a
+formula artefact). **Exclude from baselines.**
+
+**3. Practitioner forums are now paywalled.** ElectricianTalk and ContractorTalk
+307-redirect to Tollbit returning **HTTP 402**; Mike Holt's returns **403**. Every
+practitioner figure below is a search-engine snippet with **unverified date and
+region** — and they are simultaneously the *most useful* and *least verified*
+numbers in the research. Highest-value thing to re-verify with a human browser.
+
+### 2C.2 The structural findings — these are schema requirements
+
+**① First-unit vs each-additional is the real shape of device pricing.** Not a
+discount — a different price for the first one, because the first unit carries
+the truck roll:
+
+| Position | Device price |
+|---|---|
+| **1st device (sole reason for the trip)** | **$125–$200** |
+| Devices 2–10 | $55–$90 |
+| Devices 11–40 | $45–$70 |
+| 40–75 (whole house) | $40–$60, **or switch to a day rate** |
+| Filthy / crawl access | **+$20/device** |
+
+Corroborated three independent ways (practitioner "$55/device whole house, $75 if
+real dirty"; "$25 standard / $50 GFCI when already on site, but $100 / $125 for
+showing up to do one"; and published "bundling 3–6 outlets cuts per-outlet labour
+30–50%"). Same shape appears in data drops (**$85 first, $55 each additional**),
+fixtures (**$150–250 first, $50–125 each additional**), recessed cans, and
+circuits (**2 circuits −15–20% each, 3+ −25–40%**).
+
+⚠️ HomeAdvisor shows *no* volume discount (1 outlet $130–300 vs 10 outlets
+$135–300 each). That contradicts every other source and every practitioner —
+it reads as linear extrapolation, not observed quotes. **Judged wrong.**
+
+**② The same item is TWO different SKUs.** An AFCI breaker fitted while the panel
+is already open during other work is **$50–$75**. The same breaker as a standalone
+truck roll is **$180–$400**. Both figures are correct. A price book with one
+"AFCI breaker" line will badly under-price the one-off call. The catalogue needs
+an **add-on price** and a **standalone price** per item.
+
+**③ On small jobs the minimum charge IS the price.** A fixture swap is ~30
+minutes of work, but every billing-aware source lands at the same place: service
+call **$100–$200 including the first hour**, or a 1–2 hour minimum. **Price a
+single fixture swap at $150–$250 (the minimum), not at ~$60 of labour.**
+
+**④ Adders are first-class, not notes.** The single biggest driver on many jobs:
+
+| Adder | Effect |
+|---|---|
+| Smart switch, **no neutral in box** | **+$100–$300**, or +$200–$500/location |
+| Smart switch on a 3-way | +$150–$250/location, **plus companion devices** |
+| Chandelier 50–75 lb / 75–150 / 150–300 / 300+ | +$50–150 / +$150–400 / +$300–700 / +$700–1,500 |
+| Ceiling 16–20 ft | can **double or triple** the standard install |
+| Recessed light hitting a joist/duct | **+$200 per light** |
+| Aluminium wiring (special connectors) | +$50–$100 |
+| Rewire: opening finished walls | **+25–30%** total project |
+| Rewire: open-wall renovation instead | **−30–40%** |
+
+**⑤ Permit fees use three structurally incompatible MODELS.** Verified against
+real schedules:
+- **Per unit of work** — Washington State L&I (effective 1 Jul 2026): first
+  1,300 sq ft **$119.90**, each additional 500 sq ft $38.20; circuits per panel
+  (up to 4) $78.80, each additional $8.20; new service 0–200A $129.40 … 801+A
+  $405.00.
+- **Percentage of job valuation** — Philadelphia **$25 per $1,000** of electrical
+  cost incl. labour/overhead/profit, min $50 max $15,000. Rock Island IL: $30
+  application + **1% of valuation**.
+- **Flat by job type** — Jersey City: min $80, panel upgrade $175–275, EV charger
+  $90–130, **full rewire $350–700**.
+
+**Do not ship a national permit number.** Make it a per-company configurable line
+supporting all three models, defaulting to ~$150 small work / ~$350 rewire.
+
+**⑥ The floor-rate arithmetic** (worth printing in the product): solo electrician
+wanting $70,000 take-home → $81,400 taxable after SE tax + $11,000 overhead =
+**$115,500 revenue at 20% margin ÷ 1,200 billable hours = $96.25/hr minimum**,
+which sets a **$95–$120 floor for a one-hour service call**. Related: *"a
+diagnostic fee under about $75 rarely covers the loaded cost of putting a skilled
+tech on site."* Electrical diagnostic is the **highest of the three trades**
+($125–175 vs HVAC ~$89, plumbing $75–100) because of liability and code
+complexity — and the common practice is to **credit it against approved work**.
+
+**⑦ Source bias runs in a predictable direction on excavation.** Trenching:
+lead-gen sites cluster **$5–12/LF**, contractor-oriented and itemised sources
+cluster **$11–27/LF**. The gap is systematic — the low band is excavation labour
+only, shallow, easy soil. **Use $10–18/LF for residential electrical.** Boring is
+the reverse and even sharper: **the actual boring contractor quotes the lowest
+number ($6–15/ft)** while the furthest-removed blog quotes $30–70+. And **short
+trenches are minimum-charge jobs, not per-foot jobs** — a $1,200 crew minimum on
+35 ft computes to $34/ft, which is an artefact, not a rate.
+
+**⑧ Two code-driven cost levers a good quote should surface.** One GFCI at the
+first outlet protects everything downstream on that circuit — one $150 device
+instead of six. And a **GFCI breaker protecting the whole circuit is cheaper than
+individual GFCI receptacles at each location.** Software that knows this can show
+the client a cheaper compliant option, which is the opposite of what the
+high-pressure estimates in Part 1 do.
+
+### 2C.3 Refined ranges worth carrying into the catalogue
+
+Rewire **$5–17/sq ft** finished walls (the $2–4 camp describes partial/accessible
+work — *do not seed from it*); **1,500 sq ft → $6,000 low / $10,000–15,000
+typical / $25,000 high**, with three independent 2026 sources converging on
+$8,000–15,000. Regional per sq ft: Northeast $7–14 · West Coast $8–15 · Midwest
+$5.50–11 · South $5–10. Drywall repair **almost never included** — $300–1,500 per
+patch, or $2,000–5,000 with painting.
+
+Knob & tube **$12,000–36,000** ($10–20/sq ft). Aluminium: AlumiConn whole-house
+**$1,500–5,000**, COPALUM **$3,500–8,000**, full copper rewire **$12,000–20,000+**
+— and the COPALUM premium is **technician scarcity, not materials** (4–8 week
+lead times). A typical home has **25–50 aluminium connection points**.
+
+Recessed **$150–250 new / $200–330 retrofit** (retrofit ≈ **1.33×**). Ceiling fan
+**$175–300 existing box / $275–400 needing a fan-rated box / $400–550 no existing
+fixture**. Fixture swap **$150–300**. Outlet replace **$150–220**. New outlet
+**$200–300**, but **$700–900 fished through a finished wall** and **$900–2,000 on
+a new circuit from the panel**. GFCI **$190–215**. Standard breaker **$120–220**
+installed on a $5–20 part. Smoke/CO **$100–200 each**, whole house **$500–1,200**.
+Diagnostic **$125–175**. Cat6 **$150–250/drop** (price by drop, never by foot).
+
+⚠️ **Still unverified after this pass:** opening count for a 1,500 sq ft house
+(so the per-opening model can't be totalled), breaker pricing by brand, retrofit
+smoke-interconnect wiring, PVC conduit by trade size, and NEC 300.5 burial depths
+(the one source found contradicts standard practice — **confirm before
+encoding**). Also: **"per circuit" troubleshooting appears not to exist** in the
+market; everyone prices per visit or per hour.
+
+---
+
 ## Part 3 — Material costs (in progress)
 
 Retail material costs by category (breakers, panels, transfer switches, wire,
