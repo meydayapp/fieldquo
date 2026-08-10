@@ -1,4 +1,5 @@
-# Electrical pricing — research & default price-book design
+# Trade pricing — research & default price-book design
+### (electrical + plumbing)
 
 **Purpose.** Give FieldQuo a defensible default price book for residential
 electrical, so an electrician signing up isn't staring at an empty rate card —
@@ -712,6 +713,360 @@ smoke-interconnect wiring, PVC conduit by trade size, and NEC 300.5 burial depth
 (the one source found contradicts standard practice — **confirm before
 encoding**). Also: **"per circuit" troubleshooting appears not to exist** in the
 market; everyone prices per visit or per hour.
+
+---
+
+## Part 2D — Plumbing market benchmarks
+
+Same treatment as §2/§2C, for plumbing. Same aggregator trap applies and is
+**worse here**: Homewyse dominated every fixture-install search at roughly **2×**
+the independent reads, so the fixture section below is thin by necessity — better
+thin and honest than padded with a contaminated source.
+
+### 2D.1 Benchmarks (USD)
+
+**Service & emergency.** Service call / diagnostic **$89–175** (range $50–275).
+Emergency hourly **$150–300**. Minimum charge **$150–200**. The reliable form is
+the **multiplier**, not the absolute: after-hours weeknight **1.5×**, weekend
+**2×**, holiday **2–3×**. Callout-credited-or-not is a live fork in both markets,
+exactly as in electrical — the trade's own best practice is a diagnostic fee
+that is **waived on approval**, stated up front.
+
+**Drain clearing.** Fixture/branch snake **$175–350** · main line **$250–500** ·
+hydro-jet branch **$450–950** · hydro-jet main **$600–1,300** · camera with
+service **$150–300** (standalone up to $900). A published regional grid (Denver
+$175–340 → San Jose $220–420 for the identical snake) gives a **~25% metro spread
+on task price** — the best regionalisation evidence found for any plumbing task.
+*Your Roto-Rooter Indianapolis invoice ($568 labour before the 15% discount) sits
+at the top of the main-line band — a national-brand premium, not an outlier.*
+
+**Water heaters.** Tank installed: 40 gal electric **$900–1,400** · 40 gal gas
+**$1,100–1,800** · 50 gal **$1,200–2,000** (to $3,100). **Install labour alone
+$200–600** (2–4 hrs). Adders: expansion tank $150–400 · venting $500–1,500 ·
+disposal $50–150. Tankless installed **$3,000–5,500**, labour **$1,200–1,800**,
+scaling to $2,500–4,000 for a full retrofit with new gas from the meter.
+
+**Repipe.** Per fixture **$550 – $976 – $1,200** (*your Level-3 estimate is the
+midpoint*). 2-bath/1,500 sq ft: PEX **$4,500–7,000**, copper **$7,000–10,000**.
+3-bath/2,500 sq ft: PEX **$7,000–10,000**, copper **$10,000–16,000**. **Copper
+adds 40–60%** — and note the raw material delta is trivial against the total, so
+**the copper premium is labour and fittings, not pipe.** Galvanised removal +10–20%.
+The published fixture-count convention (bathroom sinks, toilets, showers/tubs,
+kitchen sinks, water heater, washer connection, hose bibs) **matches your
+estimate's count exactly**.
+
+**Water main.** Open trench **$55–185/ft** · pipe bursting $95–245 · **directional
+bore $125–325/ft**, i.e. HDD carries a **50–80% premium**. ⚠️ One source claims
+the reverse; leaning dearer. *Your $4,468 bore base fee including 50 ft works out
+to ~$89/ft — below both bands, because it amortises mobilisation into a base fee
+and charges obstruction separately at $621. That structure is the honest one.*
+The dispute-causing adders: driveway saw-cut/patch **$1,200–3,800**, landscape
+restoration **$450–2,400** — neither is plumbing work, both land on a plumbing
+invoice.
+
+**Sewer.** Excavation **$50–250/ft** (avg $150) · CIPP lining $90–250 · pipe
+bursting $60–200. Spot repair $150–3,800 · full replacement **$3,000–7,000**.
+
+**Fixtures** *(thin — Homewyse contamination)*: toilet **$350–700** · faucet
+**$250–500** · disposal **$250–450** · dishwasher hookup **$150–250** · washer box
+**$650–1,500** (*your $560 is below the band because that band includes running
+new supply and drain — different scope*). ⚠️ **Shower valve: no independent read
+exists. Ship no default.**
+
+**Valves/gas/slab/cast iron.** PRV **$400–650** · angle stop $200–300 · hose bib
+$150–250 · gas line new run **$15–25/ft** simple, $35–50 complex · slab leak
+detection **$150–400**, repair **$1,000–4,000** (reroute up to $15,000) · cast
+iron **$150–250/ft** traditional, $125–175 lined. ⚠️ Angi's "$12.50–30/ft with
+labor" for cast iron is a material figure mislabelled as installed — **the same
+failure mode as their $1,567 whole-house rewire. Excluded.**
+
+**Permits: $7–$400, a 57× spread** (Chesapeake VA $7 per heater; NYC $130; SF
+$300–400; *your estimate $238.50*). **No national default is possible** — same
+conclusion as electrical.
+
+### 2D.2 Labour
+
+Billed **$80–130/hr** standard residential; loaded rate used in flat-rate builds
+**$90–160/hr**; emergency $150–300. ⚠️ **No source publishes a metro/suburban/
+rural cut for plumbing** — tiers can only be derived from a "30–60% metro
+premium" claim, and the one regional task grid suggests a smaller ~25% spread.
+
+**Wages (BLS OEWS May 2025, SOC 47-2152):** median **$30.67/hr** ($63,800),
+mean $34.70 ($72,170), n=465,840. ⚠️ **bls.gov returned 403** — these come from a
+secondary restatement, arithmetically self-consistent but not primary-verified,
+and its claimed +$9,200 YoY jump is implausible. **Re-check with a human browser.**
+
+**The wage-to-bill gap explained properly.** Plumbers earn essentially the same
+as electricians ($30.67 vs $30.38) yet bill higher at journeyman/master level.
+The reason isn't burden alone — it's **utilisation**: a service plumber is
+billable **~30% of paid hours** ("50% is extremely efficient"). ServiceTitan's
+worked build: $28/hr wage → 2,916 billable hrs → +$34.29/hr allocated overhead →
+**$62.29 break-even** → **$88.99 billable at a 30% net target**. Corroborated
+independently: journeyman pay $28–45 → loaded rate $90–160, a **2.5–4×
+wage-to-bill ratio**.
+
+### 2D.3 ⚠️ Markup: plumbing and electrical differ in OPPOSITE directions
+
+The single most important cross-trade finding.
+
+Sources split on whether markup should vary by item cost. ServiceTitan argues for
+one uniform **3×–6×** on everything, purely for bookkeeping consistency.
+Everyone else — and the field — uses a **tiered, inverse** table:
+
+| Part cost | Multiplier |
+|---|---|
+| Under $25 | **4–5×** |
+| $25–100 | 3–4× |
+| $100–500 | 2.5–3× |
+| **Over $500** | **1.8–2.5×** |
+
+**The decisive evidence is your own estimate.** A ~$1,000 water heater selling at
+**$2,664 is 2.66×** — right at the top of the ">$500 → 1.8–2.5×" tier. That
+**flatly contradicts the electrical research's "high-value equipment 10–15%"**,
+which came from switchgear and generators.
+
+**Both are correct, and the trades genuinely differ.** An electrical panel is a
+commodity the homeowner cannot meaningfully shop. A *Bradford White 50-gal* is a
+model number they can Google in ten seconds — and contractors still take 2–3× on
+it. **Do not carry the electrical equipment-markup band into plumbing.** A single
+global multiplier fails on both trades, in opposite directions.
+
+Gross margin target **60–62%** on plumbing service/repair — *higher* than
+electrical's 45–65% and stated more confidently. ⚠️ No verified plumbing net-margin
+benchmark exists; electrical's 10–20% is the fallback. Same margin formula trap:
+**price = cost ÷ (1 − margin)**.
+
+**T&M survives where it should** — leak detection, complex troubleshooting, major
+repipes — *"often with a not-to-exceed cap."* **That NTE cap is a schema
+requirement the electrical research never surfaced.**
+
+### 2D.4 Verification of the four structures from §2B
+
+| Structure | Verdict |
+|---|---|
+| **Equipment + mandatory install package** | **Decomposition CONFIRMED standard** (price the removal, the install, the test/inspect and the code-required parts as separate tasks combined on one quote). The explicit *"Must be Combined with Install Package"* dependency flag is this contractor's implementation, not a published convention. Four defensible reasons it exists: the equipment price stays shoppable while margin lives in the non-comparable install; the install tiers good/better/best independently of the tank; **the warranty splits cleanly and must** (6-yr manufacturer on the tank vs 1–2 yr contractor on labour — one line cannot carry two terms); and the package absorbs jurisdiction-specific code parts without re-pricing the equipment SKU. |
+| **Per-fixture repipe** | **CONFIRMED standard.** Used by the aggregators ($1,200/fixture) and by specialist repipe contractors who publish what counts as a fixture. |
+| **Difficulty levels** | **Mechanism CONFIRMED** and quantified — slab homes **+20–40%** over crawlspace, multi-storey **+10–20%**. But **no source recommends printing the criteria on the customer's document.** That is a genuine differentiator, and the most copyable idea in the whole estimate set: it converts a judgement call the client must trust into a fact they can check. |
+| **Philosophy-named tiers** | Literature is uniformly good/better/best — **but the canonical plumbing triad is "repair / replace / replace with upgrade"**, which is already philosophy-naming. "Bandaid solution" is the same idea in blunter words. Precedent exists; the framing argument holds (metal tiers imply the cheap option is inferior; philosophy tiers name the trade-off). |
+
+### 2D.5 Warranty — the matrix is real and publicly published
+
+**Roto-Rooter's own national guarantees page publishes different terms per
+service line**, confirming your invoice's structure is company policy:
+drain cleaning **6 months** *conditional* ("clear the blockage, or no labor
+charge") · general plumbing 1 yr parts+labour · water heaters 1 yr + 6-yr
+manufacturer tank · **excavation & relining 5 years**. The page also says
+*"guarantees may vary by location"*, which is why your branch invoice carries a
+7-day toilet-auger term the national page doesn't. ⚠️ The residential/commercial
+split and the 7-day term are **not independently confirmed** beyond your document.
+
+Industry norms: basic repair 30 days–1 yr · **drain cleaning 30 days–6 months
+(shortest in the trade)** · major install 1–2 yr · repipe 2–5 yr (to 10) ·
+excavation/relining 5 yr.
+
+**Parts and labour terms differ — and not always in the direction you'd guess.**
+One documented case runs *90 days parts / 30 days labour* (parts longer); the
+water-heater pattern is the reverse (6-yr part, 1–2 yr labour). Your own set has
+both.
+
+> **Why drain cleaning is the anomaly:** it isn't a workmanship warranty at all —
+> it's a **performance guarantee on a pipe the contractor didn't build and the
+> customer keeps using.** A 7-day toilet-auger term is honest for the same
+> reason: nothing about the auger fixes what gets flushed.
+
+**Requirement: a price-book item storing ONE warranty string is wrong.** It needs
+at minimum `(partsTerm, labourTerm)`, plus residential/commercial variants where
+they differ. Roto-Rooter publishing exactly that shape makes this a documented
+requirement, not over-engineering.
+
+### 2D.6 Plumbing-specific disputes
+
+Verbal quotes dominate, with real documented amounts: **$695 overcharge** on
+three faucets with no written estimate; **verbal $2,000 → billed $3,351**. The
+named scam sequence is *low verbal estimate → push to start immediately → never
+send the written estimate → bill several times the verbal figure.*
+
+**"As per verbal quote" — the exact line on your AU invoice — is the worst
+possible wording.** It documents the *absence* of a quote while pretending to
+cite one, and hands the customer the argument.
+
+Also distinct to plumbing: undisclosed callout/travel lines added at invoice
+time; **emergency premiums compounding three ways at once** (trip fee + hourly
+multiplier + holiday tier, almost never all disclosed); and **excavation scope
+creep** — the driveway patch and landscape restoration that aren't plumbing work
+but arrive on a plumbing invoice. *That is precisely what your Excavation Clause
+exists to pre-empt.*
+
+### 2D.7 ⚠️ AU/NZ — one finding is TIME-CRITICAL
+
+**GST: AU 10%. NZ is 15%, not 10%.** Consumer-facing quotes in AU must present a
+single GST-inclusive headline total; line-items-ex-GST → subtotal → GST → total
+(your invoice's form) is fine for the body.
+
+**Callout + hourly is near-universal** — billed separately from, and often exactly
+equal to, the first labour hour. *Your $130 callout + $130 for one man-hour is the
+textbook form.* Callout $80–250; standard hourly $80–200. ⚠️ One published city
+table contradicts its own stated national average and sits well below every other
+source — **do not ship it**.
+
+> ### 🚨 The AU credit-card surcharge is legal today and BANNED from 1 October 2026
+>
+> The RBA has banned surcharging on **Visa, Mastercard and eftpos** from that
+> date, enforced through the card schemes' merchant rules. **Amex and PayPal are
+> unaffected** (subject to not exceeding actual cost). **Renaming it an "admin
+> fee" or "service fee" does not avoid the ban** and may itself be misleading
+> conduct under the ACL.
+>
+> **Product consequence:** the surcharge line must be **date-aware and switchable
+> per payment method**, not a permanent field. A quote that emits a Visa surcharge
+> line on 2 October 2026 puts the contractor in breach of their merchant
+> agreement. This needs to ship before then.
+
+**Written-contract thresholds** (general residential building work, which
+plumbing falls under — no plumbing-specific rule found below these): QLD
+**$3,300** incl GST · NSW **$5,000** incl GST · NZ **$30,000** incl GST (Building
+Act Part 4A, plus a mandatory disclosure statement and prescribed checklist —
+and it explicitly covers subcontracted plumbing and electrical work).
+⚠️ **VIC: do not ship.** One unverified source says $5,000; the Domestic Building
+Contracts Act likely uses a different structure. Needs checking.
+
+### 2D.8 What could not be verified — do not fill these in
+
+BLS primary source (403); contractor wholesale cost of a 50-gal heater (so the
+markup inference rests on a secondary claim); **shower valve install — no
+independent band exists**; minor gas repair (only your $311); plumbing-specific
+burden multiplier; plumbing net-margin benchmark; region tiers for billed hourly;
+apprentice/journeyman/master billed rates (single source family); all flat-rate
+adoption percentages (marketing content); the Roto-Rooter residential/commercial
+split; Victoria's threshold; **trenchless-vs-open-trench direction** (sources
+directly contradict; leaning trenchless-dearer); draw-schedule disputes as a
+plumbing-specific pattern (no evidence found).
+
+---
+
+## Part 2E — The rewire takeoff model (automating $/sq ft properly)
+
+The owner asked whether a rewire can be estimated from square footage — "a 2,000
+sq ft home might be less than a 3,000 sq ft one". It can, but **not the way the
+cost guides do it**, and the difference matters.
+
+### 2E.1 Every published source assumes linearity, and none measured it
+
+konnworld, engineerfix and electricalestimating.us all give **1.5–2.0 ft of cable
+per sq ft** and then multiply. Check the arithmetic: 1,000→1,500–2,000 is 1.5–2×;
+1,200→1,800–2,400 is 1.5–2×; 2,000→3,000–4,000 is 1.5–2×. **These are not three
+observations of a trend — they are one assumption applied three times.** They
+cannot be evidence either way.
+
+**The mechanism says sub-linear.** Cable is driven by device count; device count
+is driven by **wall perimeter**, not floor area (NEC 210.52(A) is a spacing rule
+along walls). Perimeter scales as √area, and room count grows more slowly than
+floor area. Modelled: **wire_ft ∝ sqft^0.74**, **openings ∝ sqft^0.76**.
+
+| sq ft | ft/sq ft |
+|---|---|
+| 1,000 | **1.90** |
+| 1,500 | 1.78 |
+| 2,000 | 1.70 |
+| 2,500 | 1.63 |
+| 3,000 | **1.43** |
+
+The model tracks the published band up to ~2,500 sq ft and falls below it at
+3,000 — exactly where sub-linearity should bite. **A flat multiplier over-buys
+~25% of the cable on a 3,000 sq ft job.** So yes: a 3,000 sq ft home costs less
+*per square foot* than a 1,000 sq ft one, and the guides get that wrong.
+
+### 2E.2 The opening count — the gap in §2C is now closed
+
+§2C flagged that no source gives an opening count for a 1,500 sq ft house, which
+made the per-opening model (the one electricians actually quote) impossible to
+total. Derived from NEC geometry:
+
+| sq ft | bd/ba | Openings (code) | **Openings (practical)** | op/100 sq ft | Circuits | Panel |
+|---|---|---|---|---|---|---|
+| 1,000 | 2/1 | 67 | **75** | 7.5 | 17 | 100 A / 24 |
+| 1,500 | 3/2 | 103 | **117** | 7.8 | 19 | 150 A / 30 |
+| 2,000 | 3/2 | 114 | **130** | 6.5 | 20 | 200 A / 32 |
+| 2,500 | 4/3 | 142 | **163** | 6.5 | 22 | 200 A / 40 |
+| 3,000 | 4/3 | 150 | **172** | 5.7 | 22 | 200 A / 40 |
+
+**Validated three independent ways:**
+1. **Receptacle density** — model gives 2.9–3.0 per 100 sq ft; a real reported
+   house (100 receptacles in 4,300 sq ft) gives ~3.0. Match.
+2. **The two pricing models reconcile.** 117 openings × the published
+   $100–300/opening = **$11,700–35,100**, and the owner's real 1,461 sq ft quote
+   ($21,915) lands dead centre at **$194/opening**. At 50 openings the
+   per-opening method could not reproduce any real quote. *The opening count is
+   what makes the sq-ft model and the per-opening model agree* — that agreement
+   is the evidence.
+3. **NEC 220.82 load calc** for 1,461 sq ft → 96 A, so 100 A is code-adequate and
+   150–200 A is practice. Consistent with the panel column.
+
+⚠️ A search snippet (paywalled forum, unverified) claims "a 2,000 sq ft home
+probably has 30–60 openings". **Discarded** — a 2,000 sq ft house needs **46
+receptacles at bare code minimum** from 210.52(A) geometry alone, before a single
+switch, fixture or appliance.
+
+### 2E.3 Labour — published units over-predict residential by 2.2×
+
+Summing NECA-style labour units straight gives 240 crew-hours and $33,782 for the
+owner's 1,461 sq ft job, against an actual **$21,915**. NECA units are benchmarked
+to commercial work. **Residential productivity factor ≈ 0.456.**
+
+Hours per opening, by access: **0.56 open walls · 0.63 light reno · 0.92 fished
+drywall · 1.21 plaster & lath · 1.48 knob-and-tube/historic.** Rough-in is 71% of
+hours, trim-out 29%.
+
+**Independent corroboration** (not calibrated — a genuine check): a published
+crew-day table (2–3 crew) converts to 48–120 / 100–160 / 140–200 crew-hours for
+1,000 / 2,000 / 3,000 sq ft. The model's fished-drywall figures — 79, 117, 146 —
+sit inside all three. Two unrelated methods agreeing is the strongest validation
+in this research.
+
+### 2E.4 ⚠️ The published $/sq ft benchmark contradicts the published $/opening band
+
+Model output for 1,500 sq ft spans **$12.19/sq ft (open walls) → $19.06 (K&T)**,
+i.e. the upper half of the $5–17 band, and it **cannot reach the bottom**.
+
+That is correct behaviour, and **the benchmark is what's wrong**: $10,000 for
+1,500 sq ft is **$85/opening — below the floor of the $100–300/opening band the
+same sources publish.** The two benchmarks are mutually inconsistent;
+$10,000–15,000 only reconciles at its very top.
+
+> **Product rule: never surface $5–9/sq ft to a homeowner.** It describes new
+> construction or open-wall work — one source says so explicitly (new
+> construction $3–5, existing $5–9) while its own regional table says Northeast
+> $7–14 and West Coast $8–15. It will be read as a whole-house rewire price.
+
+### 2E.5 What the model cannot know — and why it must return a RANGE
+
+Four variables swing the price by **2.9×** between best and worst case:
+
+| Variable | Multiplier |
+|---|---|
+| Wall access (open → finished) | 1.00 → 1.75 |
+| Wall construction (drywall → plaster & lath) | → 2.35 |
+| Existing wiring (→ knob & tube / historic) | → 2.90 |
+| Storeys | +15–20% each |
+
+Plus hard stops and adders the model can't infer: **asbestos/lead** (pre-1980 —
+separate trade, often paired with K&T), attic/crawl access, **slab-on-grade**
+(removes the easiest cable path, +20%), historic designation, occupancy during
+work (+10–15%), and a **15–25% unknown-conditions buffer**.
+
+**Also a real omission found by the model's own failure**: it under-predicted the
+"Level 3" quote by 30% largely because it carries a *panel* line ($1,500–3,000)
+but **no service-entrance line** — mast, meter base, service conductors,
+grounding electrode, utility coordination. A full service upgrade is
+**$3,000–6,000**, with meter relocation $4,000–8,500. That must be its own
+optional line, never folded into $/sq ft.
+
+> **Until wall access, wall construction, wiring type and storeys are answered,
+> the honest output is a range, not a number.** A rewire estimator that emits a
+> single figure from square footage alone is exactly the "control that appears to
+> work and doesn't" that AGENTS.md forbids — so the model is being built to
+> return `{ low, typical, high, assumptions[], needsIntake[] }` and to refuse to
+> produce a single price until those four are known.
 
 ---
 
