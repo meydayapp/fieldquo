@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import MediaUploader from "@/app/components/MediaUploader";
 import { useRouter } from "next/navigation";
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
@@ -66,6 +67,7 @@ export default function NewQuotePage() {
   const [products, setProducts] = useState([]);
   const [scopeGroups, setScopeGroups] = useState([]);
   const [notes, setNotes] = useState("");
+  const [clientPhotos, setClientPhotos] = useState([]);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
   // The company's tax setup, kept raw so the rate can be re-resolved when the
@@ -582,6 +584,7 @@ export default function NewQuotePage() {
         taxEnabled,
         total,
         notes,
+        clientPhotos,
         // Always created as a draft. Only a confirmed send promotes it,
         // in app/api/quotes/[id]/send.
         status: "draft",
@@ -789,6 +792,22 @@ export default function NewQuotePage() {
           rows={3}
           placeholder={t("app.quoteNew.notesPlaceholder")}
           className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
+        />
+      </div>
+
+      {/* Job photos. The column and the quote detail page already supported
+          these, but only lead intake ever filled them — a quote typed up by
+          staff had nowhere to put the pictures from the site visit. */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-2">
+          {t("app.quoteDetail.clientMedia")}
+        </h2>
+        <MediaUploader
+          uploadUrl="/api/upload"
+          value={clientPhotos}
+          onChange={setClientPhotos}
+          label={t("app.quoteNew.addPhotos")}
+          hint={t("app.quoteNew.addPhotosHint")}
         />
       </div>
 

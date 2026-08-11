@@ -18,6 +18,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle } from "lucide-react";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
+import MediaUploader from "@/app/components/MediaUploader";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
@@ -30,6 +31,7 @@ export default function EditQuotePage() {
   const [quote, setQuote] = useState(null);
   const [groups, setGroups] = useState([]);
   const [notes, setNotes] = useState("");
+  const [clientPhotos, setClientPhotos] = useState([]);
   const [processNotes, setProcessNotes] = useState("");
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
@@ -63,6 +65,7 @@ export default function EditQuotePage() {
           })),
         );
         setNotes(q.notes || "");
+        setClientPhotos(Array.isArray(q.clientPhotos) ? q.clientPhotos : []);
         setProcessNotes(q.processNotes || "");
         setDiscount(money(q.discount));
         setTaxEnabled(q.taxEnabled !== false);
@@ -147,6 +150,7 @@ export default function EditQuotePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           notes,
+          clientPhotos,
           processNotes,
           discount: money(discount),
           subtotal: totals.subtotal,
@@ -354,6 +358,19 @@ export default function EditQuotePage() {
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            {t("app.quoteDetail.clientMedia")}
+          </label>
+          <MediaUploader
+            uploadUrl="/api/upload"
+            value={clientPhotos}
+            onChange={setClientPhotos}
+            label={t("app.quoteNew.addPhotos")}
+            hint={t("app.quoteNew.addPhotosHint")}
           />
         </div>
 

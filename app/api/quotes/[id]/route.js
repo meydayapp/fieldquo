@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { recordActivity } from "@/lib/activity/log";
+import { normaliseMediaList } from "@/lib/media/validate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -94,6 +95,7 @@ export async function PATCH(request, { params }) {
     processNotes,
     validUntil,
     scopeGroups,
+    clientPhotos,
   } = body;
 
   // Line-item edits are only valid while the quote is open. Editing scope groups
@@ -122,6 +124,11 @@ export async function PATCH(request, { params }) {
     ...(processNotes !== undefined && { processNotes }),
     ...(validUntil !== undefined && {
       validUntil: validUntil ? new Date(validUntil) : null,
+    }),
+    // Re-sanitised on every save, not just on create — an edit is just as much
+    // a browser-supplied list as the original was.
+    ...(clientPhotos !== undefined && {
+      clientPhotos: normaliseMediaList(clientPhotos),
     }),
   };
 

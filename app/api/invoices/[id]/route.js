@@ -10,6 +10,7 @@ import {
   requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { normaliseMediaList } from "@/lib/media/validate";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -69,6 +70,7 @@ export async function PATCH(request, { params }) {
     notes,
     status,
     changeReason,
+    clientPhotos,
   } = body;
 
   const isDraft = existing.status === "draft";
@@ -85,6 +87,9 @@ export async function PATCH(request, { params }) {
         ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
         ...(notes !== undefined && { notes }),
         ...(status !== undefined && { status }),
+        ...(clientPhotos !== undefined && {
+          clientPhotos: normaliseMediaList(clientPhotos),
+        }),
       },
       include: { client: true },
     });
@@ -121,6 +126,12 @@ export async function PATCH(request, { params }) {
       total: total ?? existing.total,
       dueDate: dueDate ? new Date(dueDate) : existing.dueDate,
       notes: notes ?? existing.notes,
+      // Carried forward, not dropped: a new version that silently lost the job
+      // photos would be a worse document than the one it replaced.
+      clientPhotos:
+        clientPhotos !== undefined
+          ? normaliseMediaList(clientPhotos)
+          : existing.clientPhotos,
       language: existing.language,
     },
     include: { client: true },

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
+import { normaliseMediaList } from "@/lib/media/validate";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import {
   loadEnforceableMember,
@@ -80,6 +81,9 @@ export async function POST(request) {
     notes,
     validUntil,
     language,
+    // Photos of the job. Previously only ever set by lead intake, so a quote
+    // typed up by staff had no way to carry the pictures the estimator took.
+    clientPhotos,
   } = body;
 
   if (!clientId || total === undefined) {
@@ -124,6 +128,12 @@ export async function POST(request) {
       processNotes: company?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
+      // Same boundary the public self-quote intake uses — the browser sends
+      // URLs, and these end up on a document a homeowner opens, so nothing
+      // reaches the column that isn't an https media entry we recognise.
+      ...(clientPhotos !== undefined && {
+        clientPhotos: normaliseMediaList(clientPhotos),
+      }),
       ...(scopeGroups?.length && {
         scopeGroups: {
           create: scopeGroups.map((g, i) => ({

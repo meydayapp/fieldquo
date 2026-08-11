@@ -1309,7 +1309,12 @@ model Invoice {
   startDate    DateTime?
   endDate      DateTime?
   pdfUrl       String?
-  clientPhotos String[]  @default([])
+
+  // Same shape as Quote.clientPhotos — [{ url, kind: "photo"|"video", publicId }].
+  // Was String[], which nothing ever read or wrote, and which could not hold a
+  // quote's photos without flattening away whether each one is a photo or a
+  // video. Changed while every row was still empty.
+  clientPhotos Json?
   language     String    @default("en")
 
   stripePaymentIntentId String?

@@ -595,6 +595,11 @@ const en = {
   "app.quoteNew.sendFailedSaved": "The quote was saved but the email didn't send.",
   "app.quoteNew.subtitle": "Build a quote from your enabled services.",
   "app.quoteNew.notesPlaceholder": "Anything the client should know...",
+  "app.quoteNew.addPhotos": "Add photos or a video",
+  "app.quoteNew.addPhotosHint":
+    "Pictures from the site visit. They stay on the quote and carry over to the invoice.",
+  "app.invoiceNew.addPhotosHint":
+    "Pictures of the job. Carried over from the quote when there is one.",
   "app.invoiceDetail.sendError": "Couldn't send the email.",
   "app.invoiceDetail.statusUpdateError": "Couldn't update the invoice's status.",
   "app.invoiceDetail.recordPaymentError": "Could not record payment",

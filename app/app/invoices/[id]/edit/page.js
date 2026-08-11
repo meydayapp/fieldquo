@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-react";
+import MediaUploader from "@/app/components/MediaUploader";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
@@ -37,6 +38,7 @@ export default function EditInvoicePage() {
   const [invoice, setInvoice] = useState(null);
   const [lineItems, setLineItems] = useState([]);
   const [notes, setNotes] = useState("");
+  const [clientPhotos, setClientPhotos] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [taxRate, setTaxRate] = useState(0);
   const [taxEnabled, setTaxEnabled] = useState(true);
@@ -63,6 +65,7 @@ export default function EditInvoicePage() {
             : [blankItem()],
         );
         setNotes(inv.notes || "");
+        setClientPhotos(Array.isArray(inv.clientPhotos) ? inv.clientPhotos : []);
         setDiscount(money(inv.discount));
         setDueDate(
           inv.dueDate ? new Date(inv.dueDate).toISOString().slice(0, 10) : "",
@@ -137,6 +140,7 @@ export default function EditInvoicePage() {
           total: totals.total,
           dueDate: dueDate || undefined,
           notes,
+          clientPhotos,
           ...(isDraft ? {} : { changeReason: changeReason.trim() }),
         }),
       });
@@ -337,6 +341,19 @@ export default function EditInvoicePage() {
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
             className="w-full border border-border rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            {t("app.quoteDetail.clientMedia")}
+          </label>
+          <MediaUploader
+            uploadUrl="/api/upload"
+            value={clientPhotos}
+            onChange={setClientPhotos}
+            label={t("app.quoteNew.addPhotos")}
+            hint={t("app.invoiceNew.addPhotosHint")}
           />
         </div>
 

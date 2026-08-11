@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
+import { normaliseMediaList } from "@/lib/media/validate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -74,6 +75,7 @@ export async function POST(request) {
     dueDate,
     notes,
     language,
+    clientPhotos,
   } = body;
 
   if (!clientId || total === undefined) {
@@ -109,6 +111,11 @@ export async function POST(request) {
       dueDate: dueDate ? new Date(dueDate) : null,
       notes: notes || null,
       language: language || "en",
+      // An invoice raised without a quote behind it still needs the job
+      // photos — same sanitising boundary as the quote routes.
+      ...(clientPhotos !== undefined && {
+        clientPhotos: normaliseMediaList(clientPhotos),
+      }),
     },
     include: { client: true },
   });

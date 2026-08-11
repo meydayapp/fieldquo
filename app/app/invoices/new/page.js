@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, Trash2, Search } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import MediaUploader from "@/app/components/MediaUploader";
 
 export default function NewInvoicePage() {
   const { t } = useTranslation();
@@ -21,6 +22,7 @@ export default function NewInvoicePage() {
     { description: "", quantity: 1, unit: "flat", rate: 0, amount: 0 },
   ]);
   const [notes, setNotes] = useState("");
+  const [clientPhotos, setClientPhotos] = useState([]);
   const [dueDate, setDueDate] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
@@ -113,6 +115,7 @@ export default function NewInvoicePage() {
           tax,
           total,
           notes,
+          clientPhotos,
           dueDate: dueDate || null,
           status,
         }),
@@ -334,6 +337,20 @@ export default function NewInvoicePage() {
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
           className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
+        />
+      </div>
+
+      {/* An invoice raised without a quote behind it still needs job photos. */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-2">
+          {t("app.quoteDetail.clientMedia")}
+        </h2>
+        <MediaUploader
+          uploadUrl="/api/upload"
+          value={clientPhotos}
+          onChange={setClientPhotos}
+          label={t("app.quoteNew.addPhotos")}
+          hint={t("app.invoiceNew.addPhotosHint")}
         />
       </div>
 
