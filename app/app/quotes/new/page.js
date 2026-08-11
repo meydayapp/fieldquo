@@ -414,6 +414,12 @@ export default function NewQuotePage() {
                   unit: suggestion.unit || "flat",
                   rate: 0,
                   amount: 0,
+                  // Carried so the builder can look the line's benchmark up
+                  // while the rate is still blank. Local to the editor — the
+                  // POST body below doesn't send it and no document reads it,
+                  // because a benchmark is FieldQuo's research, not this
+                  // company's price.
+                  catalogKey: suggestion.key,
                 },
               ],
             }
@@ -562,7 +568,12 @@ export default function NewQuotePage() {
           return {
             categoryId: g.categoryId,
             label: g.label,
-            lineItems,
+            // `catalogKey` is an editor-only handle for looking up the internal
+            // benchmark while the rate is blank. It is dropped here rather than
+            // saved: the quote a client reads must not carry a pointer into
+            // FieldQuo's own pricing research, and a field nothing reads back
+            // is the failure class AGENTS.md names first.
+            lineItems: lineItems.map(({ catalogKey, ...item }) => item),
             subtotal: groupTotal(g),
           };
         }),

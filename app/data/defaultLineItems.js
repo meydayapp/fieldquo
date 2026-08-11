@@ -27,6 +27,9 @@
 // (the Product model), which already feeds the same table from the dropdown
 // beside these chips.
 
+import { ELECTRICAL_LINE_ITEMS } from "@/app/data/electricalCatalog";
+import { PLUMBING_LINE_ITEMS } from "@/app/data/plumbingCatalog";
+
 // unit values match what the builder writes onto a line item.
 const FLAT = "flat";
 const EACH = "each";
@@ -127,6 +130,15 @@ export const DEFAULT_LINE_ITEMS = {
     { description: "Edging", unit: LF },
     { description: "Disposal fee", unit: FLAT },
   ],
+
+  // Electrical and plumbing live in their own files rather than inline. They
+  // are an order of magnitude longer than the lists above (54 and 60-odd lines
+  // against six or eight) because both trades were torn down from real
+  // estimates rather than written from memory, and each line carries a stable
+  // `key` so the internal benchmark tables can point at it without keying on a
+  // description string that will get reworded.
+  electrical: ELECTRICAL_LINE_ITEMS,
+  plumbing: PLUMBING_LINE_ITEMS,
 
   // Applies to nearly every trade, so it's offered when a category has no
   // list of its own rather than being repeated into all sixty.

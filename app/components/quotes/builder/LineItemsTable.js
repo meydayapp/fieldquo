@@ -17,8 +17,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Search } from "lucide-react";
 import { getDefaultLineItems } from "@/app/data/defaultLineItems";
+import { getLineItemGroups } from "@/app/data/lineItemGroups";
+import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
+
+// Above this many suggestions a flat row of chips stops being a picker and
+// becomes a wall. Electrical ships 54 and plumbing 82; every other trade ships
+// six to nine and is better off flat, so the switch is on count, not on trade.
+const GROUPED_PICKER_THRESHOLD = 20;
 
 export default function LineItemsTable({
   items = [],
@@ -31,15 +38,36 @@ export default function LineItemsTable({
   onAddSuggested,
 }) {
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Anything already on the quote drops out of the suggestions — offering
   // "Disposal fee" when it's the line directly above is noise.
   const present = new Set(
     items.map((i) => String(i.description || "").trim().toLowerCase()),
   );
-  const suggestions = getDefaultLineItems(categoryKey).filter(
+  const catalog = getDefaultLineItems(categoryKey);
+  const all = catalog.filter(
     (s) => !present.has(s.description.toLowerCase()),
   );
+  const q = query.trim().toLowerCase();
+  const suggestions = q
+    ? all.filter((s) => s.description.toLowerCase().includes(q))
+    : all;
+
+  // Gated on the CATALOGUE size, not on what's left. Gating on the remainder
+  // would flip the picker from sectioned to flat partway through a big quote,
+  // as adding lines shrank the list past the threshold — the layout moving
+  // under someone mid-task, for no reason they could see.
+  const groups = getLineItemGroups(categoryKey);
+  const grouped = groups.length > 0 && catalog.length >= GROUPED_PICKER_THRESHOLD;
+  const sections = grouped
+    ? groups
+        .map((g) => ({
+          ...g,
+          items: suggestions.filter((s) => s.group === g.key),
+        }))
+        .filter((g) => g.items.length > 0)
+    : [{ key: "_all", label: null, items: suggestions }];
 
   return (
     <div>
@@ -121,6 +149,8 @@ export default function LineItemsTable({
                 <X size={14} />
               </button>
             </div>
+
+            <BenchmarkHint item={item} categoryKey={categoryKey} />
           </div>
         ))}
       </div>
@@ -134,7 +164,9 @@ export default function LineItemsTable({
           <Plus size={12} /> Add line item
         </button>
 
-        {suggestions.length > 0 && onAddSuggested && (
+        {/* Gated on the unfiltered list, not the filtered one: a search that
+            matches nothing must not take the button that closes the panel. */}
+        {all.length > 0 && onAddSuggested && (
           <button
             type="button"
             onClick={() => setShowSuggestions((v) => !v)}
@@ -173,27 +205,113 @@ export default function LineItemsTable({
       {/* Offered, never added automatically. An unwanted line on a quote is
           worse than a missing one, because the client reads it. Prices are
           blank on purpose — see app/data/defaultLineItems.js. */}
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && all.length > 0 && (
         <div className="mt-3 border border-dashed border-border rounded-lg p-3">
           <p className="text-[11px] text-muted-foreground mb-2">
             Tap to add. You&apos;ll need to fill in the price — these are the
             things this trade usually bills for, not what to charge.
           </p>
-          <div className="flex flex-wrap gap-1.5">
-            {suggestions.map((s) => (
-              <button
-                key={s.description}
-                type="button"
-                onClick={() => onAddSuggested(s)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
-              >
-                <Plus size={11} />
-                {s.description}
-              </button>
-            ))}
-          </div>
+
+          {/* Search appears with the sections. Fifty-four chips are navigable
+              by heading; eighty-two are navigable by typing. */}
+          {grouped && (
+            <div className="relative mb-3">
+              <Search
+                size={13}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+              />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Search ${all.length} items…`}
+                className="w-full border border-border rounded-lg pl-7 pr-2 py-1.5 text-xs bg-card"
+              />
+            </div>
+          )}
+
+          {sections.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-1">
+              Nothing matches “{query}”.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {sections.map((section) => (
+                <div key={section.key}>
+                  {section.label && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+                      {section.label}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {section.items.map((s) => (
+                      <button
+                        key={s.key || s.description}
+                        type="button"
+                        onClick={() => onAddSuggested(s)}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                      >
+                        <Plus size={11} />
+                        {s.description}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * What the trade typically charges for this line, shown only while the rate is
+ * still blank.
+ *
+ * ── Why it disappears once a rate is entered ────────────────────────────────
+ *
+ * The benchmark is here to answer "what do people charge for this?", which is
+ * a question you have exactly once. Leaving it up afterwards turns it into a
+ * running commentary on the contractor's own pricing — and worse, invites them
+ * to drift toward a national median that has nothing to do with their market,
+ * their overhead or their van.
+ *
+ * ── Why "no benchmark" is worth rendering ───────────────────────────────────
+ *
+ * A `none` result means the research looked and found nothing publishable, and
+ * says why. That is different information from silence, which reads as "we have
+ * no opinion". Both plumbing (26 of 82 lines) and electrical (4 of 54) have
+ * real holes, and printing them is what stops someone assuming the ranges they
+ * DO see are complete.
+ *
+ * Never client-facing: this is FieldQuo's own research, not the company's rate
+ * card, and it exists only in the back-office builder.
+ */
+function BenchmarkHint({ item, categoryKey }) {
+  const rate = Number(item.rate) || 0;
+  if (rate > 0 || !item.catalogKey) return null;
+
+  const b = getBenchmark(categoryKey, item.catalogKey);
+  if (!b) return null;
+
+  const isNumber = b.kind === "range" || b.kind === "multiplier";
+  return (
+    <p
+      className={`text-[11px] leading-snug sm:col-span-12 ${
+        isNumber ? "text-muted-foreground" : "text-amber-700 dark:text-amber-500"
+      }`}
+      title={b.detail}
+    >
+      {isNumber ? "Typical: " : ""}
+      {b.label}
+      {b.kind === "range" && b.currency !== "USD" ? ` ${b.currency}` : ""}
+      {/* A range read off published estimates and one inferred from a single
+          job are not the same claim, so the weaker ones say so rather than
+          borrowing the confidence of the rest. */}
+      {b.confidence !== "read" && isNumber ? (
+        <span className="opacity-70"> · {b.confidence}</span>
+      ) : null}
+    </p>
   );
 }
