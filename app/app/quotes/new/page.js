@@ -27,6 +27,9 @@ import { fetchJson } from "@/lib/fetchJson";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import ServiceTiles from "@/app/components/quotes/builder/ServiceTiles";
 import ScopeGroupCard from "@/app/components/quotes/builder/ScopeGroupCard";
+import TradeTakeoff, { hasTakeoff } from "@/app/components/quotes/builder/TradeTakeoff";
+import { getPriceBook } from "@/app/data/tradePriceBooks";
+import { createTradeConfig, buildTradeLineItems } from "@/lib/pricing/tradeScope";
 import UnitPricingFields from "@/app/components/quotes/builder/UnitPricingFields";
 import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
 import TierSelector from "@/app/components/quotes/builder/TierSelector";
@@ -260,6 +263,13 @@ export default function NewQuotePage() {
     );
   }
 
+  // This company's saved edits to the trade's price book. The categories
+  // endpoint returns the sparse patch alongside the resolved book, so the
+  // builder prices from exactly what Settings shows.
+  function rateOverridesFor(categoryId) {
+    return categories.find((c) => c.id === categoryId)?.rateOverrides ?? null;
+  }
+
   function addScopeGroup(category, label) {
     const isTiered = isTieredPackageCategory(category.key);
     const unitPriced = isUnitPriced(category.key);
@@ -292,6 +302,12 @@ export default function NewQuotePage() {
               sheen: "",
               doorStyle: "",
             }
+          : {}),
+        // Trades quoted by counting things (stairs, countertop) carry a
+        // structured takeoff. Their line items are DERIVED from it, so the
+        // generic "add a line" table below only holds genuine extras.
+        ...(hasTakeoff(category.key)
+          ? { takeoff: createTradeConfig(category.key, rateOverridesFor(category.id)) }
           : {}),
         // Unit-priced groups start with NO line items — the base scope is the
         // unit pricing; line items only hold add-ons (hinges, glass, etc.).
@@ -443,14 +459,23 @@ export default function NewQuotePage() {
   // A group's client-facing total: unit-priced trades charge units × final
   // unit price for the base scope, PLUS any add-on line items; everything else
   // is just the sum of its line items.
+  // Lines derived from a structured takeoff. Recomputed rather than stored on
+  // the group so the total can never disagree with the form above it.
+  function takeoffLines(g) {
+    if (!g.takeoff || !hasTakeoff(g.categoryKey)) return [];
+    return buildTradeLineItems(g.categoryKey, g.takeoff, rateOverridesFor(g.categoryId));
+  }
+
   function groupTotal(g) {
     const lineSum = (g.lineItems || []).reduce(
       (s, item) => s + Number(item.amount || 0),
       0,
     );
-    return isUnitPriced(g.categoryKey)
-      ? unitPricingSubtotal(g) + lineSum
-      : lineSum;
+    const takeoffSum = takeoffLines(g).reduce((s, i) => s + Number(i.amount || 0), 0);
+    return (
+      takeoffSum +
+      (isUnitPriced(g.categoryKey) ? unitPricingSubtotal(g) + lineSum : lineSum)
+    );
   }
 
   const subtotal = scopeGroups.reduce((sum, g) => sum + groupTotal(g), 0);
@@ -567,9 +592,21 @@ export default function NewQuotePage() {
             };
             lineItems = [base, ...(g.lineItems || [])];
           }
+
+          // Structured takeoffs contribute their derived lines FIRST, so the
+          // stair elements or countertop items read above any extras the
+          // estimator typed by hand. Derived once here and saved: a sent quote
+          // must keep its prices even if the rate card moves next week.
+          if (hasTakeoff(g.categoryKey) && g.takeoff) {
+            lineItems = [...takeoffLines(g), ...(lineItems || [])];
+          }
+
           return {
             categoryId: g.categoryId,
             label: g.label,
+            // The form behind those lines, so reopening the quote restores it
+            // instead of a flat list nobody can recount.
+            ...(g.takeoff ? { takeoff: g.takeoff } : {}),
             // `catalogKey` is an editor-only handle for looking up the internal
             // benchmark while the rate is blank. It is dropped here rather than
             // saved: the quote a client reads must not carry a pointer into
@@ -729,7 +766,18 @@ export default function NewQuotePage() {
             />
           )}
 
-          {!group.isTiered && !isUnitPriced(group.categoryKey) && (
+          {hasTakeoff(group.categoryKey) && group.takeoff && (
+            <TradeTakeoff
+              categoryKey={group.categoryKey}
+              takeoff={group.takeoff}
+              book={getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId))}
+              onChange={(next) => updatePricing(group.tempId, { takeoff: next })}
+            />
+          )}
+
+          {!group.isTiered &&
+            !isUnitPriced(group.categoryKey) &&
+            !hasTakeoff(group.categoryKey) && (
             <IntakeFields
               fields={getGroupFields(group)}
               values={group.intakeValues || {}}

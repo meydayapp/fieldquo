@@ -1478,6 +1478,18 @@ model QuoteScopeGroup {
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
   label      String?
   lineItems  Json?
+
+  // The estimator's takeoff for trades that have a structured form — which
+  // stair elements were ticked and how many, the countertop's supplier costs
+  // and markup. lineItems is DERIVED from this (lib/pricing/tradeScope.js).
+  //
+  // Kept so reopening a quote restores the form rather than a flat list of
+  // priced lines: without it, changing 13 treads to 14 means deleting the line
+  // and re-doing the arithmetic, which is the workflow this replaced.
+  //
+  // lineItems stays the source of truth for what is BILLED — a document must
+  // not re-derive its own prices from a rate card that has since changed.
+  takeoff    Json?
   subtotal   Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder  Int             @default(0)
 }

@@ -140,6 +140,10 @@ export async function POST(request) {
             categoryId: g.categoryId,
             label: g.label || null,
             lineItems: g.lineItems || null,
+            // The structured takeoff behind those lines, when the trade has
+            // one. Stored so the form can be reopened; lineItems above stays
+            // what is billed.
+            takeoff: g.takeoff ?? null,
             subtotal: g.subtotal || 0,
             sortOrder: i,
           })),

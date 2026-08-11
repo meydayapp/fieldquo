@@ -129,7 +129,27 @@ export const STANDARD_ADDONS = {
   ],
 
   // ── Countertop ──
+  // ── Countertop ──
+  // The full line-up a countertop quote is actually built from, in the order
+  // it reads on the document. Removal and disposal are SEPARATE lines: they
+  // are separate decisions (a client can rip out their own tops) and separate
+  // costs, and combining them hid the disposal fee inside a labour number.
   countertop: [
+    {
+      name: "Countertop Supply & Installation",
+      unit: "flat",
+      unitPrice: 0,
+      type: "product",
+      description:
+        "Supply and install the countertop. Installation is bundled into the slab price by the fabricator, so it is not a separate line.",
+    },
+    {
+      name: "Backsplash",
+      unit: "flat",
+      unitPrice: 0,
+      type: "product",
+      description: "Matching backsplash — height chosen on the quote.",
+    },
     {
       name: "Sink / Undermount Cutout",
       unit: "each",
@@ -145,11 +165,83 @@ export const STANDARD_ADDONS = {
       description: "Fabricate and install a waterfall edge.",
     },
     {
-      name: "Countertop Removal & Disposal",
+      name: "Countertop Removal",
       unit: "flat",
       unitPrice: 250,
       type: "service",
-      description: "Remove and dispose of existing countertops.",
+      description: "Remove the existing countertops.",
+    },
+    {
+      name: "Disposal Fee",
+      unit: "flat",
+      unitPrice: 900,
+      type: "service",
+      description: "Haul away and dispose of the old countertops.",
+    },
+    {
+      name: "Travel Fee",
+      unit: "flat",
+      unitPrice: 0,
+      type: "service",
+      description: "Travel outside the standard service area.",
+    },
+  ],
+
+  // ── Stairs ──
+  // Priced per element, because that is how a staircase is quoted: you count
+  // treads, risers, balusters and posts and measure the handrail. Prices here
+  // are the STANDARD-complexity rates; the quote's complexity selector moves
+  // the whole grid, and any line can still be overridden on the quote.
+  stairs: [
+    {
+      name: "Stair Treads — refinishing",
+      unit: "tread",
+      unitPrice: 150,
+      type: "service",
+      description: "Sand, stain and finish each tread.",
+    },
+    {
+      name: "Risers — painting",
+      unit: "riser",
+      unitPrice: 25,
+      type: "service",
+      description: "Prep and paint each riser.",
+    },
+    {
+      name: "Balusters / Spindles — painting",
+      unit: "each",
+      unitPrice: 25,
+      type: "service",
+      description: "Prep and paint each baluster or spindle.",
+    },
+    {
+      name: "Newel Posts — painting",
+      unit: "each",
+      unitPrice: 150,
+      type: "service",
+      description: "Prep and paint each newel post.",
+    },
+    {
+      name: "Handrail — refinishing",
+      unit: "lf",
+      unitPrice: 15,
+      type: "service",
+      description: "Sand, stain and finish the handrail, per linear foot.",
+    },
+    {
+      name: "Landing / Hallway — refinishing",
+      unit: "sqft",
+      unitPrice: 5,
+      type: "service",
+      description: "Refinish landing or adjoining hallway floor, per square foot.",
+    },
+    {
+      name: "Two-Tone Finish",
+      unit: "flat",
+      unitPrice: 800,
+      type: "service",
+      description:
+        "Second colour on the staircase — extra masking, staging and spray cycles.",
     },
   ],
 };
