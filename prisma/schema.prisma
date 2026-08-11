@@ -1443,6 +1443,16 @@ model CompanyServiceCategory {
   crewRate1Person Decimal? @db.Decimal(10, 2)
   crewRate2Person Decimal? @db.Decimal(10, 2)
 
+  // This company's edits to the trade price book — see app/data/tradePriceBooks.js.
+  //
+  // A sparse PATCH, not a copy: only the fields actually changed are stored, so
+  // a company that adjusted one tread price keeps inheriting every other
+  // default, and one that edited nothing has null here. Same reasoning as
+  // includedItems/processSteps below, and the reason `defaultRate` alone was
+  // never enough — a staircase is priced per tread, per riser, per baluster and
+  // per newel post, and a countertop is a supplier's invoice with a margin.
+  rates Json?
+
   // ── Document content overrides ──────────────────────────────────────────
   // What this company's quotes SAY about this service, beyond the price.
   // All null on a company that hasn't customised anything, which is the
