@@ -56,6 +56,7 @@ export default function CostMarginPanel({
   onFallbackRateChange,
   overheadPct,
   onOverheadChange,
+  overheadSource,
   subtotal,
   totalGroupCount,
   marginTarget,
@@ -123,17 +124,22 @@ export default function CostMarginPanel({
           </div>
         )}
 
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">
-            Overhead % of price
-          </label>
-          <input
-            type="number"
-            value={overheadPct}
-            onChange={(e) => onOverheadChange(e.target.value)}
-            className="border border-border rounded px-2 py-1.5 text-sm w-20"
-          />
-        </div>
+        {/* Only offered when we have nothing better. Once the company's real
+            cost per job is known, a percentage box next to it would just be
+            two answers to the same question. */}
+        {estimate.overheadBasis !== "per_job" && (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">
+              Overhead % of price
+            </label>
+            <input
+              type="number"
+              value={overheadPct}
+              onChange={(e) => onOverheadChange(e.target.value)}
+              className="border border-border rounded px-2 py-1.5 text-sm w-20"
+            />
+          </div>
+        )}
       </div>
 
       {estimate.groups.map((g) => (
@@ -166,9 +172,31 @@ export default function CostMarginPanel({
       ))}
 
       <div className="border-t border-border pt-3 space-y-1 text-sm">
-        <Row label="Materials" value={money(estimate.materialTotal)} />
+        {/* Consumables and purchased goods are split: a coverage rate predicts
+            paint, but a refacing door has a supplier invoice behind it. */}
+        {estimate.purchasedMaterial > 0 ? (
+          <>
+            <Row
+              label="Materials — consumables"
+              value={money(estimate.recipeMaterialTotal)}
+            />
+            <Row
+              label="Materials — purchased (doors, slabs)"
+              value={money(estimate.purchasedMaterial)}
+            />
+          </>
+        ) : (
+          <Row label="Materials" value={money(estimate.materialTotal)} />
+        )}
         <Row label="Labour" value={money(estimate.labourCost)} />
-        <Row label={`Overhead (${overheadPct}%)`} value={money(estimate.overhead)} />
+        <Row
+          label={
+            estimate.overheadBasis === "per_job"
+              ? "Overhead (this job's share)"
+              : `Overhead (${overheadPct}% of price — estimated)`
+          }
+          value={money(estimate.overhead)}
+        />
         <div className="border-t border-border mt-1 pt-1">
           <Row label="Estimated cost" value={money(estimate.estimatedCost)} bold />
         </div>
@@ -177,12 +205,29 @@ export default function CostMarginPanel({
         {estimate.marginPct != null && (
           <Row
             label="Estimated profit"
-            value={`${money(subtotal - estimate.estimatedCost)} (${estimate.marginPct}%)`}
+            value={`${money(estimate.profit)} (${estimate.marginPct}%)`}
             bold
             tone={estimate.signal === "red" ? "red" : undefined}
           />
         )}
       </div>
+
+      {/* Where the overhead number came from. A share of the price is not a
+          cost — quoting the same job higher doesn't raise the rent — so when
+          we're guessing, the panel says we're guessing. */}
+      {estimate.overheadBasis === "per_job" && overheadSource ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Overhead is {money(overheadSource.monthlyFixedCosts)}/month of fixed
+          costs spread across {overheadSource.jobsPerMonth} jobs a month.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Overhead is a flat percentage of the price because we don&apos;t know
+          your capacity yet. Set your monthly costs in Settings → Overhead and
+          your jobs-per-week in Forecast, and this becomes your real cost per
+          job instead of an assumption.
+        </p>
+      )}
 
       {/* Said out loud, because a margin figure that silently covers half the
           quote is worse than no margin figure. */}

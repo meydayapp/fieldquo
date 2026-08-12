@@ -29,7 +29,11 @@ import ServiceTiles from "@/app/components/quotes/builder/ServiceTiles";
 import ScopeGroupCard from "@/app/components/quotes/builder/ScopeGroupCard";
 import TradeTakeoff, { hasTakeoff } from "@/app/components/quotes/builder/TradeTakeoff";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
-import { createTradeConfig, buildTradeLineItems } from "@/lib/pricing/tradeScope";
+import {
+  createTradeConfig,
+  buildTradeLineItems,
+  estimateCabinetDoorCost,
+} from "@/lib/pricing/tradeScope";
 import UnitPricingFields from "@/app/components/quotes/builder/UnitPricingFields";
 import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
 import TierSelector from "@/app/components/quotes/builder/TierSelector";
@@ -86,6 +90,12 @@ export default function NewQuotePage() {
   const [costWorkerId, setCostWorkerId] = useState("");
   const [fallbackRate, setFallbackRate] = useState(65);
   const [overheadPct, setOverheadPct] = useState(10);
+  // The company's real overhead for one job: monthly fixed costs divided by
+  // how many jobs a week they can take on. Null until Settings > Overhead and
+  // a job capacity exist — in which case the percentage above stands in and
+  // the panel says so, rather than dressing a guess up as a cost.
+  const [overheadPerJob, setOverheadPerJob] = useState(null);
+  const [overheadSource, setOverheadSource] = useState(null);
   // Resolved (defaults + saved company overrides) recipe per categoryKey —
   // see Settings > Material Costs / app/api/settings/material-recipes.
   const [recipeOverrides, setRecipeOverrides] = useState({});
@@ -129,6 +139,7 @@ export default function NewQuotePage() {
           productsData,
           workersData,
           recipesData,
+          overheadData,
         ] = await Promise.all([
           // fetchJson throws on a non-ok/HTML-error response instead of feeding
           // a 404/500 body into a state setter — a failed load surfaces below
@@ -148,6 +159,13 @@ export default function NewQuotePage() {
           fetch("/api/settings/material-recipes").then((r) =>
             r.ok ? r.json() : {},
           ),
+          // Real overhead per job. Returns 400 with needsCapacity when the
+          // company hasn't said how many jobs a week they can take — that is a
+          // legitimate "we don't know", not an error to surface here, so the
+          // panel falls back to the percentage and labels it.
+          fetch("/api/analytics/minimum-price")
+            .then((r) => r.json().catch(() => null))
+            .catch(() => null),
         ]);
         setClients(Array.isArray(clientsData) ? clientsData : []);
         setCategories(
@@ -169,6 +187,13 @@ export default function NewQuotePage() {
         setRecipeOverrides(
           recipesData && typeof recipesData === "object" ? recipesData : {},
         );
+        if (Number.isFinite(Number(overheadData?.costPerJob))) {
+          setOverheadPerJob(Number(overheadData.costPerJob));
+          setOverheadSource({
+            monthlyFixedCosts: overheadData.monthlyFixedCosts,
+            jobsPerMonth: overheadData.jobsPerMonth,
+          });
+        }
       } catch (e) {
         setError(e?.message || t("app.quoteNew.createError"));
       } finally {
@@ -490,11 +515,27 @@ export default function NewQuotePage() {
     selectedWorker?.hourlyRate != null
       ? Number(selectedWorker.hourlyRate)
       : Number(fallbackRate) || 0;
+  // Doors bought for a refacing job — a real supplier cost, not a consumable a
+  // coverage rate predicts. Summed across groups so a quote with refacing in it
+  // shows what the doors actually cost before margin.
+  const purchasedMaterialCost = scopeGroups.reduce((sum, g) => {
+    if (!g.takeoff) return sum;
+    const cost = estimateCabinetDoorCost(
+      g.takeoff,
+      getPriceBook(g.categoryKey, rateOverridesFor(g.categoryId)) || {},
+    );
+    return sum + (cost?.total || 0);
+  }, 0);
+
   const estimate = estimateQuoteCost({
     scopeGroups,
     labourRatePerHour: labourRate,
     price: subtotal,
+    // The company's real overhead for one job when we know their capacity;
+    // the percentage only stands in until they've told us.
+    overheadPerJob: overheadPerJob,
     overheadPctOfPrice: Number(overheadPct) || 0,
+    purchasedMaterialCost,
     marginTargetPct: MARGIN_TARGET,
     recipeOverridesByCategory: recipeOverrides,
   });
@@ -826,6 +867,7 @@ export default function NewQuotePage() {
         onFallbackRateChange={setFallbackRate}
         overheadPct={overheadPct}
         onOverheadChange={setOverheadPct}
+        overheadSource={overheadSource}
         subtotal={subtotal}
         totalGroupCount={scopeGroups.length}
         marginTarget={MARGIN_TARGET}
