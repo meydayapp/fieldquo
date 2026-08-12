@@ -59,11 +59,60 @@ export const TRADE_PRICE_BOOKS = {
     minimumTotal: 3800,
   },
 
+  // Refacing is priced per door exactly like refinishing — the difference is
+  // that you are BUYING the door, so the material you pick moves both the sell
+  // rate and the cost. The costs below come from real supplier quotes; they
+  // feed the internal cost/margin panel and never appear on the client's copy.
   cabinet_refacing: {
     label: "Cabinet Refacing",
-    perDoor: 450,
-    perDrawer: 450,
+    perDoor: 550,
+    perDrawer: 350,
     complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 },
+
+    // Selecting a material seeds perDoor/perDrawer and supplies the cost basis.
+    // costPerSqft is what the door costs YOU, per square foot of face.
+    defaultMaterial: "painted_mdf",
+    doorMaterials: {
+      thermofoil: {
+        label: "Thermofoil",
+        sellPerDoor: 450,
+        sellPerDrawer: 280,
+        costPerSqft: 18.0, // owner's figure
+      },
+      painted_mdf: {
+        label: "Painted MDF",
+        sellPerDoor: 550,
+        sellPerDrawer: 350,
+        // Raw MDF 10.50 (RTI) + supplier finishing 6.75 front and back (Caron).
+        // Finish it in-house and the cost is the raw 10.50 instead.
+        costPerSqft: 17.25,
+        rawCostPerSqft: 10.5,
+      },
+      red_oak: {
+        label: "Wood — red oak",
+        sellPerDoor: 650,
+        sellPerDrawer: 400,
+        // Caron quote SX0845: flat panel door 24x16 (2.67 sf) at $74.85.
+        costPerSqft: 28.04,
+      },
+      white_oak: {
+        label: "Wood — white oak",
+        sellPerDoor: 700,
+        sellPerDrawer: 430,
+        // Caron quote SX1089: solid raised square 76x49.2cm (4.02 sf) at $184.14.
+        costPerSqft: 45.8,
+      },
+    },
+    // A 24x18 door is exactly 3.0 sq ft; the Caron drawer front was 1.5 sq ft.
+    // Used only to turn $/sq ft into a per-door cost for the margin estimate.
+    avgDoorSqft: 3.0,
+    avgDrawerSqft: 1.5,
+    // Caron charges this per sq ft to spray front and back. Kept separate so a
+    // shop that finishes in-house can zero it and use rawCostPerSqft instead.
+    supplierFinishingPerSqft: 6.75,
+    // Free with 20 doors at Caron, otherwise roughly this per order.
+    freightPerOrder: 55,
+
     addOns: {
       handleHolesPerDoor: 12,
       softCloseHingesPerDoor: 35,
@@ -348,9 +397,33 @@ function isPlainObject(v) {
 // Same shape as RECIPE_EDITABLE_FIELDS so the rates screen can render a book
 // it has never seen. `path` is dot-notation into the book.
 
+/** Human labels for the `group` key on a field, when it has one. */
+export const PRICE_BOOK_GROUPS = {
+  thermofoil: "Thermofoil door",
+  painted_mdf: "Painted MDF door",
+  red_oak: "Wood door — red oak",
+  white_oak: "Wood door — white oak",
+  standard: "Standard complexity",
+  moderate: "Moderate complexity",
+  high: "High complexity",
+};
+
 export const PRICE_BOOK_FIELDS = {
   cabinet_refinishing: cabinetFields(),
-  cabinet_refacing: cabinetFields(),
+  cabinet_refacing: [
+    ...cabinetFields(),
+    // Door specs: what you charge for each, and what each costs you. The cost
+    // side is internal — it drives the margin panel, never the client's copy.
+    ...["thermofoil", "painted_mdf", "red_oak", "white_oak"].flatMap((key) => [
+      { path: `doorMaterials.${key}.sellPerDoor`, label: "Sell — per door", suffix: "$ / door", step: 10, group: key },
+      { path: `doorMaterials.${key}.sellPerDrawer`, label: "Sell — per drawer", suffix: "$ / drawer", step: 10, group: key },
+      { path: `doorMaterials.${key}.costPerSqft`, label: "Supplier cost", suffix: "$ / sq ft", step: 0.25, group: key, internal: true },
+    ]),
+    { path: "avgDoorSqft", label: "Average door area", suffix: "sq ft", step: 0.25, internal: true },
+    { path: "avgDrawerSqft", label: "Average drawer front area", suffix: "sq ft", step: 0.25, internal: true },
+    { path: "supplierFinishingPerSqft", label: "Supplier finishing", suffix: "$ / sq ft", step: 0.25, internal: true },
+    { path: "freightPerOrder", label: "Freight per order (under 20 doors)", suffix: "$", step: 5, internal: true },
+  ],
   stairs: [
     ...complexityFields("stairs", [
       ["treadPrice", "Tread", "$ / tread"],

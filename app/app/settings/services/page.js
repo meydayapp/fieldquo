@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
+import RateCard from "./RateCard";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -88,6 +89,9 @@ export default function ServiceSettingsPage() {
             pricingModel: c.pricingModel,
             defaultRate: c.defaultRate,
             unit: c.unit,
+            // Sparse patch only — the API filters it against the fields the
+            // trade declares and stores null when nothing is customised.
+            rates: c.rateOverrides ?? null,
           })),
         }),
       });
@@ -342,6 +346,16 @@ export default function ServiceSettingsPage() {
                   />
                 )}
               </div>
+            )}
+
+            {/* The structured rate card, for trades that have one. The single
+                rate above stays for trades that genuinely are one number. */}
+            {c.enabled && (
+              <RateCard
+                category={c}
+                overrides={c.rateOverrides}
+                onChange={(next) => update(c.id, { rateOverrides: next })}
+              />
             )}
           </div>
         ))}
