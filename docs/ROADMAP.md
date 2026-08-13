@@ -479,6 +479,18 @@ they set the pattern.
   touching: every write RE-READS the company and refuses anything without
   `isDemo`, because switching trade wipes quotes, jobs and clients. No logins
   are created — invitation only, per non-negotiable 1.
+- **The demo booker runs on real availability** (`lib/booking/slotGrid.js`,
+  `DemoHostAvailability`, `/platform/demo-availability`,
+  `npm run seed:demo-availability`) — the marketing hero used to publish three
+  constants: 6–10pm Eastern, every day for a fortnight, weekends and holidays
+  included, with a global `unique(scheduledAt)` that capped the whole platform
+  at one demo per half hour. Now each `PlatformAdmin` states their own windows,
+  `/api/demo/slots` returns the union, and `/api/demo/book` assigns the
+  least-loaded free host. Deliberately NOT `AvailabilitySchedule`, which hangs
+  off `User` — a platform admin is a different identity system. With nobody
+  available the hero shows its empty state; there is no fallback grid, by
+  design. Verified by `npm run check:demo-slots` (122 assertions, mutation
+  tested).
 - **The tour works on phones** (`app/components/OnboardingTour.js`) — every
   lookup goes through `visibleTarget()`, because `hidden lg:flex` is
   display:none rather than unmounted, so the desktop sidebar matches every

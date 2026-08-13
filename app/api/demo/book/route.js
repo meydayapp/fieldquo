@@ -6,16 +6,22 @@
 // calendar (.ics) invite so it lands on everyone's calendar.
 //
 // Three guards keep it honest: a per-IP throttle (the endpoint is public and
-// every booking emails two people), the submitted time must be one we actually
-// offer (isOfferedSlot re-derives the set — a hand-posted 3am timestamp is
-// rejected), and the DB's unique constraint on scheduledAt settles the race
-// where two prospects grab the same slot between the check and the write.
+// every booking emails two people), the submitted time must be one a host
+// genuinely offers (hostsFreeAt re-derives it from their stated hours and their
+// calendar — a hand-posted 3am timestamp is rejected), and the DB's unique
+// constraint on (hostAdminId, scheduledAt) settles the race where two prospects
+// grab the same slot between the check and the write.
+//
+// The host is assigned here, server-side. The browser never names one — it
+// posts a time, and the least-loaded free host takes it (see pickHost). That
+// keeps the picker honest as a union: a prospect books "a demo", not a person.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
-import { isOfferedSlot, SLOT_MINUTES, DEMO_TZ } from "@/lib/demo/slots";
+import { loadDemoHosts } from "@/lib/demo/hosts";
+import { hostsFreeAt, pickHost, SLOT_MINUTES, DEMO_TZ } from "@/lib/demo/slots";
 import { buildIcs } from "@/lib/calendar/ics";
 import { sendEmail } from "@/lib/email/resend";
 import { getPlatformFrom } from "@/lib/email/platformSender";
@@ -41,9 +47,14 @@ export async function POST(request) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return bad("Enter a valid email address.");
 
   const now = new Date();
-  if (!isOfferedSlot(slot, now)) {
+  const hosts = await loadDemoHosts(now);
+  const free = hostsFreeAt(hosts, slot, now);
+  if (free.length === 0) {
+    // Covers all three: a time nobody offers, a time everyone free has since
+    // filled, and a hand-posted timestamp that was never on the grid.
     return bad("That time isn't available anymore — please pick another slot.");
   }
+  const host = pickHost(free);
   const scheduledAt = new Date(slot);
 
   let booking;
@@ -51,18 +62,22 @@ export async function POST(request) {
     booking = await db.demoBooking.create({
       data: {
         name, email, companyName, phone, notes, scheduledAt,
+        hostAdminId: host.adminId,
         source: String(body?.source || "hero").slice(0, 40),
       },
     });
   } catch {
-    // Unique-constraint violation on scheduledAt → taken since the slots loaded.
+    // Unique violation on (hostAdminId, scheduledAt) → that host was taken
+    // between the check and the write. The prospect picks again rather than
+    // being silently moved to a colleague: a retry re-runs the whole check and
+    // will land on whoever is genuinely still free.
     return bad("Someone just booked that slot — please pick another.", 409);
   }
 
   // Emails are best-effort: the booking is saved, so a mail hiccup must not make
   // the prospect think it failed and book twice.
   try {
-    await sendDemoEmails(booking);
+    await sendDemoEmails(booking, host.email);
   } catch (err) {
     console.error("[demo book] email send failed:", err.message);
   }
@@ -70,7 +85,7 @@ export async function POST(request) {
   return NextResponse.json({ ok: true, scheduledAt: scheduledAt.toISOString() });
 }
 
-async function sendDemoEmails(booking) {
+async function sendDemoEmails(booking, hostEmail) {
   const start = booking.scheduledAt;
   const end = new Date(start.getTime() + SLOT_MINUTES * 60 * 1000);
 
@@ -107,15 +122,22 @@ async function sendDemoEmails(booking) {
     attachments,
   });
 
-  // Heads-up to the superadmin(s) — this is the "on Emilio's calendar" half.
-  const admins = await db.platformAdmin.findMany({
+  // Heads-up internally — the "it's on somebody's calendar" half.
+  //
+  // The ASSIGNED HOST comes first and is not optional: a host who doesn't get
+  // the invite hasn't really been assigned anything. Superadmins keep the
+  // heads-up they had before this had hosts at all, deduped so a superadmin who
+  // is also the host gets one email rather than two.
+  const superadmins = await db.platformAdmin.findMany({
     where: { role: "superadmin", active: true },
     select: { email: true },
   });
-  for (const admin of admins) {
+  const recipients = [...new Set([hostEmail, ...superadmins.map((a) => a.email)].filter(Boolean))];
+
+  for (const to of recipients) {
     await sendEmail({
       from,
-      to: admin.email,
+      to,
       subject: `New demo booked — ${who}, ${whenLabel}`,
       html: adminHtml({ who, whenLabel, booking }),
       text: `New FieldQuo demo: ${who} <${booking.email}> on ${whenLabel}.${booking.phone ? ` Phone: ${booking.phone}.` : ""}${booking.notes ? ` Notes: ${booking.notes}` : ""}`,

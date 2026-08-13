@@ -50,7 +50,48 @@ model PlatformAdmin {
   active       Boolean           @default(true)
   createdAt    DateTime          @default(now())
 
-  auditLogs PlatformAuditLog[]
+  auditLogs        PlatformAuditLog[]
+  demoAvailability DemoHostAvailability[]
+  demoBookings     DemoBooking[]
+}
+
+// When a FieldQuo admin will take a product demo booked from the marketing
+// site. FieldQuo's OWN sales calendar — nothing here belongs to a tenant.
+//
+// ── Why this is not AvailabilitySchedule ───────────────────────────────────
+//
+// AvailabilitySchedule hangs off User: a tenant employee, with a Better Auth
+// session and a companyId. PlatformAdmin is a separate table with its own
+// email, its own bcrypt hash and its own JWT — so a platform admin's id can
+// never be a valid AvailabilitySchedule.userId. Reusing that model would mean
+// fusing two identity systems that are separate on purpose, or inventing a
+// shadow User row for each admin. Same shape, different owner, own table.
+//
+// ── Absence is absence ─────────────────────────────────────────────────────
+//
+// No rows for an admin means that admin offers nothing, and no rows at all
+// means the marketing hero shows "no open times" — it does NOT fall back to an
+// invented grid. Before this model existed the hero published 6–10pm every day
+// of the week, weekends and holidays included, because three constants in
+// lib/demo/slots.js said so and nobody had ever stated otherwise.
+model DemoHostAvailability {
+  id      String        @id @default(cuid())
+  adminId String
+  admin   PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  /// 0 = Sunday, matching AvailabilitySchedule and JS Date#getDay.
+  dayOfWeek Int
+  /// Wall-clock in `timezone` ("18:00"), never UTC — the offered instant moves
+  /// with DST, which is the whole reason lib/booking/slotGrid.js exists.
+  startTime String
+  endTime   String
+  timezone  String   @default("America/Toronto")
+  createdAt DateTime @default(now())
+
+  /// One window per admin per day per start. Two blocks on the same day (a
+  /// morning and an evening) are two rows with different startTimes.
+  @@unique([adminId, dayOfWeek, startTime])
+  @@index([adminId])
 }
 
 // Things that FAILED, recorded so support can see them without a customer
@@ -1609,9 +1650,9 @@ model DemoBooking {
   companyName String?
   phone       String?
   notes       String?
-  /// The slot start, UTC. Always one of the offered 6–10pm ET slots — the
-  /// booking route re-validates against lib/demo/slots.js, so this can't be an
-  /// arbitrary time a client posted.
+  /// The slot start, UTC. Always a time the assigned host actually offers — the
+  /// booking route re-validates against that host's DemoHostAvailability, so
+  /// this can't be an arbitrary time a client posted.
   scheduledAt DateTime
   /// booked · cancelled · completed. Plain string, not an enum — this is a light
   /// internal sales record, and a new status shouldn't need a migration.
@@ -1619,9 +1660,28 @@ model DemoBooking {
   source      String?
   createdAt   DateTime @default(now())
 
-  /// One booking per slot — the DB is the final guard against two prospects
-  /// grabbing the same time in a race the availability check didn't catch.
-  @@unique([scheduledAt])
+  /// Which FieldQuo admin is taking this demo. Assigned by /api/demo/book from
+  /// the hosts free at that instant (least-loaded, ties by id).
+  ///
+  /// Nullable for two reasons. Rows written before demo availability existed
+  /// have no host, and a host account being removed must not delete the sales
+  /// record. A host-less booking is treated as busy for EVERY host — we know
+  /// the time is committed, we just no longer know to whom, and over-blocking
+  /// costs one slot where under-blocking double-books a prospect.
+  hostAdminId String?
+  hostAdmin   PlatformAdmin? @relation(fields: [hostAdminId], references: [id], onDelete: SetNull)
+
+  /// One booking per host per slot — the DB is the final guard against two
+  /// prospects grabbing the same time in a race the availability check didn't
+  /// catch. This REPLACED a global @@unique([scheduledAt]), which capped the
+  /// whole platform at one demo per half hour however many people were
+  /// available to run them.
+  ///
+  /// Postgres treats NULLs as distinct here, so legacy host-less rows are not
+  /// deduped by it — but the constraint this replaces already guaranteed at
+  /// most one row per instant, so there is nothing for it to catch. Every row
+  /// written from here on has a host.
+  @@unique([hostAdminId, scheduledAt])
   @@index([status, scheduledAt])
 }
 

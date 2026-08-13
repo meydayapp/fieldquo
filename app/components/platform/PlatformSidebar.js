@@ -22,6 +22,7 @@ import {
   LifeBuoy,
   AlertTriangle,
   CalendarCheck,
+  CalendarClock,
   Ticket,
 } from "lucide-react";
 
@@ -43,8 +44,14 @@ const ITEMS = [
     icon: Tags,
   },
   { label: "Promo codes", href: "/platform/promo-codes", icon: Ticket },
-  { label: "Demo accounts", href: "/platform/demo", icon: Beaker },
+  // exact: the active test is a prefix match, so without it /platform/demo
+  // lights up on /platform/demos and /platform/demo-availability as well, and
+  // three rows claim to be the page you're on.
+  { label: "Demo accounts", href: "/platform/demo", icon: Beaker, exact: true },
   { label: "Demo bookings", href: "/platform/demos", icon: CalendarCheck },
+  // Sits next to the bookings it produces: this screen IS the marketing hero's
+  // calendar, and reading one without the other explains nothing.
+  { label: "Demo availability", href: "/platform/demo-availability", icon: CalendarClock },
   { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
   { label: "Audit log", href: "/platform/audit-log", icon: ScrollText },
   { label: "Support runbook", href: "/platform/help", icon: LifeBuoy },
