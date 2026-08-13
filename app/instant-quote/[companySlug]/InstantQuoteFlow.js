@@ -9,7 +9,29 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, MapPin, Ruler, CheckCircle2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
+
+// ── The way out ──────────────────────────────────────────────────────────────
+//
+// Every dead end in this flow gets the same escape hatch, from one component.
+//
+// It exists because the copy that shipped told homeowners to do something they
+// had no way of doing: the map-failure branch read "Please request a quote and
+// we'll measure your lawn by hand" and rendered no link, because the link lived
+// in a different branch. A stranger standing in a driveway with a failed map
+// had nowhere to go. The same sentence appears in three server error messages,
+// so the exit is a component and not a line of JSX someone remembers to paste.
+function RequestQuoteLink({ companySlug, className = "" }) {
+  return (
+    <a
+      href={`/quote/${companySlug}`}
+      className={`inline-block underline text-sm font-medium ${className}`}
+    >
+      Request a quote instead →
+    </a>
+  );
+}
 
 // Surcharge / intake inputs shown per trade, mirroring the estimator's keys.
 const INTAKE_INPUTS = {
@@ -81,6 +103,17 @@ const INTAKE_INPUTS = {
   ],
 };
 
+// Where each trade's number actually comes from. Only two of these involve
+// imagery; the rest are the homeowner's own figures.
+const MEASURE_SOURCE = {
+  roof_address: "from satellite measurements of your roof",
+  lawn_polygon: "from the area you traced on the map",
+  manual_area: "from the area you gave us",
+  manual_units: "from the counts you gave us",
+  stair_count: "from the counts you gave us",
+  item_picker: "from the items you picked",
+};
+
 function money(n) {
   return "$" + Math.round(Number(n) || 0).toLocaleString();
 }
@@ -105,7 +138,7 @@ function loadMaps(key) {
   return mapsLoader;
 }
 
-function LawnMap({ mapsKey, onArea }) {
+function LawnMap({ mapsKey, onArea, companySlug }) {
   const mapRef = useRef(null);
   const searchRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -188,10 +221,13 @@ function LawnMap({ mapsKey, onArea }) {
   }, [mapsKey]);
 
   if (failed) {
+    // Terminal for this trade: without a polygon the server cannot measure a
+    // lawn at all, so there is no retry to offer — only the way out.
     return (
-      <p className="text-sm rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
-        The map couldn&apos;t load. Please request a quote and we&apos;ll measure your lawn by hand.
-      </p>
+      <div className="text-sm rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
+        <p>The map couldn&apos;t load, so we can&apos;t measure your lawn here.</p>
+        <RequestQuoteLink companySlug={companySlug} className="mt-1 text-amber-900" />
+      </div>
     );
   }
 
@@ -220,6 +256,11 @@ function LawnMap({ mapsKey, onArea }) {
 export default function InstantQuoteFlow({ companySlug }) {
   const [data, setData] = useState(null);
   const [loadErr, setLoadErr] = useState("");
+  // 404 means this link is for a company that doesn't exist — the only failure
+  // where /quote/<slug> is just as broken, so it's the only one without the
+  // escape hatch. Everything else (network, 500) is transient and the
+  // request-a-quote form is a real alternative.
+  const [loadErrStatus, setLoadErrStatus] = useState(0);
   const [trade, setTrade] = useState(null);
 
   const [address, setAddress] = useState("");
@@ -230,7 +271,10 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [measureErr, setMeasureErr] = useState("");
   const [measurement, setMeasurement] = useState(null);
   const [options, setOptions] = useState([]);
-  const [gated, setGated] = useState(null); // a message string when the owner hides prices
+  // An object, not the message string it used to be: an empty message would
+  // have made this falsy, hiding the step-3 card AND the step-4 contact form,
+  // so "Get my estimate" would have appeared to do nothing at all.
+  const [gated, setGated] = useState(null); // { message } when the owner hides prices
   const [financing, setFinancing] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
 
@@ -243,7 +287,10 @@ export default function InstantQuoteFlow({ companySlug }) {
   useEffect(() => {
     fetchJson(`/api/instant-quote/${companySlug}`)
       .then(setData)
-      .catch((e) => setLoadErr(e.message || "Could not load"));
+      .catch((e) => {
+        setLoadErr(e.message || "Could not load");
+        setLoadErrStatus(e.status || 0);
+      });
   }, [companySlug]);
 
   const brand = data?.company?.brandColor || "#06356b";
@@ -276,14 +323,18 @@ export default function InstantQuoteFlow({ companySlug }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      setMeasurement(res.measurement);
+      // Defaulted to {} because every step-3 card is gated on `measurement`
+      // being truthy: a success response without one would swallow the whole
+      // estimate and leave "Get my estimate" looking like a button that does
+      // nothing. The fields are all read optionally.
+      setMeasurement(res.measurement || {});
       setFinancing(res.financing || null);
       // Gated: the owner chose not to show a price for this trade. The server
       // sends a message and NO options — render the message, and let them
       // request a quote exactly as before. Without this guard `res.options`
       // is undefined and the line below throws.
       if (res.gated) {
-        setGated(res.message || "");
+        setGated({ message: res.message || "" });
         setOptions([]);
       } else {
         setGated(null);
@@ -335,7 +386,14 @@ export default function InstantQuoteFlow({ companySlug }) {
   const selectedOption = options.find((o) => o.materialKey === materialKey) || (options.length === 1 ? options[0] : null);
 
   if (loadErr) {
-    return <Centered><p className="text-red-600">{loadErr}</p></Centered>;
+    return (
+      <Centered>
+        <div className="text-center">
+          <p className="text-red-600 mb-3">{loadErr}</p>
+          {loadErrStatus !== 404 && <RequestQuoteLink companySlug={companySlug} />}
+        </div>
+      </Centered>
+    );
   }
   if (!data) {
     return <Centered><Loader2 className="animate-spin text-muted-foreground" /></Centered>;
@@ -345,7 +403,7 @@ export default function InstantQuoteFlow({ companySlug }) {
       <Centered>
         <div className="text-center">
           <p className="text-muted-foreground mb-3">Instant estimates aren&apos;t available here yet.</p>
-          <a href={`/quote/${companySlug}`} className="underline text-sm">Request a quote instead →</a>
+          <RequestQuoteLink companySlug={companySlug} />
         </div>
       </Centered>
     );
@@ -410,6 +468,7 @@ export default function InstantQuoteFlow({ companySlug }) {
                 {trade.measure === "lawn_polygon" && (
                   <LawnMap
                     mapsKey={data.mapsKey}
+                    companySlug={companySlug}
                     onArea={(sqft, path) => setPolygon(path)}
                   />
                 )}
@@ -462,7 +521,17 @@ export default function InstantQuoteFlow({ companySlug }) {
                   {measuring ? <Loader2 size={15} className="animate-spin" /> : <Ruler size={15} />}
                   Get my estimate
                 </button>
-                {measureErr && <p className="text-sm text-red-600 mt-2">{measureErr}</p>}
+                {/* Every server-side measurement failure ends here — the
+                    address that couldn't be found, the roof with no satellite
+                    coverage, the trade that can't price. Several of those
+                    messages say "request a quote"; this is the link that makes
+                    that sentence true. */}
+                {measureErr && (
+                  <div className="mt-2">
+                    <p className="text-sm text-red-600">{measureErr}</p>
+                    <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
+                  </div>
+                )}
               </Card>
             )}
 
@@ -499,22 +568,33 @@ export default function InstantQuoteFlow({ companySlug }) {
                     );
                   })}
                 </div>
+                {/* Say where the number came from, truthfully. Only the roof
+                    and the lawn are measured from imagery; cabinets, floors and
+                    junk are whatever the homeowner typed, and telling them a
+                    door count was "measured from satellite" is a claim the
+                    company would have to defend. */}
                 <p className="text-xs text-muted-foreground mt-3">
-                  This is an estimate from satellite measurements, not a final quote.
+                  This is an estimate {MEASURE_SOURCE[trade.measure] || "based on the details you gave us"}, not a final quote.
                   {" "}{data.company.name} will confirm it before anything is binding.
                 </p>
               </Card>
             )}
 
             {/* Step 3 (gated) — measurement, but the owner hides the price.
-                No figure is shown; they still leave details and we follow up. */}
+                No figure is shown; they still leave details and we follow up.
+                The wording comes from the server and is stage-specific: mid-
+                flow it explains that prices aren't shown here and asks for
+                details, rather than thanking someone who hasn't submitted yet
+                and leaving them to assume the estimate broke. */}
             {measurement && gated && (
               <Card step="3" title="Almost there">
                 {measurement.satelliteImageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
                 )}
-                <p className="text-sm text-foreground">{gated}</p>
+                <p className="text-sm text-foreground">
+                  {gated.message || "We'll confirm your price shortly."}
+                </p>
               </Card>
             )}
 
@@ -556,10 +636,16 @@ export default function InstantQuoteFlow({ companySlug }) {
                     onChange={(e) => setContact({ ...contact, email: e.target.value })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   />
+                  {/* Same formatter as the back office (lib/validation.js), so
+                      a number typed in a driveway is stored the way staff type
+                      it — one shape in the database, not two. */}
                   <input
                     placeholder="Phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     value={contact.phone}
-                    onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                    onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   />
                   <MediaUploader
@@ -577,15 +663,23 @@ export default function InstantQuoteFlow({ companySlug }) {
                   {submitting && <Loader2 size={15} className="animate-spin" />}
                   Send me my estimate
                 </button>
-                {submitErr && <p className="text-sm text-red-600 mt-2">{submitErr}</p>}
+                {submitErr && (
+                  <div className="mt-2">
+                    <p className="text-sm text-red-600">{submitErr}</p>
+                    <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
+                  </div>
+                )}
               </Card>
             )}
           </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Powered by measurements from satellite imagery.
-        </p>
+        {/* Only claimed where it's true — the two trades that read imagery. */}
+        {(trade?.measure === "roof_address" || trade?.measure === "lawn_polygon") && (
+          <p className="text-center text-xs text-muted-foreground mt-8">
+            Powered by measurements from satellite imagery.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -718,7 +812,7 @@ function SuccessCard({ result, company, companySlug, brand }) {
       <p className="text-sm text-muted-foreground mb-4">
         {company.name} has your details and will confirm your quote shortly.
       </p>
-      {result.estimate && (
+      {result.estimate ? (
         <div className="rounded-lg bg-muted/50 px-4 py-3 inline-block">
           <p className="text-xs text-muted-foreground">Estimated range</p>
           <p className="text-xl font-bold text-foreground">
@@ -726,6 +820,17 @@ function SuccessCard({ result, company, companySlug, brand }) {
             {result.estimate.unit ? <span className="text-sm font-normal text-muted-foreground"> {result.estimate.unit}</span> : null}
           </p>
         </div>
+      ) : (
+        // Withheld ON PURPOSE — the company chose not to publish a price for
+        // this service. Saying so is the whole point: the owner submitted a
+        // gated estimate, saw a bare "You're all set" where a figure would be,
+        // and reasonably concluded the estimate had failed. Silence where a
+        // number belongs reads as a bug, never as a decision.
+        result.message && (
+          <div className="rounded-lg bg-muted/50 px-4 py-3">
+            <p className="text-sm text-foreground">{result.message}</p>
+          </div>
+        )
       )}
       <p className="text-xs text-muted-foreground mt-4">Reference {result.reference}</p>
     </div>

@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
+import { publicEstimate, gatedMessage } from "@/lib/estimate/visibility";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -127,16 +128,32 @@ export async function POST(request, { params }) {
   // Show the homeowner their range back, clearly as an estimate — never the
   // internal quote id, and never a "confirmed price". Respects the gate: a gated
   // trade returns no figure here either.
-  const shown = priced.visibility === "range"
+  //
+  // Run through publicEstimate rather than reading low/high directly, so this
+  // agrees with /measure and with the confirmation email on what counts as a
+  // showable figure. A "range" trade whose estimate didn't resolve falls back to
+  // the gated wording instead of shipping a NaN.
+  const pub = publicEstimate(priced.estimate, priced.visibility);
+  const shown = pub.show
     ? {
-        low: priced.estimate.low,
-        high: priced.estimate.high,
+        low: pub.low,
+        high: pub.high,
         unit: priced.estimate.unit || null,
         assumptions: priced.estimate.assumptions || [],
       }
     : null;
 
-  return NextResponse.json({ ok: true, reference: draft.quoteNumber, estimate: shown });
+  // When no figure is shown, SAY so. Returning `{ estimate: null }` and nothing
+  // else left the confirmation page looking like the estimate had failed — the
+  // owner hit exactly that and assumed the flow was broken. The message carries
+  // no figure and no configuration detail; it's the same white-label sentence
+  // the confirmation email uses.
+  return NextResponse.json({
+    ok: true,
+    reference: draft.quoteNumber,
+    estimate: shown,
+    message: shown ? null : gatedMessage(emailLanguage, "confirmed"),
+  });
 }
 
 // Keep the stored snapshot small and free of the raw Solar dump — the facts

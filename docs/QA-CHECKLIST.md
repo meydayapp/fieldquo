@@ -78,7 +78,13 @@ Set up: two companies, A (subcontractor) and B (general contractor).
 
 ## 7. Booking & leads
 - ☐ **Online booking** (`/book/<slug>`): pick a service, an estimator, a slot → confirmation + calendar invite. Slots respect availability + travel buffer.
-- ☐ **Self-quote / instant estimate** (`/quote/<slug>`): returns services + intake fields, **never rates**. Submitting creates a lead/quote.
+- ☐ **Self-quote** (`/quote/<slug>`): returns services + intake fields, **never rates**. Submitting creates a LEAD — no figure is shown, and the confirmation says so on purpose. Check the address autocomplete, the phone formatting, the language picker (only appears when the company has more than one send language) and the confirmation email.
+- ☐ **Instant estimate** (`/instant-quote/<slug>`): a DIFFERENT flow at a different URL. Measures from an address, creates a draft QUOTE with a reference, and shows a range only when the trade's visibility is "range".
+<!-- These two were one bullet that named both flows and printed only the
+     self-quote URL. A round of owner QA was filed against /quote/<slug> for
+     behaviour that only exists on /instant-quote/<slug> — the confirmation
+     copy quoted ("You're all set", "Estimated range", "Reference Q-…") is
+     InstantQuoteFlow's. Keep them separate: they share a word, not a page. -->
 - ☐ **Lead form** + **embed** (`/embed/<slug>/<book|quote>`): the copy-paste iframe loads and reports height on an external page.
 - ☐ Leads pipeline: a submitted lead appears and can be worked.
 

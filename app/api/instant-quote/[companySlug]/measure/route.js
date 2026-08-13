@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { measureForTrade, priceAllMaterials } from "@/lib/estimate/instantQuoteServer";
+import { measureForTrade, priceAllMaterials, tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import { publicEstimate, gatedMessage } from "@/lib/estimate/visibility";
 import { financingOffer } from "@/lib/estimate/financing";
 
@@ -47,8 +47,22 @@ export async function POST(request, { params }) {
     measurement: measured.measurement,
   });
   if (!priced.ok) {
+    // ── Two audiences, one failure ────────────────────────────────────────
+    //
+    // The homeowner is told WHICH service is unavailable and where to go
+    // instead. WHY it's unavailable — off, unpriced, a band with no rate — is
+    // the company's configuration, and a stranger comparing three contractors
+    // never gets to read it (non-negotiable #4).
+    //
+    // The contractor's copy of "which thing is off" is on their own settings
+    // screen, where every trade carries a readiness line computed from this
+    // same pricing code. This log line is for support, who get a slug and a
+    // trade and need the reason without asking for a screen-share.
+    console.warn(
+      `[instant-quote/measure] ${companySlug}/${trade} unavailable (${priced.reason}) — owner fixes it at /app/settings/instant-quotes`,
+    );
     return NextResponse.json(
-      { error: "This service isn't taking instant quotes right now." },
+      { error: `${tradeLabel(trade)} isn't available for an instant estimate right now.` },
       { status: 422 },
     );
   }
@@ -80,7 +94,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({
       measurement: measurementView,
       gated: true,
-      message: gatedMessage(language),
+      message: gatedMessage(language, "prompt"),
       financing,
     });
   }
@@ -97,7 +111,7 @@ export async function POST(request, { params }) {
   // Every material fell out (all unpriceable) — treat as gated rather than
   // returning an empty options array the UI would render as a blank estimate.
   if (!options.length) {
-    return NextResponse.json({ measurement: measurementView, gated: true, message: gatedMessage(language), financing });
+    return NextResponse.json({ measurement: measurementView, gated: true, message: gatedMessage(language, "prompt"), financing });
   }
 
   return NextResponse.json({ measurement: measurementView, options, financing });

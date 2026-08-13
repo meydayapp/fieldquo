@@ -19,29 +19,9 @@ import {
   INSTANT_ESTIMATE_DEFAULTS,
   INSTANT_ESTIMATE_TRADES,
 } from "@/lib/estimate/instantEstimate";
+import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
+import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import { normaliseFinancing } from "@/lib/estimate/financing";
-
-const TRADE_LABELS = {
-  roofing: "Roofing",
-  epoxy: "Epoxy & Concrete Coatings",
-  parging: "Parging",
-  lawn_mowing: "Lawn Mowing",
-  cabinet_refacing: "Cabinet Refacing",
-  countertop: "Countertops",
-  flooring: "Flooring",
-  painting: "Painting",
-  stair: "Stairs & Railings",
-  junk_removal: "Junk Removal",
-};
-
-// Which per-material rate key a trade prices on. Roofing sells by the square,
-// stairs by the tread, everything else by the sqft. One source of truth so the
-// "is it priceable?" check and the settings editor can't disagree.
-export function materialRateKey(trade) {
-  if (trade === "roofing") return "ratePerSquare";
-  if (trade === "stair") return "ratePerTread";
-  return "ratePerSqft";
-}
 
 function isPricingAdmin(role) {
   return role === "owner" || role === "admin";
@@ -56,29 +36,41 @@ export async function GET(request) {
     db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { financing: true },
+      select: { financing: true, slug: true },
     }),
   ]);
   const byTrade = new Map(saved.map((r) => [r.trade, r]));
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
     const row = byTrade.get(trade);
+    const config = row?.config ?? INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
     return {
       trade,
-      label: TRADE_LABELS[trade] || trade,
+      label: tradeLabel(trade),
       measure: spec.measure, // roof_address | lawn_polygon | manual_area | manual_units
       hasMaterials: spec.hasMaterials,
       enabled: row?.enabled ?? false,
       // Seed the form with the company's saved config, else the reference
       // defaults so they have something to edit rather than a blank grid.
-      config: row?.config ?? INSTANT_ESTIMATE_DEFAULTS[trade] ?? null,
+      config,
       isDefaults: !row,
+      // Whether a homeowner can actually get a number out of the SAVED config,
+      // dry-run through the public pricer. An enabled trade that can't price is
+      // a dead control in front of a stranger, and the contractor is the only
+      // person allowed to be told why — so it's computed here, behind auth, and
+      // never on the public endpoint.
+      readiness: instantQuoteReadiness(trade, row?.config ?? null),
     };
   });
 
   return NextResponse.json({
     trades,
     canEdit: isPricingAdmin(member.role),
+    // What a homeowner opening the public link would see right now. The owner
+    // asked "so I have to turn it on somewhere?" while looking at this screen;
+    // the answer belongs on it.
+    liveTradeCount: trades.filter((t) => t.enabled && t.readiness.ok).length,
+    companySlug: company?.slug || null,
     // Company-level, not per-trade — one financing offer for the business.
     financing: normaliseFinancing(company?.financing),
   });
@@ -133,9 +125,18 @@ export async function PUT(request) {
   // Refuse to enable a trade that can't actually price. Better a clear error
   // here than a public "instant quote" button that returns needsConfig — a
   // dead control in front of a homeowner is exactly what this product forbids.
+  //
+  // The check is the READINESS dry-run, not a hand-written mirror of the
+  // estimator's rules. The hand-written mirror is what let Cabinet Refacing
+  // through: it validated a per-door price the public pricer never looked at.
   if (enabled) {
-    const problem = validatePriceable(trade, spec, config);
-    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+    const readiness = instantQuoteReadiness(trade, config);
+    if (!readiness.ok) {
+      return NextResponse.json(
+        { error: [readiness.message, readiness.fix].filter(Boolean).join(" ") },
+        { status: 400 },
+      );
+    }
   }
 
   const saved = await db.instantQuoteConfig.upsert({
@@ -158,38 +159,4 @@ export async function PUT(request) {
   });
 
   return NextResponse.json({ ok: true, trade: saved.trade, enabled: saved.enabled });
-}
-
-// The minimum a config needs before the trade can be turned on. Mirrors what
-// the estimator in lib/estimate/instantEstimate.js actually reads, so "enabled
-// and valid here" means "will produce a number there".
-function validatePriceable(trade, spec, config) {
-  if (!config || typeof config !== "object") return "Add pricing before enabling this trade.";
-
-  if (spec.hasMaterials && trade !== "cabinet_refacing") {
-    const mats = Array.isArray(config.materials) ? config.materials : [];
-    const rateKey = materialRateKey(trade);
-    const priced = mats.some((m) => Number(m?.[rateKey]) > 0);
-    if (!priced) return "Set a sell rate on at least one material before enabling.";
-  }
-  if (trade === "lawn_mowing") {
-    const tiers = Array.isArray(config.tiers) ? config.tiers : [];
-    if (!tiers.some((t) => Number(t?.pricePerVisit) > 0)) {
-      return "Set at least one lot-size tier price before enabling.";
-    }
-  }
-  if (trade === "cabinet_refacing") {
-    if (!(Number(config.perDoor) > 0)) return "Set a per-door price before enabling.";
-  }
-  if (trade === "junk_removal") {
-    // Junk prices off the load tiers + minimum; a full-truck price of 0 means
-    // the owner blanked the card. normaliseJunkRates fills gaps, but an all-zero
-    // load would publish free hauling — refuse it.
-    const r = config.rates || {};
-    const full = Number(r?.loadCents?.full);
-    if (!(full > 0) && !(Number(r?.minimumCents) > 0)) {
-      return "Set at least a full-load price or a minimum charge before enabling.";
-    }
-  }
-  return null;
 }

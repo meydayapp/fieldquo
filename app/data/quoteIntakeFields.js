@@ -1011,3 +1011,24 @@ export const NO_INTAKE_FIELDS = [];
 export function getIntakeFields(categoryKey) {
   return INTAKE_FIELDS[categoryKey] || [];
 }
+
+// The internal quote builder asks everything the pricing formula needs. A
+// stranger on a phone will abandon that, so the PUBLIC self-quote form shows at
+// most this many number/select fields per category: enough that the contractor
+// arrives at the callback already knowing roughly the size of the job, not so
+// many that nobody finishes the form.
+const MAX_PUBLIC_FIELDS = 3;
+
+/**
+ * The subset of a category's intake fields the public form is allowed to show.
+ *
+ * One function rather than the same filter-and-slice in each route: the GET
+ * that renders the form and the POST that reads the answers back have to agree
+ * on which fields were public, and two copies of a rule agree only until one is
+ * edited.
+ */
+export function publicIntakeFields(categoryKey) {
+  return getIntakeFields(categoryKey)
+    .filter((f) => f.type === "number" || f.type === "select")
+    .slice(0, MAX_PUBLIC_FIELDS);
+}

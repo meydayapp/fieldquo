@@ -2006,6 +2006,21 @@ model LeadRequest {
   budgetBand    String?
   timeline      String?
 
+  // The language the homeowner filled the form in, fixed at creation.
+  //
+  // The public self-quote form offers the company's send languages and posted
+  // the choice; the route destructured `language` from the body and dropped
+  // it, so the pick changed the words on screen and nothing downstream. The
+  // quote this lead converts into is a DOCUMENT, and a document keeps the
+  // language it was created in (AGENTS.md non-negotiable 6) — so the choice
+  // has to survive the round trip rather than be re-guessed, or machine-
+  // translated, when someone gets round to pricing it.
+  //
+  // Null means the homeowner was never asked (a phone lead, an import, a
+  // company with one send language). Callers fall back to the company default
+  // rather than treating null as English.
+  language      String?
+
   // Lead triage. `score` is 0–100; `temperature` is the hot/warm/cold band it
   // maps to; `scoreReasons` is the human-readable "why" ([{ label, weight }]) so
   // the number is never a black box a rep has to trust blind. Written when the
@@ -3369,6 +3384,31 @@ model VoicePhoneNumber {
   /// last year's rate until someone changes it deliberately.
   monthlyCents Int @default(0)
 
+  /// Rent is paid up to this instant, and not one second further.
+  ///
+  /// The rental is a REAL, recurring charge to FieldQuo the moment the number
+  /// exists at the provider, whether or not the contractor ever pays. So it is
+  /// debited from the prepaid balance a month at a time, in advance — the first
+  /// month before the number is bought at all. This column is what makes that
+  /// idempotent: the rent cron only charges numbers whose paid-through has
+  /// passed, and advances it by exactly one period in the same write. A missed
+  /// cron day charges once when it next runs, never twice.
+  ///
+  /// Null means "never charged" — a number that predates rent billing, or a
+  /// port that has just gone active. Both are due immediately.
+  rentPaidThroughAt DateTime?
+
+  /// Set when a rent debit failed for want of balance. The number KEEPS WORKING
+  /// until this passes: a contractor's advertised phone number vanishing without
+  /// warning is worse than FieldQuo carrying a week of $4 rental. When it passes
+  /// and the balance is still short, the number is released for real.
+  /// Cleared the moment rent is paid.
+  rentGraceUntilAt DateTime?
+
+  /// When we last told them. Stops a daily cron sending a daily email, while
+  /// still proving the warning went out before anything was taken away.
+  rentWarnedAt DateTime?
+
   /// Set while a port is in flight, so the UI can say "moving, est. 3 Aug"
   /// rather than a spinner with no end.
   portRequestedAt DateTime?
@@ -3508,15 +3548,38 @@ model VoiceCreditEntry {
   /// away from the calls that moved it.
   cents Int
 
-  kind   String  // "topup" | "call" | "adjustment" | "monthly_number"
+  kind   String  // "topup" | "call" | "trial" | "adjustment" | "number_setup" | "number_rent"
   callId String?
   /// The Stripe Checkout session or payment intent behind a top-up, so a
   /// disputed charge can be traced to the credit it bought.
   stripeRef String?
+
+  /// Idempotency key for anything that must happen EXACTLY once, enforced by
+  /// the database rather than by a read-then-write that two concurrent callers
+  /// can both pass.
+  ///
+  /// Three things depend on it, and each is a real bug it prevents:
+  ///   "voice_trial"                    — the free-minutes gift, once per
+  ///                                      company FOREVER. Guarding it on "no
+  ///                                      active number" instead would let a
+  ///                                      company release and re-buy for
+  ///                                      another 30 minutes, every time.
+  ///   "number_rent:<numberId>:<date>"  — one month's rent, once per period,
+  ///                                      so a cron that runs twice in a day
+  ///                                      charges once.
+  ///   "number_setup:<token>"           — the up-front month, paired with a
+  ///                                      "refund:<token>" if the purchase then
+  ///                                      fails at the provider.
+  ///
+  /// Nullable, and null is unconstrained in Postgres, so the millions of call
+  /// and top-up rows that key on callId/stripeRef are unaffected.
+  ref String?
+
   note      String?
 
   createdAt DateTime @default(now())
 
+  @@unique([companyId, ref])
   @@index([companyId, createdAt])
 }
 

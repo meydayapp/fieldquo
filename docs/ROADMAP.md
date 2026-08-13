@@ -431,9 +431,41 @@ they set the pattern.
   it used to show $0 because payroll read only Worker.hourlyRate. Read-side, so
   it never clobbers an explicit rate, and overhead salaries (workerId:null) stay
   business costs, not pay — that part was never a bug.
-- **Self-quote estimate email** (`lib/estimate/estimateEmail.js`) — white-label,
-  built from documentTheme so it matches a real quote; gated trades show no
-  figure, financing shows no invented monthly amount.
+- **INSTANT-QUOTE estimate email** (`lib/estimate/estimateEmail.js`) — white-
+  label, built from documentTheme; gated trades show no figure, financing shows
+  no invented monthly amount. Renamed here from "self-quote estimate email":
+  it belongs to `/instant-quote/<slug>`, not `/quote/<slug>`, and calling it
+  the self-quote email is part of why a round of owner QA was filed against the
+  wrong page. The self-quote flow has its own, separate confirmation email
+  (`lib/email/selfQuoteEmail.js`). NB this one still builds its own markup
+  rather than using `lib/email/documentEmailLayout.js`, so it does not match
+  the quote email the way the others now do — see below.
+
+- **Self-quote flow rebuilt** (`/quote/<slug>`, `lib/selfQuote/confirmation.js`,
+  `lib/email/selfQuoteEmail.js`, `npm run check:self-quote`) — the confirmation
+  was four lines of centred text and there was no confirmation email at all.
+  Both are now composed from ONE description of the document, so the screen and
+  the email cannot drift: masthead, "prepared for", what was asked, then what
+  happens next — the order `/q/[token]` and the PDF use. The email pours into
+  `documentEmailLayout.js`, the same shell as the quote and invoice.
+  `preparedForBlock` moved out of `ClientInfoSection.js` into that layout so a
+  route wanting forty lines of HTML no longer drags `@react-pdf` in behind it
+  (and the panel's heading is finally translated — it was hardcoded English on
+  a section whose PDF twin wasn't).
+
+  Also: Google address autocomplete (degrading to a plain typed field with no
+  Maps key — verified by running the server without one), `formatPhoneInput` as
+  you type, and the whole form translated. `LeadRequest.language` is new and
+  `convertLeadToQuote` seeds `Quote.language` from it, so a homeowner who fills
+  the form in French gets a quote CREATED in French rather than one written in
+  the contractor's language.
+
+  **Still open, needs a product decision:** `Company.sendLanguages` is read by
+  three routes and WRITTEN BY NOTHING — there is no settings control for it, so
+  every company reads as `[]` and the language picker correctly stays hidden.
+  The picker works (verified by setting the column by hand); it will not appear
+  for anyone until that setting exists. Treating `[]` as "offer all six" was
+  rejected: a homeowner offered Tagalog reasonably expects a reply in Tagalog.
 
 - **Honest month-over-month** (`lib/analytics/trend.js`) — `getAnalyticsOverview`
   now computes `priorConversionRate` (null, not zero, when last month had no
@@ -507,6 +539,16 @@ they set the pattern.
 - **Arrival windows** (`lib/booking/arrivalWindow.js`) — client-facing only, off
   by default. `describeWindow` returns null when off so callers fall through to
   their own exact-time formatting instead of duplicating it.
+- **The booking page is on `documentTheme`** (`app/book/[companySlug]/`) — it
+  used hardcoded ink at 25–50% opacity, which put the weekday headers at 2.1:1,
+  and it capped the card at `max-w-md` for every step, which squeezed the
+  calendar + times side-by-side layout down to 17px day cells on a desktop. The
+  calendar step now widens to `max-w-2xl`, goes two-column at `md` rather than
+  `sm`, and every cell and chip is ≥40px. Address entry goes through
+  `AddressField.js`, which wraps the shared `AddressAutocomplete` in an error
+  boundary: no Maps key, a blocked script or a key without Places all fall back
+  to a plain typed address that books exactly as well. Coordinates from Places
+  are deliberately not posted — `/confirm` re-geocodes, see its header.
 - **`docs/VERCEL.md`** — the deployment checklist, and `npm run check:env` fails
   the build if any `process.env.X` in the codebase is missing from it. Add the
   SYMPTOM, not just the name.

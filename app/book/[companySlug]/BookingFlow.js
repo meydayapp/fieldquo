@@ -8,10 +8,24 @@
 // The single most important thing on this page is that a homeowner who is
 // mildly annoyed and holding a phone can finish it. Everything else is
 // secondary to that.
+//
+// Colours come from documentTheme — the same palette as the quote, the invoice
+// and the emails — so a company's booking page looks like the rest of what
+// they send, and so every text/background pair here is measured rather than
+// hand-picked. The previous hardcoded #2d2520-at-35%-opacity greys were down
+// at 2.1:1 on the weekday headers.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { readableForeground } from "@/lib/brand/colour";
+import {
+  documentTheme,
+  fillPair,
+  neutralPair,
+  accentIsWashedOut,
+} from "@/lib/documents/theme";
+import { ensureContrast } from "@/lib/brand/colour";
+import { formatPhoneInput } from "@/lib/validation";
+import AddressField from "./AddressField";
 import {
   Clock,
   MapPin,
@@ -43,6 +57,21 @@ function moneyFromCents(cents, currency) {
   } catch {
     return `$${((cents || 0) / 100).toFixed(0)}`;
   }
+}
+
+// Format as typed — but only while what they're typing is a plain ten-digit
+// North American number.
+//
+// formatPhoneInput truncates to ten digits, which is right for the back office
+// (staff type local numbers) and wrong here: a homeowner pasting
+// "+1 514 555 1234" would watch it silently become 151-455-5123, a different
+// number, on the field the crew rings when they're running late. Anything that
+// isn't a bare NANP number is left exactly as typed rather than rewritten.
+function formatPhoneAsTyped(raw) {
+  const text = String(raw || "");
+  const digits = text.replace(/\D/g, "");
+  if (digits.length > 10 || /[^\d\s().-]/.test(text)) return text;
+  return formatPhoneInput(text);
 }
 
 export default function BookingFlow({ companySlug, initialEventSlug }) {
@@ -79,7 +108,9 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   //
   // Two pieces of state, not one. `address` is what they're typing; `geoAddress`
   // is what the slot query has been run against. Refetching on every keystroke
-  // would be a geocode per character, so the query only moves when typing stops.
+  // would be a geocode per character, so the query only moves when typing stops
+  // — or immediately, when they pick a Google suggestion, since that address is
+  // finished by definition and waiting another 700ms is just a slower page.
   //
   // `travelInfo` is what came back — whether the filter actually applied. Null
   // means we haven't asked; { applied: false } means we asked and couldn't
@@ -303,12 +334,40 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     }
   }
 
+  // One palette for the whole flow, derived from the company's brand hex.
+  // Computed before the early returns below so the skeleton and the error card
+  // sit on the same paper as everything else. documentTheme falls back to the
+  // FieldQuo navy when a company hasn't set a colour, so `company` being null
+  // during load is fine.
+  const theme = documentTheme(company || {});
+  // The two things that sit ON the accent: the confirm button, the logo bubble,
+  // and the selected day. fillPair rather than readableForeground because a
+  // mid-tone brand (#808080 tops out at 4.43:1) has no legible foreground at
+  // all — fillPair moves the fill instead, and substitutes ink for a brand so
+  // pale the shape itself would disappear.
+  const solid = fillPair(theme);
+  // The washed surface: a bookable day, the times panel, the fee card. Their
+  // colour at 4% strength — except for washed-out brands (white, near white),
+  // where a tint of the brand is indistinguishable from the card and the
+  // affordance has to be visible even when the brand isn't. Both branches carry
+  // their own measured text colours, because ink measured against paper is not
+  // the same as ink measured against a wash (that gap is where the hero subhead
+  // sat at 4.43:1 for a year).
+  const wash = accentIsWashedOut(theme)
+    ? { bg: neutralPair(theme).bg, ink: theme.ink, muted: neutralPair(theme).fg }
+    : { bg: theme.accentWash, ink: theme.inkOnWash, muted: theme.inkMutedOnWash };
+  // theme.accentText is measured against PAPER. The visit fee sits on the wash,
+  // which costs about 0.2 — enough to put lime, mid grey and pale grey brands
+  // under 4.5:1 on the one number that says what this visit costs. Re-measured
+  // against the surface it's actually painted on.
+  wash.accent = ensureContrast(theme.accentText, wash.bg, 4.5);
+
   if (loading) {
     return (
-      <Shell>
+      <Shell theme={theme}>
         <div className="animate-pulse space-y-3">
-          <div className="h-6 bg-black/10 rounded w-1/2" />
-          <div className="h-40 bg-black/10 rounded-xl" />
+          <div className="h-6 rounded w-1/2" style={{ backgroundColor: theme.border }} />
+          <div className="h-40 rounded-xl" style={{ backgroundColor: theme.border }} />
         </div>
       </Shell>
     );
@@ -316,10 +375,10 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
 
   if (loadError) {
     return (
-      <Shell>
+      <Shell theme={theme}>
         <div className="text-center py-10">
-          <p className="font-semibold text-[#2d2520]">{loadError}</p>
-          <p className="text-sm text-[#2d2520]/60 mt-1">
+          <p className="font-semibold" style={{ color: theme.ink }}>{loadError}</p>
+          <p className="text-sm mt-1" style={{ color: theme.inkMuted }}>
             Double-check the link, or get in touch with the company directly.
           </p>
         </div>
@@ -327,26 +386,22 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     );
   }
 
-  const accent = company.brandColor || "#06356b";
-  // Measured, not assumed white/dark — a dark brand (or the default navy) makes
-  // hardcoded dark text on the accent unreadable. This is the "Confirm booking"
-  // button and the logo bubble: the two elements that sit ON the accent.
-  const accentOn = readableForeground(accent);
-
   if (confirmed) {
     return (
-      <Shell>
-        <Header company={company} accent={accent} />
+      <Shell theme={theme}>
+        <Header company={company} theme={theme} solid={solid} />
         <div className="text-center py-8">
           <div
             className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: `${accent}33` }}
+            style={{ backgroundColor: wash.bg }}
           >
-            <Check size={26} style={{ color: accent }} />
+            <Check size={26} style={{ color: theme.accentText }} />
           </div>
-          <h2 className="text-lg font-bold text-[#2d2520]">You&apos;re booked</h2>
+          <h2 className="text-lg font-bold" style={{ color: theme.ink }}>
+            You&apos;re booked
+          </h2>
           {confirmed.startTime && (
-            <p className="text-sm text-[#2d2520]/70 mt-2">
+            <p className="text-sm mt-2" style={{ color: theme.ink }}>
               {new Date(confirmed.startTime).toLocaleString(undefined, {
                 weekday: "long",
                 month: "long",
@@ -356,7 +411,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               })}
             </p>
           )}
-          <p className="text-sm text-[#2d2520]/60 mt-3">
+          <p className="text-sm mt-3" style={{ color: theme.inkMuted }}>
             {confirmed.paid
               ? `Payment received — your visit is confirmed. A confirmation email is on its way, and ${company.name} will be in touch if anything changes.`
               : `A confirmation is on its way${form.email ? ` to ${form.email}` : ""}. ${company.name} will be in touch if anything changes.`}
@@ -366,16 +421,23 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
     );
   }
 
+  const showingCalendar = Boolean(eventType && !chosen);
+
   return (
-    <Shell>
-      <Header company={company} accent={accent} />
+    // The calendar step is the one that needs room: a 7-column grid and a list
+    // of times side by side inside a 448px card left the day cells at 17px
+    // wide on a desktop — unreadable and untappable, and the reason this page
+    // got reported as "cramped". The card widens for that step only; a name
+    // and email field stretched across 672px looks worse, not better.
+    <Shell theme={theme} wide={showingCalendar}>
+      <Header company={company} theme={theme} solid={solid} />
 
       {/* Step 1 — pick your estimator (member-first), or the service menu */}
       {!eventType && (
         <div>
           {members.length > 0 ? (
             <>
-              <h2 className="font-semibold text-[#2d2520] mb-3">
+              <h2 className="font-semibold mb-3" style={{ color: theme.ink }}>
                 Choose who you&apos;d like to meet
               </h2>
               <div className="space-y-2">
@@ -392,27 +454,31 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                     <button
                       key={m.eventSlug}
                       onClick={() => setEventType(et || { slug: m.eventSlug, name: `Consultation with ${m.name}`, durationMinutes: m.durationMinutes })}
-                      className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors flex items-center gap-3"
+                      className="w-full text-left border rounded-xl px-4 py-3 transition-colors flex items-center gap-3 border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                      style={{
+                        "--bd": theme.border,
+                        "--bd-hover": theme.accentRule,
+                        backgroundColor: theme.paper,
+                      }}
                     >
                       <span
                         className="shrink-0 w-11 h-11 rounded-full grid place-items-center text-sm font-bold"
-                        // accentOn, not white — this is the "logo bubble" the
-                        // comment beside accentOn already claimed to cover, and
-                        // white initials on a pale or yellow brand are invisible.
-                        style={{ backgroundColor: accent, color: accentOn }}
+                        // The measured pair, not white — white initials on a
+                        // pale or yellow brand are invisible.
+                        style={{ backgroundColor: solid.bg, color: solid.fg }}
                       >
                         {initials || "★"}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-medium text-[#2d2520]">{m.name}</span>
-                        <span className="block text-xs text-[#2d2520]/55">
+                        <span className="block font-medium" style={{ color: theme.ink }}>{m.name}</span>
+                        <span className="block text-xs" style={{ color: theme.inkMuted }}>
                           {m.title}
                           {m.nextSlot
                             ? ` · next ${new Date(m.nextSlot).toLocaleDateString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`
                             : " · limited availability"}
                         </span>
                       </span>
-                      <ChevronRight size={16} className="text-[#2d2520]/30 shrink-0" />
+                      <ChevronRight size={16} className="shrink-0" style={{ color: theme.inkFaint }} />
                     </button>
                   );
                 })}
@@ -420,7 +486,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             </>
           ) : company.eventTypes?.length ? (
             <>
-              <h2 className="font-semibold text-[#2d2520] mb-3">
+              <h2 className="font-semibold mb-3" style={{ color: theme.ink }}>
                 What can we help with?
               </h2>
               <div className="space-y-2">
@@ -428,10 +494,15 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                   <button
                     key={et.id}
                     onClick={() => setEventType(et)}
-                    className="w-full text-left border border-black/10 hover:border-black/25 rounded-xl px-4 py-3 bg-white transition-colors"
+                    className="w-full text-left border rounded-xl px-4 py-3 transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                    style={{
+                      "--bd": theme.border,
+                      "--bd-hover": theme.accentRule,
+                      backgroundColor: theme.paper,
+                    }}
                   >
-                    <div className="font-medium text-[#2d2520]">{et.name}</div>
-                    <div className="text-xs text-[#2d2520]/50 mt-1 flex gap-3 flex-wrap">
+                    <div className="font-medium" style={{ color: theme.ink }}>{et.name}</div>
+                    <div className="text-xs mt-1 flex gap-3 flex-wrap" style={{ color: theme.inkMuted }}>
                       <span className="inline-flex items-center gap-1">
                         <Clock size={11} /> {et.durationMinutes} min
                       </span>
@@ -443,11 +514,11 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                       {et.feeCents > 0 && (
                         <span
                           className="inline-flex items-center gap-1.5 font-semibold"
-                          style={{ color: accent }}
+                          style={{ color: theme.accentText }}
                         >
                           {et.feeStandardCents ? (
                             <>
-                              <span className="line-through opacity-50 font-normal">
+                              <span className="line-through font-normal" style={{ color: theme.inkMuted }}>
                                 {moneyFromCents(et.feeStandardCents, company.currency)}
                               </span>
                               {moneyFromCents(et.feeCents, company.currency)}
@@ -463,7 +534,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               </div>
             </>
           ) : (
-            <p className="text-sm text-[#2d2520]/60">
+            <p className="text-sm" style={{ color: theme.inkMuted }}>
               {company.name} hasn&apos;t set up online booking yet.
               {company.phone && ` Give them a call on ${company.phone}.`}
             </p>
@@ -472,41 +543,24 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
       )}
 
       {/* Step 2 — which time */}
-      {eventType && !chosen && (
+      {showingCalendar && (
         <div>
-          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-            <div className="min-w-0">
-              {company.eventTypes?.length > 1 && (
-                <button
-                  onClick={() => setEventType(null)}
-                  className="inline-flex items-center gap-1 text-xs text-[#2d2520]/50 hover:text-[#2d2520]"
-                >
-                  <ArrowLeft size={11} /> Change service
-                </button>
-              )}
-              <h2 className="font-semibold text-[#2d2520]">{eventType.name}</h2>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-sm font-semibold text-[#2d2520] tabular-nums">
-                {monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}
-              </span>
+          <div className="mb-4">
+            {company.eventTypes?.length > 1 && (
               <button
-                onClick={() => shiftMonth(-1)}
-                disabled={atCurrentMonth}
-                className="p-1.5 rounded-lg border border-black/10 disabled:opacity-30"
-                aria-label="Previous month"
+                onClick={() => setEventType(null)}
+                className="inline-flex items-center gap-1 text-xs mb-0.5"
+                style={{ color: theme.inkMuted }}
               >
-                <ChevronLeft size={14} />
+                <ArrowLeft size={11} /> Change service
               </button>
-              <button
-                onClick={() => shiftMonth(1)}
-                className="p-1.5 rounded-lg border border-black/10"
-                aria-label="Next month"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
+            )}
+            <h2 className="font-semibold" style={{ color: theme.ink }}>{eventType.name}</h2>
+            {eventType.durationMinutes && (
+              <p className="text-xs mt-0.5" style={{ color: theme.inkMuted }}>
+                {eventType.durationMinutes} min
+              </p>
+            )}
           </div>
 
           {/* ── How would you like to meet? ──────────────────────────────────
@@ -518,7 +572,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               it offers and the client picks. */}
           {(company.bookingModes?.length || 0) > 1 && (
             <div className="mb-4">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-1.5">
+              <div className="text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: theme.inkMuted }}>
                 How would you like to meet?
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -526,15 +580,18 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                   const label =
                     m === "call" ? "Phone call" : m === "video" ? "Video call" : "Visit my place";
                   const Icon = m === "visit" ? MapPin : Phone;
+                  const on = mode === m;
                   return (
                     <button
                       key={m}
                       onClick={() => setMode(m)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        mode === m
-                          ? "bg-[#2d2520] text-white border-[#2d2520]"
-                          : "bg-white border-black/15 text-[#2d2520] hover:border-black/40"
-                      }`}
+                      className="inline-flex items-center gap-1.5 px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                      style={{
+                        "--bd": on ? solid.bg : theme.border,
+                        "--bd-hover": on ? solid.bg : theme.accentRule,
+                        backgroundColor: on ? solid.bg : theme.paper,
+                        color: on ? solid.fg : theme.ink,
+                      }}
                     >
                       <Icon size={13} /> {label}
                     </button>
@@ -554,33 +611,42 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               the full grid — the times are then merely unfiltered, which is
               exactly what every booking page did before this. Blocking the
               calendar behind a required field would cost more bookings than
-              the occasional tight drive does. */}
+              the occasional tight drive does. That is also why the Google
+              suggestions in AddressField are an accelerator and never a gate:
+              a typed address books exactly as well as a picked one. */}
           {mode === "visit" && (
             <div className="mb-4">
               <label
                 htmlFor="visit-address"
-                className="block text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-1.5"
+                className="block text-xs font-semibold uppercase tracking-wide mb-1.5"
+                style={{ color: theme.inkMuted }}
               >
                 Where should we come?
               </label>
               <div className="relative">
                 <MapPin
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#2d2520]/35 pointer-events-none"
+                  size={15}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+                  style={{ color: theme.inkMuted }}
                 />
-                <input
+                <AddressField
                   id="visit-address"
-                  type="text"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={setAddress}
+                  onResolved={({ address: picked }) => {
+                    if (!picked) return;
+                    setAddress(picked);
+                    // Picked from the list, so it's a finished address —
+                    // re-query now instead of waiting out the typing debounce.
+                    setGeoAddress(picked.trim());
+                  }}
                   placeholder="123 Main St, Montreal"
-                  autoComplete="street-address"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-black/15 bg-white text-sm text-[#2d2520] placeholder:text-[#2d2520]/30 focus:border-[#2d2520]/50 focus:outline-none"
+                  className="w-full pl-9 pr-3 min-h-11 rounded-lg border text-sm focus:outline-none border-[var(--bd)] focus:border-[var(--bd-focus)] bg-[var(--paper)] text-[var(--ink)] placeholder:text-[var(--ink-faint)]"
                 />
               </div>
 
               {/* Three states, and they must not look alike. */}
-              <p className="text-xs text-[#2d2520]/50 mt-1.5">
+              <p className="text-xs mt-1.5" style={{ color: theme.inkMuted }}>
                 {travelInfo?.applied
                   ? `Showing times we can reach ${travelInfo.address || "you"} on schedule.`
                   : travelInfo
@@ -591,16 +657,44 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           )}
 
           {slotsLoading ? (
-            <div className="flex items-center gap-2 text-sm text-[#2d2520]/50 py-10 justify-center">
+            <div className="flex items-center gap-2 text-sm py-10 justify-center" style={{ color: theme.inkMuted }}>
               <Loader2 size={15} className="animate-spin" /> Finding times…
             </div>
           ) : (
-            <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] sm:gap-6">
+            // Two columns only from md up. At sm (640px) the card is still
+            // narrower than calendar + times side by side, which is how the
+            // day cells ended up at 17px.
+            <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] md:gap-6 md:items-start">
               {/* ── Pick a day ── */}
-              <div>
+              <div className="mx-auto w-full max-w-sm md:max-w-none">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <NavButton
+                    onClick={() => shiftMonth(-1)}
+                    disabled={atCurrentMonth}
+                    label="Previous month"
+                    theme={theme}
+                  >
+                    <ChevronLeft size={18} />
+                  </NavButton>
+                  <span className="text-sm font-semibold tabular-nums" style={{ color: theme.ink }}>
+                    {monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}
+                  </span>
+                  <NavButton
+                    onClick={() => shiftMonth(1)}
+                    label="Next month"
+                    theme={theme}
+                  >
+                    <ChevronRight size={18} />
+                  </NavButton>
+                </div>
+
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <div key={i} className="text-center text-[10px] font-bold uppercase text-[#2d2520]/35 py-1">
+                    <div
+                      key={i}
+                      className="text-center text-[11px] font-bold uppercase py-1"
+                      style={{ color: theme.inkMuted }}
+                    >
                       {d}
                     </div>
                   ))}
@@ -610,25 +704,40 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                     if (!cell) return <div key={i} />;
                     const free = !cell.past && cell.count > 0;
                     const selected = chosenDay === cell.key;
+                    // h-10 rather than aspect-square: at 375px the square was
+                    // 38px, under the 40px a thumb needs, and there is no width
+                    // left to give it — height is free.
                     return (
                       <button
                         key={cell.key}
                         onClick={() => free && setChosenDay(cell.key)}
                         disabled={!free}
                         aria-label={`${cell.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}${free ? `, ${cell.count} times available` : ", nothing available"}`}
-                        className={`relative aspect-square rounded-lg text-sm font-medium transition-colors ${
-                          selected
-                            ? "bg-[#2d2520] text-white"
-                            : free
-                              ? "bg-white border border-black/10 text-[#2d2520] hover:border-black/40"
-                              : "text-[#2d2520]/25 cursor-default"
+                        className={`relative h-10 sm:h-11 rounded-lg text-sm transition-colors ${
+                          free
+                            ? "font-semibold border border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                            : "font-medium cursor-default"
                         }`}
+                        style={
+                          selected
+                            ? { "--bd": solid.bg, "--bd-hover": solid.bg, backgroundColor: solid.bg, color: solid.fg }
+                            : free
+                              ? { "--bd": theme.border, "--bd-hover": theme.accentRule, backgroundColor: wash.bg, color: wash.ink }
+                              // Unavailable days stay at full muted contrast
+                              // (4.5:1) rather than being faded out. What marks
+                              // a day as bookable is the chip and the dot, not
+                              // a number you have to squint at.
+                              : { color: theme.inkMuted }
+                        }
                       >
                         {cell.day}
                         {/* A dot, not a count. "14 times" is noise at this size;
                             what a visitor needs to know is "this day is open". */}
                         {free && !selected && (
-                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#2d2520]/40" />
+                          <span
+                            className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                            style={{ backgroundColor: theme.accentText }}
+                          />
                         )}
                       </button>
                     );
@@ -636,10 +745,11 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                 </div>
                 {!monthHasAny && (
                   <div className="text-center py-4">
-                    <p className="text-sm text-[#2d2520]/60">Nothing free this month.</p>
+                    <p className="text-sm" style={{ color: theme.inkMuted }}>Nothing free this month.</p>
                     <button
                       onClick={() => shiftMonth(1)}
-                      className="mt-1 text-sm font-semibold underline text-[#2d2520]"
+                      className="mt-1 text-sm font-semibold underline"
+                      style={{ color: theme.accentText }}
                     >
                       Try next month
                     </button>
@@ -648,14 +758,26 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               </div>
 
               {/* ── Then a time, grouped ── */}
-              <div className="mt-5 sm:mt-0">
+              {/* On a phone this sits under a ~300px calendar, so the times get
+                  a panel of their own — otherwise they read as a stray row of
+                  buttons and people miss that tapping a day did anything. The
+                  panel stays put whether or not a day is chosen, so the column
+                  doesn't appear and disappear under the visitor's thumb — but
+                  it goes entirely when the month is empty, because "pick a day"
+                  over a grid with no pickable days is an instruction that can't
+                  be followed. */}
+              {monthHasAny && (
+              <div
+                className="mt-4 md:mt-0 rounded-xl border p-3"
+                style={{ borderColor: theme.border, backgroundColor: wash.bg }}
+              >
                 {!chosenDay ? (
-                  <p className="text-sm text-[#2d2520]/50 sm:pt-8">
+                  <p className="text-sm py-2 text-center md:text-left" style={{ color: wash.muted }}>
                     Pick a day to see the times.
                   </p>
                 ) : (
                   <>
-                    <div className="text-xs font-semibold uppercase tracking-wide text-[#2d2520]/40 mb-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: wash.ink }}>
                       {new Date(`${chosenDay}T12:00:00`).toLocaleDateString(undefined, {
                         weekday: "long",
                         month: "short",
@@ -665,18 +787,24 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                     {/* Capped height with its own scroll: a full day is still ~36
                         times, and letting that push the calendar off the screen is
                         the problem this rebuild exists to fix. */}
-                    <div className="space-y-3 sm:max-h-[19rem] sm:overflow-y-auto sm:pr-1">
+                    <div className="space-y-3 md:max-h-[19rem] md:overflow-y-auto md:pr-1">
                       {dayTimes.map((g) => (
                         <div key={g.label}>
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#2d2520]/35 mb-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: wash.muted }}>
                             {g.label}
                           </div>
-                          <div className="grid grid-cols-3 sm:grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-3 md:grid-cols-2 gap-1.5">
                             {g.times.map((t) => (
                               <button
                                 key={t}
                                 onClick={() => setChosen(t)}
-                                className="px-2 py-2 rounded-lg border border-black/15 bg-white text-sm font-medium text-[#2d2520] hover:border-black/40 tabular-nums"
+                                className="inline-flex items-center justify-center px-2 min-h-10 rounded-lg border text-sm font-medium tabular-nums transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                                style={{
+                                  "--bd": theme.border,
+                                  "--bd-hover": theme.accentRule,
+                                  backgroundColor: theme.paper,
+                                  color: theme.ink,
+                                }}
                               >
                                 {new Date(t).toLocaleTimeString(undefined, {
                                   hour: "numeric",
@@ -691,6 +819,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                   </>
                 )}
               </div>
+              )}
             </div>
           )}
         </div>
@@ -702,12 +831,13 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           <button
             type="button"
             onClick={() => setChosen(null)}
-            className="inline-flex items-center gap-1 text-xs text-[#2d2520]/50 hover:text-[#2d2520] mb-2"
+            className="inline-flex items-center gap-1 text-xs mb-2"
+            style={{ color: theme.inkMuted }}
           >
             <ArrowLeft size={11} /> Pick another time
           </button>
 
-          <h2 className="font-semibold text-[#2d2520]">
+          <h2 className="font-semibold" style={{ color: theme.ink }}>
             {new Date(chosen).toLocaleString(undefined, {
               weekday: "long",
               month: "long",
@@ -716,21 +846,21 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
               minute: "2-digit",
             })}
           </h2>
-          <p className="text-xs text-[#2d2520]/50 mb-4">
+          <p className="text-xs mb-4" style={{ color: theme.inkMuted }}>
             {eventType.name} · {eventType.durationMinutes} min
           </p>
 
           {eventType.feeCents > 0 && (
             <div
               className="rounded-xl px-3.5 py-3 mb-4 text-sm"
-              style={{ backgroundColor: `${accent}12`, color: "#2d2520" }}
+              style={{ backgroundColor: wash.bg, color: wash.ink }}
             >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-medium">Visit fee</span>
-                <span className="font-semibold" style={{ color: accent }}>
+                <span className="font-semibold" style={{ color: wash.accent }}>
                   {eventType.feeStandardCents ? (
                     <>
-                      <span className="line-through opacity-50 font-normal mr-1.5">
+                      <span className="line-through font-normal mr-1.5" style={{ color: wash.muted }}>
                         {moneyFromCents(eventType.feeStandardCents, company.currency)}
                       </span>
                       {moneyFromCents(eventType.feeCents, company.currency)}
@@ -740,7 +870,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
                   )}
                 </span>
               </div>
-              <p className="text-xs text-[#2d2520]/60 mt-1.5">
+              <p className="text-xs mt-1.5" style={{ color: wash.muted }}>
                 Paid now to hold your spot. If you go ahead with the work,{" "}
                 {company.name} can credit it back on your invoice.
               </p>
@@ -757,6 +887,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           <div className="space-y-3">
             <Input
               label="Your name"
+              theme={theme}
               value={form.name}
               onChange={(v) => setForm({ ...form, name: v })}
               required
@@ -764,6 +895,7 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             />
             <Input
               label="Email"
+              theme={theme}
               type="email"
               value={form.email}
               onChange={(v) => setForm({ ...form, email: v })}
@@ -772,9 +904,15 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
             />
             <Input
               label="Phone"
+              theme={theme}
               type="tel"
+              inputMode="tel"
+              placeholder="555-123-4567"
               value={form.phone}
-              onChange={(v) => setForm({ ...form, phone: v })}
+              // Formatted as typed, still optional. Nothing here rejects a
+              // phone number — a validation gate on a field the flow doesn't
+              // require would turn a polish pass into lost bookings.
+              onChange={(v) => setForm({ ...form, phone: formatPhoneAsTyped(v) })}
               hint="Optional, but it helps if we're running late."
             />
           </div>
@@ -782,8 +920,8 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
           <button
             type="submit"
             disabled={submitting || !form.name.trim() || !form.email.trim()}
-            className="mt-5 w-full inline-flex items-center justify-center gap-2 py-3 rounded-full text-sm font-bold disabled:opacity-50"
-            style={{ backgroundColor: accent, color: accentOn }}
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-full text-sm font-bold disabled:opacity-50"
+            style={{ backgroundColor: solid.bg, color: solid.fg }}
           >
             {submitting && <Loader2 size={15} className="animate-spin" />}
             {eventType.feeCents > 0
@@ -796,21 +934,60 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   );
 }
 
-function Shell({ children }) {
+function Shell({ children, theme, wide = false }) {
   // No min-h-screen: inside a 600px iframe that would force a scrollbar on
   // content that fits.
   return (
-    <div className="bg-[#f5f2ec] p-4 sm:p-6">
-      <div className="max-w-md mx-auto bg-white/60 rounded-2xl p-5 border border-black/5">
+    <div className="p-3 sm:p-6" style={{ backgroundColor: theme.page }}>
+      <div
+        className={`${wide ? "max-w-2xl" : "max-w-md"} mx-auto rounded-2xl p-4 sm:p-5 border`}
+        style={{
+          backgroundColor: theme.paper,
+          borderColor: theme.borderSoft,
+          // Declared once here, and inherited. The address input is rendered by
+          // a shared back-office component that takes a className and no style
+          // prop, so its colours have to arrive through the cascade; the chips
+          // below override --bd locally where they need to. Hover and focus
+          // can't be inline styles at all, which is the other half of the
+          // reason these exist.
+          "--paper": theme.paper,
+          "--ink": theme.ink,
+          "--ink-faint": theme.inkFaint,
+          "--bd": theme.border,
+          "--bd-hover": theme.accentRule,
+          // Focus is the darkened accent, not the pale rule: a focus ring you
+          // can't see is not a focus ring.
+          "--bd-focus": theme.accentText,
+        }}
+      >
         {children}
       </div>
     </div>
   );
 }
 
-function Header({ company, accent }) {
+function NavButton({ children, onClick, disabled, label, theme }) {
   return (
-    <div className="flex items-center gap-3 mb-5 pb-4 border-b border-black/5">
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="h-10 w-10 grid place-items-center rounded-lg border disabled:opacity-30 transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+      style={{
+        "--bd": theme.border,
+        "--bd-hover": theme.accentRule,
+        color: theme.ink,
+        backgroundColor: theme.paper,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Header({ company, theme, solid }) {
+  return (
+    <div className="flex items-center gap-3 mb-5 pb-4 border-b" style={{ borderColor: theme.borderSoft }}>
       {company.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -821,32 +998,37 @@ function Header({ company, accent }) {
       ) : (
         <div
           className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: accent }}
+          style={{ backgroundColor: solid.bg }}
         >
-          <Building2 size={16} style={{ color: readableForeground(accent) }} />
+          <Building2 size={16} style={{ color: solid.fg }} />
         </div>
       )}
       <div className="min-w-0">
-        <div className="font-bold text-[#2d2520] truncate">{company.name}</div>
-        <div className="text-xs text-[#2d2520]/50">Book an appointment</div>
+        <div className="font-bold truncate" style={{ color: theme.ink }}>{company.name}</div>
+        <div className="text-xs" style={{ color: theme.inkMuted }}>Book an appointment</div>
       </div>
     </div>
   );
 }
 
-function Input({ label, hint, value, onChange, ...rest }) {
+function Input({ label, hint, value, onChange, theme, ...rest }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-[#2d2520] mb-1">
+      <label className="block text-sm font-medium mb-1" style={{ color: theme.ink }}>
         {label}
       </label>
       <input
         {...rest}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-black/40"
+        className="w-full border rounded-lg px-3 min-h-11 text-sm focus:outline-none border-[var(--bd)] focus:border-[var(--bd-focus)] placeholder:text-[var(--ink-faint)]"
+        style={{
+          "--bd": theme.border,
+          backgroundColor: theme.paper,
+          color: theme.ink,
+        }}
       />
-      {hint && <p className="text-xs text-[#2d2520]/40 mt-1">{hint}</p>}
+      {hint && <p className="text-xs mt-1" style={{ color: theme.inkMuted }}>{hint}</p>}
     </div>
   );
 }

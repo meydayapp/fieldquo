@@ -23,50 +23,43 @@
 // competitor in the city. What it does instead is arrive at the callback with
 // the size of the job already known.
 //
+// ── The confirmation is a document, not a receipt ───────────────────────────
+//
+// It used to be four lines of centred text. The next thing that homeowner sees
+// from this company is their actual quote — brand rule across the top, logo
+// left, document word and reference right, a "prepared for" panel, then the
+// substance — and the two bore no family resemblance at all. So the
+// confirmation is composed from lib/selfQuote/confirmation.js, the same
+// description the confirmation EMAIL renders, and laid out in the same order
+// as /q/[token] and the PDF.
+//
+// Colours come from lib/documents/theme.js rather than the raw brand hex.
+// That is a deliberate difference from the approval page next door, which
+// still paints headings with `color: brandColor` unmeasured — a company whose
+// brand is pale yellow gets an invisible heading there. accentText, fillPair
+// and inkMutedOnWash are all measured at 4.5:1, including against the
+// near-white and mid-grey brands real companies in this database have picked.
+//
 // ── Renders inside an iframe ────────────────────────────────────────────────
 //
 // Same constraint as the booking flow: no fixed positioning, no viewport-
 // height units, no assumption about surrounding width.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Check, ArrowLeft, Building2, AlertCircle } from "lucide-react";
-import { readableForeground } from "@/lib/brand/colour";
+import { documentTheme, fillPair, ruleColor } from "@/lib/documents/theme";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { LANGUAGES } from "@/app/i18n/languages";
+import { formatPhoneInput } from "@/lib/validation";
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MediaUploader from "@/app/components/MediaUploader";
-
-const FALLBACK_ACCENT = "#06356b";
-
-// The universal qualifiers, keyed to lib/leads/qualifiers.js. Timeline reads as
-// plain language; budget shows the company's currency symbol. These decide the
-// lead's hot/warm/cold score, so they're worth two taps.
-const TIMELINE_OPTIONS = [
-  { key: "asap", label: "As soon as possible" },
-  { key: "2_weeks", label: "Within 2 weeks" },
-  { key: "1_3_months", label: "In the next 1–3 months" },
-  { key: "exploring", label: "Just exploring for now" },
-];
-
-function budgetOptions(symbol) {
-  const s = symbol || "$";
-  return [
-    { key: "under_1k", label: `Under ${s}1,000` },
-    { key: "1k_5k", label: `${s}1,000 – ${s}5,000` },
-    { key: "5k_15k", label: `${s}5,000 – ${s}15,000` },
-    { key: "15k_plus", label: `${s}15,000+` },
-    { key: "unsure", label: "Not sure yet" },
-  ];
-}
-
-// Symbol for the few currencies FieldQuo onboards; falls back to the ISO code so
-// a stranger never sees "undefined". Not a full currency library — the label is
-// a rough band, not an invoice line.
-function currencySymbol(code) {
-  return (
-    { USD: "$", CAD: "$", AUD: "$", NZD: "$", EUR: "€", GBP: "£", MXN: "$" }[
-      code
-    ] || (code ? `${code} ` : "$")
-  );
-}
+import {
+  buildConfirmation,
+  budgetOptions,
+  currencySymbol,
+  timelineOptions,
+} from "@/lib/selfQuote/confirmation";
 
 export default function SelfQuoteFlow({ companySlug }) {
   const [data, setData] = useState(null);
@@ -89,9 +82,15 @@ export default function SelfQuoteFlow({ companySlug }) {
     address: "",
   });
 
+  // The language the resulting LEAD — and the quote it becomes — is created in.
+  // Null until the company's list arrives, then its primary. Never inferred
+  // from the browser: the document is the contractor's, and the list of
+  // languages they send in is theirs to state.
+  const [language, setLanguage] = useState(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(null); // the server's reply, once sent
 
   useEffect(() => {
     let cancelled = false;
@@ -100,10 +99,11 @@ export default function SelfQuoteFlow({ companySlug }) {
         const res = await fetch(`/api/self-quote/${companySlug}`);
         const d = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!res.ok) throw new Error(d?.error || "This link isn't valid.");
+        if (!res.ok) throw new Error(d?.error || "");
         setData(d);
+        setLanguage(d.languages?.[0] || "en");
       } catch (err) {
-        if (!cancelled) setLoadError(err.message);
+        if (!cancelled) setLoadError(err.message || "load");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -113,15 +113,21 @@ export default function SelfQuoteFlow({ companySlug }) {
     };
   }, [companySlug]);
 
+  const lang = language || data?.languages?.[0] || "en";
+  const copy = clientDocCopy(lang).selfQuote;
+  const c = useMemo(() => data?.company || {}, [data]);
+  const theme = useMemo(() => documentTheme(c), [c]);
+  const fill = useMemo(() => fillPair(theme), [theme]);
+
   async function submit(e) {
     e.preventDefault();
     setError("");
 
     // Checked here as well as server-side, because being told "provide an
     // email or phone" after a page reload is how people give up.
-    if (!contact.name.trim()) return setError("Please tell us your name.");
+    if (!contact.name.trim()) return setError(copy.errName);
     if (!contact.email.trim() && !contact.phone.trim()) {
-      return setError("Add an email or a phone number so we can reply.");
+      return setError(copy.errContact);
     }
 
     setSubmitting(true);
@@ -137,14 +143,17 @@ export default function SelfQuoteFlow({ companySlug }) {
           details,
           budgetBand: budgetBand || null,
           timeline: timeline || null,
+          // The server re-validates this against the company's own send
+          // languages; it is not trusted here.
+          language: lang,
           media,
         }),
       });
       const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(d?.error || "Couldn't send your request.");
-      setDone(true);
+      if (!res.ok) throw new Error(d?.error || copy.errSend);
+      setDone(d || {});
     } catch (err) {
-      setError(err.message);
+      setError(err.message || copy.errSend);
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +161,7 @@ export default function SelfQuoteFlow({ companySlug }) {
 
   if (loading) {
     return (
-      <Shell>
+      <Shell theme={theme}>
         <div className="animate-pulse space-y-3">
           <div className="h-6 bg-black/10 rounded w-1/3" />
           <div className="h-40 bg-black/10 rounded-xl" />
@@ -162,59 +171,53 @@ export default function SelfQuoteFlow({ companySlug }) {
   }
 
   if (loadError) {
+    // English only, deliberately: the company never resolved, so there is no
+    // send-language list to pick from and guessing would be inventing one.
     return (
-      <Shell>
+      <Shell theme={theme}>
         <div className="bg-white border border-black/10 rounded-2xl p-8 text-center">
-          <p className="text-lg font-semibold text-[#2d2520]">{loadError}</p>
-          <p className="text-sm text-[#2d2520]/60 mt-2">
-            Check the link, or get in touch with the company directly.
+          <p className="text-lg font-semibold" style={{ color: theme.ink }}>
+            {clientDocCopy("en").selfQuote.linkInvalid}
+          </p>
+          <p className="text-sm mt-2" style={{ color: theme.inkMuted }}>
+            {clientDocCopy("en").selfQuote.linkInvalidHint}
           </p>
         </div>
       </Shell>
     );
   }
 
-  const c = data.company || {};
-  const accent = c.brandColor || FALLBACK_ACCENT;
-  const accentOn = readableForeground(accent);
   const services = data.services || [];
+  const languages = data.languages || [lang];
 
   if (done) {
     return (
-      <Shell>
-        <Card accent={accent}>
-          <div className="px-6 sm:px-8 py-10 text-center">
-            <div
-              className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-4"
-              style={{ backgroundColor: accent, color: accentOn }}
-            >
-              <Check size={26} />
-            </div>
-            <h1 className="text-xl font-bold text-[#2d2520]">
-              Thanks — we&apos;ve got it
-            </h1>
-            <p className="text-sm text-[#2d2520]/70 mt-2 max-w-sm mx-auto">
-              {c.name} will be in touch
-              {contact.email ? ` at ${contact.email}` : ""} to talk through the
-              details and get you a price.
-            </p>
-            {c.phone && (
-              <p className="text-sm text-[#2d2520]/60 mt-4">
-                Need it sooner?{" "}
-                <a href={`tel:${c.phone}`} className="underline font-medium">
-                  {c.phone}
-                </a>
-              </p>
-            )}
-          </div>
-        </Card>
+      <Shell theme={theme}>
+        <Confirmation
+          doc={buildConfirmation({
+            company: c,
+            contact,
+            service,
+            details,
+            description,
+            budgetBand,
+            timeline,
+            language: lang,
+            submittedAt: done.submittedAt || new Date(),
+          })}
+          company={c}
+          theme={theme}
+          fill={fill}
+          emailed={Boolean(done.emailed && contact.email)}
+          contactEmail={contact.email}
+        />
       </Shell>
     );
   }
 
   return (
-    <Shell>
-      <Card accent={accent}>
+    <Shell theme={theme}>
+      <Card theme={theme}>
         <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5 flex items-center gap-3">
           {c.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -226,15 +229,36 @@ export default function SelfQuoteFlow({ companySlug }) {
           ) : (
             <div
               className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
-              style={{ backgroundColor: accent, color: accentOn }}
+              style={{ backgroundColor: fill.bg, color: fill.fg }}
             >
               <Building2 size={18} />
             </div>
           )}
-          <div className="min-w-0">
-            <div className="font-semibold text-[#2d2520] truncate">{c.name}</div>
-            <div className="text-xs text-[#2d2520]/55">Request a quote</div>
+          <div className="min-w-0 flex-1">
+            <div
+              className="font-semibold truncate"
+              style={{ color: theme.ink }}
+            >
+              {c.name}
+            </div>
+            <div className="text-xs" style={{ color: theme.inkMuted }}>
+              {copy.eyebrow}
+            </div>
           </div>
+
+          {/* Only when there is a choice. A picker with one option is a
+              control that appears to do something and doesn't — and at the
+              time of writing every company reads as one language, because
+              nothing in the product writes Company.sendLanguages yet. */}
+          {languages.length > 1 && (
+            <LanguagePicker
+              value={lang}
+              options={languages}
+              label={copy.languageLabel}
+              theme={theme}
+              onChange={setLanguage}
+            />
+          )}
         </div>
 
         {/* Progress. Three dots rather than a bar: a bar implies a percentage
@@ -245,7 +269,9 @@ export default function SelfQuoteFlow({ companySlug }) {
             <span
               key={n}
               className="h-1 flex-1 rounded-full transition-colors"
-              style={{ backgroundColor: n <= step ? accent : `${accent}22` }}
+              style={{
+                backgroundColor: n <= step ? ruleColor(theme) : theme.accentWashStrong,
+              }}
             />
           ))}
         </div>
@@ -254,18 +280,16 @@ export default function SelfQuoteFlow({ companySlug }) {
           {/* ── 1. What do you need? ─────────────────────────────────── */}
           {step === 1 && (
             <>
-              <h2 className="font-semibold text-[#2d2520] mb-1">
-                What can we help with?
+              <h2 className="font-semibold mb-1" style={{ color: theme.ink }}>
+                {copy.step1Title}
               </h2>
-              <p className="text-sm text-[#2d2520]/60 mb-4">
-                Pick the closest match — we&apos;ll sort out the detail.
+              <p className="text-sm mb-4" style={{ color: theme.inkMuted }}>
+                {copy.step1Hint}
               </p>
 
               {services.length === 0 ? (
-                <p className="text-sm text-[#2d2520]/60">
-                  This company hasn&apos;t set up their services yet. Get in
-                  touch with them directly
-                  {c.phone ? ` on ${c.phone}` : ""}.
+                <p className="text-sm" style={{ color: theme.inkMuted }}>
+                  {copy.noServices(c.phone)}
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -278,11 +302,15 @@ export default function SelfQuoteFlow({ companySlug }) {
                         setDetails({});
                         setStep(2);
                       }}
-                      className="text-left rounded-xl border border-black/10 px-4 py-3 text-sm font-medium text-[#2d2520] hover:border-black/25 transition-colors"
+                      className="text-left rounded-xl border border-black/10 px-4 py-3 text-sm font-medium hover:border-black/25 transition-colors"
                       style={
                         service?.id === s.id
-                          ? { borderColor: accent, backgroundColor: `${accent}0f` }
-                          : undefined
+                          ? {
+                              borderColor: ruleColor(theme),
+                              backgroundColor: theme.accentWash,
+                              color: theme.ink,
+                            }
+                          : { color: theme.ink }
                       }
                     >
                       {s.label}
@@ -296,19 +324,19 @@ export default function SelfQuoteFlow({ companySlug }) {
           {/* ── 2. How big is it? ────────────────────────────────────── */}
           {step === 2 && service && (
             <>
-              <BackLink onClick={() => setStep(1)} />
-              <h2 className="font-semibold text-[#2d2520] mb-1">
+              <BackLink onClick={() => setStep(1)} theme={theme} label={copy.back} />
+              <h2 className="font-semibold mb-1" style={{ color: theme.ink }}>
                 {service.label}
               </h2>
-              <p className="text-sm text-[#2d2520]/60 mb-4">
-                Rough numbers are fine — nothing here is binding.
+              <p className="text-sm mb-4" style={{ color: theme.inkMuted }}>
+                {copy.step2Hint}
               </p>
 
               {service.fields?.length > 0 && (
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {service.fields.map((f) => (
                     <div key={f.key}>
-                      <label className="text-xs text-[#2d2520]/60">
+                      <label className="text-xs" style={{ color: theme.inkMuted }}>
                         {f.label}
                       </label>
                       {f.type === "select" ? (
@@ -318,6 +346,7 @@ export default function SelfQuoteFlow({ companySlug }) {
                             setDetails((p) => ({ ...p, [f.key]: e.target.value }))
                           }
                           className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 text-sm bg-white"
+                          style={{ color: theme.ink }}
                         >
                           <option value="">—</option>
                           {(f.options || []).map((o) => (
@@ -335,6 +364,7 @@ export default function SelfQuoteFlow({ companySlug }) {
                             setDetails((p) => ({ ...p, [f.key]: e.target.value }))
                           }
                           className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 text-sm"
+                          style={{ color: theme.ink }}
                           placeholder="0"
                         />
                       )}
@@ -347,15 +377,15 @@ export default function SelfQuoteFlow({ companySlug }) {
                   tap beats a native picker, and seeing all the options at once
                   is what makes people actually answer. */}
               <div className="mb-4">
-                <label className="text-xs text-[#2d2520]/60">
-                  When are you hoping to start?
+                <label className="text-xs" style={{ color: theme.inkMuted }}>
+                  {copy.timelineLabel}
                 </label>
                 <div className="grid grid-cols-2 gap-2 mt-1.5">
-                  {TIMELINE_OPTIONS.map((o) => (
+                  {timelineOptions(copy).map((o) => (
                     <ChipButton
                       key={o.key}
                       active={timeline === o.key}
-                      accent={accent}
+                      theme={theme}
                       onClick={() =>
                         setTimeline((v) => (v === o.key ? "" : o.key))
                       }
@@ -367,16 +397,16 @@ export default function SelfQuoteFlow({ companySlug }) {
               </div>
 
               <div className="mb-4">
-                <label className="text-xs text-[#2d2520]/60">
-                  Rough budget?{" "}
-                  <span className="text-[#2d2520]/40">(optional)</span>
+                <label className="text-xs" style={{ color: theme.inkMuted }}>
+                  {copy.budgetLabel}{" "}
+                  <span style={{ color: theme.inkFaint }}>{copy.optional}</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2 mt-1.5">
-                  {budgetOptions(currencySymbol(c.currency)).map((o) => (
+                  {budgetOptions(copy, currencySymbol(c.currency)).map((o) => (
                     <ChipButton
                       key={o.key}
                       active={budgetBand === o.key}
-                      accent={accent}
+                      theme={theme}
                       onClick={() =>
                         setBudgetBand((v) => (v === o.key ? "" : o.key))
                       }
@@ -387,24 +417,25 @@ export default function SelfQuoteFlow({ companySlug }) {
                 </div>
               </div>
 
-              <label className="text-xs text-[#2d2520]/60">
-                Anything else we should know?
+              <label className="text-xs" style={{ color: theme.inkMuted }}>
+                {copy.notesLabel}
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                placeholder="Photos, timing, access, anything unusual…"
+                placeholder={copy.notesPlaceholder}
                 className="w-full mt-1 border border-black/15 rounded-lg px-3 py-2 text-sm"
+                style={{ color: theme.ink }}
               />
 
               <button
                 type="button"
                 onClick={() => setStep(3)}
                 className="w-full mt-4 py-3 rounded-full text-sm font-bold"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: fill.bg, color: fill.fg }}
               >
-                Continue
+                {copy.continueCta}
               </button>
             </>
           )}
@@ -412,12 +443,12 @@ export default function SelfQuoteFlow({ companySlug }) {
           {/* ── 3. Where do we send it? ──────────────────────────────── */}
           {step === 3 && (
             <form onSubmit={submit}>
-              <BackLink onClick={() => setStep(2)} />
-              <h2 className="font-semibold text-[#2d2520] mb-1">
-                Where should we send it?
+              <BackLink onClick={() => setStep(2)} theme={theme} label={copy.back} />
+              <h2 className="font-semibold mb-1" style={{ color: theme.ink }}>
+                {copy.step3Title}
               </h2>
-              <p className="text-sm text-[#2d2520]/60 mb-4">
-                One of email or phone is enough.
+              <p className="text-sm mb-4" style={{ color: theme.inkMuted }}>
+                {copy.step3Hint}
               </p>
 
               <div className="space-y-3">
@@ -427,8 +458,9 @@ export default function SelfQuoteFlow({ companySlug }) {
                   onChange={(e) =>
                     setContact((p) => ({ ...p, name: e.target.value }))
                   }
-                  placeholder="Your name"
+                  placeholder={copy.namePlaceholder}
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
+                  style={{ color: theme.ink }}
                 />
                 <input
                   type="email"
@@ -436,24 +468,40 @@ export default function SelfQuoteFlow({ companySlug }) {
                   onChange={(e) =>
                     setContact((p) => ({ ...p, email: e.target.value }))
                   }
-                  placeholder="Email"
+                  placeholder={copy.emailPlaceholder}
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
+                  style={{ color: theme.ink }}
                 />
+                {/* Formatted as they type, with the same helper five back-office
+                    pages use — so a number typed here and a number typed by
+                    staff are stored the same way and neither looks like the
+                    odd one out on the lead. */}
                 <input
                   type="tel"
+                  inputMode="tel"
                   value={contact.phone}
                   onChange={(e) =>
-                    setContact((p) => ({ ...p, phone: e.target.value }))
+                    setContact((p) => ({
+                      ...p,
+                      phone: formatPhoneInput(e.target.value),
+                    }))
                   }
-                  placeholder="Phone"
+                  placeholder={copy.phonePlaceholder}
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
+                  style={{ color: theme.ink }}
                 />
-                <input
+                {/* Google autocomplete, and it DEGRADES: with no Maps key, or
+                    with Google blocked, this is a plain text input that still
+                    accepts a typed address and still submits. Gating the form
+                    on a third-party script would strand a stranger in a
+                    driveway on a bad connection. */}
+                <AddressAutocomplete
                   value={contact.address}
-                  onChange={(e) =>
-                    setContact((p) => ({ ...p, address: e.target.value }))
+                  onChange={(v) => setContact((p) => ({ ...p, address: v }))}
+                  onPlaceSelected={(place) =>
+                    setContact((p) => ({ ...p, address: place.address }))
                   }
-                  placeholder="Where's the job? (optional)"
+                  placeholder={copy.addressPlaceholder}
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"
                 />
                 <MediaUploader
@@ -474,16 +522,19 @@ export default function SelfQuoteFlow({ companySlug }) {
                 type="submit"
                 disabled={submitting}
                 className="w-full mt-4 py-3 rounded-full text-sm font-bold inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                style={{ backgroundColor: accent, color: accentOn }}
+                style={{ backgroundColor: fill.bg, color: fill.fg }}
               >
                 {submitting && <Loader2 size={15} className="animate-spin" />}
-                Send my request
+                {copy.sendCta}
               </button>
 
               {/* Says what happens next. "Submit" with no follow-through is
                   the reason people fill a form and then ring anyway. */}
-              <p className="text-xs text-[#2d2520]/50 mt-3 text-center">
-                No obligation. {c.name} will get back to you with a price.
+              <p
+                className="text-xs mt-3 text-center"
+                style={{ color: theme.inkMuted }}
+              >
+                {copy.noObligation(c.name)}
               </p>
             </form>
           )}
@@ -493,29 +544,332 @@ export default function SelfQuoteFlow({ companySlug }) {
   );
 }
 
-function Shell({ children }) {
+/**
+ * The confirmation, laid out in the order every other document in the product
+ * uses: masthead, prepared-for, substance, then what happens next.
+ *
+ * Everything it says comes from buildConfirmation — the same object the
+ * confirmation email renders — so the two cannot drift into saying different
+ * things about the same submission.
+ */
+function Confirmation({ doc, company, theme, fill, emailed, contactEmail }) {
+  const copy = doc.copy;
+
+  return (
+    <Card theme={theme}>
+      {/* Masthead. Identity left, document facts right — the same shape as
+          HeaderSection's, and the word is "Request" because nothing here has
+          been priced.
+
+          It WRAPS rather than shrinking. The right-hand block is a translated
+          date, and "12 de agosto de 2026" is half again the width of
+          "August 12, 2026"; with both sides fixed, the Spanish rendering
+          squeezed the company's own name down to "Teac…" inside a 320px
+          iframe. Dropping the facts onto their own line costs a few pixels of
+          height and keeps the one thing the homeowner must recognise legible. */}
+      <div className="px-6 sm:px-8 pt-6 pb-5 border-b border-black/5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="flex items-center gap-3 min-w-0 basis-[58%] grow">
+          {company.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={company.logoUrl}
+              alt={company.name}
+              className="h-10 w-auto max-w-[160px] object-contain"
+            />
+          ) : (
+            <div
+              className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0"
+              style={{ backgroundColor: fill.bg, color: fill.fg }}
+            >
+              <Building2 size={18} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="font-semibold truncate" style={{ color: theme.ink }}>
+              {company.name}
+            </div>
+            {company.phone && (
+              <a
+                href={`tel:${company.phone}`}
+                className="text-xs hover:underline block truncate"
+                style={{ color: theme.inkMuted }}
+              >
+                {company.phone}
+              </a>
+            )}
+          </div>
+        </div>
+
+        <div className="text-right shrink-0 ml-auto">
+          <div
+            className="text-sm font-bold tracking-[0.15em] leading-none uppercase"
+            style={{ color: theme.accentText }}
+          >
+            {doc.masthead.word}
+          </div>
+          <div className="text-[11px] mt-1.5" style={{ color: theme.inkMuted }}>
+            {doc.masthead.referenceLabel}
+          </div>
+          <div className="text-xs font-semibold" style={{ color: theme.ink }}>
+            {doc.masthead.reference}
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 sm:px-8 py-6">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            style={{ backgroundColor: fill.bg, color: fill.fg }}
+          >
+            <Check size={18} />
+          </div>
+          <h1 className="text-lg font-bold" style={{ color: theme.ink }}>
+            {doc.title}
+          </h1>
+        </div>
+        <p className="text-sm mt-2" style={{ color: theme.inkMuted }}>
+          {doc.intro}
+        </p>
+        {emailed && contactEmail && (
+          <p className="text-sm mt-1" style={{ color: theme.inkMuted }}>
+            {copy.copySentTo(contactEmail)}
+          </p>
+        )}
+      </div>
+
+      <div className="px-6 sm:px-8 pb-6 space-y-5">
+        {/* Prepared for — the shared panel's shape, in their colour. */}
+        {(doc.client.name || doc.client.address) && (
+          <div
+            className="rounded-xl px-4 py-3"
+            style={{ backgroundColor: theme.accentWash }}
+          >
+            <p
+              className="text-[10px] font-bold tracking-wider uppercase"
+              style={{ color: theme.inkFaint }}
+            >
+              {doc.preparedForLabel}
+            </p>
+            {doc.client.name && (
+              <p
+                className="text-base font-semibold mt-0.5"
+                style={{ color: theme.inkOnWash }}
+              >
+                {doc.client.name}
+              </p>
+            )}
+            {doc.client.address && (
+              <p className="text-xs" style={{ color: theme.inkMutedOnWash }}>
+                {doc.client.address}
+              </p>
+            )}
+            {[doc.client.email, doc.client.phone].filter(Boolean).length > 0 && (
+              <p className="text-xs" style={{ color: theme.inkMutedOnWash }}>
+                {[doc.client.email, doc.client.phone].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* What they asked for — the scope card's shape, without a price
+            column, because there is no price. */}
+        {(doc.requested.title ||
+          doc.requested.lines.length > 0 ||
+          doc.requested.note) && (
+          <div
+            className="rounded-xl overflow-hidden border border-black/10"
+            style={{ borderLeft: `3px solid ${ruleColor(theme)}` }}
+          >
+            <div
+              className="px-4 py-3"
+              style={{ backgroundColor: theme.accentWash }}
+            >
+              <p
+                className="text-[10px] font-bold tracking-wider uppercase"
+                style={{ color: theme.inkFaint }}
+              >
+                {doc.requested.heading}
+              </p>
+              {doc.requested.title && (
+                <h2
+                  className="font-semibold mt-0.5"
+                  style={{ color: theme.inkOnWash }}
+                >
+                  {doc.requested.title}
+                </h2>
+              )}
+            </div>
+
+            {(doc.requested.lines.length > 0 || doc.requested.note) && (
+              <div className="px-4 py-3 space-y-1.5">
+                {doc.requested.lines.map((l, i) => (
+                  <div
+                    key={i}
+                    className="flex justify-between gap-4 text-sm"
+                    style={{ color: theme.ink }}
+                  >
+                    <span style={{ color: theme.inkMuted }}>{l.label}</span>
+                    <span className="font-medium text-right">{l.value}</span>
+                  </div>
+                ))}
+                {doc.requested.note && (
+                  <p
+                    className="text-sm whitespace-pre-wrap leading-relaxed pt-2"
+                    style={{ color: theme.ink }}
+                  >
+                    {doc.requested.note}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* The figure, or the deliberate absence of one. `show` is false on
+            every self-quote — the endpoint has no rates — so this reads as a
+            decision rather than as a total that failed to load. */}
+        {doc.amount.show ? (
+          <div
+            className="flex items-center justify-between rounded-xl px-4 py-3.5"
+            style={{ backgroundColor: fill.bg, color: fill.fg }}
+          >
+            <span className="text-sm font-bold tracking-wide uppercase">
+              {doc.amount.label}
+            </span>
+            <span className="text-2xl font-bold tabular-nums">
+              {doc.amount.value}
+            </span>
+          </div>
+        ) : (
+          <p className="text-xs leading-relaxed" style={{ color: theme.inkMuted }}>
+            {doc.amount.note}
+          </p>
+        )}
+
+        {/* What happens next — ProcessStepsSection's shape: numbered bubbles
+            in their colour, joined by a rule. */}
+        <div className="pt-1">
+          <h3
+            className="text-xs font-bold tracking-wider mb-3 uppercase"
+            style={{ color: theme.accentText }}
+          >
+            {doc.nextSteps.heading}
+          </h3>
+          <ol className="space-y-0">
+            {doc.nextSteps.steps.map((s, i) => {
+              const last = i === doc.nextSteps.steps.length - 1;
+              return (
+                <li key={s.num} className="flex gap-3">
+                  <div className="flex flex-col items-center shrink-0">
+                    <span
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+                      style={{ backgroundColor: fill.bg, color: fill.fg }}
+                    >
+                      {s.num}
+                    </span>
+                    {!last && (
+                      <span
+                        className="w-px flex-1 my-1"
+                        style={{ backgroundColor: theme.accentRule }}
+                      />
+                    )}
+                  </div>
+                  <div className={last ? "pb-0" : "pb-4"}>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: theme.ink }}
+                    >
+                      {s.title}
+                    </p>
+                    <p
+                      className="text-xs leading-relaxed mt-0.5"
+                      style={{ color: theme.inkMuted }}
+                    >
+                      {s.body}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      </div>
+
+      {company.phone && (
+        <div
+          className="px-6 sm:px-8 py-5 border-t border-black/5"
+          style={{ backgroundColor: theme.accentWash }}
+        >
+          <p className="text-sm" style={{ color: theme.inkMutedOnWash }}>
+            {copy.callInstead}{" "}
+            <a
+              href={`tel:${company.phone}`}
+              className="underline font-semibold"
+              style={{ color: theme.inkOnWash }}
+            >
+              {company.phone}
+            </a>
+          </p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function LanguagePicker({ value, options, label, theme, onChange }) {
+  return (
+    <label className="shrink-0">
+      <span className="sr-only">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={label}
+        className="border border-black/15 rounded-lg pl-2 pr-6 py-1.5 text-xs bg-white"
+        style={{ color: theme.ink }}
+      >
+        {options.map((code) => {
+          const meta = LANGUAGES.find((l) => l.code === code);
+          return (
+            <option key={code} value={code}>
+              {meta?.nativeName || code.toUpperCase()}
+            </option>
+          );
+        })}
+      </select>
+    </label>
+  );
+}
+
+function Shell({ theme, children }) {
   // Padding rather than min-h-screen: this renders inside a 600px iframe as
   // often as it does standalone.
   return (
-    <div className="bg-[#f5f2ec] py-8 px-4">
+    <div className="py-8 px-4" style={{ backgroundColor: theme.page }}>
       <div className="max-w-lg mx-auto">{children}</div>
     </div>
   );
 }
 
-function Card({ accent, children }) {
+function Card({ theme, children }) {
   return (
-    <div className="bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
+    <div
+      className="bg-white rounded-2xl overflow-hidden shadow-sm border"
+      style={{ borderColor: theme.border }}
+    >
+      {/* The brand rule, first mark on the card — the same device as the top
+          of the PDF. ruleColor, not the raw hex: a near-white brand would
+          otherwise draw an invisible line and read as a rendering fault. */}
       <div className="flex h-1.5">
-        <div className="flex-[2]" style={{ backgroundColor: accent }} />
-        <div className="flex-1" style={{ backgroundColor: `${accent}99` }} />
+        <div className="flex-[2]" style={{ backgroundColor: ruleColor(theme) }} />
+        <div className="flex-1" style={{ backgroundColor: theme.accentSoft }} />
       </div>
       {children}
     </div>
   );
 }
 
-function ChipButton({ active, accent, onClick, children }) {
+function ChipButton({ active, theme, onClick, children }) {
   return (
     <button
       type="button"
@@ -523,8 +877,12 @@ function ChipButton({ active, accent, onClick, children }) {
       className="text-left rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
       style={
         active
-          ? { borderColor: accent, backgroundColor: `${accent}12`, color: "#2d2520" }
-          : { borderColor: "rgba(0,0,0,0.15)", color: "#2d2520" }
+          ? {
+              borderColor: ruleColor(theme),
+              backgroundColor: theme.accentWash,
+              color: theme.inkOnWash,
+            }
+          : { borderColor: "rgba(0,0,0,0.15)", color: theme.ink }
       }
     >
       {children}
@@ -532,14 +890,15 @@ function ChipButton({ active, accent, onClick, children }) {
   );
 }
 
-function BackLink({ onClick }) {
+function BackLink({ onClick, theme, label }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs text-[#2d2520]/55 hover:text-[#2d2520] mb-3"
+      className="inline-flex items-center gap-1 text-xs mb-3"
+      style={{ color: theme.inkMuted }}
     >
-      <ArrowLeft size={13} /> Back
+      <ArrowLeft size={13} /> {label}
     </button>
   );
 }

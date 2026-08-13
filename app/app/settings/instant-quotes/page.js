@@ -83,6 +83,10 @@ function TradeCard({ trade, canEdit, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [savedNote, setSavedNote] = useState("");
 
+  // Server-computed, and it describes the SAVED row — not the unsaved edits in
+  // this form. Refreshed by onSaved(), which reloads the page data.
+  const readiness = trade.readiness;
+
   const rateKey =
     trade.trade === "roofing" ? "ratePerSquare" : trade.trade === "stair" ? "ratePerTread" : "ratePerSqft";
   const rateSuffix =
@@ -150,6 +154,35 @@ function TradeCard({ trade, canEdit, onSaved }) {
         <p className="mt-3 text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
           {t("app.setInstantQuotes.defaultsNote", "These are typical starting figures, not your prices. Edit them to your market, then save — nothing is offered to homeowners until you do.")}
         </p>
+      )}
+
+      {/* ── Readiness ─────────────────────────────────────────────────────
+          The public page tells a homeowner only that the service isn't
+          available — it must never show a stranger the state of someone's
+          rate card. So this is the one screen where the reason exists, and
+          it sits directly above the fields that fix it. It's computed by
+          dry-running the public pricer, not by a second opinion about it. */}
+      {!trade.isDefaults && readiness && !readiness.ok && (
+        <p
+          className={`mt-3 text-xs rounded-lg px-3 py-2 border ${
+            trade.enabled
+              ? "bg-red-50 text-red-700 border-red-200"
+              : "bg-amber-50 text-amber-800 border-amber-200"
+          }`}
+        >
+          <strong>{t("app.setInstantQuotes.notPriceable", "Homeowners can't get a price for this yet.")}</strong>{" "}
+          {[readiness.message, readiness.fix].filter(Boolean).join(" ")}
+        </p>
+      )}
+
+      {readiness?.warnings?.length > 0 && (
+        <ul className="mt-3 space-y-1">
+          {readiness.warnings.map((w, i) => (
+            <li key={i} className="text-xs rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2">
+              {w.message}
+            </li>
+          ))}
+        </ul>
       )}
 
       <div className="mt-4 space-y-5">
@@ -430,6 +463,7 @@ export default function InstantQuotesSettingsPage() {
   const [trades, setTrades] = useState(null);
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
+  const [live, setLive] = useState({ count: 0, slug: null });
   const [error, setError] = useState("");
 
   async function load() {
@@ -438,6 +472,7 @@ export default function InstantQuotesSettingsPage() {
       setTrades(data.trades);
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
+      setLive({ count: data.liveTradeCount || 0, slug: data.companySlug || null });
     } catch (err) {
       setError(err.message || t("app.setInstantQuotes.couldNotLoad", "Could not load instant-quote settings"));
     }
@@ -456,6 +491,33 @@ export default function InstantQuotesSettingsPage() {
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
         {t("app.setInstantQuotes.intro", "Let homeowners get a real starting estimate from your website in seconds — roof measured from their address, or an area they trace on a map. Every estimate is a range they can request, and lands in your review queue before anything is binding.")}
       </p>
+
+      {/* What a homeowner would see right now. The owner switched trades on,
+          opened their own link and read "Instant estimates aren't available
+          here yet" — with no way to tell from this screen whether anything was
+          live. The count is of trades that are BOTH on and priceable, because
+          "on but can't price" is invisible to a homeowner. */}
+      {trades && (
+        <p className="text-sm text-muted-foreground mb-6 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${live.count > 0 ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+            aria-hidden="true"
+          />
+          {live.count > 0
+            ? t("app.setInstantQuotes.liveSome", "{count} live on your instant-estimate link.", { count: live.count })
+            : t("app.setInstantQuotes.liveNone", "Nothing is live on your instant-estimate link yet — switch a service on below.")}
+          {live.slug && (
+            <a
+              href={`/instant-quote/${live.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline text-foreground"
+            >
+              {t("app.setInstantQuotes.viewPublicPage", "See what homeowners see")}
+            </a>
+          )}
+        </p>
+      )}
 
       {error && (
         <p className="text-sm rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-2 mb-4">

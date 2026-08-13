@@ -6,6 +6,12 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { normaliseMediaList } from "@/lib/media/validate";
 import { createScoredLead } from "@/lib/leads/createLead";
+import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
+import { resolveRequestedLanguage } from "@/lib/company/sendLanguages";
+import { buildSelfQuoteEmail } from "@/lib/email/selfQuoteEmail";
+import { sendEmail } from "@/lib/email/resend";
+import { resolveSender } from "@/lib/email/companySender";
 
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
@@ -64,6 +70,11 @@ export async function POST(request) {
     // The two universal qualifiers (validated to known keys server-side).
     budgetBand,
     timeline,
+    // The language the homeowner picked on the form. Was destructured here and
+    // then dropped — the pick changed the words on screen and nothing else.
+    // Now validated against the company's send languages and FIXED on the lead,
+    // so the quote it converts into is CREATED in it rather than written in the
+    // contractor's language and translated later (AGENTS.md non-negotiable 6).
     language,
     // Photos/videos attached in the browser. Re-normalised below, never trusted.
     media,
@@ -79,9 +90,18 @@ export async function POST(request) {
     );
   }
 
-  const company = await db.company.findUnique({ where: { slug: companySlug } });
+  // findBookingCompany, not findUnique({ slug }) — the GET that RENDERED this
+  // form resolves either slug, so a company with a custom bookingSlug got a
+  // form that loaded fine and a Send button that 404'd. Same resolver on both
+  // halves of one round trip.
+  const company = await findBookingCompany(companySlug);
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // The language the homeowner chose on the form, kept only if the company
+  // actually sends in it — the same list the GET offered, from the same helper,
+  // so the form can never offer an option this route then quietly discards.
+  const docLanguage = resolveRequestedLanguage(company, language);
 
   const clientMedia = normaliseMediaList(media);
 
@@ -106,7 +126,45 @@ export async function POST(request) {
     intake,
     budgetBand,
     timeline,
+    language: docLanguage,
   });
+
+  // ── The confirmation ──────────────────────────────────────────────────────
+  //
+  // There wasn't one. A homeowner typed their name, their number and a
+  // description of their kitchen into a stranger's form and got nothing in
+  // writing — the only acknowledgement was a screen they then closed.
+  //
+  // It goes out on the company's stationery, in the language the LEAD was
+  // created in, and carries no price: nothing here has been costed by a person
+  // and this endpoint has no rates to leak. Best-effort, exactly like the
+  // instant-quote confirmation — a mail hiccup must not fail the request the
+  // homeowner just made, because the lead is already saved and the screen has
+  // already told them so.
+  if (email) {
+    try {
+      const { subject, html, text } = buildSelfQuoteEmail({
+        company,
+        contact: { name, email, phone, address },
+        service: await publicServiceFor(company.id, categoryId),
+        details,
+        description,
+        budgetBand: lead.budgetBand,
+        timeline: lead.timeline,
+        language: docLanguage,
+        submittedAt: lead.createdAt,
+      });
+      await sendEmail({
+        to: email,
+        subject,
+        html,
+        text,
+        ...(await resolveSender(company, company.id)),
+      });
+    } catch (err) {
+      console.error("[self-quote] confirmation email failed:", err?.message);
+    }
+  }
 
   // Same as every other inbound form: they gave a number expecting a reply, so
   // that's consent to ring them. See lib/voice/outbound.js.
@@ -120,5 +178,46 @@ export async function POST(request) {
     }).catch((err) => console.error("[self-quote] consent not recorded:", err));
   }
 
-  return NextResponse.json({ success: true, id: lead.id }, { status: 201 });
+  return NextResponse.json(
+    {
+      success: true,
+      id: lead.id,
+      // The confirmation SCREEN composes itself from what the browser already
+      // typed, so nothing about the job comes back here. These two are the
+      // facts only the server knows: when it landed, and whether a copy is
+      // actually on its way. The page used to promise neither, and a page that
+      // says "check your email" when no mail was sent is the dead-control
+      // failure in written form.
+      submittedAt: lead.createdAt,
+      emailed: Boolean(email),
+      language: docLanguage,
+    },
+    { status: 201 },
+  );
+}
+
+/**
+ * The service label and field labels for the category the homeowner picked.
+ *
+ * Same gate as the GET that rendered the form — enabled categories only, the
+ * same first-three number/select fields — so the confirmation email can name
+ * "Doors: 40" instead of "doorCount: 40" without widening what this endpoint
+ * treats as public. No rates are read here and none exist on these rows.
+ */
+async function publicServiceFor(companyId, categoryId) {
+  if (!categoryId) return null;
+
+  const enabled = await db.companyServiceCategory.findFirst({
+    where: { companyId, enabled: true, categoryId },
+    select: { category: { select: { key: true, label: true } } },
+  });
+  if (!enabled?.category) return null;
+
+  return {
+    label: enabled.category.label,
+    fields: publicIntakeFields(enabled.category.key).map((f) => ({
+      key: f.key,
+      label: f.label,
+    })),
+  };
 }

@@ -29,10 +29,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
-import { getIntakeFields } from "@/app/data/quoteIntakeFields";
-
-// Enough to size the job, few enough to finish on a phone.
-const MAX_PUBLIC_FIELDS = 3;
+import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
+import { sendLanguagesFor } from "@/lib/company/sendLanguages";
 
 export async function GET(request, { params }) {
   const { companySlug } = await params;
@@ -63,10 +61,9 @@ export async function GET(request, { params }) {
   const services = enabled
     .map(({ category }) => {
       if (!category) return null;
-      const fields = (getIntakeFields(category.key) || [])
-        .filter((f) => f.type === "number" || f.type === "select")
-        .slice(0, MAX_PUBLIC_FIELDS);
-      return { ...category, fields };
+      // The POST that reads the answers back applies the same rule from the
+      // same helper — see publicIntakeFields in app/data/quoteIntakeFields.js.
+      return { ...category, fields: publicIntakeFields(category.key) };
     })
     .filter(Boolean)
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -82,9 +79,16 @@ export async function GET(request, { params }) {
       email: company.email,
       currency: company.currency || "USD",
     },
-    languages: Array.isArray(company.sendLanguages) && company.sendLanguages.length
-      ? company.sendLanguages
-      : [company.defaultLanguage || "en"],
+    // Which languages the homeowner may have this written in. FIRST is the
+    // primary — the company's own default — because the form defaults to it
+    // and "primary" has to be a property of the list rather than a second
+    // field the client could forget to read.
+    //
+    // Empty sendLanguages means the company has never said which languages it
+    // sends in, and the honest reading of that is "the default only", not "all
+    // six". Offering a language a contractor never claimed would have the
+    // homeowner reasonably expect a reply in it.
+    languages: sendLanguagesFor(company),
     services,
   });
 }
