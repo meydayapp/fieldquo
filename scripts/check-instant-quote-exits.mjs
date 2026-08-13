@@ -31,6 +31,7 @@ import {
 import {
   INSTANT_ESTIMATE_DEFAULTS,
   INSTANT_ESTIMATE_TRADES,
+  computeInstantEstimate,
 } from "@/lib/estimate/instantEstimate";
 import { publicEstimate, gatedMessage, visibilityFor } from "@/lib/estimate/visibility";
 
@@ -290,7 +291,26 @@ ok("...including the non-fatal warnings", /readiness\?\.warnings/.test(settingsP
 ok("readiness never reaches a public instant-quote route", !/instantQuoteReadiness/.test(measureSrc) && !/instantQuoteReadiness/.test(requestSrc));
 
 console.log("\nHostile input never throws");
-for (const bad of [null, undefined, "", 0, [], { materials: "nope" }, { tiers: {} }, { materials: [null] }, { rates: null }]) {
+
+// Shapes no settings screen would produce, but nothing stops from being saved:
+// `config` is free-form JSON on the model, and only its VALUES were ever
+// validated on the way in — never the shape holding them.
+const HOSTILE = [
+  null, undefined, "", 0, [],
+  { materials: "nope" },
+  { tiers: {} },
+  { materials: [null] },
+  { rates: null },
+  { materials: {}, tiers: "nope" },
+  { materials: [{ key: "a" }, "string", 7, []] },
+  { tiers: [null, { maxSqft: 5000, pricePerVisit: 40 }] },
+  { tiers: [{ maxSqft: "x", pricePerVisit: "y" }] },
+  // The dangerous one: junk beside a perfectly good rate, so the enable-time
+  // "at least one material is priced" check passes and the row goes live.
+  { materials: [null, { key: "a", label: "A", ratePerSqft: 5, ratePerSquare: 400, ratePerTread: 110 }] },
+];
+
+for (const bad of HOSTILE) {
   for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
     try {
       const r = instantQuoteReadiness(trade, bad);
@@ -302,7 +322,51 @@ for (const bad of [null, undefined, "", 0, [], { materials: "nope" }, { tiers: {
     }
   }
 }
-ok("...survived every hostile config", true);
+ok("...survived every hostile config, through the sanitised path", true);
+
+// And again with the sanitiser out of the way. The shape assumption lived in
+// the estimators — `(config.materials || []).find((m) => m.key === k)` is fine
+// right up until `materials` is a string or has a hole in it — so sanitising at
+// the boundary made the public routes safe while leaving the module itself
+// sharp. That holds only for callers who know the boundary helper exists; the
+// next one to import computeInstantEstimate directly reopens the 500. Same
+// configs, straight in.
+for (const bad of HOSTILE) {
+  for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
+    // Three ways a material key arrives: absent, unknown (the homeowner's pick
+    // no longer matches a row), and matching.
+    for (const materialKey of [undefined, "x", "a"]) {
+      try {
+        const r = computeInstantEstimate({ trade, measurements: PROBE[trade], materialKey, config: bad });
+        if (typeof r?.ok !== "boolean") throw new Error("no verdict");
+      } catch (err) {
+        fail++;
+        console.log(`  ✗ ${trade} threw unsanitised on ${JSON.stringify(bad)} / key=${materialKey}: ${err.message}`);
+      }
+    }
+  }
+}
+ok("...and every one again straight into computeInstantEstimate, unsanitised", true);
+
+console.log("\n  — the three saved shapes that used to 500 a public route —");
+const direct = (trade, config, measurements, materialKey) =>
+  computeInstantEstimate({ trade, measurements, materialKey, config });
+
+ok("roofing, materials: [null] -> a verdict", direct("roofing", { materials: [null] }, { squares: 20 }, "x").ok === false);
+ok('roofing, materials: "nope" -> a verdict', direct("roofing", { materials: "nope" }, { squares: 20 }, "x").ok === false);
+ok("lawn_mowing, tiers: {} -> a verdict", direct("lawn_mowing", { tiers: {} }, { areaSqft: 500 }).ok === false);
+
+// A malformed entry costs that entry, not the trade: the priced material next
+// to it still sells, at exactly the price it did before.
+const withHole = direct("flooring", { materials: [null, { key: "lam", label: "Laminate", ratePerSqft: 4.5 }] }, { areaSqft: 500 }, "lam");
+ok("a null beside a priced material -> the good one still prices", withHole.ok === true && withHole.point === 2250, withHole);
+ok("...and an unknown key still falls back past the hole to a real row", direct("flooring", { materials: [null, { key: "lam", label: "Laminate", ratePerSqft: 4.5 }] }, { areaSqft: 500 }, "gone").point === 2250);
+
+// The lawn sort runs on a filtered copy. If that ever becomes the stored array
+// itself, pricing a lawn silently reorders the company's saved bands.
+const savedTiers = [{ maxSqft: 10000, pricePerVisit: 55 }, { maxSqft: 5000, pricePerVisit: 40 }];
+direct("lawn_mowing", { tiers: savedTiers, rangeBandPct: 0.12 }, { areaSqft: 4000 });
+ok("pricing a lawn doesn't reorder the company's saved bands", savedTiers[0].maxSqft === 10000, savedTiers);
 ok("unknown trade -> a verdict, not a crash", instantQuoteReadiness("banana", {}).ok === false);
 ok("materialRateKey is shared, not re-derived", materialRateKey("roofing") === "ratePerSquare" && materialRateKey("stair") === "ratePerTread" && materialRateKey("flooring") === "ratePerSqft");
 

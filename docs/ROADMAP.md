@@ -315,6 +315,20 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The instant-estimate price brain is total** (`lib/estimate/instantEstimate.js`,
+  `npm run check:instant-exits`). Every estimator assumed `config.materials` was
+  an array of objects and `config.tiers` was iterable, and threw when neither
+  held — a saved `materials: [null]` was a `TypeError`, i.e. a 500 on a page a
+  stranger loads in a driveway. `sanitiseInstantConfig` had made the *public
+  routes* safe by normalising at the boundary, but the assumption itself still
+  lived in the estimators, so the guarantee only held for callers who knew the
+  boundary helper existed. One `configList()` inside the module now backs every
+  list read, and the exits check runs the hostile configs a second time straight
+  into `computeInstantEstimate` with the sanitiser bypassed. Shape only, never
+  value: 77 well-formed combinations hash identically before and after. Also
+  routed `loadCompanyInstantTrades` through the sanitiser — the public trade
+  list was the one read of a saved config still going in raw.
+
 - **Trade pricing research + rewire takeoff engine**
   (`docs/trade-pricing-research.md`, `docs/plumbing-material-costs.md`,
   `docs/estimating-standards-and-licensing.md`, `lib/estimate/rewireTakeoff.js`,
