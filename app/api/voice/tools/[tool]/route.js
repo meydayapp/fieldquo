@@ -98,9 +98,9 @@ export async function POST(request, { params }) {
     if (tool === "book") return await book(ctx, args);
   } catch (err) {
     await recordError({
-      source: "voice_tool",
+      area: "voice_tool",
       message: `Voice tool "${tool}" failed: ${err.message}`,
-      metadata: { callId, companyId: ctx.companyId },
+      detail: { callId, companyId: ctx.companyId },
     }).catch(() => {});
     // The agent reads this out. "Something went wrong" mid-call is better than
     // silence, and far better than the agent believing it succeeded.

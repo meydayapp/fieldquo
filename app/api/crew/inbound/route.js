@@ -92,9 +92,9 @@ export async function POST(request) {
     return twiml(reply);
   } catch (err) {
     await recordError({
-      source: "crew_inbox",
+      area: "crew_inbox",
       message: `Crew inbound failed: ${err.message}`,
-      metadata: { to, numMedia },
+      detail: { to, numMedia },
     }).catch(() => {});
     // 200 with no reply — a failure here must not make Twilio retry the same
     // photo into a duplicate file. The error is logged for a human.

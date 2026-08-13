@@ -6,11 +6,24 @@
 //
 // ── Order of the page is the order of the decisions ────────────────────────
 //
-// A number, then credit, then the words, then the switch. The switch is last
-// and refuses to turn on without the first two — a toggle that flips to "on"
-// and then doesn't answer is the worst kind of broken, because the company
-// believes their calls are covered and finds out from a customer who rang and
-// got nothing.
+// Credit, then a number, then the words, then the switch.
+//
+// Credit moved to the front when the number's first month started being charged
+// up front (lib/voice/spendGate.js). A number costs FieldQuo real money from the
+// moment it exists, so it cannot be handed out before the company has paid — and
+// a screen whose step 1 is permanently blocked by something in step 2 is a maze.
+//
+// The switch stays last and refuses to turn on without the first two: a toggle
+// that flips to "on" and then doesn't answer is the worst kind of broken,
+// because the company believes their calls are covered and finds out from a
+// customer who rang and got nothing.
+//
+// ── Every price on this page is priced by the SERVER ───────────────────────
+//
+// `pricing.numberTypes[].afford` is computed in /api/settings/voice from the
+// company's own balance. The browser posts a number TYPE and never an amount,
+// and it never decides affordability for itself — so the button it disables and
+// the gate the route enforces cannot drift apart.
 //
 // ── Forwarding leads ───────────────────────────────────────────────────────
 //
@@ -177,13 +190,29 @@ export default function VoiceSettingsPage() {
   const canEnable = number?.status === "active" && credit.cents >= credit.centsPerMinute;
 
   // The 30 free trial minutes are a real balance granted with the first number
-  // (see lib/voice/number/route.js — the "free minutes to try it out" entry).
-  // When that grant is still visibly present and nothing has been bought, say
-  // so: it's a live balance the receptionist works on, not a prompt to pay.
+  // (see lib/voice/credits.js — grantFreeTrial). When that grant is still
+  // visibly present and nothing has been bought, say so: it's a live balance the
+  // receptionist works on, not a prompt to pay.
+  //
+  // The note regex is the fallback for grants written before the entry had its
+  // own kind. New rows are kind "trial" and don't depend on wording that a
+  // translation or an edit could change underneath this check.
   const freeOnly =
     credit.cents > 0 &&
-    credit.entries.some((e) => e.kind === "adjustment" && /free/i.test(e.note || "")) &&
+    credit.entries.some(
+      (e) => e.kind === "trial" || (e.kind === "adjustment" && /free/i.test(e.note || "")),
+    ) &&
     !credit.entries.some((e) => e.kind === "topup");
+
+  // Priced and decided server-side; the page only renders the verdict.
+  const affordFor = (key) =>
+    pricing.numberTypes.find((t) => t.key === key)?.afford || { allowed: false, shortfallCents: 0 };
+  // Forwarding still BUYS a number to forward to, so it costs the same as a
+  // local one. Showing it as free would be the dead control in reverse: a button
+  // that looks free and returns a payment error.
+  const forwardAfford = affordFor("local");
+  const rent = number?.rent || null;
+  const showDate = (d) => (d ? new Date(d).toLocaleDateString() : "");
 
   return (
     <div className="max-w-3xl p-4 sm:p-6 space-y-6">
@@ -208,10 +237,97 @@ export default function VoiceSettingsPage() {
         </div>
       )}
 
-      {/* ── 1. A number ─────────────────────────────────────────────────── */}
+      {/* ── 1. Credit ───────────────────────────────────────────────────────
+          First, because a number's first month comes out of this balance
+          before the number is bought. */}
+      <Card
+        dataTour="voice-credit"
+        step="1."
+        title={t("app.setVoice.creditTitle", "Credit")}
+        hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. Your number's monthly rental comes out of this same credit.", { cents: credit.centsPerMinute })}
+      >
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {/* "Balance" and not just a bare number: it sits right above the
+              purchase buttons, and a lone "$10.50" there reads as a price. */}
+          <span className="text-sm font-medium text-muted-foreground">Balance:</span>
+          <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
+          <span className="text-sm text-muted-foreground">
+            ({t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"})
+          </span>
+          {credit.low && (
+            <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
+              <AlertTriangle size={13} /> {t("app.setVoice.runningLow", "running low")}
+            </span>
+          )}
+        </div>
+
+        {freeOnly && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            Free trial minutes included — the receptionist can start answering on this now, no top-up needed.
+          </p>
+        )}
+
+        {/* Retitled so the buttons below read as "buy more", not the balance
+            above. They are Stripe purchases; the two were easy to conflate. */}
+        <p className="text-sm font-medium text-foreground mt-4">Add credit</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {pricing.topups.map((topup) => (
+            <button
+              key={topup.cents}
+              type="button"
+              disabled={busy}
+              onClick={() => topUp(topup.cents)}
+              className={`px-4 py-2 rounded-full border text-sm disabled:opacity-50 ${
+                topup.popular
+                  ? "border-inverted bg-inverted text-inverted-foreground font-semibold"
+                  : "border-border text-foreground hover:bg-muted"
+              }`}
+            >
+              {topup.label}
+              <span className="opacity-70">
+                {" "}
+                · {Math.floor(topup.cents / credit.centsPerMinute)} min
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {credit.entries.length > 0 && (
+          <details className="mt-4">
+            <summary className="text-sm text-muted-foreground cursor-pointer">
+              {t("app.setVoice.creditLog", "Where the credit went")}
+            </summary>
+            <ul className="mt-2 space-y-1">
+              {credit.entries.map((e, i) => (
+                <li key={i} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {e.note || e.kind}
+                    <span className="opacity-60">
+                      {" "}
+                      {new Date(e.at).toLocaleDateString()}
+                    </span>
+                  </span>
+                  <span
+                    className={
+                      e.cents >= 0
+                        ? "text-emerald-600 dark:text-emerald-400 tabular-nums"
+                        : "text-foreground tabular-nums"
+                    }
+                  >
+                    {e.cents >= 0 ? "+" : "−"}
+                    {money(Math.abs(e.cents))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </Card>
+
+      {/* ── 2. A number ─────────────────────────────────────────────────── */}
       <Card
         dataTour="voice-number"
-        step="1."
+        step="2."
         title={t("app.setVoice.numberTitle", "Your number")}
         hint={t("app.setVoice.numberHint", "What the receptionist answers on.")}
       >
@@ -235,6 +351,41 @@ export default function VoiceSettingsPage() {
                 </span>
               )}
             </div>
+
+            {/* ── The rental, said out loud ───────────────────────────────────
+                It comes out of the same balance the calls do, on a date, and it
+                can take the number away. A charge that only appears in a
+                statement after the fact is the kind of surprise this whole
+                prepaid model exists to avoid. */}
+            {rent && (
+              rent.pastDue ? (
+                <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex gap-3">
+                  <AlertTriangle size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-900 dark:text-amber-200">
+                    <p className="font-semibold">
+                      {t("app.setVoice.rentPastDueTitle", "This number's rental hasn't been paid")}
+                    </p>
+                    <p className="mt-0.5">
+                      {rent.graceUntil
+                        ? t("app.setVoice.rentPastDueDated", "It keeps working until {date}. After that the number is released and you lose it — add credit to keep it.", { date: showDate(rent.graceUntil) })
+                        : t("app.setVoice.rentPastDueNow", "The {amount} rental is due now and your balance won't cover it. Add credit to keep the number — we'll email you before anything is released.", { amount: money(rent.monthlyCents) })}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {rent.dueAt
+                    ? t("app.setVoice.rentNext", "Next rental {amount} on {date}, taken from the credit above.", { amount: money(rent.monthlyCents), date: showDate(rent.dueAt) })
+                    : t("app.setVoice.rentSoon", "The {amount} monthly rental starts coming out of the credit above once this number is live.", { amount: money(rent.monthlyCents) })}
+                  {!rent.coversNext && (
+                    <span className="text-amber-700 dark:text-amber-400">
+                      {" "}
+                      {t("app.setVoice.rentWontCover", "Your balance won't cover it — top up before then.")}
+                    </span>
+                  )}
+                </p>
+              )
+            )}
 
             {/* Only for a forwarded setup, and only the codes for THEIR
                 number — see the API. */}
@@ -318,28 +469,68 @@ export default function VoiceSettingsPage() {
                     have BOUGHT A NEW NUMBER while the company believed they
                     were porting theirs. A control that appears to work and
                     does something else is worse than one that isn't there. */}
+                {/* Forwarding still buys a number to forward TO, so it costs
+                    the same as a local one and is gated the same way. */}
                 {s.key === "forwarded" && (
-                  <NumberInput
-                    placeholder={t("app.setVoice.forwardedPlaceholder", "Your current business number")}
-                    cta={t("app.setVoice.forwardedCta", "Set it up")}
-                    disabled={busy || !configured}
-                    onSubmit={(n) => getNumber("forwarded", "local", { publicNumber: n })}
-                  />
+                  <>
+                    <NumberInput
+                      placeholder={t("app.setVoice.forwardedPlaceholder", "Your current business number")}
+                      cta={t("app.setVoice.forwardedCta", "Set it up")}
+                      disabled={busy || !configured || !forwardAfford.allowed}
+                      onSubmit={(n) => getNumber("forwarded", "local", { publicNumber: n })}
+                    />
+                    <PriceNote
+                      afford={forwardAfford}
+                      money={money}
+                      t={t}
+                      configured={configured}
+                    />
+                  </>
                 )}
 
                 {s.key === "purchased" && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {pricing.numberTypes.map((type) => (
-                      <button
-                        key={type.key}
-                        type="button"
-                        disabled={busy || !configured}
-                        onClick={() => getNumber(s.key, type.key)}
-                        className="px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
-                      >
-                        {type.label} — {money(type.monthlyCents)}/mo, {type.perMinuteCents}¢/min
-                      </button>
-                    ))}
+                  <div className="mt-3 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {pricing.numberTypes.map((type) => (
+                        <button
+                          key={type.key}
+                          type="button"
+                          // Disabled with a reason underneath, not a button that
+                          // takes the click and comes back with "insufficient
+                          // balance". The verdict is the server's.
+                          disabled={busy || !configured || !type.afford.allowed}
+                          onClick={() => getNumber(s.key, type.key)}
+                          className="px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+                        >
+                          {type.label} — {money(type.monthlyCents)}/mo, {type.perMinuteCents}¢/min
+                        </button>
+                      ))}
+                    </div>
+                    {/* One line per type they CAN'T have, naming the gap. The
+                        affordable case gets a single line rather than one per
+                        button — the same sentence twice reads as a warning. */}
+                    {pricing.numberTypes.some((type) => type.afford.allowed) && configured && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("app.setVoice.firstMonthUpFront", "The first month's rental comes out of your credit as soon as you pick one.")}
+                      </p>
+                    )}
+                    {pricing.numberTypes
+                      .filter((type) => !type.afford.allowed)
+                      .map((type) => (
+                        <PriceNote
+                          key={type.key}
+                          label={type.label}
+                          afford={type.afford}
+                          money={money}
+                          t={t}
+                          configured={configured}
+                        />
+                      ))}
+                    {pricing.freeTrialAvailable && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("app.setVoice.trialWithNumber", "{minutes} free minutes are added to your credit with your first number.", { minutes: pricing.freeTrialMinutes })}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -351,6 +542,12 @@ export default function VoiceSettingsPage() {
                       disabled={busy || !configured}
                       onSubmit={(n) => getNumber("ported", "local", { publicNumber: n })}
                     />
+                    {/* Not gated on credit, because a port request costs
+                        nothing — the rental starts when the number actually
+                        moves, which is weeks away and may never happen. */}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {t("app.setVoice.portNoCharge", "Nothing is charged to start. The monthly rental begins only once the number has actually moved over.")}
+                    </p>
                     {/* Said before they start, not after. A port needs details
                         from their losing carrier that no button here can
                         obtain, so this is a REQUEST someone picks up — and
@@ -364,91 +561,6 @@ export default function VoiceSettingsPage() {
               </div>
             ))}
           </div>
-        )}
-      </Card>
-
-      {/* ── 2. Credit ───────────────────────────────────────────────────── */}
-      <Card
-        dataTour="voice-credit"
-        step="2."
-        title={t("app.setVoice.creditTitle", "Credit")}
-        hint={t("app.setVoice.creditHint", "{cents}¢ a minute, rounded up, one minute minimum. No monthly fee — you only pay for calls it actually takes.", { cents: credit.centsPerMinute })}
-      >
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          {/* "Balance" and not just a bare number: it sits right above the
-              purchase buttons, and a lone "$10.50" there reads as a price. */}
-          <span className="text-sm font-medium text-muted-foreground">Balance:</span>
-          <span className="text-2xl font-bold text-foreground">{money(credit.cents)}</span>
-          <span className="text-sm text-muted-foreground">
-            ({t("app.setVoice.about", "about")} {credit.minutes} {t("app.setVoice.minute", "minute")}{credit.minutes === 1 ? "" : "s"})
-          </span>
-          {credit.low && (
-            <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400">
-              <AlertTriangle size={13} /> {t("app.setVoice.runningLow", "running low")}
-            </span>
-          )}
-        </div>
-
-        {freeOnly && (
-          <p className="text-xs text-muted-foreground mt-1.5">
-            Free trial minutes included — the receptionist can start answering on this now, no top-up needed.
-          </p>
-        )}
-
-        {/* Retitled so the buttons below read as "buy more", not the balance
-            above. They are Stripe purchases; the two were easy to conflate. */}
-        <p className="text-sm font-medium text-foreground mt-4">Add credit</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {pricing.topups.map((topup) => (
-            <button
-              key={topup.cents}
-              type="button"
-              disabled={busy}
-              onClick={() => topUp(topup.cents)}
-              className={`px-4 py-2 rounded-full border text-sm disabled:opacity-50 ${
-                topup.popular
-                  ? "border-inverted bg-inverted text-inverted-foreground font-semibold"
-                  : "border-border text-foreground hover:bg-muted"
-              }`}
-            >
-              {topup.label}
-              <span className="opacity-70">
-                {" "}
-                · {Math.floor(topup.cents / credit.centsPerMinute)} min
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {credit.entries.length > 0 && (
-          <details className="mt-4">
-            <summary className="text-sm text-muted-foreground cursor-pointer">
-              {t("app.setVoice.creditLog", "Where the credit went")}
-            </summary>
-            <ul className="mt-2 space-y-1">
-              {credit.entries.map((e, i) => (
-                <li key={i} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {e.note || e.kind}
-                    <span className="opacity-60">
-                      {" "}
-                      {new Date(e.at).toLocaleDateString()}
-                    </span>
-                  </span>
-                  <span
-                    className={
-                      e.cents >= 0
-                        ? "text-emerald-600 dark:text-emerald-400 tabular-nums"
-                        : "text-foreground tabular-nums"
-                    }
-                  >
-                    {e.cents >= 0 ? "+" : "−"}
-                    {money(Math.abs(e.cents))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </details>
         )}
       </Card>
 
@@ -594,6 +706,41 @@ export default function VoiceSettingsPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * What this number costs, and — when they can't have it — why not.
+ *
+ * The reason has to be next to the control, before it's pressed. A disabled
+ * button with no explanation is the same dead end as one that fails on click;
+ * the only difference is which of the two the contractor phones about.
+ *
+ * `afford` is the server's verdict (`spendVerdict` in lib/voice/spendGate.js),
+ * shortfall included, so the number quoted here is the number the route would
+ * have enforced.
+ */
+function PriceNote({ afford, label, money, t, configured }) {
+  // Nothing to say about affording a number on a deployment that can't sell
+  // one — the banner at the top of the page already explains that.
+  if (!configured || !afford) return null;
+
+  if (afford.allowed) {
+    return (
+      <p className="text-xs text-muted-foreground mt-2">
+        {t("app.setVoice.firstMonthNow", "{amount} — the first month — comes out of your credit now.", { amount: money(afford.needCents) })}
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-xs text-amber-700 dark:text-amber-400 mt-2">
+      {label ? `${label}: ` : ""}
+      {t("app.setVoice.cantAfford", "Add {amount} more credit first — the first month's {rental} rental is charged up front.", {
+        amount: money(afford.shortfallCents),
+        rental: money(afford.needCents),
+      })}
+    </p>
   );
 }
 

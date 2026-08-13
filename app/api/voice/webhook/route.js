@@ -94,9 +94,9 @@ export async function POST(request) {
     // means a number was provisioned at the provider and never recorded here,
     // and the symptom otherwise is calls silently vanishing.
     await recordError({
-      source: "voice_webhook",
+      area: "voice_webhook",
       message: `Call to an unknown number: ${ourNumber || call.to_number}`,
-      metadata: { providerCallId, type },
+      detail: { providerCallId, type },
     }).catch(() => {});
     return NextResponse.json({ ok: true, ignored: "unknown_number" });
   }
@@ -184,9 +184,9 @@ export async function POST(request) {
       const after = await canTakeCall(number.companyId);
       if (!after.allowed) {
         await recordError({
-          source: "voice_credit",
+          area: "voice_credit",
           message: `Voice credit exhausted for company ${number.companyId}`,
-          metadata: { balanceCents: after.cents },
+          detail: { balanceCents: after.cents },
         }).catch(() => {});
         // Stop answering rather than keep taking calls we can't bill. Detaching
         // the agent is the only enforcement point we control — Retell has already
@@ -203,9 +203,9 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, ignored: type });
   } catch (err) {
     await recordError({
-      source: "voice_webhook",
+      area: "voice_webhook",
       message: `Voice webhook failed: ${err.message}`,
-      metadata: { providerCallId, type },
+      detail: { providerCallId, type },
     }).catch(() => {});
     // 500 so Retell retries — a database blip should be retried.
     return NextResponse.json({ error: "Failed" }, { status: 500 });

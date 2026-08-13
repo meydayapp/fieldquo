@@ -25,10 +25,17 @@ import {
   monthlyCentsFor,
   NUMBER_TYPES,
   TOPUP_OPTIONS,
-  LOW_BALANCE_CENTS,
+  isLowBalance,
   FREE_TRIAL_MINUTES,
   recentEntries,
+  trialGranted,
 } from "@/lib/voice/credits";
+import {
+  spendVerdict,
+  checkSpend,
+  rentStatus,
+  RENT_GRACE_DAYS,
+} from "@/lib/voice/spendGate";
 
 async function requireAdmin(request) {
   const member = await getCurrentMember(request);
@@ -45,7 +52,7 @@ export async function GET(request) {
   const { member, error, status } = await requireAdmin(request);
   if (error) return NextResponse.json({ error }, { status });
 
-  const [agent, number, cents, entries, company, queuedCalls] = await Promise.all([
+  const [agent, number, cents, entries, company, queuedCalls, trialUsed] = await Promise.all([
     db.voiceAgent.findUnique({ where: { companyId: member.companyId } }),
     activeNumber(member.companyId),
     balanceFor(member.companyId),
@@ -55,6 +62,7 @@ export async function GET(request) {
       select: { outboundCallsEnabled: true, crewInboxEnabled: true },
     }),
     db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
+    trialGranted(member.companyId),
   ]);
 
   const type = number?.numberType || "local";
@@ -84,6 +92,10 @@ export async function GET(request) {
           numberType: type,
           monthlyCents: number.monthlyCents,
           portExpectedAt: number.portExpectedAt,
+          // What the rental is doing right now — when it next comes out, and
+          // whether the balance covers it. Derived by the gate so "past due"
+          // means the same thing here, in the warning email and in the cron.
+          rent: rentStatus(number, cents),
           // Only for a forwarded setup — the codes are useless otherwise, and
           // showing them next to a number they bought from us invites someone
           // to forward their new number to itself.
@@ -93,7 +105,7 @@ export async function GET(request) {
     credit: {
       cents,
       minutes: minutesFor(cents, type),
-      low: cents < LOW_BALANCE_CENTS,
+      low: isLowBalance(cents),
       centsPerMinute: ratePerMinute(type),
       entries: entries.map((e) => ({
         cents: e.cents,
@@ -104,12 +116,22 @@ export async function GET(request) {
     },
     pricing: {
       topups: TOPUP_OPTIONS,
+      // Each type carries its own affordability verdict, priced HERE from our
+      // own rows. The browser never posts an amount and never decides whether
+      // one is affordable — it renders the answer it was given, so the button it
+      // shows and the gate the route enforces cannot disagree.
       numberTypes: Object.values(NUMBER_TYPES).map((t) => ({
         ...t,
         perMinuteCents: ratePerMinute(t.key),
         monthlyCents: monthlyCentsFor(t.key),
+        afford: spendVerdict({ kind: "number_setup", numberType: t.key, balanceCents: cents }),
       })),
       freeTrialMinutes: FREE_TRIAL_MINUTES,
+      // Whether the gift is still available. Once per company, forever — so a
+      // second number after a release gets none, and the screen shouldn't offer
+      // what the ledger will refuse.
+      freeTrialAvailable: !trialUsed,
+      graceDays: RENT_GRACE_DAYS,
     },
     sources: NUMBER_SOURCES,
     // Calls WE place, not just ones we answer. The queued count is read from the
@@ -145,17 +167,22 @@ export async function PUT(request) {
     // broken: the company believes their calls are covered and finds out from a
     // customer who rang and got nothing.
     if (body.enabled) {
-      const [number, cents] = await Promise.all([
-        activeNumber(member.companyId),
-        balanceFor(member.companyId),
-      ]);
+      const number = await activeNumber(member.companyId);
       if (!number || number.status !== "active") {
         return NextResponse.json(
           { error: "Set up a phone number first — there's nothing for it to answer on." },
           { status: 409 },
         );
       }
-      if (cents < ratePerMinute(number.numberType)) {
+      // Through the gate rather than a hand-rolled comparison. The old inline
+      // check used the LOCAL per-minute rate on a toll-free number, so a company
+      // with 35¢ could switch on a line whose first minute costs 40¢.
+      const afford = await checkSpend({
+        companyId: member.companyId,
+        kind: "call",
+        numberType: number.numberType,
+      });
+      if (!afford.allowed) {
         return NextResponse.json(
           { error: "Add some credit first, or it won't be able to take a call." },
           { status: 409 },
@@ -174,17 +201,19 @@ export async function PUT(request) {
   // control this codebase keeps deleting.
   if (typeof body.outboundCallsEnabled === "boolean") {
     if (body.outboundCallsEnabled) {
-      const [number, cents] = await Promise.all([
-        activeNumber(member.companyId),
-        balanceFor(member.companyId),
-      ]);
+      const number = await activeNumber(member.companyId);
       if (!number || number.status !== "active") {
         return NextResponse.json(
           { error: "Set up a phone number first — there's nothing to call from." },
           { status: 409 },
         );
       }
-      if (cents < ratePerMinute(number.numberType)) {
+      const afford = await checkSpend({
+        companyId: member.companyId,
+        kind: "call",
+        numberType: number.numberType,
+      });
+      if (!afford.allowed) {
         return NextResponse.json(
           { error: "Add some credit first, or no call can be placed." },
           { status: 409 },

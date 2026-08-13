@@ -78,8 +78,26 @@ review queue at `/app/receptionist` — which is no longer a placeholder.
     it — a human has to. That's deliberate (a port needs carrier details no
     button can obtain) but it means somebody must watch for
     `VoicePhoneNumber.status = "porting"`.
-  * Monthly number rental is stored on the row and not yet billed. Talk time
-    bills correctly; the $4/$9 a month does not leave the database.
+  * ~~Monthly number rental is stored on the row and not yet billed.~~ **Done.**
+    The rental now debits the prepaid balance: the first month is reserved
+    BEFORE the number is bought (`lib/voice/spendGate.js`), and
+    `/api/cron/voice-rent` takes each month after against
+    `VoicePhoneNumber.rentPaidThroughAt`. Unpaid means a warning, a 7-day grace
+    period in which the number keeps working, then release — never a silent
+    disappearance. Every path that costs FieldQuo money goes through the one
+    gate; `npm run check:voice-spend` fails if a second one appears.
+  * Concurrency is NOT gated. The one Retell account has a shared
+    simultaneous-call ceiling (`/get-concurrency`), so one tenant's busy Monday
+    can make another's phone stop answering. Same class as the spend gate, but a
+    capacity limit rather than a money one — see the header of `spendGate.js`
+    for where it would go.
+  * SMS is not metered at all. Twilio bills FieldQuo per message for appointment
+    reminders, visit notifications and the crew inbox, and nothing charges for
+    it. Same shape as the rental leak was; it needs a price per message first,
+    which is a product decision.
+  * There is still no way for a contractor to RELEASE a number. The buy route
+    tells them to "release it first to change", and no such control exists —
+    only the rent-expiry path releases anything.
 
 **What it should do:** answer inbound calls, capture the caller's details,
 create a `Client` or `LeadRequest`, book a visit against real availability,
