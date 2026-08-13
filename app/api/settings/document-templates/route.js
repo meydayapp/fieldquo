@@ -6,9 +6,9 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import {
-  defaultSectionsFor,
   defaultSubjectFor,
 } from "@/app/data/emailTemplateBlocks";
+import { starterSectionsFor, isPdfTemplate } from "@/lib/documents/templateKind";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -45,13 +45,18 @@ export async function POST(request) {
     return NextResponse.json({ error: "type is required" }, { status: 400 });
   }
 
+  // starterSectionsFor, not defaultSectionsFor: the latter only knows the email
+  // block vocabulary and falls through to [heading, text] for anything else, so
+  // creating a PDF layout used to produce a template the PDF renderer couldn't
+  // read — "Unknown section type: heading" on the next download. See
+  // lib/documents/templateKind.js.
   const created = await db.documentTemplate.create({
     data: {
       companyId: member.companyId,
       type,
       name: name?.trim() || "Untitled template",
-      subject: defaultSubjectFor(type),
-      sections: defaultSectionsFor(type),
+      subject: isPdfTemplate(type) ? null : defaultSubjectFor(type),
+      sections: starterSectionsFor(type),
     },
   });
 

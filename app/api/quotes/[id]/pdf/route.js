@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
+import { usableSections } from "@/lib/documents/templateKind";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
@@ -39,7 +40,7 @@ export async function POST(request, { params }) {
   const template = await db.documentTemplate.findFirst({
     where: { companyId: member.companyId, type: "quote_pdf", isDefault: true },
   });
-  const sections = template?.sections || getDefaultSections("quote_pdf");
+  const sections = usableSections("quote_pdf", template?.sections || getDefaultSections("quote_pdf")).sections;
 
   // Per-service wording this company has customised, if any. Without it every
   // scope card falls back to the shipped defaults — which is fine, and is what

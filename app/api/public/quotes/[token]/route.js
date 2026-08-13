@@ -20,6 +20,7 @@ import { taskForAcceptedQuote } from "@/lib/tasks/autoCreate";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { usableSections } from "@/lib/documents/templateKind";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -606,7 +607,7 @@ async function renderApprovedQuotePdf(quote, companyId, priced, language) {
     }),
   ]);
 
-  const sections = template?.sections || getDefaultSections("quote_pdf");
+  const sections = usableSections("quote_pdf", template?.sections || getDefaultSections("quote_pdf")).sections;
   // quote.scopeGroups already carry this company's customised service wording —
   // attachServiceSettings ran in loadQuote — so the PDF resolves the identical
   // content the client saw on the page.

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
+import { usableSections } from "@/lib/documents/templateKind";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 
@@ -34,7 +35,7 @@ export async function POST(request, { params }) {
       isDefault: true,
     },
   });
-  const sections = template?.sections || getDefaultSections("invoice_pdf");
+  const sections = usableSections("invoice_pdf", template?.sections || getDefaultSections("invoice_pdf")).sections;
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,

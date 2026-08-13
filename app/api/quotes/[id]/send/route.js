@@ -39,6 +39,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { sendEmail, SENDER_SELECT } from "@/lib/email/resend";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
+import { usableSections } from "@/lib/documents/templateKind";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
@@ -161,7 +162,7 @@ export async function POST(request, { params }) {
         where: { companyId: member.companyId, type: "quote_pdf", isDefault: true },
       }),
     ]);
-    const sections = template?.sections || getDefaultSections("quote_pdf");
+    const sections = usableSections("quote_pdf", template?.sections || getDefaultSections("quote_pdf")).sections;
     const scopeGroups = await attachServiceSettings(db, member.companyId, scopeGroupsRaw);
     const pdfBuffer = await renderDocumentPdfBuffer({
       sections,

@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { invalidSectionTypes } from "@/lib/documents/templateKind";
 
 async function loadOwned(id, companyId) {
   const template = await db.documentTemplate.findUnique({ where: { id } });
@@ -55,6 +56,24 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { name, subject, sections, theme } = await request.json();
+
+  // A PDF layout and an email body are two different vocabularies sharing one
+  // JSON column. Saving a `heading` block into a quote_pdf produced a template
+  // that threw on the next download, with nothing between the editor and the
+  // renderer to notice. Rejecting here is the boundary — see
+  // lib/documents/templateKind.js.
+  if (sections !== undefined) {
+    const bad = invalidSectionTypes(existing.type, sections);
+    if (bad.length) {
+      return NextResponse.json(
+        {
+          error: `This layout can't contain: ${bad.join(", ")}. A PDF layout uses document sections; an email uses content blocks.`,
+          invalidTypes: bad,
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const updated = await db.documentTemplate.update({
     where: { id },
