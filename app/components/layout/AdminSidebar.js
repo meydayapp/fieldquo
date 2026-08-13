@@ -164,10 +164,21 @@ const SEARCH_CORPUS = [
   { key: "app.nav.group.more", items: [HOME_ITEM, AI_ITEM, ...BOTTOM_ITEMS] },
 ];
 
-// Only Work is open on a first visit. Opening everything would render the
-// accordion decorative — the rail would be exactly as long as the one the
-// owner asked to shorten, until each group was folded by hand.
-const DEFAULT_OPEN = ["app.nav.group.work"];
+// Everything is open on a first visit, and folding is something the user
+// CHOOSES once they know where things live.
+//
+// This started as `["app.nav.group.work"]` — open Work, fold the rest — on the
+// reasoning that opening everything makes the accordion decorative. That was
+// wrong, and it was caught within the hour: the owner went looking for the crew
+// messaging agent and couldn't find it in the menu, because it sits under Grow
+// and Grow was folded. Three quarters of the product had been hidden from
+// anyone who hadn't already learned the layout.
+//
+// Folding solves "this rail is long" for someone who knows what's on it. It
+// does not solve discovery, and using it as the default trades a scanning
+// problem for a much worse one — a feature that may as well not be built. The
+// user's own folds still persist; only the first visit changed back.
+const DEFAULT_OPEN = NAV_GROUPS.map((g) => g.key);
 const DISCLOSURE_KEY = "fq-nav-groups";
 
 export default function AdminSidebar() {
