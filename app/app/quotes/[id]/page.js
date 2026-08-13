@@ -15,11 +15,17 @@
 // So the structure below deliberately mirrors lib/documentSections/* and
 // QuoteApproval.js. What it does NOT mirror is their colour handling: those
 // render for a stranger with no session and compute literal hex values from
-// Company.brandColor, while this page is inside /app, where BrandTheme has
-// already put the same brand colour into the semantic tokens. `bg-inverted`
-// here IS the company's colour, with a foreground picked by the same measured
-// contrast, and it stays legible in dark mode — which a hardcoded hex would
-// not.
+// Company.brandColor, while the <article> here is wrapped in data-brand +
+// BrandTheme, which puts the same brand colour into the semantic tokens.
+// `bg-inverted` inside the document IS the company's colour, with a foreground
+// picked by the same measured contrast, and it stays legible in dark mode —
+// which a hardcoded hex would not.
+//
+// The wrapper is around the DOCUMENT only, not the page. /app itself is
+// FieldQuo's palette (see app/app/layout.js): the brand colour is what the
+// client sees, and the command strip above — Send, Convert, Delete — is not
+// something the client ever sees. The seam is the point. What's inside the
+// frame is the quote; what's outside it is the office.
 "use client";
 
 import { useState, useEffect } from "react";
@@ -39,6 +45,7 @@ import {
   Building2,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import BrandTheme from "@/app/components/BrandTheme";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -407,8 +414,33 @@ export default function QuoteDetailPage() {
       {/* ── The document ──────────────────────────────────────────────────
           Everything below is a mirror of what the client sees: the PDF built
           from lib/documentSections/* and the approval page at /q/[token]. Same
-          order, same blocks, same shape. */}
-      <article className="bg-card border border-border rounded-2xl overflow-hidden">
+          order, same blocks, same shape.
+
+          data-brand on the <article> scopes BrandTheme's variables to the
+          document, so the brand rule, the letterhead mark and the total band
+          are the company's colour while the rest of the screen stays
+          FieldQuo's. The company is the same object the masthead already
+          needed, so this costs no extra request.
+
+          One honest caveat: company arrives by fetch, so the band can paint
+          FieldQuo navy for the frame before it lands. Gating the whole document
+          on a decoration would be worse — the masthead already degrades to the
+          brand mark alone when that request fails, and a document you can read
+          beats a document you're waiting for. */}
+      <article
+        data-brand
+        className="bg-card border border-border rounded-2xl overflow-hidden"
+      >
+        {/* The attribute above and this <style> are deliberately on the same
+            element rather than a wrapper: a wrapper is one refactor away from
+            being flattened, and the attribute would survive it while the theme
+            quietly stopped applying. A custom property set on an element
+            resolves for that element's own declarations too, so the article's
+            bg-card is themed as well as its children. */}
+        <BrandTheme
+          brandColor={company?.brandColor}
+          brandColors={company?.brandColors}
+        />
         {/* The brand rule, before anything else. Two weights of the company's
             own colour, as in HeaderSection's PDF band — it reads as the quote
             being ON their letterhead rather than in a generic frame. */}

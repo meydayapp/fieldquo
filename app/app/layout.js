@@ -7,7 +7,6 @@ import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
-import BrandTheme from "@/app/components/BrandTheme";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { db } from "@/lib/db";
@@ -29,15 +28,6 @@ import { getCurrentMember } from "@/lib/currentMember";
 // (/app/jobs/new), and the one after that as the dashboard grows.
 export const dynamic = "force-dynamic";
 
-// Reads the company's brand colour for the white-label.
-//
-// Deliberately its own tiny query rather than reusing a page's data: the
-// layout renders before any page, and a colour arriving one render late means
-// the whole shell repaints in front of the user on every navigation.
-//
-// Failure here must never take the app down — a company that can't load its
-// colour gets FieldQuo's, which is exactly what an unbranded company gets
-// anyway.
 /**
  * The signed-in user's interface language: their own choice, else the company
  * default, else null for "no stated preference".
@@ -79,17 +69,32 @@ async function getAppLanguage() {
   }
 }
 
-async function getCompanyBrand() {
+/**
+ * The company's own name, for the locked-out screen.
+ *
+ * This used to fetch brandColor/brandColors too, because the layout wrapped the
+ * whole back office in BrandTheme. It no longer does: the brand colour is for
+ * what the CLIENT sees — quote, invoice, email, PDF, booking page, portal,
+ * public site — not for the screens staff work in all day. A contractor who
+ * picks lime green should not get a lime-green back office, and the white-label
+ * promise is about the homeowner's view, not the crew's. The colour is applied
+ * per-surface now; see app/components/BrandTheme.js.
+ *
+ * Still its own tiny query rather than reusing a page's data: the layout
+ * renders before any page. Never throws — a name lookup failing must not take
+ * the app down, and the locked screen reads fine without it.
+ */
+async function getCompanyName() {
   try {
     const member = await getCurrentMember({ headers: await headers() });
     if (!member?.companyId) return null;
 
     return await db.company.findUnique({
       where: { id: member.companyId },
-      select: { name: true, brandColor: true, brandColors: true },
+      select: { name: true },
     });
   } catch (err) {
-    console.error("[AppLayout] couldn't load company branding:", err);
+    console.error("[AppLayout] couldn't load the company name:", err);
     return null;
   }
 }
@@ -120,8 +125,8 @@ async function getLockState() {
 }
 
 export default async function AppLayout({ children }) {
-  const [brand, language, locked] = await Promise.all([
-    getCompanyBrand(),
+  const [company, language, locked] = await Promise.all([
+    getCompanyName(),
     getAppLanguage(),
     getLockState(),
   ]);
@@ -132,26 +137,24 @@ export default async function AppLayout({ children }) {
   // is refused in this state, so rendering the normal shell would give them
   // twenty empty panels with the fix hidden somewhere in the middle.
   //
-  // BrandTheme still wraps it so the screen carries their own colour — being
-  // locked out shouldn't also mean being handed a page that looks like it
-  // belongs to someone else.
+  // In FieldQuo's palette, like the rest of /app. The company's own name is
+  // still on it, which is what makes it recognisably theirs; their brand colour
+  // is reserved for what their clients see.
   if (locked) {
     return (
-      <div data-brand className="min-h-screen bg-background">
-        <BrandTheme brandColor={brand?.brandColor} brandColors={brand?.brandColors} />
-        <AccountLocked reason={locked.reason} companyName={brand?.name} />
+      <div className="min-h-screen bg-background">
+        <AccountLocked reason={locked.reason} companyName={company?.name} />
       </div>
     );
   }
 
   return (
-    // data-brand is the hook BrandTheme's CSS targets. Present even when the
-    // company has no colour set, so the selector doesn't have to care.
-    <div data-brand className="min-h-screen bg-background">
-      <BrandTheme
-        brandColor={brand?.brandColor}
-        brandColors={brand?.brandColors}
-      />
+    // No data-brand here on purpose. The company's colour themes what a CLIENT
+    // reads, not the back office — see getCompanyName above. Individual /app
+    // screens that PREVIEW a client-facing document wrap that region in their
+    // own data-brand + BrandTheme, which is why the hook is a per-surface
+    // decision rather than a shell-wide one.
+    <div className="min-h-screen bg-background">
       {/* Renders nothing unless a read-only support session is active. */}
       <ImpersonationBanner />
       {/* Renders nothing when the account is in good standing, which is the

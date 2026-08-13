@@ -1,22 +1,37 @@
 // app/components/BrandTheme.js
 //
-// Applies a company's brand colour to the whole app chrome.
+// Puts a company's brand colour into the semantic CSS variables, for one
+// region of the page.
 //
-// This is the white-label. FieldQuo navy is the default; the moment a company
-// sets a colour in Settings → Branding, the sidebar, buttons, active states
-// and accents all become theirs. The mechanism is one <style> block
-// overriding the CSS variables that globals.css declares — every component
-// already reads those tokens after the Phase 5 conversion, so nothing else
-// has to change.
+// ── What this is NOT ────────────────────────────────────────────────────────
+//
+// It used to wrap the entire /app shell, so a company's colour became the
+// sidebar, every primary button and every active state in the back office.
+// That was the wrong reading of "white-label". The promise is that the
+// HOMEOWNER can't tell which software the contractor uses — the quote, the
+// invoice, the emails, the PDF, the booking page, the portal, the public site.
+// Staff stare at /app all day, and a contractor who picks lime green should
+// not be handed an unusable back office for it. So /app is FieldQuo's palette
+// now, and this component is mounted per-surface instead.
+//
+// ── Where it belongs ────────────────────────────────────────────────────────
+//
+// Around an /app region that is SHOWING the client-facing document — the quote
+// detail page's document mirror is the case this exists for, because that page
+// is where someone checks a quote before sending it, and checking it against
+// the wrong colours is a weaker check. Client-facing routes themselves never
+// use this: /q, /quote, /book, /portal, /site, /embed, /f and the PDF and email
+// renderers compute literal hex from Company.brandColor, because a stranger's
+// browser may have no JS and @react-pdf/renderer has no cascade at all.
 //
 // Why it's safe with any colour a contractor picks: every derived value comes
 // from lib/brand/colour.js, which chooses foregrounds by measured WCAG
 // contrast rather than assuming. A lime-green brand gets dark text on its
-// sidebar; a navy one gets white. Neither is hardcoded.
+// total band; a navy one gets white. Neither is hardcoded.
 //
-// Rendered from a SERVER component so the variables are in the HTML on first
-// paint. Doing this client-side would show FieldQuo navy for a frame and then
-// snap to the company's colour on every navigation.
+// Emits a plain <style> tag and nothing else, so it renders from a server
+// component (variables present on first paint) or a client one (the page
+// already had to fetch the company). It has no server-only imports on purpose.
 
 import { deriveBrandTokens, tokensToCss, isValidHex } from "@/lib/brand/colour";
 
@@ -30,9 +45,13 @@ export default function BrandTheme({ brandColor, brandColors }) {
   const light = deriveBrandTokens(brandColor, { dark: false, accent });
   const dark = deriveBrandTokens(brandColor, { dark: true, accent });
 
-  // Scoped to [data-brand] rather than :root so it can only affect the app
-  // shell it wraps. The marketing site and the client-facing pages under the
-  // same <html> keep FieldQuo's palette.
+  // Scoped to [data-brand] rather than :root so it can only affect the element
+  // that carries the attribute and its children. Everything else under the same
+  // <html> — the sidebar, the command strip, the rest of the back office —
+  // keeps FieldQuo's palette. The attribute and this <style> belong in the same
+  // file: an attribute with no style block is a region that silently doesn't
+  // theme, and a style block with no attribute is dead CSS. check:brand-scope
+  // fails on either.
   const css = [
     tokensToCss(light, "[data-brand]"),
     tokensToCss(dark, ".dark [data-brand]"),
