@@ -60,9 +60,10 @@ import {
   Activity,
   Settings as SettingsIcon,
   ChevronDown,
-  Search,
   X,
 } from "lucide-react";
+import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
+import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
 
 const GROUPS = [
   {
@@ -142,6 +143,14 @@ const GROUPS = [
 
 const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
 
+// Nothing is open until you're in it. Thirty-five links in eight groups is the
+// complaint; defaulting them all open would leave the list exactly as long as
+// it is today and make the accordion decoration. Closed, /app/settings reads as
+// eight category headings — a far better index than thirty-five links — and the
+// group you're actually in opens itself. Nothing here anchors a tour, so unlike
+// the main rail no group needs pinning.
+const DISCLOSURE_KEY = "fq-settings-groups";
+
 export default function SettingsSidebar() {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -149,6 +158,13 @@ export default function SettingsSidebar() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
+
+  const activeKey = activeGroupKey(GROUPS, pathname, isActive);
+  const { openKeys, toggle } = useGroupDisclosure({
+    storageKey: DISCLOSURE_KEY,
+    defaultOpenKeys: [],
+    activeKey,
+  });
 
   // Close on navigation. Without this, tapping a link on a phone leaves the
   // sheet covering the page you just asked for.
@@ -181,8 +197,22 @@ export default function SettingsSidebar() {
         key={item.href}
         href={item.href}
         onClick={onNavigate}
-        className={`flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm font-medium ${
-          active ? "bg-inverted text-inverted-foreground" : "text-muted-foreground hover:bg-muted"
+        className={`flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm font-medium transition-colors ${
+          active
+            // Orange, the same as the main rail's active item, rather than the
+            // bg-inverted slab this used. Two reasons. It makes "you are here"
+            // one colour across both sidebars and both themes instead of navy
+            // here and orange there. And --inverted is a BUTTON token: in dark
+            // mode it is #0d3d78 against a #111d31 card, which is 1.57:1 — a
+            // lighter, brighter blue barely distinguishable from the panel
+            // behind it, and below the hover fill it is supposed to outrank.
+            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+            // Hover moves the TEXT as well as the fill. It was
+            // `hover:bg-muted` alone at 1.12:1, so the row never visibly
+            // changed; and at a fill strong enough to see, muted-foreground on
+            // it measures 4.16:1 in light mode — under the floor — so the text
+            // has to come up with the fill rather than be swallowed by it.
+            : "text-muted-foreground hover:bg-sidebar-panel-accent hover:text-foreground"
         }`}
       >
         <Icon size={16} className="shrink-0" />
@@ -193,73 +223,61 @@ export default function SettingsSidebar() {
 
   // ── Filter ────────────────────────────────────────────────────────────
   //
-  // Thirty-one destinations in eight groups. The groups help, but past about
+  // Thirty-five destinations in eight groups. The groups help, but past about
   // twenty items no amount of grouping beats typing three letters — which is
   // why every settings screen worth using has a filter box (macOS, Slack,
   // GitHub all landed on the same answer).
   //
-  // Matches the GROUP name as well as the item, so "team" finds everything
-  // under Team & scheduling even when the word isn't in the item's own label.
-  // Empty groups disappear rather than showing a heading with nothing under it.
-  const q = query.trim().toLowerCase();
-  const filtered = q
-    ? GROUPS.map((group) => {
-        const groupMatches = t(group.key).toLowerCase().includes(q);
-        return {
-          ...group,
-          items: group.items.filter(
-            (item) => groupMatches || t(item.key).toLowerCase().includes(q),
-          ),
-        };
-      }).filter((group) => group.items.length)
-    : GROUPS;
+  // It is also what makes folding the groups safe: a query overrides
+  // disclosure, so every link stays one search away no matter what is closed.
+  // The matching itself now lives in navDisclosure.js, shared with the main
+  // rail rather than copied into it.
+  const searching = query.trim().length > 0;
+  const label = (key) => t(key);
+  const filtered = visibleGroups({ groups: GROUPS, query, label });
 
   const nav = (onNavigate) => (
     <div className="space-y-3">
-      <div className="relative">
-        <Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-        />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("app.settings.search")}
-          // `search` gives mobile keyboards a sensible action key and a native
-          // clear button on iOS.
-          type="search"
-          className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
-        />
-      </div>
+      <NavFilter
+        value={query}
+        onChange={setQuery}
+        placeholder={t("app.settings.search")}
+        tone="panel"
+      />
 
-      <nav className="space-y-5">
-        {filtered.map((group) => (
-          <div key={group.key}>
-            <div className="px-3 pb-1.5 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
-              {t(group.key)}
+      <nav className="space-y-2">
+        {filtered.map((group) => {
+          const open = isGroupOpen({ group, openKeys, searching });
+          return (
+            <div key={group.key}>
+              <button
+                type="button"
+                onClick={() => toggle(group.key)}
+                aria-expanded={open}
+                className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground uppercase tracking-wide hover:bg-sidebar-panel-accent hover:text-foreground transition-colors"
+              >
+                <span className="truncate">{t(group.key)}</span>
+                <ChevronDown
+                  size={14}
+                  className={`ml-auto shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+                />
+              </button>
+              {open && (
+                <div className="space-y-0.5 pb-1">
+                  {group.items.map((item) => renderItem(item, { onNavigate }))}
+                </div>
+              )}
             </div>
-            <div className="space-y-0.5">
-              {group.items.map((item) => renderItem(item, { onNavigate }))}
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
-        {/* A dead end needs a way out. Without this, typing something with no
-            match leaves a blank column and no hint that clearing the box
-            brings everything back. */}
         {filtered.length === 0 && (
-          <div className="px-3 py-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Nothing matches &ldquo;{query}&rdquo;.
-            </p>
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              className="text-sm text-foreground underline mt-1"
-            >
-              {t("app.action.clear")}
-            </button>
-          </div>
+          <NavEmptyState
+            tone="panel"
+            message={t("app.nav.noMatches", { query })}
+            clearLabel={t("app.action.clear")}
+            onClear={() => setQuery("")}
+          />
         )}
       </nav>
     </div>

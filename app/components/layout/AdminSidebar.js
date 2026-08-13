@@ -36,11 +36,14 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Menu,
   X,
 } from "lucide-react";
 import ThemeToggle from "@/app/components/ThemeToggle";
 import Logo from "@/app/components/Logo";
+import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
+import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
 
 // Grouped, not flat.
 //
@@ -61,9 +64,25 @@ import Logo from "@/app/components/Logo";
 // Timesheets and Expenses moved OUT of the nav and into Money; they were
 // pointing at /app/settings/* URLs anyway, which is a decent sign they were
 // never top-level concerns.
+//
+// ── Collapsible, with one group deliberately not ────────────────────────────
+//
+// Twenty-four items is too many to scan even in four groups, so the groups
+// fold and remember it. "Work" does NOT fold, for a concrete reason rather
+// than a taste one: app/components/tours.js points the first-run walkthrough
+// at [data-tour='nav-requests'], 'nav-quotes' and 'nav-estimate-reviews', and
+// OnboardingTour requires a target that measures non-zero. A collapsed group
+// unmounts its items, so a folded Work is a walkthrough that silently never
+// starts. Work is also the pipeline the product exists to serve — the one
+// group nobody wants folded anyway.
+//
+// `pinned` is that rule, made explicit and enforced: check:sidebar fails if any
+// group holding a `tour` item is foldable, so moving Requests elsewhere breaks
+// a check instead of breaking the tour.
 const NAV_GROUPS = [
   {
     key: "app.nav.group.work",
+    pinned: true,
     items: [
       { key: "app.nav.requests", href: "/app/leads", icon: ClipboardList, tour: "nav-requests" },
       { key: "app.nav.quotes", href: "/app/quotes", icon: FileText, tour: "nav-quotes" },
@@ -132,6 +151,25 @@ const BOTTOM_ITEMS = [
   { key: "app.nav.settings", href: "/app/settings", icon: Settings, tour: "nav-settings" },
 ];
 
+const HOME_ITEM = { key: "app.nav.home", href: "/app", icon: Home };
+const AI_ITEM = { key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" };
+
+// What the filter box searches. Home and the bottom section are pulled in so
+// typing "settings" finds Settings — a menu search that quietly can't reach a
+// third of the menu is worse than no search box. They render in their own
+// fixed slots when the box is empty, so this grouping exists only while
+// searching.
+const SEARCH_CORPUS = [
+  ...NAV_GROUPS,
+  { key: "app.nav.group.more", items: [HOME_ITEM, AI_ITEM, ...BOTTOM_ITEMS] },
+];
+
+// Only Work is open on a first visit. Opening everything would render the
+// accordion decorative — the rail would be exactly as long as the one the
+// owner asked to shorten, until each group was folded by hand.
+const DEFAULT_OPEN = ["app.nav.group.work"];
+const DISCLOSURE_KEY = "fq-nav-groups";
+
 export default function AdminSidebar() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -141,6 +179,7 @@ export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const quickAddRef = useRef(null);
 
@@ -193,6 +232,23 @@ export default function AdminSidebar() {
   const isActive = (href) =>
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
+  // Clear the filter on navigation — a stale query left over the rail hides
+  // most of the menu on the page you just arrived at.
+  useEffect(() => {
+    setQuery("");
+  }, [pathname]);
+
+  const activeKey = activeGroupKey(NAV_GROUPS, pathname, isActive);
+  const { openKeys, toggle } = useGroupDisclosure({
+    storageKey: DISCLOSURE_KEY,
+    defaultOpenKeys: DEFAULT_OPEN,
+    activeKey,
+  });
+
+  const searching = query.trim().length > 0;
+  const label = (key) => t(key);
+  const searchGroups = visibleGroups({ groups: SEARCH_CORPUS, query, label });
+
   function NavLink({ item, onNavigate, forceExpanded }) {
     const showLabel = forceExpanded || !collapsed;
     const active = isActive(item.href);
@@ -213,7 +269,14 @@ export default function AdminSidebar() {
             // earns its loudness — you should be able to see where you are
             // from across a workshop.
             ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            // Hover pairs the accent FILL with the accent FOREGROUND. It used
+            // to pair bg-sidebar-accent with text-sidebar-foreground — two
+            // tokens with no contract between them. Under the old brand
+            // theming that mismatch was the bug the owner reported: a lime or
+            // blue company got --sidebar-accent as a near-white wash while
+            // --sidebar-foreground stayed white, so hovering a row erased its
+            // label. The pair is now the one the tokens promise.
+            : "text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         }`}
       >
         <Icon size={18} className="shrink-0" />
@@ -243,7 +306,7 @@ export default function AdminSidebar() {
             aria-label={t("app.sidebar.closeMenu")}
             // How the tour puts the drawer back when it finishes.
             data-tour-close="nav"
-            className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground"
+            className="lg:hidden text-sidebar-muted-foreground hover:text-sidebar-foreground"
           >
             <X size={20} />
           </button>
@@ -294,59 +357,123 @@ export default function AdminSidebar() {
             scrolls it — without it the nav keeps its full content height, the
             column overflows, and the fixed bottom section (AI, profile, help,
             logout) rides up over it. That overlap was the "two sidebars" feel. */}
-        <nav className="flex-1 min-h-0 px-3 py-4 space-y-1 overflow-y-auto">
-          {/* Home */}
-          <NavLink
-            item={{ key: "app.nav.home", href: "/app", icon: Home }}
-            forceExpanded={forceExpanded}
-          />
-
-          {NAV_GROUPS.map((group) => (
-            <div key={group.key} className="pt-3 first:pt-1">
-              {/* Headings only when the rail is expanded. Collapsed, the
-                  groups still read as groups because of the gap between
-                  them — a heading squeezed into 76px would be truncated
-                  noise. */}
-              {showLabel && (
-                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/40">
-                  {t(group.key)}
-                </div>
-              )}
-              <div className="space-y-1">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.href}
-                    item={item}
-                    forceExpanded={forceExpanded}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Secondary — AI, help, plan, settings, appearance. Kept INSIDE the
-              scroll area rather than pinned, so the drawer's fixed footer stays
-              small. Pinning all of this is what made the bottom section eat half
-              the mobile screen. FieldQuo AI still leads it (its own slot above a
-              divider) — the feature most worth noticing. */}
-          <div className="pt-4 mt-3 border-t border-sidebar-border space-y-1">
-            <NavLink
-              item={{ key: "app.nav.ai", href: "/app/copilot", icon: Sparkles, tour: "nav-ai" }}
-              forceExpanded={forceExpanded}
+        {/* Filter — expanded rail only. In 76px there is no room for an input
+            and no need for one: the collapsed rail ignores disclosure and
+            shows every icon, so nothing is hidden there to search for. */}
+        {showLabel && (
+          <div className="px-3 pt-3">
+            <NavFilter
+              value={query}
+              onChange={setQuery}
+              placeholder={t("app.nav.search")}
+              tone="rail"
             />
-            {BOTTOM_ITEMS.map((item) => (
-              <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
-            ))}
-            {/* Theme control — /app and /platform are the only themeable
-                surfaces, so it lives here rather than the marketing header.
-                Hidden collapsed; the segmented control needs its targets legible. */}
-            {showLabel && (
-              <div className="px-3 pt-2 flex items-center justify-between">
-                <span className="text-xs text-sidebar-foreground/60">Appearance</span>
-                <ThemeToggle compact />
-              </div>
-            )}
           </div>
+        )}
+
+        <nav className="flex-1 min-h-0 px-3 py-4 space-y-1 overflow-y-auto">
+          {searching && showLabel ? (
+            // Searching replaces the whole menu with matches — including Home
+            // and the bottom section, which is why they're in SEARCH_CORPUS.
+            // Leaving them pinned below a "nothing matches" message would be a
+            // straight contradiction on screen.
+            <>
+              {searchGroups.map((group) => (
+                <div key={group.key} className="pt-3 first:pt-1">
+                  <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
+                    {t(group.key)}
+                  </div>
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {searchGroups.length === 0 && (
+                <NavEmptyState
+                  tone="rail"
+                  message={t("app.nav.noMatches", { query })}
+                  clearLabel={t("app.action.clear")}
+                  onClear={() => setQuery("")}
+                />
+              )}
+            </>
+          ) : (
+            <>
+              <NavLink item={HOME_ITEM} forceExpanded={forceExpanded} />
+
+              {NAV_GROUPS.map((group) => {
+                const open = isGroupOpen({
+                  group,
+                  openKeys,
+                  searching: false,
+                  railCollapsed: !showLabel,
+                });
+                return (
+                  <div key={group.key} className="pt-3 first:pt-1">
+                    {/* Headings only when the rail is expanded. Collapsed, the
+                        groups still read as groups because of the gap between
+                        them — a heading squeezed into 76px would be truncated
+                        noise, and there is nothing to toggle. */}
+                    {showLabel &&
+                      (group.pinned ? (
+                        <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground">
+                          {t(group.key)}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => toggle(group.key)}
+                          aria-expanded={open}
+                          className="w-full flex items-center gap-1.5 px-3 py-1 mb-1 rounded-lg text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+                        >
+                          <span className="truncate">{t(group.key)}</span>
+                          <ChevronDown
+                            size={13}
+                            className={`ml-auto shrink-0 transition-transform ${
+                              open ? "" : "-rotate-90"
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    {open && (
+                      <div className="space-y-1">
+                        {group.items.map((item) => (
+                          <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Secondary — AI, help, plan, settings, appearance. Kept INSIDE
+                  the scroll area rather than pinned, so the drawer's fixed
+                  footer stays small. Pinning all of this is what made the bottom
+                  section eat half the mobile screen. FieldQuo AI still leads it
+                  (its own slot above a divider) — the feature most worth
+                  noticing. */}
+              <div className="pt-4 mt-3 border-t border-sidebar-border space-y-1">
+                <NavLink item={AI_ITEM} forceExpanded={forceExpanded} />
+                {BOTTOM_ITEMS.map((item) => (
+                  <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
+                ))}
+                {/* Theme control — /app and /platform are the only themeable
+                    surfaces, so it lives here rather than the marketing header.
+                    Hidden collapsed; the segmented control needs its targets
+                    legible. */}
+                {showLabel && (
+                  <div className="px-3 pt-2 flex items-center justify-between">
+                    <span className="text-xs text-sidebar-muted-foreground">
+                      {t("app.nav.appearance")}
+                    </span>
+                    <ThemeToggle compact />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </nav>
 
         {/* Pinned footer — deliberately minimal (who am I + trial + get out), so
@@ -389,7 +516,7 @@ export default function AdminSidebar() {
           <button
             onClick={handleLogout}
             title={showLabel ? undefined : t("app.nav.logOut")}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
               showLabel ? "" : "justify-center"
             }`}
           >
@@ -401,7 +528,7 @@ export default function AdminSidebar() {
           <button
             onClick={() => setCollapsed((v) => !v)}
             aria-label={collapsed ? t("app.sidebar.expand") : t("app.sidebar.collapse")}
-            className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground ${
+            className={`hidden lg:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
               showLabel ? "" : "justify-center"
             }`}
           >
@@ -410,7 +537,7 @@ export default function AdminSidebar() {
             ) : (
               <>
                 <ChevronLeft size={18} className="shrink-0" />
-                <span>Collapse</span>
+                <span>{t("app.sidebar.collapse")}</span>
               </>
             )}
           </button>

@@ -26,6 +26,20 @@
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  /* Secondary text on the navy rail — group headings and the idle state of a
+   * nav row. Was `text-sidebar-foreground/40`, i.e. white at 40% opacity, which
+   * measured 3.22:1 and is the "hard to read" the owner reported. Alpha over a
+   * surface is also unmeasurable in isolation: the same class yields a
+   * different ratio on the rail than on the hover fill, so nothing can assert
+   * it. A solid token has one value, checked against both surfaces it lands on
+   * (scripts/check-sidebar.mjs). */
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
+  /* The settings sidebar is nav, but it sits on --card, not on the navy rail,
+   * so it cannot reuse --sidebar-accent. It used `hover:bg-muted` (1.12:1 —
+   * invisible). --muted is not the fix: 283 files paint surfaces with it, so
+   * strengthening it to a legible hover repaints the whole product. This is the
+   * hover fill for that panel and nothing else. */
+  --color-sidebar-panel-accent: var(--sidebar-panel-accent);
   --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
@@ -123,12 +137,33 @@
   --chart-4: #ff8c47;
   --chart-5: #8aa9cc;
   --radius: 0;
+  /* ── Sidebar states: a three-rung ladder, measured ────────────────────────
+   *
+   * Since 6bbc8d4 the back office is always FieldQuo's palette — BrandTheme is
+   * mounted per-surface and never on the /app shell — so these are designed
+   * against exactly two known backgrounds instead of whatever hex a contractor
+   * picked. That is what makes fixed values legitimate here, where
+   * lib/documents/theme.js has to compute everything: this surface has no
+   * hostile input left.
+   *
+   * idle (no fill) -> hover -> selected, each visibly further from the rail:
+   *
+   *   light   1.00 -> 1.61 -> 3.88     dark   1.00 -> 1.69 -> 5.76
+   *
+   * Hover sits in a 1.5-2.0:1 band: below ~1.5 it reads as a rendering
+   * artefact rather than a shape (the old #0d4a90 was 1.39:1, which is the
+   * "barely visible" complaint), above ~2.0 it starts arguing with selected.
+   * Selected stays orange in BOTH sidebars and both themes, so "you are here"
+   * is one colour everywhere and never a second blue competing with the navy
+   * it sits on. */
   --sidebar: #06356b;
   --sidebar-foreground: #ffffff;
+  --sidebar-muted-foreground: #ccd8e6;
   --sidebar-primary: #ff5a00;
   --sidebar-primary-foreground: #0b1a2e;
-  --sidebar-accent: #0d4a90;
+  --sidebar-accent: #2a5687;
   --sidebar-accent-foreground: #ffffff;
+  --sidebar-panel-accent: #c2d1e2;
   --sidebar-border: #114a8f;
   --sidebar-ring: #ff5a00;
   /* The chrome slab: primary buttons and the sidebar. Navy, not near-black. */
@@ -192,12 +227,18 @@
   --inverted: #0d3d78;
   --inverted-foreground: #ffffff;
 
+  /* Same ladder, same band, re-solved against the darker rail — a hover fill
+   * that works on #06356b is invisible on #081729 (the old #16294a was
+   * 1.24:1). Orange does not lift in dark mode, per the rule above, so
+   * selected pulls further ahead here (5.76:1) and the ladder is wider. */
   --sidebar: #081729;
   --sidebar-foreground: #e9eef6;
+  --sidebar-muted-foreground: #aebccd;
   --sidebar-primary: #ff5a00;
   --sidebar-primary-foreground: #0b1a2e;
-  --sidebar-accent: #16294a;
+  --sidebar-accent: #24405f;
   --sidebar-accent-foreground: #e9eef6;
+  --sidebar-panel-accent: #2c3f5b;
   --sidebar-border: #1c3050;
   --sidebar-ring: #ff5a00;
 }
