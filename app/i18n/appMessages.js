@@ -102,6 +102,13 @@ const en = {
   "app.nav.group.more": "More",
   "app.nav.search": "Search menu",
   "app.nav.appearance": "Appearance",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "Preview",
+  "app.feature.badgeLocked": "Locked",
+  "app.feature.previewTitle": "Early preview.",
+  "app.feature.previewBody": "This is still being finished, so parts of it may change or behave oddly. Anything you set up here is saved.",
   "app.nav.noMatches": "Nothing matches “{query}”.",
   "app.nav.marketing": "Marketing",
   "app.nav.funnels": "Funnels",
@@ -2284,6 +2291,13 @@ const fr = {
   "app.nav.group.more": "Plus",
   "app.nav.search": "Rechercher dans le menu",
   "app.nav.appearance": "Apparence",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "Aperçu",
+  "app.feature.badgeLocked": "Verrouillé",
+  "app.feature.previewTitle": "Aperçu anticipé.",
+  "app.feature.previewBody": "Cette fonction n’est pas terminée : certaines parties peuvent changer ou mal se comporter. Ce que vous configurez ici est conservé.",
   "app.nav.noMatches": "Aucun résultat pour « {query} ».",
   "app.nav.marketing": "Marketing",
   "app.nav.funnels": "Funnels",
@@ -2742,6 +2756,11 @@ const fr = {
   "app.quoteEdit.whatHappensNextHint": "Échéancier, accès au chantier, calendrier de paiement, garantie. Affiché au client au-dessus du bouton d'approbation.",
   "app.quoteEdit.processNotesPlaceholder": "Nous confirmerons une date de début dans les 2 jours ouvrables suivant l'approbation.\nLes travaux prennent habituellement 3 à 4 jours.\n50 % à l'approbation, le solde à la fin.\nMain-d'œuvre garantie 2 ans.",
   "app.quoteEdit.saveChanges": "Enregistrer les modifications",
+  "app.quoteNew.addPhotos": "Ajouter des photos ou une vidéo",
+  "app.quoteNew.addPhotosHint":
+    "Des photos prises lors de la visite. Elles restent sur la soumission et sont reprises sur la facture.",
+  "app.invoiceNew.addPhotosHint":
+    "Des photos du travail. Reprises de la soumission lorsqu'il y en a une.",
   "app.quoteNew.tourClientTitle": "Commencez par un client",
   "app.quoteNew.tourClientBody": "Recherchez un client existant ou ajoutez-en un nouveau.",
   "app.quoteNew.tourServiceTitle": "Ajoutez vos services",
@@ -4421,6 +4440,13 @@ const es = {
   "app.nav.group.more": "Más",
   "app.nav.search": "Buscar en el menú",
   "app.nav.appearance": "Apariencia",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "Vista previa",
+  "app.feature.badgeLocked": "Bloqueado",
+  "app.feature.previewTitle": "Vista previa anticipada.",
+  "app.feature.previewBody": "Todavía se está terminando, así que algunas partes pueden cambiar o comportarse de forma extraña. Lo que configures aquí se guarda.",
   "app.nav.noMatches": "No hay coincidencias con «{query}».",
   "app.nav.marketing": "Marketing",
   "app.nav.funnels": "Embudos",
@@ -6516,6 +6542,13 @@ const uk = {
   "app.nav.group.more": "Інше",
   "app.nav.search": "Пошук у меню",
   "app.nav.appearance": "Вигляд",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "Перегляд",
+  "app.feature.badgeLocked": "Заблоковано",
+  "app.feature.previewTitle": "Ранній перегляд.",
+  "app.feature.previewBody": "Функція ще допрацьовується, тому частини можуть змінюватися або працювати дивно. Усе, що ви тут налаштуєте, зберігається.",
   "app.nav.noMatches": "Нічого не знайдено за «{query}».",
   "app.nav.marketing": "Маркетинг",
   "app.nav.funnels": "Воронки",
@@ -8611,6 +8644,13 @@ const pa = {
   "app.nav.group.more": "ਹੋਰ",
   "app.nav.search": "ਮੀਨੂ ਖੋਜੋ",
   "app.nav.appearance": "ਦਿੱਖ",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "ਝਲਕ",
+  "app.feature.badgeLocked": "ਬੰਦ",
+  "app.feature.previewTitle": "ਸ਼ੁਰੂਆਤੀ ਝਲਕ।",
+  "app.feature.previewBody": "ਇਹ ਅਜੇ ਪੂਰਾ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ, ਇਸ ਲਈ ਕੁਝ ਹਿੱਸੇ ਬਦਲ ਸਕਦੇ ਹਨ ਜਾਂ ਅਜੀਬ ਕੰਮ ਕਰ ਸਕਦੇ ਹਨ। ਜੋ ਵੀ ਤੁਸੀਂ ਇੱਥੇ ਸੈੱਟ ਕਰਦੇ ਹੋ, ਉਹ ਸੰਭਾਲਿਆ ਜਾਂਦਾ ਹੈ।",
   "app.nav.noMatches": "“{query}” ਨਾਲ ਕੁਝ ਵੀ ਮੇਲ ਨਹੀਂ ਖਾਂਦਾ।",
   "app.nav.marketing": "ਮਾਰਕੀਟਿੰਗ",
   "app.nav.funnels": "ਫਨਲ",
@@ -10706,6 +10746,13 @@ const tl = {
   "app.nav.group.more": "Iba pa",
   "app.nav.search": "Maghanap sa menu",
   "app.nav.appearance": "Hitsura",
+  // Feature availability (lib/features/registry.js). The badge on a nav row
+  // whose feature is in preview or locked, and the banner on the pages that
+  // feature owns. A HIDDEN feature has no strings at all — by design.
+  "app.feature.badgePreview": "Preview",
+  "app.feature.badgeLocked": "Naka-lock",
+  "app.feature.previewTitle": "Maagang preview.",
+  "app.feature.previewBody": "Ginagawa pa ito, kaya may bahaging maaaring magbago o kumilos nang kakaiba. Nase-save ang anumang itakda mo rito.",
   "app.nav.noMatches": "Walang tumugma sa “{query}”.",
   "app.nav.marketing": "Marketing",
   "app.nav.funnels": "Mga Funnel",

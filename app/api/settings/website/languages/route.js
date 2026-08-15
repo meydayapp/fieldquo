@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { generateSite } from "@/lib/site/generateSite";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 import { recordActivity } from "@/lib/activity/log";
@@ -68,8 +68,8 @@ async function loadSource(companyId, language) {
 }
 
 export async function PUT(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },
@@ -130,8 +130,8 @@ export async function PUT(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change the website." },

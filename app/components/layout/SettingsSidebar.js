@@ -21,7 +21,7 @@
 // on a phone the list that would have told you is hidden.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -64,6 +64,9 @@ import {
 } from "lucide-react";
 import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { filterNavGroups } from "@/lib/features/nav";
+import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 
 const GROUPS = [
   {
@@ -141,8 +144,6 @@ const GROUPS = [
   },
 ];
 
-const ALL_ITEMS = GROUPS.flatMap((g) => g.items);
-
 // Nothing is open until you're in it. Thirty-five links in eight groups is the
 // complaint; defaulting them all open would leave the list exactly as long as
 // it is today and make the accordion decoration. Closed, /app/settings reads as
@@ -159,7 +160,20 @@ export default function SettingsSidebar() {
 
   const isActive = (href) => pathname === href || pathname.startsWith(href + "/");
 
-  const activeKey = activeGroupKey(GROUPS, pathname, isActive);
+  // Same map the main rail uses, from the provider AppLayout mounts. Cosmetics:
+  // the settings screens behind these rows are gated by their own FeatureGate
+  // layouts whether or not this list ever hides anything.
+  const featureFlags = useFeatureFlags();
+  const groups = useMemo(
+    () => filterNavGroups(GROUPS, featureFlags),
+    [featureFlags],
+  );
+  // The "you are here" label on the mobile bar reads from this too — otherwise a
+  // hidden feature would name itself at the top of the screen the moment someone
+  // reached its URL, which is the leak the row removal exists to prevent.
+  const allItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+
+  const activeKey = activeGroupKey(groups, pathname, isActive);
   const { openKeys, toggle } = useGroupDisclosure({
     storageKey: DISCLOSURE_KEY,
     defaultOpenKeys: [],
@@ -185,7 +199,7 @@ export default function SettingsSidebar() {
 
   // Longest match wins: /app/settings/team/timesheets must resolve to Manage
   // Team, not to whichever shorter prefix happens to be listed first.
-  const current = ALL_ITEMS.filter((i) => isActive(i.href)).sort(
+  const current = allItems.filter((i) => isActive(i.href)).sort(
     (a, b) => b.href.length - a.href.length,
   )[0];
 
@@ -217,6 +231,8 @@ export default function SettingsSidebar() {
       >
         <Icon size={16} className="shrink-0" />
         <span className="truncate">{t(item.key)}</span>
+        {/* Nothing unless the row's feature is in preview or locked. */}
+        <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="panel" />
       </Link>
     );
   }
@@ -234,7 +250,7 @@ export default function SettingsSidebar() {
   // rail rather than copied into it.
   const searching = query.trim().length > 0;
   const label = (key) => t(key);
-  const filtered = visibleGroups({ groups: GROUPS, query, label });
+  const filtered = visibleGroups({ groups, query, label });
 
   const nav = (onNavigate) => (
     <div className="space-y-3">

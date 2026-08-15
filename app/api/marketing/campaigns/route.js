@@ -3,16 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 
 // List this company's marketing campaigns with a lightweight stop summary
 // (counts by status) for the hub cards — the full stop list is only loaded on
 // the campaign detail page.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const campaigns = await db.marketingCampaign.findMany({
     where: { companyId: member.companyId },
@@ -55,9 +54,8 @@ export async function GET(request) {
 // — reuse the existing user:manage gate rather than inventing a new permission
 // string that no role grants yet.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

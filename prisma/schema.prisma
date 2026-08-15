@@ -150,6 +150,77 @@ model PlatformAuditLog {
   createdAt       DateTime      @default(now())
 }
 
+// ── Feature availability: what FieldQuo OFFERS ─────────────────────────────
+//
+// FieldQuo's OWN data, not a tenant's — which is why the platform console may
+// write it. Non-negotiable #3 says the console views everything and edits
+// nothing on a COMPANY's data; a decision about whether FieldQuo offers a
+// feature is not the company's data, in the same way DemoHostAvailability is
+// FieldQuo's sales calendar rather than a customer's. Do not "fix" the write
+// route by making it read-only.
+//
+// ── Deliberately NOT the Company booleans ──────────────────────────────────
+//
+// Company.aiCopilotEnabled / crewInboxEnabled / outboundCallsEnabled /
+// sitePublished / discoverable / reviewRequestsEnabled are ADOPTION: the
+// contractor found the switch and turned it on. These two tables are
+// AVAILABILITY: whether FieldQuo offers it to them at all. Folding one into the
+// other would lose the difference between "we don't offer this yet" and "they
+// haven't switched it on" — the first question on any "where is X?" ticket.
+//
+// ── `key` is closed, and enforced in code ──────────────────────────────────
+//
+// A plain String column, but never free text: every write goes through
+// assertKnownFeature() against the closed list in lib/features/registry.js, and
+// `npm run check:features` fails if a registry key has no consumer. A row whose
+// key is not in the registry resolves HIDDEN and is ignored — fail closed, so a
+// stale row from a deleted feature can never re-open something.
+//
+// ── Nothing here deletes tenant data ───────────────────────────────────────
+//
+// Same rule as unpublishing a website: turning a feature off makes it
+// unreachable and touches nothing. Funnels, campaigns, call records, site blocks
+// and instant-quote rate cards survive untouched and come back exactly as they
+// were. No cascade from these tables reaches a tenant row.
+
+/// Platform-wide default for one feature. Absent row = the registry's own
+/// defaultState, which is how a feature behaves before anyone has said anything.
+model PlatformFeature {
+  key   String @id
+  /// "on" | "preview" | "locked" | "hidden". Validated in code, not by an enum:
+  /// a Postgres enum would need a db push to add a state and would still not
+  /// constrain `key`, so the registry does both checks in one place.
+  state String @default("hidden")
+  /// Shown to the CONTRACTOR when state is "locked" — the reason they can read.
+  /// Never shown for "hidden", which must leave no trace at all.
+  note        String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
+/// One company's answer, overriding the global. Absent row = inherit.
+///
+/// No foreign key to PlatformFeature on purpose: an override is meaningful
+/// before anyone has set a global (letting one beta tester into a feature that
+/// is otherwise on its registry default is the common case), and a FK would
+/// force a global row to exist first. Integrity comes from assertKnownFeature()
+/// on write plus fail-closed resolution on read.
+model CompanyFeatureOverride {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  key       String
+  state     String
+  note      String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, key])
+  @@index([key])
+}
+
 // A platform-issued promo code — influencer or tester. UNLIKE a referral code
 // (company-owned, company-to-company, pays a credit to the referrer), these are
 // minted by FieldQuo superadmins to give a selected person a free head start.
@@ -757,6 +828,11 @@ model Company {
   crewMessages CrewInboundMessage[]
   jobPhotos JobPhoto[]
 
+  /// Per-company AVAILABILITY overrides. Not to be confused with the adoption
+  /// booleans above (aiCopilotEnabled, crewInboxEnabled, outboundCallsEnabled,
+  /// sitePublished, discoverable…) — those are the CONTRACTOR's switches. See
+  /// lib/features/registry.js for why the two axes stay separate.
+  featureOverrides CompanyFeatureOverride[]
 }
 
 // Per-company overrides on top of the built-in defaults in

@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 
 // A stop belongs to the member's company iff its campaign does. Load both so
@@ -26,9 +26,8 @@ const STOP_STATUSES = ["pending", "delivered", "spoke", "not_home", "skipped"];
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -76,9 +75,8 @@ export async function PATCH(request, { params }) {
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -139,9 +137,8 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const stop = await loadOwnedStop(member.companyId, _params.id);
   if (!stop) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -10,13 +10,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { formatNumber } from "@/lib/voice/numbers";
 import { costForSeconds } from "@/lib/voice/credits";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const params = new URL(request.url).searchParams;
   const onlyReview = params.get("needsReview") === "1";
@@ -75,8 +75,8 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const body = await request.json().catch(() => ({}));
   const id = String(body.id || "");

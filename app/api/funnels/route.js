@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal, memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
@@ -12,8 +12,8 @@ import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
 
 // Same gate as the website builder — a funnel is a public marketing surface.
 async function requireAdmin(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return { error: "Unauthorized", status: 401 };
+  const { member, refusal } = await memberOrRefusalPlain(request);
+  if (refusal) return refusal;
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -23,9 +23,8 @@ async function requireAdmin(request) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const funnels = await db.funnel.findMany({
     where: { companyId: member.companyId },

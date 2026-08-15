@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   INSTANT_ESTIMATE_DEFAULTS,
@@ -28,9 +28,8 @@ function isPricingAdmin(role) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const [saved, company] = await Promise.all([
     db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
@@ -77,9 +76,8 @@ export async function GET(request) {
 }
 
 export async function PUT(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!isPricingAdmin(member.role)) {
     return NextResponse.json(

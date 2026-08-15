@@ -24,12 +24,17 @@ import {
   CalendarCheck,
   CalendarClock,
   Ticket,
+  ToggleLeft,
 } from "lucide-react";
 
 const ITEMS = [
   { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true },
   { label: "Companies", href: "/platform/companies", icon: Building2 },
   { label: "Plans", href: "/platform/billing/plans", icon: CreditCard },
+  // Next to Plans, not next to Companies: this is what FieldQuo SELLS, and the
+  // question "is this on for them" is asked in the same breath as "what plan are
+  // they on". It edits FieldQuo's own data — see the page header.
+  { label: "Features", href: "/platform/features", icon: ToggleLeft },
   {
     label: "Subscriptions",
     href: "/platform/billing/subscriptions",

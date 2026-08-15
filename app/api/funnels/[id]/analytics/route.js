@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 // Per-step drop-off + conversion for one funnel. "60% quit at the budget
 // question" is the whole reason funnels beat a static form, so this counts
@@ -11,9 +11,8 @@ import { getCurrentMember } from "@/lib/currentMember";
 // the leads that came out the end. Aggregated in JS — contractor funnels are
 // low-volume, and distinct-session-per-step is awkward in a single SQL query.
 export async function GET(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { id } = await params;
   const funnel = await db.funnel.findFirst({

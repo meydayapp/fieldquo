@@ -1,7 +1,7 @@
 // app/components/layout/AdminSidebar.js
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,6 +44,9 @@ import ThemeToggle from "@/app/components/ThemeToggle";
 import Logo from "@/app/components/Logo";
 import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
+import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
+import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 
 // Grouped, not flat.
 //
@@ -192,6 +195,35 @@ export default function AdminSidebar() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [query, setQuery] = useState("");
 
+  // Feature availability, resolved server-side by AppLayout so the first paint
+  // is already correct. Cosmetics only — a row removed here is a row whose page
+  // and API were already refusing, see lib/features/nav.js. Null (no provider,
+  // or a lookup that failed) leaves the menu exactly as declared above.
+  const featureFlags = useFeatureFlags();
+  const navGroups = useMemo(
+    () => filterNavGroups(NAV_GROUPS, featureFlags),
+    [featureFlags],
+  );
+  const bottomItems = useMemo(
+    () => filterNavItems(BOTTOM_ITEMS, featureFlags),
+    [featureFlags],
+  );
+  // Filtered too, or typing "receptionist" would surface a hidden feature by
+  // name in the search results — the leak the nav filter closes, reopened by
+  // the search box.
+  const searchCorpus = useMemo(
+    () => filterNavGroups(SEARCH_CORPUS, featureFlags),
+    [featureFlags],
+  );
+  const quickAddItems = useMemo(
+    () => filterNavItems(QUICK_ADD_ITEMS, featureFlags),
+    [featureFlags],
+  );
+  const showAiItem = useMemo(
+    () => filterNavItems([AI_ITEM], featureFlags).length > 0,
+    [featureFlags],
+  );
+
   const quickAddRef = useRef(null);
 
   // Persist the expanded/contracted preference across visits.
@@ -249,7 +281,7 @@ export default function AdminSidebar() {
     setQuery("");
   }, [pathname]);
 
-  const activeKey = activeGroupKey(NAV_GROUPS, pathname, isActive);
+  const activeKey = activeGroupKey(navGroups, pathname, isActive);
   const { openKeys, toggle } = useGroupDisclosure({
     storageKey: DISCLOSURE_KEY,
     defaultOpenKeys: DEFAULT_OPEN,
@@ -258,7 +290,7 @@ export default function AdminSidebar() {
 
   const searching = query.trim().length > 0;
   const label = (key) => t(key);
-  const searchGroups = visibleGroups({ groups: SEARCH_CORPUS, query, label });
+  const searchGroups = visibleGroups({ groups: searchCorpus, query, label });
 
   function NavLink({ item, onNavigate, forceExpanded }) {
     const showLabel = forceExpanded || !collapsed;
@@ -292,6 +324,9 @@ export default function AdminSidebar() {
       >
         <Icon size={18} className="shrink-0" />
         {showLabel && <span className="truncate">{t(item.key)}</span>}
+        {/* Renders nothing unless the row's feature is in preview or locked.
+            A row that is going to refuse should say so BEFORE the click. */}
+        {showLabel && <FeatureRowBadge navKey={item.key} flags={featureFlags} tone="rail" />}
       </Link>
     );
   }
@@ -345,7 +380,7 @@ export default function AdminSidebar() {
 
             {quickAddOpen && (
               <div className="absolute z-50 top-0 left-full ml-2 w-52 bg-card rounded-xl shadow-lg border border-border p-2">
-                {QUICK_ADD_ITEMS.map((item) => {
+                {quickAddItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <Link
@@ -414,7 +449,7 @@ export default function AdminSidebar() {
             <>
               <NavLink item={HOME_ITEM} forceExpanded={forceExpanded} />
 
-              {NAV_GROUPS.map((group) => {
+              {navGroups.map((group) => {
                 const open = isGroupOpen({
                   group,
                   openKeys,
@@ -466,8 +501,8 @@ export default function AdminSidebar() {
                   (its own slot above a divider) — the feature most worth
                   noticing. */}
               <div className="pt-4 mt-3 border-t border-sidebar-border space-y-1">
-                <NavLink item={AI_ITEM} forceExpanded={forceExpanded} />
-                {BOTTOM_ITEMS.map((item) => (
+                {showAiItem && <NavLink item={AI_ITEM} forceExpanded={forceExpanded} />}
+                {bottomItems.map((item) => (
                   <NavLink key={item.href} item={item} forceExpanded={forceExpanded} />
                 ))}
                 {/* Theme control — /app and /platform are the only themeable

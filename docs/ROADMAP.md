@@ -315,6 +315,48 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Feature availability: FieldQuo can withhold a feature per tenant**
+  (`lib/features/`, `/platform/features`, `npm run check:features`). A CLOSED
+  registry of seven shipped features — voice receptionist, crew inbox, AI
+  copilot, funnels, website builder, instant quotes, marketing campaigns — each
+  declaring the nav rows, page prefixes, API prefixes and crons it gates.
+  Resolution is `companyOverride ?? platformGlobal ?? registryDefault`, with
+  four states: `hidden` (no trace anywhere, 404 like any unknown path),
+  `preview` (usable and labelled), `locked` (visible, refused, with a reason)
+  and `on`.
+
+  Enforced in **two** places on purpose, like the impersonation gate:
+  `lib/currentMember.js` covers every API route, and a one-line server
+  `layout.js` per route prefix (`app/components/FeatureGate.js`) covers pages,
+  so a bookmarked URL is stopped before anything renders. Hiding the nav row is
+  cosmetics and the code says so. **Not** in `middleware.js` — see the note at
+  the top of that file for why.
+
+  Deliberately a different axis from `Company.aiCopilotEnabled`,
+  `crewInboxEnabled`, `sitePublished` and friends: those are ADOPTION (the
+  contractor's switch), this is AVAILABILITY (whether FieldQuo offers it).
+  Merging them loses the difference between "we don't offer this" and "they
+  haven't turned it on", which is the first question on any support ticket.
+
+  Money: withdrawing `voice_receptionist` stops provisioning, stops outbound
+  dialling and stops the rent cron — it neither CHARGES nor RELEASES, so
+  FieldQuo carries the vendor rental for as long as it has withheld the
+  feature, and nobody loses their advertised business number to a switch we
+  flipped. The inbound webhook stays ungated (the minutes are already spent).
+  Nothing anywhere deletes tenant data.
+
+  `check:features` (319 assertions) fails if a registry key has no consumer, if
+  a claimed prefix doesn't call the guard, if a hidden feature's 404 body names
+  it, or if an explicit override falls through to the global. Eleven mutations
+  were tried against it and all eleven failed the suite.
+
+  **Left:** `lib/apiMember.js` (`memberOrRefusal`) exists because an uncaught
+  throw from `getCurrentMember` becomes a Next 500 — which means the billing
+  gate's carefully chosen 402 has *never* reached a browser on the ~145 routes
+  that still call `getCurrentMember` directly. Only the 22 feature-gated routes
+  were converted, because the registry keeps those honest. The rest is a
+  mechanical follow-up.
+
 - **The instant-estimate price brain is total** (`lib/estimate/instantEstimate.js`,
   `npm run check:instant-exits`). Every estimator assumed `config.materials` was
   an array of objects and `config.tiers` was iterable, and threw when neither

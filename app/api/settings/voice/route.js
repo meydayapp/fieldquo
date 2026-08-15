@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured } from "@/lib/voice/retell";
@@ -38,8 +38,8 @@ import {
 } from "@/lib/voice/spendGate";
 
 async function requireAdmin(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return { error: "Unauthorized", status: 401 };
+  const { member, refusal } = await memberOrRefusalPlain(request);
+  if (refusal) return refusal;
   try {
     requirePermission(member.role, "user:manage");
   } catch {

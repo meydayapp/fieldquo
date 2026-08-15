@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -14,9 +14,8 @@ import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
 // with a factual template fallback when AI is unavailable (generateFunnel never
 // throws for that reason). Creates a DRAFT the contractor then edits.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   try {
     requirePermission(member.role, "user:manage");
   } catch {

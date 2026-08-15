@@ -9,8 +9,10 @@ import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
+import { FeatureProvider } from "@/app/providers/FeatureProvider";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { featureMapForCompany, navFlagsFrom } from "@/lib/features/gate";
 
 // Everything under /app is per-user and behind the session check in
 // middleware.js, so there is nothing meaningful to statically prerender —
@@ -124,11 +126,39 @@ async function getLockState() {
   }
 }
 
+/**
+ * Which features this company may see, for the nav only.
+ *
+ * Resolved here so the sidebars can render the right menu in their FIRST paint —
+ * a menu that draws every row and then removes three is worse than one that
+ * never hid them. It is NOT what stops anyone reaching a withheld feature: that
+ * is lib/currentMember.js for the APIs and the FeatureGate layouts for the
+ * pages, both of which run whether or not this ever succeeds.
+ *
+ * Never throws, for the same reason as the two lookups above, and fails toward
+ * showing everything: a menu row leading to a gated page costs one click, while
+ * a blanked-out nav on a database blip looks like the account broke.
+ */
+async function getFeatureFlags() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "" },
+      { skipBillingGate: true },
+    );
+    if (!member?.companyId) return null;
+    return navFlagsFrom(await featureMapForCompany(member.companyId));
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve feature availability:", err);
+    return null;
+  }
+}
+
 export default async function AppLayout({ children }) {
-  const [company, language, locked] = await Promise.all([
+  const [company, language, locked, featureFlags] = await Promise.all([
     getCompanyName(),
     getAppLanguage(),
     getLockState(),
+    getFeatureFlags(),
   ]);
 
   // ── Locked ──────────────────────────────────────────────────────────────
@@ -183,6 +213,10 @@ export default async function AppLayout({ children }) {
           the marketing site. */}
       <LanguageProvider initialLanguage={language} fromAccount={Boolean(language)}>
       <CompanyPreferencesProvider>
+      {/* Wraps `children` as well as the rail, because the SETTINGS sidebar is
+          rendered by a nested layout further down the tree and needs the same
+          map. Resolving it twice would be two more queries for the same answer. */}
+      <FeatureProvider flags={featureFlags}>
         {/* lg:flex, not flex — below lg the sidebar renders as a full-width
             sticky top bar plus a drawer, which has to sit ABOVE the page in
             normal flow rather than beside it as a flex column. */}
@@ -190,6 +224,7 @@ export default async function AppLayout({ children }) {
           <AdminSidebar />
           <main className="flex-1 min-w-0">{children}</main>
         </div>
+      </FeatureProvider>
       </CompanyPreferencesProvider>
       </LanguageProvider>
       {/* Renders nothing until something calls showError(). Mounted here so

@@ -13,6 +13,25 @@
 //
 // Everything else in this file — the /platform page gate, the /app
 // better-auth gate — is unchanged.
+//
+// ── One gate that deliberately is NOT here ─────────────────────────────────
+//
+// Feature availability (lib/features/) is enforced in lib/currentMember.js for
+// the APIs and in a server layout per route prefix for the pages, NOT here.
+// Two reasons, and the first is no longer the technical one it was: Next 16
+// runs this file on the Node runtime, so Prisma would work.
+//
+//   1. Resolving a feature needs the COMPANY, and this file only knows whether
+//      a session cookie exists — getting from the cookie to a companyId means
+//      re-implementing what getCurrentMember already does, which is the
+//      second-copy-that-rots problem.
+//   2. This matcher covers all of /api and every page. The gate is cheap
+//      precisely because it runs after the company is already resolved and
+//      matches the path against a registry first; hoisting it here would put
+//      the lookup in front of ~150 routes that no feature gates.
+//
+// See the header of lib/features/gate.js for the full reasoning and for what
+// happens to the voice spend paths when a feature is withdrawn.
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { jwtVerify } from "jose";
