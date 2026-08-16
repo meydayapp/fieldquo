@@ -17,6 +17,11 @@ import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import {
+  budgetBands,
+  normaliseBudgetThresholds,
+  DEFAULT_BUDGET_THRESHOLDS,
+} from "@/lib/estimate/budgetBands";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -117,6 +122,19 @@ function TradeCard({ trade, canEdit, onSaved }) {
   }
 
   const materials = Array.isArray(config.materials) ? config.materials : [];
+
+  // Shown as typed, not as normalised: run the saved value through
+  // normaliseBudgetThresholds for display and a half-typed "35" silently
+  // becomes 1000 under the cursor. The preview line below says which of the two
+  // the homeowner will actually get.
+  const budgetThresholds =
+    Array.isArray(config.budgetThresholds) &&
+    config.budgetThresholds.length === DEFAULT_BUDGET_THRESHOLDS.length
+      ? config.budgetThresholds
+      : [...DEFAULT_BUDGET_THRESHOLDS];
+  const budgetBandsValid =
+    JSON.stringify(normaliseBudgetThresholds(budgetThresholds)) ===
+    JSON.stringify(budgetThresholds.map((n) => Math.round(Number(n))));
 
   // Junk rates are stored in CENTS (priceJunk's unit); the form shows dollars.
   const rates = config.rates || {};
@@ -225,6 +243,63 @@ function TradeCard({ trade, canEdit, onSaved }) {
               );
             })}
           </div>
+        </div>
+
+        {/* ── Budget bands ──────────────────────────────────────────────────
+            Three cuts, four bands. Per trade because the generic $1k/$5k/$15k
+            set is useless for most of them: a cabinet shop's cheapest real job
+            clears $3,000, so "under $1,000" is a band nobody picks. A question
+            whose answers don't fit gets answered at random, and a qualifier
+            answered at random is worse than one never asked. */}
+        <div>
+          <div className="text-sm font-medium text-foreground mb-1">
+            {t("app.setInstantQuotes.budgetBands", "Budget bands")}
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">
+            {t(
+              "app.setInstantQuotes.budgetBandsHint",
+              "The four options shown when we ask their budget. Set the three cut-off points; they must go up.",
+            )}
+          </p>
+          <div className="flex items-center gap-2">
+            {budgetThresholds.map((v, i) => (
+              <div key={i} className="flex items-center gap-1 flex-1 min-w-0">
+                <span className="text-sm text-muted-foreground">$</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={v}
+                  onChange={(e) => {
+                    const next = [...budgetThresholds];
+                    next[i] = e.target.value === "" ? "" : Number(e.target.value);
+                    patch({ budgetThresholds: next });
+                  }}
+                  className="w-full min-w-0 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+                />
+              </div>
+            ))}
+          </div>
+          {/* Say what the homeowner will actually read, and say plainly when
+              the numbers won't be used. The server falls back to the generic
+              bands for an unusable list rather than publishing "$6,000 –
+              $3,500" on a public page; without this line that fallback is
+              silent, and the owner sees their typed numbers saved and no idea
+              why the form still shows the old ones. */}
+          <p className="text-xs mt-2 text-muted-foreground">
+            {budgetBandsValid ? (
+              <>
+                {t("app.setInstantQuotes.budgetBandsPreview", "They'll see:")}{" "}
+                {budgetBands(budgetThresholds).map((b) => b.label).join(" · ")}
+              </>
+            ) : (
+              <span className="text-amber-600">
+                {t(
+                  "app.setInstantQuotes.budgetBandsInvalid",
+                  "These need to be three amounts in increasing order — until they are, the standard bands are shown instead.",
+                )}
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Material sell rates */}

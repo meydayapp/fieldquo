@@ -144,6 +144,21 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
             Homeowner saw:{" "}
             <strong className="text-foreground">{money(range.low)}–{money(range.high)}{d.unit ? ` ${d.unit}` : ""}</strong>
           </div>
+          {/* What they said they could spend, next to what it prices at. The
+              over-budget flag is the reviewer's cue to lead with financing on
+              the call — computed at capture, from the bands in force that day,
+              so a later edit to the thresholds can't rewrite what this lead
+              was told. */}
+          {d.budget && (
+            <div>
+              Their budget: <strong className="text-foreground">{d.budget.label}</strong>
+              {d.budget.exceeded && (
+                <span className="ml-2 rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-xs font-medium">
+                  over budget
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

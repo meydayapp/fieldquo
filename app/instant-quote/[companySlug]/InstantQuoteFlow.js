@@ -283,6 +283,10 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [materialKey, setMaterialKey] = useState(null);
 
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
+  // null means unanswered, and stays null until they tap. Not 0 — index 0 is
+  // the lowest band, a real answer, and seeding it would record "under $3,500"
+  // for everyone who never touched the question.
+  const [budgetIndex, setBudgetIndex] = useState(null);
   const [media, setMedia] = useState([]); // photos/videos the homeowner attaches
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
@@ -369,6 +373,9 @@ export default function InstantQuoteFlow({ companySlug }) {
       if (trade.measure === "roof_address") payload.address = address;
       if (trade.measure === "lawn_polygon") payload.polygon = polygon;
       if (media.length) payload.media = media;
+      // The index only. The server owns the dollars behind it — a form that
+      // posted "budget: 10000" could be edited to say anything (#5).
+      if (budgetIndex !== null) payload.budgetBandIndex = budgetIndex;
       const res = await fetchJson(`/api/instant-quote/${companySlug}/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -396,6 +403,18 @@ export default function InstantQuoteFlow({ companySlug }) {
     inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0);
 
   const selectedOption = options.find((o) => o.materialKey === materialKey) || (options.length === 1 ? options[0] : null);
+
+  // The owner's bands for THIS trade, labels already built server-side in their
+  // currency. An older config that predates the setting sends none, and the
+  // question simply isn't asked — better than falling back to generic bands
+  // that don't fit the trade and collecting answers nobody can act on.
+  const budgetBands = trade?.budgetBands || [];
+  const missing = [
+    !contact.name && "your name",
+    !contact.email && !contact.phone && "an email or phone",
+    budgetBands.length > 0 && budgetIndex === null && "your budget",
+    media.length === 0 && "at least one photo",
+  ].filter(Boolean);
 
   if (loadErr) {
     return (
@@ -723,21 +742,72 @@ export default function InstantQuoteFlow({ companySlug }) {
                     onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                   />
-                  <MediaUploader
-                    uploadUrl={`/api/self-quote/${companySlug}/upload`}
-                    value={media}
-                    onChange={setMedia}
-                  />
+                  {/* Budget, in the owner's own bands for this trade. Asked
+                      HERE rather than up with the measurement because it's a
+                      qualifying question, not a pricing input: nothing the
+                      homeowner picks changes the estimate by a cent, and asking
+                      it early reads as "tell us what you'll pay and we'll
+                      charge it". */}
+                  {budgetBands.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-foreground mb-1.5">
+                        Your budget <span className="text-red-600">*</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {budgetBands.map((b) => {
+                          const selected = budgetIndex === b.index;
+                          return (
+                            <button
+                              key={b.index}
+                              type="button"
+                              onClick={() => setBudgetIndex(b.index)}
+                              className={`rounded-lg border px-3 py-2 text-sm font-medium text-foreground ${
+                                selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                              }`}
+                              style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                            >
+                              {b.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-sm font-medium text-foreground mb-1.5">
+                      Photos <span className="text-red-600">*</span>
+                    </div>
+                    <MediaUploader
+                      uploadUrl={`/api/self-quote/${companySlug}/upload`}
+                      value={media}
+                      onChange={setMedia}
+                    />
+                  </div>
                 </div>
                 <button
                   onClick={submit}
-                  disabled={submitting || !contact.name || (!contact.email && !contact.phone)}
+                  disabled={
+                    submitting ||
+                    !contact.name ||
+                    (!contact.email && !contact.phone) ||
+                    (budgetBands.length > 0 && budgetIndex === null) ||
+                    media.length === 0
+                  }
                   className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 w-full justify-center"
                   style={{ background: brand }}
                 >
                   {submitting && <Loader2 size={15} className="animate-spin" />}
-                  Send me my estimate
+                  {gated?.locked ? "Reveal my estimate" : "Send me my estimate"}
                 </button>
+                {/* Say WHY it's disabled. A greyed-out button with no reason is
+                    the same dead end as one that does nothing — the homeowner
+                    taps it, gets no response, and concludes the form is broken
+                    rather than that they missed a field. */}
+                {missing.length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground text-center">
+                    Still needed: {missing.join(", ")}
+                  </p>
+                )}
                 {submitErr && (
                   <div className="mt-2">
                     <p className="text-sm text-red-600">{submitErr}</p>

@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
+import { bandForIndex, estimateExceedsBudget } from "@/lib/estimate/budgetBands";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -42,7 +43,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { trade, address, polygon, intake, materialKey, name, email, phone, language, media } = body || {};
+  const { trade, address, polygon, intake, materialKey, name, email, phone, language, media, budgetBandIndex } = body || {};
 
   if (!trade) return NextResponse.json({ error: "Missing service." }, { status: 400 });
   if (!name || (!email && !phone)) {
@@ -75,6 +76,14 @@ export async function POST(request, { params }) {
   // screen and in the email, which must not disagree with each other.
   const visibility = effectiveVisibility(priced.visibility, "confirmed");
 
+  // The browser posted an INDEX, not an amount. The dollars come from the
+  // company's own saved thresholds — same rule as add-on pricing (#5), and here
+  // it also stops a lead scoring itself richer than it is. An index that isn't
+  // one of the bands resolves to null, i.e. "didn't answer", rather than being
+  // clamped to the nearest real band and recorded as something they never said.
+  const budgetBand = bandForIndex(priced.budgetThresholds, budgetBandIndex);
+  const budgetGap = estimateExceedsBudget(budgetBand, priced.estimate);
+
   const draft = await createEstimateDraft({
     company,
     trade,
@@ -89,6 +98,9 @@ export async function POST(request, { params }) {
     // The homeowner's attached photos/videos — re-normalised server-side (https
     // only, count-capped) so the browser can't stash anything but real media URLs.
     media,
+    budget: budgetBand
+      ? { min: budgetBand.min, max: budgetBand.max, label: budgetBand.label, exceeded: budgetGap }
+      : null,
   });
 
   const emailLanguage = language || company.defaultLanguage || "en";
@@ -106,6 +118,9 @@ export async function POST(request, { params }) {
         contact: { name },
         estimate: { low: priced.estimate.low, high: priced.estimate.high },
         visibility,
+        // Moves the company's own financing note up under the figure. Does
+        // nothing at all when they haven't enabled financing.
+        budgetGap,
         reference: draft.quoteNumber,
         language: emailLanguage,
       });
