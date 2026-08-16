@@ -24,6 +24,7 @@ import {
 import { readableForeground } from "@/lib/brand/colour";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 
 export default function PortalInvoice({ token, invoiceId }) {
   const [data, setData] = useState(null);
@@ -111,6 +112,10 @@ export default function PortalInvoice({ token, invoiceId }) {
   );
   const overdue =
     invoice.dueDate && due > 0.005 && new Date(invoice.dueDate) < new Date();
+  // Same flag the portal index reads — the company may never have finished
+  // connecting Stripe, in which case there is no card to take and the button
+  // below would only 400.
+  const onlinePayments = Boolean(data.onlinePayments);
 
   return (
     <Shell token={token} backLabel={copy.backToAccount}>
@@ -252,7 +257,15 @@ export default function PortalInvoice({ token, invoiceId }) {
             </div>
           )}
 
-          {due > 0.005 ? (
+          {due > 0.005 && !onlinePayments ? (
+            // The balance still shows above — what changes is that we don't
+            // offer a card we can't charge. Same words the invoice email sent.
+            <div className="text-center text-sm text-[#2d2520]/60 space-y-1">
+              {offlinePaymentLines(c, copy).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          ) : due > 0.005 ? (
             <button
               onClick={pay}
               disabled={paying}

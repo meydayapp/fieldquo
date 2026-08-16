@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { readableForeground } from "@/lib/brand/colour";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import {
   Loader2,
   Building2,
@@ -122,6 +123,12 @@ export default function ClientPortal({ token }) {
   // bubble). Hardcoded dark text was unreadable on a dark brand or the default.
   const accentOn = readableForeground(accent);
 
+  // Whether the Pay buttons on this page can do anything. Derived server-side
+  // (the raw Stripe account id never crosses to a public endpoint) — see
+  // app/api/portal/[token]/route.js.
+  const onlinePayments = Boolean(data.onlinePayments);
+  const offlineLines = offlinePaymentLines(c, copy);
+
   const invoices = data.invoices || [];
   const balance = invoices.reduce(
     (sum, inv) =>
@@ -218,7 +225,17 @@ export default function ClientPortal({ token }) {
                   </div>
                 </a>
 
-                {due > 0.005 ? (
+                {due > 0.005 && !onlinePayments ? (
+                  // No Stripe on this company: say what to do instead, rather
+                  // than a Pay button that 400s under their own logo.
+                  <span className="text-xs text-[#2d2520]/60 shrink-0 text-right max-w-[15rem]">
+                    {offlineLines.map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </span>
+                ) : due > 0.005 ? (
                   <button
                     onClick={() => pay(inv.id)}
                     disabled={Boolean(payingId)}
