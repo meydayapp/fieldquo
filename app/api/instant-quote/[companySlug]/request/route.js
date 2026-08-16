@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
-import { publicEstimate, gatedMessage } from "@/lib/estimate/visibility";
+import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -68,6 +68,13 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "That option isn't available. Pick another." }, { status: 422 });
   }
 
+  // This whole route is the other side of the submit: it only runs once the
+  // homeowner has given a name and a way to reach them, which is exactly the
+  // price of admission "after_submit" charges. So the mode resolves to "range"
+  // here and the figure they were promised is finally allowed out — on the
+  // screen and in the email, which must not disagree with each other.
+  const visibility = effectiveVisibility(priced.visibility, "confirmed");
+
   const draft = await createEstimateDraft({
     company,
     trade,
@@ -98,7 +105,7 @@ export async function POST(request, { params }) {
         company,
         contact: { name },
         estimate: { low: priced.estimate.low, high: priced.estimate.high },
-        visibility: priced.visibility,
+        visibility,
         reference: draft.quoteNumber,
         language: emailLanguage,
       });
@@ -133,7 +140,7 @@ export async function POST(request, { params }) {
   // agrees with /measure and with the confirmation email on what counts as a
   // showable figure. A "range" trade whose estimate didn't resolve falls back to
   // the gated wording instead of shipping a NaN.
-  const pub = publicEstimate(priced.estimate, priced.visibility);
+  const pub = publicEstimate(priced.estimate, visibility);
   const shown = pub.show
     ? {
         low: pub.low,

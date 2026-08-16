@@ -197,7 +197,8 @@ function TradeCard({ trade, canEdit, onSaved }) {
           <div className="flex flex-col gap-2">
             {[
               { key: "gated", label: t("app.setInstantQuotes.visGatedLabel", "Don't show a price"), hint: t("app.setInstantQuotes.visGatedHint", "They submit and we say a quote is on the way.") },
-              { key: "range", label: t("app.setInstantQuotes.visRangeLabel", "Show an estimated range"), hint: t("app.setInstantQuotes.visRangeHint", "A range instantly; exact price after you review. Converts better.") },
+              { key: "after_submit", label: t("app.setInstantQuotes.visAfterSubmitLabel", "Show the range after they submit"), hint: t("app.setInstantQuotes.visAfterSubmitHint", "They fill in the form to unlock their range. You get their details either way — the usual pick.") },
+              { key: "range", label: t("app.setInstantQuotes.visRangeLabel", "Show the range straight away"), hint: t("app.setInstantQuotes.visRangeHint", "The number appears before they leave any details. Expect people to read it and go.") },
             ].map((opt) => {
               const current = (config.estimateVisibility || "gated") === opt.key;
               return (

@@ -7,7 +7,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, Ruler, CheckCircle2 } from "lucide-react";
+import { Loader2, MapPin, Ruler, CheckCircle2, Lock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
@@ -274,7 +274,11 @@ export default function InstantQuoteFlow({ companySlug }) {
   // An object, not the message string it used to be: an empty message would
   // have made this falsy, hiding the step-3 card AND the step-4 contact form,
   // so "Get my estimate" would have appeared to do nothing at all.
-  const [gated, setGated] = useState(null); // { message } when the owner hides prices
+  const [gated, setGated] = useState(null); // { message, locked } when no figure is shown yet
+  // The server's wording for the locked card, including the blurred stand-in.
+  // Held in state rather than hardcoded here so the sentence a homeowner reads
+  // is the one the server chose for their language.
+  const [lockedCopy, setLockedCopy] = useState(null);
   const [financing, setFinancing] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
 
@@ -334,9 +338,17 @@ export default function InstantQuoteFlow({ companySlug }) {
       // request a quote exactly as before. Without this guard `res.options`
       // is undefined and the line below throws.
       if (res.gated) {
-        setGated({ message: res.message || "" });
-        setOptions([]);
+        // Two shapes share this branch. A gated trade never shows a figure and
+        // sends no options. A LOCKED one (after_submit) will show the figure
+        // once they submit, and sends the material list without prices so the
+        // choice between asphalt and metal is still theirs to make.
+        setGated({ message: res.message || "", locked: Boolean(res.locked) });
+        setLockedCopy(res.lockedMessage || null);
+        const opts = res.locked ? res.options || [] : [];
+        setOptions(opts);
+        if (opts.length === 1) setMaterialKey(opts[0].materialKey);
       } else {
+        setLockedCopy(null);
         setGated(null);
         const opts = res.options || [];
         setOptions(opts);
@@ -586,7 +598,7 @@ export default function InstantQuoteFlow({ companySlug }) {
                 flow it explains that prices aren't shown here and asks for
                 details, rather than thanking someone who hasn't submitted yet
                 and leaving them to assume the estimate broke. */}
-            {measurement && gated && (
+            {measurement && gated && !gated.locked && (
               <Card step="3" title="Almost there">
                 {measurement.satelliteImageUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -595,6 +607,69 @@ export default function InstantQuoteFlow({ companySlug }) {
                 <p className="text-sm text-foreground">
                   {gated.message || "We'll confirm your price shortly."}
                 </p>
+              </Card>
+            )}
+
+            {/* Step 3 (locked) — the range exists and they'll get it, once they
+                submit. The blurred figure is a PLACEHOLDER from the server, not
+                the real one behind a filter: a CSS blur is a filter and not a
+                secret, and the real low/high are never sent to the browser at
+                this stage (see the measure route). Removing the blur in
+                devtools reveals "$X,XXX – $X,XXX" and nothing else. */}
+            {measurement && gated?.locked && lockedCopy && (
+              <Card step="3" title="Your estimate">
+                {measurement.satelliteImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
+                )}
+
+                <div className="relative rounded-xl border border-border overflow-hidden">
+                  <div
+                    aria-hidden="true"
+                    className="text-center px-4 py-6 select-none pointer-events-none opacity-50 blur-[9px]"
+                  >
+                    <div className="text-xs text-muted-foreground mb-1.5">
+                      {language === "fr" ? "Fourchette estimée" : "Estimated range"}
+                    </div>
+                    <div className="text-3xl font-bold" style={{ color: brand }}>
+                      {lockedCopy.placeholder}
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
+                    <div
+                      className="w-11 h-11 rounded-full flex items-center justify-center"
+                      style={{ background: `${brand}22` }}
+                    >
+                      <Lock size={20} style={{ color: brand }} />
+                    </div>
+                    <div className="text-sm font-bold text-foreground">
+                      {lockedCopy.title}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">{lockedCopy.body}</p>
+
+                {/* The material choice still belongs to them — labels only, no
+                    prices attached, because the prices aren't here to attach. */}
+                {options.length > 1 && (
+                  <div className="space-y-2 mt-4">
+                    {options.map((o) => {
+                      const selected = materialKey === o.materialKey;
+                      return (
+                        <button
+                          key={o.materialKey || "single"}
+                          onClick={() => setMaterialKey(o.materialKey)}
+                          className={`w-full text-left rounded-lg border px-4 py-3 text-sm font-medium text-foreground ${
+                            selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                          }`}
+                          style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                        >
+                          {o.label || "Estimate"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
             )}
 

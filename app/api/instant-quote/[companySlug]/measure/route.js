@@ -12,7 +12,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { measureForTrade, priceAllMaterials, tradeLabel } from "@/lib/estimate/instantQuoteServer";
-import { publicEstimate, gatedMessage } from "@/lib/estimate/visibility";
+import {
+  publicEstimate,
+  gatedMessage,
+  effectiveVisibility,
+  lockedEstimateMessage,
+} from "@/lib/estimate/visibility";
 import { financingOffer } from "@/lib/estimate/financing";
 
 export async function POST(request, { params }) {
@@ -90,11 +95,34 @@ export async function POST(request, { params }) {
   // turn into a promise. Range: the options as computed, each run through
   // publicEstimate so a material that couldn't price falls out rather than
   // showing a broken number.
-  if (priced.visibility !== "range") {
+  // This endpoint is ALWAYS the pre-submit side: it is public, it creates no
+  // lead, and nobody has left a name by the time it answers. So "after_submit"
+  // resolves to gated here, every time, and the figure simply never leaves the
+  // server — which is what makes the lock on the screen real rather than a blur
+  // over a number that's sitting in the response.
+  const mode = effectiveVisibility(priced.visibility, "prompt");
+
+  if (mode !== "range") {
+    // Two different silences. A gated trade will never show a price, and says
+    // so. An after_submit trade WILL, once they submit — telling them "we don't
+    // show prices online" would be false and would stop them filling in the
+    // form the mode exists to get filled in.
+    const locked = priced.visibility === "after_submit";
     return NextResponse.json({
       measurement: measurementView,
       gated: true,
-      message: gatedMessage(language, "prompt"),
+      locked,
+      // The materials still have to be pickable — a homeowner choosing between
+      // asphalt and metal needs the choice, just not the prices attached to it.
+      // Labels only; no low, no high, no unit rate.
+      ...(locked && {
+        options: priced.options.map((o) => ({
+          materialKey: o.materialKey,
+          label: o.label,
+        })),
+        lockedMessage: lockedEstimateMessage(language),
+      }),
+      message: locked ? null : gatedMessage(language, "prompt"),
       financing,
     });
   }
