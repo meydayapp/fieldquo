@@ -13,6 +13,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget } from "@/lib/estimate/budgetBands";
+import { financingOffer } from "@/lib/estimate/financing";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -174,6 +175,14 @@ export async function POST(request, { params }) {
     ok: true,
     reference: draft.quoteNumber,
     estimate: shown,
+    // The measured facts behind the figure — squares, sq ft, pitch, and the
+    // satellite still. The single-page form has no earlier round trip to get
+    // these from, and a range with nothing behind it invites "where did that
+    // come from?" as the first question on the call.
+    measurement: sanitiseMeasurement(measured.measurement),
+    // The company's own financing offer, same rule as everywhere else: their
+    // words or their provider link, never a monthly figure from us.
+    financing: financingOffer(company.financing, { language: emailLanguage }),
     message: shown ? null : gatedMessage(emailLanguage, "confirmed"),
   });
 }

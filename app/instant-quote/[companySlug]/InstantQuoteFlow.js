@@ -1,13 +1,27 @@
 // app/instant-quote/[companySlug]/InstantQuoteFlow.js
 //
-// The public instant-estimate flow. Four steps: pick a service, describe the
-// property (address / traced lawn / typed area), see the range per material,
-// leave contact details. Every price is computed server-side — this component
-// only ever sends an address, a polygon, or a few numbers plus a material key.
+// The public instant-estimate flow: ONE page, two columns. The form on the
+// left, the estimate panel pinned beside it on the right.
+//
+// It used to be a four-step wizard that revealed each step as the last one was
+// answered, and it leaked the thing it was collecting details for: step 3 put
+// the real range on screen and step 4 asked who they were. A homeowner could
+// read the number and close the tab, and the contractor never knew they
+// existed. The panel now shows the range's SHAPE from the first paint — locked
+// behind a blur, with the real figure never sent to the browser — so what the
+// form is asking them to work towards is visible the whole way down.
+//
+// Three panel states, per trade, set by the owner (lib/estimate/visibility.js):
+// locked until submit, live as they type, or no figure ever. The hero sentence
+// and the submit button both follow that setting, so neither can promise
+// something the panel won't do.
+//
+// Every price is computed server-side — this component only ever sends an
+// address, a polygon, or a few numbers plus a material key and a band index.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, Ruler, CheckCircle2, Lock } from "lucide-react";
+import { Loader2, MapPin, CheckCircle2, Lock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
@@ -266,21 +280,13 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [address, setAddress] = useState("");
   const [intake, setIntake] = useState({});
   const [polygon, setPolygon] = useState(null);
-
-  const [measuring, setMeasuring] = useState(false);
-  const [measureErr, setMeasureErr] = useState("");
-  const [measurement, setMeasurement] = useState(null);
-  const [options, setOptions] = useState([]);
-  // An object, not the message string it used to be: an empty message would
-  // have made this falsy, hiding the step-3 card AND the step-4 contact form,
-  // so "Get my estimate" would have appeared to do nothing at all.
-  const [gated, setGated] = useState(null); // { message, locked } when no figure is shown yet
-  // The server's wording for the locked card, including the blurred stand-in.
-  // Held in state rather than hardcoded here so the sentence a homeowner reads
-  // is the one the server chose for their language.
-  const [lockedCopy, setLockedCopy] = useState(null);
-  const [financing, setFinancing] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
+
+  // The live preview, for "range" trades only. Null until the form has enough
+  // in it to measure; never populated at all in the other two modes, so there
+  // is no state here for a figure the mode says to withhold.
+  const [preview, setPreview] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
 
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   // null means unanswered, and stays null until they tap. Not 0 — index 0 is
@@ -309,61 +315,77 @@ export default function InstantQuoteFlow({ companySlug }) {
     setIntake({});
     setAddress("");
     setPolygon(null);
-    setMeasurement(null);
-    setOptions([]);
     setMaterialKey(null);
+    setPreview(null);
     setResult(null);
-    setMeasureErr("");
+    setSubmitErr("");
   }
 
-  async function getEstimate() {
-    setMeasuring(true);
-    setMeasureErr("");
-    setMeasurement(null);
-    setOptions([]);
-    setMaterialKey(null);
-    try {
-      const payload = { trade: trade.trade, intake };
-      if (trade.measure === "roof_address") payload.address = address;
-      if (trade.measure === "lawn_polygon") payload.polygon = polygon;
-      const res = await fetchJson(`/api/instant-quote/${companySlug}/measure`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      // Defaulted to {} because every step-3 card is gated on `measurement`
-      // being truthy: a success response without one would swallow the whole
-      // estimate and leave "Get my estimate" looking like a button that does
-      // nothing. The fields are all read optionally.
-      setMeasurement(res.measurement || {});
-      setFinancing(res.financing || null);
-      // Gated: the owner chose not to show a price for this trade. The server
-      // sends a message and NO options — render the message, and let them
-      // request a quote exactly as before. Without this guard `res.options`
-      // is undefined and the line below throws.
-      if (res.gated) {
-        // Two shapes share this branch. A gated trade never shows a figure and
-        // sends no options. A LOCKED one (after_submit) will show the figure
-        // once they submit, and sends the material list without prices so the
-        // choice between asphalt and metal is still theirs to make.
-        setGated({ message: res.message || "", locked: Boolean(res.locked) });
-        setLockedCopy(res.lockedMessage || null);
-        const opts = res.locked ? res.options || [] : [];
-        setOptions(opts);
-        if (opts.length === 1) setMaterialKey(opts[0].materialKey);
-      } else {
-        setLockedCopy(null);
-        setGated(null);
-        const opts = res.options || [];
-        setOptions(opts);
-        if (opts.length === 1) setMaterialKey(opts[0].materialKey);
+  // What the form still needs. Computed before the effects below because the
+  // preview is only worth fetching once the job itself is described — the
+  // contact and budget answers don't change the number.
+  const inputs = trade ? INTAKE_INPUTS[trade.trade] || [] : [];
+  const itemQtyTotal = Array.isArray(intake.items)
+    ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
+    : 0;
+  const jobDescribed = Boolean(
+    trade &&
+    (trade.measure !== "roof_address" || address.trim().length > 4) &&
+    (trade.measure !== "lawn_polygon" || (polygon && polygon.length >= 3)) &&
+    // Junk: at least one item picked. The access toggles are all optional.
+    (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
+    inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0),
+  );
+
+  // ── The live preview, and why only one mode gets it ──────────────────────
+  //
+  // Collapsing the flow to a single submit removed the round trip that used to
+  // reveal the range early, which would have quietly turned "show the range
+  // straight away" into "show it after they submit" — two settings doing one
+  // thing, with the owner's choice silently ignored. So a `range` trade
+  // measures as they type and fills the panel live. The other two modes never
+  // call this: for them the figure staying on the server IS the feature.
+  //
+  // Debounced because it prices on every keystroke otherwise, and aborted on
+  // change so a slow early response can't land after a newer one and show a
+  // price for a roof they already re-typed.
+  const livePreview = trade?.estimateDisplay === "range" && jobDescribed;
+  useEffect(() => {
+    // No setState on the way out: a stale preview is DERIVED away at render
+    // (see `livePreviewShown`) rather than cleared here. Clearing it in the
+    // effect body costs a second render pass on every keystroke that makes the
+    // form incomplete again, and lets a stale figure paint once before it goes.
+    if (!livePreview) return;
+
+    const ctl = new AbortController();
+    const timer = setTimeout(async () => {
+      setPreviewing(true);
+      try {
+        const payload = { trade: trade.trade, intake };
+        if (trade.measure === "roof_address") payload.address = address;
+        if (trade.measure === "lawn_polygon") payload.polygon = polygon;
+        const res = await fetchJson(`/api/instant-quote/${companySlug}/measure`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: ctl.signal,
+        });
+        setPreview(res);
+      } catch {
+        // A preview that fails is not an error the homeowner needs to see —
+        // they haven't asked for anything yet. The panel keeps its empty state
+        // and submitting still works, because /request measures again itself.
+        setPreview(null);
+      } finally {
+        setPreviewing(false);
       }
-    } catch (err) {
-      setMeasureErr(err.message || "We couldn't measure that.");
-    } finally {
-      setMeasuring(false);
-    }
-  }
+    }, 600);
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [livePreview, companySlug, trade?.trade, address, polygon, JSON.stringify(intake)]);
 
   async function submit() {
     setSubmitting(true);
@@ -382,6 +404,7 @@ export default function InstantQuoteFlow({ companySlug }) {
         body: JSON.stringify(payload),
       });
       setResult(res);
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setSubmitErr(err.message || "Something went wrong. Please try again.");
     } finally {
@@ -389,32 +412,42 @@ export default function InstantQuoteFlow({ companySlug }) {
     }
   }
 
-  // Can we attempt a measurement yet?
-  const inputs = trade ? INTAKE_INPUTS[trade.trade] || [] : [];
-  const itemQtyTotal = Array.isArray(intake.items)
-    ? intake.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)
-    : 0;
-  const requiredMet =
-    trade &&
-    (trade.measure !== "roof_address" || address.trim().length > 4) &&
-    (trade.measure !== "lawn_polygon" || (polygon && polygon.length >= 3)) &&
-    // Junk: at least one item picked. The access toggles are all optional.
-    (trade.measure !== "item_picker" || itemQtyTotal > 0) &&
-    inputs.filter((f) => f.required).every((f) => Number(intake[f.key]) > 0);
-
-  const selectedOption = options.find((o) => o.materialKey === materialKey) || (options.length === 1 ? options[0] : null);
-
   // The owner's bands for THIS trade, labels already built server-side in their
   // currency. An older config that predates the setting sends none, and the
   // question simply isn't asked — better than falling back to generic bands
   // that don't fit the trade and collecting answers nobody can act on.
   const budgetBands = trade?.budgetBands || [];
+  const needsMaterial = (trade?.materials?.length || 0) > 1;
   const missing = [
-    !contact.name && "your name",
-    !contact.email && !contact.phone && "an email or phone",
-    budgetBands.length > 0 && budgetIndex === null && "your budget",
-    media.length === 0 && "at least one photo",
+    !trade && "what you need",
+    trade && !jobDescribed && "the job details",
+    needsMaterial && !materialKey && "an option",
+    trade && !contact.name && "your name",
+    trade && !contact.email && !contact.phone && "an email or phone",
+    trade && budgetBands.length > 0 && budgetIndex === null && "your budget",
+    trade && media.length === 0 && "at least one photo",
   ].filter(Boolean);
+
+  // The promise in the hero and the word on the button both follow the trade's
+  // mode, so neither can advertise something the panel won't do.
+  const display = trade?.estimateDisplay || "after_submit";
+  const heroSubhead = !trade
+    ? // Nothing picked yet, and the modes are PER TRADE — a company can gate
+      // roofing and show a range for lawns. Promising either one here would be
+      // a coin flip, and half of them would be a promise the panel then breaks.
+      "Tell us about the job and add a few photos — we'll get your price to you."
+    : display === "gated"
+      ? "Tell us about the job and add a few photos — we'll review it and come back to you with your price."
+      : display === "range"
+        ? "Tell us about the job and add a few photos — your estimated range appears as you go, and we'll confirm your final price."
+        : "Tell us about the job and add a few photos — you'll see your estimated range as soon as you submit, and we'll confirm your final price.";
+  const submitCta = display === "after_submit" ? "Reveal my estimate" : "Get my estimate";
+
+  // The preview only counts while the form still describes the job it was
+  // priced for. Derived, not stored: the moment they clear the address, the
+  // figure that belonged to it stops being shown, with no extra render.
+  const livePreviewShown = livePreview ? preview : null;
+
 
   if (loadErr) {
     return (
@@ -442,9 +475,9 @@ export default function InstantQuoteFlow({ companySlug }) {
 
   return (
     <div className="min-h-screen bg-muted/30" style={{ ["--brand"]: brand }}>
-      <div className="max-w-xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-8">
           {data.company.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.company.logoUrl} alt={data.company.name} className="h-10 w-auto" />
@@ -457,367 +490,266 @@ export default function InstantQuoteFlow({ companySlug }) {
           </div>
         </div>
 
-        {result ? (
-          <SuccessCard result={result} company={data.company} companySlug={companySlug} brand={brand} />
-        ) : (
+        {/* Hero. The promise made here has to match what the panel actually
+            does, so the second line is chosen from the trade's display mode
+            rather than hardcoded: telling someone they will "see a range right
+            away" and then showing them a gated notice is the same broken
+            promise as a button that does nothing. */}
+        <div className="text-center max-w-2xl mx-auto mb-8">
+          <h2 className="text-3xl sm:text-4xl font-bold text-foreground">Get an instant estimate</h2>
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground">{heroSubhead}</p>
+        </div>
+
+        {/* ── Two columns: the form, and the estimate that never leaves the
+            screen ──────────────────────────────────────────────────────────
+
+            One page, not a wizard. The old flow revealed step 2 after picking a
+            trade, step 3 after measuring and step 4 after that, so a homeowner
+            never saw how much was left to do and had no idea a price was
+            coming until it arrived. Everything is visible from the first paint
+            now, with the estimate panel pinned alongside it — locked, but
+            plainly there, which is the thing the form is asking them to work
+            towards.
+
+            Stacks to one column below `lg`, panel LAST on mobile: a sticky
+            price card above the form on a phone eats the screen someone is
+            trying to type into. */}
+        <div className="grid lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
-            {/* Step 1 — trade */}
-            <Card step="1" title="What do you need?">
-              <div className="grid grid-cols-2 gap-2">
-                {data.trades.map((t) => (
-                  <button
-                    key={t.trade}
-                    onClick={() => pickTrade(t)}
-                    className={`text-left rounded-lg border px-3 py-2.5 text-sm font-medium ${
-                      trade?.trade === t.trade
-                        ? "border-transparent text-white"
-                        : "border-border bg-card text-foreground hover:border-foreground/30"
-                    }`}
-                    style={trade?.trade === t.trade ? { background: brand } : undefined}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            {/* Step 2 — measurement input */}
-            {trade && (
-              <Card step="2" title="Tell us about the property">
-                {trade.measure === "roof_address" && (
-                  <label className="flex flex-col gap-1">
-                    <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin size={14} /> Property address</span>
-                    <input
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="917 Littlerock St, city, postal code"
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                    />
-                  </label>
-                )}
-
-                {trade.measure === "lawn_polygon" && (
-                  <LawnMap
-                    mapsKey={data.mapsKey}
-                    companySlug={companySlug}
-                    onArea={(sqft, path) => setPolygon(path)}
-                  />
-                )}
-
-                {trade.measure === "item_picker" && (
-                  <ItemPicker
-                    items={trade.items || []}
-                    jobTypes={trade.jobTypes || []}
-                    intake={intake}
-                    setIntake={setIntake}
-                  />
-                )}
-
-                {inputs.length > 0 && (
-                  <div className="grid grid-cols-2 gap-3 mt-3">
-                    {inputs.map((f) => (
-                      <label key={f.key} className="flex flex-col gap-1">
-                        <span className="text-sm text-muted-foreground">{f.label}{f.required ? " *" : ""}</span>
-                        {f.type === "select" ? (
-                          <select
-                            value={intake[f.key] ?? ""}
-                            onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
-                            className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
-                          >
-                            <option value="">Select…</option>
-                            {f.options.map(([v, l]) => (
-                              <option key={v} value={v}>{l}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="number"
-                            value={intake[f.key] ?? ""}
-                            placeholder={f.placeholder}
-                            onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
-                            className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
-                          />
-                        )}
-                      </label>
+            {result ? (
+              <SuccessCard result={result} company={data.company} brand={brand} />
+            ) : (
+              <>
+                <Section title="What do you need?" required>
+                  <div className="grid grid-cols-2 gap-2">
+                    {data.trades.map((t) => (
+                      <button
+                        key={t.trade}
+                        onClick={() => pickTrade(t)}
+                        className={`text-left rounded-lg border px-3 py-2.5 text-sm font-medium ${
+                          trade?.trade === t.trade
+                            ? "border-transparent text-white"
+                            : "border-border bg-card text-foreground hover:border-foreground/30"
+                        }`}
+                        style={trade?.trade === t.trade ? { background: brand } : undefined}
+                      >
+                        {t.label}
+                      </button>
                     ))}
                   </div>
-                )}
+                </Section>
 
-                <button
-                  onClick={getEstimate}
-                  disabled={!requiredMet || measuring}
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-                  style={{ background: brand }}
-                >
-                  {measuring ? <Loader2 size={15} className="animate-spin" /> : <Ruler size={15} />}
-                  Get my estimate
-                </button>
-                {/* Every server-side measurement failure ends here — the
-                    address that couldn't be found, the roof with no satellite
-                    coverage, the trade that can't price. Several of those
-                    messages say "request a quote"; this is the link that makes
-                    that sentence true. */}
-                {measureErr && (
-                  <div className="mt-2">
-                    <p className="text-sm text-red-600">{measureErr}</p>
-                    <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
-                  </div>
-                )}
-              </Card>
-            )}
+                {trade && (
+                  <Section title="Tell us about the property">
+                    {trade.measure === "roof_address" && (
+                      <label className="flex flex-col gap-1">
+                        <span className="text-sm text-muted-foreground flex items-center gap-1"><MapPin size={14} /> Property address</span>
+                        <input
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="917 Littlerock St, city, postal code"
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        />
+                      </label>
+                    )}
 
-            {/* Step 3 — measurement + options */}
-            {measurement && options.length > 0 && (
-              <Card step="3" title="Your estimate">
-                {measurement.satelliteImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
-                )}
-                <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground mb-4">
-                  {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> squares</span>}
-                  {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString()}</strong> sq ft</span>}
-                  {measurement.predominantPitch && <span><strong className="text-foreground">{measurement.predominantPitch.rise}/12</strong> pitch</span>}
-                </div>
+                    {trade.measure === "lawn_polygon" && (
+                      <LawnMap
+                        mapsKey={data.mapsKey}
+                        companySlug={companySlug}
+                        onArea={(sqft, path) => setPolygon(path)}
+                      />
+                    )}
 
-                <div className="space-y-2">
-                  {options.map((o) => {
-                    const selected = materialKey === o.materialKey || options.length === 1;
-                    return (
-                      <button
-                        key={o.materialKey || "single"}
-                        onClick={() => setMaterialKey(o.materialKey)}
-                        className={`w-full text-left rounded-lg border px-4 py-3 flex items-center justify-between ${
-                          selected ? "border-transparent" : "border-border hover:border-foreground/30"
-                        }`}
-                        style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
-                      >
-                        <span className="text-sm font-medium text-foreground">{o.label || "Estimate"}</span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {money(o.low)}–{money(o.high)}{o.unit ? ` ${o.unit}` : ""}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Say where the number came from, truthfully. Only the roof
-                    and the lawn are measured from imagery; cabinets, floors and
-                    junk are whatever the homeowner typed, and telling them a
-                    door count was "measured from satellite" is a claim the
-                    company would have to defend. */}
-                <p className="text-xs text-muted-foreground mt-3">
-                  This is an estimate {MEASURE_SOURCE[trade.measure] || "based on the details you gave us"}, not a final quote.
-                  {" "}{data.company.name} will confirm it before anything is binding.
-                </p>
-              </Card>
-            )}
+                    {trade.measure === "item_picker" && (
+                      <ItemPicker
+                        items={trade.items || []}
+                        jobTypes={trade.jobTypes || []}
+                        intake={intake}
+                        setIntake={setIntake}
+                      />
+                    )}
 
-            {/* Step 3 (gated) — measurement, but the owner hides the price.
-                No figure is shown; they still leave details and we follow up.
-                The wording comes from the server and is stage-specific: mid-
-                flow it explains that prices aren't shown here and asks for
-                details, rather than thanking someone who hasn't submitted yet
-                and leaving them to assume the estimate broke. */}
-            {measurement && gated && !gated.locked && (
-              <Card step="3" title="Almost there">
-                {measurement.satelliteImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
-                )}
-                <p className="text-sm text-foreground">
-                  {gated.message || "We'll confirm your price shortly."}
-                </p>
-              </Card>
-            )}
-
-            {/* Step 3 (locked) — the range exists and they'll get it, once they
-                submit. The blurred figure is a PLACEHOLDER from the server, not
-                the real one behind a filter: a CSS blur is a filter and not a
-                secret, and the real low/high are never sent to the browser at
-                this stage (see the measure route). Removing the blur in
-                devtools reveals "$X,XXX – $X,XXX" and nothing else. */}
-            {measurement && gated?.locked && lockedCopy && (
-              <Card step="3" title="Your estimate">
-                {measurement.satelliteImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mb-3" />
-                )}
-
-                <div className="relative rounded-xl border border-border overflow-hidden">
-                  <div
-                    aria-hidden="true"
-                    className="text-center px-4 py-6 select-none pointer-events-none opacity-50 blur-[9px]"
-                  >
-                    <div className="text-xs text-muted-foreground mb-1.5">
-                      {language === "fr" ? "Fourchette estimée" : "Estimated range"}
-                    </div>
-                    <div className="text-3xl font-bold" style={{ color: brand }}>
-                      {lockedCopy.placeholder}
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
-                    <div
-                      className="w-11 h-11 rounded-full flex items-center justify-center"
-                      style={{ background: `${brand}22` }}
-                    >
-                      <Lock size={20} style={{ color: brand }} />
-                    </div>
-                    <div className="text-sm font-bold text-foreground">
-                      {lockedCopy.title}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">{lockedCopy.body}</p>
-
-                {/* The material choice still belongs to them — labels only, no
-                    prices attached, because the prices aren't here to attach. */}
-                {options.length > 1 && (
-                  <div className="space-y-2 mt-4">
-                    {options.map((o) => {
-                      const selected = materialKey === o.materialKey;
-                      return (
-                        <button
-                          key={o.materialKey || "single"}
-                          onClick={() => setMaterialKey(o.materialKey)}
-                          className={`w-full text-left rounded-lg border px-4 py-3 text-sm font-medium text-foreground ${
-                            selected ? "border-transparent" : "border-border hover:border-foreground/30"
-                          }`}
-                          style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
-                        >
-                          {o.label || "Estimate"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </Card>
-            )}
-
-            {/* Financing — the company's own offer, shown once there's an
-                estimate or a gated result. Never a monthly figure (FieldQuo
-                doesn't provide financing); it's their words or their provider. */}
-            {financing && (measurement) && (
-              <div className="rounded-xl border border-border bg-card p-4">
-                <p className="text-sm text-foreground">{financing.note}</p>
-                {financing.url && (
-                  <a
-                    href={financing.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white"
-                    style={{ background: brand }}
-                  >
-                    {language === "fr" ? "Voir les options de financement" : "See financing options"}
-                  </a>
-                )}
-              </div>
-            )}
-
-            {/* Step 4 — contact. Shown whether they saw a price or a gated
-                message, so a gated flow can still be completed. */}
-            {(selectedOption || gated) && (
-              <Card step="4" title="Where should we send it?">
-                <div className="space-y-3">
-                  <input
-                    placeholder="Your name *"
-                    value={contact.name}
-                    onChange={(e) => setContact({ ...contact, name: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  />
-                  <input
-                    placeholder="Email"
-                    type="email"
-                    value={contact.email}
-                    onChange={(e) => setContact({ ...contact, email: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  />
-                  {/* Same formatter as the back office (lib/validation.js), so
-                      a number typed in a driveway is stored the way staff type
-                      it — one shape in the database, not two. */}
-                  <input
-                    placeholder="Phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    value={contact.phone}
-                    onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                  />
-                  {/* Budget, in the owner's own bands for this trade. Asked
-                      HERE rather than up with the measurement because it's a
-                      qualifying question, not a pricing input: nothing the
-                      homeowner picks changes the estimate by a cent, and asking
-                      it early reads as "tell us what you'll pay and we'll
-                      charge it". */}
-                  {budgetBands.length > 0 && (
-                    <div>
-                      <div className="text-sm font-medium text-foreground mb-1.5">
-                        Your budget <span className="text-red-600">*</span>
+                    {inputs.length > 0 && (
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        {inputs.map((f) => (
+                          <label key={f.key} className="flex flex-col gap-1">
+                            <span className="text-sm text-muted-foreground">{f.label}{f.required ? " *" : ""}</span>
+                            {f.type === "select" ? (
+                              <select
+                                value={intake[f.key] ?? ""}
+                                onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
+                                className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
+                              >
+                                <option value="">Select…</option>
+                                {f.options.map(([v, l]) => (
+                                  <option key={v} value={v}>{l}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                type="number"
+                                value={intake[f.key] ?? ""}
+                                placeholder={f.placeholder}
+                                onChange={(e) => setIntake({ ...intake, [f.key]: e.target.value })}
+                                className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
+                              />
+                            )}
+                          </label>
+                        ))}
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {budgetBands.map((b) => {
-                          const selected = budgetIndex === b.index;
-                          return (
-                            <button
-                              key={b.index}
-                              type="button"
-                              onClick={() => setBudgetIndex(b.index)}
-                              className={`rounded-lg border px-3 py-2 text-sm font-medium text-foreground ${
-                                selected ? "border-transparent" : "border-border hover:border-foreground/30"
-                              }`}
-                              style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
-                            >
-                              {b.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    )}
+                  </Section>
+                )}
+
+                {/* The material choice comes from the page load, not from a
+                    measurement — the names are the company's own and carry no
+                    rates, so there was never a reason to make someone measure
+                    before they could pick one. Prices, where the mode allows
+                    them at all, appear in the panel and only in the panel. */}
+                {trade?.materials?.length > 1 && (
+                  <Section title="Which option?" required>
+                    <div className="space-y-2">
+                      {trade.materials.map((m) => {
+                        const selected = materialKey === m.key;
+                        return (
+                          <button
+                            key={m.key}
+                            onClick={() => setMaterialKey(m.key)}
+                            className={`w-full text-left rounded-lg border px-4 py-3 text-sm font-medium text-foreground ${
+                              selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                            }`}
+                            style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                          >
+                            {m.label}
+                          </button>
+                        );
+                      })}
                     </div>
-                  )}
-                  <div>
-                    <div className="text-sm font-medium text-foreground mb-1.5">
-                      Photos <span className="text-red-600">*</span>
+                  </Section>
+                )}
+
+                {/* Budget sits with the contact details, not with the
+                    measurements: it's a qualifying question, and nothing picked
+                    here moves the estimate by a cent. Asked next to the job
+                    itself it reads as "tell us what you'll pay and we'll charge
+                    it", which is exactly what a homeowner is afraid of. */}
+                {trade && budgetBands.length > 0 && (
+                  <Section title="Your budget" required>
+                    <div className="grid grid-cols-2 gap-2">
+                      {budgetBands.map((b) => {
+                        const selected = budgetIndex === b.index;
+                        return (
+                          <button
+                            key={b.index}
+                            type="button"
+                            onClick={() => setBudgetIndex(b.index)}
+                            className={`rounded-lg border px-3 py-2 text-sm font-medium text-foreground ${
+                              selected ? "border-transparent" : "border-border hover:border-foreground/30"
+                            }`}
+                            style={selected ? { boxShadow: `0 0 0 2px ${brand}` } : undefined}
+                          >
+                            {b.label}
+                          </button>
+                        );
+                      })}
                     </div>
+                  </Section>
+                )}
+
+                {trade && (
+                  <Section title="Your details" required>
+                    <div className="space-y-3">
+                      <input
+                        placeholder="Your name *"
+                        value={contact.name}
+                        onChange={(e) => setContact({ ...contact, name: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      <input
+                        placeholder="Email"
+                        type="email"
+                        value={contact.email}
+                        onChange={(e) => setContact({ ...contact, email: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                      {/* Same formatter as the back office (lib/validation.js),
+                          so a number typed in a driveway is stored the way staff
+                          type it — one shape in the database, not two. */}
+                      <input
+                        placeholder="Phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={contact.phone}
+                        onChange={(e) => setContact({ ...contact, phone: formatPhoneInput(e.target.value) })}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </Section>
+                )}
+
+                {trade && (
+                  <Section title="Photos" required>
                     <MediaUploader
                       uploadUrl={`/api/self-quote/${companySlug}/upload`}
                       value={media}
                       onChange={setMedia}
                     />
-                  </div>
-                </div>
-                <button
-                  onClick={submit}
-                  disabled={
-                    submitting ||
-                    !contact.name ||
-                    (!contact.email && !contact.phone) ||
-                    (budgetBands.length > 0 && budgetIndex === null) ||
-                    media.length === 0
-                  }
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 w-full justify-center"
-                  style={{ background: brand }}
-                >
-                  {submitting && <Loader2 size={15} className="animate-spin" />}
-                  {gated?.locked ? "Reveal my estimate" : "Send me my estimate"}
-                </button>
-                {/* Say WHY it's disabled. A greyed-out button with no reason is
-                    the same dead end as one that does nothing — the homeowner
-                    taps it, gets no response, and concludes the form is broken
-                    rather than that they missed a field. */}
-                {missing.length > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground text-center">
-                    Still needed: {missing.join(", ")}
-                  </p>
+                  </Section>
                 )}
-                {submitErr && (
-                  <div className="mt-2">
-                    <p className="text-sm text-red-600">{submitErr}</p>
-                    <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
+
+                {trade && (
+                  <div>
+                    <button
+                      onClick={submit}
+                      disabled={submitting || missing.length > 0}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 w-full"
+                      style={{ background: brand }}
+                    >
+                      {submitting && <Loader2 size={15} className="animate-spin" />}
+                      {submitCta}
+                    </button>
+                    {/* Say WHY it's disabled. A greyed-out button with no reason
+                        is the same dead end as one that does nothing — the
+                        homeowner taps it, gets no response, and concludes the
+                        form is broken rather than that they missed a field. */}
+                    {missing.length > 0 && (
+                      <p className="mt-2 text-xs text-muted-foreground text-center">
+                        Still needed: {missing.join(", ")}
+                      </p>
+                    )}
+                    {/* Every server-side failure ends here — the address that
+                        couldn't be found, the roof with no satellite coverage,
+                        the trade that can't price. Several of those messages say
+                        "request a quote"; this is the link that makes that
+                        sentence true. */}
+                    {submitErr && (
+                      <div className="mt-2">
+                        <p className="text-sm text-red-600">{submitErr}</p>
+                        <RequestQuoteLink companySlug={companySlug} className="mt-1 text-red-700" />
+                      </div>
+                    )}
                   </div>
                 )}
-              </Card>
+              </>
             )}
           </div>
-        )}
+
+          {/* The panel. Sticky only from `lg` up, where there is a second
+              column for it to sit beside. */}
+          <div className="lg:sticky lg:top-8">
+            <EstimatePanel
+              trade={trade}
+              result={result}
+              preview={livePreviewShown}
+              previewing={previewing}
+              brand={brand}
+              language={language}
+              company={data.company}
+            />
+          </div>
+        </div>
 
         {/* Only claimed where it's true — the two trades that read imagery. */}
         {(trade?.measure === "roof_address" || trade?.measure === "lawn_polygon") && (
@@ -937,19 +869,153 @@ function Stepper({ q, onChange }) {
   );
 }
 
-function Card({ step, title, children }) {
+function Section({ title, required = false, children }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{step}</span>
-        <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      </div>
+    <section>
+      <h2 className="text-sm font-semibold text-foreground mb-2">
+        {title}
+        {required && <span className="text-red-600"> *</span>}
+      </h2>
       {children}
     </section>
   );
 }
 
-function SuccessCard({ result, company, companySlug, brand }) {
+/**
+ * The estimate, in whatever state it's honestly in.
+ *
+ * Four of them, and the panel is never blank in any: an empty box beside a form
+ * is the thing that made the old flow feel like nothing was coming.
+ *
+ *   empty      nothing picked yet — say what will appear here
+ *   locked     after_submit, pre-submit. Blurred PLACEHOLDER and a lock. The
+ *              real figure is not in this component's props, let alone the DOM
+ *              (see the measure route) — deleting the blur reveals X's.
+ *   live       range mode, updating as they type
+ *   revealed   submitted: the figure, the measured facts behind it, financing
+ *
+ * The blurred node is aria-hidden and pointer-events-none: a screen reader that
+ * announced "$X,XXX" would be reading out fake money, and a cursor that could
+ * select it invites people to try.
+ */
+function EstimatePanel({ trade, result, preview, previewing, brand, language, company }) {
+  const fr = language === "fr";
+  const rangeLabel = fr ? "Fourchette estimée" : "Estimated range";
+  const heading = fr ? "Votre estimation" : "Your estimate";
+
+  const shown = result?.estimate || (result ? null : preview?.options?.[0] || null);
+  const measurement = result?.measurement || preview?.measurement || null;
+  const financing = result?.financing || preview?.financing || null;
+  const locked = !result && trade?.estimateDisplay === "after_submit" && trade.lockedMessage;
+  const gatedNote = !result && trade?.estimateDisplay === "gated" && trade.gatedMessage;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="text-base font-bold text-foreground mb-3">{heading}</h2>
+
+      {shown ? (
+        <div className="rounded-xl border border-border overflow-hidden text-center px-4 py-6">
+          <div className="text-xs text-muted-foreground mb-1.5">{rangeLabel}</div>
+          <div className="text-3xl font-bold" style={{ color: brand }}>
+            {money(shown.low)} – {money(shown.high)}
+          </div>
+          {shown.unit && <div className="text-xs text-muted-foreground mt-1">{shown.unit}</div>}
+        </div>
+      ) : locked ? (
+        <div className="relative rounded-xl border border-border overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="text-center px-4 py-6 select-none pointer-events-none opacity-50 blur-[9px]"
+          >
+            <div className="text-xs text-muted-foreground mb-1.5">{rangeLabel}</div>
+            <div className="text-3xl font-bold" style={{ color: brand }}>
+              {trade.lockedMessage.placeholder}
+            </div>
+          </div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center px-4">
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{ background: `${brand}22` }}
+            >
+              <Lock size={20} style={{ color: brand }} />
+            </div>
+            <div className="text-sm font-bold text-foreground">{trade.lockedMessage.title}</div>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
+          {previewing ? (
+            <Loader2 size={18} className="animate-spin mx-auto text-muted-foreground" />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {gatedNote ||
+                (trade
+                  ? fr
+                    ? "Complétez le formulaire pour voir votre estimation."
+                    : "Fill in the form and your estimate appears here."
+                  : fr
+                    ? "Choisissez un service pour commencer."
+                    : "Pick a service to get started.")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {locked && <p className="text-xs text-muted-foreground mt-3">{trade.lockedMessage.body}</p>}
+
+      {/* The measured facts behind the figure. Only ever rendered next to a
+          figure that exists, because "22 squares" on its own answers a question
+          nobody asked. */}
+      {shown && measurement && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mt-3">
+          {measurement.squares != null && <span><strong className="text-foreground">{measurement.squares}</strong> squares</span>}
+          {measurement.areaSqft != null && <span><strong className="text-foreground">{Math.round(measurement.areaSqft).toLocaleString()}</strong> sq ft</span>}
+          {measurement.predominantPitch && <span><strong className="text-foreground">{measurement.predominantPitch.rise}/12</strong> pitch</span>}
+        </div>
+      )}
+      {shown && measurement?.satelliteImageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={measurement.satelliteImageUrl} alt="Property" className="w-full rounded-lg border border-border mt-3" />
+      )}
+
+      {/* Said where a figure is shown OR promised, never on the empty state —
+          disclaiming a number that isn't there yet is noise. Only the roof and
+          the lawn are read from imagery; a door count "measured from satellite"
+          is a claim the company would have to defend. */}
+      {(shown || locked) && trade && (
+        <p className="text-xs text-muted-foreground mt-3">
+          This is an estimate {MEASURE_SOURCE[trade.measure] || "based on the details you gave us"}, not a
+          final quote. {company.name} will confirm it before anything is binding.
+        </p>
+      )}
+
+      {/* Financing — the company's own words or their provider. Never a monthly
+          figure; FieldQuo doesn't provide financing and won't imply a term. */}
+      {financing && (
+        <div className="rounded-xl bg-muted/50 p-4 mt-4">
+          <p className="text-sm text-foreground">{financing.note}</p>
+          {financing.url && (
+            <a
+              href={financing.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+              style={{ background: brand }}
+            >
+              {fr ? "Voir les options de financement" : "See financing options"}
+            </a>
+          )}
+        </div>
+      )}
+
+      {result && (
+        <p className="text-xs text-muted-foreground mt-4 text-center">Reference {result.reference}</p>
+      )}
+    </div>
+  );
+}
+
+function SuccessCard({ result, company, brand }) {
   return (
     <div className="rounded-xl border border-border bg-card p-6 text-center">
       <CheckCircle2 size={40} className="mx-auto mb-3" style={{ color: brand }} />
@@ -957,27 +1023,16 @@ function SuccessCard({ result, company, companySlug, brand }) {
       <p className="text-sm text-muted-foreground mb-4">
         {company.name} has your details and will confirm your quote shortly.
       </p>
-      {result.estimate ? (
-        <div className="rounded-lg bg-muted/50 px-4 py-3 inline-block">
-          <p className="text-xs text-muted-foreground">Estimated range</p>
-          <p className="text-xl font-bold text-foreground">
-            {money(result.estimate.low)}–{money(result.estimate.high)}
-            {result.estimate.unit ? <span className="text-sm font-normal text-muted-foreground"> {result.estimate.unit}</span> : null}
-          </p>
+      {/* The figure itself lives in the panel beside this card and is NOT
+          repeated here — two copies of one number on one screen is how they
+          drift apart. What belongs here is the case where there is no figure:
+          withheld on purpose, said out loud, because silence where a number
+          belongs reads as a bug rather than a decision. */}
+      {!result.estimate && result.message && (
+        <div className="rounded-lg bg-muted/50 px-4 py-3">
+          <p className="text-sm text-foreground">{result.message}</p>
         </div>
-      ) : (
-        // Withheld ON PURPOSE — the company chose not to publish a price for
-        // this service. Saying so is the whole point: the owner submitted a
-        // gated estimate, saw a bare "You're all set" where a figure would be,
-        // and reasonably concluded the estimate had failed. Silence where a
-        // number belongs reads as a bug, never as a decision.
-        result.message && (
-          <div className="rounded-lg bg-muted/50 px-4 py-3">
-            <p className="text-sm text-foreground">{result.message}</p>
-          </div>
-        )
       )}
-      <p className="text-xs text-muted-foreground mt-4">Reference {result.reference}</p>
     </div>
   );
 }
