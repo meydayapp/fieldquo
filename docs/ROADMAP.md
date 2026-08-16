@@ -515,6 +515,33 @@ they set the pattern.
   rather than using `lib/email/documentEmailLayout.js`, so it does not match
   the quote email the way the others now do — see below.
 
+- **Instant estimate: locked until they submit** (`lib/estimate/visibility.js`,
+  `after_submit`) — the flow showed the range at step 3 and asked who they were
+  at step 4, so a homeowner could read the number and leave without the
+  contractor ever knowing. Third mode between "never show" and "show
+  immediately"; the existing two are unchanged and unset still means `gated`.
+  The lock is real, not a blur: `/measure` returns material labels only plus a
+  literal `$X,XXX – $X,XXX` placeholder, and the figure is first computed into a
+  response by `/request`, which only runs once a name and a contact method
+  exist. `effectiveVisibility(mode, stage)` has **no default stage** on purpose
+  — a `stage = "confirmed"` default would leak the figure from any caller that
+  forgot the argument. Matches truefinishcabinets.com/quote, which is where the
+  pattern came from.
+- **Instant-quote budget bands, per trade** (`lib/estimate/budgetBands.js`) —
+  three owner-set thresholds, four bands, defaulting to the generic
+  `lib/leads/qualifiers.js` numbers. Those generic bands fit a handyman and
+  nobody else, and a qualifier answered at random looks like data. The browser
+  posts the band INDEX; the server assigns the dollars from its own config (#5).
+  Stored on the draft as `estimateData.budget` and read on
+  `/app/estimate-reviews`. When the estimate clears their ceiling AND the
+  company has financing enabled, the financing block moves up under the figure
+  — position only, never a new claim, and provably nothing at all when
+  financing is off. Budget and photos are now both required to submit.
+- **Client portal knows whether it can take a card**
+  (`lib/payments/offlinePaymentNote.js`) — both portal surfaces rendered
+  "Pay $X" regardless of Stripe status and 400'd on tap. The flag is derived
+  server-side; the connected-account id never reaches the public payload.
+
 - **Self-quote flow rebuilt** (`/quote/<slug>`, `lib/selfQuote/confirmation.js`,
   `lib/email/selfQuoteEmail.js`, `npm run check:self-quote`) — the confirmation
   was four lines of centred text and there was no confirmation email at all.
