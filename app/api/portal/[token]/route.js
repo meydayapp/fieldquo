@@ -32,7 +32,18 @@ export async function GET(request, { params }) {
           paymentMethods: true,
         },
       },
-      quotes: { orderBy: { createdAt: "desc" } },
+      // Drafts stay in the office, same rule the public quote page already
+      // enforces by 404ing one ("A draft was never meant to leave the office").
+      // The portal was the exception: it listed every quote with its total, so
+      // an auto-generated instant estimate — flagged needsReview, priced by
+      // nobody — appeared in the homeowner's own account as a figure from the
+      // company. They could not approve it (that link is gated on `sent`), but
+      // seeing it is enough: it is a number the contractor may then have to
+      // argue down from, and they never agreed to it in the first place.
+      quotes: {
+        where: { status: { not: "draft" } },
+        orderBy: { createdAt: "desc" },
+      },
       // ── Only invoices that have actually been ISSUED ──────────────────
       //
       // This returned every invoice, drafts included, and ClientPortal counts
