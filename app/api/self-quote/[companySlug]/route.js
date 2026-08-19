@@ -29,6 +29,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
+import { canBookVisit } from "@/lib/booking/canBookVisit";
 import { publicIntakeFields } from "@/app/data/quoteIntakeFields";
 import { sendLanguagesFor } from "@/lib/company/sendLanguages";
 
@@ -45,6 +46,12 @@ export async function GET(request, { params }) {
     currency: true,
     defaultLanguage: true,
     sendLanguages: true,
+    // Enough to answer "can they book a home visit?" — the confirmation offers
+    // one, and an offer that lands on an empty calendar is a dead control.
+    bookingModes: true,
+    bookingSlug: true,
+    slug: true,
+    eventTypes: { where: { active: true }, select: { id: true } },
   });
 
   if (!company) {
@@ -90,5 +97,18 @@ export async function GET(request, { params }) {
     // homeowner reasonably expect a reply in it.
     languages: sendLanguagesFor(company),
     services,
+    // ── The in-person visit ────────────────────────────────────────────────
+    //
+    // Booking already exists as a whole flow (/book/<slug>), with a calendar,
+    // travel-time-aware availability, arrival windows, visit fees and a
+    // confirmation email. The self-quote's job is to hand a homeowner to it
+    // with what they already typed, not to grow a second, worse calendar.
+    //
+    // `slug` is what BookingFlow should be pointed at — a company that set a
+    // custom bookingSlug is reachable at BOTH, but the one they chose is the
+    // one to use (see findBookingCompany).
+    booking: canBookVisit(company)
+      ? { canBookVisit: true, slug: company.bookingSlug || company.slug }
+      : { canBookVisit: false },
   });
 }

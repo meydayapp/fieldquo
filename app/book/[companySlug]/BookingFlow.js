@@ -74,7 +74,15 @@ function formatPhoneAsTyped(raw) {
   return formatPhoneInput(text);
 }
 
-export default function BookingFlow({ companySlug, initialEventSlug }) {
+// `prefill` seeds the contact fields when this flow is opened from somewhere
+// that already asked for them — today the self-quote confirmation, where the
+// homeowner typed their name, email, phone and address about ten seconds ago.
+// Retyping all four to book the visit is where people stop.
+//
+// Seeded as INITIAL STATE, never synced: once the flow is open the fields
+// belong to the person typing in them, and an effect that pushed prefill back
+// in on re-render would overwrite a correction mid-keystroke.
+export default function BookingFlow({ companySlug, initialEventSlug, prefill = null }) {
   const [company, setCompany] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -102,7 +110,11 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   const [mode, setMode] = useState(null);
   const [chosen, setChosen] = useState(null);
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+  const [form, setForm] = useState({
+    name: prefill?.name || "",
+    email: prefill?.email || "",
+    phone: prefill?.phone || "",
+  });
 
   // ── The visit address ────────────────────────────────────────────────────
   //
@@ -117,8 +129,10 @@ export default function BookingFlow({ companySlug, initialEventSlug }) {
   // place the address, which must LOOK different to the visitor from a
   // successful filter, or an unrecognised address silently shows unreachable
   // times.
-  const [address, setAddress] = useState("");
-  const [geoAddress, setGeoAddress] = useState("");
+  const [address, setAddress] = useState(prefill?.address || "");
+  // Seeded too, so a prefilled address filters the very first slot query rather
+  // than showing times that ignore travel until they touch the field.
+  const [geoAddress, setGeoAddress] = useState(prefill?.address || "");
   const [travelInfo, setTravelInfo] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");

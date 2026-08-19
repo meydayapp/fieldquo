@@ -54,6 +54,7 @@ import { LANGUAGES } from "@/app/i18n/languages";
 import { formatPhoneInput } from "@/lib/validation";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MediaUploader from "@/app/components/MediaUploader";
+import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
 import {
   buildConfirmation,
   budgetOptions,
@@ -211,6 +212,31 @@ export default function SelfQuoteFlow({ companySlug }) {
           emailed={Boolean(done.emailed && contact.email)}
           contactEmail={contact.email}
         />
+
+        {/* ── Book the visit, while they're still here ──────────────────────
+            The lead is already saved by this point, so nothing below can lose
+            it — that's why this sits AFTER the submit rather than inside the
+            form. A calendar in the middle of a lead form is a second thing to
+            fail before the company gets a name.
+
+            Rendered in place rather than linked, for two reasons. A navigation
+            away from a confirmation is where people leave; and the details
+            they just typed can be carried into it as props, which a link
+            cannot do without putting a name, email and phone number in a URL.
+
+            Only shown when the company can actually take a booking. If they
+            have no active event types, or have switched the visit mode off,
+            this is silently absent rather than a button onto an empty
+            calendar. */}
+        {data.booking?.canBookVisit && (
+          <SelfQuoteBooking
+            slug={data.booking.slug}
+            contact={contact}
+            theme={theme}
+            fill={fill}
+            copy={copy}
+          />
+        )}
       </Shell>
     );
   }
@@ -900,5 +926,58 @@ function BackLink({ onClick, theme, label }) {
     >
       <ArrowLeft size={13} /> {label}
     </button>
+  );
+}
+
+
+/**
+ * "Would you like us to come and look at it?" under the confirmation.
+ *
+ * Collapsed by default. The document is the thing they just earned; a calendar
+ * unfolded beneath it competes with it, and most people booking a visit have
+ * decided to before they scroll. One tap opens the real booking flow — the same
+ * component /book/<slug> renders, with its calendar, travel-aware availability,
+ * arrival windows, visit fee and confirmation email. Nothing here reimplements
+ * any of that.
+ */
+function SelfQuoteBooking({ slug, contact, theme, fill, copy }) {
+  const [open, setOpen] = useState(false);
+
+  if (open) {
+    return (
+      <div className="mt-4">
+        <BookingFlow
+          companySlug={slug}
+          prefill={{
+            name: contact.name,
+            email: contact.email,
+            phone: contact.phone,
+            address: contact.address,
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="mt-4 rounded-2xl px-6 py-5 text-center"
+      style={{ backgroundColor: theme.accentWash }}
+    >
+      <p className="text-sm font-semibold" style={{ color: theme.inkOnWash }}>
+        {copy.bookVisitTitle}
+      </p>
+      <p className="text-xs mt-1" style={{ color: theme.inkMutedOnWash }}>
+        {copy.bookVisitBody}
+      </p>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-bold"
+        style={{ backgroundColor: fill.bg, color: fill.fg }}
+      >
+        {copy.bookVisitCta}
+      </button>
+    </div>
   );
 }

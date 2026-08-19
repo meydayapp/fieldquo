@@ -515,6 +515,21 @@ they set the pattern.
   rather than using `lib/email/documentEmailLayout.js`, so it does not match
   the quote email the way the others now do — see below.
 
+- **Self-quote offers the in-person visit** (`lib/booking/canBookVisit.js`,
+  `SelfQuoteFlow` → `BookingFlow` with a `prefill` prop) — compared against
+  ottawasbestcabinetrefinishing.ca/get-estimate (a Jobber request form), whose
+  one genuine advantage was asking when the homeowner is free. Rather than copy
+  its "two candidate dates + arrival window" fields, the confirmation now opens
+  the REAL booking flow in place, so the visit is actually booked instead of
+  requested: same calendar, same `AvailabilitySchedule` bookable hours, same
+  leave blocking, travel-time filtering and visit fee. No second calendar.
+  Rendered AFTER submit so a calendar can never cost the lead, and in place
+  rather than linked so name/email/phone/address carry over as props — a link
+  would have put personal details in a URL. Gated on `canBookVisit`: 11 of 12
+  tenants have zero active event types, so ungated this would have been a
+  button onto an empty calendar for nearly everyone. `geoAddress` is seeded too,
+  so travel filtering engages on the first slot query rather than after a
+  retype.
 - **Instant estimate: locked until they submit** (`lib/estimate/visibility.js`,
   `after_submit`) — the flow showed the range at step 3 and asked who they were
   at step 4, so a homeowner could read the number and leave without the
