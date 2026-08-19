@@ -8,6 +8,21 @@ import { useLoadScript } from "@react-google-maps/api";
 
 const libraries = ["places"];
 
+/**
+ * Is a Places suggestion list on screen right now?
+ *
+ * Google renders it as a `.pac-container` appended to <body>, not as a child of
+ * this component, so there is no ref to consult and no class of our own to add.
+ * Only one is ever visible at a time — the one belonging to the focused input —
+ * and a hidden container has `display: none`, hence the offsetParent test.
+ */
+function placesSuggestionsOpen() {
+  if (typeof document === "undefined") return false;
+  return Array.from(document.querySelectorAll(".pac-container")).some(
+    (el) => el.offsetParent !== null && el.children.length > 0,
+  );
+}
+
 export default function AddressAutocomplete({
   value,
   onChange, // (address: string) => void
@@ -37,6 +52,44 @@ export default function AddressAutocomplete({
       inputRef.current.value = value || "";
     }
   }, [value]);
+
+  /**
+   * Enter that PICKS a suggestion must not also submit the form.
+   *
+   * On /signup, choosing an address with the keyboard submitted the whole
+   * signup form: the account step's validator ran against the first name, last
+   * name, email and password nobody had reached yet and lit them all red
+   * mid-address.
+   *
+   * A CAPTURE-phase listener on the document, not an `onKeyDown` prop, and that
+   * is the entire reason this is eleven lines instead of one. Google binds its
+   * own keydown handler directly to this input, so it runs before anything React
+   * attaches at the root — and it hides the suggestion list synchronously. A
+   * React onKeyDown therefore looks for a dropdown that has already gone and
+   * quietly does nothing, which is a fix that appears to work and doesn't.
+   * Measured rather than assumed: at capture the list is on screen, by the
+   * bubble phase it is not.
+   *
+   * Scoped to "a list is actually open" and to THIS input, so Enter still
+   * submits normally everywhere else — the other ten callers keep the behaviour
+   * they have when someone is typing free text rather than choosing.
+   *
+   * preventDefault only, never stopPropagation: Google's listener is what turns
+   * the highlighted row into a place_changed event, and stopping propagation
+   * would break selection while fixing submission.
+   */
+  useEffect(() => {
+    function onKeyDownCapture(e) {
+      if (e.key !== "Enter") return;
+      if (e.target !== inputRef.current) return;
+      if (!placesSuggestionsOpen()) return;
+      e.preventDefault();
+    }
+
+    document.addEventListener("keydown", onKeyDownCapture, true);
+    return () =>
+      document.removeEventListener("keydown", onKeyDownCapture, true);
+  }, []);
 
   useEffect(() => {
     if (!isLoaded || !inputRef.current) return;

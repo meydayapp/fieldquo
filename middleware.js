@@ -32,6 +32,16 @@
 //
 // See the header of lib/features/gate.js for the full reasoning and for what
 // happens to the voice spend paths when a feature is withdrawn.
+//
+// ── And a second one that deliberately is NOT here ─────────────────────────
+//
+// "Signed in but no company yet" — the state someone is left in when they
+// abandon signup after creating their account but before POSTing /api/companies
+// — is caught in app/app/layout.js, not below. Reason (1) above applies exactly:
+// the /app gate here can only see that a session cookie exists, and deciding
+// whether that session has a COMPANY means re-deriving getCurrentMember. The
+// layout already resolves the member, so the check costs one query there and
+// zero here.
 import { NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 import { jwtVerify } from "jose";

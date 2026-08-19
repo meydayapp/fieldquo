@@ -1,5 +1,6 @@
 // app/app/layout.js
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
@@ -11,6 +12,7 @@ import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvid
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
 import { featureMapForCompany, navFlagsFrom } from "@/lib/features/gate";
 
@@ -153,13 +155,78 @@ async function getFeatureFlags() {
   }
 }
 
+/**
+ * Signed in, with no company — the abandoned-signup state.
+ *
+ * Signup creates the account (Better Auth) at one step and the company at
+ * another: POST /api/companies, wired to "Continue to Payment" on the LAST
+ * step (app/signup/page.js handleFinish). Stop in between and the User row
+ * exists with no Company and no Member, which is a real and reachable state,
+ * not a corruption.
+ *
+ * Those people used to get the whole back office — full nav, every panel — on
+ * top of nothing. Every company-scoped API answers 401 because there genuinely
+ * is no company, so the dashboard rendered a developer's sentence ("No active
+ * company membership could be resolved") above twenty empty cards. Send them
+ * back to finish setup instead: /signup detects this same state and resumes.
+ *
+ * Not in middleware.js, for the reason its header already gives for the feature
+ * gate: middleware only knows whether a session cookie exists, and getting from
+ * the cookie to a company means re-implementing getCurrentMember — the
+ * second-copy-that-rots problem. Here it runs after the member is resolved.
+ *
+ * No loop risk: /signup is not under /app, so this layout never renders for it.
+ *
+ * Never throws. Failing to resolve this must not take the app down, and the
+ * safe direction is "don't redirect" — briefly showing a broken dashboard costs
+ * a reload, while bouncing a real member out of their own account does not.
+ */
+async function getSetupRedirect() {
+  try {
+    const h = await headers();
+    // Resolves a read-only support session too, so an impersonating admin is
+    // never mistaken for someone who hasn't finished signing up.
+    const member = await getCurrentMember(
+      { headers: h, method: "GET", url: "" },
+      { skipBillingGate: true },
+    );
+    if (member?.companyId) return null;
+
+    const session = await auth.api.getSession({ headers: h });
+    // No session at all — middleware.js already sends this to /login. Nothing
+    // to add, and redirecting to /signup would be the wrong door.
+    if (!session?.user?.id) return null;
+
+    // Only when there is genuinely no membership. A Member row that exists but
+    // won't resolve (a company missing its authOrgId, say) is a different
+    // fault, and sending that person to /signup would invite them to create a
+    // SECOND company alongside the one they already belong to.
+    const membership = await db.member.findFirst({
+      where: { userId: session.user.id, active: true },
+      select: { id: true },
+    });
+    if (membership) return null;
+
+    return "/signup";
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve the setup state:", err);
+    return null;
+  }
+}
+
 export default async function AppLayout({ children }) {
-  const [company, language, locked, featureFlags] = await Promise.all([
+  const [company, language, locked, featureFlags, setupPath] = await Promise.all([
     getCompanyName(),
     getAppLanguage(),
     getLockState(),
     getFeatureFlags(),
+    getSetupRedirect(),
   ]);
+
+  // Before the lock check: a company that doesn't exist can't be behind on its
+  // bill. redirect() throws NEXT_REDIRECT, so it stays outside the try/catch
+  // that getSetupRedirect keeps around its own lookups.
+  if (setupPath) redirect(setupPath);
 
   // ── Locked ──────────────────────────────────────────────────────────────
   //

@@ -1,7 +1,7 @@
 // app/signup/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/auth-client";
 import { calculatePricing , TRIAL_PRICE, trialLabel } from "@/lib/pricing";
@@ -23,6 +23,75 @@ import { isInternalPath } from "@/lib/appUrl";
 function monthsFree(n) {
   const count = Number(n) || 0;
   return `${count} ${count === 1 ? "month" : "months"} free`;
+}
+
+// Where a half-finished signup is kept between visits.
+//
+// sessionStorage, not localStorage and not a cookie. Three reasons, in order:
+// this is one person's unfinished form in one tab, so it should die with the
+// tab rather than sit on a van's shared laptop; it holds their name, email,
+// phone and home address, which is not something to leave behind on a machine;
+// and a second tab starting a different signup must not inherit the first one's
+// company. The PASSWORD is deliberately never written to it.
+const DRAFT_KEY = "fieldquo:signup-draft";
+
+// Better Auth enforces 8–128 characters on the server — its own defaults, since
+// lib/auth.js sets neither minPasswordLength nor maxPasswordLength. The client
+// only ever checked the minimum, so an over-long password passed validation here
+// and came back from signUp as an opaque failure with nothing on the field.
+const PASSWORD_MIN = 8;
+const PASSWORD_MAX = 128;
+
+// The company half of the form, shared by the "account" and "business" steps.
+function validateCompanyFields(form) {
+  const errors = {};
+  if (!form.companyName.trim()) errors.companyName = "Company name is required";
+  if (form.phone && !isValidPhone(form.phone))
+    errors.phone = "Format: 555-123-4567";
+  if (!form.address.trim())
+    errors.address = "Start typing and select your address";
+  return errors;
+}
+
+// Everything the account step asks for: the company rules above plus the
+// personal fields only that step collects.
+function validateAccountFields(form) {
+  const errors = validateCompanyFields(form);
+  if (!form.firstName.trim()) errors.firstName = "First name is required";
+  if (!form.lastName.trim()) errors.lastName = "Last name is required";
+  if (!isValidEmail(form.email)) errors.email = "Enter a valid email address";
+  if (!form.password || form.password.length < PASSWORD_MIN)
+    errors.password = `At least ${PASSWORD_MIN} characters`;
+  else if (form.password.length > PASSWORD_MAX)
+    errors.password = `At most ${PASSWORD_MAX} characters`;
+  return errors;
+}
+
+const STEPS = ["plan", "account", "business", "industry", "services"];
+
+/**
+ * Which step a returning visitor should land on.
+ *
+ * Never further than the account state can support. An unauthenticated visitor
+ * restored straight into "services" would reach "Continue to Payment" with no
+ * session at all and get a bare 401 from /api/companies, with nothing on screen
+ * explaining which of the two missing things was missing.
+ *
+ * @param saved           the step recorded in the draft
+ * @param accountExists   they are signed in (resuming, or adding a business)
+ * @param hasSelection    a plan is chosen — every later step prices off it
+ */
+function resumeStep(saved, { accountExists, hasSelection }) {
+  // A step name we don't recognise — an older draft, or one edited by hand —
+  // would render none of the five blocks and leave a page with a heading and
+  // nothing under it. Start over instead.
+  if (!STEPS.includes(saved)) return "plan";
+  if (saved === "plan") return "plan";
+  if (!hasSelection) return "plan";
+  if (!accountExists) return "account";
+  // The account half is already done; "business" is the trimmed step that asks
+  // about the company and nothing about the person.
+  return saved === "account" ? "business" : saved;
 }
 
 // The company half of the form. Rendered by two steps — "account" (new login +
@@ -177,14 +246,59 @@ export default function SignupPage() {
   // Referral offers are for businesses new to FieldQuo, so they can't redeem —
   // and being told that here beats filling in the whole form first.
   const [alreadyOnFieldquo, setAlreadyOnFieldquo] = useState(null);
+  // Signed in, but with NO company — someone who created their account here and
+  // stopped before "Continue to Payment", which is the only thing that creates
+  // the company. They have a login and nothing to log in TO, so /app sends them
+  // back here (app/app/layout.js) and this page picks up where they stopped.
+  const [accountReady, setAccountReady] = useState(null);
+  // True only when that state was found on ARRIVAL. accountReady is also set
+  // the moment this page creates an account, and explaining "you already have
+  // an account" to someone who just watched us make one reads as a bug.
+  const [resumedSignup, setResumedSignup] = useState(false);
+  // Both of the above start unknown. Nothing may resume until the answer is in:
+  // guessing "signed out" and then correcting would flash the account step at
+  // someone who already has an account.
+  const [entryChecked, setEntryChecked] = useState(false);
 
   useEffect(() => {
-    // A logged-in session means an existing account. business-info is
-    // company-scoped and 401s when there's no session, so a 200 is the signal.
-    fetch("/api/settings/business-info")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.name && setAlreadyOnFieldquo(d))
-      .catch(() => {});
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // business-info is COMPANY-scoped, so its answer separates the two
+        // signed-in states: 200 means a company exists (they're adding another
+        // business), and 401 means specifically that no company could be
+        // resolved. Any other status is a fault — a 402 from the billing gate,
+        // a 500 — and must not be read as "you have no company", or a working
+        // account gets offered a duplicate one.
+        const res = await fetch("/api/settings/business-info");
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (!cancelled && data?.name) setAlreadyOnFieldquo(data);
+          return;
+        }
+        if (res.status !== 401) return;
+
+        // Same session endpoint the invitation page uses. A session here with
+        // no company is the abandoned-signup state.
+        const session = await fetch("/api/auth/get-session")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (!cancelled && session?.user?.id) {
+          setAccountReady(session.user);
+          setResumedSignup(true);
+        }
+      } catch {
+        // Offline or blocked: fall through as a signed-out visitor, which is
+        // the flow that asks for everything rather than assuming it has it.
+      } finally {
+        if (!cancelled) setEntryChecked(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -259,6 +373,207 @@ export default function SignupPage() {
     : selectedPlan?.name || "Selected plan";
 
   const hasSelection = isCustom || Boolean(selectedPlanId);
+  // "There is already a login behind this" — true whether they're resuming an
+  // abandoned signup or adding a second business. Both skip account CREATION.
+  const accountExists = Boolean(accountReady || alreadyOnFieldquo);
+
+  // ── The draft ───────────────────────────────────────────────────────────
+  //
+  // Read once on mount, written on every change afterward. `hydrated` is state
+  // rather than a ref so the writer can't run until the RESTORED values have
+  // actually rendered — a ref flipped inside the reader would still leave the
+  // writer's first pass holding the empty initial form, and it would save that
+  // over the draft it is here to preserve.
+  const [hydrated, setHydrated] = useState(false);
+  const draftStepRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        // password is never stored, and `...form` here would reintroduce it as
+        // undefined and break the controlled input.
+        if (draft?.form) setForm((f) => ({ ...f, ...draft.form, password: "" }));
+        if (typeof draft?.isCustom === "boolean") setIsCustom(draft.isCustom);
+        if (draft?.customCount) setCustomCount(Number(draft.customCount) || 1);
+        if (draft?.selectedPlanId) setSelectedPlanId(draft.selectedPlanId);
+        if (Array.isArray(draft?.selectedIndustries))
+          setSelectedIndustries(draft.selectedIndustries);
+        if (Array.isArray(draft?.selectedCategoryIds))
+          setSelectedCategoryIds(draft.selectedCategoryIds);
+        if (typeof draft?.showAllServices === "boolean")
+          setShowAllServices(draft.showAllServices);
+        // Applied later, once we know whether the account behind it still
+        // exists — see the resume effect below.
+        draftStepRef.current = draft?.step || null;
+      }
+    } catch {
+      // A corrupt or blocked store is not a reason to fail the signup — they
+      // just start from the top, which is the behaviour this replaced.
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const { password, ...safeForm } = form;
+      sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({
+          form: safeForm,
+          selectedPlanId,
+          isCustom,
+          customCount,
+          selectedIndustries,
+          selectedCategoryIds,
+          showAllServices,
+          step,
+        }),
+      );
+    } catch {
+      // Private mode, or a full quota. Losing the draft is a worse experience,
+      // not a broken one.
+    }
+  }, [
+    hydrated,
+    form,
+    selectedPlanId,
+    isCustom,
+    customCount,
+    selectedIndustries,
+    selectedCategoryIds,
+    showAllServices,
+    step,
+  ]);
+
+  // ── Browser history ─────────────────────────────────────────────────────
+  //
+  // All five steps live at /signup and none of them used to touch history, so
+  // one press of Back from the last step threw the visitor out of the funnel
+  // and onto the marketing homepage — three steps of work gone. One entry per
+  // step forward, and Back walks them.
+  //
+  // The depth rides in the state rather than a counter, so going FORWARD again
+  // restores the right value instead of decrementing past zero.
+  const depthRef = useRef(0);
+  // The step this visit started on — where a Back that lands on the entry we
+  // arrived through has to return to. Kept in a ref because that entry can't be
+  // relied on to carry our tag: see tagCurrentEntry.
+  const entryStepRef = useRef("plan");
+
+  /**
+   * Add our step to whatever is already in this entry's history state.
+   *
+   * Both halves matter. The App Router writes its own routing tree into the
+   * entry AFTER hydration, so anything we replace it with on mount is silently
+   * overwritten — which is why the arrival entry is tagged lazily, on the first
+   * forward move, rather than in a mount effect. And dropping Next's keys would
+   * make its own popstate handler treat our entries as foreign and hard-navigate
+   * back to the server, turning "go back one step" into a full page load that
+   * loses the form.
+   */
+  function tagCurrentEntry(value, depth) {
+    window.history.replaceState(
+      { ...window.history.state, signupStep: value, signupDepth: depth },
+      "",
+    );
+  }
+
+  useEffect(() => {
+    function onPopState(e) {
+      // A pop that leaves /signup entirely is the router's business, not ours.
+      if (window.location.pathname !== "/signup") return;
+      const restored = e.state?.signupStep;
+      // No tag means the entry we arrived on — the one Next overwrote. That is
+      // the start of the funnel, not "not ours".
+      depthRef.current = restored ? e.state.signupDepth || 0 : 0;
+      setStep(restored || entryStepRef.current);
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  function goToStep(next) {
+    if (next === step) return;
+    if (!window.history.state?.signupStep) tagCurrentEntry(step, depthRef.current);
+    depthRef.current += 1;
+    window.history.pushState(
+      {
+        ...window.history.state,
+        signupStep: next,
+        signupDepth: depthRef.current,
+      },
+      "",
+    );
+    setStep(next);
+  }
+
+  function goBackToStep(target) {
+    // Prefer the real history entry, so this button and the browser's own Back
+    // do the same thing. A RESUMED visit lands directly on a later step with
+    // nothing behind it in this visit's history — going back then would drop
+    // them out of signup entirely, so the step moves in place instead.
+    if (depthRef.current > 0) {
+      window.history.back();
+      return;
+    }
+    entryStepRef.current = target;
+    tagCurrentEntry(target, 0);
+    setStep(target);
+  }
+
+  // Resume, once we know both who they are and which plans exist.
+  const resumedRef = useRef(false);
+
+  useEffect(() => {
+    if (resumedRef.current) return;
+    if (!entryChecked || plansLoading) return;
+    resumedRef.current = true;
+
+    // The live step wins once they've moved, so this also covers the race where
+    // someone clicks Continue faster than the entry check comes back: a signed-in
+    // person who reached "account" that way is moved to "business" rather than
+    // being asked to sign up for an account they already have.
+    const saved = step === "plan" ? draftStepRef.current : step;
+    const target = resumeStep(saved, { accountExists, hasSelection });
+    if (target === step) return;
+    // Replace, don't push: arriving where they left off is not a navigation
+    // they made, so Back from here leaves the page rather than replaying a step
+    // they never walked in this visit. The depth is carried, not zeroed — in the
+    // race case above there IS a real entry behind us.
+    if (depthRef.current === 0) entryStepRef.current = target;
+    tagCurrentEntry(target, depthRef.current);
+    setStep(target);
+  }, [entryChecked, plansLoading, accountExists, hasSelection, step]);
+
+  // Re-run the rules over the errors ALREADY on screen whenever the form
+  // changes, and drop the ones that now pass.
+  //
+  // Validation only ever ran on submit, so a password corrected from 7
+  // characters to 9 kept "At least 8 characters" in red until the next submit —
+  // which then succeeded. The message was both stale and false at the same
+  // time. Only the fields already showing an error are re-evaluated, so typing
+  // a first name still can't light up the untouched fields below it.
+  useEffect(() => {
+    setFieldErrors((shown) => {
+      const keys = Object.keys(shown);
+      if (keys.length === 0) return shown;
+
+      const fresh = validateAccountFields(form);
+      const narrowed = {};
+      let changed = false;
+      for (const key of keys) {
+        if (fresh[key]) narrowed[key] = fresh[key];
+        if (fresh[key] !== shown[key]) changed = true;
+      }
+      // Same object when nothing moved — a new one every keystroke would
+      // re-render the whole form for no reason.
+      return changed ? narrowed : shown;
+    });
+  }, [form]);
 
   useEffect(() => {
     // ?plan=<id> is what the pricing page's "Start Free Trial" buttons carry.
@@ -277,9 +592,17 @@ export default function SignupPage() {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setPlans(list);
-        if (wantedPlanId && list.some((p) => p.id === wantedPlanId)) {
-          setSelectedPlanId(wantedPlanId);
-        }
+        setSelectedPlanId((current) => {
+          if (wantedPlanId && list.some((p) => p.id === wantedPlanId)) {
+            return wantedPlanId;
+          }
+          // A plan id restored from the draft is only trustworthy if the tier
+          // still exists. One withdrawn since they last looked would otherwise
+          // survive as a filled-in "Selected plan" and an enabled Continue
+          // button that 400s with "Selected plan not found" four steps later.
+          if (current && !list.some((p) => p.id === current)) return null;
+          return current;
+        });
       })
       .catch(() => setPlans([]))
       .finally(() => setPlansLoading(false));
@@ -317,31 +640,21 @@ export default function SignupPage() {
     // place that collected them, so skipping straight to "industry" posted an
     // empty company name and dead-ended on a 400 with no field to correct.
     // Hence a trimmed step that asks for the business and nothing else.
-    setStep(alreadyOnFieldquo ? "business" : "account");
-  }
-
-  // Company details for someone who already has a login. Same fields and same
-  // rules as the company half of the account step — kept as one validator so
-  // the two paths can't drift into disagreeing about what's required.
-  function validateBusiness() {
-    const errors = {};
-    if (!form.companyName.trim()) errors.companyName = "Company name is required";
-    if (form.phone && !isValidPhone(form.phone))
-      errors.phone = "Format: 555-123-4567";
-    if (!form.address.trim())
-      errors.address = "Start typing and select your address";
-    return errors;
+    //
+    // Covers BOTH signed-in states: adding a second business, and resuming a
+    // signup whose account was created but whose company never was.
+    goToStep(accountExists ? "business" : "account");
   }
 
   function handleBusinessSubmit(e) {
     e.preventDefault();
     setError("");
 
-    const errors = validateBusiness();
+    const errors = validateCompanyFields(form);
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    setStep("industry");
+    goToStep("industry");
   }
 
   // replace handleAccountSubmit entirely
@@ -349,14 +662,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
-    // Company rules come from the shared validator; the rest are the personal
-    // fields only this step collects.
-    const errors = validateBusiness();
-    if (!form.firstName.trim()) errors.firstName = "First name is required";
-    if (!form.lastName.trim()) errors.lastName = "Last name is required";
-    if (!isValidEmail(form.email)) errors.email = "Enter a valid email address";
-    if (!form.password || form.password.length < 8)
-      errors.password = "At least 8 characters";
+    const errors = validateAccountFields(form);
 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
@@ -387,7 +693,10 @@ export default function SignupPage() {
         return;
       }
 
-      setStep("industry");
+      // The account now exists without a company, which is exactly the state
+      // this page can resume into if they stop here.
+      setAccountReady({ email: form.email });
+      goToStep("industry");
     } catch (err) {
       setError(err?.message || "Could not create your account");
     } finally {
@@ -442,6 +751,15 @@ export default function SignupPage() {
       if (!data.checkoutUrl) {
         setError("Company was created, but no checkout URL was returned.");
         return;
+      }
+
+      // The company exists now, so the draft describes work that is finished.
+      // Leaving it would resume a completed signup the next time this page is
+      // opened in the same tab — and offer to build the company a second time.
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // Nothing to do about it, and nothing that should stop checkout.
       }
 
       window.location.href = data.checkoutUrl;
@@ -501,6 +819,27 @@ export default function SignupPage() {
           </div>
         )}
 
+        {/* The abandoned-signup state, said plainly. They have a login and
+            nothing to log in to, /app has just sent them back here, and the
+            worst thing this page could do is act as though they were a
+            stranger. The invitation line is there because an invited employee
+            whose acceptance failed lands in exactly this state, and creating
+            their own company is emphatically not the fix for that. */}
+        {resumedSignup && !alreadyOnFieldquo && (
+          <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+            <p>
+              You&apos;re signed in as{" "}
+              <strong>{accountReady?.email || "your account"}</strong>, but your
+              business was never finished — that last step is what creates it.
+              Carry on below and nothing you&apos;ve already entered is lost.
+            </p>
+            <p className="mt-2">
+              Joining a business someone invited you to? Ask them to resend the
+              invitation instead — this page sets up a new business of your own.
+            </p>
+          </div>
+        )}
+
         {/* Only shown once the code has been confirmed real. Carried through
             every step so someone who reaches the payment screen still sees
             what they were promised on the landing page. */}
@@ -523,10 +862,16 @@ export default function SignupPage() {
               <h1 className="text-2xl font-bold text-foreground">
                 Choose your plan
               </h1>
+              {/* Three different truths, and the wrong one is worse than no
+                  line at all: telling someone who already has an account that
+                  they'll "create your account next" is how the abandoned-signup
+                  state reads as the product having forgotten them. */}
               <p className="text-sm text-muted-foreground mt-2">
                 {alreadyOnFieldquo
                   ? "Select the number of employees you need — you're signed in, so we'll go straight to the new business's details."
-                  : "Select the number of employees you need — you'll create your account next."}
+                  : accountReady
+                    ? "Select the number of employees you need — your account is already made, so we'll go straight to your business details."
+                    : "Select the number of employees you need — you'll create your account next."}
               </p>
             </div>
 
@@ -750,7 +1095,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep("plan")}
+              onClick={() => goBackToStep("plan")}
               className="w-full text-sm text-muted-foreground"
             >
               ← Back to plans
@@ -771,15 +1116,27 @@ export default function SignupPage() {
               {trialLabel(pricing.trialTotal)}, then ${pricing.monthlyTotal}/mo
             </div>
 
+            {/* Two audiences reach this step. Someone ADDING a business needs
+                to be told the existing one is untouched; someone RESUMING has
+                no existing one, and that same sentence rendered as "separate
+                from  — nothing there changes", pointing at a company that
+                doesn't exist. */}
             <div>
               <h2 className="font-semibold text-foreground">
-                Your new business
+                {alreadyOnFieldquo ? "Your new business" : "Your business"}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
                 This is the business your clients will see on quotes and
-                invoices. It's separate from{" "}
-                <strong>{alreadyOnFieldquo?.name}</strong> — nothing there
-                changes.
+                invoices.{" "}
+                {alreadyOnFieldquo ? (
+                  <>
+                    It&apos;s separate from{" "}
+                    <strong>{alreadyOnFieldquo.name}</strong> — nothing there
+                    changes.
+                  </>
+                ) : (
+                  "You can change any of it later in Settings."
+                )}
               </p>
             </div>
 
@@ -798,7 +1155,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep("plan")}
+              onClick={() => goBackToStep("plan")}
               className="w-full text-sm text-muted-foreground"
             >
               ← Back to plans
@@ -847,7 +1204,7 @@ export default function SignupPage() {
                   .map((c) => c.id);
                 setSelectedCategoryIds(presetIds);
                 setShowAllServices(presetIds.length === 0);
-                setStep("services");
+                goToStep("services");
               }}
               disabled={selectedIndustries.length === 0}
               className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
@@ -857,7 +1214,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep(alreadyOnFieldquo ? "business" : "account")}
+              onClick={() => goBackToStep(accountExists ? "business" : "account")}
               className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back
@@ -928,7 +1285,7 @@ export default function SignupPage() {
 
             <button
               type="button"
-              onClick={() => setStep("industry")}
+              onClick={() => goBackToStep("industry")}
               className="w-full mt-2 text-sm text-muted-foreground"
             >
               ← Back

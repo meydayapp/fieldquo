@@ -264,7 +264,14 @@ export async function POST(request) {
     successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
       isInternalPath(next) ? `&next=${encodeURIComponent(next)}` : ""
     }`,
-    cancelUrl: `${baseUrl}/signup`,
+    // Back to BILLING, not back to /signup. By the time Stripe can cancel,
+    // everything above has already run — the company, the membership and the
+    // org all exist — so /signup is the one page that can't help: it would
+    // greet them as a signed-in owner and offer to set up an *additional*
+    // business, which is how you end up with two companies and one contractor.
+    // Account & Billing is where the same plans are listed and where "Choose
+    // plan" starts checkout again.
+    cancelUrl: `${baseUrl}/app/settings/account-billing`,
   });
 
   return NextResponse.json({
