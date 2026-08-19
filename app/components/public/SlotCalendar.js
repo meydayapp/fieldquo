@@ -20,10 +20,13 @@
 // as a component that owns its own month/day state and asks its caller for
 // slots.
 //
-// BookingFlow still has the original copy inline. It could not be pointed at
-// this file without editing it, and that file was being worked on in parallel;
-// pointing it here is a follow-up, and until it happens the two must be changed
-// together. That is the only reason there are two.
+// The booking flow renders this file too — there is one grid now, and one
+// place to fix it. What it does NOT hand over is the note under its address
+// field ("showing times we can reach you"): that comes from the `travel` half
+// of the same response its `loadSlots` reads, and the caller sets it as a side
+// effect there. Widening the contract to carry it would put a booking-only
+// concern into the component the visit page also renders, so `loadSlots`
+// returns slots and only slots.
 //
 // ── Colours ────────────────────────────────────────────────────────────────
 //
@@ -53,6 +56,10 @@ export function isoDate(d) {
  *                  booking flow has always done.
  * @param loadSlots async (fromISODate, toISODate) => { "YYYY-MM-DD": [iso, …] }
  *                  Throwing surfaces the message; it is never swallowed.
+ *                  Its IDENTITY is load-bearing: a new function refetches the
+ *                  month on screen. That is how a caller asks for fresh times
+ *                  after a 409 without remounting this component and throwing
+ *                  away which month and day the visitor had open.
  * @param onPick    (iso) => void, called when a time is tapped
  * @param selected  the currently picked iso, so the caller can control it
  */
@@ -83,14 +90,28 @@ export default function SlotCalendar({
     setLoading(true);
     setError("");
     try {
-      const first = new Date(
-        Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth(), 1),
-      );
-      const last = new Date(
-        Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 0),
-      );
+      // ── The range is built in LOCAL time, like the grid it fills ─────────
+      //
+      // These were UTC dates read through isoDate(), which is local by design
+      // (see its own comment). Midnight UTC on the 31st is the 30th anywhere
+      // west of Greenwich, so `to` came back a day short and THE LAST DAY OF
+      // EVERY MONTH WAS NEVER REQUESTED. The grid below builds its keys from
+      // local dates, so it then looked up a day the fetch had never asked
+      // for and drew it as unavailable — a bookable Monday the 31st, greyed
+      // out, with nothing on screen to explain it.
+      //
+      // The month cursor is UTC-anchored, so its year and month are read as
+      // UTC and the day is constructed locally. That is exactly what the grid
+      // does, which is the point: one way of naming a day, used by the thing
+      // that asks and the thing that renders.
+      const y = monthCursor.getUTCFullYear();
+      const m = monthCursor.getUTCMonth();
+      const first = new Date(y, m, 1);
+      const last = new Date(y, m + 1, 0);
       const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
+      // Local midnight, matching the grid's `past` test. Comparing a local
+      // date against a UTC-midnight "today" was the same mismatch in miniature.
+      today.setHours(0, 0, 0, 0);
       // Never ask for the past — it can only return nothing.
       const from = isoDate(first < today ? today : first);
       const to = isoDate(last);
@@ -101,7 +122,7 @@ export default function SlotCalendar({
       // A sentence, not the status line. "Request failed (405)" is accurate and
       // useless to a homeowner in a driveway; the real thing goes to the
       // console, where the person who can fix it will look.
-      console.error("[visit] couldn't load times:", err?.message);
+      console.error("[slots] couldn't load times:", err?.message);
       setError(copy.timesFailed);
     } finally {
       setLoading(false);

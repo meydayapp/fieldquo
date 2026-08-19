@@ -16,7 +16,7 @@
 // at 2.1:1 on the weekday headers.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   documentTheme,
   fillPair,
@@ -25,6 +25,9 @@ import {
 } from "@/lib/documents/theme";
 import { ensureContrast } from "@/lib/brand/colour";
 import { formatPhoneInput } from "@/lib/validation";
+import { fetchJson } from "@/lib/fetchJson";
+import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
 import {
   Clock,
@@ -35,15 +38,19 @@ import {
   Check,
   AlertCircle,
   Building2,
-  ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 
-function isoDate(d) {
-  // Local date, not toISOString() — that converts to UTC first, so anyone
-  // west of Greenwich gets yesterday's date after 5pm.
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// The calendar's own wording. This page is English throughout, but the strings
+// come from the shared catalogue rather than being retyped here, so the booking
+// grid and the visit page's reschedule grid cannot say two different things —
+// and whenever this page does learn the client's language, the calendar is
+// already translated.
+//
+// Module scope, not per render: SlotCalendar refetches when `copy` changes
+// identity, so a fresh object literal on every render would be an endless loop
+// of availability requests.
+const CALENDAR_COPY = clientDocCopy("en").visit;
 
 // The fee is already resolved server-side (feeCents = what they pay, with
 // feeStandardCents set only when a promo is live). The browser just formats it.
@@ -96,19 +103,11 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   // people picker; each member's consultation event is what actually gets
   // booked, so selecting one just sets the matching eventType.
   const [members, setMembers] = useState([]);
-  const [slots, setSlots] = useState({});
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  // Which month the calendar is showing, and which day was tapped.
-  //
-  // Replaces a week-at-a-time list that rendered EVERY slot for EVERY day at
-  // once: 8am–5pm at 15-minute increments is ~36 buttons a day, so a week was
-  // ~180 buttons on one screen. Nobody scans 180 buttons — they pick a day
-  // first, which is what a calendar is for.
-  const [monthCursor, setMonthCursor] = useState(() => {
-    const n = new Date();
-    return new Date(Date.UTC(n.getFullYear(), n.getMonth(), 1));
-  });
-  const [chosenDay, setChosenDay] = useState(null);
+  // Bumped to ask the calendar for fresh times without remounting it — see
+  // loadSlots below. The month grid and the tapped day live inside SlotCalendar
+  // now, and remounting would send someone who just lost a slot back to today's
+  // month with nothing selected.
+  const [slotEpoch, setSlotEpoch] = useState(0);
   // How the client wants to meet. Only asked when the company offers a choice —
   // a segmented control with one option is a label pretending to be a control.
   const [mode, setMode] = useState(null);
@@ -214,99 +213,46 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
     return () => clearTimeout(t);
   }, [address]);
 
-  const loadSlots = useCallback(async () => {
-    if (!eventType) return;
-    setSlotsLoading(true);
-    try {
-      // A whole month per request, not a week.
-      //
-      // The calendar needs to know which DAYS have anything free before you pick
-      // one, so a week's worth of data can't fill it. One request per month view
-      // is also fewer round trips than one per week for the same browsing.
-      const first = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth(), 1));
-      const last = new Date(Date.UTC(monthCursor.getUTCFullYear(), monthCursor.getUTCMonth() + 1, 0));
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      // Never ask for the past — it can only return nothing.
-      const from = isoDate(first < today ? today : first);
-      const to = isoDate(last);
+  // Answering SlotCalendar's question: what is free between these two dates?
+  //
+  // It asks a month at a time, and it decides the range — the grid has to know
+  // which DAYS are open before anyone can pick one, so a week's worth of data
+  // can't fill it, and it clamps the start to today because the past can only
+  // return nothing.
+  //
+  // The travel note is a deliberate side effect. `travel` rides back on the
+  // same response as the slots, and the line under the address field is the
+  // only visible proof that the drive filter engaged — but it is a booking-page
+  // concern, so it is set here rather than being pushed into a component the
+  // visit page also renders.
+  const loadSlots = useCallback(
+    async (from, to) => {
+      if (!eventType) return {};
       // The address is only relevant to an in-person visit. Sending it for a
       // phone consult would filter times by a drive nobody is making.
       const forVisit = mode === "visit" && geoAddress.length > 5;
-      const res = await fetch(
-        `/api/booking/${companySlug}/availability?eventTypeSlug=${encodeURIComponent(
-          eventType.slug,
-        )}&from=${from}&to=${to}` +
-          (forVisit ? `&address=${encodeURIComponent(geoAddress)}` : ""),
-      );
-      const data = await res.json().catch(() => null);
-      setSlots(res.ok ? data?.slots || {} : {});
-      setTravelInfo(res.ok ? data?.travel || null : null);
-    } catch {
-      setSlots({});
-    } finally {
-      setSlotsLoading(false);
-    }
-  }, [companySlug, eventType, monthCursor, mode, geoAddress]);
-
-  useEffect(() => {
-    loadSlots();
-  }, [loadSlots]);
-
-  // The month as a 7-column grid, padded so the 1st lands on the right weekday.
-  const monthGrid = useMemo(() => {
-    const y = monthCursor.getUTCFullYear();
-    const m = monthCursor.getUTCMonth();
-    const firstDow = new Date(Date.UTC(y, m, 1)).getUTCDay();
-    const daysInMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const cells = [];
-    for (let i = 0; i < firstDow; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(y, m, d);
-      const key = isoDate(date);
-      const times = slots[key] || [];
-      cells.push({ date, key, day: d, past: date < today, count: times.length });
-    }
-    return cells;
-  }, [monthCursor, slots]);
-
-  // Times for the tapped day, split into parts of the day.
-  //
-  // Even one day can be 36 slots; "Morning / Afternoon / Evening" makes that
-  // scannable instead of a wall. Empty groups are dropped rather than shown as
-  // headings over nothing.
-  const dayTimes = useMemo(() => {
-    if (!chosenDay) return [];
-    const list = slots[chosenDay] || [];
-    const groups = [
-      { label: "Morning", until: 12, times: [] },
-      { label: "Afternoon", until: 17, times: [] },
-      { label: "Evening", until: 24, times: [] },
-    ];
-    for (const iso of list) {
-      const h = new Date(iso).getHours();
-      (groups.find((g) => h < g.until) || groups[2]).times.push(iso);
-    }
-    return groups.filter((g) => g.times.length);
-  }, [chosenDay, slots]);
-
-  const monthHasAny = monthGrid.some((c) => c && !c.past && c.count > 0);
-  const atCurrentMonth = (() => {
-    const n = new Date();
-    return (
-      monthCursor.getUTCFullYear() === n.getFullYear() &&
-      monthCursor.getUTCMonth() === n.getMonth()
-    );
-  })();
-  const shiftMonth = (by) => {
-    setChosenDay(null);
-    setMonthCursor(
-      (c) => new Date(Date.UTC(c.getUTCFullYear(), c.getUTCMonth() + by, 1)),
-    );
-  };
+      try {
+        const data = await fetchJson(
+          `/api/booking/${companySlug}/availability?eventTypeSlug=${encodeURIComponent(
+            eventType.slug,
+          )}&from=${from}&to=${to}` +
+            (forVisit ? `&address=${encodeURIComponent(geoAddress)}` : ""),
+        );
+        setTravelInfo(data?.travel || null);
+        return data?.slots || {};
+      } catch (err) {
+        // A load that failed says nothing about the drive. Leaving the previous
+        // note standing would claim we'd checked the address against times we
+        // never got.
+        setTravelInfo(null);
+        throw err;
+      }
+    },
+    // slotEpoch is in here and nowhere in the body on purpose: bumping it gives
+    // this callback a new identity, which is what makes SlotCalendar refetch
+    // the month already on screen. See the 409 branch in submit().
+    [companySlug, eventType, mode, geoAddress, slotEpoch],
+  );
 
   async function submit(e) {
     e.preventDefault();
@@ -334,7 +280,7 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
         // them staring at a form for a time that no longer exists.
         if (res.status === 409) {
           setChosen(null);
-          await loadSlots();
+          setSlotEpoch((n) => n + 1);
         }
         throw new Error(data?.error || "Couldn't book that time.");
       }
@@ -562,8 +508,14 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
       )}
 
       {/* Step 2 — which time */}
-      {showingCalendar && (
-        <div>
+      {/* Hidden once a time is picked, not unmounted. Which month is on screen
+          and which day was tapped belong to SlotCalendar now; unmounting throws
+          both away, so "Pick another time" on step 3 would drop the visitor
+          back on today's month with nothing selected instead of where they were
+          a moment ago. `hidden` also takes it out of the tab order and the
+          accessibility tree, so nothing behind step 3 is reachable. */}
+      {eventType && (
+        <div hidden={Boolean(chosen)}>
           <div className="mb-4">
             {company.eventTypes?.length > 1 && (
               <button
@@ -675,172 +627,21 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
             </div>
           )}
 
-          {slotsLoading ? (
-            <div className="flex items-center gap-2 text-sm py-10 justify-center" style={{ color: theme.inkMuted }}>
-              <Loader2 size={15} className="animate-spin" /> Finding times…
-            </div>
-          ) : (
-            // Two columns only from md up. At sm (640px) the card is still
-            // narrower than calendar + times side by side, which is how the
-            // day cells ended up at 17px.
-            <div className="md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,15rem)] md:gap-6 md:items-start">
-              {/* ── Pick a day ── */}
-              <div className="mx-auto w-full max-w-sm md:max-w-none">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <NavButton
-                    onClick={() => shiftMonth(-1)}
-                    disabled={atCurrentMonth}
-                    label="Previous month"
-                    theme={theme}
-                  >
-                    <ChevronLeft size={18} />
-                  </NavButton>
-                  <span className="text-sm font-semibold tabular-nums" style={{ color: theme.ink }}>
-                    {monthCursor.toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" })}
-                  </span>
-                  <NavButton
-                    onClick={() => shiftMonth(1)}
-                    label="Next month"
-                    theme={theme}
-                  >
-                    <ChevronRight size={18} />
-                  </NavButton>
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 mb-1">
-                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <div
-                      key={i}
-                      className="text-center text-[11px] font-bold uppercase py-1"
-                      style={{ color: theme.inkMuted }}
-                    >
-                      {d}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {monthGrid.map((cell, i) => {
-                    if (!cell) return <div key={i} />;
-                    const free = !cell.past && cell.count > 0;
-                    const selected = chosenDay === cell.key;
-                    // h-10 rather than aspect-square: at 375px the square was
-                    // 38px, under the 40px a thumb needs, and there is no width
-                    // left to give it — height is free.
-                    return (
-                      <button
-                        key={cell.key}
-                        onClick={() => free && setChosenDay(cell.key)}
-                        disabled={!free}
-                        aria-label={`${cell.date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}${free ? `, ${cell.count} times available` : ", nothing available"}`}
-                        className={`relative h-10 sm:h-11 rounded-lg text-sm transition-colors ${
-                          free
-                            ? "font-semibold border border-[var(--bd)] hover:border-[var(--bd-hover)]"
-                            : "font-medium cursor-default"
-                        }`}
-                        style={
-                          selected
-                            ? { "--bd": solid.bg, "--bd-hover": solid.bg, backgroundColor: solid.bg, color: solid.fg }
-                            : free
-                              ? { "--bd": theme.border, "--bd-hover": theme.accentRule, backgroundColor: wash.bg, color: wash.ink }
-                              // Unavailable days stay at full muted contrast
-                              // (4.5:1) rather than being faded out. What marks
-                              // a day as bookable is the chip and the dot, not
-                              // a number you have to squint at.
-                              : { color: theme.inkMuted }
-                        }
-                      >
-                        {cell.day}
-                        {/* A dot, not a count. "14 times" is noise at this size;
-                            what a visitor needs to know is "this day is open". */}
-                        {free && !selected && (
-                          <span
-                            className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                            style={{ backgroundColor: theme.accentText }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {!monthHasAny && (
-                  <div className="text-center py-4">
-                    <p className="text-sm" style={{ color: theme.inkMuted }}>Nothing free this month.</p>
-                    <button
-                      onClick={() => shiftMonth(1)}
-                      className="mt-1 text-sm font-semibold underline"
-                      style={{ color: theme.accentText }}
-                    >
-                      Try next month
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* ── Then a time, grouped ── */}
-              {/* On a phone this sits under a ~300px calendar, so the times get
-                  a panel of their own — otherwise they read as a stray row of
-                  buttons and people miss that tapping a day did anything. The
-                  panel stays put whether or not a day is chosen, so the column
-                  doesn't appear and disappear under the visitor's thumb — but
-                  it goes entirely when the month is empty, because "pick a day"
-                  over a grid with no pickable days is an instruction that can't
-                  be followed. */}
-              {monthHasAny && (
-              <div
-                className="mt-4 md:mt-0 rounded-xl border p-3"
-                style={{ borderColor: theme.border, backgroundColor: wash.bg }}
-              >
-                {!chosenDay ? (
-                  <p className="text-sm py-2 text-center md:text-left" style={{ color: wash.muted }}>
-                    Pick a day to see the times.
-                  </p>
-                ) : (
-                  <>
-                    <div className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: wash.ink }}>
-                      {new Date(`${chosenDay}T12:00:00`).toLocaleDateString(undefined, {
-                        weekday: "long",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                    {/* Capped height with its own scroll: a full day is still ~36
-                        times, and letting that push the calendar off the screen is
-                        the problem this rebuild exists to fix. */}
-                    <div className="space-y-3 md:max-h-[19rem] md:overflow-y-auto md:pr-1">
-                      {dayTimes.map((g) => (
-                        <div key={g.label}>
-                          <div className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: wash.muted }}>
-                            {g.label}
-                          </div>
-                          <div className="grid grid-cols-3 md:grid-cols-2 gap-1.5">
-                            {g.times.map((t) => (
-                              <button
-                                key={t}
-                                onClick={() => setChosen(t)}
-                                className="inline-flex items-center justify-center px-2 min-h-10 rounded-lg border text-sm font-medium tabular-nums transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
-                                style={{
-                                  "--bd": theme.border,
-                                  "--bd-hover": theme.accentRule,
-                                  backgroundColor: theme.paper,
-                                  color: theme.ink,
-                                }}
-                              >
-                                {new Date(t).toLocaleTimeString(undefined, {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-              )}
-            </div>
-          )}
+          {/* One grid, shared with the visit page's reschedule screen
+              (app/components/public/SlotCalendar.js). It owns the month on
+              screen, the tapped day and the fetch; this page owns only what a
+              picked time means. No `locale` and no `timeZone` — both fall back
+              to the visitor's own device, which is what this page has shown
+              since it was written. */}
+          <SlotCalendar
+            theme={theme}
+            solid={solid}
+            wash={wash}
+            copy={CALENDAR_COPY}
+            loadSlots={loadSlots}
+            onPick={setChosen}
+            selected={chosen}
+          />
         </div>
       )}
 
@@ -982,25 +783,6 @@ function Shell({ children, theme, wide = false }) {
         {children}
       </div>
     </div>
-  );
-}
-
-function NavButton({ children, onClick, disabled, label, theme }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      className="h-10 w-10 grid place-items-center rounded-lg border disabled:opacity-30 transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
-      style={{
-        "--bd": theme.border,
-        "--bd-hover": theme.accentRule,
-        color: theme.ink,
-        backgroundColor: theme.paper,
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
