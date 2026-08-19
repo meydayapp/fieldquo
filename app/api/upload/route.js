@@ -19,7 +19,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getCurrentMember } from "@/lib/currentMember";
 import { uploadBuffer } from "@/lib/cloudinary";
-import { classifyMedia } from "@/lib/media/validate";
+import { classifyMedia, uploadPublicId, safeFilename } from "@/lib/media/validate";
 
 export async function POST(request) {
   // Previously absent: this endpoint accepted uploads from anyone on the
@@ -48,7 +48,7 @@ export async function POST(request) {
 
   // Shared boundary — same rules the public self-quote upload enforces, plus
   // SVG (allowLogo) which only this authenticated branding path may accept.
-  // A video now goes through cleanly as resource_type "video".
+  // A video goes through as resource_type "video", a PDF plan as "raw".
   const verdict = classifyMedia(file, { allowLogo: true });
   if (!verdict.ok) {
     return NextResponse.json({ error: verdict.error }, { status: 400 });
@@ -62,12 +62,16 @@ export async function POST(request) {
     const uploaded = await uploadBuffer(buffer, {
       folder: `fieldquo/companies/${member.companyId}`,
       resourceType: verdict.resourceType,
+      // Documents only; see uploadPublicId. A `raw` asset with no extension is
+      // served as octet-stream and downloads as a mystery file.
+      publicId: uploadPublicId(verdict.kind),
     });
 
     return NextResponse.json({
       url: uploaded.secure_url,
       publicId: uploaded.public_id,
       kind: verdict.kind,
+      filename: safeFilename(file.name),
     });
   } catch (err) {
     console.error("[upload] Cloudinary error:", err?.message);

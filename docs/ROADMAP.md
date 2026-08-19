@@ -34,6 +34,26 @@ Still outstanding at the time of writing: the Retell keys, both Stripe webhook
 secrets, `GOOGLE_MAPS_SERVER_KEY`, `CRON_SECRET`, the two JWT secrets, the
 `*.fieldquo.com` wildcard domain, three secrets to rotate, and the Resend DNS.
 
+**Cloudinary — "Allow delivery of PDF and ZIP files" (owner action, unverified).**
+Cloudinary blocks PDF *delivery* on new and free accounts. The upload returns
+200 and the asset appears in the Media Library; the delivery URL then returns
+HTTP 401 forever. This affects two things at once: the client PDF-plan upload,
+and the quote/invoice PDFs the app already stores and links as `pdfUrl`
+(`app/api/quotes/[id]/pdf/route.js`). Verify with:
+
+```bash
+npm run check:cloudinary-pdf
+```
+
+It uploads a throwaway PDF, fetches it back, prints PASS/FAIL and deletes the
+probe. It could NOT be run against the real account from this machine, because
+the local `.env` has `CLOUDINARY_CLOUD_NAME=fieldquo` — the API key's *label*,
+not the product-environment id — so every call fails with `Invalid cloud_name`
+before reaching the delivery question. Fix the local `.env` (or run it against
+the Vercel values), then run it. If it fails: Cloudinary console → Settings →
+Security → PDF and ZIP files delivery → enable it. No script changes this
+setting on the owner's behalf; Cloudinary attaches a terms acceptance to it.
+
 ---
 
 ## Not built
@@ -641,6 +661,26 @@ they set the pattern.
   `npx prisma db push` before the leads media renders in prod; (2) the public
   upload endpoint has no IP rate limit yet (bounded by real-slug + per-file
   validator), so add one before it's heavily embedded.
+- **PDF plans are a third kind of client attachment** (`lib/media/validate.js`,
+  `app/components/ClientMediaTile.js`). A homeowner can attach a PDF alongside
+  photos and video — the driving case is a cabinet company whose clients arrive
+  with an IKEA kitchen-planner PDF and previously had to email it separately.
+  The allowlist is PDF and nothing else: ZIP/DOCX/DWG were each considered and
+  rejected, with reasons in the file, because this is an anonymous public
+  endpoint. PDFs upload as Cloudinary `raw` (not `image`) so no rasteriser runs
+  over a stranger's file, with a random `.pdf` public_id so delivery carries
+  `application/pdf` rather than octet-stream.
+  While here, removed a **7-way duplication**: every screen showing
+  `clientPhotos` had its own `kind === "video" ? <video> : <img>` ternary, which
+  has no third branch and would have rendered every PDF as a broken image. All
+  of them now use one `ClientMediaTile`. Same for counting: `countMediaKinds()`
+  replaces three copies of `clientPhotos.length`, which had started to mean
+  different things — the lead score now rates a plan (12) above photos (max 10)
+  because a finished plan means a decided project, and the quote review's "No
+  photos" advice counts photos and video only, so a plan no longer suppresses
+  advice the quote still needs. Client-facing strings in all six languages.
+  ⚠️ **Delivery is unverified** — see the Cloudinary note at the top of this
+  file and run `npm run check:cloudinary-pdf` before announcing the feature.
 - **Junk removal is a full self-serve instant-quote trade** (`lib/junk/pricing.js`,
   `lib/junk/guidance.js`, wired through `lib/estimate/instantEstimate.js` +
   `instantQuoteServer.js`). Volume-based pricing (per-item price DROPS with load

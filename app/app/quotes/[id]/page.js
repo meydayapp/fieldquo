@@ -48,6 +48,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
@@ -641,35 +642,9 @@ export default function QuoteDetailPage() {
         {Array.isArray(quote.clientPhotos) && quote.clientPhotos.length > 0 && (
           <Block title={t("app.quoteDetail.clientMedia")}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {quote.clientPhotos.map((m, i) => {
-                const url = typeof m === "string" ? m : m?.url;
-                if (!url) return null;
-                const isVideo = m?.kind === "video";
-                return isVideo ? (
-                  <video
-                    key={url + i}
-                    src={url}
-                    controls
-                    preload="metadata"
-                    className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
-                  />
-                ) : (
-                  <a
-                    key={url + i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={m?.caption || t("app.quoteDetail.clientPhotoAlt")}
-                      className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
-                    />
-                  </a>
-                );
-              })}
+              {quote.clientPhotos.map((m, i) => (
+                <ClientMediaTile key={(typeof m === "string" ? m : m?.url) + i} media={m} />
+              ))}
             </div>
           </Block>
         )}

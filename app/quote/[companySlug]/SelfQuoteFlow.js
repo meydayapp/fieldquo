@@ -534,6 +534,13 @@ export default function SelfQuoteFlow({ companySlug }) {
                   uploadUrl={`/api/self-quote/${companySlug}/upload`}
                   value={media}
                   onChange={setMedia}
+                  // This form runs in the client's own language, so the uploader's
+                  // strings come from clientDocCopy rather than the app catalogue —
+                  // the homeowner filling it in is not a member of the company and
+                  // never sees /app's language setting.
+                  label={copy.uploadLabel}
+                  hint={copy.uploadHint}
+                  documentLabel={copy.uploadDocumentFallback}
                 />
               </div>
 

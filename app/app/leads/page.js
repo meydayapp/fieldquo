@@ -21,6 +21,7 @@ import {
   AlertCircle,
   PhoneOff,
   Film,
+  Paperclip,
   Search,
   X,
   Flame,
@@ -31,6 +32,8 @@ import {
 } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ClientMediaTile from "@/app/components/ClientMediaTile";
+import { countMediaKinds } from "@/lib/media/validate";
 import { reportResponseError } from "@/lib/clientErrors";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
 import { describeFinish } from "@/lib/kitchen/finishes";
@@ -276,7 +279,12 @@ function TempBadge({ temperature, score, t, size = "sm" }) {
 function LeadCard({ lead, tone, onOpen, t }) {
   const budgetKey = BUDGET_LABEL_KEY[lead.budgetBand];
   const timelineKey = TIMELINE_LABEL_KEY[lead.timeline];
-  const photoCount = Array.isArray(lead.clientPhotos) ? lead.clientPhotos.length : 0;
+  // Counted by kind, not by array length. The badge next to a film icon used to
+  // be `clientPhotos.length`, which was fine while the array could only hold
+  // photos and clips — now that a client can attach a PDF plan, that same number
+  // would file the plan under "video". The plan is also the more interesting of
+  // the two signals, so it gets its own badge rather than being folded in.
+  const { visual: photoCount, documents: docCount } = countMediaKinds(lead.clientPhotos);
   return (
     <button
       onClick={onOpen}
@@ -315,7 +323,14 @@ function LeadCard({ lead, tone, onOpen, t }) {
           )}
           {photoCount > 0 && (
             <span className="inline-flex items-center gap-1">
-              <Film size={11} /> {photoCount}
+              <Film size={11} aria-hidden="true" /> {photoCount}
+              <span className="sr-only">{t("app.leads.mediaCountLabel")}</span>
+            </span>
+          )}
+          {docCount > 0 && (
+            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+              <Paperclip size={11} aria-hidden="true" /> {docCount}
+              <span className="sr-only">{t("app.leads.planCountLabel")}</span>
             </span>
           )}
           {lead.quote && (
@@ -556,23 +571,13 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               <div>
                 <div className="text-xs font-semibold text-foreground mb-1">{t("app.leads.photos")}</div>
                 <div className="flex gap-1.5 flex-wrap">
-                  {lead.clientPhotos.map((m, i) => {
-                    const url = typeof m === "string" ? m : m?.url;
-                    if (!url) return null;
-                    return (
-                      <a key={url + i} href={url} target="_blank" rel="noopener noreferrer"
-                        className="relative block h-14 w-14 overflow-hidden rounded border border-border bg-muted">
-                        {m?.kind === "video" ? (
-                          <span className="flex h-full w-full items-center justify-center">
-                            <Film size={14} className="text-muted-foreground" />
-                          </span>
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={url} alt="" className="h-full w-full object-cover" />
-                        )}
-                      </a>
-                    );
-                  })}
+                  {lead.clientPhotos.map((m, i) => (
+                    <ClientMediaTile
+                      key={(typeof m === "string" ? m : m?.url) + i}
+                      media={m}
+                      variant="thumb"
+                    />
+                  ))}
                 </div>
               </div>
             )}

@@ -18,6 +18,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import ClientMediaTile from "@/app/components/ClientMediaTile";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -413,28 +414,9 @@ export default function InvoiceDetailPage() {
               {t("app.quoteDetail.clientMedia")}
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {invoice.clientPhotos.map((m, i) => {
-                const url = typeof m === "string" ? m : m?.url;
-                if (!url) return null;
-                return m?.kind === "video" ? (
-                  <video
-                    key={url + i}
-                    src={url}
-                    controls
-                    preload="metadata"
-                    className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
-                  />
-                ) : (
-                  <a key={url + i} href={url} target="_blank" rel="noopener noreferrer" className="block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={m?.caption || t("app.quoteDetail.clientPhotoAlt")}
-                      className="w-full aspect-square rounded-lg border border-border object-cover bg-muted"
-                    />
-                  </a>
-                );
-              })}
+              {invoice.clientPhotos.map((m, i) => (
+                <ClientMediaTile key={(typeof m === "string" ? m : m?.url) + i} media={m} />
+              ))}
             </div>
           </div>
         )}

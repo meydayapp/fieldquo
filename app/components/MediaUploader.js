@@ -2,17 +2,22 @@
 
 // app/components/MediaUploader.js
 //
-// Attach photos and videos to a quote — the same control on a public self-quote
-// (a homeowner in a driveway) and, later, staff surfaces. It POSTs each file to
-// the given endpoint, shows a thumbnail as soon as it's up, and hands the parent
-// a normalised list of { url, kind, publicId } to submit with the request.
+// Attach photos, videos and PDF plans to a quote — the same control on a public
+// self-quote (a homeowner in a driveway) and on staff surfaces. It POSTs each
+// file to the given endpoint, shows a thumbnail as soon as it's up, and hands
+// the parent a normalised list of { url, kind, publicId, filename } to submit
+// with the request.
+//
+// The PDF case is the one a cabinet company asked for: their clients arrive with
+// an IKEA kitchen planner PDF, and every quote used to start with "can you email
+// me that plan separately?".
 //
 // Deliberately dumb about WHERE it uploads: the caller passes uploadUrl, so the
 // public route (company-scoped, anonymous) and the authenticated /api/upload
 // both drive the identical UI. One control, no divergence.
 
 import { useRef, useState, useCallback } from "react";
-import { ImagePlus, X, Film, Loader2 } from "lucide-react";
+import { ImagePlus, X, Film, FileText, Loader2 } from "lucide-react";
 import { CLIENT_MEDIA_ACCEPT } from "@/lib/media/validate";
 
 export default function MediaUploader({
@@ -20,8 +25,14 @@ export default function MediaUploader({
   value = [],
   onChange,
   max = 12,
-  label = "Add photos or a video",
-  hint = "A picture or short clip helps us quote accurately.",
+  label = "Add photos, a video or a PDF plan",
+  // Names the PDF explicitly. A homeowner holding an IKEA plan will not try it
+  // unless told they can — the whole point of accepting the format is lost if
+  // the control only ever mentions pictures.
+  hint = "A picture, short clip or your PDF plan helps us quote accurately.",
+  // Only shown when a PDF arrives without a usable filename. A fallback, never
+  // a substitute — the real name is what tells someone their right file went up.
+  documentLabel = "PDF",
 }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -56,7 +67,18 @@ export default function MediaUploader({
             setError(data?.error || "That file couldn't be uploaded.");
             continue;
           }
-          added.push({ url: data.url, kind: data.kind === "video" ? "video" : "photo", publicId: data.publicId || null });
+          // Trust the server's classification rather than re-deriving it here —
+          // it is the side that actually inspected the file. Unknown values fall
+          // back to "photo", matching normaliseMediaEntry.
+          const kind = ["photo", "video", "document"].includes(data.kind)
+            ? data.kind
+            : "photo";
+          added.push({
+            url: data.url,
+            kind,
+            publicId: data.publicId || null,
+            filename: typeof data.filename === "string" ? data.filename : "",
+          });
         }
         if (added.length) onChange?.([...value, ...added]);
       } finally {
@@ -79,7 +101,18 @@ export default function MediaUploader({
         <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {value.map((m, i) => (
             <div key={m.url + i} className="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted">
-              {m.kind === "video" ? (
+              {m.kind === "document" ? (
+                // A file card, not a thumbnail. PDFs are stored as Cloudinary
+                // `raw` so no page image exists to show, and an <img> pointed at
+                // a PDF is a broken-image icon on the one screen where the person
+                // needs to be sure their plan actually attached.
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-1 text-center text-muted-foreground">
+                  <FileText size={20} aria-hidden="true" />
+                  <span className="line-clamp-2 break-all text-[10px] leading-tight text-foreground">
+                    {m.filename || documentLabel}
+                  </span>
+                </div>
+              ) : m.kind === "video" ? (
                 // A poster frame would need a transform round-trip; a labelled
                 // tile is honest and instant, and the reviewer opens it to watch.
                 <div className="flex h-full w-full items-center justify-center text-muted-foreground">

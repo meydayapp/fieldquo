@@ -1,7 +1,8 @@
 // app/api/self-quote/[companySlug]/upload/route.js
 //
-// Public. A homeowner filling in a self-quote can attach a photo or a short
-// video of the job — the pile to haul, the room to paint, the leak. It lands on
+// Public. A homeowner filling in a self-quote can attach a photo, a short video
+// or a PDF plan of the job — the pile to haul, the room to paint, the leak, the
+// IKEA kitchen planner printout a cabinet client always has. It lands on
 // the company's Cloudinary folder and comes back as a URL the browser then
 // posts with the request, so the estimate carries the evidence and the reviewer
 // can see what they're pricing.
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { uploadBuffer } from "@/lib/cloudinary";
-import { classifyMedia } from "@/lib/media/validate";
+import { classifyMedia, uploadPublicId, safeFilename } from "@/lib/media/validate";
 
 export async function POST(request, { params }) {
   const { companySlug } = await params;
@@ -58,11 +59,18 @@ export async function POST(request, { params }) {
       // branding/gallery assets when auditing or purging.
       folder: `fieldquo/companies/${company.id}/leads`,
       resourceType: verdict.resourceType,
+      // Documents only; see uploadPublicId. Never built from file.name — that
+      // string is attacker-controlled and public_id is a path.
+      publicId: uploadPublicId(verdict.kind),
     });
     return NextResponse.json({
       url: uploaded.secure_url,
       publicId: uploaded.public_id,
       kind: verdict.kind,
+      // Display-only, so the reviewer sees "kitchen-plan.pdf" rather than a
+      // random id. Sanitised here, and again by normaliseMediaEntry on the way
+      // into the database — the browser is free to post whatever it likes.
+      filename: safeFilename(file.name),
     });
   } catch (err) {
     console.error("[self-quote/upload] Cloudinary error:", err?.message);

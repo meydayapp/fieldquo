@@ -69,7 +69,8 @@
     "check:instant-exits": "node --import ./scripts/alias-loader.mjs scripts/check-instant-quote-exits.mjs",
     "check:self-quote": "node --import ./scripts/alias-loader.mjs scripts/check-self-quote.mjs",
     "check:voice-spend": "node --import ./scripts/alias-loader.mjs scripts/check-voice-spend.mjs",
-    "check:features": "node --import ./scripts/alias-loader.mjs scripts/check-feature-flags.mjs"
+    "check:features": "node --import ./scripts/alias-loader.mjs scripts/check-feature-flags.mjs",
+    "check:cloudinary-pdf": "node --env-file-if-exists=.env scripts/check-cloudinary-pdf.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
