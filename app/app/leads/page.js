@@ -18,7 +18,6 @@ import {
   Inbox,
   Mail,
   Phone,
-  AlertCircle,
   PhoneOff,
   Film,
   Paperclip,
@@ -35,6 +34,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { countMediaKinds } from "@/lib/media/validate";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
 import { describeFinish } from "@/lib/kitchen/finishes";
 
@@ -91,10 +92,13 @@ function initials(name) {
 
 export default function LeadsPage() {
   const { t } = useTranslation();
-  const [leads, setLeads] = useState([]);
+  // null until the server answers — see lib/loadState.js. The board below
+  // renders four columns whose headers are counts; on a refused load they all
+  // read 0 and every column says "nothing here".
+  const [leads, setLeads] = useState(null);
   const [assignees, setAssignees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
   // Filters / sort — server-side so the board reflects them exactly.
   const [q, setQ] = useState("");
@@ -103,21 +107,17 @@ export default function LeadsPage() {
   const [openId, setOpenId] = useState("");
 
   const load = useCallback(async () => {
-    setError("");
+    setErrorKey("");
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (temp) params.set("temperature", temp);
     if (sort) params.set("sort", sort);
-    try {
-      const res = await fetch(`/api/leads?${params.toString()}`);
-      if (!res.ok) return reportResponseError(res, setError, t("app.leads.loadError"));
-      setLeads(await res.json());
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [q, temp, sort, t]);
+    const result = await fetchArray(`/api/leads?${params.toString()}`);
+    if (result.aborted) return;
+    if (result.ok) setLeads(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
+  }, [q, temp, sort]);
 
   useEffect(() => {
     const id = setTimeout(load, q ? 250 : 0); // debounce typing
@@ -133,7 +133,7 @@ export default function LeadsPage() {
 
   const grouped = useMemo(() => {
     const out = Object.fromEntries(COLUMNS.map((c) => [c.key, []]));
-    for (const lead of leads) (out[lead.status] || out.new).push(lead);
+    for (const lead of leads ?? []) (out[lead.status] || out.new).push(lead);
     return out;
   }, [leads]);
 
@@ -142,14 +142,9 @@ export default function LeadsPage() {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? { ...l, ...updated } : l)));
   }, []);
 
-  const openLead = leads.find((l) => l.id === openId) || null;
+  const openLead = (leads ?? []).find((l) => l.id === openId) || null;
 
-  if (loading)
-    return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
-    );
-
-  const tempCounts = leads.reduce((a, l) => {
+  const tempCounts = (leads ?? []).reduce((a, l) => {
     if (l.temperature) a[l.temperature] = (a[l.temperature] || 0) + 1;
     return a;
   }, {});
@@ -205,26 +200,26 @@ export default function LeadsPage() {
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
-      {leads.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Inbox size={30} className="text-muted-foreground mx-auto" />
-          <p className="mt-3 font-medium text-foreground">
-            {q || temp ? t("app.leads.noResults") : t("app.leads.empty")}
-          </p>
-          {!q && !temp && (
-            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-              {t("app.leads.emptyHint")}
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={(leads ?? []).length === 0}
+        skeleton={<div className="animate-pulse h-96 bg-accent rounded-xl" />}
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Inbox size={30} className="text-muted-foreground mx-auto" />
+            <p className="mt-3 font-medium text-foreground">
+              {q || temp ? t("app.leads.noResults") : t("app.leads.empty")}
             </p>
-          )}
-        </div>
-      ) : (
+            {!q && !temp && (
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+                {t("app.leads.emptyHint")}
+              </p>
+            )}
+          </div>
+        }
+      >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {COLUMNS.map((col) => (
             <div key={col.key}>
@@ -245,7 +240,7 @@ export default function LeadsPage() {
             </div>
           ))}
         </div>
-      )}
+      </ListState>
 
       {openLead && (
         <LeadDrawer

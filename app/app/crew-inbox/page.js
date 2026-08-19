@@ -16,6 +16,8 @@ import {
   MessageSquare, AlertTriangle, Check, ImageIcon, HelpCircle, UserX, Loader2, Settings,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchList } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -26,17 +28,23 @@ export default function CrewInboxPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
 
+  // `messages` stays null on failure. It used to be read as `messages || []`,
+  // which turned "we were refused" into "your crew has sent you nothing" —
+  // with a toast as the only correction, and toasts disappear.
+  const [errorKey, setErrorKey] = useState("");
+
   const load = useCallback(async () => {
-    const res = await fetch("/api/crew/messages");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.crewInbox.loadError"));
-      return;
-    }
-    setMessages((await res.json()).messages || []);
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchList("/api/crew/messages");
+    if (result.aborted) return;
+    if (result.ok) setMessages(result.data?.messages || []);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load();
   }, [load]);
 
   async function fileTo(id, jobId) {
@@ -55,15 +63,6 @@ export default function CrewInboxPage() {
     } finally {
       setBusy(null);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4 animate-pulse">
-        <div className="h-8 bg-accent rounded w-1/3" />
-        <div className="h-24 bg-accent rounded-xl" />
-      </div>
-    );
   }
 
   const list = messages || [];
@@ -90,16 +89,28 @@ export default function CrewInboxPage() {
         </Link>
       </div>
 
-      {list.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <MessageSquare size={22} className="mx-auto text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground mt-3">{t("app.crewInbox.empty")}</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            {t("app.crewInbox.emptyHint")}
-          </p>
-        </div>
-      )}
-
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={list.length === 0}
+        skeleton={
+          <div className="space-y-4 animate-pulse">
+            <div className="h-24 bg-accent rounded-xl" />
+            <div className="h-24 bg-accent rounded-xl" />
+          </div>
+        }
+        empty={
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <MessageSquare size={22} className="mx-auto text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground mt-3">{t("app.crewInbox.empty")}</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              {t("app.crewInbox.emptyHint")}
+            </p>
+          </div>
+        }
+      >
+        <div className="space-y-6">
       {pending.length > 0 && (
         <section>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5 mb-2">
@@ -183,6 +194,8 @@ export default function CrewInboxPage() {
           </div>
         </section>
       )}
+        </div>
+      </ListState>
     </div>
   );
 }

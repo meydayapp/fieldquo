@@ -14,7 +14,8 @@ import {
   Contact,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { fetchJson } from "@/lib/fetchJson";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
@@ -49,7 +50,8 @@ const ELIGIBLE_TEMPLATE_TYPES = ["marketing_email", "custom_email"];
 
 export default function MarketingPage() {
   const { t } = useTranslation();
-  const [campaigns, setCampaigns] = useState([]);
+  // null until the server answers — see lib/loadState.js.
+  const [campaigns, setCampaigns] = useState(null);
   const [members, setMembers] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,19 +59,16 @@ export default function MarketingPage() {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // Separate from `error`, which lives inside the create modal. A failed
-  // campaigns load used to fall through to `r.ok ? … : []` and render an empty
-  // list — indistinguishable from "no campaigns yet". This surfaces it.
-  const [loadError, setLoadError] = useState("");
+  // Separate from `error`, which lives inside the create modal. A failed load
+  // is not a form problem and must not share its banner.
+  const [errorKey, setErrorKey] = useState("");
 
   async function load() {
-    try {
-      const data = await fetchJson("/api/marketing/campaigns");
-      setCampaigns(Array.isArray(data) ? data : []);
-      setLoadError("");
-    } catch (err) {
-      setLoadError(err.message || "Could not load campaigns");
-    }
+    setErrorKey("");
+    const result = await fetchArray("/api/marketing/campaigns");
+    if (result.aborted) return;
+    if (result.ok) setCampaigns(result.data);
+    else setErrorKey(result.errorKey);
   }
 
   useEffect(() => {
@@ -151,28 +150,29 @@ export default function MarketingPage() {
         </div>
       </div>
 
-      {loadError && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
-          {loadError}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid sm:grid-cols-2 gap-4 animate-pulse">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-36 bg-muted rounded-xl" />
-          ))}
-        </div>
-      ) : campaigns.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Megaphone size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {t("app.marketing.empty")}
-          </p>
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={(campaigns ?? []).length === 0}
+        skeleton={
+          <div className="grid sm:grid-cols-2 gap-4 animate-pulse">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-36 bg-muted rounded-xl" />
+            ))}
+          </div>
+        }
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Megaphone size={40} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {t("app.marketing.empty")}
+            </p>
+          </div>
+        }
+      >
         <div className="grid sm:grid-cols-2 gap-4">
-          {campaigns.map((c) => {
+          {(campaigns ?? []).map((c) => {
             const pct =
               c.stopCount > 0
                 ? Math.round((c.visitedCount / c.stopCount) * 100)
@@ -264,7 +264,7 @@ export default function MarketingPage() {
             );
           })}
         </div>
-      )}
+      </ListState>
 
       {showModal && (
         <div

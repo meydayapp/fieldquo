@@ -1,9 +1,11 @@
 // app/app/jobs/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Briefcase, Plus, Search, ArrowRight, AlertCircle } from "lucide-react";
+import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -29,27 +31,26 @@ const STATUS_LABEL_KEYS = {
 
 export default function JobsPage() {
   const { t } = useTranslation();
-  const [jobs, setJobs] = useState([]);
+  // null until the server answers — see lib/loadState.js.
+  const [jobs, setJobs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchArray("/api/jobs");
+    if (result.aborted) return;
+    if (result.ok) setJobs(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/jobs");
-        if (!res.ok) throw new Error("Couldn't load jobs.");
-        const data = await res.json();
-        setJobs(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
-  }, []);
+  }, [load]);
 
   const statusLabel = (s) => {
     const k = STATUS_LABEL_KEYS[s];
@@ -61,7 +62,7 @@ export default function JobsPage() {
   // brand-new account that has never had a job — show a real first-run state.
   const hasActiveFilter = filter !== "all" || search.trim() !== "";
 
-  const filtered = jobs.filter((j) => {
+  const filtered = (jobs ?? []).filter((j) => {
     if (filter !== "all" && j.status !== filter) return false;
     const s = search.toLowerCase();
     return (
@@ -69,15 +70,6 @@ export default function JobsPage() {
       j.client?.name?.toLowerCase().includes(s)
     );
   });
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-40 bg-accent rounded" />
-        <div className="h-64 bg-accent rounded-xl" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -96,13 +88,6 @@ export default function JobsPage() {
           <Plus size={16} /> {t("app.jobs.new")}
         </Link>
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div data-tour="jobs-filters" className="flex gap-2 overflow-x-auto pb-1">
@@ -136,29 +121,42 @@ export default function JobsPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Briefcase size={40} className="mx-auto text-muted-foreground mb-3" />
-          {hasActiveFilter ? (
-            <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
-          ) : (
-            <>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                {t(
-                  "app.jobs.emptyFirstRun",
-                  "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
-                )}
-              </p>
-              <Link
-                href="/app/jobs/new"
-                className="inline-flex items-center gap-2 mt-4 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-              >
-                <Plus size={16} /> {t("app.jobs.new")}
-              </Link>
-            </>
-          )}
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={filtered.length === 0}
+        skeleton={
+          <div className="animate-pulse space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-accent rounded-xl" />
+            ))}
+          </div>
+        }
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Briefcase size={40} className="mx-auto text-muted-foreground mb-3" />
+            {hasActiveFilter ? (
+              <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                  {t(
+                    "app.jobs.emptyFirstRun",
+                    "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
+                  )}
+                </p>
+                <Link
+                  href="/app/jobs/new"
+                  className="inline-flex items-center gap-2 mt-4 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+                >
+                  <Plus size={16} /> {t("app.jobs.new")}
+                </Link>
+              </>
+            )}
+          </div>
+        }
+      >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {filtered.map((job) => (
             <Link
@@ -203,7 +201,7 @@ export default function JobsPage() {
             </Link>
           ))}
         </div>
-      )}
+      </ListState>
     </div>
   );
 }

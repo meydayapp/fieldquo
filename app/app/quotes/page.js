@@ -1,9 +1,11 @@
 // app/app/quotes/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { FileText, Plus, Search, ArrowRight, AlertCircle } from "lucide-react";
+import { FileText, Plus, Search, ArrowRight } from "lucide-react";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -15,28 +17,29 @@ const STATUS_STYLES = {
 
 export default function QuotesPage() {
   const { t } = useTranslation();
-  const [quotes, setQuotes] = useState([]);
+  // null until the server answers — see lib/loadState.js. The stat tiles below
+  // read this, and four tiles reading "0" is a much more convincing lie than
+  // any red banner is a correction.
+  const [quotes, setQuotes] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/quotes");
-        if (!res.ok) throw new Error("Couldn't load quotes.");
-        const data = await res.json();
-        setQuotes(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchArray("/api/quotes");
+    if (result.aborted) return;
+    if (result.ok) setQuotes(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
-  const filtered = quotes.filter((q) => {
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = (quotes ?? []).filter((q) => {
     const s = search.toLowerCase();
     return (
       q.quoteNumber?.toLowerCase().includes(s) ||
@@ -44,25 +47,15 @@ export default function QuotesPage() {
     );
   });
 
-  const stats = {
+  // Null when the load failed or is still running. The tiles render an em dash
+  // rather than 0: "Accepted 0" on a transient 401 tells a contractor their
+  // won work vanished.
+  const stats = quotes && {
     total: quotes.length,
     draft: quotes.filter((q) => q.status === "draft").length,
     sent: quotes.filter((q) => q.status === "sent").length,
     accepted: quotes.filter((q) => q.status === "accepted").length,
   };
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-40 bg-accent rounded" />
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-20 bg-accent rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -80,25 +73,20 @@ export default function QuotesPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
       <div data-tour="quotes-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: stats.total },
-          { label: "Draft", value: stats.draft },
-          { label: "Sent", value: stats.sent },
-          { label: "Accepted", value: stats.accepted },
+          { label: "Total", value: stats?.total },
+          { label: "Draft", value: stats?.draft },
+          { label: "Sent", value: stats?.sent },
+          { label: "Accepted", value: stats?.accepted },
         ].map((s) => (
           <div
             key={s.label}
             className="bg-card border border-border rounded-xl p-4 text-center"
           >
-            <div className="text-2xl font-bold text-foreground">{s.value}</div>
+            <div className="text-2xl font-bold text-foreground">
+              {s.value ?? "—"}
+            </div>
             <div className="text-xs text-muted-foreground mt-1">{s.label}</div>
           </div>
         ))}
@@ -117,22 +105,35 @@ export default function QuotesPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <FileText size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {search ? "No quotes match your search." : "No quotes yet."}
-          </p>
-          {!search && (
-            <Link
-              href="/app/quotes/new"
-              className="text-sm font-medium text-foreground underline mt-2 inline-block"
-            >
-              {t("app.quotes.empty")}
-            </Link>
-          )}
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={filtered.length === 0}
+        skeleton={
+          <div className="animate-pulse space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-accent rounded-xl" />
+            ))}
+          </div>
+        }
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <FileText size={40} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {search ? t("app.quotes.noMatch") : t("app.quotes.emptyTitle")}
+            </p>
+            {!search && (
+              <Link
+                href="/app/quotes/new"
+                className="text-sm font-medium text-foreground underline mt-2 inline-block"
+              >
+                {t("app.quotes.empty")}
+              </Link>
+            )}
+          </div>
+        }
+      >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {filtered.map((q) => (
             <Link
@@ -190,7 +191,7 @@ export default function QuotesPage() {
             </Link>
           ))}
         </div>
-      )}
+      </ListState>
     </div>
   );
 }

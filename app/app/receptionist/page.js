@@ -26,6 +26,8 @@ import {
   Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchList } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -44,17 +46,24 @@ export default function ReceptionistPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
 
+  // `data` stays null on failure. `data?.calls || []` used to render the
+  // "you haven't turned this on yet" panel — complete with a Set it up button —
+  // to a company whose receptionist is running and whose calls we simply
+  // couldn't fetch.
+  const [errorKey, setErrorKey] = useState("");
+
   const load = useCallback(async () => {
-    const res = await fetch("/api/voice/calls");
-    if (!res.ok) {
-      await reportResponseError(res, t("app.receptionist.loadError"));
-      return;
-    }
-    setData(await res.json());
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchList("/api/voice/calls");
+    if (result.aborted) return;
+    if (result.ok) setData(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load();
   }, [load]);
 
   async function markSeen(id) {
@@ -73,16 +82,6 @@ export default function ReceptionistPage() {
     } finally {
       setBusy(null);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-4 animate-pulse">
-        <div className="h-8 bg-accent rounded w-1/3" />
-        <div className="h-24 bg-accent rounded-xl" />
-        <div className="h-24 bg-accent rounded-xl" />
-      </div>
-    );
   }
 
   const calls = data?.calls || [];
@@ -108,25 +107,39 @@ export default function ReceptionistPage() {
         </Link>
       </div>
 
-      {/* Not an error state. A company that hasn't turned it on yet, or that has
-          had a quiet week, gets a sentence and a way forward rather than an
-          empty grid. */}
-      {calls.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <Phone size={22} className="mx-auto text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground mt-3">{t("app.receptionist.empty")}</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            {t("app.receptionist.emptyHint")}
-          </p>
-          <Link
-            href="/app/settings/voice"
-            className="inline-block mt-4 px-5 py-2.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
-          >
-            {t("app.receptionist.setUpCta")}
-          </Link>
-        </div>
-      )}
-
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={calls.length === 0}
+        skeleton={
+          <div className="space-y-4 animate-pulse">
+            <div className="h-24 bg-accent rounded-xl" />
+            <div className="h-24 bg-accent rounded-xl" />
+          </div>
+        }
+        empty={
+          // Not an error state. A company that hasn't turned it on yet, or that
+          // has had a quiet week, gets a sentence and a way forward rather than
+          // an empty grid. It is reachable only on a SUCCESSFUL load — offering
+          // "Set it up" to someone whose receptionist is already running was
+          // the failure this whole change is about.
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <Phone size={22} className="mx-auto text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground mt-3">{t("app.receptionist.empty")}</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              {t("app.receptionist.emptyHint")}
+            </p>
+            <Link
+              href="/app/settings/voice"
+              className="inline-block mt-4 px-5 py-2.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
+            >
+              {t("app.receptionist.setUpCta")}
+            </Link>
+          </div>
+        }
+      >
+        <div className="space-y-6">
       {flagged.length > 0 && (
         <section>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5 mb-2">
@@ -160,6 +173,8 @@ export default function ReceptionistPage() {
           </div>
         </section>
       )}
+        </div>
+      </ListState>
     </div>
   );
 }

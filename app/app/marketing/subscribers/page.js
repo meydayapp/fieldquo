@@ -5,11 +5,12 @@
 // added by hand for people who aren't clients yet.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
-import { fetchJson } from "@/lib/fetchJson";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass =
@@ -17,7 +18,8 @@ const inputClass =
 
 export default function SubscribersPage() {
   const { t } = useTranslation();
-  const [subscribers, setSubscribers] = useState([]);
+  // null until the server answers — see lib/loadState.js.
+  const [subscribers, setSubscribers] = useState(null);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
@@ -26,27 +28,24 @@ export default function SubscribersPage() {
   const [form, setForm] = useState({ email: "", name: "", phone: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // Separate from `error`, which lives inside the add-subscriber modal. A failed
-  // list load used to fall through to `r.ok ? … : []` and render an empty list,
-  // indistinguishable from "no subscribers yet". This surfaces it on the page.
-  const [loadError, setLoadError] = useState("");
+  // Separate from `error`, which lives inside the add-subscriber modal. A
+  // failed list load is not a form validation problem and must not share a
+  // banner with one.
+  const [errorKey, setErrorKey] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const data = await fetchJson("/api/marketing/subscribers");
-      setSubscribers(Array.isArray(data) ? data : []);
-      setLoadError("");
-    } catch (err) {
-      setLoadError(err.message || "Could not load subscribers");
-    } finally {
-      setLoading(false);
-    }
-  }
+    setErrorKey("");
+    const result = await fetchArray("/api/marketing/subscribers");
+    if (result.aborted) return;
+    if (result.ok) setSubscribers(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function handleImport() {
     setImporting(true);
@@ -115,16 +114,7 @@ export default function SubscribersPage() {
     setBusyId(null);
   }
 
-  const subscribedCount = subscribers.filter((s) => s.subscribed).length;
-
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 bg-accent rounded w-1/3" />
-        <div className="h-48 bg-accent rounded-xl" />
-      </div>
-    );
-  }
+  const subscribedCount = (subscribers ?? []).filter((s) => s.subscribed).length;
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -140,12 +130,16 @@ export default function SubscribersPage() {
             <h1 className="text-2xl font-bold text-foreground">
               {t("app.subs.title")}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("app.subs.subtitle", {
-                subscribed: subscribedCount,
-                total: subscribers.length,
-              })}
-            </p>
+            {/* "0 of 0 subscribed" is a claim we have not earned until the
+                server answers. Nothing renders until it does. */}
+            {subscribers && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("app.subs.subtitle", {
+                  subscribed: subscribedCount,
+                  total: subscribers.length,
+                })}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
@@ -169,21 +163,22 @@ export default function SubscribersPage() {
         {importMsg && <p className="text-xs text-muted-foreground mt-2">{importMsg}</p>}
       </div>
 
-      {loadError && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-3 py-2">
-          {loadError}
-        </div>
-      )}
-
-      {subscribers.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            {t("app.subs.empty")}
-          </p>
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={(subscribers ?? []).length === 0}
+        skeleton={<div className="animate-pulse h-48 bg-accent rounded-xl" />}
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              {t("app.subs.empty")}
+            </p>
+          </div>
+        }
+      >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
-          {subscribers.map((s) => (
+          {(subscribers ?? []).map((s) => (
             <div key={s.id} className="p-4 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -226,7 +221,7 @@ export default function SubscribersPage() {
             </div>
           ))}
         </div>
-      )}
+      </ListState>
 
       {showAdd && (
         <div

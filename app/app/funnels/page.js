@@ -16,6 +16,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 import { FUNNEL_TEMPLATES } from "@/lib/funnels/templates";
 
 const CHANNEL_LABEL = {
@@ -27,21 +29,27 @@ const CHANNEL_LABEL = {
 
 export default function FunnelsPage() {
   const router = useRouter();
-  const [funnels, setFunnels] = useState([]);
+  // null until the server answers — see lib/loadState.js.
+  const [funnels, setFunnels] = useState(null);
   const [loading, setLoading] = useState(true);
+  // `error` is for failed MUTATIONS (create/generate/delete) and keeps its own
+  // banner. A failed LOAD is a different thing and goes through ListState, so
+  // the two can never stack up into "here is an error, and also you have
+  // nothing".
   const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
   const [creating, setCreating] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
 
   const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/funnels");
-      if (!res.ok) return reportResponseError(res, setError, "Couldn't load funnels.");
-      setFunnels(await res.json());
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchArray("/api/funnels");
+    if (result.aborted) return;
+    if (result.ok) setFunnels(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -89,9 +97,6 @@ export default function FunnelsPage() {
     if (!res.ok) return reportResponseError(res, setError, "Couldn't delete that funnel.");
     setFunnels((prev) => prev.filter((f) => f.id !== id));
   }
-
-  if (loading)
-    return <div className="p-4 sm:p-6 max-w-5xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
@@ -178,17 +183,24 @@ export default function FunnelsPage() {
         </div>
       )}
 
-      {funnels.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Filter size={30} className="text-muted-foreground mx-auto" />
-          <p className="mt-3 font-medium text-foreground">No funnels yet</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-            Build one from a template or describe it to AI — then share the link on your ads.
-          </p>
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={(funnels ?? []).length === 0}
+        skeleton={<div className="animate-pulse h-96 bg-accent rounded-xl" />}
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Filter size={30} className="text-muted-foreground mx-auto" />
+            <p className="mt-3 font-medium text-foreground">No funnels yet</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
+              Build one from a template or describe it to AI — then share the link on your ads.
+            </p>
+          </div>
+        }
+      >
         <div className="space-y-2">
-          {funnels.map((f) => (
+          {(funnels ?? []).map((f) => (
             <div
               key={f.id}
               className="bg-card border border-border rounded-xl p-4 flex items-center gap-3"
@@ -225,7 +237,7 @@ export default function FunnelsPage() {
             </div>
           ))}
         </div>
-      )}
+      </ListState>
     </div>
   );
 }

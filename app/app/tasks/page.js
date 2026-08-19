@@ -22,6 +22,8 @@ import {
   X,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 
 const PRIORITY_STYLES = {
   urgent: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -40,7 +42,11 @@ function startOfToday() {
 
 export default function TasksPage() {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState([]);
+  // null until the server answers — see lib/loadState.js. This page had the
+  // worst variant of the bug: `r.ok ? r.json() : []` swallowed a 401 into an
+  // empty array before any catch ran, so a refused load rendered "Nothing
+  // outstanding" with no error anywhere on the screen.
+  const [tasks, setTasks] = useState(null);
   const [members, setMembers] = useState([]);
   const [showDone, setShowDone] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -49,23 +55,24 @@ export default function TasksPage() {
   const [busyId, setBusyId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
   const load = useCallback(async () => {
     setError("");
-    try {
-      const [taskList, m] = await Promise.all([
-        fetch("/api/tasks").then((r) => (r.ok ? r.json() : [])),
-        // Assignee list. Non-fatal if it fails — the page still works, you
-        // just can't hand a task to someone else.
-        fetch("/api/settings/members").then((r) => (r.ok ? r.json() : [])),
-      ]);
-      setTasks(Array.isArray(taskList) ? taskList : []);
-      setMembers(Array.isArray(m) ? m : []);
-    } catch {
-      setError(t("app.tasks.loadError"));
-    } finally {
-      setLoading(false);
-    }
+    setErrorKey("");
+    setLoading(true);
+    const [taskResult, memberResult] = await Promise.all([
+      fetchArray("/api/tasks"),
+      // Assignee list. Genuinely non-fatal — the page still works, you just
+      // can't hand a task to someone else — so a failure here degrades the
+      // assignee dropdown and does NOT blank the task list.
+      fetchArray("/api/settings/members"),
+    ]);
+    if (taskResult.aborted) return;
+    if (taskResult.ok) setTasks(taskResult.data);
+    else setErrorKey(taskResult.errorKey);
+    setMembers(memberResult.ok ? memberResult.data : []);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -74,7 +81,7 @@ export default function TasksPage() {
 
   const visible = useMemo(() => {
     const today = startOfToday();
-    return tasks
+    return (tasks ?? [])
       .filter((task) =>
         showDone ? true : !["done", "cancelled"].includes(task.status),
       )
@@ -99,7 +106,7 @@ export default function TasksPage() {
       });
   }, [tasks, showDone]);
 
-  const openCount = tasks.filter(
+  const openCount = (tasks ?? []).filter(
     (task) => !["done", "cancelled"].includes(task.status),
   ).length;
 
@@ -155,11 +162,6 @@ export default function TasksPage() {
     }
   }
 
-  if (loading)
-    return (
-      <div className="p-4 sm:p-6 max-w-3xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
-    );
-
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -174,9 +176,13 @@ export default function TasksPage() {
             Tasks are internal reminders for you and your team. Jobs are
             scheduled work at a client&apos;s address.
           </p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {openCount} {t("app.tasks.open")}{openCount === 1 ? "" : ""}
-          </p>
+          {/* No count at all until the server has answered — "0 outstanding"
+              on a refused load is the same lie as "0 clients total". */}
+          {tasks && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {openCount} {t("app.tasks.open")}
+            </p>
+          )}
         </div>
         <button
           data-tour="tasks-new"
@@ -296,14 +302,21 @@ export default function TasksPage() {
         </div>
       )}
 
-      {visible.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <ListChecks size={30} className="text-muted-foreground mx-auto" />
-          <p className="mt-3 font-medium text-foreground">
-            {showDone ? t("app.tasks.emptyDone") : t("app.tasks.emptyOpen")}
-          </p>
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={visible.length === 0}
+        skeleton={<div className="animate-pulse h-96 bg-accent rounded-xl" />}
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <ListChecks size={30} className="text-muted-foreground mx-auto" />
+            <p className="mt-3 font-medium text-foreground">
+              {showDone ? t("app.tasks.emptyDone") : t("app.tasks.emptyOpen")}
+            </p>
+          </div>
+        }
+      >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {visible.map((task) => {
             const done = ["done", "cancelled"].includes(task.status);
@@ -395,7 +408,7 @@ export default function TasksPage() {
             );
           })}
         </div>
-      )}
+      </ListState>
 
       <button
         data-tour="tasks-showdone"

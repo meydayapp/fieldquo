@@ -1,9 +1,11 @@
 // app/app/invoices/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Receipt, Plus, Search, ArrowRight, AlertCircle } from "lucide-react";
+import { Receipt, Plus, Search, ArrowRight } from "lucide-react";
+import { fetchArray } from "@/lib/loadState";
+import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -15,28 +17,29 @@ const STATUS_STYLES = {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
-  const [invoices, setInvoices] = useState([]);
+  // null until the server answers — see lib/loadState.js. The money tiles below
+  // are the sharpest case for this: "$0.00 outstanding" on a failed load tells
+  // a contractor everyone has paid them.
+  const [invoices, setInvoices] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/invoices");
-        if (!res.ok) throw new Error("Couldn't load invoices.");
-        const data = await res.json();
-        setInvoices(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchArray("/api/invoices");
+    if (result.aborted) return;
+    if (result.ok) setInvoices(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
-  const filtered = invoices.filter((inv) => {
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = (invoices ?? []).filter((inv) => {
     const s = search.toLowerCase();
     return (
       inv.invoiceNumber?.toLowerCase().includes(s) ||
@@ -47,28 +50,23 @@ export default function InvoicesPage() {
   // Money from the per-invoice figures, NOT from status — a partially-paid
   // invoice stays "sent" until fully paid, so counting only status==="paid"
   // reported $600 of a $1,000 invoice as $0 paid / $1,000 outstanding.
-  const totalBilled = invoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
-  const paidAmount = invoices.reduce(
-    (sum, i) => sum + Number(i.amountPaid || 0),
-    0,
-  );
-  const outstanding = invoices.reduce(
-    (sum, i) => sum + Number(i.amountDue ?? i.total ?? 0),
-    0,
-  );
+  //
+  // Each is null while the list is unknown, and the tiles print an em dash for
+  // null. A money figure is the one number on this page nobody double-checks.
+  const money = invoices && {
+    totalBilled: invoices.reduce((sum, i) => sum + Number(i.total || 0), 0),
+    paidAmount: invoices.reduce((sum, i) => sum + Number(i.amountPaid || 0), 0),
+    outstanding: invoices.reduce(
+      (sum, i) => sum + Number(i.amountDue ?? i.total ?? 0),
+      0,
+    ),
+  };
 
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-40 bg-accent rounded" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 bg-accent rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  // "$1,234.50", or "—" when we were not told.
+  const dollars = (value) =>
+    value === null || value === undefined
+      ? "—"
+      : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
@@ -88,37 +86,23 @@ export default function InvoicesPage() {
         </Link>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
       <div data-tour="invoices-stats" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.invoices.totalBilled")}</div>
           <div className="text-xl font-bold text-foreground mt-1">
-            $
-            {totalBilled.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-            })}
+            {dollars(money?.totalBilled)}
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.status.paid")}</div>
           <div className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">
-            $
-            {paidAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {dollars(money?.paidAmount)}
           </div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4">
           <div className="text-xs text-muted-foreground">{t("app.invoices.outstanding")}</div>
           <div className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-            $
-            {outstanding.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-            })}
+            {dollars(money?.outstanding)}
           </div>
         </div>
       </div>
@@ -136,27 +120,40 @@ export default function InvoicesPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Receipt size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {search ? "No invoices match your search." : "No invoices yet."}
-          </p>
-          {!search && (
-            <>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t("app.invoices.emptyHint", "Invoices bill a client for completed work")}
-              </p>
-              <Link
-                href="/app/invoices/new"
-                className="text-sm font-medium text-foreground underline mt-2 inline-block"
-              >
-                {t("app.invoices.empty", "Create your first invoice")}
-              </Link>
-            </>
-          )}
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={filtered.length === 0}
+        skeleton={
+          <div className="animate-pulse space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-accent rounded-xl" />
+            ))}
+          </div>
+        }
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Receipt size={40} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {search ? t("app.invoices.noMatch") : t("app.invoices.emptyTitle")}
+            </p>
+            {!search && (
+              <>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t("app.invoices.emptyHint", "Invoices bill a client for completed work")}
+                </p>
+                <Link
+                  href="/app/invoices/new"
+                  className="text-sm font-medium text-foreground underline mt-2 inline-block"
+                >
+                  {t("app.invoices.empty", "Create your first invoice")}
+                </Link>
+              </>
+            )}
+          </div>
+        }
+      >
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
           {filtered.map((inv) => (
             <Link
@@ -196,7 +193,7 @@ export default function InvoicesPage() {
             </Link>
           ))}
         </div>
-      )}
+      </ListState>
     </div>
   );
 }

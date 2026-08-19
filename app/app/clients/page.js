@@ -1,35 +1,40 @@
 // app/app/clients/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload, AlertCircle } from "lucide-react";
+import { Users, Plus, Search, Phone, MapPin, ArrowRight , Upload } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { fetchArray } from "@/lib/loadState";
+import ListState, { ListCount } from "@/app/components/ListState";
+
 export default function ClientsPage() {
   const { t } = useTranslation();
-  const [clients, setClients] = useState([]);
+  // null, not [] — see lib/loadState.js. An empty array is a claim that there
+  // are zero clients, and this page used to make that claim before the server
+  // had answered, which is how a 401 rendered "0 clients total / No clients
+  // yet" to someone with a full client list.
+  const [clients, setClients] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState("");
+  const [errorKey, setErrorKey] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/clients");
-        if (!res.ok) throw new Error("Couldn't load clients.");
-        const data = await res.json();
-        setClients(Array.isArray(data) ? data : []);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErrorKey("");
+    const result = await fetchArray("/api/clients");
+    if (result.aborted) return;
+    if (result.ok) setClients(result.data);
+    else setErrorKey(result.errorKey);
+    setLoading(false);
   }, []);
 
-  const filtered = clients.filter((c) => {
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filtered = (clients ?? []).filter((c) => {
     const s = search.toLowerCase();
     return (
       c.name?.toLowerCase().includes(s) ||
@@ -38,27 +43,18 @@ export default function ClientsPage() {
     );
   });
 
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6 max-w-6xl mx-auto animate-pulse space-y-4">
-        <div className="h-8 w-40 bg-accent rounded" />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-accent rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{t("app.clients.title")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {clients.length} client{clients.length !== 1 ? "s" : ""} total.
-          </p>
+          {/* Renders nothing while the count is unknown. Not "0", not a dash —
+              a number you were refused is not a number you can print. */}
+          <ListCount count={clients?.length}>
+            {clients?.length === 1
+              ? t("app.clients.countOne")
+              : t("app.clients.count", { count: clients?.length })}
+          </ListCount>
         </div>
         <div className="flex items-center gap-2">
           {/* /app/clients/import worked and was linked from NOTHING — a
@@ -80,13 +76,8 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          {error}
-        </div>
-      )}
-
+      {/* The search box stays mounted through every state — hiding it on error
+          would move the page under the user the moment a retry succeeds. */}
       <div className="relative max-w-sm">
         <Search
           size={16}
@@ -100,22 +91,35 @@ export default function ClientsPage() {
         />
       </div>
 
-      {filtered.length === 0 ? (
-        <div className="bg-card border border-border rounded-xl p-12 text-center">
-          <Users size={40} className="mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">
-            {search ? "No clients match your search." : "No clients yet."}
-          </p>
-          {!search && (
-            <Link
-              href="/app/clients/new"
-              className="text-sm font-medium text-foreground underline mt-2 inline-block"
-            >
-              {t("app.clients.empty")}
-            </Link>
-          )}
-        </div>
-      ) : (
+      <ListState
+        loading={loading}
+        errorKey={errorKey}
+        onRetry={load}
+        isEmpty={filtered.length === 0}
+        skeleton={
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-32 bg-accent rounded-xl" />
+            ))}
+          </div>
+        }
+        empty={
+          <div className="bg-card border border-border rounded-xl p-12 text-center">
+            <Users size={40} className="mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {search ? t("app.clients.noMatch") : t("app.clients.emptyTitle")}
+            </p>
+            {!search && (
+              <Link
+                href="/app/clients/new"
+                className="text-sm font-medium text-foreground underline mt-2 inline-block"
+              >
+                {t("app.clients.empty")}
+              </Link>
+            )}
+          </div>
+        }
+      >
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((client) => (
             <Link
@@ -173,7 +177,7 @@ export default function ClientsPage() {
             </Link>
           ))}
         </div>
-      )}
+      </ListState>
     </div>
   );
 }
