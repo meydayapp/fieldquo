@@ -19,6 +19,14 @@
 // public site will actually show, using the same filter and the same cap, and
 // the screen prints that.
 //
+// ── And where they go once approved ────────────────────────────────────────
+//
+// The iframe snippet below the list is the other half of the same sentence:
+// this is the list, that is how it reaches a website FieldQuo didn't build.
+// It was previously only inside the website builder's "Fine-tune" panel, which
+// a company without the `website_builder` feature — or without a FieldQuo site
+// — cannot open at all.
+//
 // ── Nothing here starts at [] ──────────────────────────────────────────────
 //
 // `list` starts at null. A list that starts empty claims "you have none of
@@ -33,11 +41,13 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import EmbedSnippet from "./EmbedSnippet";
 
 export default function Testimonials() {
   const { t } = useTranslation();
   const [list, setList] = useState(null);
   const [published, setPublished] = useState(0);
+  const [embedSlug, setEmbedSlug] = useState("");
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -59,6 +69,7 @@ export default function Testimonials() {
     const json = await res.json();
     setList(json.testimonials || []);
     setPublished(json.publishedCount || 0);
+    setEmbedSlug(json.embedSlug || "");
     setFailed(false);
   }, [t]);
 
@@ -328,6 +339,9 @@ export default function Testimonials() {
           </ul>
         </>
       )}
+
+      {/* ── Onto a website FieldQuo didn't build ───────────────────────── */}
+      <EmbedSnippet slug={embedSlug} />
 
       {/* ── Add one ────────────────────────────────────────────────────── */}
       <form onSubmit={add} className="space-y-2 pt-1">

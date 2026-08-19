@@ -38,6 +38,7 @@ import {
   Eye, Save, RefreshCw, ImagePlus, Check, AlertCircle, Globe, ChevronDown, Copy,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { embedSnippet } from "@/lib/embed/snippet";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import PairPhotos from "./PairPhotos";
 import { BlockEditor } from "./SectionEditor";
@@ -139,35 +140,19 @@ export default function Builder({ data, onReload }) {
   // it with this one. Their reviews live in FieldQuo either way; this is the
   // only thing that lets them do any selling.
   //
-  // Same mechanism as the booking and quote embeds (Settings → Lead Capture
-  // Form): an iframe at /embed/<slug>/<widget> plus a listener for the height
-  // it posts. A second mechanism would be a second thing to keep working.
-  //
-  // The origin check on the message is the load-bearing line — without it any
-  // framed page on the host's site could resize this iframe by posting the same
-  // message shape.
-  //
-  // height="220" rather than 0: with the listener in place the frame is resized
-  // on load, to 0 when there are no reviews. Starting at 0 would look tidier in
-  // that one case and would leave a contractor whose CMS strips the <script>
-  // with reviews that render into an invisible box — a snippet that appears to
-  // work and doesn't, which is the worse failure of the two.
+  // The snippet itself is lib/embed/snippet.js — the same builder behind the
+  // booking and quote snippets on Settings → Lead Capture Form, and behind the
+  // copy of this block on Settings → Reviews. It is offered in both places on
+  // purpose: this panel is behind the `website_builder` feature and only
+  // renders once a site exists, which excludes exactly the contractor the
+  // embed was built for.
   const embedSlug = data?.company?.bookingSlug || data?.company?.slug || "";
-  const reviewsEmbed =
-    origin && embedSlug
-      ? `<iframe id="fieldquo-reviews" src="${origin}/embed/${embedSlug}/reviews" width="100%" height="220" style="border:none;" title="${t(
-          "app.siteBuilder.reviewsEmbedTitle",
-          "Client reviews",
-        )}"></iframe>
-<script>
-window.addEventListener("message", function (e) {
-  if (e.origin !== "${origin}") return;
-  if (!e.data || e.data.type !== "fieldquo:embed-height") return;
-  var f = document.getElementById("fieldquo-reviews");
-  if (f) f.style.height = e.data.height + "px";
-});
-</script>`
-      : "";
+  const reviewsEmbed = embedSnippet({
+    origin,
+    slug: embedSlug,
+    widget: "reviews",
+    title: t("app.reviewsEmbed.frameTitle", "Client reviews"),
+  });
 
   const previewUrl = site?.subdomain
     ? `/site/${site.subdomain}${previewPage && previewPage !== "home" ? `/${previewPage}` : ""}?preview=1&v=${previewKey}`
@@ -820,18 +805,19 @@ window.addEventListener("message", function (e) {
                     : t("app.siteBuilder.pairsNoneYet", " · none yet")}
                 </button>
                 {/* ── Reviews on a site FieldQuo didn't build ───────────────
-                    Deliberately here and not on a screen of its own: the place
-                    a company adds a review is Sections → What clients say, two
-                    controls above this one. */}
+                    Also on Settings → Reviews, next to the list the reviews
+                    themselves live in. Kept here because a company already
+                    hand-editing sections is a company that will look for it
+                    here — and the two are one string, not two. */}
                 {reviewsEmbed && (
                   <div className="rounded-lg border border-border p-2.5">
                     <span className="text-[11px] font-semibold text-muted-foreground block">
-                      {t("app.siteBuilder.reviewsEmbed", "Your reviews on your own website")}
+                      {t("app.reviewsEmbed.heading", "Your reviews on your own website")}
                     </span>
                     <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
                       {t(
-                        "app.siteBuilder.reviewsEmbedNote",
-                        "Paste this into the website you already have. It shows the reviews from your “What clients say” section in your own colours, with no FieldQuo branding. Until you have one it shows nothing at all and shrinks to no height — so it's safe to put in place first. Keep the script with the iframe: it's what sizes the box.",
+                        "app.reviewsEmbed.note",
+                        "Paste this into the website you already have. It shows the reviews you have approved, in your own colours, with no FieldQuo branding. Until you have one it shows nothing at all and shrinks to no height — so it's safe to put in place first. Keep the script with the iframe: it's what sizes the box.",
                       )}
                     </p>
                     <pre className="mt-2 bg-muted border border-border rounded-lg p-2.5 text-[10px] leading-relaxed overflow-x-auto">

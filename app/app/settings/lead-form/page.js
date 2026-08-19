@@ -30,6 +30,7 @@
 import { useState, useEffect } from "react";
 import { Copy, Check, ExternalLink, FileText, CalendarDays, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { embedSnippet } from "@/lib/embed/snippet";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function ShareBlock({ icon: Icon, title, description, url, embed }) {
@@ -128,29 +129,22 @@ export default function LeadFormPage() {
    * Points at /embed/... rather than the shareable page — same flow, no
    * FieldQuo chrome, and it reports its own height.
    *
-   * The listener is what makes an embedded form usable. Without it the iframe
-   * keeps whatever height was hardcoded, and a visitor who completes the
-   * booking sees the confirmation render below the fold of a box that doesn't
-   * scroll with the page. From where they're sitting nothing happened.
-   *
-   * The origin check on the message is the important line: without it, any
-   * framed page on the host's site could resize this iframe by posting the
-   * same message shape.
+   * Built by lib/embed/snippet.js, which is also what Settings → Reviews and
+   * the website builder hand out for the reviews widget. This page used to
+   * carry its own copy of the string; the reasoning that used to live here —
+   * why the listener matters, why the origin and source checks are both
+   * load-bearing — moved there with it.
    */
-  const embed = (widget) => {
-    const src = `${origin}/embed/${slug}/${widget}`;
-    return `<iframe id="fieldquo-${widget}" src="${src}" width="100%" height="640" style="border:none;" title="${
-      widget === "book" ? t("app.setLeadForm.bookTitle") : t("app.setLeadForm.quoteTitle")
-    }"></iframe>
-<script>
-window.addEventListener("message", function (e) {
-  if (e.origin !== "${origin}") return;
-  if (!e.data || e.data.type !== "fieldquo:embed-height") return;
-  var f = document.getElementById("fieldquo-${widget}");
-  if (f) f.style.height = e.data.height + "px";
-});
-</script>`;
-  };
+  const embed = (widget) =>
+    embedSnippet({
+      origin,
+      slug,
+      widget,
+      title:
+        widget === "book"
+          ? t("app.setLeadForm.bookTitle")
+          : t("app.setLeadForm.quoteTitle"),
+    });
 
   if (!slug) {
     return (

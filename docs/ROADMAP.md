@@ -1136,10 +1136,13 @@ they set the pattern.
   and won't adopt the site builder. The reviews widget renders approved
   testimonials only, in the company's brand, and renders *nothing* when there
   are none — it posts a height of 0 so the frame collapses rather than leaving
-  an empty box on a customer's homepage. Its snippet is on
-  Settings → Website → Fine-tune, which means it is only reachable once a site
-  exists; a company that manages reviews and never builds a site can't find it
-  yet.
+  an empty box on a customer's homepage. All three snippets come from one
+  builder, `lib/embed/snippet.js`, exercised by `npm run check:embed-snippet`
+  (which executes the listener against a fake DOM rather than reading it).
+  The reviews snippet is offered on **Settings → Reviews**, beside the list the
+  reviews live in, as well as on Settings → Website → Fine-tune — the latter is
+  behind the `website_builder` feature and only renders once a site exists,
+  which excluded exactly the contractor the embed was built for.
 - **Website builder + subdomains** — `CompanySite`, rewrite in middleware,
   block renderer, AI draft from a 5-question interview, publish/unpublish.
 - **Client language drives all communication** — not just the PDF.

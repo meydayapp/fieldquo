@@ -41,15 +41,31 @@ export async function GET(request) {
 
   // Unapproved ones are returned too — this is the screen where they get
   // approved, so hiding them here would strand every imported row.
-  const testimonials = await db.testimonial.findMany({
-    where: { companyId: member.companyId },
-    orderBy: TESTIMONIAL_ORDER,
-    select: TESTIMONIAL_SELECT,
-  });
+  //
+  // The slug rides along because the same screen hands out the /embed/<slug>/
+  // reviews snippet, and it is the only other thing that screen needs. The
+  // alternative was a second fetch to /api/settings/business-info, which
+  // geocodes the company address on read — a Google call to render a URL.
+  //
+  // `bookingSlug || slug` is the pair lib/booking/findBookingCompany.js
+  // resolves at the other end; picking one here would build a snippet that
+  // 404s for every company that set a custom booking slug.
+  const [testimonials, company] = await Promise.all([
+    db.testimonial.findMany({
+      where: { companyId: member.companyId },
+      orderBy: TESTIMONIAL_ORDER,
+      select: TESTIMONIAL_SELECT,
+    }),
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { bookingSlug: true, slug: true },
+    }),
+  ]);
 
   return NextResponse.json({
     testimonials,
     publishedCount: publishedCount(testimonials),
+    embedSlug: company?.bookingSlug || company?.slug || "",
   });
 }
 
