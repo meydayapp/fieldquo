@@ -134,6 +134,13 @@ export async function GET(request) {
       ? {
           e164: number.e164,
           display: formatNumber(publicNum),
+          // Formatted HERE, not in the page. lib/voice/numbers.js imports the
+          // database, so a client component importing formatNumber would drag
+          // Prisma into the browser bundle — the same trap that put the consent
+          // strings in their own file. Only sent for a forwarded setup, where
+          // it is a second, different number the contractor needs to see.
+          forwardsToDisplay:
+            number.source === "forwarded" ? formatNumber(number.e164) : null,
           publicNumber: publicNum,
           source: number.source,
           status: number.status,

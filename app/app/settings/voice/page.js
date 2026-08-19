@@ -444,6 +444,36 @@ export default function VoiceSettingsPage() {
               )}
             </div>
 
+            {/* ── The number they are actually paying for ──────────────────
+                A forwarded setup has TWO numbers: the one on the van, which
+                they keep and which is printed above, and a receptionist line
+                we buy for their calls to land on. Only the first was ever
+                shown, with "$4.00/month" beside it — so the card read as a
+                monthly charge for a number they already owned, and the owner
+                reasonably asked why forwarding needed to cost anything.
+
+                It also made the setup impossible to finish. Forwarding is a
+                code dialled on their own handset that names a DESTINATION,
+                and the destination was on screen exactly once, in a toast
+                that disappeared. Printed here it is answerable at any time,
+                including from a phone in a driveway. */}
+            {number.source === "forwarded" && (number.forwardsToDisplay || number.e164) && (
+              <div className="rounded-lg border border-border bg-muted/50 px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {t("app.setVoice.forwardsToLabel", "Forwards to")}
+                </p>
+                <p className="text-base font-semibold text-foreground tabular-nums mt-0.5">
+                  {number.forwardsToDisplay || number.e164}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t(
+                    "app.setVoice.forwardsToNote",
+                    "The receptionist's own line — this is what the monthly rental pays for, and what your forwarding code has to point at. Your clients never dial it; keep giving out the number above.",
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* ── A number that isn't answering yet, and why ─────────────────
                 Porting especially. The row exists, so the card renders, and
                 without this it looked identical to a working number — a
