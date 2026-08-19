@@ -31,8 +31,14 @@ export const TOURS = [
         target: "[data-tour='nav-requests']",
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
-        title: "Requests land here",
-        body: "Every enquiry from your website, booking link or instant estimate shows up in Requests. Start of the pipeline.",
+        // "Leads", not "Requests". The nav item this points at is labelled
+        // Leads on screen — in all six languages — and the tour was reading
+        // the internal message KEY (`app.nav.requests`) instead. A tour that
+        // names a menu item something the menu doesn't say sends someone
+        // hunting for a page that isn't there, on their first minute in the
+        // product.
+        title: "Leads land here",
+        body: "Every enquiry from your website, booking link or instant estimate shows up in Leads. Start of the pipeline.",
       },
       {
         target: "[data-tour='nav-quotes']",
