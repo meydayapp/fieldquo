@@ -87,7 +87,11 @@ async function loadSource(companyId, language) {
     }),
     db.testimonial.findMany({
       where: { companyId, approved: true },
-      orderBy: [{ featured: "desc" }, { sortOrder: "asc" }],
+      // createdAt breaks the tie. Every row that has never been reordered has
+      // sortOrder 0, so without it the "first six" are whatever Postgres
+      // happens to return — and the reviews screen, which lists them in a
+      // stable order, would be showing a different six than it publishes.
+      orderBy: [{ featured: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
       take: 6,
     }),
     recentJobPhotos(companyId, 12),

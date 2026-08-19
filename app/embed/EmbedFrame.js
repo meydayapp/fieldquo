@@ -28,7 +28,7 @@
 
 import { useEffect, useRef } from "react";
 
-export default function EmbedFrame({ children }) {
+export default function EmbedFrame({ children, className = "bg-white" }) {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -37,7 +37,16 @@ export default function EmbedFrame({ children }) {
     // Not inside an iframe — nothing to tell.
     if (window.parent === window) return;
 
-    let last = 0;
+    // null, not 0 — "nothing reported yet" rather than "reported zero".
+    //
+    // A widget that legitimately renders nothing — the reviews embed on a
+    // company with no reviews yet — measures zero, and seeding this at 0 made
+    // the dead band below swallow the only message it would ever send. The
+    // frame then kept the height baked into the snippet: a blank rectangle on
+    // the customer's homepage, which is exactly the artefact the empty case
+    // exists to avoid. (Seeding at -1 doesn't fix it either: |0 − −1| is 1,
+    // still inside the band. It has to be outside the arithmetic.)
+    let last = null;
 
     const report = () => {
       // offsetHeight rather than scrollHeight: scrollHeight of a growing
@@ -45,8 +54,9 @@ export default function EmbedFrame({ children }) {
       // which makes the frame grow every tick and never settle.
       const height = Math.ceil(node.offsetHeight);
       // A dead band. Sub-pixel reflows would otherwise post a message on every
-      // animation frame for the life of the page.
-      if (Math.abs(height - last) < 2) return;
+      // animation frame for the life of the page. The first measurement is
+      // always sent, whatever it is.
+      if (last !== null && Math.abs(height - last) < 2) return;
       last = height;
       window.parent.postMessage(
         { type: "fieldquo:embed-height", height },
@@ -66,7 +76,7 @@ export default function EmbedFrame({ children }) {
   }, []);
 
   return (
-    <div ref={ref} className="bg-white">
+    <div ref={ref} className={className}>
       {children}
     </div>
   );

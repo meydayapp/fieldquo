@@ -12,6 +12,8 @@ import { TRIGGER_META } from "@/lib/followUps/triggers";
 import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { stopKeysFor } from "@/lib/followUps/flow";
+import FlowDiagram from "./FlowDiagram";
 
 // Rules should point at a template meant for this kind of automated send —
 // not a one-off quote/instructions/receipt template.
@@ -184,13 +186,25 @@ export default function FollowUpsPage() {
         </p>
       )}
 
+      {/* Read-only, derived from the rules below — see FlowDiagram.js for why
+          it is a view and not an editor. Renders nothing when there are no
+          rules, so the plain empty sentence below is what a new company sees. */}
+      <FlowDiagram rules={rules} />
+
       {rules.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("app.setFollowUps.empty")}</p>
       ) : (
         <div className="bg-card border border-border rounded-xl divide-y divide-border">
-          {rules.map((rule) => (
-            <div key={rule.id} className="p-4 flex items-center justify-between">
-              <div>
+          {rules.map((rule) => {
+            const meta = TRIGGER_META[rule.triggerEvent];
+            // The same two sentences the diagram draws as a "Stops" node. The
+            // diagram is aria-hidden, so this is where a screen reader — and
+            // anyone who just prefers reading — gets the exit conditions.
+            const { stopKey, onceKey } = stopKeysFor(rule.triggerEvent);
+
+            return (
+            <div key={rule.id} className="p-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground">{rule.name}</span>
                   {!rule.active && (
@@ -201,11 +215,18 @@ export default function FollowUpsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {rule.delayValue} {rule.delayUnit} {t("app.setFollowUps.after")}{" "}
-                  {TRIGGER_META[rule.triggerEvent]?.label || rule.triggerEvent} →{" "}
+                  {meta?.label || rule.triggerEvent} →{" "}
                   {rule.template?.name || t("app.setFollowUps.templateDeleted")}
                 </p>
+                {(stopKey || onceKey) && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {[stopKey && t(stopKey), onceKey && t(onceKey)]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </p>
+                )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => toggleActive(rule)}
                   disabled={busyId === rule.id}
@@ -223,7 +244,8 @@ export default function FollowUpsPage() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -2,7 +2,13 @@
 
 // app/app/settings/reviews/page.js
 //
-// Automatic review requests.
+// Automatic review requests, and the reviews themselves.
+//
+// Two halves of one job: asking for reviews, and putting the ones you have on
+// your website. They share a screen because a contractor who has just set up
+// the ask is the same contractor holding fifty reviews already sitting on
+// Google with nowhere in FieldQuo to put them. The second half is
+// ./Testimonials.js.
 //
 // ── The screen tells you what will actually happen ─────────────────────────
 //
@@ -20,6 +26,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Star, ExternalLink, Loader2, Check, Info } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import Testimonials from "./Testimonials";
 
 const DELAYS = [
   { hours: 2, label: "app.setReviews.delay2h" },
@@ -215,6 +222,9 @@ export default function ReviewSettingsPage() {
           </div>
         </section>
       )}
+
+      {/* ── What to do with the reviews once they exist ────────────────── */}
+      <Testimonials />
 
       {saved && (
         <p className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">

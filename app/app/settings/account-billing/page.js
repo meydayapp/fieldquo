@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { reportResponseError } from "@/lib/clientErrors";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
@@ -111,7 +112,12 @@ function AccountBillingScreen() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || t("app.billing.checkFailed", "Couldn't check your subscription with Stripe."));
+        // Through the shared mapper, not straight into the banner. The QA pass
+        // that found this page saw the literal word "Unauthorized" printed as
+        // user-facing copy — `data.error` is the API's field, and the auth
+        // middleware fills it with a bare protocol word. reportResponseError
+        // swaps those for a sentence and keeps the raw value for the console.
+        reportResponseError(res, setError, t("app.billing.checkFailed", "Couldn't check your subscription with Stripe."));
       } else if (data.reconciled) {
         await load();
       } else {
@@ -194,12 +200,18 @@ function AccountBillingScreen() {
       const res = await fetch("/api/platform/billing/portal", {
         method: "POST",
       });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.error || t("app.billing.portalFailed", "Could not open billing portal"));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // This button used to fail in TOTAL SILENCE — no banner, no spinner, no
+        // tab — so a customer whose billing was already broken clicked it
+        // repeatedly assuming a slow connection. Both self-serve recovery paths
+        // on this page were dead at once.
+        reportResponseError(res, setError, t("app.billing.portalFailed", "Could not open billing portal"));
+        return;
+      }
       window.location.href = data.url;
-    } catch (err) {
-      setError(err.message);
+    } catch {
+      setError(t("app.billing.portalUnreachable", "Couldn't reach the server to open billing. Please try again."));
       setOpeningPortal(false);
     }
   }

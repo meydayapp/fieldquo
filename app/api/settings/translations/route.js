@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { isSupported } from "@/app/i18n/languages";
+import { isAiConfigured } from "@/lib/ai/provider";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -77,6 +78,14 @@ export async function GET(request) {
     missing: items.filter((i) => i.missing).length,
     unreviewed: items.filter((i) => !i.reviewed && !i.missing).length,
     items,
+    // Whether the "fill in the blanks" button should exist at all. Local dev and
+    // any deployment without OPENAI_API_KEY genuinely cannot draft, and a button
+    // that renders and then explains why it can't work is the dead control
+    // AGENTS.md keeps finding. The page prints a sentence instead.
+    aiAvailable: isAiConfigured(),
+    // Drafting spends the company's AI allowance, so it carries the same bar as
+    // editing the catalogue. A supervisor can still review and save by hand.
+    canDraft: member.role === "owner" || member.role === "admin",
   });
 }
 

@@ -310,15 +310,46 @@ model Testimonial {
   // Never published without an explicit approval step. Default false so a
   // draft can't reach the public site by omission.
   approved     Boolean  @default(false)
-  // Only ever used as a sort key (orderBy in /api/settings/website), and nothing in
-  // the product can set it — so testimonial ordering by "featured" is currently
-  // inert. Either add a toggle where testimonials are managed or drop the orderBy;
-  // leaving it implies a control that doesn't exist.
+  // Still nothing in the product sets this, so the `featured desc` leading
+  // every orderBy remains inert — it just sorts an all-false column. Ordering
+  // is done with sortOrder instead, which /app/settings/reviews now writes via
+  // the up/down arrows. Left in place rather than dropped because removing a
+  // column is the one edit that cannot be undone by editing code; it should go
+  // in a deliberate schema pass, not as a side effect of adding a screen.
   featured     Boolean  @default(false)
+  // Set by the reorder arrows on /app/settings/reviews. Ties (every row that
+  // has never been reordered is 0) are broken by createdAt in every query, so
+  // the six that get published are the six the screen shows at the top.
   sortOrder    Int      @default(0)
+  // Where the words came from. "manual" (typed in), "csv" (pasted or uploaded
+  // in bulk). A future "google" would mean the words are Google's Content, not
+  // the contractor's, and the Business Profile API policies bind what may be
+  // done with them — 30-day storage, unaltered, attributed. Recording the
+  // origin now is what makes it possible to honour that later without
+  // guessing which rows arrived how. See docs/ROADMAP.md.
+  source       String   @default("manual")
+  // Stable identity WITHIN a source, so a second import of the same list
+  // updates rather than duplicates. For pasted/CSV rows there is no upstream
+  // id, so it is a hash of the author and the words — re-pasting a corrected
+  // spelling of the quote is correctly a new row, re-pasting the same one is
+  // not. A Google row would carry Google's review name here instead.
+  externalId   String?
   createdAt    DateTime @default(now())
+  // @default(now()) so adding the column backfills the rows that predate it;
+  // @updatedAt keeps it current from then on.
+  updatedAt    DateTime @default(now()) @updatedAt
 
   @@index([approved, sortOrder])
+  // The query every caller actually runs is companyId + approved, ordered.
+  // The index above matches none of it and was left in place only because
+  // dropping an index is not free to reason about on a live table.
+  @@index([companyId, approved, sortOrder])
+  // Identity is scoped to the company and the id ALONE, deliberately not to
+  // the source as well: the same review typed in by hand and later pasted in a
+  // bulk list is one testimonial, and including the source in the key would
+  // publish it twice. Nulls are distinct in Postgres, so the rows that predate
+  // this — every one of which has a null externalId — do not collide.
+  @@unique([companyId, externalId])
 }
 
 model CustomField {

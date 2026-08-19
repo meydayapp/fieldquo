@@ -16,7 +16,10 @@
 export default function EmbedNotFound() {
   return (
     <div className="p-6 text-sm text-neutral-600">
-      This booking form isn&apos;t available. Please check the embed code.
+      {/* Not "this booking form" any more — the same route serves the quote
+          form and the reviews strip, and a reviews embed that reports itself
+          as a broken booking form sends the contractor to the wrong setting. */}
+      This embed isn&apos;t available. Please check the embed code.
     </div>
   );
 }

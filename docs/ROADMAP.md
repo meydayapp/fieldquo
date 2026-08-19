@@ -957,6 +957,42 @@ they set the pattern.
   saying so; renaming a job re-armed every follow-up on it. One write site
   (`/api/jobs/[id]` PATCH), so it can't be bypassed.
 
+- **Follow-ups show the flow** (`/app/settings/follow-ups`) — a read-only
+  diagram above the existing list: trigger → wait → send → stop, one vertical
+  spine per trigger, Power-Automate-shaped because Power Automate's own flow
+  view is vertical and a pan-and-zoom node graph is worse than a list on a
+  390px phone. Deliberately NOT an editor; editing stays in the list.
+  `lib/followUps/flow.js` derives it from real `FollowUpRule` rows plus
+  `TRIGGER_META`, so a paused rule looks paused, a rule whose template was
+  deleted looks broken, and a trigger this build doesn't know says it never
+  runs — all three matching what the cron actually does.
+  `npm run check:follow-up-flow` (44 checks) parses the cron route and fails if
+  the picture and the behaviour stop agreeing. The diagram is `aria-hidden`;
+  the list prints the same stop conditions in words, which is what makes that
+  honest. No rules renders nothing at all rather than an empty canvas.
+
+- **Catalogue translations can be drafted in bulk**
+  (`/app/settings/translations`, `/api/settings/translations/draft`) — one
+  button fills every missing service name and description for a language. It
+  went through `lib/ai/provider.js` rather than adding Google Cloud
+  Translation: better on the input that matters (bare trade terms like "trim",
+  "coat", "run" need the batch and a system prompt for context, which a
+  per-string translation API can't have), cheaper past Google's free tier, no
+  second vendor or secret — `npm run check:env` still reports 41 variables —
+  and it inherits the existing `checkAiQuota`/`recordAiUsage` metering instead
+  of opening an unmetered second spending path.
+
+  **The route writes nothing.** Drafts land in the form fields marked "AI draft
+  — read it before saving"; the existing PATCH that stamps `reviewed: true` is
+  still the only thing that persists anything. This does not weaken AGENTS.md
+  non-negotiable 6 — a company's own catalogue at authoring time is not a
+  document at send time, and both `lib/i18n/translateContent.js` and the route
+  say so at length so nobody reads it as precedent.
+  `npm run check:translation-draft` (41 checks) holds the boundary and the
+  metering, and executes the model-reply sanitiser against out-of-range,
+  repeated, fractional and non-string indices — a row landing on the wrong
+  product is a wrong trade term on a homeowner's quote.
+
 - **Website generation is composition-driven** — the reason every generated site
   used to look identical was not the prompt. `siteFromCompany()` returned one
   hardcoded list of ten blocks in one hardcoded order and `merge()` mapped over
@@ -1074,9 +1110,15 @@ they set the pattern.
 - **Layout variants** — 3 hero, 3 services. The model picks from a closed set
   and is told whether a photo exists. This, not a bigger model, is the lever
   for a page that looks modern.
-- **Embeddable widgets** — `/embed/<slug>/<book|quote>` with iframe height
-  reporting, for the majority of contractors who already have a website and
-  won't adopt the site builder.
+- **Embeddable widgets** — `/embed/<slug>/<book|quote|reviews>` with iframe
+  height reporting, for the majority of contractors who already have a website
+  and won't adopt the site builder. The reviews widget renders approved
+  testimonials only, in the company's brand, and renders *nothing* when there
+  are none — it posts a height of 0 so the frame collapses rather than leaving
+  an empty box on a customer's homepage. Its snippet is on
+  Settings → Website → Fine-tune, which means it is only reachable once a site
+  exists; a company that manages reviews and never builds a site can't find it
+  yet.
 - **Website builder + subdomains** — `CompanySite`, rewrite in middleware,
   block renderer, AI draft from a 5-question interview, publish/unpublish.
 - **Client language drives all communication** — not just the PDF.
@@ -1182,3 +1224,114 @@ them.
    crawler is the audience.
 4. **Redirects must be 308, and old prefix-less URLs must keep working** —
    every referral card, van decal and Google result currently points at them.
+
+## Google Business Profile review import (researched, blocked, not started)
+
+**Verdict: this cannot ship until Google approves an application FieldQuo has
+not yet made, and even then it is not the feature it sounds like.** What did
+ship is the half that does not need Google: reviews can be typed in, pasted, or
+uploaded as CSV on `/app/settings/reviews`, and they reach the website. See
+`lib/reviews/testimonials.js` and `app/api/settings/testimonials/`.
+
+### The two blockers, in the order they bite
+
+**1. The endpoint returns nothing until Google approves you.**
+
+Reviews are served only by the legacy v4 API — `GET
+https://mybusiness.googleapis.com/v4/{parent=accounts/*/locations/*}/reviews`
+([reference](https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list)).
+The newer split-out APIs (Account Management v1.1, Business Information v1,
+Performance v1, …) do **not** carry reviews; there is no v1 replacement, and
+much of the rest of v4 is marked deprecated. So the integration would be built
+against Google's own legacy surface.
+
+Access is not self-serve. Per
+[Prerequisites](https://developers.google.com/my-business/content/prereqs) you
+must submit the **"Application for Basic API Access"** on the [GBP API contact
+form](https://support.google.com/business/contact/api_default), from an email
+that is an owner/manager on a Google Business Profile that has been *verified
+and active for 60+ days*, with a website, quoting your Cloud project number.
+[Quota limits](https://developers.google.com/my-business/content/limits) states
+it plainly: *"If your quota limit for the Google Business Profile API is 0, you
+have not yet been granted access."* Approved projects get 300 QPM. Reported
+turnaround runs from days to several weeks.
+
+There is no sandbox, no test mode, and no partial capability. **Before
+approval, every call fails.** An OAuth button shipped today would be a control
+that appears to work and doesn't — the exact thing AGENTS.md forbids.
+
+**2. Even approved, the policies forbid what "import my reviews" means.**
+
+[Business Profile API Policies](https://developers.google.com/my-business/content/policies):
+*"You cannot pre-fetch, cache, index, or store any content provided through the
+Business Profile APIs ("Content") for use outside of your Business Profile
+project except for limited amounts of Content."* The permitted exception is
+narrow — storage *"only to improve the performance of your project"*, and it
+*"must be stored temporarily for no more than 30 calendar days"*, *"must be
+stored securely"*, and *"cannot be manipulated or aggregated in any way"*.
+Attribution is mandatory and must not be altered.
+
+A `Testimonial` row is permanent, editable, reorderable and re-worded by the
+contractor. That is storage beyond 30 days, and it is manipulation. **Google
+review content cannot become a FieldQuo testimonial.** The compliant shape is a
+different feature: a *cache*, refreshed on a schedule inside the 30-day
+window, rendered with Google attribution, showing exactly what Google returned,
+and disappearing when Google stops returning it (which is also how an edited or
+deleted review gets honoured — there is no deletion webhook, so re-fetching is
+the only mechanism).
+
+Note the asymmetry that makes the shipped feature legitimate: a contractor who
+copies their own reviews across by hand is not FieldQuo using the API, and none
+of the above binds it.
+
+### Also settled by the research, so nobody re-does it
+
+- **Scope:** one — `https://www.googleapis.com/auth/business.manage`
+  ([basic setup](https://developers.google.com/my-business/content/basic-setup)).
+  It is sensitive, so the consent screen needs Google's [sensitive scope
+  verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)
+  — justification plus a demo video, and a published branding status first —
+  before anyone outside the test-user list can consent. That is a *second*
+  review queue, independent of the API access application, and both must clear.
+- **Multi-tenant:** one Cloud project is correct and sufficient. Access is
+  granted at project level, and the merchant either adds the partner as a
+  manager of their profile or authorises via OAuth
+  ([FAQ](https://developers.google.com/my-business/content/faq)). Contractors
+  do **not** need their own projects. FieldQuo holds one client ID and one
+  refresh token per connected contractor.
+- **Quota:** 300 QPM once approved, shared across the whole project — i.e.
+  across every contractor. At one refresh per contractor per day that is fine;
+  at "refresh on every page view" it is not. Increases are refused unless
+  average usage is already above 50% of the current limit and smooth rather
+  than spiky.
+- **Replies are possible**, not just reads:
+  `accounts.locations.reviews.updateReply`. But the policies require that *"If
+  you respond to reviews on behalf of your end-client, you must receive their
+  authorization first"* and forbid triggering replies *"without the user's
+  prior specific and express consent"* — so no AI auto-reply without an
+  explicit per-reply confirmation.
+
+### If and when access is granted — the shape to build
+
+Not `Testimonial` rows. A separate `GoogleReview` model keyed by Google's
+review name, carrying `fetchedAt`, rendered by the site's testimonials block
+alongside the contractor's own quotes, with Google attribution, refreshed by a
+cron well inside 30 days and **purged when a refresh no longer returns it**.
+`Testimonial.source` and `Testimonial.externalId` exist today so that the
+distinction is representable and the two sets never get confused; nothing
+writes `source: "google"`, and nothing should until the above is true.
+
+### Things that will bite
+
+1. **The 60-day-active-profile prerequisite applies to FieldQuo's own Business
+   Profile**, not to the contractors'. If FieldQuo has no verified GBP, the
+   application cannot be made at all — that is the first thing to check.
+2. **Two review queues, not one.** API access and sensitive-scope verification
+   are separate. Passing one tells you nothing about the other.
+3. **Storing a refresh token per contractor is a credential store**, with
+   revocation, re-consent on scope change, and the usual handling. There is no
+   such store in FieldQuo today.
+4. **Do not let the 30-day rule become "we'll refresh eventually".** A cron
+   that silently stops leaves stale Google content on a public page past the
+   window. It needs the same visible proof-of-life the review-request queue
+   count gives on `/app/settings/reviews`.
