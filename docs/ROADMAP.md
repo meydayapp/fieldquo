@@ -312,8 +312,11 @@ endpoint with a tampered POST.
   code references but the catalogue doesn't define.
 - `app/(marketing)` is **partly** extracted, not untouched as this line used to
   claim: the shared components (header, hero, FAQ, footer, pricing card) all use
-  `t()` and are complete in six languages. The marketing PAGES — pricing, about,
-  careers, contact, terms, privacy, resources — are still hardcoded English.
+  `t()` and are complete in six languages, as do the pricing, resources and
+  careers pages. The remaining hardcoded-English PAGES are about, contact, terms
+  and privacy. Per-page `metadata` stays English on purpose — it is one string
+  per page and Next resolves it on the server, before the visitor's language is
+  known.
 - `getConversionRate` returns a single period, but marketing copy promises
   "up from 31% last month". Either compute the prior period or change the copy.
 - The gallery block ships empty by design (no stock photos). Consider pulling
