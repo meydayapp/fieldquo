@@ -1981,6 +1981,20 @@ model JobChecklistTemplate {
   /// expected to be run again every time the item lists are improved.
   systemKey String? @unique
 
+  /// Everything about a checklist that is neither its name nor its steps:
+  /// description, who normally runs it, roughly how long it takes, what has to
+  /// be true before you start, and which roles sign it off.
+  ///
+  /// One Json column rather than five scalars because these are DESCRIPTIVE —
+  /// nothing queries or filters on them, they are rendered next to the list so
+  /// somebody picking one knows what they are picking. Five nullable columns
+  /// that only the construction library ever fills would be five columns most
+  /// rows leave empty.
+  ///
+  /// Null for every hand-written and residential-trade template, which is the
+  /// honest answer: nobody stated a sign-off role for "mask the baseboards".
+  meta Json?
+
   createdAt DateTime @default(now())
 
   @@index([companyId])

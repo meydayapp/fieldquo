@@ -53,9 +53,20 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   // Opt-in, because the settings screen lists what the company owns and the
-  // job page wants suggestions too. Defaulting to "include" would put 180-odd
+  // job page wants suggestions too. Defaulting to "include" would put 250-odd
   // seeded rows into the settings list as if the company had written them.
   const includeSystem = searchParams.get("includeSystem") === "1";
+
+  // A free-text search over the WHOLE system library, not just the trades this
+  // company switched on.
+  //
+  // The enabled-trades filter below is right for suggestions — a painter
+  // shouldn't scroll past a chimney sweep to find "mask the baseboards". It is
+  // wrong for search: a general contractor looking for "rebar" has a real
+  // reason to want the concrete list and no reason to have to enable the
+  // Concrete trade first to see it exists. Searching is a deliberate act; a
+  // suggestion is not.
+  const query = String(searchParams.get("q") || "").trim();
 
   const own = await db.jobChecklistTemplate.findMany({
     where: { companyId: member.companyId },
@@ -74,11 +85,32 @@ export async function GET(request) {
   });
   const enabledIds = enabled.map((row) => row.categoryId);
 
-  const system = enabledIds.length
+  // With a search term the trade filter is dropped entirely; without one it is
+  // the whole point. Two shapes of the same query rather than a conditional
+  // spread, so it stays obvious which branch a request took.
+  const systemWhere = query
+    ? {
+        companyId: null,
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { category: { label: { contains: query, mode: "insensitive" } } },
+        ],
+      }
+    : enabledIds.length
+      ? { companyId: null, categoryId: { in: enabledIds } }
+      : null;
+
+  const system = systemWhere
     ? await db.jobChecklistTemplate.findMany({
-        where: { companyId: null, categoryId: { in: enabledIds } },
+        where: systemWhere,
         include: { category: { select: { id: true, label: true } } },
         orderBy: [{ categoryId: "asc" }, { phase: "asc" }],
+        // Capped so a one-letter search can't return the entire library and
+        // stall a phone rendering 250 rows. The cap is deliberately above the
+        // 88-row construction library, so a trade-group search still returns
+        // that group whole rather than a truncated slice a user would read as
+        // "that's all there is".
+        take: query ? 120 : undefined,
       })
     : [];
 
