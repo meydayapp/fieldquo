@@ -131,9 +131,12 @@ export default function DashboardPage() {
       <OnboardingProgress
         status={onboarding}
         onEmployeeAdded={() => {
-          fetch("/api/onboarding-status")
+          // no-store, same as the first load: this refetch exists precisely
+          // because the numbers just changed, and a cached copy would show the
+          // count the contractor is trying to watch move.
+          fetch("/api/onboarding-status", { cache: "no-store" })
             .then((r) => (r.ok ? r.json() : null))
-            .then(setOnboarding);
+            .then((data) => data && setOnboarding(data));
         }}
       />
 

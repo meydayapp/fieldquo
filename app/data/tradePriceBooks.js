@@ -352,8 +352,17 @@ export const TRADE_PRICE_BOOKS = {
 
 /* ── Access ────────────────────────────────────────────────────────────── */
 
+// Category keys come from the database, so a lookup must be an OWN-property
+// lookup: TRADE_PRICE_BOOKS["__proto__"] and ["constructor"] are truthy on any
+// plain object, which made hasPriceBook("constructor") true and handed
+// getPriceBook a book that is really Object.prototype. Same reasoning as the
+// prototype guard in mergeDeep below — inherited keys are never a trade.
+function ownEntry(map, key) {
+  return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : undefined;
+}
+
 export function hasPriceBook(categoryKey) {
-  return Boolean(TRADE_PRICE_BOOKS[categoryKey]);
+  return Boolean(ownEntry(TRADE_PRICE_BOOKS, categoryKey));
 }
 
 /**
@@ -365,7 +374,7 @@ export function hasPriceBook(categoryKey) {
  * the travel fee" into "I renamed the travel fee to the next item down".
  */
 export function getPriceBook(categoryKey, overrides) {
-  const base = TRADE_PRICE_BOOKS[categoryKey];
+  const base = ownEntry(TRADE_PRICE_BOOKS, categoryKey);
   if (!base) return null;
   if (!overrides || typeof overrides !== "object") return base;
   return mergeDeep(base, overrides);
@@ -511,4 +520,92 @@ export function readField(book, path) {
   return String(path)
     .split(".")
     .reduce((node, part) => (node == null ? undefined : node[part]), book);
+}
+
+/* ── What a trade is priced BY ─────────────────────────────────────────── */
+//
+// Settings > Services used to offer a generic "flat rate / per unit / hourly"
+// choice for every trade. None of those is how a cabinet shop prices (per door
+// and per drawer), or a stair refinisher (per tread, riser, baluster, newel
+// post), or a painter (per sq ft) — and nothing downstream ever read the
+// stored choice, so picking one changed no price anywhere.
+//
+// The units below are DERIVED from the field declarations above rather than
+// listed a second time. A second list is the copy that rots: it would be the
+// one nobody looks at when a trade's rates change. A trade added to the book
+// later describes itself here with no edit.
+
+// Path prefixes that price an EXTRA rather than the main scope. A soft-close
+// hinge is charged per door, but "per door" is not what the job is quoted by.
+const EXTRA_PREFIXES = [
+  "addOns.",
+  "extras.",
+  "global.",
+  "doorMaterials.",
+  "complexityUpchargePerUnit.",
+];
+
+// "$ / tread" -> "tread". "$ flat", "$" and "%" name a whole-job price or a
+// margin, not a unit of work, so they return null and drop out.
+function unitFromSuffix(suffix) {
+  const match = /^\$\s*\/\s*(.+)$/.exec(String(suffix || "").trim());
+  return match ? match[1].trim() : null;
+}
+
+/**
+ * The units this trade actually charges by, in the order the book declares
+ * them — [{ label: "Per door", unit: "door" }, ...].
+ *
+ * Complexity tiers repeat the same rows once per level; the first occurrence
+ * of a label wins, because a tier moves the NUMBER, not the unit. A trade
+ * priced from a supplier's invoice (countertop) has no per-unit basis at all
+ * and correctly returns [] — that absence is a fact about the trade, not a
+ * gap to pad with a default.
+ */
+export function priceBookBasis(categoryKey) {
+  const fields = ownEntry(PRICE_BOOK_FIELDS, categoryKey) || [];
+  const seen = new Set();
+  const basis = [];
+  for (const field of fields) {
+    if (field.internal) continue;
+    if (EXTRA_PREFIXES.some((prefix) => field.path.startsWith(prefix))) continue;
+    const unit = unitFromSuffix(field.suffix);
+    if (!unit || seen.has(field.label)) continue;
+    seen.add(field.label);
+    basis.push({ label: field.label, unit });
+  }
+  return basis;
+}
+
+/**
+ * The complexity tiers this trade's rates move with, or null when they don't.
+ *
+ * Two shapes exist: a full grid keyed by level (stairs, flooring, painting)
+ * and a per-unit dollar uplift (cabinets). Both mean "the estimator picks a
+ * tier and the rates change", which is the only thing a settings screen needs
+ * to say, so both collapse to the same answer here.
+ */
+export function priceBookComplexity(categoryKey) {
+  const book = ownEntry(TRADE_PRICE_BOOKS, categoryKey);
+  if (!book) return null;
+  const grid = book.complexity || book.complexityUpchargePerUnit;
+  if (!grid) return null;
+  const levels = COMPLEXITY_LEVELS.filter((level) => grid[level.value] !== undefined);
+  return levels.length ? levels : null;
+}
+
+/**
+ * Every unit any trade in the book charges by.
+ *
+ * Offered as suggestions on the ~50 catalog trades that have no book of their
+ * own yet, so a tiler typing a unit reaches for the same word a flooring
+ * installer already uses. "hour" and "job" are appended by the caller: no
+ * trade in the book is time-priced, so neither can be derived from it.
+ */
+export function allPriceBookUnits() {
+  const units = new Set();
+  for (const key of Object.keys(PRICE_BOOK_FIELDS)) {
+    for (const { unit } of priceBookBasis(key)) units.add(unit);
+  }
+  return [...units];
 }

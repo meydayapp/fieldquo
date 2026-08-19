@@ -154,6 +154,24 @@ export default function QuotesPage() {
                     >
                       {q.status}
                     </span>
+                    {/* An instant estimate's review state, which `status` alone
+                        cannot express. Approving one in Estimate Reviews clears
+                        needsReview but deliberately leaves the quote in `draft`
+                        — approval is the company confirming the PRICE, not the
+                        client accepting the quote. Without this the list showed
+                        a bare "draft" either side of the approval, so the
+                        approval looked like it hadn't registered and the next
+                        step (send it) was invisible. */}
+                    {q.autoEstimated && q.needsReview && (
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                        {t("app.quotes.needsReview")}
+                      </span>
+                    )}
+                    {q.autoEstimated && !q.needsReview && q.status === "draft" && (
+                      <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                        {t("app.quotes.approvedReadyToSend")}
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground truncate">
                     {q.client?.name || "Unknown client"}

@@ -1,4 +1,9 @@
-// app/api/team/quick-add/route.js — only the invitation block changes
+// app/api/team/quick-add/route.js
+//
+// The dashboard onboarding card's "Add Employee" popup. Creates the Worker
+// row, the invitation, and the PendingTeamProfile that carries the granular
+// permissions until the invite is accepted — the same three things the full
+// New User page does, minus the permission grid.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -11,6 +16,7 @@ import {
   toBetterAuthRole,
 } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
+import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 
 export async function POST(request) {
   const member = await getCurrentMember(request);
@@ -37,6 +43,7 @@ export async function POST(request) {
   }
 
   const {
+    name,
     firstName,
     lastName,
     email,
@@ -44,15 +51,25 @@ export async function POST(request) {
     address,
     city,
     province,
+    postalCode,
+    country,
     role,
     workerType,
     hourlyRate,
     permissions,
   } = await request.json();
 
-  if (!firstName || !lastName || !email) {
+  // `name` is what the full New User page sends, and now what the popup sends
+  // too. firstName/lastName is still accepted so an older client (or a phone
+  // that hasn't reloaded) keeps working rather than 400-ing on a field it has
+  // no idea it should have stopped sending.
+  const fullName =
+    String(name || "").trim() ||
+    `${String(firstName || "").trim()} ${String(lastName || "").trim()}`.trim();
+
+  if (!fullName || !email) {
     return NextResponse.json(
-      { error: "First name, last name, and email are required" },
+      { error: "Name and email are required" },
       { status: 400 },
     );
   }
@@ -97,7 +114,24 @@ export async function POST(request) {
   }
   if (pendingInvite) {
     return NextResponse.json(
-      { error: "That email already has an invitation waiting. Resend it from Manage Team instead." },
+      {
+        error:
+          "That email already has an invitation waiting. Cancel it on the Team page if you need to send a fresh one.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // Same guard as POST /api/settings/members: a company with no authOrgId
+  // can't be invited into, and Better Auth's error for organizationId: null is
+  // not something to put in front of a person. Checked BEFORE the Worker row
+  // exists so there's nothing to roll back.
+  if (!member.authOrgId) {
+    return NextResponse.json(
+      {
+        error:
+          "This company isn't fully set up for invitations yet. Contact support and quote your company name.",
+      },
       { status: 409 },
     );
   }
@@ -105,7 +139,7 @@ export async function POST(request) {
   const worker = await db.worker.create({
     data: {
       companyId: member.companyId,
-      name: `${firstName} ${lastName}`.trim(),
+      name: fullName,
       email: cleanEmail,
       phone: phone || null,
       address: address || null,
@@ -152,22 +186,45 @@ export async function POST(request) {
     create: {
       companyId: member.companyId,
       email: cleanEmail,
-      name: `${firstName} ${lastName}`.trim(),
+      name: fullName,
       phone: phone || null,
       address: address || null,
       city: city || null,
       province: province || null,
+      postalCode: postalCode || null,
+      country: country || null,
       laborCostPerHour: hourlyRate ? Number(hourlyRate) : null,
       permissions: permissions || presetPermissionsFor(role),
       role,
     },
     update: {
-      name: `${firstName} ${lastName}`.trim(),
+      name: fullName,
       phone: phone || null,
+      address: address || null,
+      city: city || null,
+      province: province || null,
+      postalCode: postalCode || null,
+      country: country || null,
+      laborCostPerHour: hourlyRate ? Number(hourlyRate) : null,
       permissions: permissions || presetPermissionsFor(role),
       role,
     },
   });
 
-  return NextResponse.json({ worker, invite }, { status: 201 });
+  // Did the invitation email actually go? Better Auth calls the send hook
+  // itself and swallows any error it throws, so asking afterwards is the only
+  // way to know — see lib/email/teamInvite.js. Reported rather than assumed:
+  // "invite sent" when nothing was sent is the exact bug this route shipped
+  // with, and the person waiting by their inbox is the one who pays for it.
+  const emailOutcome = takeInviteEmailOutcome(member.authOrgId, cleanEmail);
+
+  return NextResponse.json(
+    {
+      worker,
+      invite,
+      emailSent: emailOutcome.sent,
+      emailError: emailOutcome.sent ? undefined : emailOutcome.error,
+    },
+    { status: 201 },
+  );
 }

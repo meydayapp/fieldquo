@@ -33,7 +33,30 @@ export async function GET(request, { params }) {
         },
       },
       quotes: { orderBy: { createdAt: "desc" } },
-      invoices: { include: { payments: true }, orderBy: { createdAt: "desc" } },
+      // ── Only invoices that have actually been ISSUED ──────────────────
+      //
+      // This returned every invoice, drafts included, and ClientPortal counts
+      // what it gets into "Balance owing" and the unpaid list. A draft is an
+      // internal staging document — the contractor is still deciding the
+      // figure — so a homeowner was being shown money owed on a bill nobody
+      // had sent them, and could pay it.
+      //
+      // That was already possible; it becomes routine now that accepting a
+      // quote creates a draft invoice automatically, so the predicate has to
+      // be right rather than incidental.
+      //
+      // Issued means one of two things, because there are two honest routes to
+      // it: `sentAt` is stamped only after Resend accepts the email (never by
+      // a button that merely changes a word — see the field's own comment), and
+      // a status past draft covers an invoice settled in person and marked paid
+      // without email ever being involved. A draft with neither is not a bill
+      // yet, and the client's own copy should not be where they find out
+      // otherwise.
+      invoices: {
+        where: { OR: [{ sentAt: { not: null } }, { status: { not: "draft" } }] },
+        include: { payments: true },
+        orderBy: { createdAt: "desc" },
+      },
       jobs: { include: { visits: true }, orderBy: { createdAt: "desc" } },
     },
   });

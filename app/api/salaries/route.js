@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { validateSalary } from "@/lib/overhead/salaryInput";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -35,22 +36,20 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { workerId, name, amount, frequency, startDate } = body;
+  const { workerId, name, amount, frequency, hoursPerWeek, startDate } = body;
 
-  if (!name || !amount) {
-    return NextResponse.json(
-      { error: "name and amount are required" },
-      { status: 400 },
-    );
-  }
+  const validation = validateSalary({ name, amount, frequency, hoursPerWeek });
+  if (validation.error)
+    return NextResponse.json({ error: validation.error }, { status: 400 });
 
   const salary = await db.salary.create({
     data: {
       companyId: member.companyId,
       workerId: workerId || null,
-      name,
-      amount,
-      frequency: frequency || "monthly",
+      name: validation.name,
+      amount: validation.amount,
+      frequency: validation.frequency,
+      hoursPerWeek: validation.hoursPerWeek,
       startDate: startDate ? new Date(startDate) : new Date(),
     },
   });

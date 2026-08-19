@@ -5,12 +5,36 @@ import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
 import RateCard from "./RateCard";
+import {
+  hasPriceBook,
+  priceBookBasis,
+  priceBookComplexity,
+  allPriceBookUnits,
+} from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function emptyCustomForm() {
   return { label: "", fieldKeys: [] };
+}
+
+// Suggestions for the ~50 catalog trades with no price book of their own. The
+// list is the union of what the books already charge by, so a tiler reaches for
+// the same word a flooring installer uses instead of inventing "sq.ft.". Free
+// text still wins — `unit` is a label on a line item, not an enum, and forcing
+// a picker would strip units companies have already saved.
+// "hour" and "job" are added here because no trade in the book is time-priced
+// or whole-job priced, so neither can be derived from it.
+const UNIT_SUGGESTIONS = [...allPriceBookUnits(), "hour", "job"];
+
+// A chip for one thing the trade charges by. The book's label usually already
+// names the unit ("Per door"), so the unit is only appended when it adds
+// something — "Handrail" alone doesn't say linear feet.
+function basisChipLabel({ label, unit }) {
+  const words = unit.toLowerCase().split(/\s+/);
+  const said = label.toLowerCase();
+  return words.every((w) => said.includes(w)) ? label : `${label} (${unit})`;
 }
 
 export default function ServiceSettingsPage() {
@@ -86,7 +110,11 @@ export default function ServiceSettingsPage() {
           categories: categories.map((c) => ({
             categoryId: c.id,
             enabled: c.enabled,
-            pricingModel: c.pricingModel,
+            // No `pricingModel`: the flat/per-unit/hourly choice this screen
+            // used to offer was written and never read, so picking one moved
+            // no price anywhere. A trade with a price book states its own
+            // basis (per door, per tread, per sq ft); one without is a rate
+            // plus a unit, both of which ARE read when a line item is seeded.
             defaultRate: c.defaultRate,
             unit: c.unit,
             // Sparse patch only — the API filters it against the fields the
@@ -252,7 +280,11 @@ export default function ServiceSettingsPage() {
             {t("app.setServices.noMatch")}
           </div>
         )}
-        {visibleCategories.map((c) => (
+        {visibleCategories.map((c) => {
+          const basis = priceBookBasis(c.key);
+          const complexity = priceBookComplexity(c.key);
+          const priced = hasPriceBook(c.key);
+          return (
           <div
             key={c.id}
             className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
@@ -280,6 +312,49 @@ export default function ServiceSettingsPage() {
                     : c.customFields.map((f) => f.label).join(", ")}
                 </div>
               )}
+              {/* What this trade actually charges by, read off its price book
+                  rather than restated here — see priceBookBasis. A trade
+                  quoted from a supplier's invoice (countertop) has no per-unit
+                  basis and shows none, which is the truth about it. */}
+              {c.enabled && basis.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                  <span className="text-xs text-muted-foreground mr-0.5">
+                    {t("app.setServices.pricedBy", "Priced by")}
+                  </span>
+                  {basis.map((b) => (
+                    <span
+                      key={b.label}
+                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
+                    >
+                      {basisChipLabel(b)}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {c.enabled && complexity && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    {t(
+                      "app.setServices.complexityNote",
+                      "Rates change with the complexity picked on the quote",
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {complexity.map((level) => (
+                      <span key={level.value} className="flex items-center gap-1">
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: level.color }}
+                        />
+                        {level.label}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              )}
+
               {c.enabled && hasStandardAddOns(c.key) && (
                 <button
                   type="button"
@@ -303,24 +378,13 @@ export default function ServiceSettingsPage() {
             </div>
             </div>
 
-            {c.enabled && (
+            {/* A trade with a price book is priced BY something — per door and
+                per drawer, per tread and riser, per sq ft — and the rate card
+                below holds those numbers. Showing a single rate box next to it
+                would be a second, contradictory answer to the same question,
+                so the basis is stated and the numbers live in one place. */}
+            {c.enabled && !priced && (
               <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
-                <select
-                  value={c.pricingModel}
-                  onChange={(e) =>
-                    update(c.id, { pricingModel: e.target.value })
-                  }
-                  className="border rounded px-2 py-1 text-sm"
-                >
-                  <option value="flat">{t("app.setServices.pricingFlat")}</option>
-                  <option value="per_unit">
-                    {t("app.setServices.pricingPerUnit")}
-                  </option>
-                  <option value="hourly">
-                    {t("app.setServices.pricingHourly")}
-                  </option>
-                </select>
-
                 <input
                   type="number"
                   step="0.01"
@@ -336,15 +400,18 @@ export default function ServiceSettingsPage() {
                   className="border rounded px-2 py-1 text-sm w-24"
                 />
 
-                {c.pricingModel === "per_unit" && (
-                  <input
-                    type="text"
-                    placeholder={t("app.setServices.unitPlaceholder")}
-                    value={c.unit ?? ""}
-                    onChange={(e) => update(c.id, { unit: e.target.value })}
-                    className="border rounded px-2 py-1 text-sm w-28"
-                  />
-                )}
+                <span className="text-sm text-muted-foreground">
+                  {t("app.setServices.per", "per")}
+                </span>
+
+                <input
+                  type="text"
+                  list="fq-unit-suggestions"
+                  placeholder={t("app.setServices.unitPlaceholder")}
+                  value={c.unit ?? ""}
+                  onChange={(e) => update(c.id, { unit: e.target.value })}
+                  className="border rounded px-2 py-1 text-sm w-28"
+                />
               </div>
             )}
 
@@ -358,8 +425,17 @@ export default function ServiceSettingsPage() {
               />
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
+
+      {/* One list for every unit input on the page. Suggestions only — the
+          field stays free text so an existing saved unit is never dropped. */}
+      <datalist id="fq-unit-suggestions">
+        {UNIT_SUGGESTIONS.map((u) => (
+          <option key={u} value={u} />
+        ))}
+      </datalist>
 
       <button
         onClick={save}

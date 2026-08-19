@@ -44,9 +44,20 @@ export default function AddressAutocomplete({
     autocompleteRef.current = new window.google.maps.places.Autocomplete(
       inputRef.current,
       {
-        // Kept as-is from the original component — restricted to Canada,
-        // matching your existing signup/work-areas/booking-page usage.
-        componentRestrictions: { country: "ca" },
+        // ── No country restriction ──────────────────────────────────────
+        //
+        // This was pinned to `{ country: "ca" }`, inherited from the original
+        // component. FieldQuo bills in eleven countries (lib/currency.js
+        // COUNTRIES), so that pin meant a contractor anywhere else could not
+        // find their own address: the box offered nothing, and nothing on
+        // screen explained why. It also fed the country field that DERIVES
+        // billing currency, so the one address they could pick was always
+        // Canadian.
+        //
+        // Not re-pinned to the eleven either — Google caps componentRestrictions
+        // at five countries, so any list we passed would exclude six of the
+        // markets we sell to. Unrestricted, Places already ranks by the user's
+        // own location, which is the behaviour we actually want.
         fields: ["address_components", "formatted_address", "geometry"],
         types: ["address"],
       },

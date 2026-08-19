@@ -27,6 +27,8 @@ import {
   Clock,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { smsShareHref, whatsappShareHref } from "@/lib/share/messagingLinks";
+import { useMessagingCapability } from "@/app/hooks/useMessagingCapability";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -36,10 +38,13 @@ export default function ReferPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  // Default desktop during SSR; the platform's Twilio can't text from trial
-  // accounts, so on a real phone we hand the invite to the user's OWN
-  // messaging app instead of routing it through us.
-  const [isMobile, setIsMobile] = useState(false);
+  // The platform's Twilio can't text from trial accounts, so on a real phone we
+  // hand the invite to the user's OWN messaging app instead of routing it
+  // through us. `canText` gates the SMS button — a desktop that can't open
+  // Messages must not be shown one — and `iosStyle` only picks the sms:
+  // separator. Both come from lib/share/messagingLinks.js, which is where the
+  // one UA sniff lives, and which defaults to desktop before hydration.
+  const messaging = useMessagingCapability();
 
   const [channel, setChannel] = useState("email");
   const [contact, setContact] = useState("");
@@ -61,15 +66,6 @@ export default function ReferPage() {
   useEffect(() => {
     load();
   }, [load]);
-
-  useEffect(() => {
-    // A touch device with no hover — a phone, not a laptop with a touchscreen
-    // and a mouse. That's where the deep links belong and desktop email doesn't.
-    setIsMobile(
-      typeof window !== "undefined" &&
-        window.matchMedia?.("(hover: none) and (pointer: coarse)").matches,
-    );
-  }, []);
 
   async function invite(e) {
     e.preventDefault();
@@ -117,16 +113,26 @@ export default function ReferPage() {
   const currency = data.currency || "CAD";
   const creditEarned = formatMoney((data.creditEarnedCents || 0) / 100, currency);
 
-  // The invite the user sends from their OWN phone. Mirrors the spirit of the
+  // The invite the user sends from their OWN app. Mirrors the spirit of the
   // server SMS copy (identify the product, name the free months, end on the
   // link) but carries no recipient — they pick the contact in their own app,
-  // which is the most cross-platform-safe way to prefill a message.
+  // which is the most cross-platform-safe way to prefill a message. Written in
+  // the interface language: the person typing it is the one who has to read it
+  // back, and they may well be sending to someone in the same trade and city.
   const bonusMonths = data.refereeBonusMonths;
-  const shareMessage = `Try FieldQuo — I use it for my quotes and invoices${
-    bonusMonths ? `, and you get ${bonusMonths} month${bonusMonths === 1 ? "" : "s"} free` : ""
-  }: ${data.referralUrl || ""}`;
-  const smsHref = `sms:?&body=${encodeURIComponent(shareMessage)}`;
-  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
+  const shareUrl = data.referralUrl || "";
+  const shareMessage = bonusMonths
+    ? t(
+        bonusMonths === 1
+          ? "app.refer.shareMessageBonusOne"
+          : "app.refer.shareMessageBonusOther",
+        { months: bonusMonths, url: shareUrl },
+      )
+    : t("app.refer.shareMessage", { url: shareUrl });
+  // Encoding matters more than it looks: the referral URL can carry `?` and
+  // `&`, and unencoded those end the body — the message would send truncated.
+  const smsHref = smsShareHref(shareMessage, { iosStyle: messaging.iosStyle });
+  const whatsappHref = whatsappShareHref(shareMessage);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -176,34 +182,49 @@ export default function ReferPage() {
         </p>
       </div>
 
-      {/* On a phone, send from the user's own messaging app. The platform's
-          Twilio rejects sends from trial accounts, so routing referral texts
-          through us fails for exactly the newest companies — a deep link into
-          their own SMS/WhatsApp always works and comes from their number. */}
-      {isMobile && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h2 className="font-semibold text-foreground mb-1">Share from your phone</h2>
-          <p className="text-sm text-muted-foreground mb-3">
-            Opens your own messaging app with the invite ready to send. You pick who it goes to.
-          </p>
-          <div className="flex flex-wrap gap-2">
+      {/* Send from the user's own messaging app. The platform's Twilio rejects
+          sends from trial accounts, so routing referral texts through us fails
+          for exactly the newest companies — a deep link into their own
+          SMS/WhatsApp always works and comes from their number.
+
+          The Text button appears only where an SMS app exists to receive it.
+          WhatsApp stays on desktop because wa.me genuinely works there (it
+          hands off to WhatsApp Web or the desktop app), so hiding the whole
+          card off-phone would be hiding something that works. Copy-link is
+          above and email is the form below; nothing is lost on a laptop except
+          the one control a laptop can't honour. */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1">
+          {t("app.refer.shareTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          {messaging.canText
+            ? t("app.refer.shareDescPhone")
+            : t("app.refer.shareDescDesktop")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {messaging.canText && (
             <a
               href={smsHref}
               className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold"
             >
-              <Smartphone size={14} /> Text from my phone
+              <Smartphone size={14} /> {t("app.refer.shareByText")}
             </a>
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold"
-            >
-              <MessageCircle size={14} /> WhatsApp
-            </a>
-          </div>
+          )}
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold ${
+              messaging.canText
+                ? "border border-border text-foreground"
+                : "bg-inverted text-inverted-foreground"
+            }`}
+          >
+            <MessageCircle size={14} /> WhatsApp
+          </a>
         </div>
-      )}
+      </div>
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-3">

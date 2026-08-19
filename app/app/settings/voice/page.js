@@ -35,7 +35,7 @@ import {
   MessageSquare,
   Headset, Phone, Loader2, Check, Plus, AlertTriangle, Copy, Info,
 } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
@@ -64,6 +64,9 @@ export default function VoiceSettingsPage() {
   const [form, setForm] = useState({ greeting: "", instructions: "", transferTo: "" });
   const [copied, setCopied] = useState(null);
   const [liveWarning, setLiveWarning] = useState(false);
+  // What just happened, in a sentence. Sticky rather than a 2-second toast: the
+  // thing it usually says is "now go and dial this on your phone".
+  const [notice, setNotice] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/voice");
@@ -125,8 +128,22 @@ export default function VoiceSettingsPage() {
     }
   }
 
+  // ── Setting up a number has to SAY something ────────────────────────────
+  //
+  // This used to be `await load()` and nothing else. On success the page simply
+  // re-rendered, and while the number was invisible to the API (it was written
+  // with a status nothing read — see the route) the re-render was identical to
+  // what was already on screen. A contractor typed his number, pressed Set it
+  // up, watched nothing happen, and pressed it again — buying a second live
+  // number, which is what the duplicate activity entries were.
+  //
+  // The underlying bug is fixed, but silence on success was a defect on its own
+  // merits: it is indistinguishable from a broken button. So the outcome is now
+  // stated, in the words of what actually happened, and it does not time out —
+  // the forwarding codes below it are something to act on, not a flash message.
   async function getNumber(source, numberType, extra = {}) {
     setBusy(true);
+    setNotice(null);
     try {
       const res = await fetch("/api/settings/voice/number", {
         method: "POST",
@@ -137,7 +154,51 @@ export default function VoiceSettingsPage() {
         await reportResponseError(res, t("app.setVoice.numberError", "Couldn't set up a number."));
         return;
       }
+      const result = await res.json().catch(() => ({}));
       await load();
+      setNotice(
+        result.source === "ported"
+          ? {
+              tone: "info",
+              text: `We've recorded your request to move ${result.e164}. This one is not automatic — somebody here has to action it with your current provider, and we'll be in touch. Your existing number keeps working the whole time, and you can cancel below.`,
+            }
+          : result.source === "forwarded"
+            ? {
+                tone: "ok",
+                text: `Done — your number is ${result.publicNumber || result.e164} and it now forwards to ${result.e164}. The last step is on your own phone: dial one of the codes below from it, or nothing will reach the receptionist.`,
+              }
+            : {
+                tone: "ok",
+                text: `Done — your new number is ${result.e164}.`,
+              },
+      );
+    } catch (err) {
+      // A thrown fetch (offline, DNS, a killed request) never reached the
+      // res.ok branch above, so without this the button was silent on exactly
+      // the failure a contractor in a driveway is most likely to hit.
+      showError(
+        t("app.setVoice.numberNetworkError", "Couldn't reach FieldQuo — check your signal and try again.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Withdraw a port request nobody has actioned yet. Costs nothing, undoes cleanly. */
+  async function cancelPort() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/settings/voice/number", { method: "DELETE" });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.setVoice.cancelPortError", "Couldn't cancel that."));
+        return;
+      }
+      await load();
+      setNotice({ tone: "ok", text: "That port request is cancelled. You can pick a different option now." });
+    } catch (err) {
+      showError(err?.message || "Couldn't cancel that.");
     } finally {
       setBusy(false);
     }
@@ -186,8 +247,12 @@ export default function VoiceSettingsPage() {
     );
   }
 
-  const { agent, number, credit, pricing, sources, configured } = data;
-  const canEnable = number?.status === "active" && credit.cents >= credit.centsPerMinute;
+  const { agent, number, credit, pricing, sources, configured, readiness } = data;
+  // The server's verdict, not a second opinion. It is computed from the same
+  // checkSpend() the PUT gate enforces, so the button this page disables and the
+  // request the route would refuse cannot disagree — and `readiness.message` is
+  // the reason, which is the half that was missing entirely.
+  const canEnable = Boolean(readiness?.ready);
 
   // The 30 free trial minutes are a real balance granted with the first number
   // (see lib/voice/credits.js — grantFreeTrial). When that grant is still
@@ -233,6 +298,33 @@ export default function VoiceSettingsPage() {
           <Info size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-sm text-amber-900 dark:text-amber-200">
             {t("app.setVoice.notConfigured", "The phone service isn't connected on this deployment yet, so numbers can't be set up. Everything else on this page works.")}
+          </p>
+        </div>
+      )}
+
+      {/* What the last action actually did. Stays until the next one — the
+          forwarding instruction it usually carries is a task, not a flash. */}
+      {notice && (
+        <div
+          className={`rounded-xl border px-4 py-3 flex gap-3 ${
+            notice.tone === "ok"
+              ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40"
+              : "border-border bg-muted"
+          }`}
+        >
+          {notice.tone === "ok" ? (
+            <Check size={17} className="text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+          ) : (
+            <Info size={17} className="text-muted-foreground shrink-0 mt-0.5" />
+          )}
+          <p
+            className={`text-sm ${
+              notice.tone === "ok"
+                ? "text-emerald-900 dark:text-emerald-200"
+                : "text-foreground"
+            }`}
+          >
+            {notice.text}
           </p>
         </div>
       )}
@@ -352,6 +444,60 @@ export default function VoiceSettingsPage() {
               )}
             </div>
 
+            {/* ── A number that isn't answering yet, and why ─────────────────
+                Porting especially. The row exists, so the card renders, and
+                without this it looked identical to a working number — a
+                contractor would advertise it and wonder why nothing rang.
+                Nothing here is automatic and it says so, because it isn't:
+                a port is actioned by a person, and it has no queue yet. */}
+            {number.status === "porting" && (
+              <div className="rounded-lg border border-border bg-muted px-4 py-3 space-y-2">
+                <p className="text-sm font-semibold text-foreground">
+                  Requested — not moved yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Moving a number is not something a button can finish. Your old provider needs
+                  paperwork and account details from you, and it takes two to four weeks on their
+                  schedule. Somebody here has to action it with them, and we&apos;ll contact you
+                  about what they need.
+                  {number.portExpectedAt
+                    ? ` Best estimate: ${showDate(number.portExpectedAt)}.`
+                    : ""}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Until it lands, this number is still with your old provider and works exactly as
+                  it always did. The receptionist cannot answer on it.
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={cancelPort}
+                  className="mt-1 px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  Cancel this request
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  Cancelling costs nothing and frees you to forward or buy instead — which is what
+                  most people should do anyway.
+                </p>
+              </div>
+            )}
+
+            {/* A row that never finished activating. It exists at the provider
+                and is being paid for, so it must not be silently hidden — but
+                nothing in the app can repair it, and saying "try again" would
+                sell them a second one. */}
+            {number.status !== "porting" && number.status !== "active" && (
+              <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex gap-3">
+                <AlertTriangle size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-900 dark:text-amber-200">
+                  This number was set up but never finished activating, so nothing can answer on it.
+                  Please get in touch — don&apos;t buy another one, this one is already yours and
+                  already being charged for.
+                </p>
+              </div>
+            )}
+
             {/* ── The rental, said out loud ───────────────────────────────────
                 It comes out of the same balance the calls do, on a date, and it
                 can take the number away. A charge that only appears in a
@@ -389,7 +535,7 @@ export default function VoiceSettingsPage() {
 
             {/* Only for a forwarded setup, and only the codes for THEIR
                 number — see the API. */}
-            {number.forwarding && (
+            {number.forwarding && number.status === "active" && (
               <div className="rounded-lg bg-muted p-4">
                 <p className="text-sm text-foreground font-medium">
                   {t("app.setVoice.dialTitle", "Dial one of these from the phone you want forwarded")}
@@ -438,6 +584,22 @@ export default function VoiceSettingsPage() {
                   .
                 </p>
               </div>
+            )}
+
+            {/* ── "How do I undo this?" — asked before it's needed ───────────
+                Two different answers, and only one of them is self-serve. A
+                forwarded setup is genuinely reversible from their own handset in
+                a few seconds, which is most of why it's the recommended option.
+                A number we bought is not: releasing it means deleting it at the
+                provider, it can't be got back, and there is no control for it
+                yet. Saying so is the honest version — an absent answer reads as
+                "trapped", and a fake button would be worse than both. */}
+            {number.status === "active" && (
+              <p className="text-xs text-muted-foreground">
+                {number.source === "forwarded"
+                  ? "To stop: dial ##002# from your own phone and calls stop reaching the receptionist immediately — your number is unchanged. To stop paying for the forwarding number as well, get in touch."
+                  : "To give this number up: get in touch. Releasing it is permanent — the number goes back to the pool and can't be recovered — so it isn't a button on this page."}
+              </p>
             )}
           </div>
         ) : (
@@ -552,9 +714,18 @@ export default function VoiceSettingsPage() {
                         from their losing carrier that no button here can
                         obtain, so this is a REQUEST someone picks up — and
                         pretending it's instant is how a business line goes
-                        dark on a Tuesday. */}
+                        dark on a Tuesday.
+
+                        The previous wording here promised "we'll email you what
+                        your current provider needs", and nothing in the codebase
+                        sends that email — the request writes one row and one
+                        activity entry, both of which live inside the company's
+                        own account. Promising a message that never arrives is
+                        the same failure as a button that does nothing; it just
+                        takes a week to notice. So it now says what actually
+                        happens, and it says that a person is involved. */}
                     <p className="text-xs text-muted-foreground mt-2">
-                      {t("app.setVoice.portedNote", "We'll email you what your current provider needs. Your existing number keeps working the whole time, and nothing switches over until the transfer completes.")}
+                      {t("app.setVoice.portedNote", "This records a request — it isn't automatic. Someone here has to arrange it with your current provider, who will need account details from you, so expect to hear from us rather than a confirmation on this screen. Your existing number keeps working the whole time, nothing switches over until the transfer completes, and you can cancel the request at any point before then.")}
                     </p>
                   </>
                 )}
@@ -626,7 +797,11 @@ export default function VoiceSettingsPage() {
             ? freeOnly
               ? "Your free trial minutes are ready to use — turn it on whenever you like, no top-up needed."
               : t("app.setVoice.answerHintReady", "Turn it on when you're ready. You can turn it off just as fast.")
-            : t("app.setVoice.answerHintNotReady", "Set up a number and add some credit first — otherwise it would pick up and fail.")
+            // The server's sentence, naming the ONE thing that's missing.
+            // The old text said "set up a number and add some credit" to
+            // everybody, including people looking at their own number two cards
+            // further up the same screen.
+            : readiness?.message
         }
       >
         <button
@@ -642,6 +817,7 @@ export default function VoiceSettingsPage() {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Headset size={16} />}
           {agent?.enabled ? t("app.setVoice.answerOn", "It's answering — turn off") : t("app.setVoice.answerOff", "Start answering calls")}
         </button>
+        <BlockedReason show={!agent?.enabled && !canEnable} readiness={readiness} />
       </Card>
 
       {/* ── 5. Outbound ─────────────────────────────────────────────────────
@@ -667,6 +843,11 @@ export default function VoiceSettingsPage() {
           {data?.outbound?.enabled ? t("app.setVoice.outboundOn", "It's calling clients — turn off") : t("app.setVoice.outboundOff", "Turn on quote callbacks")}
         </button>
 
+        {/* This card had no explanation at all when its button was dead — the
+            precondition (a live number and enough credit for one minute) was
+            enforced in the PUT route and stated nowhere. */}
+        <BlockedReason show={!data?.outbound?.enabled && !canEnable} readiness={readiness} />
+
         {data?.outbound?.enabled && (
           <p className="text-xs text-muted-foreground mt-3">
             {data.outbound.queued > 0
@@ -688,7 +869,11 @@ export default function VoiceSettingsPage() {
       >
         <button
           type="button"
-          disabled={busy || (!data?.crewInbox?.enabled && !number)}
+          // An ACTIVE number, not merely a row. The inbound webhook resolves the
+          // company with `status: "active"`, so switching this on against a
+          // number that is still porting sets a flag that nothing can ever act
+          // on — the switch would say "on" and no text would ever be filed.
+          disabled={busy || (!data?.crewInbox?.enabled && number?.status !== "active")}
           onClick={() => save({ crewInboxEnabled: !data?.crewInbox?.enabled })}
           className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold disabled:opacity-40 ${
             data?.crewInbox?.enabled
@@ -699,10 +884,62 @@ export default function VoiceSettingsPage() {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
           {data?.crewInbox?.enabled ? t("app.setVoice.crewOn", "Crew inbox is on — turn off") : t("app.setVoice.crewOff", "Turn on the crew inbox")}
         </button>
-        {data?.crewInbox?.enabled && (
-          <p className="text-xs text-muted-foreground mt-3">
-            {t("app.setVoice.crewNote", "Crew are matched by the phone number on their profile (Settings → Team). A text from an unknown number is logged but not filed.")}
+
+        {!data?.crewInbox?.enabled && number?.status !== "active" && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 mt-3">
+            {number
+              ? "Your number isn't live yet, so there's nothing for the crew to text."
+              : "Set up a number above first — the crew inbox is texts sent TO your number."}
           </p>
+        )}
+
+        {/* ── Turning this on sends nobody anything ─────────────────────────
+            Worth saying, because "turn on the crew inbox" reads like it
+            invites the crew in. It doesn't: this is a switch on a webhook.
+            Nothing is texted to anyone when it's enabled, no invitation goes
+            out, and the crew have no way to discover it — the contractor has to
+            tell them, with the right number, which is the part that goes wrong.
+
+            And the number is the trap. On a forwarded setup the number on the
+            van is theirs and sits at their own carrier; carrier forwarding
+            forwards CALLS, never texts. A crew member texting the number they
+            already know reaches nothing. So the one they must use is printed
+            here rather than described. */}
+        {data?.crewInbox?.enabled && (
+          <div className="mt-3 space-y-2">
+            {data.crewInbox.textTo && (
+              <div className="rounded-lg bg-muted p-3 space-y-1">
+                <p className="text-sm text-foreground">
+                  Your crew text{" "}
+                  <code className="px-1.5 py-0.5 rounded bg-background border border-border text-sm tabular-nums">
+                    {data.crewInbox.textTo}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => copy(data.crewInbox.textTo, "crewTextTo")}
+                    className="ml-2 align-middle text-muted-foreground hover:text-foreground"
+                    aria-label="Copy the number crew should text"
+                  >
+                    {copied === "crewTextTo" ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </p>
+                {data.crewInbox.textToDiffersFromPublic && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Not the number on your van — that one is still with your own carrier, and call
+                    forwarding does not forward texts. Give the crew the number above or nothing
+                    will arrive.
+                  </p>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Nothing is sent to your crew when you switch this on — it only opens the door. Tell
+              them the number yourself, and save it in their phones.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.crewNote", "Crew are matched by the phone number on their profile (Settings → Team). A text from an unknown number is logged but not filed.")}
+            </p>
+          </div>
         )}
       </Card>
     </div>
@@ -740,6 +977,28 @@ function PriceNote({ afford, label, money, t, configured }) {
         amount: money(afford.shortfallCents),
         rental: money(afford.needCents),
       })}
+    </p>
+  );
+}
+
+/**
+ * Why a switch is off, printed under the switch.
+ *
+ * Both call switches were disabled with nothing beside them but a hint that
+ * assumed the reason ("set up a number and add some credit"), which was wrong
+ * for anyone whose number existed but wasn't answering yet — the exact case a
+ * porting request produces, and the one that got reported.
+ *
+ * `readiness` is the server's, computed by the same checkSpend() the PUT gate
+ * runs, so this can't tell someone to top up when the real blocker was the
+ * number, or tell them the number is fine when the route would refuse.
+ */
+function BlockedReason({ show, readiness }) {
+  if (!show || !readiness?.message) return null;
+  return (
+    <p className="text-xs text-amber-700 dark:text-amber-400 mt-3 flex items-start gap-1.5">
+      <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+      {readiness.message}
     </p>
   );
 }

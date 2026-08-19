@@ -36,7 +36,8 @@ export async function GET(request) {
       isSystem: c.isSystem,
       customFields: c.customFields || null,
       enabled: setting?.enabled ?? false,
-      pricingModel: setting?.pricingModel ?? "flat",
+      // No `pricingModel`: see the PATCH below. The column still exists but
+      // nothing reads it, so returning it only invited a new caller to.
       defaultRate: setting?.defaultRate ?? null,
       unit: setting?.unit ?? null,
       // The trade's structured rates: code defaults with this company's sparse
@@ -103,7 +104,6 @@ export async function POST(request) {
       isSystem: false,
       customFields: category.customFields,
       enabled: true,
-      pricingModel: "flat",
       defaultRate: null,
       unit: null,
     },
@@ -112,7 +112,21 @@ export async function POST(request) {
 }
 
 // PATCH — bulk upsert company's category settings
-// body: { categories: [{ categoryId, enabled, pricingModel, defaultRate, unit }] }
+// body: { categories: [{ categoryId, enabled, defaultRate, unit, rates }] }
+//
+// `pricingModel` (flat | per_unit | hourly) is deliberately NOT accepted any
+// more. It was written on every save and read by nothing: no quote, PDF,
+// invoice or estimator ever branched on it, so a company that picked "hourly"
+// got exactly the same prices as one that picked "flat". The real answer is
+// per-trade — a cabinet shop charges per door and per drawer, a stair
+// refinisher per tread and riser, a painter per square foot — and that lives
+// in the price book (app/data/tradePriceBooks.js, stored as `rates`). Trades
+// with no book keep `defaultRate` + `unit`, both of which ARE read when a
+// quote line item is seeded.
+//
+// The CompanyServiceCategory.pricingModel column is left in place: dropping it
+// is a data migration, not a code change. Existing rows keep whatever they
+// last stored, and nothing looks at it.
 export async function PATCH(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -154,7 +168,6 @@ export async function PATCH(request) {
         },
         update: {
           enabled: c.enabled,
-          pricingModel: c.pricingModel || "flat",
           defaultRate: c.defaultRate ?? null,
           unit: c.unit || null,
           // Only touched when the caller sends it — a settings screen that
@@ -167,7 +180,6 @@ export async function PATCH(request) {
           companyId: member.companyId,
           categoryId: c.categoryId,
           enabled: c.enabled,
-          pricingModel: c.pricingModel || "flat",
           defaultRate: c.defaultRate ?? null,
           unit: c.unit || null,
           ...(c.rates !== undefined && {

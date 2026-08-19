@@ -72,6 +72,9 @@ export default function NewUserPage() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // "We created the invitation but couldn't email it" — a different outcome
+  // from a failed save, and it needs a different sentence.
+  const [emailWarning, setEmailWarning] = useState("");
 
   // Seat usage, so a company that's already out of licenses sees the upgrade
   // panel before filling in the whole form — not only after the invite bounces.
@@ -168,7 +171,7 @@ export default function NewUserPage() {
       // produced "The string did not match the expected pattern": the route
       // threw, Next returned HTML, and res.json() surfaced the browser's parser
       // error instead of the reason. See lib/fetchJson.js.
-      await fetchJson("/api/settings/members", {
+      const result = await fetchJson("/api/settings/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -189,6 +192,19 @@ export default function NewUserPage() {
           invitationLanguage,
         }),
       });
+
+      // The invitation row exists either way, but if the email didn't leave,
+      // the invitee is waiting for something that will never arrive. Say so
+      // here instead of redirecting to a page that shows a cheerful "Invited"
+      // badge. The button label was "Send invite" — it has to be true.
+      if (result?.emailSent === false) {
+        setEmailWarning(
+          result.emailError || "The invitation email could not be sent.",
+        );
+        setSaving(false);
+        return;
+      }
+
       router.push("/app/settings/team");
     } catch (err) {
       // A seat-limit 402 comes back structured (see app/api/settings/members
@@ -234,6 +250,26 @@ export default function NewUserPage() {
               </a>
             </>
           )}
+        </div>
+      )}
+
+      {emailWarning && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-200 text-sm rounded-lg px-4 py-3 space-y-2">
+          <p className="font-semibold">
+            {personal.name || "They"} was added, but the invitation email
+            didn&apos;t send
+          </p>
+          <p>{emailWarning}</p>
+          <p>
+            Nothing reached them. Cancel the pending invite on the{" "}
+            <a
+              href="/app/settings/team"
+              className="font-semibold underline underline-offset-2"
+            >
+              Team page
+            </a>{" "}
+            and try again once email is working.
+          </p>
         </div>
       )}
 

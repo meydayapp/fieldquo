@@ -24,7 +24,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { buyNumber, voiceConfigured, RetellError } from "@/lib/voice/retell";
-import { toE164, isSharedTestNumber, isTollFreeNumber, activeNumber } from "@/lib/voice/numbers";
+import { toE164, isSharedTestNumber, isTollFreeNumber, heldNumber } from "@/lib/voice/numbers";
 import { recordError } from "@/lib/platform/errorLog";
 import { monthlyCentsFor, NUMBER_TYPES, grantFreeTrial } from "@/lib/voice/credits";
 import { reserveSpend, refundReservation, RENT_PERIOD_DAYS } from "@/lib/voice/spendGate";
@@ -40,12 +40,25 @@ export async function POST(request) {
     return NextResponse.json({ error: "Only an owner or admin can do this." }, { status: 403 });
   }
 
-  const existing = await activeNumber(member.companyId);
+  // ── One number per company, and the guard has to see the stalled ones ────
+  //
+  // heldNumber() rather than activeNumber(): a row stuck on the old
+  // `provisioning` default is a number that EXISTS at the provider and is being
+  // paid for, and activeNumber() can't see it. That blind spot is how the same
+  // company bought two — the screen showed no number, so the guard found none
+  // either, and the second click went through.
+  //
+  // Each state gets its own sentence. "You already have a number" is useless to
+  // someone who cannot see one on the page.
+  const existing = await heldNumber(member.companyId);
   if (existing) {
-    return NextResponse.json(
-      { error: "You already have a number set up. Release it first to change." },
-      { status: 409 },
-    );
+    const message =
+      existing.status === "porting"
+        ? `A port of ${existing.e164} is already in progress. Cancel that request first if you'd rather do something else.`
+        : existing.status === "provisioning"
+          ? `A number (${existing.e164}) was already set up for you but didn't finish activating. Contact support before buying another — you're being charged for that one.`
+          : "You already have a number set up. Release it first to change.";
+    return NextResponse.json({ error: message, status: existing.status }, { status: 409 });
   }
 
   const body = await request.json().catch(() => ({}));
@@ -233,6 +246,22 @@ export async function POST(request) {
         e164,
         publicNumber: source === "forwarded" ? ownNumber : e164,
         source,
+        // ── Written explicitly, because the schema default is a lie here ────
+        //
+        // VoicePhoneNumber.status defaults to `provisioning`, which would be
+        // right for a row created BEFORE the provider is called. This row is
+        // created after buyNumber() has already returned a live number, so it
+        // is active the instant it exists — and nothing anywhere ever promoted
+        // a `provisioning` row to `active`.
+        //
+        // The cost of leaving it defaulted was the whole feature: every reader
+        // filters on status "active" — activeNumber(), the settings GET, the
+        // crew-inbox webhook, outbound dialling, agent attachment, the rent
+        // cron — so a number that had been bought and paid for was invisible to
+        // all of them. The contractor saw the setup screen come back unchanged,
+        // pressed it again, and bought a second one, because the duplicate
+        // guard reads the same column.
+        status: "active",
         // What they actually have. This drives the per-minute rate on every
         // future call and the rent every month, so getting it from the number
         // rather than the order is what keeps both honest for the whole life of
@@ -327,4 +356,77 @@ export async function POST(request) {
     console.error("[voice/number] failed", err);
     return NextResponse.json({ error: message }, { status: 502 });
   }
+}
+
+/**
+ * Cancel a port REQUEST.
+ *
+ *   DELETE  (no body)
+ *
+ * ── Why only a port, and nothing else ──────────────────────────────────────
+ *
+ * A port request is the one number state that costs nothing and exists nowhere
+ * but our own database: no number was bought, no provider object was created,
+ * no rental was reserved (see the POST above). Withdrawing it is a status
+ * change and nothing more, so it is safe to hand the contractor.
+ *
+ * Releasing a LIVE number is a different operation and is deliberately NOT here.
+ * It means a real DELETE at the provider, it is irreversible — the number goes
+ * back to the pool and cannot be got again — and it needs an answer to "what
+ * happens to the month already paid" that nobody has given yet. Only the rent
+ * cron releases numbers today (lib/voice/spendGate.js), and that is the honest
+ * state of it. A "release" button here that silently did nothing, or that
+ * destroyed a number the company advertises, would be worse than its absence.
+ *
+ * ── Why this exists at all ─────────────────────────────────────────────────
+ *
+ * Without it a port request is a one-way door. The row matches the duplicate
+ * guard, so every other setup path returns 409 "you already have a number",
+ * while the port itself is waiting on a human process that has no queue. A
+ * contractor who tried porting to see what it did could not get a working
+ * number by any route, forever, and there was no control on the page to undo it.
+ */
+export async function DELETE(request) {
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json({ error: "Only an owner or admin can do this." }, { status: 403 });
+  }
+
+  const held = await heldNumber(member.companyId);
+  if (!held) {
+    return NextResponse.json({ error: "There's nothing to cancel." }, { status: 404 });
+  }
+  if (held.status !== "porting") {
+    // Named rather than refused generically: the difference between "this isn't
+    // cancellable" and "we can't release a live number yet" is the difference
+    // between a user error and a missing feature, and they deserve to know
+    // which one they've hit.
+    return NextResponse.json(
+      {
+        error:
+          "This number is live, and releasing a live number isn't something you can do yourself yet — get in touch and we'll sort it out.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // `released`, not deleted. The row is the only record that the request was
+  // ever made, and a port that a carrier has quietly started acting on is not
+  // something to erase from our own history.
+  await db.voicePhoneNumber.update({
+    where: { id: held.id },
+    data: { status: "released", releasedAt: new Date() },
+  });
+
+  await recordActivity(member, {
+    action: "voice.port_cancelled",
+    entityType: "settings",
+    summary: `Cancelled the port request for ${held.e164}`,
+    metadata: { e164: held.e164 },
+  });
+
+  return NextResponse.json({ ok: true, cancelled: held.e164 });
 }

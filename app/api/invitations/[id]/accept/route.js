@@ -41,6 +41,32 @@ export async function POST(request, { params }) {
     );
   }
 
+  // A cancelled or expired invitation must not let anyone in. This check is
+  // NOT redundant with the accept page, which hides the form for those states:
+  // the page is a courtesy, this is the gate. It is also not covered by the
+  // Better Auth call below — that one throws for a non-pending invitation and
+  // the catch deliberately swallows it so an already-accepted invite can
+  // re-run, which meant a revoked invite still fell through to the Member
+  // upsert and granted access. "accepted" stays allowed for exactly that
+  // re-run; the email match above already proved it's the same person.
+  const status = String(invitation.status || "").toLowerCase();
+  if (status !== "pending" && status !== "accepted") {
+    return NextResponse.json(
+      { error: "This invitation was cancelled. Ask them to send a new one." },
+      { status: 403 },
+    );
+  }
+  if (
+    status === "pending" &&
+    invitation.expiresAt &&
+    new Date(invitation.expiresAt) < new Date()
+  ) {
+    return NextResponse.json(
+      { error: "This invitation has expired. Ask them to send a new one." },
+      { status: 403 },
+    );
+  }
+
   // 1. Better Auth acceptance (idempotent-ish; ignore "already accepted").
   try {
     await auth.api.acceptInvitation({

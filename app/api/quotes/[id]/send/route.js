@@ -28,6 +28,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
 import { recordActivity } from "@/lib/activity/log";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import {
@@ -237,6 +238,16 @@ export async function POST(request, { params }) {
       followUpCount: true,
     },
   });
+
+  // The homeowner has now actually been reached, so the lead this quote came
+  // from is no longer untouched. Only after Resend accepted the message, for the
+  // same reason sentAt is written here and not earlier: a lead that says
+  // "contacted" because a send failed is a lie a rep will act on.
+  if (!isFollowUp) {
+    await onQuoteSent(quote.id).catch((err) =>
+      console.error("[quotes/send] lead sync:", err?.message),
+    );
+  }
 
   await recordActivity(member, {
     action: isFollowUp ? "quote.followed_up" : "quote.sent",

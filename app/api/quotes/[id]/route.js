@@ -15,6 +15,10 @@ import {
   reconcileScopeGroups,
   reconcileImportsForQuote,
 } from "@/lib/quotes/importQuote";
+import {
+  onQuoteAccepted,
+  onQuoteDeclined,
+} from "@/lib/quotes/quoteLifecycle";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -150,6 +154,43 @@ export async function PATCH(request, { params }) {
       include: { client: true, scopeGroups: { include: { category: true } } },
     });
   });
+
+  // A decision recorded in the back office has to set the same things in motion
+  // as the identical decision clicked by the client on the public link — a job
+  // to schedule, a draft invoice to bill, a task to diary, and the lead behind
+  // it moved on. Until this was here, "They approved" on the quote-approval
+  // screen changed one word and left the pipeline dead: no job, no invoice, and
+  // a lead still sitting in the column it started in.
+  //
+  // Only on an actual TRANSITION — re-saving notes on an already-accepted quote
+  // must not re-run any of it. Best-effort by the shared contract: the status
+  // change above has committed, and a hiccup here must not report it as failed.
+  if (status !== undefined && status !== existing.status) {
+    try {
+      if (status === "accepted") {
+        const { job, invoice } = await onQuoteAccepted(id, {
+          createdById: member.userId,
+        });
+        await recordActivity(member, {
+          action: "quote.accepted",
+          entityType: "quote",
+          entityId: id,
+          summary: `Quote ${existing.quoteNumber} marked accepted${job ? " — job created, ready to schedule" : ""}${invoice ? `, invoice ${invoice.invoiceNumber} drafted` : ""}`,
+          metadata: { jobId: job?.id || null, invoiceId: invoice?.id || null },
+        });
+      } else if (status === "declined") {
+        await onQuoteDeclined(id);
+        await recordActivity(member, {
+          action: "quote.declined",
+          entityType: "quote",
+          entityId: id,
+          summary: `Quote ${existing.quoteNumber} marked declined`,
+        });
+      }
+    } catch (err) {
+      console.error("[quotes PATCH] post-decision hooks:", err?.message);
+    }
+  }
 
   return NextResponse.json(updated);
 }

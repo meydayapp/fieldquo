@@ -91,8 +91,14 @@ const BRANCHES = [
   ["company data failed to load", "if (loadErr) {"],
   ["the map failed to load", "if (failed) {"],
   ["the company has no instant trades", "if (!data.trades.length) {"],
-  ["the measurement/pricing call failed", "{measureErr && ("],
-  ["the submit call failed", "{submitErr && ("],
+  // There used to be two of these, one per round trip: `measureErr` for the
+  // separate "Get my estimate" measure step, and `submitErr` for the contact
+  // step after it. The flow is one page with ONE submit now — /request
+  // re-measures and re-prices itself — so a failed measurement and a failed
+  // submit arrive on the same path and are reported by the same branch.
+  // Merged here rather than dropped: the assertion below still walks the block
+  // and still demands it renders a route out.
+  ["the measure-or-submit call failed", "{submitErr && ("],
 ];
 
 for (const [name, anchor] of BRANCHES) {
@@ -191,7 +197,16 @@ ok("...but does log the reason for the contractor's support", /console\.(warn|er
 ok("...and points the contractor at the screen that fixes it", /settings\/instant-quotes/.test(unavailable));
 
 // The submit response mirrors the same gate.
-ok("request route gates its figure through publicEstimate", /publicEstimate\(priced\.estimate, priced\.visibility\)/.test(requestSrc));
+// Was: publicEstimate(priced.estimate, priced.visibility). The mode is now
+// RESOLVED first, because "after_submit" means different things either side of
+// the submit and publicEstimate must never be handed the raw setting — it
+// treats an unresolved mode as gated, which would withhold a figure the owner
+// chose to show. So this asserts the stronger pair: the figure still goes
+// through the choke point, AND the mode reaching it was resolved with an
+// explicit stage. `effectiveVisibility` has no default stage precisely so that
+// a caller cannot forget one, and this keeps the confirmed side honest.
+ok("request route gates its figure through publicEstimate", /publicEstimate\(priced\.estimate, visibility\)/.test(requestSrc));
+ok("...and resolves the mode with an explicit stage first", /effectiveVisibility\(priced\.visibility, "confirmed"\)/.test(requestSrc));
 ok("request route says WHY there's no figure instead of leaving a blank", /message: shown \? null : gatedMessage\(/.test(requestSrc));
 ok("...and the flow renders that message", /result\.message/.test(flowSrc));
 

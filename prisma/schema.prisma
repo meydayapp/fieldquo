@@ -1551,7 +1551,20 @@ model CompanyServiceCategory {
   categoryId   String
   category     ServiceCategory @relation(fields: [categoryId], references: [id])
   enabled      Boolean         @default(false)
+
+  // DEAD — written for months, read by nothing. No quote, PDF, invoice or
+  // estimator ever branched on it, so "hourly" priced identically to "flat".
+  // Real trades don't price by one of three generic models anyway: cabinets
+  // are per door and per drawer, stairs per tread/riser/baluster/post,
+  // painting and flooring per square foot. That lives in `rates` below.
+  //
+  // No longer written or returned by the API (app/api/settings/service-
+  // categories/route.js). Left in place because dropping it is a data
+  // migration, not a code change; rows keep whatever they last stored.
   pricingModel PricingModel    @default(flat)
+
+  // For the ~50 catalog trades with no price book of their own: one rate and
+  // the unit it is charged in. Both ARE read — they seed a quote line item.
   defaultRate  Decimal?        @db.Decimal(12, 2)
   unit         String?
   createdAt    DateTime        @default(now())
@@ -2760,6 +2773,15 @@ model Salary {
   name      String
   amount    Decimal          @db.Decimal(12, 2)
   frequency ExpenseFrequency @default(monthly)
+
+  // Only set when `frequency` is `hourly`, where `amount` is a rate rather
+  // than a sum. Required in that case and meaningless otherwise: an hourly
+  // rate with no hours attached cannot become a monthly cost, and defaulting
+  // it to a 40-hour week would put an invented number into a PRICE FLOOR —
+  // the same failure the capacity default in lib/analytics/minimumPrice.js was
+  // removed for. burnRate contributes 0 when it's missing.
+  hoursPerWeek Decimal?      @db.Decimal(6, 2)
+
   startDate DateTime         @default(now())
   active    Boolean          @default(true)
   createdAt DateTime         @default(now())
@@ -3053,6 +3075,12 @@ enum ExpenseFrequency {
   weekly
   monthly
   yearly
+  // Only meaningful on Salary, which carries `hoursPerWeek` alongside it. An
+  // hourly amount is not convertible to a monthly one on its own, so an
+  // Expense can never legitimately be `hourly` — lib/analytics/burnRate.js
+  // contributes 0 for any hourly row with no hours behind it rather than
+  // inventing a 40-hour week.
+  hourly
 }
 
 enum MarketingPlatform {

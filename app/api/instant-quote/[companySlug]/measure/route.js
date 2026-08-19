@@ -16,7 +16,6 @@ import {
   publicEstimate,
   gatedMessage,
   effectiveVisibility,
-  lockedEstimateMessage,
 } from "@/lib/estimate/visibility";
 import { financingOffer } from "@/lib/estimate/financing";
 
@@ -103,26 +102,21 @@ export async function POST(request, { params }) {
   const mode = effectiveVisibility(priced.visibility, "prompt");
 
   if (mode !== "range") {
-    // Two different silences. A gated trade will never show a price, and says
-    // so. An after_submit trade WILL, once they submit — telling them "we don't
-    // show prices online" would be false and would stop them filling in the
-    // form the mode exists to get filled in.
-    const locked = priced.visibility === "after_submit";
+    // Nothing but the plain gated response crosses here.
+    //
+    // This briefly also carried a `locked` flag, the material list and the
+    // locked wording, from when the flow was a wizard and this call was how
+    // the panel first learned what to render. The form is one page now: the
+    // materials and the locked copy arrive with the page itself (see
+    // loadCompanyInstantTrades), and only a "range" trade calls this endpoint
+    // at all. Keeping the branch meant a second source for labels the page
+    // already had, on the one response that has to be provably empty of
+    // pricing — so it goes, rather than being maintained for a caller that no
+    // longer exists.
     return NextResponse.json({
       measurement: measurementView,
       gated: true,
-      locked,
-      // The materials still have to be pickable — a homeowner choosing between
-      // asphalt and metal needs the choice, just not the prices attached to it.
-      // Labels only; no low, no high, no unit rate.
-      ...(locked && {
-        options: priced.options.map((o) => ({
-          materialKey: o.materialKey,
-          label: o.label,
-        })),
-        lockedMessage: lockedEstimateMessage(language),
-      }),
-      message: locked ? null : gatedMessage(language, "prompt"),
+      message: gatedMessage(language, "prompt"),
       financing,
     });
   }

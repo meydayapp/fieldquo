@@ -25,6 +25,7 @@ import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
+import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
 
@@ -298,7 +299,21 @@ export async function POST(request) {
     },
   });
 
-  return NextResponse.json(invite, { status: 201 });
+  // Whether the email went out is not something to assume. Better Auth calls
+  // the send hook and swallows its errors, so the answer is left behind by
+  // lib/email/teamInvite.js and collected here. `emailSent: false` still means
+  // the invitation row exists — the New User page says so and points at the
+  // Team page, where the invite can be cancelled and re-sent.
+  const emailOutcome = takeInviteEmailOutcome(member.authOrgId, cleanEmail);
+
+  return NextResponse.json(
+    {
+      ...invite,
+      emailSent: emailOutcome.sent,
+      emailError: emailOutcome.sent ? undefined : emailOutcome.error,
+    },
+    { status: 201 },
+  );
 }
 
 // Change an existing member's active status or extended profile fields (labor

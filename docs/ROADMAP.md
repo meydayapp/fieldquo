@@ -50,7 +50,7 @@ already covers most of this first. Needs a product decision on which
 marketplaces justify the integration cost.
 
 
-### 1. AI phone agent / receptionist — foundation built, no UI yet
+### 1. AI phone agent / receptionist — built, first live test done
 
 Provider is **Retell**, platform-owned: FieldQuo holds one account and
 provisions an agent and a number per company, so a contractor never sees Retell.
@@ -70,14 +70,45 @@ provisioning, Stripe top-ups, agent provisioning from the company's own data,
 the tools (`save_caller` / `check_availability` / `book_visit`), and the call
 review queue at `/app/receptionist` — which is no longer a placeholder.
 
+**Found in the first live test, and fixed:** every number bought or forwarded
+was written on the schema default `status = provisioning`, and nothing anywhere
+promoted it to `active`. Every reader filters on `active` — `activeNumber()`,
+the settings GET, the crew-inbox webhook, outbound dialling, agent attachment,
+the rent cron — so a number that had been bought at Retell and charged a
+month's rental was invisible to all of them. The setup screen came back
+unchanged, the duplicate guard read the same column and found nothing, and a
+second click bought a second live number. The route now writes `active`
+explicitly; `heldNumber()` in `lib/voice/numbers.js` is the wider query that
+sees stranded rows so the guard and the screen can't be blind to them again.
+**Rows created before this fix are still stranded in production and need a
+manual `status` repair — they are live numbers accruing rent that their owner
+cannot see.**
+
+Also fixed alongside it: the setup buttons said nothing at all on success; the
+two call switches were disabled with no reason (the reason is now computed
+server-side by the same `checkSpend()` the PUT gate runs and printed under the
+button); the port card promised an email nothing sends; and the crew inbox
+could be switched on against a number no text could reach.
+
 **Still to do:**
+  * **A port request reaches no one.** It writes a `VoicePhoneNumber` row and an
+    `ActivityLog` entry — both inside the company's own account. The platform
+    console reads `PlatformAuditLog`, a different table, and no email is sent.
+    So "a human has to action it" is currently "a human would have to already
+    know". It needs an ops queue or a notification before porting is offered as
+    a real option. A contractor can now at least *cancel* a request (DELETE on
+    `/api/settings/voice/number`, porting rows only — no provider call, no
+    money), which was the immediate problem: a port row matched the duplicate
+    guard, so every other setup path returned 409 and there was no way out.
+  * **The crew inbox has no wired inbound path.** `/api/crew/inbound` is a
+    Twilio SMS webhook, but numbers are bought from **Retell**, so they are not
+    in FieldQuo's Twilio account and Twilio will never post a text about them.
+    Nothing in the codebase configures an incoming number's SMS URL. Until that
+    is resolved the switch opens a door with no road to it. (It is also purely
+    inbound — enabling it sends nobody anything, which the screen now says.)
   * A real call end to end, once `RETELL_API_KEY` and `RETELL_WEBHOOK_SECRET`
     are in Vercel. Everything below the provider boundary has been exercised
     with signed fixtures; nothing has yet spoken to Retell.
-  * Porting is recorded as a REQUEST with an expected date and nothing actions
-    it — a human has to. That's deliberate (a port needs carrier details no
-    button can obtain) but it means somebody must watch for
-    `VoicePhoneNumber.status = "porting"`.
   * ~~Monthly number rental is stored on the row and not yet billed.~~ **Done.**
     The rental now debits the prepaid balance: the first month is reserved
     BEFORE the number is bought (`lib/voice/spendGate.js`), and
@@ -95,9 +126,12 @@ review queue at `/app/receptionist` — which is no longer a placeholder.
     reminders, visit notifications and the crew inbox, and nothing charges for
     it. Same shape as the rental leak was; it needs a price per message first,
     which is a product decision.
-  * There is still no way for a contractor to RELEASE a number. The buy route
-    tells them to "release it first to change", and no such control exists —
-    only the rent-expiry path releases anything.
+  * There is still no way for a contractor to RELEASE a LIVE number. Only the
+    rent-expiry path releases anything. The screen no longer leaves this
+    unanswered — a forwarded setup says "dial `##002#`", a bought one says to
+    get in touch and that releasing is permanent — but the self-serve control
+    needs a product decision first: releasing is an irreversible provider DELETE
+    and nobody has said what happens to the month already paid.
 
 **What it should do:** answer inbound calls, capture the caller's details,
 create a `Client` or `LeadRequest`, book a visit against real availability,
@@ -314,6 +348,98 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Three small settings jobs: share a referral by text, changelog posts, and a
+  back link that tells the truth.**
+
+  *Refer & Earn* now hands the invite to the user's own messaging app.
+  `lib/share/messagingLinks.js` is the only place that knows `sms:` needs `&`
+  on iOS and `?` on Android, and it is the only UA sniff in the flow — whether
+  the button appears at all is a media query (`hover: none` + `pointer:
+  coarse`), read through `useMessagingCapability()` so there is no
+  setState-in-effect flicker. On a desktop the Text button is absent rather
+  than dead; WhatsApp stays, because `wa.me` genuinely works there. The body is
+  URL-encoded (an unencoded referral URL truncates the message at its first
+  `&`) and now comes from the message catalogue instead of a hardcoded English
+  string. `npm run check:share` runs the maths.
+
+  *Product Updates* entries can carry an optional `slug` + `post` and render at
+  `/app/settings/product-updates/<slug>`. Still a data file, not a model — see
+  the header of `lib/data/productUpdates.js`. The "Read the full update" link
+  renders from `hasPost()`, so an entry can't advertise a post nobody wrote;
+  `npm run check:updates` enforces the pairing, slug uniqueness and ordering.
+
+  *Drill-down back bar* (`app/components/settings/SettingsDrillDown.js`,
+  mounted by the settings layout). Settings pages are siblings, not a tree, so
+  a fixed parent link would lie on every visit that started from the sidebar.
+  The bar needs both a claim from the link that was clicked AND a matching
+  pathname transition; `resolveArrival()` in `lib/settings/drillDown.js` is the
+  whole decision and `npm run check:drilldown` walks every way in. Currently
+  claimed by one link: Company Settings → "Manage" → Services. The prose link
+  to Website settings in the same card is still a plain `<Link>`.
+
+- **Inviting an employee actually invites them** (`lib/email/teamInvite.js`).
+  Reported after an onboarding test: the employee never got an email, while
+  referral mail from the same Resend account arrived fine. The invitation was
+  the last send in the product that didn't RESOLVE its sender — it let
+  `sendEmail` fall back to `EMAIL_FROM || onboarding@resend.dev`, and
+  `EMAIL_FROM` isn't set, so every invite was posted from Resend's sandbox
+  address, which only delivers to the account owner. A refused send is an API
+  error, not an email, so nothing appeared in the Resend dashboard either.
+  Invites now go through `getPlatformFrom()` like the rest of the platform's
+  mail.
+
+  The second half was that the failure couldn't be reported: Better Auth calls
+  `sendInvitationEmail` through `runInBackgroundOrAwait`, which swallows what
+  the hook throws, and `sendEmail` returns errors rather than throwing — so
+  both invite routes answered 201 "sent". They now collect the outcome
+  (`takeInviteEmailOutcome`) and return `emailSent` / `emailError`; the popup
+  and the New User page say so instead of closing cheerfully.
+
+  Alongside it, on the same card: pending invites now count toward the
+  onboarding "Invite your team" step (a Member row only exists after
+  acceptance, so the count never moved), the step completes at one teammate
+  instead of requiring every licence on the plan to be spent, and its link
+  points at `/app/settings/team` rather than `/app/team`, which 404s. The
+  popup uses the same address autocomplete and the same permission presets as
+  the full form. Pending invites can be cancelled
+  (`DELETE /api/settings/members/pending/[id]`) — and the accept route now
+  refuses cancelled and expired invitations, which it didn't, so revoking one
+  is real rather than cosmetic.
+
+  **Still open:** `checkUserLimit` counts only active Members, while the Team
+  page, the New User page and now the onboarding card all count a pending
+  invite as a seat in use. Whether an unaccepted invite consumes a paid licence
+  is a product decision, so enforcement was left alone. Also
+  `invitationLanguage` is captured on the New User page and reconciled onto
+  `Member`, but nothing reads it — the invitation email is English-only.
+
+- **One quote lifecycle, both doors** (`lib/quotes/quoteLifecycle.js`). A quote
+  accepted through the public link created a Job, a draft Invoice and a
+  "schedule it" Task; the identical acceptance recorded in the back office
+  (`PATCH /api/quotes/[id]`, which is what "They approved" on
+  `/app/quote-approval` posts) created none of them. An acceptance taken over
+  the phone was a dead end. `onQuoteAccepted` / `onQuoteDeclined` /
+  `onQuoteSent` are now shared by both routes and by the send route.
+
+  The same helper moves the originating lead: sent → `contacted`, accepted →
+  `converted` (the value the board renders as "Won"), declined → `lost`.
+  `convertLead.js` no longer stamps `converted` at quote-creation time — a
+  draft quote is not a won job, and doing so meant every lead skipped straight
+  to Won and no lead ever showed Contacted. Only leads carry this; instant
+  estimates build a Client and Quote directly and have no `LeadRequest`.
+
+  Approving an instant estimate still leaves the quote in `draft` on purpose —
+  it clears `needsReview` (the company confirming the PRICE), which is not the
+  client accepting. `/app/quotes` now shows "Needs review" / "Approved — ready
+  to send" so the two drafts are distinguishable.
+
+  **Still open:** Job → Appointment does not exist. `Appointment` has no
+  `jobId` and `Job` has no appointments back-relation, so a scheduled JobVisit
+  appears only on its own job detail page — never on `/app/appointments` and
+  never on the assigned employee's schedule. `Shift.jobId` exists and no UI can
+  set it. Needs a product decision: unify the three scheduling models
+  (Appointment / JobVisit / Shift) or have the calendar read visits too.
 
 - **Feature availability: FieldQuo can withhold a feature per tenant**
   (`lib/features/`, `/platform/features`, `npm run check:features`). A CLOSED

@@ -7,9 +7,10 @@ import { Plus, Trash2, Globe, Info } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MiniMap from "@/app/components/MiniMap";
 import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
+import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
-import { CURRENCIES, currencyForCountry, currencyMeta } from "@/lib/currency";
+import { CURRENCIES, COUNTRIES, currencyForCountry, currencyMeta } from "@/lib/currency";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -332,12 +333,16 @@ export default function CompanySettingsPage() {
             <h3 className="text-sm font-semibold text-foreground">
               {t("app.setCompany.enabledQuoteTypes")}
             </h3>
-            <Link
+            {/* A drill-down, not a sibling link: Services is a sidebar
+                destination of its own, so it only earns a "Back to Company
+                Settings" bar on the visits that started here. */}
+            <SettingsDrillLink
               href="/app/settings/services"
+              fromLabel={t("app.settings.company")}
               className="text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               {t("app.setCompany.manage")}
-            </Link>
+            </SettingsDrillLink>
           </div>
           {quoteTypes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -734,11 +739,36 @@ export default function CompanySettingsPage() {
             <label className="text-sm font-medium text-foreground block mb-1">
               {t("app.setCompany.country")}
             </label>
-            <input
+            {/* ── A list, not a text box ──────────────────────────────────
+                This was a free-text input, and the billing currency below is
+                derived from it via currencyForCountry() — which looks the value
+                up in COUNTRIES by ISO alpha-2 code. So "US" worked and "USA"
+                silently fell through to the CAD default: the owner typed his
+                country, watched the currency stay Canadian, and had no way to
+                see why. An unmatched value didn't warn, it just quietly meant
+                Canada.
+
+                A select can only hold codes the map actually knows, so the
+                derived currency below is now always a real answer. Anything
+                already stored that isn't in the list (typed before this change,
+                or a country Google returned that we don't bill in) is kept as an
+                extra option rather than being silently reassigned on first
+                save — that would rewrite a company's country because they
+                opened a settings page. */}
+            <select
               className={inputClass}
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
-            />
+            >
+              {!COUNTRIES.some((c) => c.code === form.country) && form.country && (
+                <option value={form.country}>{form.country}</option>
+              )}
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <Info size={11} /> {t("app.setCompany.countryAuto")}
             </p>

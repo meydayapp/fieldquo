@@ -14,9 +14,7 @@ import { db } from "@/lib/db";
 import { getAppOrigin } from "@/lib/appUrl";
 import { formatMoney } from "@/lib/currency";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
-import { ensureJobForAcceptedQuote } from "@/lib/jobs/createJobFromQuote";
-import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
-import { taskForAcceptedQuote } from "@/lib/tasks/autoCreate";
+import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
@@ -390,18 +388,11 @@ export async function POST(request, { params }) {
   // the acceptance is already committed above.
   if (accepted) {
     try {
-      // Turn the won work into BOTH a schedulable job and a draft invoice, so
-      // the client approving from their end doesn't leave a staff member to
-      // remember to "convert to invoice" by hand. Both are idempotent and
-      // best-effort — the acceptance is already committed above, so a hiccup
-      // here must never make the client's approval appear to fail.
-      const job = await ensureJobForAcceptedQuote(updated.id);
-      const { invoice } = await ensureInvoiceForQuote(updated.id);
-      // ...and a note for whoever has to put it in the diary. The job above
-      // lands `unscheduled`, which is easy to miss on a list ordered by when
-      // work is happening. Idempotent on its own sourceKey and swallows its
-      // own errors, so it can't undo either of the two lines above.
-      await taskForAcceptedQuote(updated.id);
+      // Turn the won work into a schedulable job, a draft invoice and a "put it
+      // in the diary" task, and move the lead behind it to won. Shared with the
+      // back-office path (PATCH /api/quotes/[id]) so the two can never drift —
+      // they used to, and the back office was the one doing nothing.
+      const { job, invoice } = await onQuoteAccepted(updated.id);
       await recordActivity(
         { companyId: updated.companyId },
         {
@@ -420,6 +411,11 @@ export async function POST(request, { params }) {
     } catch (err) {
       console.error("[public quote] job/invoice/activity failed:", err);
     }
+  } else {
+    // A decline creates nothing, but it still closes the lead behind the quote.
+    await onQuoteDeclined(updated.id).catch((err) =>
+      console.error("[public quote] lead close failed:", err?.message),
+    );
   }
 
   // The total is echoed back so the confirmation the client sees is the same

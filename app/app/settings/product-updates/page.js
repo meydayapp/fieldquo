@@ -1,19 +1,22 @@
 // app/app/settings/product-updates/page.js
+//
+// The changelog. Each entry is a summary that stands on its own; entries that
+// also have a full write-up link to it. The link is rendered from
+// `hasPost()` rather than from the slug alone, so an entry can never advertise
+// a post that was never written.
 "use client";
 
-import { PRODUCT_UPDATES } from "@/lib/data/productUpdates";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import {
+  PRODUCT_UPDATES,
+  formatUpdateDate,
+  hasPost,
+} from "@/lib/data/productUpdates";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-function formatDate(dateStr) {
-  return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export default function ProductUpdatesPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
       <div>
@@ -28,12 +31,21 @@ export default function ProductUpdatesPage() {
             className="bg-card border border-border rounded-xl p-5"
           >
             <div className="text-xs text-muted-foreground mb-1">
-              {formatDate(update.date)}
+              {formatUpdateDate(update.date, language)}
             </div>
             <h2 className="text-base font-semibold text-foreground">
               {update.title}
             </h2>
             <p className="text-sm text-muted-foreground mt-1.5">{update.body}</p>
+            {hasPost(update) && (
+              <Link
+                href={`/app/settings/product-updates/${update.slug}`}
+                className="inline-flex items-center gap-1.5 mt-3 text-sm font-semibold text-foreground hover:underline"
+              >
+                {t("app.productUpdates.readMore")}
+                <ArrowRight size={14} />
+              </Link>
+            )}
           </div>
         ))}
       </div>

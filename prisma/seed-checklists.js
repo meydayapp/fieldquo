@@ -102,8 +102,67 @@ const CHECKLISTS = [
       "Clear every ladder, tin and drop cloth off the property",
     ],
   },
+  // Cabinet refinishing carries more items than anything else here, and that's
+  // deliberate: it's the job where a skipped step doesn't show on handover day,
+  // it shows six months later as a door peeling at the handle. Trimming this to
+  // a tidy six would drop the steps that are actually load-bearing.
+  //
+  // ── Split from cabinet_refacing ────────────────────────────────────────────
+  //
+  // These two used to share one list, which broke this file's own grouping rule
+  // — keys share a list only when it's the same job under two names. Refacing
+  // veneers the boxes and hangs new doors; nobody grain-fills an oak front they
+  // are about to throw away. Refacing keeps the list below, unchanged, because
+  // it's the one it already had.
+  //
+  // ── Where the numbers come from ────────────────────────────────────────────
+  //
+  // Grits, coat counts and the two cure windows are from the cabinet painting
+  // guide the owner supplied, and nowhere else. Where the guide gives a figure
+  // this list gives that figure; where it says "per the tin", so does this
+  // list. A checklist that states a recoat window nobody verified reads exactly
+  // as authoritative as one that's right, and a crew that trusts it has a
+  // failed finish and no way to know why.
   {
-    keys: ["cabinet_refinishing", "cabinet_refacing"],
+    keys: ["cabinet_refinishing"],
+    pre: [
+      "Confirm the colour, the sheen, and whether the box interiors are in scope",
+      "Protect the floor, the countertops, the backsplash and the walls",
+      "Cover the appliances, and hang a dust barrier — overspray travels further than you'd think",
+      "Photograph every door and drawer in place, and how each one hangs — hinge side, which edge is up",
+      "Number every door and drawer front and log the opening it came out of",
+      "Tape over each number so it survives the degreaser and the spray",
+      "Take the doors and drawer fronts off and lay them out clean — sawhorses or a covered table, not the bare floor",
+      "Bag the hinges, knobs and pulls per door and label the bag",
+      "Fill the old screw holes and drill any new hardware holes now, before a drop of primer goes on",
+      "If you're hanging them to spray, drill the hanging holes in the top or bottom edge where nobody will see them",
+    ],
+    during: [
+      "Degrease every piece — faces, edges, backs, and hardest around the handles — then rinse and let it dry",
+      "Degrease the boxes and face frames too; kitchen grease is why cabinet finishes peel",
+      "Scuff sand at 120–150 grit until the shine is dull — you're keying the old finish, not stripping it",
+      "Grain-fill oak and open-grain fronts and sand them back, or the grain telegraphs through the topcoat",
+      "Vacuum, then wipe every piece with a tack cloth or pre-paint cleaner — a settled speck is a re-sand",
+      "Hang them, or lay them flat on pyramids; anything resting on its face picks up a mark",
+      "Prime the backs first, two thin coats, each one dry before you flip it",
+      "Prime the fronts the same way — laminate and thermofoil need a bonding primer made for slick surfaces",
+      "Denib the primer at 320 grit or finer and tack it off before the topcoat",
+      "Two light topcoats of a cabinet-grade enamel — one heavy coat runs and you'll sand it back",
+      "Let each coat dry to the tin, not to the clock",
+      "Same order on the boxes and face frames: clean, scuff, prime twice, topcoat twice",
+    ],
+    post: [
+      "Give the final coat 48–72 hours before anything gets rehung — it's dry long before it's hard",
+      "Rehang doors and drawers to their numbers and photos, then adjust the hinges until the gaps are even",
+      "Check every door swings freely and closes flush, and that the drawers run",
+      "Clean the countertops and floor and pull all masking and the dust barrier",
+      "Tell the client: no heavy use and nothing gets cleaned for 7 days while the finish hardens",
+      "Photograph the finished kitchen",
+      "Leave the touch-up kit and the care instructions",
+    ],
+  },
+  {
+    keys: ["cabinet_refacing"],
     pre: [
       "Number every door and drawer front and log where it came from",
       "Photograph the existing hinges and hardware before removal",

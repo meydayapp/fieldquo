@@ -56,8 +56,21 @@ export async function POST(request) {
   const from = params.From;
   if (!to || !from) return twiml(null);
 
-  // The company that owns the texted number. Prefer the dedicated voice number,
-  // fall back to the account SMS number.
+  // ── The company that owns the texted number ───────────────────────────────
+  //
+  // The company's OWN provisioned number, and only that. The comment here used
+  // to promise a fallback to "the account SMS number" that the code has never
+  // had — and could not safely have: TWILIO_PHONE_NUMBER is one number shared by
+  // the whole platform, so it identifies no tenant, and guessing one would file
+  // a stranger's photo onto a stranger's job.
+  //
+  // Two consequences worth knowing before debugging "my crew texted and nothing
+  // happened":
+  //   * `status: "active"` — a number still porting matches nothing, on purpose.
+  //   * On a FORWARDED setup this is OUR number, not the one on the van. Carrier
+  //     call-forwarding forwards calls, never texts, so a text to their own
+  //     number never reaches Twilio at all. The settings screen prints the
+  //     number crew must actually use.
   const number = await db.voicePhoneNumber.findFirst({
     where: { e164: to, status: "active" },
     select: { companyId: true, company: { select: { crewInboxEnabled: true } } },

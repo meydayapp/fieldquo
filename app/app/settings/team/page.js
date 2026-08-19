@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Clock, Mail } from "lucide-react";
+import { Plus, Clock, Mail, X } from "lucide-react";
 import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -40,6 +40,11 @@ export default function TeamOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
   const [error, setError] = useState("");
+  // The pending invite awaiting a confirmation, and the one being cancelled.
+  // A one-click revoke on a row that looks like every other row is how the
+  // wrong person gets cut off.
+  const [confirmRevoke, setConfirmRevoke] = useState(null);
+  const [revokingId, setRevokingId] = useState(null);
 
   // What THIS user is allowed to assign. Comes from the server rather than
   // being inferred client-side: the UI should offer exactly what the API will
@@ -115,6 +120,36 @@ export default function TeamOverviewPage() {
       setSavingUserId(null);
     }
   }
+
+  // Cancel an invitation nobody has accepted. The server is the authority
+  // (DELETE /api/settings/members/pending/[id] re-checks the permission and
+  // the company); this only decides whether to offer the control.
+  async function revokeInvite(pendingRow) {
+    setRevokingId(pendingRow.id);
+    setError("");
+    try {
+      const res = await fetch(`/api/settings/members/pending/${pendingRow.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          data?.error ||
+            t("app.setTeam.errRevoke", "Could not cancel that invitation."),
+        );
+      }
+      setConfirmRevoke(null);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRevokingId(null);
+    }
+  }
+
+  const canManageInvites = ["owner", "admin", "supervisor"].includes(
+    grants.yourRole,
+  );
 
   // Mirrors canManageMember on the server. Duplicated deliberately — the
   // server is the authority, this only decides whether to render a control.
@@ -300,7 +335,19 @@ export default function TeamOverviewPage() {
                 <Mail size={11} /> {t("app.setTeam.invited")}
               </span>
               <span className="text-xs text-muted-foreground">—</span>
-              <span className="text-xs text-muted-foreground">—</span>
+              {canManageInvites ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmRevoke(p)}
+                  disabled={revokingId === p.id}
+                  className="text-xs font-semibold text-red-700 dark:text-red-300 border border-border rounded-full px-2.5 py-1 flex items-center gap-1 disabled:opacity-60"
+                >
+                  <X size={12} />{" "}
+                  {t("app.setTeam.cancelInvite", "Cancel invite")}
+                </button>
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </div>
           ))}
 
@@ -315,6 +362,46 @@ export default function TeamOverviewPage() {
       <p className="text-xs text-muted-foreground">
         {t("app.setTeam.ownerNote")}
       </p>
+
+      {confirmRevoke && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm p-6 space-y-4">
+            <h2 className="font-semibold text-foreground">
+              {t("app.setTeam.cancelInviteTitle", "Cancel this invitation?")}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t(
+                "app.setTeam.cancelInviteBody",
+                "Their invitation link stops working and the licence is freed. They keep any worker record already on your books — remove that from Workers if you need to.",
+              )}
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              {confirmRevoke.name
+                ? `${confirmRevoke.name} — ${confirmRevoke.email}`
+                : confirmRevoke.email}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmRevoke(null)}
+                className="flex-1 border border-border text-foreground py-2.5 rounded-lg text-sm font-semibold"
+              >
+                {t("app.action.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={revokingId === confirmRevoke.id}
+                onClick={() => revokeInvite(confirmRevoke)}
+                className="flex-1 bg-red-600 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {revokingId === confirmRevoke.id
+                  ? t("app.setTeam.cancellingInvite", "Cancelling...")
+                  : t("app.setTeam.confirmCancelInvite", "Cancel invitation")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
