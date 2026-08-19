@@ -190,6 +190,24 @@ const en = {
     "FieldQuo works for any contracting or home service business. You can enable or disable specific service categories and set your own pricing regardless of trade.",
   "faq.items.contract.q": "Is there a contract or long-term commitment?",
   "faq.items.contract.a": "No. Plans are month-to-month — cancel anytime.",
+  // Careers
+  //
+  // No roles are listed because there are none. The page says so plainly
+  // rather than showing invented openings — a careers page that lists a job
+  // nobody can be hired into is the same failure as a button that does
+  // nothing.
+  "careers.title": "Careers at FieldQuo",
+  "careers.intro":
+    "FieldQuo is software for contractors and home service pros — painters, cabinet makers, flooring installers, plumbers, landscapers. It was built by people who run a real contracting business, out of the everyday friction of quoting, scheduling, and getting paid.",
+  "careers.openRoles.title": "Open roles",
+  "careers.openRoles.body":
+    "We have nothing posted right now. When a role opens, it will be listed on this page.",
+  "careers.speculative.title": "Get in touch anyway",
+  "careers.speculative.body":
+    "If you've worked in the trades, or you build software and this is the kind of problem you'd want to spend your time on, we'd still like to hear from you. Tell us what you'd want to work on and what you've built.",
+  "careers.contactCta": "Send us a message",
+  "careers.emailIntro": "Or email us directly at",
+
 
   // Footer
   "footer.product": "Product",
@@ -419,6 +437,18 @@ const fr = {
   "faq.items.contract.q": "Y a-t-il un contrat ou un engagement à long terme?",
   "faq.items.contract.a":
     "Non. Les forfaits sont mensuels — annulez quand vous voulez.",
+  "careers.title": "Carrières chez FieldQuo",
+  "careers.intro":
+    "FieldQuo est un logiciel pour les entrepreneurs et les pros des services à domicile — peintres, ébénistes, poseurs de planchers, plombiers, paysagistes. Il a été conçu par des gens qui dirigent une véritable entreprise de services, à partir des irritants quotidiens des soumissions, de la planification et des paiements.",
+  "careers.openRoles.title": "Postes ouverts",
+  "careers.openRoles.body":
+    "Nous n'affichons aucun poste en ce moment. Dès qu'un poste s'ouvrira, il sera affiché sur cette page.",
+  "careers.speculative.title": "Écrivez-nous quand même",
+  "careers.speculative.body":
+    "Si vous avez travaillé sur le terrain, ou si vous développez des logiciels et que c'est le genre de problème auquel vous voulez consacrer votre temps, ça nous intéresse. Dites-nous ce sur quoi vous aimeriez travailler et ce que vous avez déjà bâti.",
+  "careers.contactCta": "Nous écrire un message",
+  "careers.emailIntro": "Ou écrivez-nous directement à",
+
 
   "footer.product": "Produit",
   "footer.company": "Entreprise",
@@ -631,6 +661,18 @@ const es = {
   "faq.items.contract.q": "¿Hay contrato o compromiso a largo plazo?",
   "faq.items.contract.a":
     "No. Los planes son mes a mes — cancela cuando quieras.",
+  "careers.title": "Empleo en FieldQuo",
+  "careers.intro":
+    "FieldQuo es software para contratistas y profesionales de servicios a domicilio: pintores, ebanistas, instaladores de pisos, plomeros y jardineros. Lo crearon personas que dirigen una empresa de contratación real, a partir de la fricción diaria de hacer presupuestos, agendar y cobrar.",
+  "careers.openRoles.title": "Vacantes",
+  "careers.openRoles.body":
+    "Ahora mismo no tenemos ninguna vacante publicada. Cuando se abra un puesto, aparecerá en esta página.",
+  "careers.speculative.title": "Escríbenos de todos modos",
+  "careers.speculative.body":
+    "Si has trabajado en el oficio, o desarrollas software y este es el tipo de problema al que quieres dedicar tu tiempo, nos gustaría saber de ti. Cuéntanos en qué te gustaría trabajar y qué has construido.",
+  "careers.contactCta": "Envíanos un mensaje",
+  "careers.emailIntro": "O escríbenos directamente a",
+
 
   "footer.product": "Producto",
   "footer.company": "Empresa",
@@ -844,6 +886,18 @@ const uk = {
   "contact.sending": "Надсилання…",
   "contact.sent": "Дякуємо — ми скоро відповімо.",
   "contact.error": "Щось пішло не так. Спробуйте ще раз або напишіть нам напряму.",
+  "careers.title": "Кар'єра у FieldQuo",
+  "careers.intro":
+    "FieldQuo — це програма для підрядників і майстрів побутових послуг: малярів, столярів, укладальників підлоги, сантехніків, ландшафтних дизайнерів. Її створили люди, які самі ведуть підрядний бізнес, — із щоденних труднощів із кошторисами, плануванням і оплатою.",
+  "careers.openRoles.title": "Відкриті вакансії",
+  "careers.openRoles.body":
+    "Зараз у нас немає відкритих вакансій. Коли вакансія з'явиться, ми опублікуємо її на цій сторінці.",
+  "careers.speculative.title": "Напишіть нам усе одно",
+  "careers.speculative.body":
+    "Якщо ви працювали в цій сфері або створюєте програмне забезпечення і це саме та задача, якій ви хочете присвятити час, ми будемо раді почути вас. Розкажіть, над чим ви хотіли б працювати і що вже зробили.",
+  "careers.contactCta": "Надіслати нам повідомлення",
+  "careers.emailIntro": "Або напишіть нам напряму на",
+
 
   "footer.product": "Продукт",
   "footer.company": "Компанія",
@@ -1056,6 +1110,18 @@ const pa = {
   "contact.sending": "ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
   "contact.sent": "ਧੰਨਵਾਦ — ਅਸੀਂ ਜਲਦੀ ਸੰਪਰਕ ਕਰਾਂਗੇ।",
   "contact.error": "ਕੁਝ ਗ਼ਲਤ ਹੋ ਗਿਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਸਿੱਧਾ ਈਮੇਲ ਕਰੋ।",
+  "careers.title": "FieldQuo ਵਿੱਚ ਨੌਕਰੀਆਂ",
+  "careers.intro":
+    "FieldQuo ਠੇਕੇਦਾਰਾਂ ਅਤੇ ਘਰੇਲੂ ਸੇਵਾਵਾਂ ਦੇ ਕਾਰੀਗਰਾਂ ਲਈ ਸਾਫ਼ਟਵੇਅਰ ਹੈ — ਪੇਂਟਰ, ਤਰਖਾਣ, ਫ਼ਰਸ਼ ਲਾਉਣ ਵਾਲੇ, ਪਲੰਬਰ, ਬਾਗ਼ਬਾਨ। ਇਹ ਉਹਨਾਂ ਲੋਕਾਂ ਨੇ ਬਣਾਇਆ ਹੈ ਜੋ ਖ਼ੁਦ ਠੇਕੇਦਾਰੀ ਦਾ ਕੰਮ ਚਲਾਉਂਦੇ ਹਨ — ਕੋਟ ਬਣਾਉਣ, ਸਮਾਂ ਤੈਅ ਕਰਨ ਅਤੇ ਭੁਗਤਾਨ ਲੈਣ ਦੀ ਰੋਜ਼ਾਨਾ ਖਿੱਚੋਤਾਣ ਵਿੱਚੋਂ।",
+  "careers.openRoles.title": "ਖੁੱਲ੍ਹੀਆਂ ਅਸਾਮੀਆਂ",
+  "careers.openRoles.body":
+    "ਇਸ ਵੇਲੇ ਸਾਡੇ ਕੋਲ ਕੋਈ ਅਸਾਮੀ ਨਹੀਂ ਹੈ। ਜਦੋਂ ਕੋਈ ਅਸਾਮੀ ਖੁੱਲ੍ਹੇਗੀ, ਉਹ ਇਸੇ ਪੰਨੇ 'ਤੇ ਦਿੱਤੀ ਜਾਵੇਗੀ।",
+  "careers.speculative.title": "ਫਿਰ ਵੀ ਸਾਡੇ ਨਾਲ ਸੰਪਰਕ ਕਰੋ",
+  "careers.speculative.body":
+    "ਜੇ ਤੁਸੀਂ ਇਸ ਕੰਮ-ਧੰਦੇ ਵਿੱਚ ਕੰਮ ਕੀਤਾ ਹੈ, ਜਾਂ ਤੁਸੀਂ ਸਾਫ਼ਟਵੇਅਰ ਬਣਾਉਂਦੇ ਹੋ ਅਤੇ ਇਹੀ ਉਹ ਸਮੱਸਿਆ ਹੈ ਜਿਸ 'ਤੇ ਤੁਸੀਂ ਆਪਣਾ ਸਮਾਂ ਲਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ, ਤਾਂ ਸਾਨੂੰ ਤੁਹਾਡੇ ਤੋਂ ਸੁਣਨਾ ਚੰਗਾ ਲੱਗੇਗਾ। ਦੱਸੋ ਕਿ ਤੁਸੀਂ ਕਿਸ ਚੀਜ਼ 'ਤੇ ਕੰਮ ਕਰਨਾ ਚਾਹੋਗੇ ਅਤੇ ਤੁਸੀਂ ਹੁਣ ਤੱਕ ਕੀ ਬਣਾਇਆ ਹੈ।",
+  "careers.contactCta": "ਸਾਨੂੰ ਸੁਨੇਹਾ ਭੇਜੋ",
+  "careers.emailIntro": "ਜਾਂ ਸਿੱਧਾ ਸਾਨੂੰ ਇੱਥੇ ਈਮੇਲ ਕਰੋ:",
+
 
   "footer.product": "ਉਤਪਾਦ",
   "footer.company": "ਕੰਪਨੀ",
@@ -1273,6 +1339,18 @@ const tl = {
   "contact.sending": "Ipinapadala…",
   "contact.sent": "Salamat — makikipag-ugnayan kami agad.",
   "contact.error": "May nagkamali. Subukan ulit, o mag-email sa amin nang diretso.",
+  "careers.title": "Mga trabaho sa FieldQuo",
+  "careers.intro":
+    "Ang FieldQuo ay software para sa mga contractor at home service pro — mga pintor, gumagawa ng cabinet, naglalagay ng sahig, tubero at landscaper. Ginawa ito ng mga taong may tunay na negosyong contracting, mula sa araw-araw na hirap sa pag-quote, pag-iskedyul at pagsingil.",
+  "careers.openRoles.title": "Mga bukas na posisyon",
+  "careers.openRoles.body":
+    "Wala kaming nakapaskil na posisyon ngayon. Kapag may bumukas, ilalagay namin ito sa page na ito.",
+  "careers.speculative.title": "Mag-email pa rin sa amin",
+  "careers.speculative.body":
+    "Kung nagtrabaho ka na sa ganitong linya, o gumagawa ka ng software at ito ang uri ng problemang gusto mong pagtuunan ng panahon, gusto pa rin naming makarinig sa iyo. Sabihin mo kung ano ang gusto mong pagtrabahuhan at kung ano ang nagawa mo na.",
+  "careers.contactCta": "Magpadala ng mensahe",
+  "careers.emailIntro": "O mag-email nang diretso sa",
+
 
   "footer.product": "Produkto",
   "footer.company": "Kompanya",
