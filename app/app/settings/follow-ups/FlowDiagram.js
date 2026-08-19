@@ -41,8 +41,8 @@ import {
   TRIGGER_LABEL_KEYS,
   STOP_KEYS,
   ONCE_KEYS,
-  UNIT_KEYS,
 } from "@/lib/followUps/flow";
+import { formatDuration } from "@/lib/i18n/duration";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 function Node({ icon, tone = "neutral", children }) {
@@ -129,7 +129,6 @@ export default function FlowDiagram({ rules }) {
             </Node>
 
             {flow.steps.map((rule) => {
-              const unitKey = UNIT_KEYS[rule.delayUnit] || UNIT_KEYS.days;
               const broken = !rule.template;
 
               return (
@@ -137,8 +136,7 @@ export default function FlowDiagram({ rules }) {
                   <Node icon={<Clock size={12} />}>
                     <span className="inline-block text-xs text-muted-foreground bg-muted rounded-full px-2.5 py-1">
                       {t("app.followFlow.wait", {
-                        value: rule.delayValue,
-                        unit: t(unitKey),
+                        duration: formatDuration(t, rule.delayValue, rule.delayUnit),
                       })}
                     </span>
                   </Node>

@@ -13,6 +13,7 @@ import { TEMPLATE_TYPE_META } from "@/app/data/emailTemplateBlocks";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { stopKeysFor } from "@/lib/followUps/flow";
+import { formatDuration } from "@/lib/i18n/duration";
 import FlowDiagram from "./FlowDiagram";
 
 // Rules should point at a template meant for this kind of automated send —
@@ -214,7 +215,13 @@ export default function FollowUpsPage() {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {rule.delayValue} {rule.delayUnit} {t("app.setFollowUps.after")}{" "}
+                  {/* This used to interpolate delayValue next to the raw
+                      delayUnit column, so a French user read "1 days" — the
+                      count undeclined and the unit untranslated. formatDuration
+                      does both, and is the same call FlowDiagram makes, so the
+                      list and the picture can't drift apart. */}
+                  {formatDuration(t, rule.delayValue, rule.delayUnit)}{" "}
+                  {t("app.setFollowUps.after")}{" "}
                   {meta?.label || rule.triggerEvent} →{" "}
                   {rule.template?.name || t("app.setFollowUps.templateDeleted")}
                 </p>

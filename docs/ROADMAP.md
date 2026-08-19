@@ -971,6 +971,27 @@ they set the pattern.
   the list prints the same stop conditions in words, which is what makes that
   honest. No rules renders nothing at all rather than an empty canvas.
 
+- **Durations decline** (`lib/i18n/duration.js`, `lib/i18n/plurals.js`) — the
+  follow-up delay read "1 days" in English and "Attendre 1 jours" in French,
+  and the settings LIST printed the raw `delayUnit` column, so a French user
+  read "1 days" with the unit never translated at all. The catalogue held one
+  bare plural noun per unit, which cannot be wrong about a count it never sees
+  — which is why 100% translation coverage reported green over it.
+  `formatDuration()` is now the one place the phrase is built, called by both
+  the list and the diagram. The words come from function-valued catalogue
+  entries built by `countedNoun()`, which asks `Intl.PluralRules` for the CLDR
+  category rather than testing `n === 1`. That matters past English: French and
+  Punjabi put ZERO in the singular ("0 jour"); Ukrainian has three forms chosen
+  by the last digits (1 день / 2–4 дні / 5–20 днів), which the old two-form
+  catalogue could not express at all; and Filipino's two categories split on
+  numbers ending in 4, 6 or 9 — a linker rule, not a count — so Tagalog carries
+  the SAME noun in both, and giving it a singular and a plural would have
+  printed different words for 3 and 4. `npm run check:duration` (65 checks)
+  executes the formatter in all six languages, asserts the composed pill, and
+  fails if the runtime's ICU data can't actually resolve a locale — a small-ICU
+  node silently falls back to English rules and would put "1 дні" back with no
+  error anywhere.
+
 - **Catalogue translations can be drafted in bulk**
   (`/app/settings/translations`, `/api/settings/translations/draft`) — one
   button fills every missing service name and description for a language. It

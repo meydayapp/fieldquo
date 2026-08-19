@@ -35,8 +35,8 @@ import {
   STOP_KEYS,
   ONCE_KEYS,
   TRIGGER_LABEL_KEYS,
-  UNIT_KEYS,
 } from "../lib/followUps/flow.js";
+import { DURATION_UNIT_KEYS } from "../lib/i18n/duration.js";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -165,7 +165,7 @@ const usedKeys = [
   ...Object.values(TRIGGER_LABEL_KEYS),
   ...Object.values(STOP_KEYS),
   ...Object.values(ONCE_KEYS),
-  ...Object.values(UNIT_KEYS),
+  ...Object.values(DURATION_UNIT_KEYS),
   ...[...diagram.matchAll(/"(app\.followFlow\.[A-Za-z0-9]+)"/g)].map((m) => m[1]),
 ];
 

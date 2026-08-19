@@ -33,6 +33,12 @@
 //
 // Adding a language means filling in a whole object here and nothing else.
 
+// Relative, with the extension, NOT the "@/" alias: this file is imported by
+// scripts/check-translations.mjs under plain node, which has neither the
+// bundler's alias map nor its extension guessing. The same reasoning is
+// spelled out on the import in messages.js.
+import { countedNoun } from "../../lib/i18n/plurals.js";
+
 // ── English: the source of truth ───────────────────────────────────────────
 //
 // Flat, dot-namespaced keys, matching messages.js. Flat means `t("app.nav.jobs")`
@@ -251,6 +257,21 @@ const en = {
   "app.time.hours": "hours",
   "app.time.minutes": "minutes",
   "app.time.days": "days",
+
+
+  // ── Durations: a count and its noun, agreeing ────────────────────────────
+  //
+  // Function-valued entries (see t() in app/hooks/useTranslation.js) because a
+  // "{value} {unit}" template cannot decline the noun, and printing the bare
+  // plural next to a "1" gave us "1 days" and "Attendre 1 jours". Built by
+  // countedNoun(), which asks Intl.PluralRules for the CLDR category and picks
+  // the matching word — never a hand-written n === 1 test.
+  //
+  // The unit picker on the follow-ups page keeps using app.time.* above: an
+  // option in a dropdown has no count to agree with.
+  "app.duration.minutes": countedNoun("en", { one: "minute", other: "minutes" }),
+  "app.duration.hours": countedNoun("en", { one: "hour", other: "hours" }),
+  "app.duration.days": countedNoun("en", { one: "day", other: "days" }),
 
   // ── Settings navigation ──────────────────────────────────────────────────
   "app.settings.title": "Settings",
@@ -1260,7 +1281,7 @@ const en = {
   "app.followFlow.triggerInvoiceOverdue": "Invoice overdue",
   "app.followFlow.triggerJobCompleted": "Job completed",
   "app.followFlow.unknownTrigger": "This version of the app doesn’t know this trigger, so the rule never runs.",
-  "app.followFlow.wait": "Wait {value} {unit}",
+  "app.followFlow.wait": "Wait {duration}",
   "app.followFlow.sendEmail": "Send email",
   "app.followFlow.noTemplate": "No template — this step sends nothing.",
   "app.followFlow.pausedNote": "Paused — this step is skipped.",
@@ -2609,6 +2630,20 @@ const fr = {
   "app.time.minutes": "minutes",
   "app.time.days": "jours",
 
+
+  // Durations. French puts ZERO in the "one" category — "0 jour", not
+  // "0 jours" — which Intl.PluralRules already knows and a hand-written
+  // n === 1 test does not. "many" exists in fr for compact millions and takes
+  // the same word as "other"; it is spelled out rather than left to fall
+  // through, so nobody has to check whether the fallback was intentional.
+  "app.duration.minutes": countedNoun("fr", {
+    one: "minute",
+    many: "minutes",
+    other: "minutes",
+  }),
+  "app.duration.hours": countedNoun("fr", { one: "heure", many: "heures", other: "heures" }),
+  "app.duration.days": countedNoun("fr", { one: "jour", many: "jours", other: "jours" }),
+
   "app.settings.title": "Paramètres",
   "app.settings.search": "Rechercher un réglage",
 
@@ -3600,7 +3635,7 @@ const fr = {
   "app.followFlow.triggerInvoiceOverdue": "Facture en retard",
   "app.followFlow.triggerJobCompleted": "Chantier terminé",
   "app.followFlow.unknownTrigger": "Cette version de l’application ne connaît pas ce déclencheur; la règle ne s’exécute donc jamais.",
-  "app.followFlow.wait": "Attendre {value} {unit}",
+  "app.followFlow.wait": "Attendre {duration}",
   "app.followFlow.sendEmail": "Envoyer un courriel",
   "app.followFlow.noTemplate": "Aucun gabarit — cette étape n’envoie rien.",
   "app.followFlow.pausedNote": "En pause — cette étape est ignorée.",
@@ -4918,6 +4953,16 @@ const es = {
   "app.time.hours": "horas",
   "app.time.minutes": "minutos",
   "app.time.days": "días",
+
+
+  // Durations. Spanish keeps zero in "other" ("0 días"), unlike French.
+  "app.duration.minutes": countedNoun("es", {
+    one: "minuto",
+    many: "minutos",
+    other: "minutos",
+  }),
+  "app.duration.hours": countedNoun("es", { one: "hora", many: "horas", other: "horas" }),
+  "app.duration.days": countedNoun("es", { one: "día", many: "días", other: "días" }),
   "app.settings.title": "Configuración",
   "app.settings.search": "Buscar ajustes",
   "app.settings.group.account": "Cuenta",
@@ -5856,7 +5901,7 @@ const es = {
   "app.followFlow.triggerInvoiceOverdue": "Factura vencida",
   "app.followFlow.triggerJobCompleted": "Trabajo completado",
   "app.followFlow.unknownTrigger": "Esta versión de la aplicación no reconoce este desencadenante, así que la regla nunca se ejecuta.",
-  "app.followFlow.wait": "Esperar {value} {unit}",
+  "app.followFlow.wait": "Esperar {duration}",
   "app.followFlow.sendEmail": "Enviar correo",
   "app.followFlow.noTemplate": "Sin plantilla: este paso no envía nada.",
   "app.followFlow.pausedNote": "En pausa: este paso se omite.",
@@ -7167,6 +7212,33 @@ const uk = {
   "app.time.hours": "години",
   "app.time.minutes": "хвилини",
   "app.time.days": "дні",
+
+
+  // Durations. Ukrainian has FOUR categories and the split is by the last one
+  // or two digits, not by size: 1/21/31 → one, 2–4/22–24 → few, 0 and 5–20 →
+  // many. This is the case the old two-form catalogue could not express at
+  // all — it printed "дні" for every number, so "1 дні" and "5 дні" were both
+  // wrong. "other" covers fractions (1,5 дня); it is unreachable from the
+  // integer delay field today, and filled in anyway so the next caller with a
+  // decimal doesn't silently get the "few" word.
+  "app.duration.minutes": countedNoun("uk", {
+    one: "хвилина",
+    few: "хвилини",
+    many: "хвилин",
+    other: "хвилини",
+  }),
+  "app.duration.hours": countedNoun("uk", {
+    one: "година",
+    few: "години",
+    many: "годин",
+    other: "години",
+  }),
+  "app.duration.days": countedNoun("uk", {
+    one: "день",
+    few: "дні",
+    many: "днів",
+    other: "дня",
+  }),
   "app.settings.title": "Налаштування",
   "app.settings.search": "Пошук налаштувань",
   "app.settings.group.account": "Обліковий запис",
@@ -8105,7 +8177,7 @@ const uk = {
   "app.followFlow.triggerInvoiceOverdue": "Рахунок прострочено",
   "app.followFlow.triggerJobCompleted": "Роботу завершено",
   "app.followFlow.unknownTrigger": "Ця версія застосунку не знає цього тригера, тому правило ніколи не виконується.",
-  "app.followFlow.wait": "Зачекати {value} {unit}",
+  "app.followFlow.wait": "Зачекати {duration}",
   "app.followFlow.sendEmail": "Надіслати лист",
   "app.followFlow.noTemplate": "Немає шаблону — цей крок нічого не надсилає.",
   "app.followFlow.pausedNote": "Призупинено — цей крок пропускається.",
@@ -9416,6 +9488,16 @@ const pa = {
   "app.time.hours": "ਘੰਟੇ",
   "app.time.minutes": "ਮਿੰਟ",
   "app.time.days": "ਦਿਨ",
+
+
+  // Durations. Punjabi puts zero in "one", like French. Only ਘੰਟਾ inflects
+  // (ਘੰਟਾ → ਘੰਟੇ); ਦਿਨ and ਮਿੰਟ are the same word at every count, so both
+  // categories carry it — written out rather than collapsed to one string, so
+  // the shape matches the other languages and nobody reads the repetition as a
+  // copy-paste slip.
+  "app.duration.minutes": countedNoun("pa", { one: "ਮਿੰਟ", other: "ਮਿੰਟ" }),
+  "app.duration.hours": countedNoun("pa", { one: "ਘੰਟਾ", other: "ਘੰਟੇ" }),
+  "app.duration.days": countedNoun("pa", { one: "ਦਿਨ", other: "ਦਿਨ" }),
   "app.settings.title": "ਸੈਟਿੰਗਾਂ",
   "app.settings.search": "ਸੈਟਿੰਗਾਂ ਖੋਜੋ",
   "app.settings.group.account": "ਖਾਤਾ",
@@ -10354,7 +10436,7 @@ const pa = {
   "app.followFlow.triggerInvoiceOverdue": "ਇਨਵੌਇਸ ਬਕਾਇਆ",
   "app.followFlow.triggerJobCompleted": "ਕੰਮ ਪੂਰਾ ਹੋਇਆ",
   "app.followFlow.unknownTrigger": "ਐਪ ਦਾ ਇਹ ਵਰਜਨ ਇਸ ਟਰਿੱਗਰ ਨੂੰ ਨਹੀਂ ਜਾਣਦਾ, ਇਸ ਲਈ ਇਹ ਨਿਯਮ ਕਦੇ ਨਹੀਂ ਚੱਲਦਾ।",
-  "app.followFlow.wait": "{value} {unit} ਉਡੀਕੋ",
+  "app.followFlow.wait": "{duration} ਉਡੀਕੋ",
   "app.followFlow.sendEmail": "ਈਮੇਲ ਭੇਜੋ",
   "app.followFlow.noTemplate": "ਕੋਈ ਟੈਂਪਲੇਟ ਨਹੀਂ — ਇਹ ਕਦਮ ਕੁਝ ਨਹੀਂ ਭੇਜਦਾ।",
   "app.followFlow.pausedNote": "ਰੁਕਿਆ ਹੋਇਆ — ਇਹ ਕਦਮ ਛੱਡ ਦਿੱਤਾ ਜਾਂਦਾ ਹੈ।",
@@ -11665,6 +11747,21 @@ const tl = {
   "app.time.hours": "oras",
   "app.time.minutes": "minuto",
   "app.time.days": "araw",
+
+
+  // Durations. Read the categories before changing these.
+  //
+  // Tagalog nouns do not inflect for number — it is "1 araw" and "5 araw" —
+  // so both forms are the same word on purpose. More importantly, Filipino's
+  // CLDR "one"/"other" split is NOT singular/plural: it selects on whether the
+  // number ends in 4, 6 or 9, because that changes the linker, not the noun.
+  // Intl.PluralRules("tl").select() returns "one" for 3 and "other" for 4.
+  // Putting a singular in "one" and a plural in "other" would therefore print
+  // one word for 3 and a different one for 4, which is nonsense in any
+  // language. Identical forms are the correct answer here, not a shortcut.
+  "app.duration.minutes": countedNoun("tl", { one: "minuto", other: "minuto" }),
+  "app.duration.hours": countedNoun("tl", { one: "oras", other: "oras" }),
+  "app.duration.days": countedNoun("tl", { one: "araw", other: "araw" }),
   "app.settings.title": "Mga setting",
   "app.settings.search": "Maghanap ng setting",
   "app.settings.group.account": "Account",
@@ -12603,7 +12700,7 @@ const tl = {
   "app.followFlow.triggerInvoiceOverdue": "Lampas na sa takdang petsa ang invoice",
   "app.followFlow.triggerJobCompleted": "Tapos na ang trabaho",
   "app.followFlow.unknownTrigger": "Hindi kilala ng bersyong ito ng app ang trigger na ito, kaya hindi kailanman tumatakbo ang panuntunan.",
-  "app.followFlow.wait": "Maghintay ng {value} {unit}",
+  "app.followFlow.wait": "Maghintay ng {duration}",
   "app.followFlow.sendEmail": "Magpadala ng email",
   "app.followFlow.noTemplate": "Walang template — walang ipinapadala ang hakbang na ito.",
   "app.followFlow.pausedNote": "Naka-pause — nilalaktawan ang hakbang na ito.",
