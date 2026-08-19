@@ -67,6 +67,8 @@ import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/lay
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { filterNavGroups } from "@/lib/features/nav";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { filterSettingsGroups } from "@/lib/permissions/settingsAccess";
 
 const GROUPS = [
   {
@@ -164,9 +166,25 @@ export default function SettingsSidebar() {
   // the settings screens behind these rows are gated by their own FeatureGate
   // layouts whether or not this list ever hides anything.
   const featureFlags = useFeatureFlags();
+  // Two filters, one after the other, answering two different questions:
+  // "does this company have the feature" and "may this person use the screen".
+  // They are kept separate because they fail in opposite directions — a missing
+  // feature map shows everything, and so does a missing role, but conflating
+  // them would make one silently stand in for the other.
+  //
+  // Removing a row is cosmetics, not access control. The four rows this can
+  // remove (Account & Billing, Refer & Earn, Payroll, Booking Page) are all
+  // refused server-side for the same member whether or not the row was drawn —
+  // see lib/permissions/settingsAccess.js and the per-route notes there. An
+  // owner holds every capability, so this is a no-op on the owner's screen.
+  const access = useSettingsAccess();
   const groups = useMemo(
-    () => filterNavGroups(GROUPS, featureFlags),
-    [featureFlags],
+    () =>
+      filterSettingsGroups(
+        filterNavGroups(GROUPS, featureFlags),
+        access.resolved ? { role: access.role, impersonation: access.impersonation } : null,
+      ),
+    [featureFlags, access.resolved, access.role, access.impersonation],
   );
   // The "you are here" label on the mobile bar reads from this too — otherwise a
   // hidden feature would name itself at the top of the screen the moment someone

@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 import CancelFlow from "./CancelFlow";
 function money(n) {
@@ -19,7 +21,30 @@ function daysLeft(date) {
   );
 }
 
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// The decision for this screen. Everything on it is the plan, the price, the
+// card and the cancel flow — the company's commercial relationship with
+// FieldQuo. There is no half of it an estimator needs in order to do their job,
+// so "show it as text" would just be a nicer way of telling them what the
+// company pays. Hidden.
+//
+// A wrapper, so the gate lands BEFORE the screen's hooks run. Written as an
+// early return inside AccountBillingScreen it would still fire the mount
+// effects, and this page's effects hit Stripe reconciliation — a refusal that
+// arrives after the requests have already gone is not a refusal.
+//
+// The sidebar row is removed too (lib/permissions/settingsAccess.js), but this
+// is the one that matters for someone who typed the URL. Neither is the
+// security boundary: /api/platform/billing/* and the subscription writes all
+// re-check isBillingAdmin.
 export default function AccountBillingPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("billing")) return <NoAccessPanel capability="billing" />;
+  return <AccountBillingScreen />;
+}
+
+function AccountBillingScreen() {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [subscription, setSubscription] = useState(null);

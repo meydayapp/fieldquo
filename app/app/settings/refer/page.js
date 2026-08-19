@@ -31,8 +31,33 @@ import { smsShareHref, whatsappShareHref } from "@/lib/share/messagingLinks";
 import { useMessagingCapability } from "@/app/hooks/useMessagingCapability";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// An employee opening this page got the referral link and the full list of
+// which companies had been referred, which of them had paid, and how much
+// credit the company had earned — while the one action on the page, sending an
+// invite, was owner/admin only (see /api/settings/referral/invite). So it was a
+// page that showed other people's commercial data and refused the only thing
+// you could do with it.
+//
+// Read-only would fix the second half and make the first half worse: the
+// referral ledger isn't information a crew member needs, it's the owner's. So
+// the whole screen is hidden, and GET /api/settings/referral now refuses the
+// same member — the row and the endpoint moved together, because hiding one
+// without the other is the fix that isn't one.
+//
+// A wrapper rather than an early return so the gate lands before the mount
+// fetch. See the same note on Account & Billing.
 export default function ReferPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("billing")) return <NoAccessPanel capability="billing" />;
+  return <ReferScreen />;
+}
+
+function ReferScreen() {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [data, setData] = useState(null);
@@ -90,6 +115,10 @@ export default function ReferPage() {
   }
 
   function copy() {
+    // Null under a read-only support session, which never mints a code — see
+    // the note in /api/settings/referral. Copying the string "null" is worse
+    // than doing nothing.
+    if (!data.referralUrl) return;
     navigator.clipboard.writeText(data.referralUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

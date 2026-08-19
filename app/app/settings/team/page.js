@@ -8,6 +8,7 @@ import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 
 const ROLE_LABELS = {
   owner: "Owner",
@@ -33,6 +34,8 @@ function timeAgo(date, dateFormat) {
 
 export default function TeamOverviewPage() {
   const { t } = useTranslation();
+  const access = useSettingsAccess();
+  const canAdd = access.canChange("user:manage");
   const { dateFormat } = useCompanyPreferences();
   const [members, setMembers] = useState([]);
   const [pending, setPending] = useState([]);
@@ -175,12 +178,24 @@ export default function TeamOverviewPage() {
             {t("app.setTeam.subtitle")}
           </p>
         </div>
-        <Link
-          href="/app/settings/team/new"
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
-        >
-          <Plus size={14} /> {t("app.setTeam.addUser")}
-        </Link>
+        {/* ── Read-only, not hidden ──────────────────────────────────────
+            Seeing who is on the team is reasonable for anyone on it — the roster
+            is how you know who to call about a job. Managing it is not, so the
+            page keeps its list and loses its controls: the role selects and the
+            active switch are already disabled for members the actor outranks
+            (canEdit below), and this is the last live-looking control left.
+
+            From the provider rather than the /self/role fetch two lines below,
+            which lands a moment after first paint — a hiring button that appears
+            and then vanishes is worse than one that was never there. */}
+        {canAdd && (
+          <Link
+            href="/app/settings/team/new"
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold shrink-0"
+          >
+            <Plus size={14} /> {t("app.setTeam.addUser")}
+          </Link>
+        )}
       </div>
 
       {error && (

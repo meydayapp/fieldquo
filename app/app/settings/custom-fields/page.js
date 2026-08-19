@@ -1,10 +1,34 @@
 // app/app/settings/custom-fields/page.js
+//
+// ── What this page is for ──────────────────────────────────────────────────
+//
+// It came up twice that nobody could tell. A custom field adds one extra box to
+// a record FieldQuo doesn't ship a box for — "Gate code" on a property, "PO
+// number" on an invoice, "Ticket expiry" on a team member. Defining it here
+// makes it appear on every record of that type, for everyone in the company.
+// The page defines the boxes; it does not hold anyone's answers. The subtitle
+// now says that in one sentence rather than leaving it to be inferred.
+//
+// ── Read-only, not hidden ──────────────────────────────────────────────────
+//
+// The definitions describe fields a crew member fills in on jobs and clients,
+// so knowing what "Gate code" is and whether it's required is directly useful
+// to them. What isn't theirs is DEFINING one: adding a field changes every
+// record in the company, and deleting one takes an answer off every record that
+// had it. Both are "user:manage", the same gate /api/custom-fields enforces on
+// POST, PATCH and DELETE.
+//
+// So the list stays and the two controls go. They were live before — the Add
+// modal opened, accepted a name and a type, and collected "Only owners/admins
+// can add custom fields" on submit, after the typing.
 "use client";
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
 
 const SECTIONS = [
   {
@@ -52,6 +76,8 @@ const inputClass =
 
 export default function CustomFieldsPage() {
   const { t } = useTranslation();
+  const access = useSettingsAccess();
+  const canDefine = access.canChange("user:manage");
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalEntityType, setModalEntityType] = useState(null);
@@ -138,6 +164,12 @@ export default function CustomFieldsPage() {
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setCustomFields.subtitle")}
         </p>
+        {/* The missing sentence. "Track additional information" doesn't say
+            where the box appears or who fills it in, which is why the page read
+            as unexplained. */}
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("app.setCustomFields.purpose")}
+        </p>
         <p className="text-xs text-muted-foreground mt-2">
           {t("app.setCustomFields.emailNote")}{" "}
           <a href="/app/settings/email-templates" className="underline">
@@ -146,6 +178,13 @@ export default function CustomFieldsPage() {
           .
         </p>
       </div>
+
+      {!canDefine && (
+        <ReadOnlyNotice
+          capability="user:manage"
+          what={t("app.setCustomFields.readOnlyWhat")}
+        />
+      )}
 
       {loading ? (
         <div className="space-y-4 animate-pulse">
@@ -168,12 +207,14 @@ export default function CustomFieldsPage() {
                   <h2 className="text-base font-semibold text-foreground">
                     {t(`app.setCustomFields.label.${section.entityType}`, section.label)}
                   </h2>
-                  <button
-                    onClick={() => openAdd(section.entityType)}
-                    className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
-                  >
-                    <Plus size={14} /> {t("app.setCustomFields.addField")}
-                  </button>
+                  {canDefine && (
+                    <button
+                      onClick={() => openAdd(section.entityType)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
+                    >
+                      <Plus size={14} /> {t("app.setCustomFields.addField")}
+                    </button>
+                  )}
                 </div>
 
                 {sectionFields.length === 0 ? (
@@ -200,13 +241,15 @@ export default function CustomFieldsPage() {
                             </span>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDelete(f.id)}
-                          className="text-muted-foreground hover:text-red-500"
-                          aria-label={t("app.setCustomFields.deleteAria", { label: f.label })}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {canDefine && (
+                          <button
+                            onClick={() => handleDelete(f.id)}
+                            className="text-muted-foreground hover:text-red-500"
+                            aria-label={t("app.setCustomFields.deleteAria", { label: f.label })}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

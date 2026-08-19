@@ -13,6 +13,12 @@ import { INDUSTRIES } from "@/app/data/industries";
 import { CURRENCIES, COUNTRIES, currencyForCountry, currencyMeta } from "@/lib/currency";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import {
+  ReadOnlyNotice,
+  ReadOnlyField,
+} from "@/app/components/settings/PermissionNotice";
+import { groupHours, hasBusinessHours } from "@/lib/company/businessHours";
 
 function industryLabel(slug) {
   return INDUSTRIES.find((i) => i.slug === slug)?.label || slug;
@@ -111,8 +117,247 @@ function SectionCard({ title, description, children }) {
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
+// ── Read-only, not hidden ──────────────────────────────────────────────────
+//
+// Half of this page is genuinely useful to anyone in the company. When is the
+// office open. What number does a client see on a quote. What timezone is the
+// schedule in. What tax rates land on the documents they build. Hiding it would
+// mean telling a painter to phone the owner to find out when the office shuts.
+//
+// The other half is the owner's: the tax registration number, the automatic-tax
+// switch, the anonymised-benchmark opt-in, the company's own address as a
+// billing fact. Those aren't rendered at all — read-only is a decision about
+// what to SHOW, not a licence to show everything as long as it can't be typed
+// into.
+//
+// What this deliberately is NOT is the same form with `disabled` on every
+// input. That is what the owner found and correctly called the worst of both:
+// twenty-odd checkboxes and selects that accept a click, change on screen, and
+// then meet a Save button that 403s. A definition list can't lie about that.
+//
+// Written as a separate component rather than as `readOnly` threaded through
+// forty inputs, because the two renderings differ in WHAT they show, not just
+// in whether it's editable — and a shared component with a boolean would have
+// hidden that.
+function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hours }) {
+  const currency = currencyMeta(
+    form.servesAbroad ? form.currency : currencyForCountry(form.country),
+  );
+  const country = COUNTRIES.find((c) => c.code === form.country)?.name || form.country;
+  // Never DEFAULT_HOURS. A company that has said nothing about its hours must
+  // read as "not set", not as an invented Mon–Fri — the same rule the editor
+  // and the public site follow.
+  const openingRuns = hasBusinessHours(form.businessHours)
+    ? groupHours(form.businessHours, { weekStartsOn: form.weekStartsOn })
+    : null;
+
+  const address = [form.address, form.city, form.province, form.postalCode]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.company")}
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("app.setCompany.subtitle")}
+        </p>
+      </div>
+
+      <ReadOnlyNotice
+        capability="user:manage"
+        what={t("app.setCompany.readOnlyWhat")}
+      />
+
+      <SectionCard title={t("app.setCompany.detailsTitle")}>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label={t("app.setCompany.companyName")} value={form.name} />
+          <ReadOnlyField label={t("app.setCompany.phoneNumber")} value={form.phone} />
+          <ReadOnlyField label={t("app.setCompany.emailAddress")} value={form.email} />
+          <ReadOnlyField label={t("app.setCompany.websiteUrl")} value={form.website} />
+          <div className="sm:col-span-2">
+            <ReadOnlyField
+              label={t("app.setCompany.streetAddress")}
+              value={address}
+            />
+          </div>
+        </dl>
+        {slug && (
+          <div className="flex items-start gap-2.5 bg-muted border border-border rounded-lg px-4 py-3">
+            <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+            <div className="text-sm font-medium text-foreground">
+              {slug}.fieldquo.com
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* The one the owner named: opening hours as text, not as checkboxes. */}
+      <SectionCard
+        title={t("app.setCompany.openingHoursTitle")}
+        description={t("app.setCompany.openingHoursDesc")}
+      >
+        {openingRuns ? (
+          <dl className="border border-border rounded-xl divide-y divide-border">
+            {openingRuns.map((run) => (
+              <div
+                key={run.days.join("-")}
+                className="flex items-center justify-between px-4 py-2.5"
+              >
+                <dt className="text-sm text-foreground">{run.label}</dt>
+                <dd
+                  className={`text-sm tabular-nums ${
+                    run.closed ? "text-muted-foreground" : "text-foreground font-medium"
+                  }`}
+                >
+                  {run.closed ? t("app.setCompany.closed") : run.hours}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {t("app.setCompany.openingHoursNotSet")}
+          </p>
+        )}
+      </SectionCard>
+
+      {/* Booking availability. Already a read-only table for everyone; what goes
+          is the Edit button, which opened a modal that saves per-USER booking
+          hours — a control that would have half-worked (it edits their own
+          schedule) on a screen about the company. Availability is the honest
+          place for that, and it stays in the sidebar. */}
+      <SectionCard
+        title={t("app.setCompany.bookingTitle")}
+        description={t("app.setCompany.bookingDesc")}
+      >
+        {hours === null ? (
+          <div className="h-40 bg-muted rounded-xl animate-pulse" />
+        ) : (
+          <dl className="border border-border rounded-xl divide-y divide-border">
+            {WEEKDAYS.map((label, dayOfWeek) => {
+              const day = hours.find((h) => h.dayOfWeek === dayOfWeek);
+              return (
+                <div
+                  key={dayOfWeek}
+                  className="flex items-center justify-between px-4 py-2.5"
+                >
+                  <dt className="text-sm text-foreground">
+                    {t(`app.setCompany.day${dayOfWeek}`, label)}
+                  </dt>
+                  <dd
+                    className={`text-sm tabular-nums ${
+                      day ? "text-foreground font-medium" : "text-muted-foreground"
+                    }`}
+                  >
+                    {day
+                      ? `${formatTime(day.startTime)} – ${formatTime(day.endTime)}`
+                      : t("app.setCompany.closed")}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        )}
+      </SectionCard>
+
+      {/* Tax RATES only — the percentages that land on a quote they build.
+          The registration number and the auto-apply switch are the owner's
+          filing decisions and aren't shown. */}
+      <SectionCard title={t("app.setCompany.taxTitle")}>
+        {taxRates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("app.setCompany.noTaxRates")}
+          </p>
+        ) : (
+          <div className="border border-border rounded-lg divide-y divide-border">
+            {taxRates.map((r) => (
+              <div key={r.id} className="px-3 py-2 text-sm text-foreground">
+                {r.name} <span className="text-muted-foreground">— {Number(r.rate)}%</span>
+                {r.isDefault && (
+                  <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                    {t("app.setCompany.default")}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard title={t("app.setCompany.regionalTitle")}>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label={t("app.setCompany.country")} value={country} />
+          <ReadOnlyField
+            label={t("app.setCompany.billingCurrency")}
+            value={`${currency.code} — ${currency.label} (${currency.symbol})`}
+          />
+          <ReadOnlyField label={t("app.setCompany.timeZone")} value={form.timezone} />
+          <ReadOnlyField label={t("app.setCompany.dateFormat")} value={form.dateFormat} />
+          <ReadOnlyField
+            label={t("app.setCompany.weekStart")}
+            value={t(`app.setCompany.day${form.weekStartsOn}`, WEEKDAYS[form.weekStartsOn])}
+          />
+        </dl>
+      </SectionCard>
+
+      <SectionCard
+        title={t("app.setCompany.industryTitle")}
+        description={t("app.setCompany.industryDesc")}
+      >
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-2">
+            {t("app.setCompany.industries")}
+          </h3>
+          {industries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("app.setCompany.noneSelected")}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {industries.map((s) => (
+                <span
+                  key={s}
+                  className="text-xs bg-muted text-foreground px-2.5 py-1 rounded-full"
+                >
+                  {industryLabel(s)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-2">
+            {t("app.setCompany.enabledQuoteTypes")}
+          </h3>
+          {quoteTypes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("app.setCompany.noQuoteTypes")}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {quoteTypes.map((c) => (
+                <span
+                  key={c.id}
+                  className="text-xs bg-muted text-foreground px-2.5 py-1 rounded-full"
+                >
+                  {c.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
 export default function CompanySettingsPage() {
   const { t } = useTranslation();
+  const access = useSettingsAccess();
+  const canEdit = access.canChange("user:manage");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -287,6 +532,24 @@ export default function CompanySettingsPage() {
         <div className="h-64 bg-accent rounded-xl" />
         <div className="h-48 bg-accent rounded-xl" />
       </div>
+    );
+  }
+
+  // After the loading branch, so the read-only view always has real data to
+  // render rather than a half-populated form. Both fetches above are GETs the
+  // server already allows any member — this decides what to DO with them, not
+  // whether they were permitted.
+  if (!canEdit) {
+    return (
+      <CompanyReadOnly
+        t={t}
+        form={form}
+        slug={slug}
+        industries={industries}
+        quoteTypes={quoteTypes}
+        taxRates={taxRates}
+        hours={hours}
+      />
     );
   }
 

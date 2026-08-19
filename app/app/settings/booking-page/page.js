@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { Plus, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180];
 
@@ -48,7 +50,32 @@ function policyFrom(info) {
   };
 }
 
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// Every field on this page configures the company's PUBLIC booking page: which
+// visit types a homeowner can pick, how long they run, how much notice a
+// cancellation needs, and — the one the owner caught — what a homeowner is
+// charged to hold a slot. That visit-fee input accepted typing, sent a PATCH on
+// blur, and collected "Only owners, admins and supervisors can change booking
+// types" from the server. Sitting next to a note saying only owners can change
+// it, which is the worst of both: an input that looks live, a sentence saying
+// it isn't, and no way to tell which to believe.
+//
+// Read-only was considered and rejected. Nothing here is information a crew
+// member needs to do a job — their own bookable hours are on Availability,
+// which correctly says "your hours" and stays visible to everyone. Showing them
+// the company's cancellation policy as text would be honest but pointless.
+//
+// "user:manage" matches what /api/event-types and /api/settings/business-info
+// already enforce on every write, so supervisors keep the page unchanged.
 export default function BookingPageSettings() {
+  const access = useSettingsAccess();
+  if (!access.canSee("user:manage"))
+    return <NoAccessPanel capability="user:manage" />;
+  return <BookingPageScreen />;
+}
+
+function BookingPageScreen() {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState([]);
   const [loading, setLoading] = useState(true);

@@ -17,6 +17,8 @@ import {
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -43,7 +45,23 @@ function emptyPermissionValues() {
   return values;
 }
 
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// Hiring. There is nothing to read here — the page is a blank invite form and a
+// permission grid for a person who doesn't exist yet — so read-only would be an
+// empty screen with a banner on it. The gate is "user:manage", the same one
+// POST /api/settings/members enforces, so this refuses exactly the people the
+// server would have refused after they filled the whole form in.
+//
+// Supervisors keep it: they hold "user:manage", and roleManagement.js already
+// clamps what they can hand out to strictly below themselves.
 export default function NewUserPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("user:manage")) return <NoAccessPanel capability="user:manage" />;
+  return <NewUserForm />;
+}
+
+function NewUserForm() {
   const { t } = useTranslation();
   const router = useRouter();
 

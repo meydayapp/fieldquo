@@ -23,6 +23,8 @@ import {
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const CALC_META = {
   fixed: { label: "Fixed amount", icon: Hash, hint: "Same amount every pay period" },
@@ -104,7 +106,24 @@ function SlabEditor({ slabs, onChange }) {
   );
 }
 
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// GET /api/settings/payroll-components has always answered 403 to anyone who
+// isn't an owner or admin, so this page never showed an employee anything — it
+// showed them an error where a screen should be, reached from a sidebar row
+// that promised otherwise. The row is gone now
+// (lib/permissions/settingsAccess.js) and typing the URL says who to ask.
+//
+// Read-only was never a candidate: deduction rates and tax bands decide what
+// lands in someone's bank account, and one employee reading the company's
+// payroll configuration is the incident lib/permissions.js warns about.
 export default function PayrollSettingsPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("payroll")) return <NoAccessPanel capability="payroll" />;
+  return <PayrollSettingsScreen />;
+}
+
+function PayrollSettingsScreen() {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");

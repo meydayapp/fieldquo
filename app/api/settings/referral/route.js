@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { getAppOrigin } from "@/lib/appUrl";
 import { referralCodeFor, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
 // Plain company name, no random suffix: this becomes /refer/sunsetinc, which
 // gets read aloud, typed off a business card and printed on a van. A suffix
@@ -37,21 +38,54 @@ async function getOrCreateReferralCode(company) {
   throw new Error("Could not generate a unique referral code");
 }
 
+// Owner/admin only, matching the POST on /invite next door.
+//
+// This GET had no role gate, so any employee could read the names of every
+// company their employer had referred, which of them had paid, and the running
+// credit balance — other companies' commercial relationships, from an account
+// that couldn't even send an invite.
+//
+// Impersonation is allowed through: role "viewer" holds nothing, and a support
+// session that couldn't see the referral ledger it is being asked about would
+// break non-negotiable #3. Writes are refused for it separately in
+// getCurrentMember, and the only write here is the code generation below, which
+// is skipped for the same reason.
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!member.impersonation && !isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
+  }
+
   const company = await db.company.findUnique({
     where: { id: member.companyId },
   });
-  const referralCode = await getOrCreateReferralCode(company);
 
-  const referred = await db.company.findMany({
-    where: { referredByCode: referralCode },
-    select: { id: true, name: true, onboardingStatus: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  });
+  // A support session never MINTS the code. getOrCreateReferralCode writes a
+  // row, and the impersonation gate in getCurrentMember only blocks non-GET
+  // methods — so a platform admin merely opening this page used to create a
+  // referral code inside a customer's tenant. That is exactly the "view
+  // everything, edit nothing" line in non-negotiable #3. A company that has
+  // never had one reads as null here instead, and the page shows nothing to
+  // copy, which is the truth.
+  const referralCode = member.impersonation
+    ? company?.referralCode || null
+    : await getOrCreateReferralCode(company);
+
+  // Guarded on referralCode being a real string. `where: { referredByCode:
+  // null }` does not mean "nobody" to Prisma — it matches every company that
+  // has no referrer, in every tenant, and would hand the whole list back. The
+  // null case only became reachable with the impersonation branch above, which
+  // is precisely why it is checked here rather than assumed away.
+  const referred = referralCode
+    ? await db.company.findMany({
+        where: { referredByCode: referralCode },
+        select: { id: true, name: true, onboardingStatus: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
 
   // Credits are the truth about what was actually granted — `referred` alone
   // can't distinguish "signed up" from "paid, and you earned your credit".
@@ -79,7 +113,10 @@ export async function GET(request) {
 
   return NextResponse.json({
     referralCode,
-    referralUrl: `${getAppOrigin(request)}/refer/${referralCode}`,
+    // Null rather than ".../refer/null" when no code exists yet — see above.
+    referralUrl: referralCode
+      ? `${getAppOrigin(request)}/refer/${referralCode}`
+      : null,
     // What the NEW company gets for signing up through the link.
     refereeBonusMonths: REFEREE_BONUS_MONTHS,
     // The referrer bills in their own currency; the credit is denominated in it.

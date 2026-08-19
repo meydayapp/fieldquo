@@ -14,15 +14,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { recordActivity } from "@/lib/activity/log";
+// Imported rather than kept as the local two-line copy this file used to
+// have. The settings sidebar and this route now have to agree about who may
+// open the Payroll screen, and two copies of that rule is how they stop
+// agreeing — the copy is the one nobody looks at (AGENTS.md).
+import { isPayrollAdmin } from "@/lib/permissions/settingsAccess";
 import {
   STATUTORY_TEMPLATES,
   STATUTORY_REGIONS,
   templateComponentsFor,
 } from "@/lib/payroll/statutoryTemplates";
 
-function isPayrollAdmin(role) {
-  return role === "owner" || role === "admin";
-}
 
 const CALCULATIONS = ["fixed", "percent", "slabs"];
 const KINDS = ["earning", "deduction"];
@@ -48,7 +50,13 @@ export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isPayrollAdmin(member.role)) {
+  // Support sessions read it. Role "viewer" holds nothing, so the plain check
+  // refused the platform console — which is the "view everything, edit nothing"
+  // contract broken in the view direction (non-negotiable #3), and payroll
+  // configuration is exactly what a support call about a wrong payslip is
+  // about. The three write handlers below stay closed to it, both here and in
+  // getCurrentMember's blanket refusal of non-GET impersonated requests.
+  if (!member.impersonation && !isPayrollAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can see payroll settings." },
       { status: 403 },
