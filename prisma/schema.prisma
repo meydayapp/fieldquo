@@ -2883,6 +2883,22 @@ model ForecastSettings {
 // MATERIALS
 // ============================================================
 
+// ⚠️ ORPHANED — the feature these two backed was deleted, the TABLES were not.
+//
+// /app/settings/materials, /api/materials, getMaterialTrends and the expense
+// tagging that fed it are all gone: the catalogue could never produce a trend,
+// because MaterialPriceEntry rows are only written when an expense carries a
+// materialId and no UI ever sent one. The screen was a list you could add to
+// and nothing on earth read.
+//
+// The models stay because `Material` holds a real row belonging to a real
+// company. Removing them from this file makes `prisma db push` DROP the tables
+// and that row with them, which is a data decision and not a code one. Left
+// here, they cost nothing and destroy nothing.
+//
+// To finish the removal: confirm with the owner, export anything worth keeping,
+// then delete both models and push. Until then, do not wire anything new to
+// them — the feature is gone on purpose.
 model Material {
   id               String   @id @default(cuid())
   companyId        String

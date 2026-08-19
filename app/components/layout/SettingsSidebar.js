@@ -102,7 +102,6 @@ const GROUPS = [
     items: [
       { key: "app.settings.products", href: "/app/settings/products", icon: Package },
       { key: "app.settings.services", href: "/app/settings/services", icon: Tags },
-      { key: "app.settings.materials", href: "/app/settings/materials", icon: Boxes },
       { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet },
       { key: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", icon: Ruler },
       { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp },

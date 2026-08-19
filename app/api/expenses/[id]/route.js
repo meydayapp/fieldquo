@@ -59,7 +59,6 @@ export async function PATCH(request, { params }) {
     isOverhead,
     recurring,
     frequency,
-    materialId,
   } = body;
 
   const updated = await db.expense.update({
@@ -73,7 +72,6 @@ export async function PATCH(request, { params }) {
       ...(isOverhead !== undefined && { isOverhead }),
       ...(recurring !== undefined && { recurring }),
       ...(frequency !== undefined && { frequency }),
-      ...(materialId !== undefined && { materialId }),
     },
   });
 

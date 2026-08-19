@@ -52,7 +52,6 @@ export async function POST(request) {
     isOverhead,
     recurring,
     frequency,
-    materialId,
   } = body;
 
   if (!category || amount === undefined) {
@@ -83,21 +82,8 @@ export async function POST(request) {
       isOverhead: !!isOverhead,
       recurring: !!recurring,
       frequency: frequency || "one_time",
-      materialId: materialId || null,
     },
   });
-
-  // If tagged to a material, log a price entry so trend tracking picks it up
-  if (materialId) {
-    await db.materialPriceEntry.create({
-      data: {
-        materialId,
-        expenseId: expense.id,
-        price: amount,
-        date: expense.date,
-      },
-    });
-  }
 
   return NextResponse.json(expense, { status: 201 });
 }
