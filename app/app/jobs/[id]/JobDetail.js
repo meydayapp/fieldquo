@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
+import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import {
   ArrowLeft,
@@ -341,6 +342,9 @@ export default function JobDetail({ jobId }) {
           </div>
         )}
       </div>
+
+      {/* Turn what a human wrote about this job into office to-dos */}
+      <SuggestedTasks jobId={jobId} onCreated={load} />
 
       {/* Curate the crew's photos → website gallery */}
       <JobPhotoCurator jobId={jobId} />
