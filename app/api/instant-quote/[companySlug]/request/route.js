@@ -14,6 +14,8 @@ import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteSe
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
 import { bandForIndex, estimateExceedsBudget } from "@/lib/estimate/budgetBands";
 import { financingOffer } from "@/lib/estimate/financing";
+import { createScoredLead } from "@/lib/leads/createLead";
+import { mapBudget } from "@/lib/leads/importMap";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -135,6 +137,49 @@ export async function POST(request, { params }) {
       console.error("[instant-quote/request] estimate email failed:", err?.message);
     }
   }
+
+  // ── The lead ──────────────────────────────────────────────────────────────
+  //
+  // This route created a Client and a draft Quote and no LeadRequest, so an
+  // instant estimate never reached /app/leads at all. Every other inbound
+  // source lands there; this one — the one that arrives pre-qualified, with a
+  // budget and photos — was invisible on the board, unscored, and absent from
+  // any export of inbound demand.
+  //
+  // Created AFTER the draft so it can carry `quoteId`, which is the same link
+  // convertLead writes in the other direction. That makes the pair legible
+  // from either end and lets the lifecycle move this lead on send/accept/
+  // decline like any other.
+  //
+  // Best-effort: the homeowner has their estimate and the company has the
+  // quote by this point. A lead-board row failing to write must not turn a
+  // successful submission into an error.
+  //
+  // The budget goes through mapBudget rather than straight in: the form asks
+  // in the OWNER's per-trade bands ("Under $3,500"), and the scorer reads the
+  // generic keys. mapBudget buckets on the stated ceiling, and returns null
+  // when there is nothing to read — an unanswered budget must not be credited
+  // as a small one.
+  await createScoredLead({
+    companyId: company.id,
+    name,
+    email: email || null,
+    phone: phone || null,
+    categoryId: priced.categoryId || null,
+    message: [address || measured.measurement.formattedAddress, `Instant estimate — ${trade}`]
+      .filter(Boolean)
+      .join("\n\n"),
+    source: "instant_quote",
+    clientPhotos: media,
+    budgetBand: budgetBand ? mapBudget(budgetBand.label) : null,
+    language: emailLanguage,
+  })
+    .then((lead) =>
+      db.leadRequest.update({ where: { id: lead.id }, data: { quoteId: draft.id } }),
+    )
+    .catch((err) =>
+      console.error("[instant-quote/request] lead not recorded:", err?.message),
+    );
 
   // They submitted a request that said someone would be in touch — record the
   // consent (attached to the draft quote) so a follow-up call is allowed.
