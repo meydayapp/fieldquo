@@ -215,6 +215,31 @@ const en = {
   "theme.dark": "Dark",
   "theme.system": "Match system",
 
+  // Pricing page (/pricing) — the grid read live from the Plan table.
+  //
+  // Separate from the pricing.* card keys above: those describe ONE plan card
+  // as it appears in the signup flow, these are the page around them.
+  "pricingPage.title": "Simple, transparent pricing",
+  "pricingPage.subtitle":
+    "Every plan includes quotes, invoicing and scheduling. Pick the plan that matches the size of your team.",
+  "pricingPage.perMonth": "/month",
+  // A Plan row stores ONE number and Stripe charges it in the company's own
+  // currency, so 700 means 700 CAD or 700 USD depending on where you are.
+  // Naming the currency is the difference between a price and a guess — see
+  // the header of lib/currency.js.
+  "pricingPage.currencyNote":
+    "All prices are in {currency}. Your billing currency is set by the country you choose when you sign up.",
+  "pricingPage.taxNote": "Plus applicable taxes.",
+  "pricingPage.emptyTitle":
+    "Pricing plans are being finalised — check back shortly.",
+  "pricingPage.emptyCta": "Ask us about early access pricing",
+
+  // 404
+  "notFound.title": "We can't find that page",
+  "notFound.body":
+    "The link may be broken, or the page may have moved. Long links get cut in half by text messages more often than you'd think — check you have the whole address.",
+  "notFound.home": "Back to home",
+
   // Shared
   "common.loading": "Loading…",
   "common.learnMore": "Learn more",
@@ -417,6 +442,22 @@ const fr = {
   "theme.dark": "Sombre",
   "theme.system": "Selon le système",
 
+  "pricingPage.title": "Une tarification simple et transparente",
+  "pricingPage.subtitle":
+    "Chaque forfait comprend les soumissions, la facturation et la planification. Choisissez le forfait qui correspond à la taille de votre équipe.",
+  "pricingPage.perMonth": "/mois",
+  "pricingPage.currencyNote":
+    "Tous les prix sont en {currency}. Votre devise de facturation est déterminée par le pays que vous choisissez à l'inscription.",
+  "pricingPage.taxNote": "Taxes en sus.",
+  "pricingPage.emptyTitle":
+    "Les forfaits sont en cours de finalisation — revenez bientôt.",
+  "pricingPage.emptyCta": "Demandez-nous les tarifs d'accès anticipé",
+
+  "notFound.title": "Page introuvable",
+  "notFound.body":
+    "Le lien est peut-être brisé, ou la page a été déplacée. Les messages texte coupent les longs liens en deux plus souvent qu'on ne le pense — vérifiez que vous avez l'adresse complète.",
+  "notFound.home": "Retour à l'accueil",
+
   "common.loading": "Chargement…",
   "common.learnMore": "En savoir plus",
   "common.getStarted": "Commencer",
@@ -612,6 +653,22 @@ const es = {
   "theme.light": "Claro",
   "theme.dark": "Oscuro",
   "theme.system": "Según el sistema",
+
+  "pricingPage.title": "Precios simples y transparentes",
+  "pricingPage.subtitle":
+    "Todos los planes incluyen presupuestos, facturación y programación. Elige el plan que se ajuste al tamaño de tu equipo.",
+  "pricingPage.perMonth": "/mes",
+  "pricingPage.currencyNote":
+    "Todos los precios están en {currency}. Tu moneda de facturación la determina el país que elijas al registrarte.",
+  "pricingPage.taxNote": "Más los impuestos aplicables.",
+  "pricingPage.emptyTitle":
+    "Estamos afinando los planes — vuelve a consultarlo pronto.",
+  "pricingPage.emptyCta": "Pregúntanos por los precios de acceso anticipado",
+
+  "notFound.title": "No encontramos esa página",
+  "notFound.body":
+    "Puede que el enlace esté roto o que la página se haya movido. Los mensajes de texto cortan los enlaces largos más de lo que crees — comprueba que tengas la dirección completa.",
+  "notFound.home": "Volver al inicio",
 
   "common.loading": "Cargando…",
   "common.learnMore": "Saber más",
@@ -810,6 +867,22 @@ const uk = {
   "theme.dark": "Темна",
   "theme.system": "Як у системі",
 
+  "pricingPage.title": "Прості та прозорі ціни",
+  "pricingPage.subtitle":
+    "Кожен тариф включає кошториси, виставлення рахунків і планування. Оберіть тариф за розміром вашої команди.",
+  "pricingPage.perMonth": "/місяць",
+  "pricingPage.currencyNote":
+    "Усі ціни вказано в {currency}. Валюта оплати визначається країною, яку ви обираєте під час реєстрації.",
+  "pricingPage.taxNote": "Плюс відповідні податки.",
+  "pricingPage.emptyTitle":
+    "Тарифи ще узгоджуються — завітайте трохи пізніше.",
+  "pricingPage.emptyCta": "Запитайте нас про ціни раннього доступу",
+
+  "notFound.title": "Ми не можемо знайти цю сторінку",
+  "notFound.body":
+    "Можливо, посилання пошкоджене або сторінку перенесено. SMS обрізають довгі посилання частіше, ніж здається — перевірте, чи маєте повну адресу.",
+  "notFound.home": "На головну",
+
   "common.loading": "Завантаження…",
   "common.learnMore": "Дізнатися більше",
   "common.getStarted": "Почати",
@@ -1005,6 +1078,22 @@ const pa = {
   "theme.light": "ਹਲਕਾ",
   "theme.dark": "ਗੂੜ੍ਹਾ",
   "theme.system": "ਸਿਸਟਮ ਮੁਤਾਬਕ",
+
+  "pricingPage.title": "ਸਧਾਰਨ, ਪਾਰਦਰਸ਼ੀ ਕੀਮਤਾਂ",
+  "pricingPage.subtitle":
+    "ਹਰ ਪਲਾਨ ਵਿੱਚ ਕੋਟ, ਬਿਲਿੰਗ ਅਤੇ ਸ਼ਡਿਊਲਿੰਗ ਸ਼ਾਮਲ ਹਨ। ਆਪਣੀ ਟੀਮ ਦੇ ਆਕਾਰ ਮੁਤਾਬਕ ਪਲਾਨ ਚੁਣੋ।",
+  "pricingPage.perMonth": "/ਮਹੀਨਾ",
+  "pricingPage.currencyNote":
+    "ਸਾਰੀਆਂ ਕੀਮਤਾਂ {currency} ਵਿੱਚ ਹਨ। ਤੁਹਾਡੀ ਬਿਲਿੰਗ ਕਰੰਸੀ ਉਸ ਦੇਸ਼ ਤੋਂ ਤੈਅ ਹੁੰਦੀ ਹੈ ਜੋ ਤੁਸੀਂ ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਚੁਣਦੇ ਹੋ।",
+  "pricingPage.taxNote": "ਲਾਗੂ ਟੈਕਸ ਵੱਖਰੇ।",
+  "pricingPage.emptyTitle":
+    "ਪਲਾਨ ਅਜੇ ਤੈਅ ਹੋ ਰਹੇ ਹਨ — ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਵੇਖੋ।",
+  "pricingPage.emptyCta": "ਅਰਲੀ ਐਕਸੈਸ ਕੀਮਤਾਂ ਬਾਰੇ ਸਾਨੂੰ ਪੁੱਛੋ",
+
+  "notFound.title": "ਸਾਨੂੰ ਉਹ ਪੰਨਾ ਨਹੀਂ ਮਿਲਿਆ",
+  "notFound.body":
+    "ਹੋ ਸਕਦਾ ਹੈ ਲਿੰਕ ਟੁੱਟਾ ਹੋਵੇ ਜਾਂ ਪੰਨਾ ਹਿਲਾ ਦਿੱਤਾ ਗਿਆ ਹੋਵੇ। ਲੰਮੇ ਲਿੰਕ ਟੈਕਸਟ ਸੁਨੇਹਿਆਂ ਵਿੱਚ ਅਕਸਰ ਅੱਧੇ ਕੱਟੇ ਜਾਂਦੇ ਹਨ — ਵੇਖੋ ਕਿ ਤੁਹਾਡੇ ਕੋਲ ਪੂਰਾ ਪਤਾ ਹੈ।",
+  "notFound.home": "ਮੁੱਖ ਪੰਨੇ 'ਤੇ ਵਾਪਸ",
 
   "common.loading": "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ…",
   "common.learnMore": "ਹੋਰ ਜਾਣੋ",
@@ -1206,6 +1295,22 @@ const tl = {
   "theme.light": "Maliwanag",
   "theme.dark": "Madilim",
   "theme.system": "Sundan ang system",
+
+  "pricingPage.title": "Simple at malinaw na presyo",
+  "pricingPage.subtitle":
+    "Kasama sa bawat plano ang mga quote, invoicing at scheduling. Piliin ang planong bagay sa laki ng inyong team.",
+  "pricingPage.perMonth": "/buwan",
+  "pricingPage.currencyNote":
+    "Lahat ng presyo ay nasa {currency}. Ang currency ng inyong billing ay nakabatay sa bansang pipiliin ninyo sa pag-sign up.",
+  "pricingPage.taxNote": "Hindi pa kasama ang mga buwis.",
+  "pricingPage.emptyTitle":
+    "Tinatapos pa ang mga plano — bumalik po kayo mamaya.",
+  "pricingPage.emptyCta": "Tanungin kami tungkol sa early access pricing",
+
+  "notFound.title": "Hindi namin makita ang page na iyon",
+  "notFound.body":
+    "Maaaring sira ang link o nailipat na ang page. Madalas naputol sa gitna ang mahahabang link sa text message — tingnan kung buo ang address na hawak ninyo.",
+  "notFound.home": "Bumalik sa home",
 
   "common.loading": "Naglo-load…",
   "common.learnMore": "Alamin pa",

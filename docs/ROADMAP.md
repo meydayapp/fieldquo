@@ -369,6 +369,78 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Signup is resumable, and an account with no company can't reach /app.**
+
+  `app/signup/page.js`, `app/app/layout.js` (`getSetupRedirect`),
+  `app/components/AddressAutocomplete.js`, `app/api/companies/route.js`.
+
+  The root cause behind six QA findings at once: signup creates the ACCOUNT at
+  one step and the COMPANY at another. `POST /api/companies` is wired to
+  "Continue to Payment" on the last step, so stopping in between leaves a User
+  row with no Company and no Member — a reachable state, not a corruption.
+  Those people got the whole back office on top of nothing: full nav, twenty
+  empty panels, and a developer's sentence ("No active company membership could
+  be resolved") where the dashboard should be, because every company-scoped API
+  correctly answered 401.
+
+  Four things changed. **The gate** lives in the /app layout, not middleware —
+  middleware can only see that a session cookie exists, and going from cookie to
+  company means re-deriving `getCurrentMember` (see the note added to
+  `middleware.js`). It only fires when there is genuinely no active Member row,
+  so a member whose company is merely broken is never invited to create a second
+  one. **Resume**: /signup separates "signed in with a company" (adding a
+  business) from "signed in without one" (abandoned signup) by the *status* of
+  `/api/settings/business-info` — 401 specifically, never any other failure —
+  and starts at the right step with copy that doesn't promise an account they
+  already have. The in-progress form lives in `sessionStorage` (per tab, dies
+  with it, never the password). **History**: one entry per step, tagged onto
+  whatever the App Router has already put in `history.state` — replacing that
+  state makes Next treat the entry as foreign and hard-navigate, and tagging the
+  arrival entry on mount doesn't survive, because Next writes its own state
+  after hydration. **Cancelled checkout** now returns to Account & Billing
+  rather than /signup, where the company already exists and the only honest
+  offer is to buy the plan again.
+
+  The one worth remembering: the Enter-submits-the-form fix on the address
+  autocomplete is a document CAPTURE listener, not an `onKeyDown` prop. Google
+  binds its keydown handler to the input itself and hides the suggestion list
+  synchronously, so by the bubble phase — where React runs — the dropdown a
+  props-based handler is looking for is already gone. Measured in a browser: at
+  capture the list is on screen, at bubble it is not. The obvious version of
+  that fix compiles, reads correctly, and does nothing.
+
+- **Empty state vs error state — a failed load never says "you have nothing".**
+
+  `lib/loadState.js` + `app/components/ListState.js`, applied to the eleven
+  list pages named in the check script's `GOVERNED` array.
+
+  The bug: `/app/clients` on a 401 rendered "0 clients total.", a red
+  "Couldn't load clients." *and* "No clients yet / Add your first client", all
+  at once. Two of those three are false — the app was refused, it does not know
+  the count — and the empty panel is the one people believe. The realistic harm
+  is a contractor with a full client list starting to re-type it.
+
+  The root cause was a state shape, not a rendering mistake: every page began
+  its list at `useState([])`, which asserts "there are zero of these" before the
+  server has said anything. The fix is `useState(null)` — unknown — after which
+  the three states are mutually exclusive by construction rather than by
+  careful ordering, and `items.length` cannot fabricate a zero. Money tiles and
+  header counts render an em dash or nothing at all rather than `0`/`$0.00`.
+
+  Error copy is mapped from the status **at the boundary** (`loadErrorKey`), so
+  the API's bare `{"error":"Unauthorized"}` can no longer reach a banner; the
+  raw status and body still go to the console. `reportResponseError` also grew
+  documented support for the `(res, setter, fallback)` shape that eleven call
+  sites were already using against a two-parameter signature — the setter was
+  landing in the fallback slot, so those pages' inline banners were dead markup
+  and the toast could be handed a React state setter.
+
+  `npm run check:empty-vs-error` enforces the two mechanical preconditions it
+  can see in source text (list state starts at `null`; an empty state has a
+  structural guard) plus the argument-order rule, and its header is explicit
+  that it cannot prove the runtime property — only a browser can. Pages not yet
+  opted in are printed on every run rather than silently exempt.
+
 - **Manage my visit — the page a homeowner lands on from the confirmation
   email (`/visit/<manageToken>`), client half.**
 
@@ -1032,3 +1104,81 @@ they set the pattern.
 4. Pick up §3 (hosting billing) or §4 (ISR) — both are small and unblock
    revenue — or ask the owner to greenlight §1 (phone agent), which is the
    largest remaining feature and needs a provider decision first.
+
+---
+
+## Locale-prefixed URLs for the marketing site (scoped, not started)
+
+### Why this is worth doing
+
+The site is translated into six languages and **none of them can be indexed.**
+Language lives entirely in `localStorage` (`fieldquo-language`, set in
+`app/providers/LanguageProvider.js`) and is applied after hydration. There is
+one URL per page, it is served in English to every crawler, and `t()` swaps the
+text in the browser afterwards.
+
+So the French, Spanish, Ukrainian, Punjabi and Tagalog copy — twelve industry
+pages each, roughly 130 strings apiece in `app/i18n/industries/` — exists, is
+written, ships, and earns nothing in search. A Punjabi-speaking roofer in
+Brampton searching in Punjabi cannot find the Punjabi page, because as far as
+Google is concerned it does not exist.
+
+This was deliberately **not** attempted during the marketing QA pass of
+2026-08-19: it touches `middleware.js` and every marketing route, and the risk
+of breaking the live site in one session was too high. The other nine defects
+from that pass were fixed; this one is written down instead.
+
+### The middleware ordering constraint — read this first
+
+`middleware.js` has a load-bearing order, stated in its own header and in
+AGENTS.md: **subdomain rewrite first**, then the read-only impersonation gate,
+then the platform gates, then the app gate.
+
+The subdomain rewrite must stay first because a stranger reading a contractor's
+website on `sunset.fieldquo.com` has no session and must never be asked for
+one. A locale rewrite inserted **above** it would turn `/fr` on a tenant host
+into a locale route instead of that tenant's French page, and would rewrite
+paths the tenant block then rewrites again.
+
+So: **the locale step goes after the subdomain block returns, and before the
+impersonation gate.** It must also exclude `/api`, `/_next`, and every
+client-facing prefix already listed in `SUBDOMAIN_PASSTHROUGH` — a homeowner
+opening `/q/<token>` must not be bounced to `/en/q/<token>`, because the token
+link was minted without a prefix and is already in someone's inbox.
+
+Note also that tenant sites have their own language mechanism
+(`app/site/[subdomain]/page.js` already takes a `language` param and checks it
+against the site's enabled languages). That is a separate system. Do not merge
+them.
+
+### Scope — the files that change
+
+| File | Change |
+|---|---|
+| `middleware.js` | Locale detection + rewrite, placed as above. Prefix-less URLs redirect to the negotiated locale; `/en` is canonical for English (do not serve the same page at both `/` and `/en`). |
+| `app/(marketing)/**` | Move under `app/(marketing)/[lang]/`. Every `page.js` gains `params.lang` (a Promise — Next 16). |
+| `app/providers/LanguageProvider.js` | The URL becomes the source of truth; `localStorage` demotes to a preference used only to pick the redirect target on a prefix-less first visit. |
+| `app/components/marketing/LanguageSwitcher.js` | Switching language becomes a `router.push` to the same page under a different prefix, not a state change. |
+| `app/components/marketing/MarketingHeader.js`, `MarketingFooter.js`, `FeaturesIndustries.js`, `NotFoundContent.js`, `ResourcesTeaser.js` | Every hardcoded `href` needs the active prefix. Worth one `useLocalePath()` helper rather than 40 call sites — the copy is the one that rots. |
+| `lib/marketing/metadata.js` | `alternates.languages` (hreflang) for all six, plus `x-default`; `openGraph.locale`; canonical per locale. The helper deliberately omits `og:locale` today for exactly this reason — see its comment. |
+| `app/(marketing)/industries/[slug]/page.js` | `generateStaticParams` becomes the cross product of 6 locales × 12 trades = 72 pages. Same for `/product/[slug]`. |
+| `app/sitemap.js` (new) | Does not exist yet. Needed, or the locale pages are only discoverable by crawl. |
+
+### Things that will bite
+
+1. **`app/(marketing)/pricing/page.js` reads `headers()`** for the visitor's
+   country. That stays; it is orthogonal to locale, and deliberately so — a
+   contractor reading the French page may still be billed in USD.
+2. **Industry metadata is English-only on purpose today.** Read the comment in
+   `industries/[slug]/page.js`: serving a French title to an English crawler is
+   worse than not translating. Under locale routes that objection disappears
+   and the titles should come from `app/i18n/industries/<lang>.js` — which
+   means writing headline/description translations that do not exist yet
+   (`industryContentFor` returns translated `label`, `headline`, `description`
+   and `pains`, so check what is actually filled in per language before
+   promising it).
+3. **Do not locale-prefix `/signup`, `/login`, `/app`, `/platform` or any
+   client-facing route.** The marketing site is the only surface where a
+   crawler is the audience.
+4. **Redirects must be 308, and old prefix-less URLs must keep working** —
+   every referral card, van decal and Google result currently points at them.

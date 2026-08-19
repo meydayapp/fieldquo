@@ -7,9 +7,9 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, X } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
-import { INDUSTRIES } from "@/app/data/industries";
 import { useSession } from "@/lib/auth-client";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useIndustryLabels } from "@/app/hooks/useIndustryLabels";
 import Logo from "@/app/components/Logo";
 
 // Only hrefs and keys live here — the visible strings come from the catalog,
@@ -54,6 +54,9 @@ function UserAvatar({ user, size = 36 }) {
 export default function MarketingHeader() {
   const pathname = usePathname();
   const { t } = useTranslation();
+  // Trade names in the visitor's language. app/data/industries.js only
+  // carries English ones; see the hook.
+  const industries = useIndustryLabels();
   const { data: session, isPending } = useSession();
   const isLoggedIn = !isPending && !!session?.user;
 
@@ -157,7 +160,7 @@ export default function MarketingHeader() {
               {industriesOpen && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-[32rem] max-w-[calc(100vw-2rem)]">
                   <div className="bg-card rounded-xl shadow-lg border border-border p-4 grid grid-cols-2 gap-1">
-                    {INDUSTRIES.map((ind) => (
+                    {industries.map((ind) => (
                       <Link
                         key={ind.slug}
                         href={`/industries/${ind.slug}`}
@@ -371,7 +374,7 @@ export default function MarketingHeader() {
 
             {mobilePanel === "industries" && (
               <div className="grid grid-cols-1 gap-1">
-                {INDUSTRIES.map((ind) => (
+                {industries.map((ind) => (
                   <Link
                     key={ind.slug}
                     href={`/industries/${ind.slug}`}

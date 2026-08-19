@@ -19,7 +19,11 @@ const RESOURCES = [
     icon: HelpCircle,
     labelKey: "footer.links.faq",
     descKey: "resources.faq.description",
-    href: "/resources/faq",
+    // /resources#faq, not /resources/faq. The latter has never existed — the
+    // footer dropped its copy of this link for that reason and this one was
+    // left pointing at a 404. The FAQ now renders in full on /resources under
+    // that anchor.
+    href: "/resources#faq",
   },
   {
     icon: MessageCircleQuestion,

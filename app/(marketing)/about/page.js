@@ -1,4 +1,13 @@
 // app/(marketing)/about/page.js
+import { marketingMetadata } from "@/lib/marketing/metadata";
+
+export const metadata = marketingMetadata({
+  path: "/about",
+  title: "About FieldQuo",
+  description:
+    "FieldQuo was built by people who run a real contracting business, out of the everyday friction of quoting, scheduling and getting paid.",
+});
+
 export default function AboutPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

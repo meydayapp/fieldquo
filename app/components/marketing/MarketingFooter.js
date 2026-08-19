@@ -6,8 +6,8 @@
 "use client";
 
 import Link from "next/link";
-import { INDUSTRIES } from "@/app/data/industries";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useIndustryLabels } from "@/app/hooks/useIndustryLabels";
 
 // Keys + hrefs only. Labels resolve from the catalog under footer.links.*,
 // reusing the product.* keys the header already defines rather than
@@ -47,6 +47,7 @@ const FOOTER_COLUMNS = [
 
 export default function MarketingFooter() {
   const { t } = useTranslation();
+  const industries = useIndustryLabels();
 
   return (
     <footer className="bg-primary text-primary-foreground/80">
@@ -61,15 +62,22 @@ export default function MarketingFooter() {
             </p>
           </div>
 
-          {/* Industries column is built from INDUSTRIES rather than the
-              catalog — those labels live in app/data/industries.js and are
-              still English-only. See the note in the commit. */}
-          <div>
+          {/* All twelve trades, not the first six.
+              slice(0, 6) stopped alphabetically at Landscaping, so Painting,
+              Plumbing, Pressure Washing, Roofing, Tree Care and Lawn Care had
+              a page, a header entry and no footer link — the one place on the
+              site that links every page to every other one. Two columns
+              because twelve in a single stack is taller than the rest of the
+              footer.
+
+              Labels come from useIndustryLabels, not app/data/industries.js:
+              those are English-only. */}
+          <div className="col-span-2 md:col-span-1">
             <h4 className="text-sm font-semibold text-white mb-3">
               {t("nav.industries")}
             </h4>
-            <ul className="space-y-2">
-              {INDUSTRIES.slice(0, 6).map((ind) => (
+            <ul className="grid grid-cols-2 md:grid-cols-1 gap-x-4 gap-y-2">
+              {industries.map((ind) => (
                 <li key={ind.slug}>
                   <Link
                     href={`/industries/${ind.slug}`}

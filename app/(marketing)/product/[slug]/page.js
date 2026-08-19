@@ -3,9 +3,22 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { PRODUCT_FEATURES } from "@/app/data/productFeatures";
+import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export function generateStaticParams() {
   return Object.keys(PRODUCT_FEATURES).map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const feature = PRODUCT_FEATURES[slug];
+  if (!feature) return {};
+
+  return marketingMetadata({
+    path: `/product/${slug}`,
+    title: `${feature.label} — FieldQuo`,
+    description: feature.description,
+  });
 }
 
 export default async function ProductFeaturePage({ params }) {

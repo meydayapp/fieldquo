@@ -8,6 +8,7 @@
 import { notFound } from "next/navigation";
 import { INDUSTRIES } from "@/app/data/industries";
 import { INDUSTRY_CONTENT } from "@/app/data/industryContent";
+import { marketingMetadata } from "@/lib/marketing/metadata";
 import IndustryPageContent from "./IndustryPageContent";
 
 export function generateStaticParams() {
@@ -18,16 +19,21 @@ export function generateStaticParams() {
 // serving a French title to an English crawler because the last visitor
 // switched languages would be worse than not translating it. Proper
 // multilingual SEO needs locale-prefixed routes (/fr/industries/...), which
-// is a routing change rather than a copy change.
+// is a routing change rather than a copy change — scoped out at the end of
+// docs/ROADMAP.md.
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const industry = INDUSTRY_CONTENT[slug];
   if (!industry) return {};
 
-  return {
+  // Each trade gets its own headline as the title, which is the point of
+  // having twelve pages: a dozen tabs all reading "FieldQuo" is a dozen pages
+  // competing for the same query.
+  return marketingMetadata({
+    path: `/industries/${slug}`,
     title: `${industry.headline} | FieldQuo`,
     description: industry.description,
-  };
+  });
 }
 
 export default async function IndustryPage({ params }) {

@@ -1,4 +1,12 @@
 // app/(marketing)/terms/page.js
+import { marketingMetadata } from "@/lib/marketing/metadata";
+
+export const metadata = marketingMetadata({
+  path: "/terms",
+  title: "Terms of Service — FieldQuo",
+  description: "The terms that apply to using FieldQuo.",
+});
+
 export default function TermsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 prose prose-gray">

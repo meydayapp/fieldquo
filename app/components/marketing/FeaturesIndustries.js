@@ -3,8 +3,8 @@
 
 import Link from "next/link";
 import { FileText, Calendar, Users, BarChart3 } from "lucide-react";
-import { INDUSTRIES } from "@/app/data/industries";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useIndustryLabels } from "@/app/hooks/useIndustryLabels";
 
 // Reuses the product.* keys the header and footer already define — the same
 // four feature names appear in three places, and duplicating them per
@@ -18,6 +18,10 @@ const FEATURES = [
 
 export default function FeaturesIndustries() {
   const { t } = useTranslation();
+  // Translated trade names. These were rendering app/data/industries.js
+  // labels, which are English-only — a strip of English in the middle of an
+  // otherwise translated page.
+  const industries = useIndustryLabels();
 
   return (
     <section className="bg-card border-t border-border">
@@ -45,7 +49,7 @@ export default function FeaturesIndustries() {
           {t("features.anyTrade")}
         </h3>
         <div className="flex flex-wrap justify-center gap-2">
-          {INDUSTRIES.map((ind) => (
+          {industries.map((ind) => (
             <Link
               key={ind.slug}
               href={`/industries/${ind.slug}`}

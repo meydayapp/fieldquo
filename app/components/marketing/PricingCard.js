@@ -4,6 +4,9 @@
 import { CheckCircle2 } from "lucide-react";
 import { calculatePricing , TRIAL_PRICE } from "@/lib/pricing";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// The locale table moved to app/i18n/numberLocale.js — /pricing needed the
+// same one, and two copies of a mapping is how the second copy goes stale.
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 
 // Locale-aware, not hardcoded to en-CA. Digit grouping differs by language —
 // French Canadian uses a space where English uses a comma (1 250 vs 1,250) —
@@ -15,20 +18,9 @@ function money(value, locale) {
   return number.toLocaleString(locale, { maximumFractionDigits: 0 });
 }
 
-// Maps a UI language onto a formatting locale. Punjabi and Tagalog default to
-// their most common regional formatting rather than the bare language tag.
-const NUMBER_LOCALES = {
-  en: "en-CA",
-  fr: "fr-CA",
-  es: "es-MX",
-  uk: "uk-UA",
-  pa: "pa-IN",
-  tl: "en-PH",
-};
-
 export default function PricingCard({ tier, plan, selected, onSelect }) {
   const { t, language } = useTranslation();
-  const locale = NUMBER_LOCALES[language] || "en-CA";
+  const locale = numberLocaleFor(language);
   const isDbPlan = Boolean(plan);
 
   const label = isDbPlan ? plan.name : tier.label;
