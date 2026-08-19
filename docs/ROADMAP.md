@@ -349,6 +349,42 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Manage my visit — the page a homeowner lands on from the confirmation
+  email (`/visit/<manageToken>`), client half.**
+
+  `app/visit/[token]/page.js` + `VisitManager.js`. Public, token-only, no app
+  chrome and nothing that says FieldQuo. Renders the visit (arrival window via
+  `describeWindow`, exact time otherwise), the linked estimate number when the
+  booking came from one, and the deposit actually paid.
+
+  Two rules drive the whole screen. Cancel and Reschedule appear **only** when
+  the server's `policy.canChange` says so; when it doesn't, the page states the
+  reason from the stable key, and `too_late` names the company's own
+  `noticeHours` — a refusal with no number reads as a broken button. And the
+  money sentence before a cancel comes from the `refund` verdict, where
+  anything that is not an explicit `willRefund: true` falls to the non-refund
+  wording, so no reason key invented later can produce a promise. After the
+  fact the page reports what the server actually did, not what it predicted.
+
+  Those three decisions live in `lib/booking/visitCopy.js` rather than in the
+  component, because a `"use client"` module full of JSX cannot be executed
+  against hostile input — `npm run check:visit-copy` runs them over every reason
+  key the policy can emit, plus mangled verdicts, in all six languages (424
+  assertions).
+
+  Supporting pieces: `app/components/public/SlotCalendar.js` (the booking
+  flow's month grid, extracted so the reschedule step isn't a second calendar —
+  `BookingFlow.js` still holds the original and should be pointed at it next
+  time it's touched); `washPair()` in `lib/documents/theme.js`; `describeWindow`
+  now renders in all six languages instead of English-or-French; and a `visit`
+  block in `clientDocCopy.js`, complete in all six.
+
+  **Still open:** the reschedule grid reads
+  `GET /api/visit/<token>/reschedule?from&to` → `{ slots }`, which does not
+  exist yet — that route is POST-only, so the step currently degrades to "we
+  couldn't load the available times" plus the company's phone number. It is the
+  same `computeAvailableSlots` call the POST already makes.
+
 - **Three small settings jobs: share a referral by text, changelog posts, and a
   back link that tells the truth.**
 

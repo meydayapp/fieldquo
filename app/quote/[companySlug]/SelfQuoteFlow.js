@@ -54,7 +54,7 @@ import { LANGUAGES } from "@/app/i18n/languages";
 import { formatPhoneInput } from "@/lib/validation";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import MediaUploader from "@/app/components/MediaUploader";
-import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
+import BookVisitPanel from "@/app/components/public/BookVisitPanel";
 import {
   buildConfirmation,
   budgetOptions,
@@ -229,12 +229,12 @@ export default function SelfQuoteFlow({ companySlug }) {
             this is silently absent rather than a button onto an empty
             calendar. */}
         {data.booking?.canBookVisit && (
-          <SelfQuoteBooking
+          <BookVisitPanel
             slug={data.booking.slug}
             contact={contact}
-            theme={theme}
+            theme={{ wash: theme.accentWash, ink: theme.inkOnWash, inkMuted: theme.inkMutedOnWash }}
             fill={fill}
-            copy={copy}
+            copy={{ title: copy.bookVisitTitle, body: copy.bookVisitBody, cta: copy.bookVisitCta }}
           />
         )}
       </Shell>
@@ -926,58 +926,5 @@ function BackLink({ onClick, theme, label }) {
     >
       <ArrowLeft size={13} /> {label}
     </button>
-  );
-}
-
-
-/**
- * "Would you like us to come and look at it?" under the confirmation.
- *
- * Collapsed by default. The document is the thing they just earned; a calendar
- * unfolded beneath it competes with it, and most people booking a visit have
- * decided to before they scroll. One tap opens the real booking flow — the same
- * component /book/<slug> renders, with its calendar, travel-aware availability,
- * arrival windows, visit fee and confirmation email. Nothing here reimplements
- * any of that.
- */
-function SelfQuoteBooking({ slug, contact, theme, fill, copy }) {
-  const [open, setOpen] = useState(false);
-
-  if (open) {
-    return (
-      <div className="mt-4">
-        <BookingFlow
-          companySlug={slug}
-          prefill={{
-            name: contact.name,
-            email: contact.email,
-            phone: contact.phone,
-            address: contact.address,
-          }}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="mt-4 rounded-2xl px-6 py-5 text-center"
-      style={{ backgroundColor: theme.accentWash }}
-    >
-      <p className="text-sm font-semibold" style={{ color: theme.inkOnWash }}>
-        {copy.bookVisitTitle}
-      </p>
-      <p className="text-xs mt-1" style={{ color: theme.inkMutedOnWash }}>
-        {copy.bookVisitBody}
-      </p>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mt-3 inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-bold"
-        style={{ backgroundColor: fill.bg, color: fill.fg }}
-      >
-        {copy.bookVisitCta}
-      </button>
-    </div>
   );
 }

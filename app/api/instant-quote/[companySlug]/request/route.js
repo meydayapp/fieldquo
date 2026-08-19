@@ -12,10 +12,11 @@ import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rateLimit";
 import { measureForTrade, priceOneMaterial } from "@/lib/estimate/instantQuoteServer";
 import { publicEstimate, gatedMessage, effectiveVisibility } from "@/lib/estimate/visibility";
-import { bandForIndex, estimateExceedsBudget } from "@/lib/estimate/budgetBands";
+import { bandForIndex, estimateExceedsBudget, scoreKeyForBandIndex } from "@/lib/estimate/budgetBands";
 import { financingOffer } from "@/lib/estimate/financing";
+import { canBookVisit } from "@/lib/booking/canBookVisit";
+import { getAppOrigin } from "@/lib/appUrl";
 import { createScoredLead } from "@/lib/leads/createLead";
-import { mapBudget } from "@/lib/leads/importMap";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
@@ -35,6 +36,8 @@ export async function POST(request, { params }) {
       id: true, name: true, logoUrl: true, brandColor: true, brandColors: true,
       email: true, phone: true, website: true, defaultLanguage: true,
       financing: true,
+      slug: true, bookingSlug: true, bookingModes: true,
+      eventTypes: { where: { active: true }, select: { id: true } },
     },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -108,6 +111,11 @@ export async function POST(request, { params }) {
 
   const emailLanguage = language || company.defaultLanguage || "en";
 
+  // Whether a booking button belongs in the email at all. Read from the same
+  // helper the public page uses rather than re-derived, because an email that
+  // offers a visit the company cannot take is a dead link with a long life.
+  const bookable = canBookVisit(company) ? { slug: company.bookingSlug || company.slug } : null;
+
   // ── The white-label confirmation ──────────────────────────────────────────
   //
   // Sent from the company's own domain, in their brand, obeying the same
@@ -124,6 +132,10 @@ export async function POST(request, { params }) {
         // Moves the company's own financing note up under the figure. Does
         // nothing at all when they haven't enabled financing.
         budgetGap,
+        // Only when there is a calendar behind it. loadCompanyInstantTrades
+        // answers the same question for the result screen, so the email and
+        // the page cannot disagree about whether a visit can be booked.
+        bookingUrl: bookable ? `${getAppOrigin(request)}/book/${bookable.slug}` : null,
         reference: draft.quoteNumber,
         language: emailLanguage,
       });
@@ -155,11 +167,12 @@ export async function POST(request, { params }) {
   // quote by this point. A lead-board row failing to write must not turn a
   // successful submission into an error.
   //
-  // The budget goes through mapBudget rather than straight in: the form asks
-  // in the OWNER's per-trade bands ("Under $3,500"), and the scorer reads the
-  // generic keys. mapBudget buckets on the stated ceiling, and returns null
-  // when there is nothing to read — an unanswered budget must not be credited
-  // as a small one.
+  // The budget is translated by POSITION, not by the dollars on the label. The
+  // owner sets these thresholds per trade, so the top band means "the biggest
+  // job this contractor does" — reading "$10,000+" as an absolute figure scored
+  // that lead a tier below a roofer's, for picking the highest option a cabinet
+  // shop offers. See scoreKeyForBandIndex. Unanswered stays null: absence is
+  // not a small budget.
   await createScoredLead({
     companyId: company.id,
     name,
@@ -171,7 +184,7 @@ export async function POST(request, { params }) {
       .join("\n\n"),
     source: "instant_quote",
     clientPhotos: media,
-    budgetBand: budgetBand ? mapBudget(budgetBand.label) : null,
+    budgetBand: scoreKeyForBandIndex(budgetBand?.index),
     language: emailLanguage,
   })
     .then((lead) =>
@@ -219,6 +232,14 @@ export async function POST(request, { params }) {
   return NextResponse.json({
     ok: true,
     reference: draft.quoteNumber,
+    // The handle the "book a visit" panel needs to tie the visit to this
+    // estimate. An unguessable cuid, handed only to the person who just
+    // created the document — the same shape as a quote's shareToken, and it
+    // confers nothing on its own: the booking route re-checks that the quote
+    // belongs to that company AND that the client email matches before it will
+    // attach anything. `reference` stays the human-readable quote number,
+    // because that is what a homeowner reads back over the phone.
+    quoteId: draft.id,
     estimate: shown,
     // The measured facts behind the figure — squares, sq ft, pitch, and the
     // satellite still. The single-page form has no earlier round trip to get

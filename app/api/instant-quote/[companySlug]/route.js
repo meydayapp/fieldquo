@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
   const data = await loadCompanyInstantTrades(companySlug);
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { company, trades } = data;
+  const { company, trades, booking } = data;
   return NextResponse.json({
     company: {
       name: company.name,
@@ -27,5 +27,6 @@ export async function GET(request, { params }) {
     mapsKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null,
     language: company.defaultLanguage || "en",
     trades,
+    booking,
   });
 }

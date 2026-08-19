@@ -131,6 +131,33 @@ export async function POST(request, { params }) {
     text,
   });
 
+  // ── Chasing payment IS issuing the invoice ────────────────────────────────
+  //
+  // This route emailed the client a real link to pay and then recorded nothing
+  // at all — no status, no sentAt. That was survivable while the portal showed
+  // every invoice, and stops being survivable the moment it doesn't: the portal
+  // now hides drafts (a draft is the contractor still deciding the figure, and
+  // accepted quotes mint one automatically), so a payment request on a draft
+  // sent the client to a page where their invoice did not exist. "Nothing
+  // outstanding", under the contractor's logo, minutes after being asked to pay.
+  //
+  // Written only AFTER Resend accepts, for the same reason the send route does
+  // it that way: sentAt is a record that something happened, not that somebody
+  // intended it.
+  //
+  // Two deliberate narrowings, both copied from the send route's hard-won
+  // shape. A paid or overdue invoice is not dragged back to "sent" because
+  // someone chased it. And sentAt is stamped only when it is EMPTY — this
+  // route is the reminder path, so overwriting would march the issue date
+  // forward with every chase and lose when the client was first billed.
+  await db.invoice.update({
+    where: { id: invoice.id },
+    data: {
+      ...(invoice.sentAt ? {} : { sentAt: new Date(), sentToEmail: invoice.client.email }),
+      ...(invoice.status === "draft" ? { status: "sent" } : {}),
+    },
+  });
+
   return NextResponse.json({
     sent: true,
     to: invoice.client.email,

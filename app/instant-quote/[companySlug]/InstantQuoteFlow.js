@@ -26,6 +26,7 @@ import { fetchJson } from "@/lib/fetchJson";
 import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
+import BookVisitPanel from "@/app/components/public/BookVisitPanel";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -319,6 +320,7 @@ export default function InstantQuoteFlow({ companySlug }) {
 
   const brand = data?.company?.brandColor || "#06356b";
   const language = data?.language || "en";
+  const fr = language === "fr";
 
   function pickTrade(t) {
     setTrade(t);
@@ -530,7 +532,30 @@ export default function InstantQuoteFlow({ companySlug }) {
         <div className="grid lg:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
             {result ? (
-              <SuccessCard result={result} company={data.company} brand={brand} />
+              <>
+                <SuccessCard result={result} company={data.company} brand={brand} />
+                {/* The next step, offered where they are rather than left to a
+                    phone call neither side makes. Only when the company can
+                    actually take a booking — no active event type, or the visit
+                    mode switched off, and this is silently absent instead of a
+                    button onto an empty calendar. The details they typed are
+                    carried in as props, so nothing is retyped and the calendar
+                    can filter slots by travel from the first query. */}
+                {data.booking?.canBookVisit && (
+                  <BookVisitPanel
+                    slug={data.booking.slug}
+                    quoteId={result.quoteId}
+                    contact={{ ...contact, address: trade?.measure === "roof_address" ? address : siteAddress }}
+                    copy={{
+                      title: fr ? "Souhaitez-vous que nous venions voir\u00a0?" : "Would you like us to come and see it?",
+                      body: fr
+                        ? "R\u00e9servez une visite et nous confirmerons votre prix sur place."
+                        : "Book an in-person visit and we'll confirm your price on site.",
+                      cta: fr ? "R\u00e9server une visite" : "Book a visit",
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <>
                 <Section title="What do you need?" required>

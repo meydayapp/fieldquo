@@ -76,6 +76,15 @@ const SUBDOMAIN_PASSTHROUGH = [
   // from an ad linked on the tenant's own subdomain must get the funnel, not
   // that tenant's marketing site.
   "/f",
+  // Managing a booked visit (/visit/<token>). Same class as /q and /portal —
+  // a homeowner following the link in their confirmation email must reach the
+  // visit, not the tenant's marketing site.
+  //
+  // Today the minted link uses the apex origin, so this is belt-and-braces
+  // rather than a live bug. It is listed anyway because the failure it prevents
+  // is silent and badly timed: the rewrite would send a 404 to someone trying
+  // to cancel, at the exact moment the alternative is not turning up.
+  "/visit",
 ];
 
 const PLATFORM_BILLING_PASSTHROUGH = [

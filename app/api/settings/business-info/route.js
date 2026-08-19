@@ -106,6 +106,12 @@ export async function GET(request) {
       travelCheckEnabled: true,
       travelBufferMinutes: true,
       arrivalWindowMinutes: true,
+      // Changes & cancellations. Read by lib/booking/changePolicy.js on the
+      // public side and edited on Settings > Booking page — both ends of the
+      // same three columns, so neither can be written and never read.
+      bookingChangeNoticeHours: true,
+      refundVisitFeeOnCancel: true,
+      refundCutoffHours: true,
       // New — website/subdomain publish stub
       sitePublished: true,
 
@@ -122,6 +128,49 @@ export async function GET(request) {
   const withCoords = await backfillCoordinates(member.companyId, company);
 
   return NextResponse.json(withCoords);
+}
+
+// A year. Not a real policy, just the point past which a number is a typo:
+// "8760" hours of notice is already absurd, and anything larger is certainly a
+// slipped keypress rather than a contractor's intent.
+const MAX_NOTICE_HOURS = 8760;
+
+/**
+ * Hours of notice, as typed by a human.
+ *
+ * REJECTED rather than clamped, and rejected here rather than only in the
+ * browser. These two numbers decide whether a stranger may cancel a booked
+ * visit and whether money goes back to them (lib/booking/changePolicy.js), so a
+ * value nobody can read must not be quietly rewritten into one this file
+ * invented — the owner would see it save and never learn it saved something
+ * else.
+ *
+ * `allowNull` covers refundCutoffHours only, where "unset" is a real answer:
+ * changePolicy falls it back to the change window rather than to zero.
+ *
+ * Number(null) is 0 and Number("") is 0 and Number(true) is 1 — all finite, all
+ * the most permissive value there is — so the type is checked BEFORE Number(),
+ * the same trap changeNoticeHours() guards against on the read side.
+ */
+function parseNoticeHours(value, { allowNull = false } = {}) {
+  const bad = { ok: false, error: "Enter a whole number of hours, 0 or more." };
+
+  if (typeof value !== "number" && typeof value !== "string" && value !== null) {
+    return bad;
+  }
+  // Trimmed first: Number(" ") is 0, so a field containing a space would
+  // otherwise save as "cancellable until the van pulls up" — the single most
+  // permissive setting there is, arrived at by accident.
+  const raw = typeof value === "string" ? value.trim() : value;
+  if (raw === null || raw === "") {
+    return allowNull ? { ok: true, value: null } : bad;
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) return bad;
+  if (n > MAX_NOTICE_HOURS) {
+    return { ok: false, error: "That's more than a year of notice — check the number." };
+  }
+  return { ok: true, value: n };
 }
 
 export async function PATCH(request) {
@@ -175,9 +224,29 @@ export async function PATCH(request) {
     travelCheckEnabled,
     travelBufferMinutes,
     arrivalWindowMinutes,
+    bookingChangeNoticeHours,
+    refundVisitFeeOnCancel,
+    refundCutoffHours,
     sitePublished,
     offerFinancing,
   } = body;
+
+  // Validated before anything is written, so a bad cancellation window can't
+  // land alongside a good logo change and leave the settings half-saved.
+  let noticeHours;
+  if (bookingChangeNoticeHours !== undefined) {
+    const parsed = parseNoticeHours(bookingChangeNoticeHours);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    noticeHours = parsed.value;
+  }
+  let cutoffHours;
+  if (refundCutoffHours !== undefined) {
+    // null is meaningful here and distinct from 0: it means "same notice as the
+    // change window", while 0 means "refund right up to the start time".
+    const parsed = parseNoticeHours(refundCutoffHours, { allowNull: true });
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    cutoffHours = { value: parsed.value }; // boxed, because null is a value here
+  }
 
   // Replacing a logo used to leave the old file on Cloudinary forever. On a
   // shared account that's storage nobody is using and everybody is paying for,
@@ -305,6 +374,13 @@ export async function PATCH(request) {
       ...(arrivalWindowMinutes !== undefined && {
         arrivalWindowMinutes: clampWindow(arrivalWindowMinutes),
       }),
+      // The three columns lib/booking/changePolicy.js reads. Validated above,
+      // never clamped — see parseNoticeHours.
+      ...(noticeHours !== undefined && { bookingChangeNoticeHours: noticeHours }),
+      ...(refundVisitFeeOnCancel !== undefined && {
+        refundVisitFeeOnCancel: Boolean(refundVisitFeeOnCancel),
+      }),
+      ...(cutoffHours !== undefined && { refundCutoffHours: cutoffHours.value }),
       // enforcedCurrency, not the raw body value: when the company doesn't serve
       // abroad this is the country-derived currency regardless of what was sent.
       ...(enforcedCurrency !== undefined && { currency: enforcedCurrency }),

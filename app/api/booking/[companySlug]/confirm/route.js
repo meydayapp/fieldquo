@@ -16,7 +16,7 @@ export async function POST(request, { params }) {
   // which made the company lookup below silently 404 every booking.
   const { companySlug } = await params;
   const body = await request.json();
-  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode, address } =
+  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode, address, quoteId } =
     body;
 
   if (!eventTypeSlug || !startTime || !clientName || !clientEmail) {
@@ -108,6 +108,34 @@ export async function POST(request, { params }) {
   // treats missing coordinates as unknown rather than as the middle of the
   // ocean.
   const visitAddress = typeof address === "string" && address.trim() ? address.trim() : null;
+
+  // ── The estimate this visit is about, if the booking came from one ────────
+  //
+  // The instant-estimate result offers "book a visit" straight after revealing
+  // the range, so the browser is the only party that knows which session this
+  // is — the id has to arrive from it. It is therefore checked, not trusted.
+  //
+  // Two conditions, both required. The quote must belong to THIS company, so a
+  // cuid harvested from another tenant cannot be attached. And its client email
+  // must match the one booking the visit, so a guessed id from the same company
+  // cannot staple someone else's quote to your booking — that reference is
+  // printed in a confirmation email, and a wrong one tells a homeowner about a
+  // job that isn't theirs.
+  //
+  // A failure resolves to null rather than rejecting: the booking is the thing
+  // the client came to do, and losing it over a decorative cross-reference
+  // would be the wrong trade.
+  let linkedQuoteId = null;
+  if (typeof quoteId === "string" && quoteId) {
+    const q = await db.quote.findFirst({
+      where: { id: quoteId, companyId: company.id },
+      select: { id: true, client: { select: { email: true } } },
+    });
+    const sameClient =
+      q?.client?.email &&
+      q.client.email.trim().toLowerCase() === String(clientEmail).trim().toLowerCase();
+    if (sameClient) linkedQuoteId = q.id;
+  }
   let visitPoint = null;
   if (visitAddress && chosenMode === "visit") {
     const hit = await geocodeAddress(visitAddress);
@@ -142,6 +170,7 @@ export async function POST(request, { params }) {
         mode: chosenMode,
         address: visitAddress,
         ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
+        ...(linkedQuoteId && { quoteId: linkedQuoteId }),
         status: "pending_payment",
       },
     });
@@ -199,6 +228,7 @@ export async function POST(request, { params }) {
       mode: chosenMode,
       address: visitAddress,
       ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
+      ...(linkedQuoteId && { quoteId: linkedQuoteId }),
       appointmentId: appointment.id,
     },
   });

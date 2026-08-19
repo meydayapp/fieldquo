@@ -697,6 +697,28 @@ model Company {
   // comes out.
   bookingModes String[] @default(["visit"])
 
+  // ── What a client may do to a booking after making it ────────────────────
+  //
+  // Hours of notice the CREW needs. Inside this window the client can no longer
+  // cancel or move a visit themselves and has to ring — the day is planned.
+  // 24 by default rather than 0: an unset value must not mean "changeable
+  // until the van pulls up".
+  bookingChangeNoticeHours Int @default(24)
+
+  // Whether cancelling in time returns a visit fee that was already paid. OFF
+  // by default: the fee is the contractor's money as soon as it is taken, and a
+  // public link that returns it because nobody picked a default is a control
+  // spending someone else's money. Cancelling still works when this is off —
+  // the slot frees, the company is told, and the screen says the fee is not
+  // automatically returned.
+  refundVisitFeeOnCancel Boolean @default(false)
+
+  // Hours of notice the MONEY needs, when refunds are on. Allowed to be longer
+  // than the change window, which is the case worth supporting: "move it up to
+  // a day before, but the deposit only comes back with two days' notice."
+  // Null falls back to bookingChangeNoticeHours.
+  refundCutoffHours Int?
+
   businessHours Json?
 
   sitePublished Boolean   @default(false)
@@ -1280,6 +1302,10 @@ model Quote {
   // churn the auth models for no query we run.
   reviewedById   String?
   reviewedAt     DateTime?
+
+  // Visits booked off the back of this quote. A list rather than one, because a
+  // client can cancel and book again and the history is worth keeping.
+  bookings       Booking[]  @relation("BookingQuote")
 
   @@unique([companyId, quoteNumber])
 }
@@ -2335,6 +2361,29 @@ model Booking {
   // address or ringing a number — and the confirmation email has to say which.
   mode          String        @default("visit")
   status        BookingStatus @default(confirmed)
+  // The estimate that prompted this visit, when there was one. An instant
+  // estimate ends with "book a visit"; without this the booking and the quote
+  // are two unrelated rows and the confirmation email cannot say which job it
+  // is about. Set only after server-side verification that the quote belongs to
+  // the same company — the browser is the only thing that knows the session,
+  // so the id arrives from it and is never trusted on arrival.
+  quoteId       String?
+  quote         Quote?        @relation("BookingQuote", fields: [quoteId], references: [id], onDelete: SetNull)
+
+  // The client's own link to this booking. Unguessable, minted at confirmation
+  // and mailed to them, and the ONLY way they can reach it — a booking has no
+  // account behind it, and the portal token identifies a client rather than a
+  // visit. Nullable because bookings created before this existed have none;
+  // those rows simply have no manage link rather than a broken one.
+  manageToken   String?       @unique
+
+  // When the visit fee was returned, and how much of it. Written only after
+  // Stripe confirms the refund, for the same reason sentAt is written only
+  // after Resend accepts: this is a record that money moved, not that somebody
+  // asked for it to. Read by the policy so a forwarded link cannot refund twice.
+  feeRefundedAt      DateTime?
+  feeRefundedCents   Int?
+
   appointmentId String?       @unique
   appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
 

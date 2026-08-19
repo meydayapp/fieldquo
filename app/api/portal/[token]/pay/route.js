@@ -27,8 +27,21 @@ export async function POST(request, { params }) {
 
   // Critical: verify the invoice actually belongs to THIS client's token — otherwise
   // any portal token could pay any invoice by guessing IDs.
+  // The status predicate is HERE, not just on the listing that feeds the page.
+  // The portal stopped showing drafts, but a draft's id is guessable and this
+  // endpoint mints a Stripe checkout session — so filtering the list alone
+  // would be hiding a button, which is not access control. Same reasoning as
+  // the clientId check above, one field along: a bill the contractor never
+  // issued must not be chargeable, whoever holds the token.
+  //
+  // "Issued" matches the portal payload exactly: a stamped sentAt, or a status
+  // past draft for one settled in person and marked paid without any email.
   const invoice = await db.invoice.findFirst({
-    where: { id: invoiceId, clientId: client.id },
+    where: {
+      id: invoiceId,
+      clientId: client.id,
+      OR: [{ sentAt: { not: null } }, { status: { not: "draft" } }],
+    },
     include: { client: true },
   });
   if (!invoice)

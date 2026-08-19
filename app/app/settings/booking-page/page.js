@@ -14,6 +14,40 @@ const MODES = [
   { key: "video", label: "Video call", hint: "You send a link" },
 ];
 
+// ── Mirrors of lib/booking/changePolicy.js ───────────────────────────────────
+//
+// The sentence under these inputs has to be the behaviour, not a second opinion
+// about it, so the two fallbacks are reproduced here exactly: an unreadable
+// change window reads as 24 hours (never 0, which would mean "cancellable until
+// the van pulls up"), and an unset refund cutoff falls back to the change
+// window (never 0, which would refund a cancellation made minutes before).
+//
+// Duplicated rather than imported because changePolicy is a server-side module
+// this page must not pull into the client bundle; if either fallback changes
+// there, it changes here. That is the one thing to check when editing it.
+function previewChangeHours(raw) {
+  if (raw === "" || raw === null || raw === undefined) return 24;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 ? v : 24;
+}
+
+function previewRefundHours(raw, changeHours) {
+  if (raw === "" || raw === null || raw === undefined) return changeHours;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 ? v : changeHours;
+}
+
+// Server shape → the three fields this page edits.
+function policyFrom(info) {
+  return {
+    changeHours: String(info?.bookingChangeNoticeHours ?? 24),
+    refund: Boolean(info?.refundVisitFeeOnCancel),
+    // "" is not 0: blank means "same notice as the change window", which is
+    // what a null column means to changePolicy.
+    refundHours: info?.refundCutoffHours == null ? "" : String(info.refundCutoffHours),
+  };
+}
+
 export default function BookingPageSettings() {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState([]);
@@ -38,6 +72,10 @@ export default function BookingPageSettings() {
   });
   const [travel, setTravel] = useState({ enabled: true, buffer: 0 });
   const [arrival, setArrival] = useState(0);
+  // How much notice the crew needs, whether a paid visit fee comes back, and
+  // how much notice the money needs. Read on the public side by
+  // lib/booking/changePolicy.js.
+  const [policy, setPolicy] = useState({ changeHours: "24", refund: false, refundHours: "" });
 
   useEffect(() => {
     Promise.all([
@@ -55,6 +93,7 @@ export default function BookingPageSettings() {
           buffer: info?.travelBufferMinutes ?? 0,
         });
         setArrival(info?.arrivalWindowMinutes ?? 0);
+        if (info) setPolicy(policyFrom(info));
         setForm((f) => ({ ...f, durationMinutes: info?.defaultVisitMinutes || 60 }));
       })
       .finally(() => setLoading(false));
@@ -96,6 +135,40 @@ export default function BookingPageSettings() {
     }
     const info = await res.json().catch(() => null);
     if (info) setArrival(info.arrivalWindowMinutes ?? 0);
+  }
+
+  /**
+   * Save the cancellation policy.
+   *
+   * All three fields go together on every save because they are read together —
+   * a refund cutoff is meaningless without the change window it falls back to.
+   *
+   * On rejection the fields go BACK to what is stored rather than sitting there
+   * showing a number the server refused; the browser's own `min`/`step` are
+   * only a convenience, and the API is what decides (see parseNoticeHours in
+   * app/api/settings/business-info/route.js).
+   */
+  async function savePolicy(next) {
+    const before = policy;
+    setPolicy(next);
+    const res = await fetch("/api/settings/business-info", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookingChangeNoticeHours: next.changeHours,
+        refundVisitFeeOnCancel: next.refund,
+        // Blank clears the column, which is how "same as the change window" is
+        // stored — not 0, which would be "refund right up to the start time".
+        refundCutoffHours: next.refundHours === "" ? null : next.refundHours,
+      }),
+    });
+    if (!res.ok) {
+      await reportResponseError(res, t("app.setBooking.policySaveError"));
+      setPolicy(before);
+      return;
+    }
+    const info = await res.json().catch(() => null);
+    if (info) setPolicy(policyFrom(info));
   }
 
   async function toggleMode(key) {
@@ -213,6 +286,15 @@ export default function BookingPageSettings() {
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto animate-pulse h-64 bg-accent rounded-xl" />
     );
+
+  // What the two numbers currently in the boxes actually mean, resolved the
+  // same way the policy resolves them.
+  const changeH = previewChangeHours(policy.changeHours);
+  const refundH = previewRefundHours(policy.refundHours, changeH);
+  // refundOnCancel() returns "nothing_paid" before it looks at any of this, so
+  // a company whose booking types are all free has a refund setting that can
+  // never fire. Worth saying, rather than letting them think it's doing work.
+  const anyFee = eventTypes.some((et) => et.feeCents > 0);
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
@@ -385,6 +467,139 @@ export default function BookingPageSettings() {
               {t("app.setBooking.minutesShort", { m })}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* ── Changes & cancellations ────────────────────────────────────────
+          Two windows, because they answer two different questions: how much
+          warning the CREW needs, and how much warning the MONEY needs. The
+          second is allowed to be longer than the first — that combination is
+          the interesting one, not a mistake. See lib/booking/changePolicy.js,
+          which is what actually enforces all of this. */}
+      <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
+        <h2 className="font-semibold text-foreground">
+          {t("app.setBooking.changesTitle", "Changes & cancellations")}
+        </h2>
+        <p className="text-sm text-muted-foreground mt-0.5 mb-4">
+          {t("app.setBooking.changesHint")}
+        </p>
+
+        <div className="mb-5">
+          <p className="text-sm font-semibold text-foreground mb-1">
+            {t("app.setBooking.noticeTitle")}
+          </p>
+          <p className="text-xs text-muted-foreground mb-2.5">
+            {t("app.setBooking.noticeHint")}
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={policy.changeHours}
+              onChange={(e) => setPolicy((p) => ({ ...p, changeHours: e.target.value }))}
+              onBlur={(e) => savePolicy({ ...policy, changeHours: e.target.value })}
+              className="w-24 border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
+            />
+            <span className="text-muted-foreground">{t("app.setBooking.hoursUnit", "hours")}</span>
+          </label>
+        </div>
+
+        {/* ── Does the fee come back? ──────────────────────────────────────
+            Off by default and deliberately so: a visit fee is the contractor's
+            money the moment it is taken. */}
+        <div className="pt-5 border-t border-border">
+          <div className="flex items-start gap-4">
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-foreground">
+                {t("app.setBooking.refundTitle")}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("app.setBooking.refundHint")}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={policy.refund}
+              onClick={() => savePolicy({ ...policy, refund: !policy.refund })}
+              className={`shrink-0 w-11 h-6 rounded-full transition-colors ${
+                policy.refund ? "bg-emerald-600" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  policy.refund ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* The cutoff decides nothing while refunds are off — refundOnCancel
+              returns "policy_off" before it ever reads it. So it isn't shown
+              greyed out, it isn't shown at all: a control that can't apply is
+              a control that appears to work and doesn't. */}
+          {policy.refund && (
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-foreground mb-1">
+                {t("app.setBooking.refundNoticeTitle")}
+              </p>
+              <p className="text-xs text-muted-foreground mb-2.5">
+                {t("app.setBooking.refundNoticeHint")}
+              </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder={String(changeH)}
+                  value={policy.refundHours}
+                  onChange={(e) => setPolicy((p) => ({ ...p, refundHours: e.target.value }))}
+                  onBlur={(e) => savePolicy({ ...policy, refundHours: e.target.value })}
+                  className="w-24 border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
+                />
+                <span className="text-muted-foreground">
+                  {t("app.setBooking.hoursUnit", "hours")}
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        {/* ── What these numbers mean, in words ────────────────────────────
+            A number with no consequence stated is how this gets misconfigured:
+            "24" and "48" look like a pair of harmless defaults right up until a
+            homeowner is told their deposit isn't coming back. */}
+        <div className="mt-5 pt-4 border-t border-border space-y-1.5">
+          <p className="text-xs text-muted-foreground">
+            {changeH === 0
+              ? t("app.setBooking.previewChangeAny")
+              : changeH === 1
+                ? t("app.setBooking.previewChangeOne")
+                : t("app.setBooking.previewChange", { h: changeH })}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {!policy.refund
+              ? t("app.setBooking.previewRefundOff")
+              : refundH === 0
+                ? t("app.setBooking.previewRefundAny")
+                : refundH === 1
+                  ? t("app.setBooking.previewRefundOne")
+                  : t("app.setBooking.previewRefund", { h: refundH })}
+          </p>
+          {/* Legal, and occasionally what someone means — but far likelier to
+              be the two numbers entered the wrong way round, so it's a note
+              rather than an error. */}
+          {policy.refund && refundH < changeH && (
+            <p className="text-xs text-amber-600">
+              {t("app.setBooking.refundWiderNote", { h: changeH })}
+            </p>
+          )}
+          {policy.refund && !anyFee && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setBooking.refundNoFeeNote")}
+            </p>
+          )}
         </div>
       </div>
 

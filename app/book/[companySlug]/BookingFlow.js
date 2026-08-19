@@ -82,7 +82,11 @@ function formatPhoneAsTyped(raw) {
 // Seeded as INITIAL STATE, never synced: once the flow is open the fields
 // belong to the person typing in them, and an effect that pushed prefill back
 // in on re-render would overwrite a correction mid-keystroke.
-export default function BookingFlow({ companySlug, initialEventSlug, prefill = null }) {
+// `quoteId` links this visit to the estimate that prompted it, when the flow
+// was opened from an instant-estimate result. Passed through untouched and
+// VERIFIED server-side (company scope plus a matching client email) — this
+// component has no way to prove it, so it does not pretend to.
+export default function BookingFlow({ companySlug, initialEventSlug, prefill = null, quoteId = null }) {
   const [company, setCompany] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -319,6 +323,7 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
           clientEmail: form.email.trim(),
           clientPhone: form.phone.trim() || null,
           mode,
+          ...(quoteId ? { quoteId } : {}),
           address: mode === "visit" ? address.trim() || null : null,
         }),
       });

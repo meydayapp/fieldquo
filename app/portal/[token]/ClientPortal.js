@@ -129,6 +129,12 @@ export default function ClientPortal({ token }) {
   const onlinePayments = Boolean(data.onlinePayments);
   const offlineLines = offlinePaymentLines(c, copy);
 
+  // Every invoice here has already been filtered to ISSUED ones server-side
+  // (app/api/portal/[token]/route.js) — a draft never reaches this component,
+  // so the balance below cannot count one. Deliberately NOT re-filtered here:
+  // a second copy of that predicate is the one that rots, and the browser was
+  // never the right place to decide what a client may see. If a draft ever
+  // shows up in this list again, fix the query, not this file.
   const invoices = data.invoices || [];
   const balance = invoices.reduce(
     (sum, inv) =>
