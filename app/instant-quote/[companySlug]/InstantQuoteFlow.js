@@ -25,6 +25,7 @@ import { Loader2, MapPin, CheckCircle2, Lock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatPhoneInput } from "@/lib/validation";
 import MediaUploader from "@/app/components/MediaUploader";
+import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 
 // ── The way out ──────────────────────────────────────────────────────────────
 //
@@ -278,6 +279,15 @@ export default function InstantQuoteFlow({ companySlug }) {
   const [trade, setTrade] = useState(null);
 
   const [address, setAddress] = useState("");
+  // ── Where the job is ──────────────────────────────────────────────────────
+  //
+  // Separate from `address`, which for a roof IS the measurement input. Every
+  // other trade measures from typed counts and never asked where the work was,
+  // so a lead arrived with a price and no way to know whether it was across
+  // town — no travel time, no travel fee, nothing for the booking calendar to
+  // filter slots against. The booking flow already refuses to offer times it
+  // cannot reach; it can only do that with an address.
+  const [siteAddress, setSiteAddress] = useState("");
   const [intake, setIntake] = useState({});
   const [polygon, setPolygon] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
@@ -314,6 +324,7 @@ export default function InstantQuoteFlow({ companySlug }) {
     setTrade(t);
     setIntake({});
     setAddress("");
+    setSiteAddress("");
     setPolygon(null);
     setMaterialKey(null);
     setPreview(null);
@@ -393,6 +404,7 @@ export default function InstantQuoteFlow({ companySlug }) {
     try {
       const payload = { trade: trade.trade, intake, materialKey, ...contact };
       if (trade.measure === "roof_address") payload.address = address;
+      else if (siteAddress.trim()) payload.address = siteAddress.trim();
       if (trade.measure === "lawn_polygon") payload.polygon = polygon;
       if (media.length) payload.media = media;
       // The index only. The server owns the dollars behind it — a form that
@@ -422,6 +434,7 @@ export default function InstantQuoteFlow({ companySlug }) {
     !trade && "what you need",
     trade && !jobDescribed && "the job details",
     needsMaterial && !materialKey && "an option",
+    trade && trade.measure !== "roof_address" && siteAddress.trim().length < 5 && "the job address",
     trade && !contact.name && "your name",
     trade && !contact.email && !contact.phone && "an email or phone",
     trade && budgetBands.length > 0 && budgetIndex === null && "your budget",
@@ -654,6 +667,18 @@ export default function InstantQuoteFlow({ companySlug }) {
                         );
                       })}
                     </div>
+                  </Section>
+                )}
+
+                {trade && trade.measure !== "roof_address" && (
+                  <Section title="Where's the job?" required>
+                    <AddressAutocomplete
+                      value={siteAddress}
+                      onChange={setSiteAddress}
+                      onPlaceSelected={(place) => setSiteAddress(place.address)}
+                      placeholder="Street, city, postal code"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                    />
                   </Section>
                 )}
 
@@ -920,6 +945,19 @@ function EstimatePanel({ trade, result, preview, previewing, brand, language, co
             {money(shown.low)} – {money(shown.high)}
           </div>
           {shown.unit && <div className="text-xs text-muted-foreground mt-1">{shown.unit}</div>}
+          {/* Why a small job and a slightly larger one quote the same figure.
+              Without this the estimator looks broken — the owner watched one
+              cabinet door and twenty produce an identical range and reasonably
+              concluded the form wasn't reading his numbers. It was: both were
+              under the company's minimum. Says that a minimum exists, never
+              what it is — the floor is a rate. */}
+          {shown.minimumApplied && (
+            <div className="text-xs text-muted-foreground mt-2 border-t border-border pt-2">
+              {fr
+                ? "Ce projet est sous notre montant minimum de facturation, alors le minimum s’applique."
+                : "This job comes in under our minimum charge, so the minimum applies."}
+            </div>
+          )}
         </div>
       ) : locked ? (
         <div className="relative rounded-xl border border-border overflow-hidden">

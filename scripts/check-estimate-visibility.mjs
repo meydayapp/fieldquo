@@ -43,7 +43,20 @@ console.log("\nThe rate card is never in the payload, either mode");
 // A homeowner should never receive a per-unit rate — only the finished range.
 const payloadRange = JSON.stringify(publicEstimate({ low: 4200, high: 5500 }, "range"));
 const payloadGated = JSON.stringify(publicEstimate({ low: 4200, high: 5500 }, "gated"));
-ok("range payload has only show/low/high", Object.keys(publicEstimate({ low: 1, high: 2 }, "range")).sort().join() === "high,low,show");
+// `minimumApplied` joined the payload so the screen can explain why a small job
+// and a slightly larger one quote the same figure. It is a BOOLEAN — the floor
+// that produced it is a rate and stays server-side.
+ok("range payload is show/low/high/minimumApplied", Object.keys(publicEstimate({ low: 1, high: 2 }, "range")).sort().join() === "high,low,minimumApplied,show");
+// The real invariant, asserted on values rather than key names: the only
+// numbers that ever cross are the two ends of the range. A rate, a minimum, a
+// multiplier or a unit price added to this object would fail here even if
+// somebody gave it an innocent-looking name.
+{
+  const pay = publicEstimate({ low: 4200, high: 5500, minimumApplied: true, minCharge: 3000, perDoor: 95 }, "range");
+  const numeric = Object.entries(pay).filter(([, v]) => typeof v === "number");
+  ok("...and the only numbers in it are low and high", numeric.map(([k]) => k).sort().join() === "high,low", numeric);
+  ok("...so a rate smuggled into the estimate object never reaches the browser", !/3000|95/.test(JSON.stringify(pay)));
+}
 ok("gated payload has no figures", !/4200|5500/.test(payloadGated));
 ok("range payload has the figures but nothing else numeric", /4200/.test(payloadRange));
 

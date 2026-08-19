@@ -123,9 +123,22 @@ export async function POST(request, { params }) {
 
   const options = priced.options
     .map((o) => {
-      const pub = publicEstimate({ low: o.low, high: o.high }, "range");
+      // minimumApplied has to be carried in, not left behind: rebuilding a bare
+      // {low, high} here dropped the one field that explains why two different
+      // job sizes can quote the same figure.
+      const pub = publicEstimate(
+        { low: o.low, high: o.high, minimumApplied: o.minimumApplied },
+        "range",
+      );
       return pub.show
-        ? { materialKey: o.materialKey, label: o.label, low: pub.low, high: pub.high, unit: o.unit || null }
+        ? {
+            materialKey: o.materialKey,
+            label: o.label,
+            low: pub.low,
+            high: pub.high,
+            unit: o.unit || null,
+            minimumApplied: pub.minimumApplied,
+          }
         : null;
     })
     .filter(Boolean);
