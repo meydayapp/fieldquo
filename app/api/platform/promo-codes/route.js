@@ -74,9 +74,31 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const { label, notes, kind, rewardMonths, maxRedemptions, expiresAt } = body;
 
+  // ── The label is the point of the feature ────────────────────────────────
+  //
+  // The page tells you to "generate one per person and label who you gave it
+  // to". The input had no required attribute, so QA generated FQ-63XRKVEK with
+  // label:null — a code for three free months that nobody can attribute to
+  // anybody. Combined with there being no revoke path at the time, it was
+  // untraceable AND permanent.
+  //
+  // Enforced here rather than only in the form, because the form is the half
+  // that can be skipped.
+  const trimmedLabel = String(label || "").trim();
+  if (!trimmedLabel) {
+    return NextResponse.json(
+      {
+        error:
+          "Say who this code is for. Attribution is the whole point — an " +
+          "unlabelled code can't be traced back to anyone.",
+      },
+      { status: 400 },
+    );
+  }
+
   const promo = await generatePromoCode({
     adminId: admin.id,
-    label,
+    label: trimmedLabel,
     notes,
     kind,
     rewardMonths,

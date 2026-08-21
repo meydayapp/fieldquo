@@ -6,13 +6,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Check, Ticket, Loader2, Plus } from "lucide-react";
+import { Copy, Check, Ticket, Loader2, Plus, Ban, RotateCcw } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 export default function PromoCodesPage() {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // Which row is mid-request. Per-row rather than a page-wide flag so revoking
+  // one code doesn't grey out every other button on the screen.
+  const [busyId, setBusyId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState("");
   const [form, setForm] = useState({
@@ -66,6 +69,31 @@ export default function PromoCodesPage() {
     navigator.clipboard?.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(""), 1500);
+  }
+
+  async function setActive(code, active) {
+    // Revoking is reversible and takes effect immediately at redemption, so no
+    // confirm() — the row flips to "Revoked" and the button becomes
+    // "Reinstate", which is a clearer answer than a dialog.
+    setBusyId(code.id);
+    setError("");
+    try {
+      const updated = await fetchJson(`/api/platform/promo-codes/${code.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      setCodes((prev) =>
+        prev.map((c) => (c.id === code.id ? { ...c, ...updated } : c)),
+      );
+    } catch (err) {
+      setError(
+        err?.message ||
+          `Couldn't ${active ? "reinstate" : "revoke"} that code. Try again.`,
+      );
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -194,17 +222,43 @@ export default function PromoCodesPage() {
                     </div>
                     {c.label && <p className="text-sm text-foreground mt-1">{c.label}</p>}
                     <p className="text-xs text-muted-foreground mt-0.5">
+                      {!c.active && (
+                        <span className="font-semibold text-foreground">Revoked · </span>
+                      )}
                       {c.rewardMonths} free months · {c.redeemedCount}/{c.maxRedemptions} used
                       {c.expiresAt && ` · expires ${new Date(c.expiresAt).toLocaleDateString()}`}
                     </p>
                   </div>
-                  <button
-                    onClick={() => copy(link, `link-${c.id}`)}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5 shrink-0"
-                  >
-                    {copied === `link-${c.id}` ? <Check size={13} /> : <Copy size={13} />}
-                    Copy signup link
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => copy(link, `link-${c.id}`)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold border border-border rounded-full px-3 py-1.5"
+                    >
+                      {copied === `link-${c.id}` ? <Check size={13} /> : <Copy size={13} />}
+                      Copy signup link
+                    </button>
+                    {/* Revoke, not delete. The redemptions below this row point
+                        at the code, and removing it would orphan the record of
+                        why a company has free months. */}
+                    <button
+                      onClick={() => setActive(c, !c.active)}
+                      disabled={busyId === c.id}
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold border rounded-full px-3 py-1.5 disabled:opacity-50 ${
+                        c.active
+                          ? "border-border text-muted-foreground hover:text-foreground"
+                          : "border-border text-foreground"
+                      }`}
+                    >
+                      {busyId === c.id ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : c.active ? (
+                        <Ban size={13} />
+                      ) : (
+                        <RotateCcw size={13} />
+                      )}
+                      {c.active ? "Revoke" : "Reinstate"}
+                    </button>
+                  </div>
                 </div>
                 {c.redemptions.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1">
