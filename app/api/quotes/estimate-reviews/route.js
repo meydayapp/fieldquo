@@ -9,6 +9,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  redactClient,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -29,8 +33,21 @@ export async function GET(request) {
     },
   });
 
+  // ── The filter this route missed ─────────────────────────────────────────
+  //
+  // GET /api/quotes was redacted; this sibling was not, and QA found the
+  // screen still printing a homeowner's email, phone and full street address
+  // to an employee restricted to name_address_only. Same data, different
+  // handler, no filter — which is exactly the shape of miss that a shared
+  // helper is supposed to prevent and only prevents where it is called.
+  const full = await loadEnforceableMember(db, member.id);
+  const redacted = quotes.map((q) => ({
+    ...q,
+    client: redactClient(full, q.client),
+  }));
+
   return NextResponse.json({
-    quotes,
+    quotes: redacted,
     // Whether THIS member may approve — drives the button state, but the
     // approve route enforces it again server-side. Hiding a button is not
     // access control.

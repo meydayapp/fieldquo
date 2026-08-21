@@ -7,6 +7,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 // A blank manual-entry form. `date` defaults to today so the common case
 // (logging hours after the fact) is one worker-pick and two times away.
@@ -16,7 +18,7 @@ function blankForm() {
   return { workerId: "", date: iso, start: "", end: "" };
 }
 
-export default function TimesheetsPage() {
+function TimesheetsPageScreen() {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [entries, setEntries] = useState([]);
@@ -337,4 +339,16 @@ export default function TimesheetsPage() {
       </div>
     </div>
   );
+}
+
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// "Log, review and approve hours" — everyone's hours, with an enabled Add
+// entry control. A member confined to timeTracking:view_record_own has their
+// own clock at /app/clock, which is the screen for that. This one is the
+// review side and belongs to whoever approves.
+export default function TimesheetsPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("user:manage")) return <NoAccessPanel capability="user:manage" />;
+  return <TimesheetsPageScreen />;
 }

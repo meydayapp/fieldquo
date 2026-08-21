@@ -12,8 +12,10 @@ import {
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
-export default function PaymentsPage() {
+function PaymentsPageScreen() {
   const { t } = useTranslation();
   const [company, setCompany] = useState(null);
   // What Stripe itself says, as opposed to what our database last heard. See
@@ -424,4 +426,20 @@ export default function PaymentsPage() {
       )}
     </div>
   );
+}
+
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// This page holds the Stripe connection with live "Manage in Stripe" and
+// "Disconnect" controls. QA reached it as an employee on two consecutive
+// passes and — correctly — refused to press Disconnect, which would sever the
+// company's payment processing.
+//
+// Nothing on the screen is information a crew member needs, so it is hidden
+// entirely rather than rendered read-only. A wrapper rather than an early
+// return, so the gate lands before the mount fetch.
+export default function PaymentsPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("billing")) return <NoAccessPanel capability="billing" />;
+  return <PaymentsPageScreen />;
 }

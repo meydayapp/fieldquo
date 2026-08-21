@@ -46,6 +46,12 @@ check("Estimate reviews — approval is supervisor+", !navRowAllowed("app.nav.es
 check("Timesheets — review is not own-time-only", !navRowAllowed("app.nav.timesheets", employee));
 check("Team — roster, invitations, owner's email", !navRowAllowed("app.nav.team", employee));
 
+// REG-002: the first trimming pass left rows that lead straight to a refusal.
+check("Plan & billing — a no-access panel for this role", !navRowAllowed("app.nav.plan", employee));
+check("Refer & Earn — same", !navRowAllowed("app.nav.refer", employee));
+check("Quick-add quote — composing one then losing it to a 403 is the worst case",
+  !navRowAllowed("app.quickAdd.quote", employee));
+
 console.log("\nStill shown — view_only is a real level, not a punishment\n");
 check("Quotes list stays", navRowAllowed("app.nav.quotes", employee));
 check("Jobs list stays", navRowAllowed("app.nav.jobs", employee));

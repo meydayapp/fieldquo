@@ -59,6 +59,7 @@ export async function POST(request) {
 
   const body = await request.json();
   const {
+    clientId,
     clientName,
     clientPhone,
     scheduledAt,
@@ -67,9 +68,12 @@ export async function POST(request) {
     assignedToId,
   } = body;
 
-  if (!clientName || !scheduledAt) {
+  // Either identifies a client. `clientId` is the precise form and is now
+  // accepted — it was not, which meant a caller holding an id had no way to
+  // say so and had to hope a name matched.
+  if ((!clientId && !clientName) || !scheduledAt) {
     return NextResponse.json(
-      { error: "clientName and scheduledAt are required" },
+      { error: "Give a client (clientId or clientName) and a time." },
       { status: 400 },
     );
   }
@@ -109,12 +113,51 @@ export async function POST(request) {
     }
   }
 
-  // Find or quick-create the client
-  let client = clientPhone
-    ? await db.client.findFirst({
-        where: { companyId: member.companyId, phone: clientPhone },
-      })
-    : null;
+  // ── Find the client before deciding to invent one ────────────────────────
+  //
+  // This used to look up by PHONE ONLY. Book "Emilio Boves" with no phone
+  // number and it created a second Emilio Boves, every time — a duplicate
+  // factory that nobody noticed because the create was silent.
+  //
+  // Adding the permission check in front of that create turned a silent bug
+  // into a loud one: QA booked against a client who was plainly on file and
+  // got "That client isn't on file yet", which was both a refusal and a lie.
+  //
+  // So resolution comes first and tries everything the caller gave us, most
+  // precise first. Only a genuine miss reaches the create path.
+  let client = null;
+
+  if (clientId) {
+    // Scoped to the company: an id from another tenant must miss, not throw.
+    client = await db.client.findFirst({
+      where: { id: clientId, companyId: member.companyId },
+    });
+    if (!client) {
+      return NextResponse.json(
+        { error: "That client isn't on this account." },
+        { status: 404 },
+      );
+    }
+  }
+
+  if (!client && clientPhone) {
+    client = await db.client.findFirst({
+      where: { companyId: member.companyId, phone: clientPhone },
+    });
+  }
+
+  if (!client && clientName) {
+    // Case-insensitive exact match. Deliberately not `contains`: booking
+    // "Emilio" against a client called "Emilio Boves Construction" would be a
+    // guess, and guessing which customer an appointment belongs to is worse
+    // than asking.
+    client = await db.client.findFirst({
+      where: {
+        companyId: member.companyId,
+        name: { equals: String(clientName).trim(), mode: "insensitive" },
+      },
+    });
+  }
 
   if (!client) {
     // ── A side effect is still a create ──────────────────────────────────
@@ -134,8 +177,9 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "That client isn't on file yet, and your access level doesn't " +
-            "allow you to add one. Ask someone who can, then book against them.",
+            `No client named "${String(clientName || "").trim()}" is on file, ` +
+            "and your access level doesn't allow you to add one. Ask someone " +
+            "who can, then book against them.",
         },
         { status: 403 },
       );

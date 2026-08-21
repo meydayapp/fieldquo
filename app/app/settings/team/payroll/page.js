@@ -5,8 +5,10 @@ import { useState, useEffect } from "react";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
-export default function PayrollPage() {
+function PayrollPageScreen() {
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const [payouts, setPayouts] = useState([]);
@@ -132,4 +134,18 @@ export default function PayrollPage() {
       </div>
     </div>
   );
+}
+
+// ── Hidden, not read-only ──────────────────────────────────────────────────
+//
+// "Run contractor payouts for approved hours", with period inputs and a live
+// Run Payouts submit button. The ENDPOINT behind it has always refused
+// non-payroll-admins — POST /api/payroll/runs answers "You don't have
+// permission to run payroll" — but QA declined to press it across three
+// passes, and an unpressed button is an unanswered question. Removing the
+// screen removes the question.
+export default function PayrollPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("payroll")) return <NoAccessPanel capability="payroll" />;
+  return <PayrollPageScreen />;
 }
