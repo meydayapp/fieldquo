@@ -37,13 +37,46 @@ export async function POST(request) {
   try {
     await syncSubscriptionFromStripeEvent(event);
   } catch (err) {
+    // A session whose company cannot be recovered will never become
+    // recoverable, so a 500 just asks Stripe to fail again on a schedule.
+    // Nine of the fourteen errors in the production queue were three sessions
+    // being retried, clustering seconds apart and burying the four genuinely
+    // distinct failures underneath them.
+    //
+    // Permanent → record it once and answer 200: we are telling Stripe there
+    // is nothing left to deliver, not that everything is fine. The row in
+    // /platform/errors is the thing that says otherwise, and it says a payment
+    // may need reconciling by hand.
+    const permanent = err?.permanent === true;
+
     await recordError({
       area: "billing-webhook",
       code: event?.type || null,
       message: `Stripe webhook ${event?.type} failed: ${err?.message}`,
       companyId: event?.data?.object?.metadata?.companyId || null,
-      detail: { eventId: event?.id, type: event?.type },
+      detail: {
+        eventId: event?.id,
+        type: event?.type,
+        permanent,
+        // Kept so whoever works the queue can find the payment in Stripe
+        // without going back through the event log.
+        stripeCustomer:
+          typeof event?.data?.object?.customer === "string"
+            ? event.data.object.customer
+            : null,
+        clientReferenceId: event?.data?.object?.client_reference_id || null,
+        needsManualReconciliation: permanent,
+      },
     });
+
+    if (permanent) {
+      return NextResponse.json(
+        { received: true, unrecoverable: true, type: event?.type },
+        { status: 200 },
+      );
+    }
+
+    // Transient — a database blip, a timeout. Stripe should try again.
     return NextResponse.json(
       { error: "Handler failed", type: event?.type },
       { status: 500 },

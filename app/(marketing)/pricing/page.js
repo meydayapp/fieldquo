@@ -5,6 +5,7 @@
 // translation lives in React context. Same split as /industries/[slug].
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { partitionPlans } from "@/lib/platform/sellablePlans";
 import { currencyForCountry } from "@/lib/currency";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 import PricingPlans from "./PricingPlans";
@@ -27,7 +28,17 @@ export const metadata = marketingMetadata({
 });
 
 export default async function PricingPage() {
-  const plans = await db.plan.findMany({ orderBy: { priceMonthly: "asc" } });
+  const allPlans = await db.plan.findMany({ orderBy: { priceMonthly: "asc" } });
+
+  // Only what can actually be bought. A plan with no Stripe price id renders
+  // here with a live buy button and fails the moment someone presses it —
+  // which reads to the visitor as their card being declined, not as our
+  // configuration being incomplete. See lib/platform/sellablePlans.js.
+  //
+  // The page's existing empty state routes to /contact, which is the right
+  // answer when there is nothing to sell: a human beats a checkout that can't
+  // complete.
+  const { sellable: plans } = partitionPlans(allPlans);
 
   // Which currency the visitor would actually be billed in.
   //

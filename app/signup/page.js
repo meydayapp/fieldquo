@@ -590,7 +590,16 @@ export default function SignupPage() {
     fetch("/api/marketing/plans")
       .then((r) => r.json())
       .then((data) => {
-        const list = Array.isArray(data) ? data : [];
+        // The endpoint now returns { plans, unavailable } so the page can tell
+        // "no plans configured" apart from "plans exist but none can be
+        // bought" — they are the same empty array and completely different
+        // situations. The array form is still accepted so a cached older
+        // response doesn't blank the step.
+        const list = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.plans)
+            ? data.plans
+            : [];
         setPlans(list);
         setSelectedPlanId((current) => {
           if (wantedPlanId && list.some((p) => p.id === wantedPlanId)) {
