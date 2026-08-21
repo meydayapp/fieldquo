@@ -11,6 +11,7 @@ import AppTours from "@/app/components/AppTours";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
+import { PermissionProvider } from "@/app/providers/PermissionProvider";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getCurrentMember } from "@/lib/currentMember";
@@ -156,6 +157,36 @@ async function getFeatureFlags() {
 }
 
 /**
+ * The caller's role and permission grid, for the sidebars.
+ *
+ * Resolved here rather than fetched from the browser for the same reason the
+ * feature flags are: a menu that draws in full and then removes rows a moment
+ * later is worse than one that never hid them.
+ *
+ * Returns null on any failure, which every consumer reads as "show
+ * everything". Hiding the whole nav because one query hiccupped would be a far
+ * more visible fault than a row leading to a page that refuses — and the page
+ * still refuses, which is where the actual enforcement lives.
+ */
+async function resolveCallerPermissions() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "" },
+      { skipBillingGate: true },
+    );
+    if (!member?.id) return null;
+    const full = await db.member.findUnique({
+      where: { id: member.id },
+      select: { role: true, permissions: true },
+    });
+    return full ? { role: full.role, permissions: full.permissions } : null;
+  } catch (err) {
+    console.error("[AppLayout] couldn't resolve caller permissions:", err);
+    return null;
+  }
+}
+
+/**
  * Signed in, with no company — the abandoned-signup state.
  *
  * Signup creates the account (Better Auth) at one step and the company at
@@ -215,13 +246,18 @@ async function getSetupRedirect() {
 }
 
 export default async function AppLayout({ children }) {
-  const [company, language, locked, featureFlags, setupPath] = await Promise.all([
-    getCompanyName(),
-    getAppLanguage(),
-    getLockState(),
-    getFeatureFlags(),
-    getSetupRedirect(),
-  ]);
+  const [company, language, locked, featureFlags, callerPermissions, setupPath] =
+    await Promise.all([
+      getCompanyName(),
+      getAppLanguage(),
+      getLockState(),
+      getFeatureFlags(),
+      // Alongside the others rather than after them: it is one indexed lookup
+      // by member id, and serialising it would add a round trip to every
+      // screen in the app for no benefit.
+      resolveCallerPermissions(),
+      getSetupRedirect(),
+    ]);
 
   // Before the lock check: a company that doesn't exist can't be behind on its
   // bill. redirect() throws NEXT_REDIRECT, so it stays outside the try/catch
@@ -284,6 +320,10 @@ export default async function AppLayout({ children }) {
           rendered by a nested layout further down the tree and needs the same
           map. Resolving it twice would be two more queries for the same answer. */}
       <FeatureProvider flags={featureFlags}>
+      <PermissionProvider
+        role={callerPermissions?.role}
+        permissions={callerPermissions?.permissions}
+      >
         {/* lg:flex, not flex — below lg the sidebar renders as a full-width
             sticky top bar plus a drawer, which has to sit ABOVE the page in
             normal flow rather than beside it as a flex column. */}
@@ -291,6 +331,7 @@ export default async function AppLayout({ children }) {
           <AdminSidebar />
           <main className="flex-1 min-w-0">{children}</main>
         </div>
+      </PermissionProvider>
       </FeatureProvider>
       </CompanyPreferencesProvider>
       </LanguageProvider>

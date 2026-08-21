@@ -1,4 +1,17 @@
 // app/components/layout/TrialBadge.js
+//
+// The trial countdown in the sidebar.
+//
+// Renders for whoever the API is willing to tell. That used to be every
+// signed-in member, so an employee saw "Trial started · 48 days left" on every
+// screen — their employer's commercial position, on a badge whose only action
+// they cannot take. /api/settings/subscription now returns nulls to anyone who
+// isn't a billing admin, and the existing `sub?.status !== "trialing"` guard
+// below turns that into rendering nothing.
+//
+// Deliberately NOT a second role check here. One place decides, and it is the
+// server — a client-side role test would be a second source of truth that can
+// drift from the payload, and the payload is the one that matters.
 "use client";
 
 import { useState, useEffect } from "react";

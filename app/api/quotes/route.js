@@ -12,6 +12,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  redactQuotes,
 } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
@@ -36,7 +37,13 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(quotes);
+  // Shaped before it leaves. Two things travel on a quote that the grid has
+  // an opinion about: the nested client (email and phone, which the clients
+  // route now hides) and shareToken, which resolves to a credential-free
+  // public page showing the price. QA read that token as an employee with
+  // showPricing:false and opened the priced document logged out.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(redactQuotes(full, quotes));
 }
 
 export async function POST(request) {

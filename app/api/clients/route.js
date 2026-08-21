@@ -9,6 +9,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  redactClients,
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 
@@ -16,6 +17,10 @@ export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Loaded here rather than reusing `member`: getCurrentMember doesn't carry
+  // the permissions grid, and redaction needs it.
+  const full = await loadEnforceableMember(db, member.id);
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
@@ -37,7 +42,13 @@ export async function GET(request) {
     include: { _count: { select: { quotes: true, invoices: true } } },
   });
 
-  return NextResponse.json(clients);
+  // Shaped to the caller's level before it leaves the server.
+  //
+  // Not a `select` on the query: the same rows feed a search that filters
+  // on email, and narrowing the SELECT would break matching on a field the
+  // caller isn't allowed to READ — which is a different question. Fetch
+  // whole, redact on the way out.
+  return NextResponse.json(redactClients(full, clients));
 }
 
 export async function POST(request) {

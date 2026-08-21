@@ -52,11 +52,21 @@ export async function GET(request) {
 
   if (seesPlan) return NextResponse.json(subscription);
 
-  // Exactly what the badge reads. `plan: null` rather than an omitted key, so a
-  // caller that checks for the property still gets a definite answer.
-  return NextResponse.json({
-    status: subscription.status,
-    trialEndsAt: subscription.trialEndsAt,
-    plan: null,
-  });
+  // ── Everyone else learns nothing about the company's billing ────────────
+  //
+  // This used to return status and trialEndsAt to any signed-in member, which
+  // put "Trial started · 48 days left" in the sidebar of every employee on
+  // every screen. QA flagged it and the owner agreed: whether the company is
+  // on a trial, and how long is left, is commercial information about the
+  // BUSINESS, not about the person's job.
+  //
+  // The badge is also a call to action — upgrade — and only a billing admin
+  // can act on it. Nagging someone who cannot pay is noise at best; at worst
+  // it tells a field employee their employer's software might lapse.
+  //
+  // Nulls rather than a 403: this is a shared endpoint the app fetches on
+  // every navigation, and a 403 in the console on every page load reads as a
+  // broken build. "No statement" is the honest answer here, and the badge
+  // renders nothing for it.
+  return NextResponse.json({ status: null, trialEndsAt: null, plan: null });
 }

@@ -46,6 +46,11 @@ import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/l
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
 import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { filterNavGroups, filterNavItems } from "@/lib/features/nav";
+import {
+  filterNavGroupsByPermission,
+  filterNavItemsByPermission,
+} from "@/lib/permissions/nav";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 
 // Grouped, not flat.
@@ -200,20 +205,30 @@ export default function AdminSidebar() {
   // and API were already refusing, see lib/features/nav.js. Null (no provider,
   // or a lookup that failed) leaves the menu exactly as declared above.
   const featureFlags = useFeatureFlags();
+  // Two independent filters, applied in sequence and NOT merged into one pass.
+  //
+  // They answer different questions and can disagree: a feature can be hidden
+  // for the whole company while an owner would otherwise have every
+  // permission, and a screen can be perfectly available while THIS member has
+  // no business on it. Collapsing them into a single predicate would make the
+  // reason a row vanished unrecoverable the next time someone asks why.
+  const caller = usePermissions();
   const navGroups = useMemo(
-    () => filterNavGroups(NAV_GROUPS, featureFlags),
-    [featureFlags],
+    () => filterNavGroupsByPermission(filterNavGroups(NAV_GROUPS, featureFlags), caller),
+    [featureFlags, caller],
   );
   const bottomItems = useMemo(
-    () => filterNavItems(BOTTOM_ITEMS, featureFlags),
-    [featureFlags],
+    () => filterNavItemsByPermission(filterNavItems(BOTTOM_ITEMS, featureFlags), caller),
+    [featureFlags, caller],
   );
   // Filtered too, or typing "receptionist" would surface a hidden feature by
   // name in the search results — the leak the nav filter closes, reopened by
   // the search box.
   const searchCorpus = useMemo(
-    () => filterNavGroups(SEARCH_CORPUS, featureFlags),
-    [featureFlags],
+    // Filtered by permission too, or typing "payroll" would name a screen the
+    // member cannot open — reopening by search the leak the nav filter closes.
+    () => filterNavGroupsByPermission(filterNavGroups(SEARCH_CORPUS, featureFlags), caller),
+    [featureFlags, caller],
   );
   const quickAddItems = useMemo(
     () => filterNavItems(QUICK_ADD_ITEMS, featureFlags),
