@@ -117,6 +117,30 @@ export async function POST(request) {
     : null;
 
   if (!client) {
+    // ── A side effect is still a create ──────────────────────────────────
+    //
+    // POST /api/clients requires clientsProperties:full_edit. This endpoint
+    // used to create a client with no check at all, which meant the 403 on
+    // the clients route was decorative: QA posted an appointment as an
+    // employee restricted to name_address_only, got a 201, and a client
+    // record appeared. Worse, the same employee then could not delete it —
+    // deletion IS gated — so the bypass was one-way.
+    //
+    // The same level is required here as on the front door. Booking an
+    // appointment for an EXISTING client is untouched; only conjuring a new
+    // client record needs the permission that creating one needs.
+    const full = await loadEnforceableMember(db, member.id);
+    if (!hasLevel(full, "clientsProperties", "full_edit")) {
+      return NextResponse.json(
+        {
+          error:
+            "That client isn't on file yet, and your access level doesn't " +
+            "allow you to add one. Ask someone who can, then book against them.",
+        },
+        { status: 403 },
+      );
+    }
+
     client = await db.client.create({
       data: {
         companyId: member.companyId,

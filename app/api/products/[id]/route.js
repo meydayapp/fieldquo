@@ -1,9 +1,23 @@
 // app/api/products/[id]/route.js
+//
+// Editing and deleting price book items. Owner/admin only — see the header on
+// ../route.js for what QA found here: both verbs were completely unguarded,
+// and an employee configured to see no prices at all rewrote one and deleted
+// another.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+
+/** Owner/admin only, matching every other company-wide settings route. */
+function requireCatalogueWrite(member) {
+  if (!["owner", "admin"].includes(member.role)) {
+    const err = new Error("Only an owner or admin can change the price book.");
+    err.status = 403;
+    throw err;
+  }
+}
 
 async function assertOwnership(companyId, id) {
   const product = await db.product.findUnique({ where: { id } });
@@ -33,6 +47,15 @@ export async function PATCH(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    requireCatalogueWrite(member);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status || 403 },
+    );
+  }
 
   const existing = await assertOwnership(member.companyId, _params.id);
   if (!existing)
@@ -89,6 +112,15 @@ export async function DELETE(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    requireCatalogueWrite(member);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status || 403 },
+    );
+  }
 
   const existing = await assertOwnership(member.companyId, _params.id);
   if (!existing)

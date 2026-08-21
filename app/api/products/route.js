@@ -1,15 +1,60 @@
 // app/api/products/route.js
+//
+// The company price book — every item with its sell price AND its cost.
+//
+// ── Why this route has guards now ──────────────────────────────────────────
+//
+// It had none. Not a role check, not a grid check, on any verb. An employee
+// with showPricing:false — someone the owner had deliberately configured to
+// see no money anywhere — could read the entire catalogue with costs, rewrite
+// a price, add an item and delete one. Found by QA probing as a real employee
+// account, not by reading: PATCH set a $25 item to $99.99 and the read-back
+// confirmed it.
+//
+// Reading is gated on showPricing, because a price book is nothing but
+// prices. Writing is owner/admin, matching every other company-wide settings
+// route — a rate card is a business decision, not a job.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { translateFields } from "@/lib/i18n/translateContent";
+import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
+
+/** Owner/admin only. Mirrors the other settings routes. */
+function requireCatalogueWrite(member) {
+  if (!["owner", "admin"].includes(member.role)) {
+    const err = new Error(
+      "Only an owner or admin can change the price book.",
+    );
+    err.status = 403;
+    throw err;
+  }
+}
+
+function denied(err) {
+  return NextResponse.json(
+    { error: err.message },
+    { status: err.status || 403 },
+  );
+}
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // A price book is prices. There is no useful redacted version of it, so
+  // this refuses outright rather than returning rows with the numbers
+  // stripped — a catalogue of names with no prices would read as a broken
+  // screen rather than a boundary.
+  try {
+    const full = await loadEnforceableMember(member);
+    requireToggle(full, "showPricing", "see the price book");
+  } catch (err) {
+    return denied(err);
+  }
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
@@ -38,6 +83,12 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    requireCatalogueWrite(member);
+  } catch (err) {
+    return denied(err);
+  }
 
   const body = await request.json();
   const { name, description, type, unitPrice, costPrice, unit, categoryIds } =
