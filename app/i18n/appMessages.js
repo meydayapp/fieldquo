@@ -1927,6 +1927,13 @@ const en = {
   // it, because that is the only useful next step.
   "app.perm.readOnlyTitle": "View only",
   "app.perm.readOnlyBody": "Only {who} can change it.",
+  // The back-office 404. Deliberately says nothing about why the URL was
+  // wrong: a mistyped internal link and a page that moved look identical from
+  // here, and guessing between them would be inventing a cause.
+  "app.notFound.title": "That page isn't here",
+  "app.notFound.body":
+    "The link may be out of date, or the address may have a typo in it. Nothing has gone wrong with your account.",
+  "app.notFound.back": "Back to your dashboard",
   "app.perm.noAccessTitle": "Not available to your account",
   "app.perm.noAccessBody": "Only {who} can open this. Ask them if you need something changed here.",
   "app.perm.whoOwnerAdmin": "an owner or admin",
@@ -4273,6 +4280,10 @@ const fr = {
   // ── Avis de permission ───────────────────────────────────────────────────
   "app.perm.readOnlyTitle": "Consultation seulement",
   "app.perm.readOnlyBody": "Seul {who} peut le modifier.",
+  "app.notFound.title": "Cette page n'existe pas",
+  "app.notFound.body":
+    "Le lien est peut-être périmé, ou l'adresse contient une faute de frappe. Rien ne cloche avec votre compte.",
+  "app.notFound.back": "Retour à votre tableau de bord",
   "app.perm.noAccessTitle": "Non accessible à votre compte",
   "app.perm.noAccessBody": "Seul {who} peut ouvrir cette page. Demandez-lui si quelque chose doit être modifié ici.",
   "app.perm.whoOwnerAdmin": "un propriétaire ou un administrateur",
@@ -6531,6 +6542,10 @@ const es = {
   // ── Avisos de permisos ───────────────────────────────────────────────────
   "app.perm.readOnlyTitle": "Solo lectura",
   "app.perm.readOnlyBody": "Solo {who} puede cambiarlo.",
+  "app.notFound.title": "Esta página no existe",
+  "app.notFound.body":
+    "Puede que el enlace esté desactualizado o que la dirección tenga un error. No pasa nada con tu cuenta.",
+  "app.notFound.back": "Volver a tu panel",
   "app.perm.noAccessTitle": "No disponible para tu cuenta",
   "app.perm.noAccessBody": "Solo {who} puede abrir esto. Pídeselo si necesitas cambiar algo aquí.",
   "app.perm.whoOwnerAdmin": "un propietario o administrador",
@@ -8807,6 +8822,10 @@ const uk = {
   // ── Повідомлення про дозволи ─────────────────────────────────────────────
   "app.perm.readOnlyTitle": "Лише перегляд",
   "app.perm.readOnlyBody": "Змінити це може лише {who}.",
+  "app.notFound.title": "Такої сторінки немає",
+  "app.notFound.body":
+    "Можливо, посилання застаріло або в адресі є помилка. З вашим обліковим записом усе гаразд.",
+  "app.notFound.back": "Назад до панелі",
   "app.perm.noAccessTitle": "Недоступно для вашого облікового запису",
   "app.perm.noAccessBody": "Відкрити це може лише {who}. Зверніться до них, якщо тут потрібно щось змінити.",
   "app.perm.whoOwnerAdmin": "власник або адміністратор",
@@ -11066,6 +11085,10 @@ const pa = {
   // ── ਇਜਾਜ਼ਤ ਸੂਚਨਾਵਾਂ ────────────────────────────────────────────────────────
   "app.perm.readOnlyTitle": "ਸਿਰਫ਼ ਵੇਖਣ ਲਈ",
   "app.perm.readOnlyBody": "ਇਸਨੂੰ ਸਿਰਫ਼ {who} ਬਦਲ ਸਕਦਾ ਹੈ।",
+  "app.notFound.title": "ਇਹ ਪੰਨਾ ਮੌਜੂਦ ਨਹੀਂ ਹੈ",
+  "app.notFound.body":
+    "ਲਿੰਕ ਪੁਰਾਣਾ ਹੋ ਸਕਦਾ ਹੈ, ਜਾਂ ਪਤੇ ਵਿੱਚ ਗਲਤੀ ਹੋ ਸਕਦੀ ਹੈ। ਤੁਹਾਡੇ ਖਾਤੇ ਵਿੱਚ ਕੋਈ ਸਮੱਸਿਆ ਨਹੀਂ ਹੈ।",
+  "app.notFound.back": "ਆਪਣੇ ਡੈਸ਼ਬੋਰਡ 'ਤੇ ਵਾਪਸ",
   "app.perm.noAccessTitle": "ਤੁਹਾਡੇ ਖਾਤੇ ਲਈ ਉਪਲਬਧ ਨਹੀਂ",
   "app.perm.noAccessBody": "ਇਸਨੂੰ ਸਿਰਫ਼ {who} ਖੋਲ੍ਹ ਸਕਦਾ ਹੈ। ਜੇ ਇੱਥੇ ਕੁਝ ਬਦਲਣਾ ਹੈ ਤਾਂ ਉਨ੍ਹਾਂ ਨੂੰ ਕਹੋ।",
   "app.perm.whoOwnerAdmin": "ਮਾਲਕ ਜਾਂ ਐਡਮਿਨ",
@@ -13330,6 +13353,10 @@ const tl = {
   // ── Mga paalala sa pahintulot ────────────────────────────────────────────
   "app.perm.readOnlyTitle": "Tingnan lamang",
   "app.perm.readOnlyBody": "Tanging {who} ang makakapagbago nito.",
+  "app.notFound.title": "Wala ang page na ito",
+  "app.notFound.body":
+    "Baka luma na ang link, o may mali sa address. Walang problema sa account mo.",
+  "app.notFound.back": "Balik sa iyong dashboard",
   "app.perm.noAccessTitle": "Hindi available sa iyong account",
   "app.perm.noAccessBody": "Tanging {who} ang makakabukas nito. Hilingin sa kanila kung may kailangang baguhin dito.",
   "app.perm.whoOwnerAdmin": "isang may-ari o admin",
