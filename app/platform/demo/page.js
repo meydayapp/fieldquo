@@ -17,9 +17,23 @@
 // It wipes that demo's quotes, jobs, clients and invoices. The button says
 // that before you press it, with the counts, because a control that quietly
 // destroys work is the failure this codebase keeps finding.
+//
+// ── There is no login for a demo, and that is deliberate ──────────────────
+//
+// scripts/seed-demos.mjs creates the companies and NOT the logins: this
+// codebase has no server-side sign-up path (non-negotiable #1 — people arrive
+// by invitation), and adding a second user-creation route would be a hole in
+// the rule it protects. So demo1@fieldquo.com is a label on the company, not
+// an account, and no password for it exists anywhere.
+//
+// "Run the demo" below is how you get in: a signed, time-boxed session in
+// demo_sandbox mode, which is the one impersonation mode allowed to WRITE —
+// because running a demo means building a quote in front of a prospect, and a
+// read-only session cannot. The mode is decided from Company.isDemo read out
+// of the database, so it can never be minted for a real customer.
 
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, RotateCcw, Beaker, AlertTriangle } from "lucide-react";
+import { Loader2, RotateCcw, Beaker, AlertTriangle, PlayCircle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
 export default function PlatformDemoPage() {
@@ -27,6 +41,7 @@ export default function PlatformDemoPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
   const [confirming, setConfirming] = useState(null); // `${companyId}:${industry}`
+  const [entering, setEntering] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/platform/demo");
@@ -60,6 +75,39 @@ export default function PlatformDemoPage() {
     }
   }
 
+  /**
+   * Open a demo company as its owner.
+   *
+   * Same endpoint the company detail page uses — the difference is entirely in
+   * what comes back: for a company flagged isDemo, startImpersonation mints
+   * demo_sandbox mode instead of read_only, which is the one mode allowed to
+   * write. Nothing about the request asks for that; the server decides it from
+   * the database.
+   */
+  async function enterDemo(company) {
+    setEntering(company.id);
+    try {
+      const res = await fetch(
+        `/api/platform/companies/${company.id}/impersonate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: `Sales demo — ${company.name}` }),
+        },
+      );
+      if (!res.ok) {
+        await reportResponseError(res, "Couldn't open that demo.");
+        return;
+      }
+      // A new tab, so the platform console stays open behind it. An agent
+      // mid-demo who needs to switch the trade or reset the data should not
+      // have to navigate back out of the tenant app to do it.
+      window.open("/app", "_blank", "noopener");
+    } finally {
+      setEntering(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 max-w-4xl space-y-4 animate-pulse">
@@ -74,6 +122,23 @@ export default function PlatformDemoPage() {
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl space-y-6">
+      {/* Said once, at the top, because "what's the password" is the first
+          thing anyone asks and the honest answer is "there isn't one". */}
+      <div className="rounded-lg border border-border bg-card px-4 py-3">
+        <p className="text-sm text-foreground font-medium">
+          There is no demo login or password.
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          The demos have no user accounts —{" "}
+          <code className="text-[11px]">demo1@fieldquo.com</code> is a label on
+          the company, not something you can sign in as. Use{" "}
+          <strong>Run the demo</strong> on any card below: it opens that company
+          in a new tab as its owner, for 30 minutes, and you can create quotes
+          and invoices normally. Switching the trade is what wipes the data —
+          nothing is cleared by opening it.
+        </p>
+      </div>
+
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Beaker size={22} /> Demo accounts
@@ -160,6 +225,25 @@ export default function PlatformDemoPage() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 flex-wrap">
+                  <button
+                    onClick={() => enterDemo(d)}
+                    disabled={entering === d.id}
+                    className="inline-flex items-center gap-2 bg-foreground text-background text-sm font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+                  >
+                    {entering === d.id ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <PlayCircle size={14} />
+                    )}
+                    Run the demo
+                  </button>
+                  <span className="text-xs text-muted-foreground">
+                    Opens this company as its owner. You can create quotes and
+                    invoices — it&apos;s a fixture, not a customer.
+                  </span>
                 </div>
 
                 {confirming?.startsWith(`${d.id}:`) && (
