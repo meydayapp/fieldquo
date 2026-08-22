@@ -248,25 +248,34 @@ export default function TeamOverviewPage() {
           <SeatUpgradePanel used={seats.used} limit={seats.limit} />
         )}
 
+      {/* ── Tabs only for pages this person can open ────────────────────────
+          Workers and Payroll both refuse anyone without payroll access, and
+          the settings sidebar already hides them correctly — this row did not,
+          so a Manager saw two tabs that answered "Not available to your
+          account". A link to a refusal is a dead control with extra steps. */}
       <div className="flex gap-2 text-sm">
-        <Link
-          href="/app/settings/team/workers"
-          className="border border-border rounded-full px-4 py-2"
-        >
-          {t("app.setTeam.workers")}
-        </Link>
+        {access.canSee("payroll") && (
+          <Link
+            href="/app/settings/team/workers"
+            className="border border-border rounded-full px-4 py-2"
+          >
+            {t("app.setTeam.workers")}
+          </Link>
+        )}
         <Link
           href="/app/settings/team/timesheets"
           className="border border-border rounded-full px-4 py-2"
         >
           {t("app.nav.timesheets")}
         </Link>
-        <Link
-          href="/app/settings/team/payroll"
-          className="border border-border rounded-full px-4 py-2"
-        >
-          {t("app.nav.payroll")}
-        </Link>
+        {access.canSee("payroll") && (
+          <Link
+            href="/app/settings/team/payroll"
+            className="border border-border rounded-full px-4 py-2"
+          >
+            {t("app.nav.payroll")}
+          </Link>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
@@ -451,14 +460,21 @@ export default function TeamOverviewPage() {
               </div>
             ))}
           </div>
-          <div className="px-5 py-3 border-t border-border">
-            <Link
-              href="/app/settings/team/workers"
-              className="text-sm font-medium underline underline-offset-2"
-            >
-              {t("app.setTeam.openWorkers", "Open Workers")}
-            </Link>
-          </div>
+          {/* Workers is a payroll page now, so this link is only offered to
+              someone who can open it — otherwise the section would point at a
+              refusal, which is the same dead-control shape as the tab row
+              above. The list itself stays visible: knowing WHO is on the books
+              is roster information; their pay rate is not. */}
+          {access.canSee("payroll") && (
+            <div className="px-5 py-3 border-t border-border">
+              <Link
+                href="/app/settings/team/workers"
+                className="text-sm font-medium underline underline-offset-2"
+              >
+                {t("app.setTeam.openWorkers", "Open Workers")}
+              </Link>
+            </div>
+          )}
         </div>
       )}
 

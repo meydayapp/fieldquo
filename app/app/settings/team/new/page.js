@@ -104,12 +104,50 @@ function NewUserForm() {
   // just collect a 403, so they don't get the panel (see the Team page).
   const [canBuySeats, setCanBuySeats] = useState(false);
 
+  // What this caller may actually hand out. The form used to offer everything
+  // to everyone: a Manager saw a "Make administrator" checkbox, the Manager and
+  // Dispatcher presets, a payroll dropdown including "run payroll", and a
+  // labour-cost field. The server refuses all of that now — but a form that
+  // offers a control and then gets it rejected is the dead control this
+  // codebase keeps being swept for, so the form has to agree.
+  const [grants, setGrants] = useState({ yourRole: null, assignableRoles: null });
+
   useEffect(() => {
     fetch("/api/settings/members/self/role")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCanBuySeats(["owner", "admin"].includes(d?.yourRole)))
+      .then((d) => {
+        setCanBuySeats(["owner", "admin"].includes(d?.yourRole));
+        if (d) setGrants(d);
+      })
       .catch(() => {});
   }, []);
+
+  // Null until the fetch lands. Everything below treats null as "don't render
+  // it yet" rather than "allow it" — a checkbox that appears and then vanishes
+  // is worse than one that arrives a moment late.
+  const canAssign = (role) => grants.assignableRoles?.includes(role) ?? false;
+  const canGrantPay = ["owner", "admin"].includes(grants.yourRole);
+
+  // ── You can only offer a level you hold yourself ────────────────────────
+  //
+  // The grid dropdowns listed every level to everybody, so a Manager whose own
+  // payroll is view_own was offered "View everyone's and run payroll" for
+  // somebody else — reaching the payroll they're denied through a person they
+  // hire. clampPermissions on the server drops those now; this stops the form
+  // proposing them.
+  //
+  // Owner and admin are unrestricted, so they see the full list.
+  const unrestricted = ["owner", "admin"].includes(grants.yourRole);
+  function offerableLevels(key, cat) {
+    if (unrestricted) return cat.levels;
+    const mine = grants.yourPermissions?.[key];
+    const idx = cat.levels.findIndex((l) => l.value === mine);
+    // No stated level for this category means nothing to delegate. Showing
+    // only the lowest option is honest; showing all of them is not.
+    return idx === -1 ? cat.levels.slice(0, 1) : cat.levels.slice(0, idx + 1);
+  }
+  const canOfferToggle = (key) =>
+    unrestricted || grants.yourPermissions?.[key] === true;
 
   useEffect(() => {
     fetch("/api/settings/members/pending")
@@ -435,6 +473,10 @@ function NewUserForm() {
             </div>
           </div>
 
+          {/* A pay rate. Someone whose own payroll access is view_own must not
+              be able to set anyone else's — the server drops it now, so the
+              field would silently discard what they typed. */}
+          {canGrantPay && (
           <div>
             <label className="text-sm font-medium text-foreground flex items-center gap-1.5 mb-1">
               {t("app.setTeamNew.labourCost")}
@@ -458,6 +500,7 @@ function NewUserForm() {
               />
             </div>
           </div>
+          )}
         </div>
 
         {/* Permissions */}
@@ -466,6 +509,10 @@ function NewUserForm() {
             {t("app.setTeamNew.permissions")}
           </h2>
 
+          {/* Offered only to someone who can actually assign `admin`. A Manager
+              saw this checkbox, ticked it, and created an Administrator — the
+              exact escalation the role split exists to prevent. */}
+          {canAssign("admin") && (
           <label className="flex items-start gap-2.5 text-sm bg-muted border border-border rounded-lg p-3">
             <input
               type="checkbox"
@@ -483,6 +530,7 @@ function NewUserForm() {
               </span>
             </span>
           </label>
+          )}
 
           {!isAdministrator && (
             <>
@@ -491,7 +539,13 @@ function NewUserForm() {
                   {t("app.setTeamNew.presetIntro")}
                 </p>
                 <div className="grid sm:grid-cols-2 gap-2">
-                  {Object.entries(PERMISSION_PRESETS).map(([key, preset]) => (
+                  {/* A preset is a role plus a starting grid. Offering one
+                      whose role this caller can't assign is offering a button
+                      that 403s — a Manager was shown "Dispatcher" and
+                      "Manager", both of which create a Manager. */}
+                  {Object.entries(PERMISSION_PRESETS)
+                    .filter(([key]) => canAssign(PRESET_TO_ROLE[key]))
+                    .map(([key, preset]) => (
                     <button
                       type="button"
                       key={key}
@@ -545,7 +599,7 @@ function NewUserForm() {
                       value={permissionValues[key]}
                       onChange={(e) => setPermission(key, e.target.value)}
                     >
-                      {cat.levels.map((lvl) => (
+                      {offerableLevels(key, cat).map((lvl) => (
                         <option key={lvl.value} value={lvl.value}>
                           {lvl.label}
                         </option>
@@ -556,7 +610,11 @@ function NewUserForm() {
               </div>
 
               <div className="space-y-3 pt-2 border-t border-border">
-                {Object.entries(PERMISSION_TOGGLES).map(
+                {/* Same rule as the level dropdowns: a toggle you don't hold
+                    is not yours to switch on for someone else. */}
+                {Object.entries(PERMISSION_TOGGLES)
+                  .filter(([key]) => canOfferToggle(key))
+                  .map(
                   ([key, description]) => (
                     <label
                       key={key}

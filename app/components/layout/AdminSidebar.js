@@ -1,7 +1,7 @@
 // app/components/layout/AdminSidebar.js
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, createElement } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -198,6 +198,14 @@ export default function AdminSidebar() {
   const { data: session } = useSession();
   // Null unless this is a support session — see the identity row below.
   const impersonation = useImpersonation();
+  // Owner/admin only — the same set Account & Billing itself enforces.
+  const [canOpenBilling, setCanOpenBilling] = useState(false);
+  useEffect(() => {
+    fetch("/api/settings/members/self/role")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCanOpenBilling(["owner", "admin"].includes(d?.yourRole)))
+      .catch(() => {});
+  }, []);
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -572,13 +580,26 @@ export default function AdminSidebar() {
               )}
             </div>
           ) : session?.user && (
-            <Link
-              href="/app/settings/account-billing"
-              title={showLabel ? undefined : session.user.name}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-sidebar-accent ${
-                showLabel ? "" : "justify-center"
-              }`}
-            >
+            // Links to Account & Billing, which only an owner or admin can
+            // open — a Manager clicking their own name landed on "Not
+            // available to your account". Non-billing roles get the same chip
+            // without the link rather than a different destination: there is no
+            // profile page to send them to, and inventing one here would be
+            // scope this doesn't have.
+            // `as` picks Link or a plain div — one copy of the chip's markup
+            // rather than two branches that drift apart.
+            createElement(
+              canOpenBilling ? Link : "div",
+              {
+                ...(canOpenBilling
+                  ? { href: "/app/settings/account-billing" }
+                  : {}),
+                title: showLabel ? undefined : session.user.name,
+                className: `flex items-center gap-2.5 px-3 py-2 rounded-lg ${
+                  canOpenBilling ? "hover:bg-sidebar-accent" : ""
+                } ${showLabel ? "" : "justify-center"}`,
+              },
+              <>
               {session.user.image ? (
                 <img
                   src={session.user.image}
@@ -600,7 +621,8 @@ export default function AdminSidebar() {
                   {session.user.name}
                 </span>
               )}
-            </Link>
+              </>,
+            )
           )}
           {showLabel ? <TrialBadge /> : <TrialBadge collapsed />}
 

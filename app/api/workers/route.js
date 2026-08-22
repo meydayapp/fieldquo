@@ -2,6 +2,11 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import {
+  loadEnforceableMember,
+  redactPayList,
+  canSeeAllPay,
+} from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
@@ -20,7 +25,14 @@ export async function GET(request) {
     orderBy: { name: "asc" },
   });
 
-  return NextResponse.json(workers);
+  // Pay rates are payroll data wherever they are read from. This endpoint
+  // handed out hourlyRate for every worker to anyone signed in — including a
+  // Manager whose payroll level is view_own and who is refused by every
+  // payroll PAGE. Your own rate still comes through.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(
+    redactPayList(full, workers, { ownUserId: member.userId }),
+  );
 }
 
 export async function POST(request) {

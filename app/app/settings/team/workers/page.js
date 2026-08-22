@@ -18,6 +18,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Info, Check, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -25,7 +27,26 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // displaying it must use the UTC getters, or the date shifts a day each way.
 const dateInput = (d) => isoDateOnly(d);
 
+// ── This is a payroll page ───────────────────────────────────────────────
+//
+// Its own subtitle is "Everyone on the books — their pay rate, start date, and
+// payout status." It sat behind no payroll check at all, so a Manager refused
+// by /app/payroll, /app/settings/payroll and /app/settings/team/payroll could
+// open this tab, read every rate, and edit them — QA moved a colleague from
+// $25 to $26 and confirmed it stuck. The payroll gate was on three doors out
+// of four.
+//
+// Thin wrapper, same shape as app/settings/payroll: the gate has to sit ABOVE
+// the component that owns the hooks, or the early return makes those hooks
+// conditional.
 export default function WorkersPage() {
+  const access = useSettingsAccess();
+  if (!access.canSee("payroll")) return <NoAccessPanel capability="payroll" />;
+  return <WorkersScreen />;
+}
+
+function WorkersScreen() {
+
   const { t } = useTranslation();
   const [workers, setWorkers] = useState(null);
   const [error, setError] = useState("");

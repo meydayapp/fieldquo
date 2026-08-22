@@ -6,7 +6,7 @@ import { resolveWallClock } from "@/lib/time/wallClock";
 import { recordActivity } from "@/lib/activity/log";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { loadEnforceableMember, hasLevel, redactPayList } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -41,13 +41,19 @@ export async function GET(request) {
         to && { clockIn: { gte: new Date(from), lte: new Date(to) } }),
     },
     include: {
-      worker: { select: { id: true, name: true, hourlyRate: true } },
+      // hourlyRate stays selected — the payroll builder needs it — and is
+      // stripped below for callers who may not see other people's pay.
+      worker: { select: { id: true, name: true, hourlyRate: true, userId: true } },
       job: { select: { id: true, title: true } },
     },
     orderBy: { clockIn: "desc" },
   });
 
-  return NextResponse.json(entries);
+  // Each entry embeds the worker's rate, which made this a third door onto
+  // payroll for anyone who could read timesheets. Own entries keep it.
+  return NextResponse.json(
+    redactPayList(full, entries, { ownUserId: member.userId }),
+  );
 }
 
 // Clock in — clockOut is set later via PATCH on the [id] route

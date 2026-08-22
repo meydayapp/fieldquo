@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { loadEnforceableMember, canSeeAllPay, redactPay } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
@@ -50,6 +51,18 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { name, email, hourlyRate, active, hiredOn } = body;
+
+  // Setting someone's pay is payroll. The Workers tab offered a "Pay rate
+  // ($/hour)" field to a Manager and the write landed — QA moved a colleague
+  // from $25 to $26 and confirmed it stuck. Refused rather than silently
+  // dropped, so nobody types a number and believes it saved.
+  const full = await loadEnforceableMember(db, member.id);
+  if (hourlyRate !== undefined && !canSeeAllPay(full)) {
+    return NextResponse.json(
+      { error: "You don't have access to pay rates. Ask an owner or admin." },
+      { status: 403 },
+    );
+  }
 
   // Empty string clears the hire date back to "unknown", which is a real state:
   // it makes leave accrual grant the full allotment instead of pro-rating. An

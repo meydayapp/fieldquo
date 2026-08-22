@@ -22,8 +22,19 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
-import { rankOf, canRevokeAccess } from "@/lib/permissions/roleManagement";
+import {
+  rankOf,
+  canRevokeAccess,
+  assignableRoles,
+  ROLE_LABELS,
+  clampPermissions,
+} from "@/lib/permissions/roleManagement";
 import { recordActivity } from "@/lib/activity/log";
+import {
+  hasLevel,
+  loadEnforceableMember,
+  redactPay,
+} from "@/lib/permissions/enforce";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -112,7 +123,32 @@ export async function GET(request) {
     }),
   );
 
-  return NextResponse.json(withLastLogin);
+  // ── Pay and the permission grid are not roster data ────────────────────
+  //
+  // The full row carried laborCostPerHour for every member — a fourth door
+  // onto payroll for a Manager refused by every payroll page — and each
+  // member's complete 13-key permission grid, which is a map of exactly which
+  // dials to attack. Own row keeps both: your rate and your own permissions
+  // are yours to see.
+  const full = await loadEnforceableMember(db, member.id);
+
+  return NextResponse.json(
+    withLastLogin.map((m) => {
+      const out = redactPay(full, m, {
+        fields: ["laborCostPerHour"],
+        ownUserId: member.userId,
+      });
+
+      // The grid follows the same rule as editing it: your own, plus anyone
+      // ranked below you. Not `can(role, "user:manage")` — supervisors hold
+      // that, and it would have handed a Manager the OWNER's full permission
+      // map, which is a list of exactly which dials to go after.
+      const isSelf = m.userId === member.userId;
+      const managesThem = rankOf(member.role) > rankOf(m.role);
+      if (!isSelf && !managesThem) delete out.permissions;
+      return out;
+    }),
+  );
 }
 
 // Invites a new team member via Better Auth's organization plugin — this sends the
@@ -177,6 +213,70 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // ── A value whitelist is not a permission check ─────────────────────────
+  //
+  // The line above only asserts the role is a real one. It said nothing about
+  // whether THIS caller may hand it out — so a Manager (supervisor, whose
+  // assignableRoles is exactly ["employee"]) could POST role:"admin" and get a
+  // 201. Invite yourself at a second address as an Administrator, accept, and
+  // you hold billing and payroll. The whole path was clickable: the New User
+  // form rendered a "Make administrator" checkbox for them.
+  //
+  // PATCH /role has enforced this correctly all along via validateRoleChange.
+  // Only CREATE was open — which is the more dangerous of the two, because a
+  // new member starts with whatever they were given rather than being changed
+  // into it.
+  const allowed = assignableRoles(member.role);
+  if (!allowed.includes(role)) {
+    return NextResponse.json(
+      {
+        error: allowed.length
+          ? `As ${ROLE_LABELS[member.role]?.toLowerCase() || member.role}, you can only add: ${allowed
+              .map((r) => ROLE_LABELS[r] || r)
+              .join(", ")}.`
+          : "You can't add team members.",
+      },
+      { status: 403 },
+    );
+  }
+
+  // isAdministrator is a second door to the same room: the New User page uses
+  // it to mean "full access, ignore the grid". Refusing it separately, because
+  // a caller who cannot assign `admin` must not be able to grant admin-shaped
+  // permissions under a different key.
+  if (permissions?.isAdministrator === true && !allowed.includes("admin")) {
+    return NextResponse.json(
+      { error: "You can't give someone full administrator access." },
+      { status: 403 },
+    );
+  }
+
+  // ── You cannot hand out more than you hold ─────────────────────────────
+  //
+  // The granular grid was stored verbatim on create. PATCH /role has clamped
+  // it all along; create did not, so a Manager whose own payroll level is
+  // view_own could invite someone with payroll: run_payroll and reach the
+  // payroll they are denied through a person they hired.
+  //
+  // laborCostPerHour is clamped by the same reasoning: it is a pay rate, and
+  // QA set one to 99 on a probe invite. Someone who cannot see pay must not
+  // be able to set it.
+  const actorMember = await db.member.findUnique({
+    where: { id: member.id },
+    select: { role: true, permissions: true },
+  });
+  const safePermissions = clampPermissions(
+    actorMember?.role,
+    actorMember?.permissions,
+    permissions,
+  );
+  const canSetPay = hasLevel(
+    { role: actorMember?.role, permissions: actorMember?.permissions },
+    "payroll",
+    "view_all",
+  );
+  const safeLaborCost = canSetPay ? (laborCostPerHour ?? null) : null;
 
   const cleanEmail = String(email).trim().toLowerCase();
 
@@ -280,8 +380,8 @@ export async function POST(request) {
       postalCode: postalCode || null,
       country: country || null,
       imageUrl: imageUrl || null,
-      laborCostPerHour: laborCostPerHour ?? null,
-      permissions: permissions || null,
+      laborCostPerHour: safeLaborCost,
+      permissions: safePermissions || null,
       role,
       invitationLanguage: invitationLanguage || "en",
     },
@@ -294,8 +394,8 @@ export async function POST(request) {
       postalCode: postalCode || null,
       country: country || null,
       imageUrl: imageUrl || null,
-      laborCostPerHour: laborCostPerHour ?? null,
-      permissions: permissions || null,
+      laborCostPerHour: safeLaborCost,
+      permissions: safePermissions || null,
       role,
       invitationLanguage: invitationLanguage || "en",
     },
