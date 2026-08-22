@@ -16,7 +16,8 @@
 //
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-member-deactivation.mjs
 
-import { rankOf } from "@/lib/permissions/roleManagement";
+import { rankOf, canRevokeAccess } from "@/lib/permissions/roleManagement";
+import { can } from "@/lib/permissions";
 import { readFileSync } from "node:fs";
 
 let fail = 0;
@@ -41,6 +42,24 @@ const blocksLastAdmin = (targetRole, otherActiveAdmins, active) =>
   active === false &&
   ["owner", "admin"].includes(targetRole) &&
   otherActiveAdmins === 0;
+
+console.log("\nRule 0 — revoking access is not a 'manage people' action");
+// user:manage means "may run a crew" — invite an estimator, fix a phone
+// number. A Manager holding it could switch off a Worker's login, which is a
+// different kind of authority. Owner and Administrator only.
+t("a Manager (supervisor) cannot deactivate anyone", canRevokeAccess("supervisor"), false);
+t("a Worker (employee) cannot either", canRevokeAccess("employee"), false);
+t("an Administrator can", canRevokeAccess("admin"), true);
+t("the Owner can", canRevokeAccess("owner"), true);
+t("an unknown role cannot", canRevokeAccess("bogus"), false);
+t("...but a Manager can still manage the roster otherwise",
+  can("supervisor", "user:manage"), true);
+t("the route enforces it on the active flag only",
+  /active !== undefined && !canRevokeAccess\(member\.role\)/.test(
+    readFileSync(new URL("../app/api/settings/members/route.js", import.meta.url), "utf8")));
+t("the checkbox is disabled to match, not left to 403",
+  /canToggleActive/.test(
+    readFileSync(new URL("../app/app/settings/team/page.js", import.meta.url), "utf8")));
 
 console.log("\nRule 1 — you cannot switch off your own access");
 t("admin deactivating themselves is refused (the QA lockout)", blocksSelf("u1", "u1", false));

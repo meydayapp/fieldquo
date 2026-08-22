@@ -9,7 +9,11 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
-import { ROLE_LABELS, ROLE_RANK } from "@/lib/permissions/roleManagement";
+import {
+  ROLE_LABELS,
+  ROLE_RANK,
+  canRevokeAccess,
+} from "@/lib/permissions/roleManagement";
 
 // Both of these were private copies of the maps in lib/permissions/roleManagement.js.
 // That duplication is why this screen said "Supervisor / Admin" while the invite
@@ -157,6 +161,15 @@ export default function TeamOverviewPage() {
     const mine = ROLE_RANK[grants.yourRole] ?? -1;
     const theirs = ROLE_RANK[member.role] ?? -1;
     return mine > theirs;
+  }
+
+  // Deactivation is narrower than editing. A Manager can invite people and fix
+  // their details but cannot revoke anyone's login — see canRevokeAccess in
+  // lib/permissions/roleManagement.js. Mirrored here so the checkbox is
+  // disabled rather than throwing a 403 when it's clicked; a control that
+  // looks live and isn't is the failure this codebase keeps getting swept for.
+  function canToggleActive(member) {
+    return canRevokeAccess(grants.yourRole) && canEdit(member);
   }
 
   if (loading)
@@ -315,14 +328,16 @@ export default function TeamOverviewPage() {
                 <input
                   type="checkbox"
                   checked={m.active}
-                  // Same rank rule as the role dropdown. Previously only
-                  // owners were protected, which meant a supervisor could
-                  // deactivate an admin — locking out someone senior to them.
-                  disabled={!canEdit(m) || savingUserId === m.userId}
+                  // Rank AND role. The rank rule stops a Manager deactivating
+                  // someone senior; canRevokeAccess stops a Manager
+                  // deactivating anyone at all.
+                  disabled={!canToggleActive(m) || savingUserId === m.userId}
                   title={
-                    canEdit(m)
+                    canToggleActive(m)
                       ? undefined
-                      : t("app.setTeam.deactivateHint")
+                      : !canRevokeAccess(grants.yourRole)
+                        ? t("app.setTeam.revokeOwnerOnly")
+                        : t("app.setTeam.deactivateHint")
                   }
                   onChange={(e) =>
                     updateMember(m.userId, { active: e.target.checked })

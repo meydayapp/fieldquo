@@ -22,7 +22,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
-import { rankOf } from "@/lib/permissions/roleManagement";
+import { rankOf, canRevokeAccess } from "@/lib/permissions/roleManagement";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -377,6 +377,33 @@ export async function PATCH(request) {
   });
   if (!target)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── Switching off someone's access is not a "manage people" action ──────
+  //
+  // This route was gated on requirePermission(role, "user:manage"), which
+  // supervisors hold — it means "may run a crew": invite an estimator, set
+  // their phone number, fix their address. Nothing about that implies the
+  // authority to revoke somebody's login.
+  //
+  // Deactivation is the most consequential thing on this screen. It ends a
+  // person's access to their employer's system, it drops a licensed seat, and
+  // as QA demonstrated it can lock the account out entirely. The owner's call:
+  // it belongs to the people who own the company's account, not to whoever can
+  // edit a roster.
+  //
+  // Scoped to the `active` flag ONLY. A Manager can still invite, still edit
+  // contact details, still set a labour rate — everything the permission was
+  // actually for. Creating access stays where it was; removing it moves up.
+  if (active !== undefined && !canRevokeAccess(member.role)) {
+    return NextResponse.json(
+      {
+        error:
+          "Only an owner or administrator can activate or deactivate a team " +
+          "member. Ask one of them to make the change.",
+      },
+      { status: 403 },
+    );
+  }
 
   // ── You cannot switch off your own access ───────────────────────────────
   //
