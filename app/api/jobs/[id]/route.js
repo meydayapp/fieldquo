@@ -9,7 +9,11 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { taskForCompletedJob } from "@/lib/tasks/autoCreate";
+import {
+  taskForCompletedJob,
+  resolveTaskBySource,
+} from "@/lib/tasks/autoCreate";
+import { recordActivity } from "@/lib/activity/log";
 
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
@@ -86,6 +90,27 @@ export async function PATCH(request, { params }) {
   // reopen-then-recomplete a no-op rather than a second nag.
   if (completing) await taskForCompletedJob(id);
 
+  // ── "Schedule the job for X" outlives the reason it exists ─────────────
+  //
+  // Quote acceptance raises a high-priority task saying the job is "waiting in
+  // Jobs with no date on it yet". Scheduling a visit closes it. Nothing else
+  // did — so a job that was CANCELLED, or completed without a visit ever being
+  // recorded, left the task open, still asserting there is work to book.
+  //
+  // The owner cancelled two QA jobs and the task stayed. A to-do list that
+  // argues with the job record is one people stop reading.
+  //
+  // Keyed off the quote, because that is what the task was keyed off when it
+  // was created — the task carries no jobId at all, so a job-based lookup
+  // would never have found it.
+  if (
+    existing.quoteId &&
+    (status === "cancelled" || status === "completed") &&
+    existing.status !== status
+  ) {
+    await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
+  }
+
   return NextResponse.json(updated);
 }
 
@@ -109,6 +134,55 @@ export async function DELETE(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // ── What a job is allowed to take with it ──────────────────────────────
+  //
+  // Task and TimeEntry reference Job with Prisma's DEFAULT referential action,
+  // which is Restrict — so this delete throws a foreign-key error on any job
+  // with logged hours or an auto-created task, i.e. most real ones. There was
+  // no delete button in the UI, so nobody had hit it; adding one without this
+  // check would have shipped a 500 as a feature.
+  //
+  // Refusing is also the correct answer, not just the safe one. Approved hours
+  // are a payroll record and tasks are someone's to-do list; a job with either
+  // behind it is history, and history gets CANCELLED, not erased. Visits and
+  // photos are different — they belong to the job and cascade or null out on
+  // their own.
+  const [taskCount, timeEntryCount] = await Promise.all([
+    db.task.count({ where: { jobId: id } }),
+    db.timeEntry.count({ where: { jobId: id } }),
+  ]);
+
+  if (taskCount || timeEntryCount) {
+    const reasons = [];
+    if (timeEntryCount)
+      reasons.push(
+        `${timeEntryCount} time ${timeEntryCount === 1 ? "entry" : "entries"}`,
+      );
+    if (taskCount) reasons.push(`${taskCount} ${taskCount === 1 ? "task" : "tasks"}`);
+    return NextResponse.json(
+      {
+        error:
+          `This job has ${reasons.join(" and ")} attached, so it can't be deleted — ` +
+          `those are records of work. Set it to Cancelled instead; it stays on the ` +
+          `books and stops appearing as live work.`,
+      },
+      { status: 409 },
+    );
+  }
+
   await db.job.delete({ where: { id } });
+
+  // The quote's "schedule this job" task has nothing left to point at.
+  if (existing.quoteId) {
+    await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
+  }
+
+  await recordActivity(member, {
+    action: "job.deleted",
+    entityType: "job",
+    entityId: id,
+    summary: `Deleted job ${existing.title || id}`,
+  });
+
   return NextResponse.json({ success: true });
 }

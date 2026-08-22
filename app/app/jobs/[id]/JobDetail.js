@@ -27,8 +27,13 @@ import {
   Phone,
   Plus,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
+import { useRouter } from "next/navigation";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 
 const STATUS_STYLES = {
   scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
@@ -55,6 +60,36 @@ function formatDateTime(value) {
 
 export default function JobDetail({ jobId }) {
   const { t } = useTranslation();
+
+  // Same question the route asks, asked of the same grid. usePermissions()
+  // returns null while unresolved, and hasLevel(null) is false — so the button
+  // arrives a beat late rather than flashing and vanishing.
+  const router = useRouter();
+  const caller = usePermissions();
+  const canDeleteJob = hasLevel(caller, "jobs", "view_create_edit_delete");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function deleteJob() {
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        // 409 is the server explaining that this job carries records of work.
+        // Surfaced verbatim — it names what is attached and what to do
+        // instead, which a generic "couldn't delete" would throw away.
+        throw new Error(d?.error || t("app.jobs.deleteFailed", "That job couldn't be deleted."));
+      }
+      router.push("/app/jobs");
+    } catch (err) {
+      setError(err.message);
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
+    }
+  }
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -191,8 +226,46 @@ export default function JobDetail({ jobId }) {
             className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
           >
             <Pencil size={13} />{t("app.action.edit")}</Link>
+
+          {/* ── Delete ──────────────────────────────────────────────────────
+              DELETE /api/jobs/[id] has existed all along with nothing calling
+              it, so a job could never be removed from the UI at all.
+
+              Gated on the SAME grid level the route enforces, not on a role.
+              An owner who doesn't want Managers deleting jobs sets their Jobs
+              permission to "view, create, edit" instead of "…and delete" —
+              which is now editable per person under Manage Team → Edit access.
+              Hardcoding a role here would contradict the grid.
+
+              The server still refuses a job carrying time entries or tasks;
+              this button can't know that in advance, so the refusal arrives as
+              a sentence rather than being pre-empted with a guess. */}
+          {canDeleteJob && (
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 border border-border text-muted-foreground hover:text-destructive px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
+            >
+              <Trash2 size={13} />
+              {t("app.action.delete", "Delete")}
+            </button>
+          )}
         </div>
       </div>
+
+      <DeleteConfirmModal
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteJob}
+        title={t("app.jobs.deleteTitle", "Delete this job?")}
+        message={t(
+          "app.jobs.deleteBody",
+          "The job and its visits are removed for good. The quote and any invoice stay where they are. If work has already been logged against it, cancel it instead.",
+        )}
+        itemName={job.title}
+        busy={deleting}
+      />
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">

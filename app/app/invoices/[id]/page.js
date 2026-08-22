@@ -227,8 +227,15 @@ export default function InvoiceDetailPage() {
 
   async function handleDelete() {
     const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-    if (res.ok) router.push("/app/invoices"); else {
+    if (res.ok) {
+      router.push("/app/invoices");
+    } else {
       // Was silent: a failed request did nothing visible at all.
+      //
+      // The modal no longer closes itself on confirm (it used to, before the
+      // request had even finished), so close it here — otherwise the error
+      // lands behind an open dialog.
+      setShowDelete(false);
       await reportResponseError(res);
     }
   }

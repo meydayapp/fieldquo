@@ -228,8 +228,18 @@ export async function DELETE(request, { params }) {
 
   if (existing.invoices.length > 0) {
     return NextResponse.json(
-      { error: "Cannot delete a quote that has an invoice" },
-      { status: 400 },
+      {
+        // Was "Cannot delete a quote that has an invoice" — true, and it left
+        // the reader to work out both why and what to do instead. A quote that
+        // reached an invoice is an accounting record; the honest alternative
+        // is to void the invoice or mark the quote declined, and saying so
+        // beats a refusal that reads like a malfunction.
+        error:
+          `This quote has already become invoice ${existing.invoices[0].invoiceNumber || ""}`.trim() +
+          ", so it can't be deleted — it's part of your billing record now. " +
+          "Delete or void the invoice first if you really need it gone.",
+      },
+      { status: 409 },
     );
   }
 
