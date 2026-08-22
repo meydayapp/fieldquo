@@ -74,7 +74,17 @@ export default function QuoteTotalsBar({
 
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
           where the sidebar collapses. */}
-      <div data-tour="totals" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-4 sm:px-6 py-3 flex items-center justify-between gap-3 z-40">
+      {/* pr-20 (80px) reserves the corner the floating help launcher sits in.
+          The launcher is 44px wide at right-6 (24px), so it occupies 24–68px
+          from the right edge; 80px clears it with room to spare. pr-16 (64px)
+          would NOT — it is four pixels short, which is exactly the kind of
+          near-miss that looks fine on one screen and clips on another.
+          It is `fixed bottom-6 right-6` at z-50 and this bar is z-40, so it
+          landed ON TOP of the primary CTA — "Save & send" rendered clipped to
+          "Save & se…" with the "?" bubble over it, at 1366px and at 1600px.
+          Reserving the space is more robust than moving the launcher, which is
+          global and knows nothing about this bar. */}
+      <div data-tour="totals" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40">
         <div className="min-w-0">
           <div className="text-[11px] text-muted-foreground leading-none">
             {taxEnabled ? "Total incl. tax" : "Total, no tax"}
@@ -96,7 +106,9 @@ export default function QuoteTotalsBar({
             ) : (
               <Save size={14} />
             )}
-            <span className="hidden sm:inline">Save as</span> draft
+            <span className="whitespace-nowrap">
+              <span className="hidden sm:inline">Save as </span>draft
+            </span>
           </button>
 
           <button
@@ -110,7 +122,10 @@ export default function QuoteTotalsBar({
             ) : (
               <Send size={14} />
             )}
-            Save &amp; send
+            {/* The label must never truncate — it is the primary action and
+                "Save & se…" reads as a broken build. The totals block on the
+                left is min-w-0 and gives way instead. */}
+            <span className="whitespace-nowrap">Save &amp; send</span>
           </button>
         </div>
       </div>

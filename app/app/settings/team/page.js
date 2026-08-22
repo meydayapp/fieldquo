@@ -261,18 +261,26 @@ export default function TeamOverviewPage() {
       </div>
 
       <div className="bg-card border border-border rounded-xl overflow-x-auto">
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[560px]">
+        {/* ── Why "last login" hides first ────────────────────────────────
+            Below ~1250px this table scrolled sideways and cut off ACTIVE — the
+            last column, and the one a manager came here to click. A control
+            you have to discover a horizontal scrollbar to reach is a control
+            most people won't find.
+            Last login is the only column here nobody acts on, so it is the one
+            that gives way. Dropping a column beats a scrollbar hiding the
+            checkbox. */}
+        <div className="grid grid-cols-[1fr_auto_auto] lg:grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[420px]">
           <span>{t("app.setTeam.nameEmail")}</span>
           <span>{t("app.setTeam.role")}</span>
-          <span>{t("app.setTeam.lastLogin")}</span>
+          <span className="hidden lg:inline">{t("app.setTeam.lastLogin")}</span>
           <span>{t("app.status.active")}</span>
         </div>
 
-        <div className="divide-y divide-border min-w-[560px]">
+        <div className="divide-y divide-border min-w-[420px]">
           {members.map((m) => (
             <div
               key={m.userId}
-              className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 items-center"
+              className="grid grid-cols-[1fr_auto_auto] lg:grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 items-center"
             >
               <div className="min-w-0">
                 <div className="text-sm font-medium text-foreground truncate">
@@ -320,7 +328,8 @@ export default function TeamOverviewPage() {
                 </select>
               )}
 
-              <span className="text-xs text-muted-foreground flex items-center gap-1 whitespace-nowrap">
+              {/* Hidden with its header below lg — see the note above. */}
+              <span className="hidden lg:flex text-xs text-muted-foreground items-center gap-1 whitespace-nowrap">
                 <Clock size={12} /> {timeAgo(m.lastLoginAt, dateFormat)}
               </span>
 
@@ -350,7 +359,7 @@ export default function TeamOverviewPage() {
           {pending.map((p) => (
             <div
               key={p.id}
-              className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 items-center bg-muted/60"
+              className="grid grid-cols-[1fr_auto_auto] lg:grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 items-center bg-muted/60"
             >
               <div>
                 <div className="text-sm font-medium text-foreground">
@@ -361,7 +370,10 @@ export default function TeamOverviewPage() {
               <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-full flex items-center gap-1 w-fit">
                 <Mail size={11} /> {t("app.setTeam.invited")}
               </span>
-              <span className="text-xs text-muted-foreground">—</span>
+              {/* The pending row's last-login cell. Hidden with the column
+                  itself below lg, or the grid would be one cell out of step
+                  with the member rows above it. */}
+              <span className="hidden lg:inline text-xs text-muted-foreground">—</span>
               {canManageInvites ? (
                 <button
                   type="button"

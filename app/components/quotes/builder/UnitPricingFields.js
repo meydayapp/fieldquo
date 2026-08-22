@@ -120,13 +120,29 @@ export default function UnitPricingFields({
               type="number"
               min="0"
               step="5"
-              value={group.baseUnitPrice ?? ""}
-              onChange={(e) =>
-                onPricingChange({
-                  baseUnitPrice:
-                    e.target.value === "" ? 0 : Number(e.target.value),
-                })
-              }
+              // ── Why 0 renders as blank ──────────────────────────────
+              //
+              // Typing "-50" left "050" in the field, priced as $50/unit.
+              // A number input reports "" for anything it can't parse, and "-"
+              // on its own is one of those — so the minus keystroke wrote 0,
+              // React rendered a literal "0", and the digits that followed
+              // landed after it: "0" → "05" → "050".
+              //
+              // Rendering 0 as empty breaks that chain: the minus still writes
+              // 0, the field shows nothing, and "50" types cleanly. A base
+              // price of exactly zero is not a thing anyone means to enter
+              // here, so blank is the honest display for it.
+              value={group.baseUnitPrice ? group.baseUnitPrice : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") return onPricingChange({ baseUnitPrice: 0 });
+                const n = Number(raw);
+                // Negatives and junk are IGNORED rather than written as 0 —
+                // silently rewriting someone's keystroke to a different number
+                // is how the artifact got there in the first place.
+                if (!Number.isFinite(n) || n < 0) return;
+                onPricingChange({ baseUnitPrice: n });
+              }}
               className="w-full border border-border rounded pl-5 pr-2 py-1.5 text-sm"
             />
           </div>
