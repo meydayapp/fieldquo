@@ -23,6 +23,17 @@ import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
 
 export default function PlatformDashboardPage() {
+  // ── Two boards, because they are two businesses ─────────────────────────
+  //
+  // "Your revenue" and "Flowing through FieldQuo" sat one above the other, and
+  // the dashboard's largest number was a tenant figure. Both the owner and an
+  // external QA pass read $473,558 of CUSTOMERS' invoices as FieldQuo income.
+  //
+  // Adjacency was the problem — a heading is easy to skim past, a tab is not.
+  // Nothing on one board can be mistaken for the other now, because they are
+  // never on screen together.
+  const [board, setBoard] = useState("fieldquo");
+
   const [data, setData] = useState(null);
   // Deliberately separate from the overview fetch: an email-health failure
   // must never take the dashboard down, and the dashboard being slow must
@@ -198,26 +209,112 @@ export default function PlatformDashboardPage() {
         </button>
       </div>
 
+      <div
+        role="tablist"
+        aria-label="Which business you're looking at"
+        className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted"
+      >
+        {[
+          ["fieldquo", "FieldQuo", "Our subscription revenue"],
+          ["tenants", "Our customers", "What they run through the product"],
+        ].map(([key, label, hint]) => (
+          <button
+            key={key}
+            role="tab"
+            aria-selected={board === key}
+            title={hint}
+            onClick={() => setBoard(key)}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+              board === key
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {board === "fieldquo" && (
+      <>
       {/* FieldQuo's own revenue */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Your revenue
         </h2>
+        {/* ── Collectable first, nominal second ──────────────────────────
+            The old card showed $1,335 MRR while not one subscription could
+            raise a charge — every plan was missing its Stripe price. The gap
+            between these two numbers is the most actionable thing on the page:
+            it is exactly the revenue that is one configuration fix away. */}
+        {data.outlook?.nothingCollectable && (
+          <div className="mb-3 rounded-lg border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 px-4 py-3">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+              None of these {count(data.outlook.nominalCount)} subscriptions can
+              actually be charged.
+            </p>
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+              {money(data.outlook.blockedMrr, { compact: true })}/mo is blocked
+              on plans with no Stripe price. Add the prices and this becomes
+              real revenue.
+            </p>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="MRR"
-            value={money(data.mrr, { compact: true })}
-            note={`${count(data.activeSubscriptionCount)} active subscriptions`}
+            label="Collectable MRR"
+            value={money(data.outlook?.collectableMrr ?? data.mrr, { compact: true })}
+            note={
+              data.outlook
+                ? `${count(data.outlook.collectableCount)} of ${count(data.outlook.nominalCount)} subscriptions can bill`
+                : `${count(data.activeSubscriptionCount)} active subscriptions`
+            }
+            tone={data.outlook?.nothingCollectable ? "warning" : "default"}
           />
           <MetricCard
-            label="ARR"
-            value={money(data.arr, { compact: true })}
-            note="MRR × 12, at today's rate"
+            label="On paper"
+            value={money(data.outlook?.nominalMrr ?? data.mrr, { compact: true })}
+            note="What you'd bill if every plan were configured"
+          />
+          <MetricCard
+            label="This month"
+            value={money(data.outlook?.thisMonth?.expected ?? 0, { compact: true })}
+            note={
+              data.outlook
+                ? `${count(data.outlook.thisMonth.converting)} trial(s) convert before month end`
+                : "—"
+            }
+          />
+          <MetricCard
+            label="Next month"
+            value={money(data.outlook?.nextMonth?.expected ?? 0, { compact: true })}
+            note={
+              data.outlook
+                ? `+${count(data.outlook.nextMonth.converting)} more converting`
+                : "—"
+            }
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-4">
+          <MetricCard
+            label="Annual run rate"
+            value={money(data.outlook?.annualRunRate ?? data.arr, { compact: true })}
+            note="Collectable MRR × 12"
           />
           <MetricCard
             label="Paying companies"
-            value={count(data.activeSubscriptionCount)}
+            value={count(data.outlook?.collectableCount ?? data.activeSubscriptionCount)}
             note={`of ${count(data.totalCompanies)} total`}
+          />
+          <MetricCard
+            label="In trial"
+            value={count(data.outlook?.trials?.count ?? 0)}
+            note={
+              data.outlook?.trials?.lapsed
+                ? `${count(data.outlook.trials.lapsed)} already lapsed — nothing transitioned them`
+                : `${money(data.outlook?.trials?.nominalValue ?? 0, { compact: true })}/mo in pipeline`
+            }
+            tone={data.outlook?.trials?.lapsed > 0 ? "warning" : "default"}
           />
           <MetricCard
             label="Churned this month"
@@ -227,14 +324,22 @@ export default function PlatformDashboardPage() {
         </div>
       </section>
 
-      {/* Platform volume — explicitly not revenue */}
+      </>
+      )}
+
+      {board === "tenants" && (
+      <>
+      {/* What our customers run through the product. Never beside our own
+          revenue — that adjacency is what made $473,558 of THEIR invoices read
+          as ours. */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
           Flowing through FieldQuo
         </h2>
         <p className="text-xs text-muted-foreground mb-3">
           What your customers&apos; clients paid <em>them</em>. Product health,
-          not your income.
+          not your income — and now excluding the ten seeded demo companies,
+          which were contributing 99% of these figures.
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
@@ -260,6 +365,11 @@ export default function PlatformDashboardPage() {
         </div>
       </section>
 
+      </>
+      )}
+
+      {board === "fieldquo" && (
+      <>
       {/* Growth */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
@@ -366,6 +476,8 @@ export default function PlatformDashboardPage() {
             </Link>
           </div>
         </section>
+      )}
+      </>
       )}
     </div>
   );
