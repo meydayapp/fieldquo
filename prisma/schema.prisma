@@ -1342,6 +1342,34 @@ model Quote {
   /// zero.
   composeSeconds Int?
 
+  /// WHEN the client said yes or no.
+  ///
+  /// `status` records the outcome and threw away the date, so the single most
+  /// useful sales number a contractor can be told — how long your clients take
+  /// to decide — was unmeasurable. `updatedAt` cannot stand in: it moves on
+  /// every edit, including edits made months after the decision.
+  ///
+  /// Stamped by lib/quotes/quoteLifecycle.js, which both the public approval
+  /// link and the back-office status change already funnel through. Null on
+  /// every quote decided before this existed — absence is not "decided
+  /// instantly", and any average must drop nulls rather than treat them as
+  /// zero.
+  acceptedAt DateTime?
+  declinedAt DateTime?
+
+  /// Why it was lost, when anyone says.
+  ///
+  /// "You lose 60% of quotes on price" and "you lose 60% on timing" describe
+  /// two completely different businesses and call for opposite responses. A
+  /// win rate alone tells a contractor they are losing and nothing about what
+  /// to change.
+  ///
+  /// Optional and free text on purpose: a required dropdown gets whatever is
+  /// nearest the cursor, which is worse than no data. Null means nobody said,
+  /// and no report may infer a reason from silence.
+  declineReason String?
+
+
   // Snapshot of what produced the figure — measurements (squares, pitch,
   // area), the satellite image URL, the chosen material key, the computed
   // range and breakdown. Kept verbatim so the reviewer sees exactly what the

@@ -413,8 +413,11 @@ export async function POST(request, { params }) {
     }
   } else {
     // A decline creates nothing, but it still closes the lead behind the quote.
-    await onQuoteDeclined(updated.id).catch((err) =>
-      console.error("[public quote] lead close failed:", err?.message),
+    // A homeowner who bothers to type a reason is giving the contractor the
+    // most valuable thing in this whole flow. Optional — declining must never
+    // require an explanation.
+    await onQuoteDeclined(updated.id, { reason: body?.declineReason || null }).catch(
+      (err) => console.error("[public quote] lead close failed:", err?.message),
     );
   }
 

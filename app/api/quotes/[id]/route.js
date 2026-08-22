@@ -179,7 +179,9 @@ export async function PATCH(request, { params }) {
           metadata: { jobId: job?.id || null, invoiceId: invoice?.id || null },
         });
       } else if (status === "declined") {
-        await onQuoteDeclined(id);
+        // The reason is optional and free text — a required dropdown collects
+        // whatever is nearest the cursor, which is worse than nothing.
+        await onQuoteDeclined(id, { reason: body?.declineReason || null });
         await recordActivity(member, {
           action: "quote.declined",
           entityType: "quote",
