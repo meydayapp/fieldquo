@@ -55,7 +55,10 @@ export async function GET(request) {
   // work on it.
   const visits = await db.jobVisit.findMany({
     where: {
-      job: { companyId: member.companyId },
+      // Archived jobs are filed away, so their visits leave the calendar and
+      // the dashboard count with them. Otherwise "archive" would only tidy the
+      // Jobs list while the work kept showing up everywhere else.
+      job: { companyId: member.companyId, archivedAt: null },
       ...(seesEveryone
         ? {}
         : { OR: [{ assignedToId: member.userId }, { assignedToId: null }] }),

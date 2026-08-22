@@ -1984,6 +1984,27 @@ model Job {
   /// you. `reviewRequestedAt` is the once-only guard.
   completedAt       DateTime?
   reviewRequestedAt DateTime?
+
+  /// Put away, not deleted.
+  ///
+  /// Deliberately NOT a JobStatus value. Status says what happened to the
+  /// WORK — needs a date, scheduled, in progress, completed, cancelled.
+  /// Archiving says whether you still want to look at it. Those are different
+  /// questions and a job answers both: a completed job stays visible for weeks
+  /// and is then filed away; a cancelled one might be filed the same day.
+  /// Folding them into one column is the "one field doing two jobs" mistake
+  /// this schema keeps getting cleaned of.
+  ///
+  /// Exists because a job carrying approved hours or tasks cannot be deleted —
+  /// those are payroll and to-do records — so without this the only way to
+  /// clear finished work off the list was to CANCEL it, which says something
+  /// untrue about work that actually happened.
+  ///
+  /// Nullable timestamp rather than a boolean: "when was this filed" is worth
+  /// knowing, costs nothing, and null reads as "not archived" with no default
+  /// to maintain.
+  archivedAt DateTime?
+
   galleryPhotos JobPhoto[]
 
   /// Back-relation for the office to-do list. A Task is internal admin ("ask

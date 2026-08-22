@@ -31,17 +31,21 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  // Which drawer we are looking in. Not a status filter — see the chip row.
+  const [showArchived, setShowArchived] = useState(false);
   const [errorKey, setErrorKey] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setErrorKey("");
-    const result = await fetchArray("/api/jobs");
+    const result = await fetchArray(
+      showArchived ? "/api/jobs?archived=1" : "/api/jobs",
+    );
     if (result.aborted) return;
     if (result.ok) setJobs(result.data);
     else setErrorKey(result.errorKey);
     setLoading(false);
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     load();
@@ -101,6 +105,24 @@ export default function JobsPage() {
               </button>
             ),
           )}
+          {/* ── The archive ────────────────────────────────────────────────
+              Separate from the status chips, and deliberately at the end with
+              a divider: archived is not a status, it is whether you still want
+              to see the thing. Mixing it into the same row would suggest a job
+              is EITHER completed OR archived, when it is routinely both.
+              Without this control an archived job would simply vanish, which
+              is how "archive" turns into "delete with extra steps". */}
+          <span className="shrink-0 w-px bg-border mx-1 self-stretch" aria-hidden />
+          <button
+            onClick={() => setShowArchived((v) => !v)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-sm border ${
+              showArchived
+                ? "bg-inverted text-inverted-foreground border-inverted"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            {t("app.jobs.archived", "Archived")}
+          </button>
         </div>
         <div data-tour="jobs-search" className="relative max-w-xs w-full sm:w-auto">
           <Search

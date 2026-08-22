@@ -28,6 +28,7 @@ import {
   Plus,
   FileText,
   Trash2,
+  Archive,
 } from "lucide-react";
 import { formatAddress } from "@/lib/format/address";
 import { useRouter } from "next/navigation";
@@ -69,6 +70,32 @@ export default function JobDetail({ jobId }) {
   const canDeleteJob = hasLevel(caller, "jobs", "view_create_edit_delete");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Archiving is the answer for a job that CAN'T be deleted — one carrying
+  // approved hours or tasks. Cancelling it would say something untrue about
+  // work that actually happened; filing it away says only "I'm done looking
+  // at this", and it is reversible.
+  async function setArchived(archived) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error(d?.error || t("app.jobs.archiveFailed", "That didn't save."));
+      }
+      const updated = await res.json();
+      setJob((j) => ({ ...j, archivedAt: updated.archivedAt }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function deleteJob() {
     setDeleting(true);
@@ -193,6 +220,14 @@ export default function JobDetail({ jobId }) {
             >
               {jobStatusLabel(job.status, t)}
             </span>
+            {/* Status and archived are different facts, so they get different
+                badges. A job can be Completed AND filed away, or Cancelled and
+                still sitting in the list. */}
+            {job.archivedAt && (
+              <span className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted text-muted-foreground">
+                {t("app.jobs.archived", "Archived")}
+              </span>
+            )}
           </div>
           {job.quote && (
             <p className="text-sm text-muted-foreground mt-1">
@@ -240,6 +275,21 @@ export default function JobDetail({ jobId }) {
               The server still refuses a job carrying time entries or tasks;
               this button can't know that in advance, so the refusal arrives as
               a sentence rather than being pre-empted with a guess. */}
+          {/* Archive / Restore. Offered to anyone who can edit the job, because
+              filing something away destroys nothing and is undone by pressing
+              the same button again. */}
+          <button
+            type="button"
+            onClick={() => setArchived(!job.archivedAt)}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold disabled:opacity-60"
+          >
+            <Archive size={13} />
+            {job.archivedAt
+              ? t("app.jobs.restore", "Restore")
+              : t("app.jobs.archive", "Archive")}
+          </button>
+
           {canDeleteJob && (
             <button
               type="button"

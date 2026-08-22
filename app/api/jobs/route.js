@@ -19,9 +19,18 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
+  // Archived jobs are hidden by default and returned only when asked for.
+  // `?archived=1` shows the drawer; nothing returns both at once, because a
+  // list that silently mixes filed and live work is the reason the filing
+  // exists.
+  const archived = searchParams.get("archived") === "1";
 
   const jobs = await db.job.findMany({
-    where: { companyId: member.companyId, ...(status && { status }) },
+    where: {
+      companyId: member.companyId,
+      ...(status && { status }),
+      archivedAt: archived ? { not: null } : null,
+    },
     include: {
       client: { select: { id: true, name: true } },
       visits: { orderBy: { scheduledAt: "asc" } },

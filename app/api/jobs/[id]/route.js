@@ -59,7 +59,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { title, status, recurring, recurrenceRule } = body;
+  const { title, status, recurring, recurrenceRule, archived } = body;
 
   // Stamp when the work actually finished.
   //
@@ -80,6 +80,12 @@ export async function PATCH(request, { params }) {
       ...(reopening && { completedAt: null }),
       ...(recurring !== undefined && { recurring }),
       ...(recurrenceRule !== undefined && { recurrenceRule }),
+      // Archiving is a separate axis from status — see Job.archivedAt. A job
+      // can be archived whatever state the work is in, and unarchiving is
+      // just as available, because nothing was destroyed.
+      ...(archived !== undefined && {
+        archivedAt: archived ? new Date() : null,
+      }),
     },
     include: { client: true },
   });
@@ -109,6 +115,21 @@ export async function PATCH(request, { params }) {
     existing.status !== status
   ) {
     await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
+  }
+
+  // Filing a job away also settles "schedule this job" — you are not going to
+  // book work you have just put in the drawer.
+  if (existing.quoteId && archived === true && !existing.archivedAt) {
+    await resolveTaskBySource(`quote_accepted:${existing.quoteId}`);
+  }
+
+  if (archived !== undefined && Boolean(existing.archivedAt) !== Boolean(archived)) {
+    await recordActivity(member, {
+      action: archived ? "job.archived" : "job.unarchived",
+      entityType: "job",
+      entityId: id,
+      summary: `${archived ? "Archived" : "Restored"} job ${existing.title || id}`,
+    });
   }
 
   return NextResponse.json(updated);

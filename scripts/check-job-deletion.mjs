@@ -78,6 +78,36 @@ t("deleting the job closes it too",
   (ROUTE.match(/resolveTaskBySource/g) || []).length >= 2);
 t("the deletion is recorded", /action: "job\.deleted"/.test(ROUTE));
 
+console.log("\nArchiving: a different question from status");
+const SCHEMA2 = read("../prisma/schema.prisma");
+const jobModel = SCHEMA2.slice(SCHEMA2.indexOf("model Job {"));
+const jobBlock = jobModel.slice(0, jobModel.indexOf("\n}"));
+t("Job has archivedAt", /archivedAt\s+DateTime\?/.test(jobBlock));
+// The whole point: it must NOT be a status value, or a completed job could
+// not also be filed away, and filing one would claim the work didn't happen.
+const statusEnum = SCHEMA2.slice(SCHEMA2.indexOf("enum JobStatus"));
+t("'archived' is not a JobStatus",
+  !/\barchived\b/.test(statusEnum.slice(0, statusEnum.indexOf("}"))));
+t("it is a timestamp, not a boolean", !/archived\s+Boolean/.test(jobBlock));
+
+const LIST = read("../app/api/jobs/route.js");
+t("the list hides archived jobs by default", /archivedAt: archived \? \{ not: null \} : null/.test(LIST));
+t("...and can be asked for them", /archived=1|"archived"\) === "1"/.test(LIST));
+
+t("the PATCH accepts archive and unarchive", /archivedAt: archived \? new Date\(\) : null/.test(ROUTE));
+t("archiving is recorded", /action: archived \? "job\.archived"/.test(ROUTE));
+t("archiving settles the schedule-this-job task", /archived === true && !existing\.archivedAt/.test(ROUTE));
+
+const JOBS_PAGE = read("../app/app/jobs/page.js");
+t("the list offers a way INTO the archive", /setShowArchived/.test(JOBS_PAGE));
+t("...kept apart from the status chips", /archived is not a status/.test(JOBS_PAGE));
+t("the job page can archive and restore", /setArchived\(!job\.archivedAt\)/.test(PAGE));
+t("an archived job says so", /app\.jobs\.archived/.test(PAGE));
+
+const APPTS = read("../app/api/appointments/route.js");
+t("an archived job's visits leave the calendar too",
+  /companyId: member\.companyId, archivedAt: null/.test(APPTS));
+
 console.log("\nA quote that became an invoice explains itself");
 const QUOTE = read("../app/api/quotes/[id]/route.js");
 t("it refuses with 409", /status: 409/.test(QUOTE));

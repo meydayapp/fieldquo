@@ -82,7 +82,10 @@ t("American and British spellings both excluded",
 console.log("\nThe wiring is actually in place");
 const api = read("../app/api/appointments/route.js");
 t("the calendar API reads JobVisit", /db\.jobVisit\.findMany/.test(api));
-t("...scoped to the company", /job: \{ companyId: member\.companyId \}/.test(api));
+// Matches the company scope wherever it sits in the job filter — the filter
+// has since gained `archivedAt: null` too, and an exact-string assertion
+// failed on a change that kept the scoping perfectly intact.
+t("...scoped to the company", /job: \{[^}]*companyId: member\.companyId/.test(api));
 t("...and honours the same own-vs-everyone split", /seesEveryone/.test(api));
 
 const cal = read("../app/app/appointments/page.js");
