@@ -33,7 +33,7 @@
 // of the database, so it can never be minted for a real customer.
 
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, RotateCcw, Beaker, AlertTriangle, PlayCircle } from "lucide-react";
+import { Loader2, RotateCcw, Beaker, AlertTriangle, PlayCircle, ExternalLink } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 
 export default function PlatformDemoPage() {
@@ -225,6 +225,35 @@ export default function PlatformDemoPage() {
                       </button>
                     );
                   })}
+                </div>
+
+                {/* ── The client-facing surfaces, clickable ────────────────
+                    Half a demo is showing the prospect what THEIR customer
+                    sees — the booking page, the instant quote, the website.
+                    Those all live at public URLs derived from the slug, and
+                    finding them meant knowing the URL shape by heart.
+
+                    Opened in new tabs, and deliberately NOT behind the
+                    impersonation session: a homeowner reaching these is signed
+                    out, which is exactly the state they should be demoed in. */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    ["Website", `https://${d.slug}.fieldquo.com`],
+                    ["Booking page", `/book/${d.slug}`],
+                    ["Instant quote", `/instant-quote/${d.slug}`],
+                    ["Request a quote", `/quote/${d.slug}`],
+                  ].map(([label, href]) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground border border-border rounded-full px-2.5 py-1"
+                    >
+                      {label}
+                      <ExternalLink size={11} />
+                    </a>
+                  ))}
                 </div>
 
                 <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 flex-wrap">
