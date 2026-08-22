@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { recordActivity } from "@/lib/activity/log";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -83,6 +84,19 @@ export async function POST(request) {
       recurring: !!recurring,
       frequency: frequency || "one_time",
     },
+  });
+
+  // Expenses are job costs and a tax position, and they were untracked. A
+  // job-tagged expense also moves that job's margin, which is the number the
+  // owner runs the business on.
+  await recordActivity(member, {
+    action: "expense.created",
+    entityType: "expense",
+    entityId: expense.id,
+    summary: `Recorded a ${expense.category || "general"} expense${
+      expense.amount != null ? ` of ${expense.amount}` : ""
+    }`,
+    metadata: { amount: expense.amount ?? null, projectId: expense.projectId ?? null },
   });
 
   return NextResponse.json(expense, { status: 201 });

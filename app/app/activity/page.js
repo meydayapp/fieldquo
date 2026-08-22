@@ -13,6 +13,12 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 // Small dot colour per action family, so the eye can scan for deletes/payments.
 function toneFor(action) {
   if (action.includes("deleted")) return "bg-red-500";
+  // Revoking someone's access and approving your own hours are the two entries
+  // an owner scanning this page is most likely to be looking FOR. Both used to
+  // be absent entirely; arriving as an unremarkable grey dot would be the
+  // quieter version of the same problem.
+  if (action === "member.deactivated") return "bg-red-500";
+  if (action === "timeEntry.selfApproved") return "bg-amber-500";
   if (action.includes("payment")) return "bg-green-500";
   if (action.includes("sent")) return "bg-blue-500";
   if (action.startsWith("settings")) return "bg-amber-500";
@@ -50,9 +56,14 @@ export default function ActivityPage() {
         <h1 className="text-2xl font-bold text-foreground">{t("app.activity.title")}</h1>
       </div>
       <p className="text-sm text-muted-foreground mb-6 max-w-xl">
+        {/* This claimed to cover "important actions" while missing every
+            action with money attached: hours created and approved, expenses,
+            team access changes, client contact edits. Those are logged now, so
+            the sentence lists them by name rather than gesturing at a category
+            — a promise this page can actually keep. */}
         A record of important actions in your account — quotes sent, payments
-        recorded, clients or quotes deleted, pricing and settings changes. Kept
-        so you can always see who did what.
+        recorded, hours added and approved, expenses, client and team changes,
+        pricing and settings. Kept so you can always see who did what.
       </p>
 
       {error && (

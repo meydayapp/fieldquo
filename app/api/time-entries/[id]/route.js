@@ -7,6 +7,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { resolveWallClock } from "@/lib/time/wallClock";
+import { recordActivity } from "@/lib/activity/log";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -85,6 +86,9 @@ export async function PATCH(request, { params }) {
     hours = Math.round(((clockOutMs - clockInMs) / 3600000) * 100) / 100;
   }
 
+  const selfApproved =
+    status === "approved" && existing.worker?.userId === member.userId;
+
   const updated = await db.timeEntry.update({
     where: { id: _params.id },
     data: {
@@ -97,6 +101,37 @@ export async function PATCH(request, { params }) {
     },
     include: { worker: { select: { id: true, name: true } } },
   });
+
+  // ── The trail the Activity Log page promises and didn't keep ────────────
+  //
+  // Approved hours are what a pay run multiplies by an hourly rate. QA created
+  // entries for two colleagues, approved all three including their own, and
+  // pushed them into a $332.77 pay run — with no record of any of it, while
+  // the page told the owner it keeps "a record of important actions".
+  //
+  // Self-approval is recorded distinctly rather than refused. A sole trader
+  // who is the only worker has nobody else to approve their hours, and
+  // blocking it would break the smallest companies to police the larger ones.
+  // Naming it in the trail is what makes it reviewable.
+  if (status !== undefined) {
+    await recordActivity(member, {
+      action: selfApproved ? "timeEntry.selfApproved" : `timeEntry.${status}`,
+      entityType: "timeEntry",
+      entityId: updated.id,
+      summary: selfApproved
+        ? `Approved their own hours — ${updated.hours ?? "?"}h`
+        : `${status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Updated"} ${updated.worker?.name || "a worker"}'s hours — ${updated.hours ?? "?"}h`,
+      metadata: { hours: updated.hours ?? null, status, selfApproved },
+    });
+  } else if (clockOut !== undefined) {
+    await recordActivity(member, {
+      action: "timeEntry.clockedOut",
+      entityType: "timeEntry",
+      entityId: updated.id,
+      summary: `Clocked out ${updated.worker?.name || "a worker"} — ${updated.hours ?? "?"}h`,
+      metadata: { hours: updated.hours ?? null },
+    });
+  }
 
   return NextResponse.json(updated);
 }

@@ -94,6 +94,39 @@ export async function PATCH(request, { params }) {
     },
   });
 
+  // Client edits were unlogged — QA changed a client's email address and the
+  // Activity Log recorded nothing, while the page states it keeps "clients or
+  // quotes deleted, pricing and settings changes". An email or address change
+  // decides where quotes and invoices are DELIVERED, so it belongs in the same
+  // trail as the deletion below.
+  //
+  // Which fields changed, not their values: the log is visible to everyone who
+  // can read it, and a client's old phone number does not need republishing
+  // there. Contact details are also the fields most worth being able to ask
+  // "who changed this and when" about.
+  const changedFields = [
+    ["name", name],
+    ["contactName", contactName],
+    ["email", email],
+    ["phone", phone],
+    ["address", address],
+    ["city", city],
+    ["province", province],
+    ["language", language],
+  ]
+    .filter(([field, value]) => value !== undefined && value !== existing[field])
+    .map(([field]) => field);
+
+  if (changedFields.length) {
+    await recordActivity(member, {
+      action: "client.updated",
+      entityType: "client",
+      entityId: id,
+      summary: `Edited ${updated.name} — changed ${changedFields.join(", ")}`,
+      metadata: { fields: changedFields },
+    });
+  }
+
   return NextResponse.json(updated);
 }
 

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { resolveWallClock } from "@/lib/time/wallClock";
+import { recordActivity } from "@/lib/activity/log";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
@@ -123,6 +124,19 @@ export async function POST(request) {
     },
     include: { worker: { select: { id: true, name: true } } },
   });
+
+  // Creating a time entry for SOMEONE ELSE is a pay input, and it was
+  // untracked. Own clock-ins are the ordinary case and stay quiet — logging
+  // every clock-in would bury the entries worth reviewing.
+  if (worker.userId !== member.userId) {
+    await recordActivity(member, {
+      action: "timeEntry.createdForOther",
+      entityType: "timeEntry",
+      entityId: entry.id,
+      summary: `Added a time entry for ${worker.name || "a worker"}`,
+      metadata: { workerId: worker.id, clockIn: clockInAt.toISOString() },
+    });
+  }
 
   return NextResponse.json(entry, { status: 201 });
 }

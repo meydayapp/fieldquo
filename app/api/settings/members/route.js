@@ -23,6 +23,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import { rankOf, canRevokeAccess } from "@/lib/permissions/roleManagement";
+import { recordActivity } from "@/lib/activity/log";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -374,6 +375,10 @@ export async function PATCH(request) {
 
   const target = await db.member.findUnique({
     where: { userId_companyId: { userId, companyId: member.companyId } },
+    // The user relation is here for the activity summary. Member has no `name`
+    // of its own — reading target.name would always have been undefined and
+    // silently logged "a team member" for everybody.
+    include: { user: { select: { name: true, email: true } } },
   });
   if (!target)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -498,6 +503,21 @@ export async function PATCH(request) {
       ...(laborCostPerHour !== undefined && { laborCostPerHour }),
     },
   });
+
+  // Switching someone's access off leaves a licensed seat free and a person
+  // locked out, and it left no trace at all — QA deactivated a colleague and
+  // the Activity Log showed nothing, while the page claims it records "who did
+  // what". Only the access change is logged; editing a phone number is not the
+  // kind of act this trail is for.
+  if (active !== undefined && active !== target.active) {
+    await recordActivity(member, {
+      action: active ? "member.reactivated" : "member.deactivated",
+      entityType: "member",
+      entityId: target.id,
+      summary: `${active ? "Reactivated" : "Deactivated"} ${target.user?.name || target.user?.email || "a team member"}`,
+      metadata: { targetUserId: userId, targetRole: target.role },
+    });
+  }
 
   return NextResponse.json(updated);
 }
