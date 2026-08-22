@@ -239,6 +239,18 @@ export default function ProductsPage() {
         </div>
       )}
 
+      {/* ── Everything below is the catalogue ─────────────────────────────
+          When the price book is refused, this whole block goes: the search,
+          the Add / Import / Export controls, and the table. QA saw the refusal
+          banner sitting ABOVE a live "Add Item" form (with a Cost price
+          field), Import CSV, Export CSV and an empty table reading "No
+          products or services yet" — which says the catalogue is empty, not
+          that access was denied. Every one of those buttons 403s.
+          The route's own comment says it refuses outright rather than blanking
+          prices, so the screen "reads as a boundary rather than a broken
+          screen". This is the half that made it a broken screen. */}
+      {!loadError && (
+      <>
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search
@@ -429,6 +441,8 @@ export default function ProductsPage() {
           </a>
         </div>
       </div>
+      </>
+      )}
 
       {showModal && (
         <div

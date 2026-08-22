@@ -19,6 +19,35 @@ export async function PATCH(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // ── Creating was gated and editing was not ─────────────────────────────
+  //
+  // POST /api/tasks requires "task:create", which a Worker does not hold. This
+  // route required only a session, so a Worker who could not add a to-do could
+  // rename or complete ANY of the company's — including ones assigned to
+  // somebody else, or to nobody.
+  //
+  // Your OWN task stays editable with no permission at all: ticking off the
+  // job you were given is the entire point of a to-do list, and gating that on
+  // task:create would make the list read-only for the people who work from it.
+  //
+  // An unassigned task is claimable the same way an unassigned appointment is
+  // — assigning it to YOURSELF is allowed, anything else about it is not.
+  const mine =
+    !!member.userId &&
+    (existing.assignedToId === member.userId ||
+      existing.createdById === member.userId);
+  const claimable = existing.assignedToId === null;
+  if (!mine && !claimable && !can(member.role, "task:create")) {
+    return NextResponse.json(
+      {
+        error:
+          "You can only change to-dos assigned to you. Ask an owner or admin " +
+          "to change this one.",
+      },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json();
 
   if (

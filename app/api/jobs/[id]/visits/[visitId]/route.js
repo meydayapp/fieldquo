@@ -8,6 +8,7 @@ import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -25,6 +26,31 @@ export async function PATCH(request, { params }) {
     include: { job: { include: { client: true, company: true } } },
   });
   if (!visit) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── Whose visit is this? ───────────────────────────────────────────────
+  //
+  // Company scope was the only check, so any member could edit ANY visit —
+  // QA rewrote the notes on a visit assigned to a colleague. This is the crew
+  // endpoint: ticking off a checklist, adding photos, leaving a note about
+  // what was found. All of that is about the visit YOU attended.
+  //
+  // Scoped on the `schedule` grid, the same one the appointment routes use,
+  // because a visit is a scheduled piece of work and there is no reason for it
+  // to answer a different question. Unassigned stays editable — an unclaimed
+  // visit that nobody can complete is a visit that nobody does, which is the
+  // reasoning the appointments list already carries.
+  const full = await loadEnforceableMember(db, member.id);
+  const mine = !!member.userId && visit.assignedToId === member.userId;
+  if (!mine && visit.assignedToId !== null && !hasLevel(full, "schedule", "edit_all")) {
+    return NextResponse.json(
+      {
+        error:
+          "You can only update visits assigned to you. Ask whoever runs the " +
+          "schedule to reassign this one.",
+      },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const { status, checklistItems, photos, notes, scheduledAt } = body;

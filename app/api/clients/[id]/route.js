@@ -9,6 +9,8 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  redactClient,
+  redactQuotes,
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 
@@ -30,7 +32,24 @@ export async function GET(request, { params }) {
 
   if (!client)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(client);
+
+  // ── The list redacted; this didn't ─────────────────────────────────────
+  //
+  // GET /api/clients runs every row through redactClients, so a member on
+  // clientsProperties "name_address_only" sees a name and an address. This
+  // route returned the raw row: contactName, email, phone, notes, portalToken
+  // and language. QA enumerated ids from the restricted list and pulled each
+  // detail — the exportable-customer-list exposure, reached through the one
+  // door that wasn't checked.
+  //
+  // The nested quotes carry shareToken as well, which opens the priced public
+  // page with no credential at all, so they go through redactQuotes rather
+  // than being handed over whole.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json({
+    ...redactClient(full, client),
+    quotes: redactQuotes(full, client.quotes),
+  });
 }
 
 export async function PATCH(request, { params }) {

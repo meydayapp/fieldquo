@@ -130,6 +130,44 @@ t("PATCH clamps the pay rate like POST does",
 t("the comment no longer claims a Manager may set a rate",
   !/still set a labour rate — everything/.test(MEMBERS));
 
+console.log("\nThe client DETAIL route redacts like the list beside it");
+// QA enumerated ids from the correctly-restricted list, then pulled each
+// detail and harvested every customer's email and phone. The exportable
+// customer list, reached through the one door nobody checked.
+const CLIENT_DETAIL = read("../app/api/clients/[id]/route.js");
+t("GET applies redactClient", /redactClient\(full, client\)/.test(CLIENT_DETAIL));
+t("...and redacts the nested quotes' share tokens",
+  /redactQuotes\(full, client\.quotes\)/.test(CLIENT_DETAIL));
+
+console.log("\nToggles gate the READ, not only the write");
+const PAY = read("../app/api/payments/route.js");
+const payGet = PAY.slice(PAY.indexOf("export async function GET"));
+t("GET /api/payments requires the payments toggle",
+  /requireToggle\(full, "payments"/.test(payGet.slice(0, payGet.indexOf("export async function POST"))));
+
+console.log("\nCross-user mutations are scoped to the person");
+const VISIT = read("../app/api/jobs/[id]/visits/[visitId]/route.js");
+t("a visit can only be updated by its assignee (or schedule edit_all)",
+  /hasLevel\(full, "schedule", "edit_all"\)/.test(VISIT));
+t("...unassigned visits stay claimable", /visit\.assignedToId !== null/.test(VISIT));
+const TASK = read("../app/api/tasks/[id]/route.js");
+t("a to-do can only be edited by its owner (or someone who may create them)",
+  /can\(member\.role, "task:create"\)/.test(TASK));
+t("...your own stays editable with no permission", /existing\.assignedToId === member\.userId/.test(TASK));
+
+console.log("\nThe quick-add menu is filtered by permission, not only by flag");
+// NAV_REQUIREMENTS has carried app.quickAdd.quote since it was written, with a
+// comment about losing a composed quote to a 403 — and the sidebar ran the
+// list through the FEATURE-FLAG filter alone, so it never applied.
+const SIDEBAR = read("../app/components/layout/AdminSidebar.js");
+t("quick-add runs through filterNavItemsByPermission",
+  /quickAddItems[\s\S]{0,200}filterNavItemsByPermission/.test(SIDEBAR));
+t("the Create button hides when nothing is creatable",
+  /quickAddItems\.length > 0 && \(/.test(SIDEBAR));
+const PRODUCTS_PAGE = read("../app/app/settings/products/page.js");
+t("a refused price book hides its Add/Import/Export controls",
+  /\{!loadError && \(/.test(PRODUCTS_PAGE));
+
 console.log("\nThe orphaned template CRUD is no longer open");
 // No UI calls these, and they write the same rows
 // /api/settings/document-templates guards. An orphan is not proof nothing

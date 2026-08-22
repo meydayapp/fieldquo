@@ -17,6 +17,21 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // ── The toggle gated the write and not the read ────────────────────────
+  //
+  // POST below requires the `payments` toggle to RECORD one. GET required
+  // nothing, so a Worker with payments off received every payment in the
+  // company — amount, method, and the invoice it belongs to. A toggle that
+  // stops you writing a thing but hands you all of it to read is not a
+  // boundary, and the owner who switched it off would reasonably think it was.
+  const full = await loadEnforceableMember(db, member.id);
+  try {
+    requireToggle(full, "payments", "see payments");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   const { searchParams } = new URL(request.url);
   const invoiceId = searchParams.get("invoiceId");
 

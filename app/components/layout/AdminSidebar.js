@@ -242,9 +242,19 @@ export default function AdminSidebar() {
     () => filterNavGroupsByPermission(filterNavGroups(SEARCH_CORPUS, featureFlags), caller),
     [featureFlags, caller],
   );
+  // filterNavItemsByPermission, not just filterNavItems. This list ran through
+  // the FEATURE-FLAG filter alone, so "app.quickAdd.quote" — which has been in
+  // NAV_REQUIREMENTS since that file was written, with a comment explaining
+  // that composing a whole quote and losing it to a 403 "costs the person
+  // their work" — was defined and never applied. QA found all five entries
+  // offered to a Worker whose API refuses every one.
   const quickAddItems = useMemo(
-    () => filterNavItems(QUICK_ADD_ITEMS, featureFlags),
-    [featureFlags],
+    () =>
+      filterNavItemsByPermission(
+        filterNavItems(QUICK_ADD_ITEMS, featureFlags),
+        caller,
+      ),
+    [featureFlags, caller],
   );
   const showAiItem = useMemo(
     () => filterNavItems([AI_ITEM], featureFlags).length > 0,
@@ -390,7 +400,13 @@ export default function AdminSidebar() {
             that also clips horizontally, so the popup rendered off-screen and the
             button looked dead. And starting a quote / job / invoice is the main
             reason people reach for the sidebar, so it earns a solid primary
-            button rather than a dashed afterthought. */}
+            button rather than a dashed afterthought.
+
+            Hidden entirely when the caller can create NOTHING — a Worker on
+            view-only across the board now filters every entry out, and a
+            primary button that opens an empty menu is a worse control than no
+            button. */}
+        {quickAddItems.length > 0 && (
         <div className="px-3 pt-3">
           <div className="relative" ref={forceExpanded ? null : quickAddRef}>
             <button
@@ -425,6 +441,7 @@ export default function AdminSidebar() {
             )}
           </div>
         </div>
+        )}
 
         {/* min-h-0 lets this flex child actually shrink so overflow-y-auto
             scrolls it — without it the nav keeps its full content height, the
