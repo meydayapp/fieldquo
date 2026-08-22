@@ -96,6 +96,22 @@ t("but grant different things",
   JSON.stringify(PERMISSION_PRESETS.dispatcher.values) !==
     JSON.stringify(PERMISSION_PRESETS.manager.values));
 
+console.log("\nManage Team offers the SAME list as New User, in ONE control");
+// The owner hit this twice: a three-entry ROLE dropdown here versus five
+// presets on the invite screen, and then — briefly — a dropdown AND a separate
+// "Edit access" link, which is two controls for one concept.
+t("the row dropdown is built from presets, not roles", /choicesFor\(m\)/.test(TEAM));
+t("every assignable preset is offered", /Object\.entries\(PERMISSION_PRESETS\)/.test(TEAM));
+t("Administrator is offered when assignable", /assignable\.includes\("admin"\)/.test(TEAM));
+t("Custom opens the grid", /choice === CUSTOM\) return openAccess/.test(TEAM));
+t("picking a preset applies its permissions too, not just the role",
+  /permissions,\s*\n\s*\}\),/.test(TEAM) && /PERMISSION_PRESETS\[choice\]\.values/.test(TEAM));
+t("a member's CURRENT choice stays selectable even if unassignable",
+  /disabled: true/.test(TEAM));
+t("there is no longer a second 'Edit access' link beside it",
+  !/app\.setTeam\.editAccess"/.test(TEAM));
+t("the orphaned role-only handler is gone", !/async function updateRole/.test(TEAM));
+
 console.log("\nCustom is a control, not a side effect");
 const EDITOR = read("../app/components/team/AccessEditor.js");
 t("Custom is a button you can press", /onClick=\{\(\) => onPresetChange\(null\)\}/.test(EDITOR));

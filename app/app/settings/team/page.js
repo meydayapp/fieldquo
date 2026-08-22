@@ -120,24 +120,6 @@ export default function TeamOverviewPage() {
   // Role changes go to the dedicated endpoint, which enforces the hierarchy
   // rules (no self-edits, no editing peers or superiors, no granting beyond
   // your own level, last owner protected).
-  async function updateRole(member, role) {
-    setSavingUserId(member.userId);
-    setError("");
-    try {
-      const res = await fetch(`/api/settings/members/${member.id}/role`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || t("app.setTeam.errRole"));
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSavingUserId(null);
-    }
-  }
 
   // ── Editing an existing member's access ────────────────────────────────
   //
@@ -150,6 +132,88 @@ export default function TeamOverviewPage() {
   //
   // Same editor component as New User, so the two screens cannot drift again.
   const [editing, setEditing] = useState(null);
+
+  // ── The one list of choices, shared with the New User screen ───────────
+  //
+  // A "choice" is a preset, Administrator, or Custom. NOT a role: two presets
+  // can produce the same role (Worker/Worker-limited are both `employee`,
+  // Dispatcher/Manager are both `supervisor`), so a role dropdown could never
+  // express what the invite screen offers. That mismatch is exactly what the
+  // owner kept running into.
+  const CUSTOM = "__custom__";
+  const ADMIN = "__admin__";
+
+  function choicesFor(member) {
+    const assignable = grants.assignableRoles || [];
+    const out = [];
+
+    for (const [key, preset] of Object.entries(PERMISSION_PRESETS)) {
+      if (!assignable.includes(PRESET_TO_ROLE[key])) continue;
+      out.push({ value: key, label: preset.label });
+    }
+    if (assignable.includes("admin")) {
+      out.push({ value: ADMIN, label: ROLE_LABELS.admin });
+    }
+    out.push({ value: CUSTOM, label: t("app.setTeam.customChoice", "Custom…") });
+
+    // Whatever they are RIGHT NOW must be selectable even if this caller
+    // couldn't assign it — otherwise the select renders with no valid value
+    // and silently shows the first option as though it were the truth.
+    const current = currentChoice(member);
+    if (!out.some((c) => c.value === current)) {
+      out.unshift({
+        value: current,
+        label:
+          current === ADMIN
+            ? ROLE_LABELS.admin
+            : PERMISSION_PRESETS[current]?.label ||
+              ROLE_LABELS[member.role] ||
+              member.role,
+        disabled: true,
+      });
+    }
+    return out;
+  }
+
+  /** Which choice describes this member as they stand. */
+  function currentChoice(member) {
+    if (member.role === "admin" || member.permissions?.isAdministrator === true) {
+      return ADMIN;
+    }
+    const values = { ...emptyPermissionValues(), ...(member.permissions || {}) };
+    return presetForValues(values, member.role) || CUSTOM;
+  }
+
+  async function applyChoice(member, choice) {
+    // Custom is not a thing to apply — it is the door to the grid.
+    if (choice === CUSTOM) return openAccess(member);
+
+    const isAdmin = choice === ADMIN;
+    const role = isAdmin ? "admin" : PRESET_TO_ROLE[choice];
+    const permissions = isAdmin
+      ? { isAdministrator: true }
+      : { ...emptyPermissionValues(), ...PERMISSION_PRESETS[choice].values };
+
+    setSavingUserId(member.userId);
+    setError("");
+    try {
+      const res = await fetch(`/api/settings/members/${member.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(role !== member.role ? { role } : {}),
+          permissions,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || t("app.setTeam.errRole"));
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingUserId(null);
+    }
+  }
 
   function openAccess(member) {
     const stored = member.permissions || {};
@@ -368,21 +432,6 @@ export default function TeamOverviewPage() {
                   {m.user.name}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{m.user.email}</div>
-                {/* In the name cell rather than a column of its own — the grid
-                    is four cells wide and a fifth would knock every row out of
-                    alignment with the header.
-                    Opens the same editor New User uses. The role dropdown
-                    beside it changes the TIER; this changes what they can
-                    actually do, which had no editor at all. */}
-                {canEdit(m) && (
-                  <button
-                    type="button"
-                    onClick={() => openAccess(m)}
-                    className="mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
-                  >
-                    {t("app.setTeam.editAccess", "Edit access")}
-                  </button>
-                )}
               </div>
 
               {/* Read-only badge when this member is at or above the viewer's
@@ -400,25 +449,26 @@ export default function TeamOverviewPage() {
                   {ROLE_LABELS[m.role] || m.role}
                 </span>
               ) : (
+                /* ── One control, offering exactly what New User offers ─────
+                   This used to be a three-entry ROLE dropdown sitting next to
+                   a separate "Edit access" link — two controls for one
+                   concept, and neither matched the five presets on the invite
+                   screen. The owner asked twice why the two screens disagreed;
+                   the answer was that this one was listing tiers while the
+                   other listed presets.
+                   Same list now: the presets, Administrator, and Custom…,
+                   which opens the full grid. Picking a preset applies its role
+                   AND its permissions in one go, exactly as creating someone
+                   with it does. */
                 <select
-                  value={m.role}
+                  value={currentChoice(m)}
                   disabled={savingUserId === m.userId}
-                  onChange={(e) => updateRole(m, e.target.value)}
+                  onChange={(e) => applyChoice(m, e.target.value)}
                   className="text-xs border border-border rounded-full px-2.5 py-1 bg-card"
                 >
-                  {/* Their current role is always listed even if it's not
-                      assignable, so the select has a valid selected value. */}
-                  {Array.from(
-                    new Set([m.role, ...(grants.assignableRoles || [])]),
-                  ).map((r) => (
-                    <option
-                      key={r}
-                      value={r}
-                      disabled={
-                        r !== m.role && !grants.assignableRoles?.includes(r)
-                      }
-                    >
-                      {ROLE_LABELS[r] || r}
+                  {choicesFor(m).map((c) => (
+                    <option key={c.value} value={c.value} disabled={c.disabled}>
+                      {c.label}
                     </option>
                   ))}
                 </select>
