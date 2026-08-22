@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "@/lib/auth-client";
+import { useImpersonation } from "@/app/hooks/useImpersonation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import TrialBadge from "@/app/components/layout/TrialBadge";
 import {
@@ -28,6 +29,7 @@ import {
   Gift,
   Sparkles,
   Compass,
+  Eye,
   UserCog,
   ListTodo,
   CreditCard,
@@ -194,6 +196,8 @@ export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+  // Null unless this is a support session — see the identity row below.
+  const impersonation = useImpersonation();
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -541,7 +545,33 @@ export default function AdminSidebar() {
             it never dominates the drawer on a phone. Everything else scrolls. */}
         <div className="px-3 py-3 border-t border-sidebar-border space-y-1">
           {/* Profile + trial countdown */}
-          {session?.user && (
+          {/* ── Whose account is this? ──────────────────────────────────
+              During a support session the Better Auth session still belongs to
+              whoever is signed in on this browser, so this row showed THEIR
+              name while the page rendered a customer's data. QA saw "jonny"
+              the whole time they were inside another company.
+              The support admin's own email replaces it, with the company named
+              underneath — so the answer to "whose account am I in" is on
+              screen, not only in a banner at the top that scrolls away. */}
+          {impersonation ? (
+            <div className={`flex items-center gap-2.5 px-3 py-2 rounded-lg bg-amber-500/15 ${showLabel ? "" : "justify-center"}`}>
+              <div className="w-7 h-7 rounded-full bg-amber-500 text-[#2d2520] flex items-center justify-center text-xs font-semibold shrink-0">
+                <Eye size={14} />
+              </div>
+              {showLabel && (
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-sidebar-foreground truncate">
+                    {impersonation.adminEmail || t("app.nav.support", "Support")}
+                  </span>
+                  <span className="block text-[11px] text-sidebar-muted-foreground truncate">
+                    {t("app.nav.viewingCompany", "viewing {company}", {
+                      company: impersonation.companyName,
+                    })}
+                  </span>
+                </span>
+              )}
+            </div>
+          ) : session?.user && (
             <Link
               href="/app/settings/account-billing"
               title={showLabel ? undefined : session.user.name}

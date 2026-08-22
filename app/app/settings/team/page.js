@@ -39,6 +39,8 @@ export default function TeamOverviewPage() {
   const canAdd = access.canChange("user:manage");
   const { dateFormat } = useCompanyPreferences();
   const [members, setMembers] = useState([]);
+  // Workers with no linked login. See the section that renders them.
+  const [unlinkedWorkers, setUnlinkedWorkers] = useState([]);
   const [pending, setPending] = useState([]);
   const [seats, setSeats] = useState({ used: 0, limit: null });
   const [loading, setLoading] = useState(true);
@@ -69,11 +71,18 @@ export default function TeamOverviewPage() {
       fetch("/api/settings/members/self/role").then((r) =>
         r.ok ? r.json() : { assignableRoles: [] },
       ),
-    ]).then(([memberData, pendingData, grantData]) => {
+      // Worker and Member are separate rosters and they have drifted. A worker
+      // with userId: null is schedulable and payable — QA found one sitting in
+      // a $232.17 pay-run line — and did not appear on this page at all.
+      fetch("/api/workers").then((r) => (r.ok ? r.json() : [])),
+    ]).then(([memberData, pendingData, grantData, workerData]) => {
       setMembers(Array.isArray(memberData) ? memberData : []);
       setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
       setSeats(pendingData.seats || { used: 0, limit: null });
       setGrants(grantData);
+      setUnlinkedWorkers(
+        (Array.isArray(workerData) ? workerData : []).filter((w) => !w.userId),
+      );
     });
   }, []);
 
@@ -397,6 +406,61 @@ export default function TeamOverviewPage() {
           )}
         </div>
       </div>
+
+      {/* ── People on the books with no login ───────────────────────────────
+          Worker and Member are separate rosters, and they drift: a worker
+          created without a linked user is selectable in the shift scheduler
+          and the timesheet form, and gets paid — QA found one carrying a
+          $232.17 pay-run line — while being completely absent from this page.
+          A manager could schedule and pay someone they could not see.
+          Listed read-only. There is no role and no access to toggle, because
+          there is no login; that is the whole point, and inventing controls
+          for it would be worse than the omission. */}
+      {unlinkedWorkers.length > 0 && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">
+              {t("app.setTeam.noLoginTitle", "On the payroll, no login")}
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t(
+                "app.setTeam.noLoginBody",
+                "They can be scheduled and paid, but they can't sign in. Manage them under Workers.",
+              )}
+            </p>
+          </div>
+          <div className="divide-y divide-border">
+            {unlinkedWorkers.map((w) => (
+              <div
+                key={w.id}
+                className="flex items-center justify-between gap-3 px-5 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">
+                    {w.name}
+                  </div>
+                  {w.email && (
+                    <div className="text-xs text-muted-foreground truncate">
+                      {w.email}
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-muted text-muted-foreground shrink-0">
+                  {t("app.setTeam.noLoginBadge", "No login")}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-3 border-t border-border">
+            <Link
+              href="/app/settings/team/workers"
+              className="text-sm font-medium underline underline-offset-2"
+            >
+              {t("app.setTeam.openWorkers", "Open Workers")}
+            </Link>
+          </div>
+        </div>
+      )}
 
       <p className="text-xs text-muted-foreground">
         {t("app.setTeam.ownerNote")}
