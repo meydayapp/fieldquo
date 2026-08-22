@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
 import Sparkline from "@/app/components/platform/Sparkline";
+import TenantBoard from "./TenantBoard";
 
 export default function PlatformDashboardPage() {
   // ── Two boards, because they are two businesses ─────────────────────────
@@ -329,42 +330,10 @@ export default function PlatformDashboardPage() {
 
       {board === "tenants" && (
       <>
-      {/* What our customers run through the product. Never beside our own
-          revenue — that adjacency is what made $473,558 of THEIR invoices read
-          as ours. */}
-      <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-          Flowing through FieldQuo
-        </h2>
-        <p className="text-xs text-muted-foreground mb-3">
-          What your customers&apos; clients paid <em>them</em>. Product health,
-          not your income — and now excluding the ten seeded demo companies,
-          which were contributing 99% of these figures.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label="Total billed"
-            value={money(data.totalBilled, { compact: true })}
-            note="All payments recorded, all time"
-          />
-          <MetricCard
-            label="Quoted value"
-            value={money(data.quotedValue, { compact: true })}
-            note={`${count(data.totalQuotes)} quotes — most never convert`}
-          />
-          <MetricCard
-            label="Invoiced value"
-            value={money(data.invoicedValue, { compact: true })}
-            note={`${count(data.totalInvoices)} invoices`}
-          />
-          <MetricCard
-            label="This month"
-            value={`${count(data.quotesThisMonth)} quotes`}
-            note={`${count(data.jobsThisMonth)} jobs created`}
-          />
-        </div>
-      </section>
-
+      {/* How the companies using FieldQuo are actually doing.
+          Lifted into its own component: it fetches its own data and this page
+          already had 400 lines of FieldQuo's own numbers. */}
+      <TenantBoard />
       </>
       )}
 
