@@ -42,6 +42,10 @@ export default function PlatformDemoPage() {
   const [busy, setBusy] = useState(null);
   const [confirming, setConfirming] = useState(null); // `${companyId}:${industry}`
   const [entering, setEntering] = useState(null);
+  // Which demo's "set a login" form is open, and what's typed in it.
+  const [loginFor, setLoginFor] = useState(null);
+  const [password, setPassword] = useState("");
+  const [loginMsg, setLoginMsg] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/platform/demo");
@@ -105,6 +109,30 @@ export default function PlatformDemoPage() {
       window.open("/app", "_blank", "noopener");
     } finally {
       setEntering(null);
+    }
+  }
+
+  async function createLogin(company) {
+    setLoginMsg(null);
+    try {
+      const res = await fetch("/api/platform/demo/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyId: company.id, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoginMsg({ tone: "bad", text: data.error || "Couldn't create that login." });
+        return;
+      }
+      setLoginMsg({
+        tone: "good",
+        text: `Login created: ${data.email}. Sign in at /login with the password you just set.`,
+      });
+      setPassword("");
+      await load();
+    } catch {
+      setLoginMsg({ tone: "bad", text: "Couldn't reach the server." });
     }
   }
 
@@ -238,7 +266,13 @@ export default function PlatformDemoPage() {
                     out, which is exactly the state they should be demoed in. */}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[
-                    ["Website", `https://${d.slug}.fieldquo.com`],
+                    // The website only exists once somebody publishes one.
+                    // Linked conditionally rather than always: a dead link
+                    // mid-demo is worse than no link, and every demo 404'd
+                    // here until this was checked against production.
+                    ...(d.sitePublished && d.site
+                      ? [["Website", `https://${d.slug}.fieldquo.com`]]
+                      : []),
                     ["Booking page", `/book/${d.slug}`],
                     ["Instant quote", `/instant-quote/${d.slug}`],
                     ["Request a quote", `/quote/${d.slug}`],
@@ -254,6 +288,11 @@ export default function PlatformDemoPage() {
                       <ExternalLink size={11} />
                     </a>
                   ))}
+                  {!(d.sitePublished && d.site) && (
+                    <span className="inline-flex items-center text-xs text-muted-foreground px-2.5 py-1">
+                      No website published — build one in the demo to show it
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-3 pt-3 border-t border-border flex items-center gap-3 flex-wrap">
@@ -273,7 +312,61 @@ export default function PlatformDemoPage() {
                     Opens this company as its owner. You can create quotes and
                     invoices — it&apos;s a fixture, not a customer.
                   </span>
+
+                  {d.members?.length > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      Login: <code>{d.members[0].user?.email}</code>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setLoginFor(loginFor === d.id ? null : d.id);
+                        setLoginMsg(null);
+                        setPassword("");
+                      }}
+                      className="text-xs font-semibold text-muted-foreground hover:text-foreground underline decoration-dotted underline-offset-2"
+                    >
+                      {loginFor === d.id ? "Cancel" : "Set a login"}
+                    </button>
+                  )}
                 </div>
+
+                {loginFor === d.id && (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Creates <code>{d.slug}@fieldquo.com</code> as an owner of
+                      this demo. The address is derived from the slug — it
+                      can&apos;t be pointed anywhere else.
+                    </p>
+                    <div className="mt-2 flex gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Password — at least 12 characters"
+                        className="flex-1 min-w-[16rem] text-sm bg-background border border-border rounded-lg px-3 py-1.5 text-foreground placeholder:text-muted-foreground"
+                      />
+                      <button
+                        onClick={() => createLogin(d)}
+                        disabled={password.length < 12}
+                        className="text-sm font-semibold bg-foreground text-background rounded-lg px-3 py-1.5 disabled:opacity-40"
+                      >
+                        Create
+                      </button>
+                    </div>
+                    {loginMsg && (
+                      <p
+                        className={`text-xs mt-2 ${
+                          loginMsg.tone === "good"
+                            ? "text-emerald-700 dark:text-emerald-400"
+                            : "text-amber-800 dark:text-amber-300"
+                        }`}
+                      >
+                        {loginMsg.text}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {confirming?.startsWith(`${d.id}:`) && (
                   <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
