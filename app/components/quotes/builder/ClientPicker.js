@@ -196,7 +196,26 @@ export default function ClientPicker({
               <AddressAutocomplete
                 value={newClient.address}
                 onChange={(v) => onNewClientChange({ address: v })}
-                onPlaceSelected={({ address }) => onNewClientChange({ address })}
+                // city and province were destructured away here, so every
+                // client created through the quote flow's quick-add landed
+                // with province: null — and with autoApplyLocalTax on, the
+                // quote and its invoice rendered $0.00 tax. Silent
+                // under-billing, on the fastest path in the product.
+                //
+                // The autocomplete has always supplied these, and the full
+                // client pages (app/clients/new, app/clients/[id]) have always
+                // kept them. This was the copy that rotted.
+                //
+                // `|| undefined` rather than `|| null`: an autocomplete result
+                // missing a locality should leave whatever was typed alone,
+                // not overwrite it with an absence.
+                onPlaceSelected={({ address, city, province }) =>
+                  onNewClientChange({
+                    address,
+                    city: city || undefined,
+                    province: province || undefined,
+                  })
+                }
                 placeholder={
                   newClient.type === "company"
                     ? "Business address (optional)"

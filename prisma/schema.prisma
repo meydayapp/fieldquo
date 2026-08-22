@@ -405,6 +405,21 @@ model Plan {
   // which should be used sparingly: FieldQuo pays for every token.
   aiMonthlyTokenCap Int?
   features          Json?
+
+  /// Is this plan on the menu, or was it negotiated for one company?
+  ///
+  /// "Custom (2 employees) — $90/mo" was sitting in the customer-facing plan
+  /// picker alongside the three standard plans, with a working Choose plan
+  /// button — so any company could move themselves onto a rate agreed with
+  /// somebody else. A bespoke plan still has to EXIST (its subscribers are on
+  /// it, and it has to render as their current plan); it just must not be
+  /// offered.
+  ///
+  /// Defaults true so every existing standard plan is unaffected. The
+  /// company-facing list filters on this; the platform console shows
+  /// everything, because that is where bespoke plans get made.
+  isPublic          Boolean  @default(true)
+
   createdAt         DateTime @default(now())
 
   subscriptions Subscription[]

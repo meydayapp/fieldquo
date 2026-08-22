@@ -28,6 +28,26 @@ export async function GET(request) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
-  const plans = await db.plan.findMany({ orderBy: { priceMonthly: "asc" } });
+  // ── Bespoke plans are not on the menu ──────────────────────────────────
+  //
+  // This returned every Plan row, so "Custom (2 employees) — $90/mo" — a rate
+  // negotiated with one company — rendered in every company's picker with a
+  // live Choose plan button. A customer could move themselves onto somebody
+  // else's deal.
+  //
+  // The caller's CURRENT plan is always included even when it isn't public:
+  // two companies are on that Custom plan, and a billing page that cannot name
+  // the plan you are paying for is broken in a more obvious way.
+  const subscription = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    select: { planId: true },
+  });
+
+  const plans = await db.plan.findMany({
+    where: subscription?.planId
+      ? { OR: [{ isPublic: true }, { id: subscription.planId }] }
+      : { isPublic: true },
+    orderBy: { priceMonthly: "asc" },
+  });
   return NextResponse.json(plans);
 }

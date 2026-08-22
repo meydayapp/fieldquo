@@ -19,10 +19,16 @@ export async function GET() {
       maxUsers: true,
       maxQuotesPerMonth: true,
       aiCopilotEnabled: true,
-      // Selected only to decide whether the plan may be OFFERED. Stripped
-      // before the response — a price id is an internal identifier and this
-      // endpoint is public.
+      // Both selected only to decide whether the plan may be OFFERED, and
+      // both stripped before the response — a price id is an internal
+      // identifier and this endpoint is public.
+      //
+      // isPublic MUST be selected. isSellable treats a missing column as
+      // "not stated" rather than "private", so that a narrow select can't
+      // silently empty the pricing page — which means omitting it here would
+      // have leaked the bespoke plan instead.
       stripePriceId: true,
+      isPublic: true,
     },
   });
 
@@ -55,7 +61,8 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    plans: sellable.map(({ stripePriceId, ...plan }) => plan),
+    // Both internal fields dropped — the public payload carries neither.
+    plans: sellable.map(({ stripePriceId, isPublic, ...plan }) => plan),
     // The signup page needs to tell "we have no plans configured" apart from
     // "these plans exist but none can be bought right now". They look
     // identical as an empty array and mean completely different things.

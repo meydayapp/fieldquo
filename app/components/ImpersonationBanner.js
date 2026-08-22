@@ -69,7 +69,16 @@ export default function ImpersonationBanner() {
           <span className="font-semibold truncate">
             Viewing {session.companyName}
           </span>
-          <span className="opacity-80">· read-only, nothing can be changed</span>
+          {/* Mode-aware. This said "read-only, nothing can be changed"
+              unconditionally, which is false in a demo sandbox — that mode
+              exists precisely so a quote can be built in front of a prospect.
+              A banner that misdescribes what the session can do is worse than
+              no banner. */}
+          <span className="opacity-80">
+            {session.mode === "demo_sandbox"
+              ? "· demo account, changes here are safe"
+              : "· read-only, nothing can be changed"}
+          </span>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">

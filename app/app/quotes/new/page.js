@@ -77,6 +77,11 @@ export default function NewQuotePage() {
     email: "",
     phone: "",
     address: "",
+    // Set by the address autocomplete, not by a field the user sees. They
+    // decide whether local tax applies, so dropping them meant every
+    // quick-added client was quietly untaxed.
+    city: "",
+    province: "",
   });
 
   const [categories, setCategories] = useState([]);
@@ -587,6 +592,11 @@ export default function NewQuotePage() {
         email: "",
         phone: "",
         address: "",
+        // Cleared with the rest. These arrive from the address autocomplete
+        // rather than a visible field, so a leftover province would silently
+        // attach the previous client's tax region to the next one.
+        city: "",
+        province: "",
       });
     } catch (err) {
       // Keep the panel open with whatever they typed still in it — losing a

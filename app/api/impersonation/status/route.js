@@ -43,9 +43,17 @@ export async function GET(request) {
     companyId: company.id,
     companyName: company.name,
     adminEmail: admin?.email || null,
-    // Approximate: the banner counts down from here rather than decoding the
-    // JWT's exp, which it can't see. The countdown is a courtesy — expiry is
-    // enforced by jose at verification time, not by this number.
-    expiresInSeconds: 30 * 60,
+    // Real remaining time, from the JWT's own exp claim — the same one
+    // jwtVerify enforces. This used to be a hardcoded 30 * 60, so the banner
+    // read "29:5x left" forever and the endpoint returned 1800 on every poll.
+    // Expiry was always enforced; the number just never described it.
+    //
+    // Clamped at 0 rather than going negative: a token this close to the edge
+    // can expire between verification and this line, and "-3 seconds left" is
+    // not something to render.
+    expiresInSeconds:
+      typeof claims.expiresAt === "number"
+        ? Math.max(0, claims.expiresAt - Math.floor(Date.now() / 1000))
+        : null,
   });
 }
