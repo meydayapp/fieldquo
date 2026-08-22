@@ -14,7 +14,12 @@ export default function AcceptInvitationPage() {
 
   const [invite, setInvite] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState("signup"); // "signup" | "signin"
+  // "signup" | "signin". Set from the invitation once it loads — an invited
+  // person who already has a FieldQuo account must SIGN IN, not create a
+  // second one on the same address. Defaulting to signup for everybody is what
+  // produced "User already exists. Use another email" on an invitation that
+  // names the email they have to use.
+  const [mode, setMode] = useState(null);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,6 +36,9 @@ export default function AcceptInvitationPage() {
       ]);
       if (cancelled) return;
       setInvite(inviteRes);
+      // Only set if the visitor hasn't already picked — a stale fetch must not
+      // yank the form out from under someone mid-type.
+      setMode((current) => current ?? (inviteRes?.hasAccount ? "signin" : "signup"));
       setLoading(false);
 
       const sessionEmail = sessionRes?.user?.email?.toLowerCase();
@@ -68,13 +76,33 @@ export default function AcceptInvitationPage() {
     setBusy(true);
     setError("");
     try {
+      // Explicit rather than "anything that isn't signup": a null mode from a
+      // failed invite fetch would otherwise silently attempt a sign-in.
+      if (mode !== "signup" && mode !== "signin") {
+        throw new Error("Still loading — try again in a moment.");
+      }
+
       if (mode === "signup") {
         const r = await signUp.email({
           email: invite.email,
           password,
           name: name.trim() || invite.email,
         });
-        if (r?.error) throw new Error(r.error.message || "Could not create account");
+        if (r?.error) {
+          // Belt and braces: the account could have been created between the
+          // page loading and this submit. Rather than repeat a message that
+          // tells them to use a different email — which would be wrong advice
+          // on an invitation naming this one — switch the form and say what to
+          // do next.
+          if (/already exists/i.test(r.error.message || "")) {
+            setMode("signin");
+            setPassword("");
+            throw new Error(
+              `${invite.email} already has a FieldQuo account. Sign in with your existing password and you'll be added to ${invite.orgName}.`,
+            );
+          }
+          throw new Error(r.error.message || "Could not create account");
+        }
       } else {
         const r = await signIn.email({ email: invite.email, password });
         if (r?.error) throw new Error(r.error.message || "Could not sign in");
@@ -140,6 +168,18 @@ export default function AcceptInvitationPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">
             {error}
+          </div>
+        )}
+
+        {/* Says WHY they're being asked to sign in rather than register.
+            Without it, an invited person who already has an account sees a
+            password field with no explanation and reasonably assumes the
+            invitation is broken. */}
+        {invite.hasAccount && mode === "signin" && (
+          <div className="bg-muted border border-border text-sm text-muted-foreground rounded-lg px-4 py-3 mb-4">
+            You already have a FieldQuo account on this address. Sign in and
+            you&apos;ll be added to <strong>{invite.orgName}</strong> — your
+            existing companies stay exactly as they are.
           </div>
         )}
 
