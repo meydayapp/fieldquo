@@ -58,12 +58,33 @@ export default function ProductsPage() {
   const [importMessage, setImportMessage] = useState("");
   const fileInputRef = useRef(null);
 
+  const [loadError, setLoadError] = useState("");
+
   const load = useCallback(() => {
     setLoading(true);
     const qs = search ? `?q=${encodeURIComponent(search)}` : "";
+    // `.then(r => r.json())` with no res.ok check turned every refusal into an
+    // empty catalogue — and the route's own comment says it refuses outright
+    // rather than blanking prices precisely so this doesn't "read as a broken
+    // screen rather than a boundary". The client then produced exactly that
+    // broken screen, complete with a live Add product button.
+    //
+    // It also hid a real outage: a bad call in the route 403'd everybody,
+    // owner included, and it looked like nobody had any products.
     return fetch(`/api/products${qs}`)
-      .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(data?.error || "Couldn't load the price book.");
+        return data;
+      })
+      .then((data) => {
+        setLoadError("");
+        setProducts(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        setLoadError(err.message);
+        setProducts([]);
+      })
       .finally(() => setLoading(false));
   }, [search]);
 
@@ -207,6 +228,16 @@ export default function ProductsPage() {
           {t("app.setProducts.subtitle")}
         </p>
       </div>
+
+      {/* A refusal, said out loud. This screen used to render an empty
+          catalogue with a working Add product button for anyone the API turned
+          away — which is the "broken screen rather than a boundary" the route
+          explicitly set out to avoid. */}
+      {loadError && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {loadError}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <div className="relative flex-1 max-w-xs">

@@ -30,6 +30,7 @@ import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
   redactPay,
+  hasLevel,
 } from "@/lib/permissions/enforce";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
 import { checkUserLimit } from "@/lib/platform/planLimits";
@@ -455,9 +456,13 @@ export async function PATCH(request) {
   // it belongs to the people who own the company's account, not to whoever can
   // edit a roster.
   //
-  // Scoped to the `active` flag ONLY. A Manager can still invite, still edit
-  // contact details, still set a labour rate — everything the permission was
+  // Scoped to the `active` flag ONLY. A Manager can still invite and still
+  // edit contact details for people below them — what the permission was
   // actually for. Creating access stays where it was; removing it moves up.
+  //
+  // (This comment used to add "still set a labour rate". That stopped being
+  // true when the pay clamp below was added — a rate is payroll wherever it is
+  // written from.)
   if (active !== undefined && !canRevokeAccess(member.role)) {
     return NextResponse.json(
       {
@@ -490,6 +495,42 @@ export async function PATCH(request) {
       },
       { status: 400 },
     );
+  }
+
+  // ── Rank applies to EVERY field, not only the active flag ──────────────
+  //
+  // The guard below was scoped to `active === false`, which closed the
+  // lockout and left the sideways edit wide open: a supervisor could PATCH the
+  // OWNER's userId and rewrite their phone, home address, profile image and
+  // pay rate. user:manage means "may run a crew", and the owner is not on
+  // anyone's crew.
+  //
+  // Editing YOURSELF stays allowed — your own phone number is yours — and the
+  // self-deactivation guard above already refuses the one self-edit that
+  // matters.
+  if (userId !== member.userId && rankOf(target.role) >= rankOf(member.role)) {
+    return NextResponse.json(
+      {
+        error:
+          "You can only change details for team members below your own role.",
+      },
+      { status: 403 },
+    );
+  }
+
+  // ── A pay rate is payroll, wherever it is set from ─────────────────────
+  //
+  // POST clamps laborCostPerHour behind the payroll level; PATCH wrote it
+  // behind nothing but user:manage. So the rate a Manager cannot read on the
+  // Workers tab, and cannot set on an invite, could still be written here.
+  if (laborCostPerHour !== undefined) {
+    const actor = await loadEnforceableMember(db, member.id);
+    if (!hasLevel(actor, "payroll", "view_all")) {
+      return NextResponse.json(
+        { error: "You don't have access to pay rates. Ask an owner or admin." },
+        { status: 403 },
+      );
+    }
   }
 
   // Rank, not just self. An admin deactivating an OWNER is the same

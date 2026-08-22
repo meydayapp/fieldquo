@@ -50,7 +50,17 @@ export async function GET(request) {
   // stripped — a catalogue of names with no prices would read as a broken
   // screen rather than a boundary.
   try {
-    const full = await loadEnforceableMember(member);
+    // (db, memberId) — this passed (member), so `db` was the member object and
+    // `memberId` was undefined. loadEnforceableMember returns null for a
+    // missing id (deliberately: a check that can't identify the caller should
+    // refuse), requireToggle(null) therefore threw, and GET /api/products
+    // answered 403 to EVERYONE — the owner included.
+    //
+    // It looked like an empty price book rather than an error, because the
+    // page ignored res.ok and rendered [] (fixed alongside this). The only
+    // call site in the repo with the wrong arity; every other one already
+    // passes (db, member.id).
+    const full = await loadEnforceableMember(db, member.id);
     requireToggle(full, "showPricing", "see the price book");
   } catch (err) {
     return denied(err);

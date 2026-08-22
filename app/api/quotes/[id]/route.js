@@ -10,6 +10,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  redactQuote,
 } from "@/lib/permissions/enforce";
 import {
   reconcileScopeGroups,
@@ -58,7 +59,13 @@ export async function GET(request, { params }) {
   });
   const importedGroupIds = imports.map((i) => i.targetLineId);
 
-  return NextResponse.json({ ...quote, importedGroupIds });
+  // Shaped by the same entry point the list route uses. GET /api/quotes has
+  // been redacting for a while and this route wasn't, which made the
+  // restriction cosmetic: the token and the client's email were one click away
+  // on the detail endpoint. Redacting after the spread rather than before it so
+  // importedGroupIds can't reintroduce a key the redactor just removed.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(redactQuote(full, { ...quote, importedGroupIds }));
 }
 
 // Quotes are edited directly, not versioned — unlike invoices, there's no signed
@@ -70,8 +77,12 @@ export async function PATCH(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Hoisted out of the try because the response below is redacted with it too.
+  // Re-querying the member for that would be a second round trip to learn
+  // something already known.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "quotes", "view_create_edit", "edit quotes");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -199,7 +210,13 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  return NextResponse.json(updated);
+  // Redacted as well as GET. The share token passes through here by definition
+  // — this handler already required view_create_edit, which is exactly what
+  // redactShareToken gates on — but `include: { client: true }` is a whole
+  // client row, so an editor restricted to name_address_only would otherwise
+  // read the email back out of their own save. Making the save response differ
+  // from the GET would also leave the page holding fields it can't refetch.
+  return NextResponse.json(redactQuote(full, updated));
 }
 
 export async function DELETE(request, { params }) {

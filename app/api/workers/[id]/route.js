@@ -14,17 +14,50 @@ export async function GET(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // ── One worker's record is payroll too ──────────────────────────────────
+  //
+  // GET /api/workers already redacts pay rates for a caller whose payroll
+  // level is view_own. This route — the same data, one row at a time — handed
+  // back hourlyRate AND the payout history to anyone signed in. A list guard
+  // that the detail endpoint doesn't share isn't a guard, it's a speed bump:
+  // read the ids from the list, fetch them one by one, get everything.
+  const full = await loadEnforceableMember(db, member.id);
+  const seesPay = canSeeAllPay(full);
+
   const worker = await db.worker.findFirst({
     where: { id: _params.id, companyId: member.companyId },
     include: {
+      // Timesheets stay for everyone who can reach the record: hours worked
+      // are scheduling data, and the rate on them is what's sensitive —
+      // redactPay strips that from the nested worker below.
       timeEntries: { orderBy: { clockIn: "desc" }, take: 20 },
-      payouts: { orderBy: { createdAt: "desc" }, take: 10 },
+      // Payouts are what somebody was actually paid. Not fetched at all rather
+      // than fetched and dropped, so there is no shaped-payload mistake to
+      // make later.
+      ...(seesPay
+        ? { payouts: { orderBy: { createdAt: "desc" }, take: 10 } }
+        : {}),
     },
   });
 
   if (!worker)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(worker);
+
+  // Your own payslips are yours. redactPay keeps your own rate visible for
+  // exactly this reason, and hiding the payments while showing the rate would
+  // be an odd half-measure — so the own-record case gets its payouts back,
+  // with the second query paid only on that branch.
+  if (!seesPay && worker.userId && worker.userId === member.userId) {
+    worker.payouts = await db.payout.findMany({
+      where: { workerId: worker.id },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+  }
+
+  return NextResponse.json(
+    redactPay(full, worker, { ownUserId: member.userId }),
+  );
 }
 
 export async function PATCH(request, { params }) {

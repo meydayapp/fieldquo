@@ -80,6 +80,56 @@ for (const [label, r] of openReads) {
     /requirePermission|requireLevel|hasLevel|isPayrollAdmin|isBillingAdmin/.test(body));
 }
 
+console.log("\nloadEnforceableMember is called with (db, memberId) everywhere");
+// GET /api/products called it as loadEnforceableMember(member) — one argument.
+// `memberId` was undefined, the helper returned null (deliberately: a check
+// that can't identify the caller refuses), requireToggle threw, and the route
+// answered 403 to EVERYONE including the owner. It looked like an empty price
+// book because the page ignored res.ok.
+//
+// Grepped rather than executed: the failure is an arity mistake, and arity is
+// visible in the source.
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+function walk(dir, out = []) {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) walk(p, out);
+    else if (p.endsWith(".js")) out.push(p);
+  }
+  return out;
+}
+const root = new URL("../", import.meta.url).pathname;
+const bad = [];
+for (const f of [...walk(join(root, "app")), ...walk(join(root, "lib"))]) {
+  const src = readFileSync(f, "utf8");
+  for (const m of src.matchAll(/loadEnforceableMember\(([^)]*)\)/g)) {
+    const args = m[1].trim();
+    if (!args || args.startsWith("db,") || args.startsWith("db ,")) continue;
+    if (/^db\b/.test(args)) continue;
+    bad.push(`${f.replace(root, "")}: loadEnforceableMember(${args})`);
+  }
+}
+t(`every call site passes (db, …)${bad.length ? " — " + bad.join("; ") : ""}`, bad.length, 0);
+t("the price book route specifically",
+  /loadEnforceableMember\(db, member\.id\)/.test(read("../app/api/products/route.js")));
+t("the products page surfaces a refusal instead of an empty list",
+  /loadError/.test(read("../app/app/settings/products/page.js")));
+
+console.log("\nRank applies to every field, not just the active flag");
+// The lockout fix was scoped to `active === false`, which left the sideways
+// edit open: a supervisor could PATCH the OWNER's row and rewrite their phone,
+// home address and pay rate.
+const MEMBERS = read("../app/api/settings/members/route.js");
+t("PATCH refuses editing someone at or above your rank",
+  /userId !== member\.userId && rankOf\(target\.role\) >= rankOf\(member\.role\)/.test(MEMBERS));
+t("...but you can still edit yourself", /userId !== member\.userId/.test(MEMBERS));
+t("PATCH clamps the pay rate like POST does",
+  /laborCostPerHour !== undefined/.test(MEMBERS) &&
+  /hasLevel\(actor, "payroll", "view_all"\)/.test(MEMBERS));
+t("the comment no longer claims a Manager may set a rate",
+  !/still set a labour rate — everything/.test(MEMBERS));
+
 console.log("\nThe orphaned template CRUD is no longer open");
 // No UI calls these, and they write the same rows
 // /api/settings/document-templates guards. An orphan is not proof nothing

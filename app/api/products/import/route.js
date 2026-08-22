@@ -1,9 +1,38 @@
 // app/api/products/import/route.js
+//
+// Bulk-create price book rows from a CSV.
+//
+// ── Why this route has a guard now ─────────────────────────────────────────
+//
+// ../route.js was hardened and this was missed. POST /api/products refuses
+// anyone below admin, and this endpoint — which creates the same rows, with
+// the same sell prices and costs, hundreds at a time — accepted any signed-in
+// member. The bulk door was wider than the single-item one it duplicates.
+//
+// Owner/admin, matching the writes in ../route.js: a rate card is a business
+// decision, not a job.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+
+/**
+ * Owner/admin only. Mirrors requireCatalogueWrite in ../route.js.
+ *
+ * Restated here rather than imported from that file: importing across route
+ * modules would drag a whole set of request handlers (and their Better Auth
+ * and translation imports) into this one's bundle to reuse four lines. If a
+ * third catalogue writer ever appears, this belongs in lib/ — with two, the
+ * shared home would cost more than it saves.
+ */
+function requireCatalogueWrite(member) {
+  if (!["owner", "admin"].includes(member.role)) {
+    const err = new Error("Only an owner or admin can change the price book.");
+    err.status = 403;
+    throw err;
+  }
+}
 
 // Minimal CSV parser — good enough for the simple, no-embedded-commas export
 // this pairs with (see /api/products/export). If you need to support
@@ -27,6 +56,17 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Checked before the file is read, so a refused caller never gets as far as
+  // having their upload parsed.
+  try {
+    requireCatalogueWrite(member);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status || 403 },
+    );
+  }
 
   const formData = await request.formData();
   const file = formData.get("file");

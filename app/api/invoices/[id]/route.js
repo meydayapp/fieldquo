@@ -9,6 +9,8 @@ import {
   requireLevel,
   requireToggle,
   permissionErrorResponse,
+  redactClient,
+  redactQuote,
 } from "@/lib/permissions/enforce";
 import { normaliseMediaList } from "@/lib/media/validate";
 
@@ -32,7 +34,22 @@ export async function GET(request, { params }) {
 
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(invoice);
+
+  // An invoice has no share token of its own, but it carries two things that do
+  // need shaping: the full client row, and the originating quote — whose
+  // shareToken opens the priced public page with no credential at all. Hiding
+  // that token on the quote routes and handing it out through the invoice would
+  // be the same leak behind a different URL.
+  //
+  // redactQuote rather than redactShareToken for the nested quote: it is the
+  // single entry point, so if this include ever grows `quote: { client }` the
+  // nested client is already covered instead of quietly slipping through.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json({
+    ...invoice,
+    client: redactClient(full, invoice.client),
+    quote: redactQuote(full, invoice.quote),
+  });
 }
 
 // Editing an invoice creates a new VERSION rather than mutating in place, once it's
@@ -44,8 +61,11 @@ export async function PATCH(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Hoisted out of the try: both response paths below redact the client with
+  // it, and loading the member twice to learn the same thing is waste.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "edit invoices");
     requireToggle(full, "showPricing", "edit invoices");
   } catch (err) {
@@ -93,7 +113,14 @@ export async function PATCH(request, { params }) {
       },
       include: { client: true },
     });
-    return NextResponse.json(updated);
+    // Same shape GET returns. Permission to edit an invoice is not permission
+    // to read the client's private fields — those are a separate dial — and a
+    // save response that carried more than the refetch would put data on screen
+    // that vanishes on reload.
+    return NextResponse.json({
+      ...updated,
+      client: redactClient(full, updated.client),
+    });
   }
 
   // Already sent — snapshot a new version instead of silently rewriting history
@@ -137,7 +164,10 @@ export async function PATCH(request, { params }) {
     include: { client: true },
   });
 
-  return NextResponse.json(newVersion, { status: 201 });
+  return NextResponse.json(
+    { ...newVersion, client: redactClient(full, newVersion.client) },
+    { status: 201 },
+  );
 }
 
 export async function DELETE(request, { params }) {
