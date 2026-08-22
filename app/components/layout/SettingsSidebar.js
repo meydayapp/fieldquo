@@ -222,7 +222,11 @@ export default function SettingsSidebar() {
 
   function renderItem(item, { onNavigate } = {}) {
     const Icon = item.icon;
-    const active = isActive(item.href);
+    // Only the item `current` resolved to — the longest match — is highlighted.
+    // This used to call isActive() per item, which is a PREFIX test, so
+    // /app/settings/team/timesheets lit up every ancestor that happened to be
+    // in the list. More than one "you are here" is no "you are here".
+    const active = current?.href === item.href;
     return (
       <Link
         key={item.href}
