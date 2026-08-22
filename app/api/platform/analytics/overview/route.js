@@ -198,9 +198,36 @@ export async function GET(request) {
       select: { createdAt: true, amount: true },
     }),
 
-    db.payment.aggregate({ _sum: { amount: true } }),
-    db.quote.aggregate({ _sum: { total: true }, _count: true }),
-    db.invoice.aggregate({ _sum: { total: true }, _count: true }),
+    // ── Scoped to real companies, which they were not ─────────────────────
+    //
+    // These three had no `where` clause at all while every company COUNT on
+    // the same dashboard used NOT_DEMO. So the numerators came from one
+    // population and the denominators from another, and the money was mostly
+    // fiction: of $473,558 "invoiced", $470,562 belonged to the ten seeded
+    // demo companies. 99.4%. Quoted value was worse — $2,300,456 of which
+    // $2,253,040 was seed data.
+    //
+    // A demo company is a sales fixture with invented invoices to Sarah
+    // Mitchell. Counting its $168,562 roofing invoice as product volume makes
+    // the dashboard describe a business that does not exist.
+    // Payment has no companyId of its own — it hangs off the invoice it paid,
+    // so the demo filter has to travel through that relation. Caught by
+    // running it: the direct `company` filter is a validation error, not a
+    // silent no-op, but only if somebody executes the query.
+    db.payment.aggregate({
+      _sum: { amount: true },
+      where: { invoice: { company: NOT_DEMO } },
+    }),
+    db.quote.aggregate({
+      _sum: { total: true },
+      _count: true,
+      where: { company: NOT_DEMO },
+    }),
+    db.invoice.aggregate({
+      _sum: { total: true },
+      _count: true,
+      where: { company: NOT_DEMO },
+    }),
   ]);
 
   // `activeSubscriptions` now also carries trialing rows, so anything that
