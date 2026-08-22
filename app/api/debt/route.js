@@ -11,6 +11,15 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Company debt — the POST on this same file is commented "owner/admin-only,
+  // financial data" and the GET had nothing. Mutations gated, reads open is
+  // the shape most of these gaps take.
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json({ error: "Only an owner or admin can see the company's debt." }, { status: 403 });
+  }
+
   const debts = await db.debt.findMany({
     where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },

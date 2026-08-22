@@ -45,6 +45,14 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // The company's fixed monthly costs — rent, insurance, vehicle payments. The
+  // write path is gated; the read was not.
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json({ error: "Only an owner or admin can see the company's overhead." }, { status: 403 });
+  }
+
   const rows = await db.expense.findMany({
     where: { companyId: member.companyId, isOverhead: true, recurring: true },
     select: { id: true, category: true, amount: true, frequency: true, notes: true },

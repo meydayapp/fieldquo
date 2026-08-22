@@ -11,6 +11,7 @@ import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function initials(name) {
@@ -25,7 +26,11 @@ function initials(name) {
   );
 }
 
-const ROLE_LABEL = { owner: "Owner", admin: "Admin", supervisor: "Supervisor", employee: "Employee" };
+// Was a private copy saying Admin/Supervisor/Employee while Manage Team said
+// Administrator/Manager/Worker for the same people — the third copy of this
+// map, and the one that survived the last sweep. roleManagement.js claims to
+// be "the ONLY definition"; it is now.
+const ROLE_LABEL = ROLE_LABELS;
 
 function when(iso) {
   return new Date(iso).toLocaleString(undefined, {

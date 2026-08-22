@@ -6,11 +6,23 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { runContractorPayoutsForCompany } from "@/lib/payroll/stripeConnectPayout";
+import { isPayrollAdmin } from "@/lib/permissions/settingsAccess";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Every contractor payment — amount, worker, status — was returned to any
+  // signed-in member. Same rule as the payroll pages.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "payroll", "view_all")) {
+    return NextResponse.json(
+      { error: "You can only see your own payslips. Ask an owner for payroll access." },
+      { status: 403 },
+    );
+  }
 
   const payouts = await db.payout.findMany({
     where: { worker: { companyId: member.companyId } },
@@ -30,7 +42,16 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    requirePermission(member.role, "user:manage"); // owner/admin-only, moves real money
+    // The comment said "owner/admin-only, moves real money" and the code said
+    // user:manage — which SUPERVISORS hold. A Manager, whose preset explicitly
+    // promises payroll is excluded, could run contractor payouts through
+    // Stripe Connect. The comment was right; the check wasn't.
+    if (!isPayrollAdmin(member.role)) {
+      return NextResponse.json(
+        { error: "Only an owner or admin can run payouts." },
+        { status: 403 },
+      );
+    }
   } catch (err) {
     return NextResponse.json(
       { error: "Only owners/admins can run payouts" },

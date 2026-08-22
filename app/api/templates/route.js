@@ -4,11 +4,32 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ── This route has no UI and no permission check ────────────────────────
+  //
+  // It reads and writes `documentTemplate` — the same rows
+  // /api/settings/document-templates guards with user:manage — while requiring
+  // nothing but a session. Nothing in app/, components/ or lib/ calls it: the
+  // PDF Templates page uses the guarded route. So any employee could curl this
+  // and destroy the company's quote and invoice templates.
+  //
+  // Gated rather than deleted: an orphan in this repo is not proof nothing
+  // reaches it, and a 403 is safe whether or not something does. It should be
+  // removed once that is confirmed.
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json(
+      { error: "Only an owner or admin can change document templates." },
+      { status: 403 },
+    );
+  }
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
@@ -27,6 +48,26 @@ export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ── This route has no UI and no permission check ────────────────────────
+  //
+  // It reads and writes `documentTemplate` — the same rows
+  // /api/settings/document-templates guards with user:manage — while requiring
+  // nothing but a session. Nothing in app/, components/ or lib/ calls it: the
+  // PDF Templates page uses the guarded route. So any employee could curl this
+  // and destroy the company's quote and invoice templates.
+  //
+  // Gated rather than deleted: an orphan in this repo is not proof nothing
+  // reaches it, and a 403 is safe whether or not something does. It should be
+  // removed once that is confirmed.
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json(
+      { error: "Only an owner or admin can change document templates." },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const { type, name, duplicateFromId } = body;

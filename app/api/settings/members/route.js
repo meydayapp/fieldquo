@@ -25,16 +25,13 @@ import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import {
   rankOf,
   canRevokeAccess,
-  assignableRoles,
-  ROLE_LABELS,
-  clampPermissions,
 } from "@/lib/permissions/roleManagement";
 import { recordActivity } from "@/lib/activity/log";
 import {
-  hasLevel,
   loadEnforceableMember,
   redactPay,
 } from "@/lib/permissions/enforce";
+import { validateInvite } from "@/lib/permissions/inviteGuard";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -220,63 +217,25 @@ export async function POST(request) {
   // whether THIS caller may hand it out — so a Manager (supervisor, whose
   // assignableRoles is exactly ["employee"]) could POST role:"admin" and get a
   // 201. Invite yourself at a second address as an Administrator, accept, and
-  // you hold billing and payroll. The whole path was clickable: the New User
-  // form rendered a "Make administrator" checkbox for them.
+  // you hold billing and payroll.
   //
-  // PATCH /role has enforced this correctly all along via validateRoleChange.
-  // Only CREATE was open — which is the more dangerous of the two, because a
-  // new member starts with whatever they were given rather than being changed
-  // into it.
-  const allowed = assignableRoles(member.role);
-  if (!allowed.includes(role)) {
-    return NextResponse.json(
-      {
-        error: allowed.length
-          ? `As ${ROLE_LABELS[member.role]?.toLowerCase() || member.role}, you can only add: ${allowed
-              .map((r) => ROLE_LABELS[r] || r)
-              .join(", ")}.`
-          : "You can't add team members.",
-      },
-      { status: 403 },
-    );
-  }
-
-  // isAdministrator is a second door to the same room: the New User page uses
-  // it to mean "full access, ignore the grid". Refusing it separately, because
-  // a caller who cannot assign `admin` must not be able to grant admin-shaped
-  // permissions under a different key.
-  if (permissions?.isAdministrator === true && !allowed.includes("admin")) {
-    return NextResponse.json(
-      { error: "You can't give someone full administrator access." },
-      { status: 403 },
-    );
-  }
-
-  // ── You cannot hand out more than you hold ─────────────────────────────
-  //
-  // The granular grid was stored verbatim on create. PATCH /role has clamped
-  // it all along; create did not, so a Manager whose own payroll level is
-  // view_own could invite someone with payroll: run_payroll and reach the
-  // payroll they are denied through a person they hired.
-  //
-  // laborCostPerHour is clamped by the same reasoning: it is a pay rate, and
-  // QA set one to 99 on a probe invite. Someone who cannot see pay must not
-  // be able to set it.
+  // Shared with /api/team/quick-add, which had the identical hole and did not
+  // get the identical fix. See lib/permissions/inviteGuard.js.
   const actorMember = await db.member.findUnique({
     where: { id: member.id },
     select: { role: true, permissions: true },
   });
-  const safePermissions = clampPermissions(
-    actorMember?.role,
-    actorMember?.permissions,
+  const vetted = validateInvite({
+    actor: actorMember,
+    role,
     permissions,
-  );
-  const canSetPay = hasLevel(
-    { role: actorMember?.role, permissions: actorMember?.permissions },
-    "payroll",
-    "view_all",
-  );
-  const safeLaborCost = canSetPay ? (laborCostPerHour ?? null) : null;
+    laborCostPerHour,
+  });
+  if (!vetted.ok) {
+    return NextResponse.json({ error: vetted.error }, { status: vetted.status });
+  }
+  const safePermissions = vetted.permissions;
+  const safeLaborCost = vetted.laborCostPerHour;
 
   const cleanEmail = String(email).trim().toLowerCase();
 

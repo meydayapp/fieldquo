@@ -2,8 +2,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { getExpenseSummaryData } from "@/lib/analytics/expenseSummaryData";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 // Powers the Expense Tracking dashboard: this month's totals, a by-category
 // breakdown, a job-vs-overhead-vs-general split, a 6-month trend, and the
@@ -13,6 +15,18 @@ export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Company-wide expense totals, category breakdown, burn rate and runway.
+  // /api/expenses scopes to the caller's own rows; this aggregate had no
+  // scoping and no gate, so the number an employee was refused in detail was
+  // handed to them as a total.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "expenses", "view_record_edit_all")) {
+    return NextResponse.json(
+      { error: "You don't have access to company-wide expenses." },
+      { status: 403 },
+    );
+  }
 
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month") || undefined; // "YYYY-MM"

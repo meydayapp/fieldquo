@@ -20,6 +20,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { formatAppMoney } from "@/lib/format/money";
+import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -536,9 +537,12 @@ export default function InvoiceDetailPage() {
                 >
                   <span>
                     {formatDate(p.date)} —{" "}
+                    {/* Was visit_credit special-cased and everything else
+                        de-underscored, so a payment recorded from a dropdown
+                        reading "E-Transfer" displayed here as "e transfer". */}
                     {p.method === "visit_credit"
                       ? t("app.invoiceDetail.visitCreditLabel")
-                      : p.method.replace("_", " ")}
+                      : paymentMethodLabel(p.method)}
                   </span>
                   <span>{formatAppMoney(p.amount, currency, "en")}</span>
                 </div>

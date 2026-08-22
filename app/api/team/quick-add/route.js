@@ -17,6 +17,7 @@ import {
 } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
+import { validateInvite } from "@/lib/permissions/inviteGuard";
 
 export async function POST(request) {
   const member = await getCurrentMember(request);
@@ -78,6 +79,29 @@ export async function POST(request) {
       { error: "role must be admin, supervisor, or employee" },
       { status: 400 },
     );
+  }
+
+  // ── A value whitelist is not a permission check ─────────────────────────
+  //
+  // The line above only asserts the role exists. This route then wrote `role`
+  // and RAW `permissions` to PendingTeamProfile, which becomes a Member on
+  // accept — so a Manager could quick-add themselves at a second address as an
+  // Administrator with run_payroll, exactly the escalation that was closed on
+  // /api/settings/members and left open here.
+  //
+  // Same guard both routes now, so the two cannot drift again.
+  const actorMember = await db.member.findUnique({
+    where: { id: member.id },
+    select: { role: true, permissions: true },
+  });
+  const vetted = validateInvite({
+    actor: actorMember,
+    role,
+    permissions,
+    laborCostPerHour: hourlyRate,
+  });
+  if (!vetted.ok) {
+    return NextResponse.json({ error: vetted.error }, { status: vetted.status });
   }
 
   const cleanEmail = String(email).trim().toLowerCase();
@@ -146,7 +170,9 @@ export async function POST(request) {
       city: city || null,
       province: province || null,
       type: workerType === "contractor" ? "contractor" : "employee",
-      hourlyRate: hourlyRate ? Number(hourlyRate) : null,
+      // Clamped the same way — a Worker row's hourlyRate is the number
+      // payroll multiplies, whatever table it lives in.
+      hourlyRate: vetted.laborCostPerHour,
     },
   });
 
@@ -193,8 +219,8 @@ export async function POST(request) {
       province: province || null,
       postalCode: postalCode || null,
       country: country || null,
-      laborCostPerHour: hourlyRate ? Number(hourlyRate) : null,
-      permissions: permissions || presetPermissionsFor(role),
+      laborCostPerHour: vetted.laborCostPerHour,
+      permissions: vetted.permissions || presetPermissionsFor(role),
       role,
     },
     update: {
@@ -205,8 +231,8 @@ export async function POST(request) {
       province: province || null,
       postalCode: postalCode || null,
       country: country || null,
-      laborCostPerHour: hourlyRate ? Number(hourlyRate) : null,
-      permissions: permissions || presetPermissionsFor(role),
+      laborCostPerHour: vetted.laborCostPerHour,
+      permissions: vetted.permissions || presetPermissionsFor(role),
       role,
     },
   });

@@ -6,11 +6,24 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { validateSalary } from "@/lib/overhead/salaryInput";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Salaries are pay. GET had NO check at all — any signed-in member could
+  // read every wage in the company including the owner's draw, while POST and
+  // PATCH on the same file require user:manage. Mutations gated, reads open is
+  // the shape most of these gaps take.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "payroll", "view_all")) {
+    return NextResponse.json(
+      { error: "You don't have access to salaries. Ask an owner or admin." },
+      { status: 403 },
+    );
+  }
 
   const salaries = await db.salary.findMany({
     where: { companyId: member.companyId },
