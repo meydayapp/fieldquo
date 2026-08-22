@@ -49,6 +49,7 @@ import {
   IMPERSONATION_COOKIE,
   verifyImpersonationToken,
   isReadOnlyMethod,
+  allowsWrites,
 } from "@/lib/platform/impersonationToken";
 import { subdomainFromHost } from "@/lib/site/subdomain";
 
@@ -176,7 +177,11 @@ export async function middleware(request) {
     const claims = await verifyImpersonationToken(impersonationToken);
 
     if (claims && (pathname.startsWith("/app") || pathname.startsWith("/api"))) {
-      if (!isReadOnlyMethod(request.method)) {
+      // A demo sandbox may write. The mode was decided from Company.isDemo
+      // when the token was minted and is signed into it — a forged or
+      // hand-edited cookie fails jwtVerify before it reaches here, and a token
+      // for a real company can never carry this mode.
+      if (!allowsWrites(claims.mode) && !isReadOnlyMethod(request.method)) {
         return NextResponse.json(
           {
             error:
@@ -191,6 +196,9 @@ export async function middleware(request) {
       const headers = new Headers(request.headers);
       headers.set("x-impersonating-company", claims.companyId);
       headers.set("x-impersonating-admin", claims.platformAdminId);
+      // Carried so lib/currentMember.js — the second, deliberate enforcement
+      // point — reaches the same verdict without re-verifying the JWT.
+      headers.set("x-impersonation-mode", claims.mode);
       return NextResponse.next({ request: { headers } });
     }
 

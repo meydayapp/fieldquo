@@ -8,6 +8,7 @@
 // confident percentage computed from two records. A "100% win rate" from one
 // quote is worse than no number, because somebody will act on it.
 import {
+  formatRate,
   buildFunnel,
   buildTradeBreakdown,
   buildCompanyHealth,
@@ -51,6 +52,9 @@ console.log("\nA rate needs a denominator worth dividing by\n");
   const f = buildFunnel([q("accepted")], [], []);
   check("one accepted quote does NOT report a 100% win rate", f.winRate === null);
   check("the count is still reported", f.stages.find((s) => s.key === "accepted").count === 1);
+  // A blank read as broken software. The ratio is shown instead — honest, and
+  // it carries its own sample size.
+  check("it shows the raw ratio rather than a blank", f.winRateLabel === "1 of 1");
 }
 {
   const quotes = Array(MIN_SAMPLE).fill(0).map(() => q("accepted"));
@@ -58,6 +62,12 @@ console.log("\nA rate needs a denominator worth dividing by\n");
 }
 check("no quotes at all → nulls, not NaN", buildFunnel([], [], []).winRate === null);
 check("null input doesn't throw", buildFunnel(null, null, null).stages.length === 7);
+
+console.log("\nA thin rate reads as a fraction, never as a blank\n");
+check("1 of 2 rather than —", formatRate(1, 2) === "1 of 2");
+check("0 of 3 rather than 0%", formatRate(0, 3) === "0 of 3");
+check("above the floor it is a percentage", formatRate(3, 5) === "60%");
+check("no denominator at all is the only case that shows —", formatRate(0, 0) === "—");
 
 console.log("\nTrade breakdown attributes value by scope, not by quote total\n");
 {
@@ -84,6 +94,7 @@ console.log("\nThin trades report counts and no percentage\n");
   }));
   const t = buildTradeBreakdown(rows)[0];
   check("3 quotes → win rate is null", t.winRate === null);
+  check("but the label still tells you 3 of 3", t.winRateLabel === "3 of 3");
   check("but it is flagged thin so the UI can say why", t.thin === true);
   check("the counts are still there", t.quotes === 3 && t.accepted === 3);
   check("the median is still useful", t.medianQuote === 12000);

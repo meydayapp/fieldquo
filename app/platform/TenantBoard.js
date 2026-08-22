@@ -107,14 +107,17 @@ export default function TenantBoard() {
                   />
                 </div>
               </div>
-              <div className="w-16 text-right text-xs tabular-nums text-muted-foreground">
-                {rate(s.rate)}
+              <div
+                className="w-20 text-right text-xs tabular-nums text-muted-foreground"
+                title={s.rate === null && s.rateLabel !== "—" ? "Too few to state a percentage — showing the raw ratio" : undefined}
+              >
+                {s.rateLabel ?? rate(s.rate)}
               </div>
             </div>
           ))}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
-          Win rate {rate(funnel.winRate)} — accepted out of{" "}
+          Win rate {funnel.winRateLabel ?? rate(funnel.winRate)} — accepted out of{" "}
           <em>sent</em>, because a quote nobody sent was never lost.
           {funnel.unanswered > 0 &&
             ` ${funnel.unanswered} still waiting on an answer.`}
@@ -154,16 +157,19 @@ export default function TenantBoard() {
                     <Td>{t.quotes}</Td>
                     <Td>{t.accepted}</Td>
                     <Td>
-                      {t.winRate === null ? (
-                        <span
-                          className="text-muted-foreground"
-                          title={`Only ${t.sent} sent — too few to state a rate`}
-                        >
-                          —
-                        </span>
-                      ) : (
-                        `${t.winRate}%`
-                      )}
+                      {/* A fraction below the sample floor, a percentage above
+                          it. A blank here read as broken software — see
+                          formatRate in tenantHealth.js. */}
+                      <span
+                        className={t.winRate === null ? "text-muted-foreground" : ""}
+                        title={
+                          t.winRate === null
+                            ? `Only ${t.sent} sent — too few to state a percentage, so the raw ratio is shown`
+                            : undefined
+                        }
+                      >
+                        {t.winRateLabel}
+                      </span>
                     </Td>
                     <Td>{money(t.medianQuote)}</Td>
                     <Td>{money(t.pipelineValue)}</Td>
