@@ -595,6 +595,7 @@ const en = {
   "app.timesheets.subtitle": "Log, review and approve hours.",
   "app.timesheets.empty": "No time entries yet. Add one to log hours.",
   "app.timesheets.approve": "Approve",
+  "app.timesheets.selfApproved": "· self-approved",
   "app.timesheets.addEntry": "Add entry",
   "app.timesheets.newEntry": "New time entry",
   "app.timesheets.worker": "Worker",
@@ -2993,6 +2994,7 @@ const fr = {
   "app.timesheets.subtitle": "Enregistrez, révisez et approuvez les heures.",
   "app.timesheets.empty": "Aucune entrée de temps. Ajoutez-en une pour enregistrer des heures.",
   "app.timesheets.approve": "Approuver",
+  "app.timesheets.selfApproved": "· auto-approuvé",
   "app.timesheets.addEntry": "Ajouter une entrée",
   "app.timesheets.newEntry": "Nouvelle entrée de temps",
   "app.timesheets.worker": "Intervenant",
@@ -5317,6 +5319,7 @@ const es = {
   "app.timesheets.subtitle": "Revisa y aprueba las horas registradas.",
   "app.timesheets.empty": "Aún no hay registros de tiempo.",
   "app.timesheets.approve": "Aprobar",
+  "app.timesheets.selfApproved": "· autoaprobado",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "No se pudo enviar el correo.",
@@ -7629,6 +7632,7 @@ const uk = {
   "app.timesheets.subtitle": "Переглядайте та схвалюйте зафіксовані години.",
   "app.timesheets.empty": "Ще немає записів часу.",
   "app.timesheets.approve": "Схвалити",
+  "app.timesheets.selfApproved": "· самосхвалено",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "Не вдалося надіслати електронний лист.",
@@ -9924,6 +9928,7 @@ const pa = {
   "app.timesheets.subtitle": "ਦਰਜ ਕੀਤੇ ਘੰਟਿਆਂ ਦੀ ਸਮੀਖਿਆ ਕਰੋ ਅਤੇ ਮਨਜ਼ੂਰ ਕਰੋ।",
   "app.timesheets.empty": "ਹਾਲੇ ਕੋਈ ਸਮਾਂ ਇੰਦਰਾਜ ਨਹੀਂ।",
   "app.timesheets.approve": "ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.timesheets.selfApproved": "· ਖੁਦ-ਮਨਜ਼ੂਰ",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "ਈਮੇਲ ਨਹੀਂ ਭੇਜੀ ਜਾ ਸਕੀ।",
@@ -12224,6 +12229,7 @@ const tl = {
   "app.timesheets.subtitle": "Suriin at aprubahan ang naitalang oras.",
   "app.timesheets.empty": "Wala pang time entry.",
   "app.timesheets.approve": "Aprubahan",
+  "app.timesheets.selfApproved": "· self-approved",
 
   // ── added by i18n-screens workflow ──
   "app.quoteDetail.sendError": "Hindi maipadala ang email.",

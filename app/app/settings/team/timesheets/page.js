@@ -328,6 +328,20 @@ function TimesheetsPageScreen() {
               ) : (
                 <span className="text-xs capitalize text-muted-foreground">
                   {e.status}
+                  {/* Approved by the same person who worked them. Not blocked
+                      — a sole trader who is the only worker has nobody else to
+                      approve their hours, and refusing it would break the
+                      smallest companies to police the larger ones. Named
+                      instead, because these hours go into a pay run and
+                      nothing downstream checks them again. */}
+                  {e.status === "approved" &&
+                    e.approvedById &&
+                    e.worker?.userId &&
+                    e.approvedById === e.worker.userId && (
+                      <span className="ml-1.5 normal-case text-amber-700 dark:text-amber-400">
+                        {t("app.timesheets.selfApproved", "· self-approved")}
+                      </span>
+                    )}
                 </span>
               )}
               {e.status !== "approved" && (

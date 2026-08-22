@@ -39,11 +39,23 @@ export default function JobCosting({ jobId }) {
   if (!data?.actual) return null;
 
   const { actual, comparison } = data;
+
+  // ── Why this no longer hides itself when nothing is recorded ────────────
+  //
+  // It used to return null on a job with no costs yet, which meant "Quoted /
+  // Left after costs / Margin" was missing at exactly the moment a manager is
+  // deciding how to run the job — the panel appeared only once it had nothing
+  // left to inform.
+  //
+  // It still hides when there is nothing at all to say: no costs AND no quote
+  // behind the job. Zeroes against a known quote are a real statement ("you've
+  // spent nothing, the whole $2,100 is still yours"); zeroes against nothing
+  // are noise.
   const nothingRecorded =
     !actual.expenses.total &&
     !actual.labour.approvedHours &&
     !actual.labour.pendingHours;
-  if (nothingRecorded) return null;
+  if (nothingRecorded && comparison.revenue == null) return null;
 
   // Currency comes from the endpoint, which reads it off the company. Not a
   // prop with a CAD default — the job page doesn't load the company, so the

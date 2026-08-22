@@ -385,8 +385,21 @@ export default function TeamOverviewPage() {
                 </div>
                 <div className="text-xs text-muted-foreground">{p.email}</div>
               </div>
-              <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-full flex items-center gap-1 w-fit">
-                <Mail size={11} /> {t("app.setTeam.invited")}
+              {/* The ROLE column showed only "Invited", so an owner scanning
+                  this page could not tell an Administrator invite from a
+                  Worker one — which removed their last chance to catch a
+                  queued escalation before it was accepted. The role check on
+                  create closes that door; showing the role is the defence in
+                  depth behind it. */}
+              <span className="flex items-center gap-1.5 w-fit flex-wrap">
+                <span className="text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-full flex items-center gap-1">
+                  <Mail size={11} /> {t("app.setTeam.invited")}
+                </span>
+                {p.role && (
+                  <span className="text-xs text-muted-foreground">
+                    {ROLE_LABELS[p.role] || p.role}
+                  </span>
+                )}
               </span>
               {/* The pending row's last-login cell. Hidden with the column
                   itself below lg, or the grid would be one cell out of step
