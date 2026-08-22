@@ -9,15 +9,12 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { ROLE_LABELS, ROLE_RANK } from "@/lib/permissions/roleManagement";
 
-const ROLE_LABELS = {
-  owner: "Owner",
-  admin: "Admin",
-  supervisor: "Supervisor",
-  employee: "Employee",
-};
-
-const ROLE_RANK = { owner: 3, admin: 2, supervisor: 1, employee: 0 };
+// Both of these were private copies of the maps in lib/permissions/roleManagement.js.
+// That duplication is why this screen said "Supervisor / Admin" while the invite
+// screen said "Dispatcher / Manager" for the same people — two sources of truth,
+// and only one of them got updated. Imported now, so they cannot drift again.
 
 function timeAgo(date, dateFormat) {
   if (!date) return "Never";

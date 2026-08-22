@@ -15,6 +15,7 @@ import Link from "next/link";
 import { X, AlertTriangle } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
+import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -240,6 +241,15 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground mt-1">
+                {/* Which TIER this preset creates. Two presets can share one
+                    tier (Dispatcher and Manager are both Managers), and Manage
+                    Team lists people by tier — so without this line the owner
+                    picks "Manager" here and later finds a different word on the
+                    team page, which is exactly how a role change came to look
+                    like an escalation. */}
+                <span className="font-medium text-foreground">
+                  Joins as {ROLE_LABELS[PRESET_TO_ROLE[form.preset]] || "Worker"}.
+                </span>{" "}
                 {PERMISSION_PRESETS[form.preset]?.description}{" "}
                 <Link
                   href="/app/settings/team/new"

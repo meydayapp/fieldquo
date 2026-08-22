@@ -18,6 +18,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const LANGUAGES = [
@@ -501,8 +502,15 @@ function NewUserForm() {
                           : "border-border hover:bg-muted"
                       }`}
                     >
-                      <div className="font-medium text-foreground">
-                        {preset.label}
+                      <div className="font-medium text-foreground flex items-baseline justify-between gap-2">
+                        <span>{preset.label}</span>
+                        {/* The tier the preset creates — the same word Manage
+                            Team will show for this person. Two presets can map
+                            to one tier, and without this the two screens appear
+                            to disagree. */}
+                        <span className="text-[11px] font-normal text-muted-foreground shrink-0">
+                          {ROLE_LABELS[PRESET_TO_ROLE[key]] || "Worker"}
+                        </span>
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
                         {preset.description}
