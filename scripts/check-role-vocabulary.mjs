@@ -64,16 +64,23 @@ t("Manage Team does not redefine ROLE_RANK", !/const ROLE_RANK\s*=/.test(teamPag
 t("Manage Team imports the shared map",
   /from "@\/lib\/permissions\/roleManagement"/.test(teamPage));
 
-console.log("\nBoth invite screens tell you which tier the preset creates");
+console.log("\nWherever a preset is offered, it says which tier it creates");
+// The full new-member page used to render this itself. It now renders
+// AccessEditor, which both it and Manage Team share — so the assertion follows
+// the responsibility rather than the file it used to live in.
 for (const [file, rel] of [
   ["quick-add modal", "../app/components/team/AddEmployeeModal.js"],
-  ["full new-member page", "../app/app/settings/team/new/page.js"],
+  ["shared access editor", "../app/components/team/AccessEditor.js"],
 ]) {
   const src = read(rel);
   t(`${file} shows the tier`, /ROLE_LABELS\[PRESET_TO_ROLE\[/.test(src));
   t(`${file} imports it from the shared map`,
     /ROLE_LABELS.*from "@\/lib\/permissions\/roleManagement"/.test(src));
 }
+// And the page that dropped it really did hand the job over, rather than
+// simply losing it.
+t("the new-member page delegates to the editor",
+  /<AccessEditor/.test(read("../app/app/settings/team/new/page.js")));
 
 console.log("\nWhat a Manager can hand out");
 // Strictly below themselves — a Manager can create Workers and nothing more.

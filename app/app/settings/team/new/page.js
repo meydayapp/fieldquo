@@ -18,8 +18,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
-import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import AccessEditor from "@/app/components/team/AccessEditor";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -125,29 +125,10 @@ function NewUserForm() {
   // Null until the fetch lands. Everything below treats null as "don't render
   // it yet" rather than "allow it" — a checkbox that appears and then vanishes
   // is worse than one that arrives a moment late.
-  const canAssign = (role) => grants.assignableRoles?.includes(role) ?? false;
+  // Clamping what may be OFFERED now lives in AccessEditor, which both this
+  // page and Manage Team render. Only the labour-cost field is still gated
+  // here, because it is not part of the permission grid.
   const canGrantPay = ["owner", "admin"].includes(grants.yourRole);
-
-  // ── You can only offer a level you hold yourself ────────────────────────
-  //
-  // The grid dropdowns listed every level to everybody, so a Manager whose own
-  // payroll is view_own was offered "View everyone's and run payroll" for
-  // somebody else — reaching the payroll they're denied through a person they
-  // hire. clampPermissions on the server drops those now; this stops the form
-  // proposing them.
-  //
-  // Owner and admin are unrestricted, so they see the full list.
-  const unrestricted = ["owner", "admin"].includes(grants.yourRole);
-  function offerableLevels(key, cat) {
-    if (unrestricted) return cat.levels;
-    const mine = grants.yourPermissions?.[key];
-    const idx = cat.levels.findIndex((l) => l.value === mine);
-    // No stated level for this category means nothing to delegate. Showing
-    // only the lowest option is honest; showing all of them is not.
-    return idx === -1 ? cat.levels.slice(0, 1) : cat.levels.slice(0, idx + 1);
-  }
-  const canOfferToggle = (key) =>
-    unrestricted || grants.yourPermissions?.[key] === true;
 
   useEffect(() => {
     fetch("/api/settings/members/pending")
@@ -509,134 +490,24 @@ function NewUserForm() {
             {t("app.setTeamNew.permissions")}
           </h2>
 
-          {/* Offered only to someone who can actually assign `admin`. A Manager
-              saw this checkbox, ticked it, and created an Administrator — the
-              exact escalation the role split exists to prevent. */}
-          {canAssign("admin") && (
-          <label className="flex items-start gap-2.5 text-sm bg-muted border border-border rounded-lg p-3">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={isAdministrator}
-              onChange={(e) => setIsAdministrator(e.target.checked)}
-            />
-            <span>
-              <span className="font-medium text-foreground">
-                {t("app.setTeamNew.makeAdmin")}
-              </span>
-              <br />
-              <span className="text-muted-foreground">
-                {t("app.setTeamNew.makeAdminDesc")}
-              </span>
-            </span>
-          </label>
-          )}
+          {/* The same editor Manage Team uses to change an existing member's
+              access. It lived only here, which is why permissions were
+              write-once: everything below could be SET at creation and never
+              altered afterwards. One component now, so the two screens cannot
+              offer different things again. */}
+          <AccessEditor
+            grants={grants}
+            t={t}
+            isAdministrator={isAdministrator}
+            onAdministratorChange={setIsAdministrator}
+            activePreset={activePreset}
+            onPresetChange={(key) => (key ? applyPreset(key) : setActivePreset(null))}
+            values={permissionValues}
+            onValueChange={setPermission}
+          />
 
           {!isAdministrator && (
             <>
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  {t("app.setTeamNew.presetIntro")}
-                </p>
-                <div className="grid sm:grid-cols-2 gap-2">
-                  {/* A preset is a role plus a starting grid. Offering one
-                      whose role this caller can't assign is offering a button
-                      that 403s — a Manager was shown "Dispatcher" and
-                      "Manager", both of which create a Manager. */}
-                  {Object.entries(PERMISSION_PRESETS)
-                    .filter(([key]) => canAssign(PRESET_TO_ROLE[key]))
-                    .map(([key, preset]) => (
-                    <button
-                      type="button"
-                      key={key}
-                      onClick={() => applyPreset(key)}
-                      className={`text-left p-3 rounded-lg border text-sm ${
-                        activePreset === key
-                          ? "border-inverted bg-muted"
-                          : "border-border hover:bg-muted"
-                      }`}
-                    >
-                      <div className="font-medium text-foreground flex items-baseline justify-between gap-2">
-                        <span>{preset.label}</span>
-                        {/* The tier the preset creates — the same word Manage
-                            Team will show for this person. Two presets can map
-                            to one tier, and without this the two screens appear
-                            to disagree. */}
-                        <span className="text-[11px] font-normal text-muted-foreground shrink-0">
-                          {ROLE_LABELS[PRESET_TO_ROLE[key]] || "Worker"}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {preset.description}
-                      </div>
-                    </button>
-                  ))}
-                  <div
-                    className={`text-left p-3 rounded-lg border text-sm ${
-                      activePreset === null
-                        ? "border-inverted bg-muted"
-                        : "border-border text-muted-foreground"
-                    }`}
-                  >
-                    <div className="font-medium text-foreground">
-                      {t("app.setTeamNew.custom")}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {t("app.setTeamNew.customDesc")}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid sm:grid-cols-2 gap-4 pt-2">
-                {Object.entries(PERMISSION_CATEGORIES).map(([key, cat]) => (
-                  <div key={key}>
-                    <label className="text-sm font-medium text-foreground block mb-1">
-                      {cat.label}
-                    </label>
-                    <select
-                      className={inputClass}
-                      value={permissionValues[key]}
-                      onChange={(e) => setPermission(key, e.target.value)}
-                    >
-                      {offerableLevels(key, cat).map((lvl) => (
-                        <option key={lvl.value} value={lvl.value}>
-                          {lvl.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-3 pt-2 border-t border-border">
-                {/* Same rule as the level dropdowns: a toggle you don't hold
-                    is not yours to switch on for someone else. */}
-                {Object.entries(PERMISSION_TOGGLES)
-                  .filter(([key]) => canOfferToggle(key))
-                  .map(
-                  ([key, description]) => (
-                    <label
-                      key={key}
-                      className="flex items-start gap-2.5 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5"
-                        checked={!!permissionValues[key]}
-                        onChange={(e) => setPermission(key, e.target.checked)}
-                      />
-                      <span>
-                        <span className="font-medium text-foreground capitalize">
-                          {key.replace(/([A-Z])/g, " $1")}
-                        </span>
-                        <br />
-                        <span className="text-muted-foreground">{description}</span>
-                      </span>
-                    </label>
-                  ),
-                )}
-              </div>
 
               <div className="space-y-2 pt-2 border-t border-border text-xs text-muted-foreground">
                 {Object.entries(PERMISSION_DERIVED_NOTES).map(([key, note]) => (

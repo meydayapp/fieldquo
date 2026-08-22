@@ -9,6 +9,11 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import AccessEditor, {
+  emptyPermissionValues,
+  presetForValues,
+} from "@/app/components/team/AccessEditor";
+import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   ROLE_LABELS,
   ROLE_RANK,
@@ -126,6 +131,64 @@ export default function TeamOverviewPage() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || t("app.setTeam.errRole"));
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  // ── Editing an existing member's access ────────────────────────────────
+  //
+  // Manage Team could change a member's ROLE and nothing else, so the
+  // permission grid was write-once: a "Worker (limited access)" could never
+  // become a full-view Worker, a Dispatcher and a Manager were
+  // indistinguishable afterwards, and "Custom" was unreachable for anyone
+  // already on the team. The New User page offered all of it; this one offered
+  // a dropdown with three entries.
+  //
+  // Same editor component as New User, so the two screens cannot drift again.
+  const [editing, setEditing] = useState(null);
+
+  function openAccess(member) {
+    const stored = member.permissions || {};
+    const isAdmin = stored.isAdministrator === true || member.role === "admin";
+    const values = { ...emptyPermissionValues(), ...stored };
+    setEditing({
+      member,
+      isAdministrator: isAdmin,
+      // Which preset this grid corresponds to, so the panel opens showing
+      // "Dispatcher" for someone created as one — the question the owner was
+      // actually asking. Null means genuinely custom.
+      preset: presetForValues(values, member.role),
+      values,
+    });
+  }
+
+  async function saveAccess() {
+    if (!editing) return;
+    const { member, isAdministrator, values } = editing;
+    setSavingUserId(member.userId);
+    setError("");
+    try {
+      // Role follows the preset, exactly as it does on create — the preset IS
+      // a role plus a grid, and letting the two disagree is what produced a
+      // "Manager" holding admin.
+      const role = isAdministrator
+        ? "admin"
+        : PRESET_TO_ROLE[editing.preset] || member.role;
+      const res = await fetch(`/api/settings/members/${member.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...(role !== member.role ? { role } : {}),
+          permissions: isAdministrator ? { isAdministrator: true } : values,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || t("app.setTeam.errRole"));
+      setEditing(null);
       await load();
     } catch (err) {
       setError(err.message);
@@ -305,6 +368,21 @@ export default function TeamOverviewPage() {
                   {m.user.name}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{m.user.email}</div>
+                {/* In the name cell rather than a column of its own — the grid
+                    is four cells wide and a fifth would knock every row out of
+                    alignment with the header.
+                    Opens the same editor New User uses. The role dropdown
+                    beside it changes the TIER; this changes what they can
+                    actually do, which had no editor at all. */}
+                {canEdit(m) && (
+                  <button
+                    type="button"
+                    onClick={() => openAccess(m)}
+                    className="mt-1 text-xs underline underline-offset-2 text-muted-foreground hover:text-foreground"
+                  >
+                    {t("app.setTeam.editAccess", "Edit access")}
+                  </button>
+                )}
               </div>
 
               {/* Read-only badge when this member is at or above the viewer's
@@ -494,6 +572,78 @@ export default function TeamOverviewPage() {
       <p className="text-xs text-muted-foreground">
         {t("app.setTeam.ownerNote")}
       </p>
+
+      {/* ── Edit access ──────────────────────────────────────────────────── */}
+      {editing && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+          <div className="bg-card rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl my-0 sm:my-8 max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-4 border-b border-border sticky top-0 bg-card">
+              <h2 className="font-semibold text-foreground">
+                {t("app.setTeam.editAccessTitle", "Access for {name}", {
+                  name: editing.member.user?.name || editing.member.user?.email,
+                })}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t(
+                  "app.setTeam.editAccessBody",
+                  "Pick a starting point, then change anything you like. They keep the same login.",
+                )}
+              </p>
+            </div>
+
+            <div className="p-5">
+              <AccessEditor
+                grants={grants}
+                t={t}
+                isAdministrator={editing.isAdministrator}
+                onAdministratorChange={(v) =>
+                  setEditing((e) => ({ ...e, isAdministrator: v }))
+                }
+                activePreset={editing.preset}
+                onPresetChange={(key) =>
+                  setEditing((e) => ({
+                    ...e,
+                    preset: key,
+                    // Choosing a preset replaces the grid; choosing Custom
+                    // keeps whatever is there, because "custom" describes the
+                    // dials you already set rather than a set of its own.
+                    values: key
+                      ? { ...emptyPermissionValues(), ...PERMISSION_PRESETS[key].values }
+                      : e.values,
+                  }))
+                }
+                values={editing.values}
+                onValueChange={(key, value) =>
+                  setEditing((e) => ({
+                    ...e,
+                    // Touching any dial means this is no longer that preset.
+                    preset: null,
+                    values: { ...e.values, [key]: value },
+                  }))
+                }
+              />
+            </div>
+
+            <div className="px-5 py-4 border-t border-border flex gap-3 sticky bottom-0 bg-card">
+              <button
+                type="button"
+                onClick={() => setEditing(null)}
+                className="flex-1 border border-border rounded-full px-4 py-2.5 text-sm font-semibold"
+              >
+                {t("app.common.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={saveAccess}
+                disabled={savingUserId === editing.member.userId}
+                className="flex-1 bg-inverted text-inverted-foreground rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+              >
+                {t("app.common.save", "Save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmRevoke && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
