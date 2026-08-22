@@ -18,8 +18,12 @@
 "use client";
 
 import { TrendingUp, AlertTriangle } from "lucide-react";
+import { formatAppMoney } from "@/lib/format/money";
 
-const money = (n) => `$${Number(n ?? 0).toFixed(2)}`;
+// toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
+// a correctly-grouped total in the same sticky bar. Shared formatter now —
+// see lib/format/money.js. Bound to the company's currency inside the
+// component, because a hardcoded default is how the original bug read.
 
 const SIGNAL_STYLES = {
   green: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
@@ -47,6 +51,7 @@ function Row({ label, value, bold, tone }) {
 }
 
 export default function CostMarginPanel({
+  currency,
   estimate,
   workers = [],
   costWorkerId,
@@ -61,6 +66,8 @@ export default function CostMarginPanel({
   totalGroupCount,
   marginTarget,
 }) {
+  const money = (n) => formatAppMoney(n, currency, "en");
+
   if (!estimate?.hasEstimable) return null;
 
   return (

@@ -19,6 +19,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
+import { formatAppMoney } from "@/lib/format/money";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -28,6 +29,17 @@ const STATUS_STYLES = {
 };
 
 export default function InvoiceDetailPage() {
+  // The company's billing currency, read off whatever this page already
+  // loaded. Null falls back to the schema default inside the formatter — the
+  // point is that it is no longer a hardcoded "$" with no grouping.
+  const [currency, setCurrency] = useState(null);
+  useEffect(() => {
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.currency && setCurrency(d.currency))
+      .catch(() => {});
+  }, []);
+
   const { t } = useTranslation();
   const { formatDate } = useCompanyPreferences();
   const router = useRouter();
@@ -289,7 +301,7 @@ export default function InvoiceDetailPage() {
             <Check size={16} className="shrink-0 mt-0.5" />
             <div>
               {t("app.invoiceDetail.paymentRequestSentTo")} <strong>{requested.to}</strong> {t("app.invoiceDetail.forAmount")}
-              {Number(requested.balance).toFixed(2)}.
+              {formatAppMoney(requested.balance, currency, "en")}.
               {/* The email still goes out — the client just can't pay through
                   it. Better they hear from you than get a dead button. */}
               {requested.onlinePaymentsEnabled === false && (
@@ -393,7 +405,7 @@ export default function InvoiceDetailPage() {
               <span>
                 {item.description} {item.quantity > 1 && `× ${item.quantity}`}
               </span>
-              <span>${Number(item.amount).toFixed(2)}</span>
+              <span>{formatAppMoney(item.amount, currency, "en")}</span>
             </div>
           ))}
         </div>
@@ -424,27 +436,27 @@ export default function InvoiceDetailPage() {
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceDetail.subtotal")}</span>
-            <span>${Number(invoice.subtotal).toFixed(2)}</span>
+            <span>{formatAppMoney(invoice.subtotal, currency, "en")}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceDetail.tax")}</span>
-            <span>${Number(invoice.tax).toFixed(2)}</span>
+            <span>{formatAppMoney(invoice.tax, currency, "en")}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base">
             <span>{t("app.invoiceDetail.total")}</span>
-            <span>${Number(invoice.total).toFixed(2)}</span>
+            <span>{formatAppMoney(invoice.total, currency, "en")}</span>
           </div>
           {amountPaid > 0 && (
             <>
               <div className="flex justify-between text-green-600 dark:text-green-400">
                 <span>{t("app.invoiceDetail.paid")}</span>
-                <span>-${amountPaid.toFixed(2)}</span>
+                <span>{formatAppMoney(amountPaid, currency, "en")}</span>
               </div>
               <div
                 className={`flex justify-between font-semibold text-base ${amountDue > 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
               >
                 <span>{t("app.invoiceDetail.balanceDue")}</span>
-                <span>${amountDue.toFixed(2)}</span>
+                <span>{formatAppMoney(amountDue, currency, "en")}</span>
               </div>
             </>
           )}
@@ -466,7 +478,7 @@ export default function InvoiceDetailPage() {
                     className="flex items-center justify-between gap-3 text-sm"
                   >
                     <span className="text-muted-foreground">
-                      {c.eventName} — ${(c.feePaidCents / 100).toFixed(2)}
+                      {c.eventName} — {formatAppMoney(c.feePaidCents / 100, currency, "en")}
                     </span>
                     <button
                       onClick={() => handleVisitCredit(c.bookingId, false)}
@@ -486,7 +498,7 @@ export default function InvoiceDetailPage() {
                     className="flex items-center justify-between gap-3 text-sm"
                   >
                     <span className="text-muted-foreground">
-                      {c.eventName} — ${(c.feePaidCents / 100).toFixed(2)}
+                      {c.eventName} — {formatAppMoney(c.feePaidCents / 100, currency, "en")}
                     </span>
                     <button
                       onClick={() => handleVisitCredit(c.bookingId, true)}
@@ -521,7 +533,7 @@ export default function InvoiceDetailPage() {
                       ? t("app.invoiceDetail.visitCreditLabel")
                       : p.method.replace("_", " ")}
                   </span>
-                  <span>${Number(p.amount).toFixed(2)}</span>
+                  <span>{formatAppMoney(p.amount, currency, "en")}</span>
                 </div>
               ))}
             </div>
@@ -538,7 +550,7 @@ export default function InvoiceDetailPage() {
                 required
                 type="number"
                 step="0.01"
-                placeholder={t("app.invoiceDetail.amountPlaceholder", { amount: amountDue.toFixed(2) })}
+                placeholder={t("app.invoiceDetail.amountPlaceholder", { amount: formatAppMoney(amountDue, currency, "en") })}
                 value={payment.amount}
                 onChange={(e) =>
                   setPayment({ ...payment, amount: e.target.value })

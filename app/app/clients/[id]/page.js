@@ -25,6 +25,7 @@ import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { formatAddress } from "@/lib/format/address";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -198,9 +199,7 @@ export default function ClientDetailPage() {
         {client.address && (
           <div className="flex items-center gap-2 text-sm text-foreground">
             <MapPin size={14} className="text-muted-foreground shrink-0" />
-            {[client.address, client.city, client.province]
-              .filter(Boolean)
-              .join(", ")}
+            {formatAddress(client)}
             {isCompany && (
               <span className="text-muted-foreground">· {t("app.clientDetail.office")}</span>
             )}

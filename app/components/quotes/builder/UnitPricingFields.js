@@ -21,6 +21,7 @@ import {
   finalUnitPrice,
   groupUnits,
 } from "@/app/data/cabinetPricing";
+import { formatAppMoney } from "@/lib/format/money";
 
 // Kept as a plain list rather than a lookup: the internal primer-coats rule in
 // the costing engine reads these exact strings.
@@ -46,6 +47,9 @@ const inputClass =
   "w-full mt-1 border border-border rounded px-2 py-1.5 text-sm";
 
 export default function UnitPricingFields({
+  // The company's billing currency. Without it these rendered a bare
+  // toFixed(2), which does not group — $2100.00 next to a grouped total.
+  currency,
   group,
   reasonsOpen,
   onToggleReasons,
@@ -154,7 +158,7 @@ export default function UnitPricingFields({
         </Field>
         <Field label="Final / unit">
           <div className="mt-1 px-3 py-1.5 bg-inverted rounded text-sm font-semibold text-center text-inverted-foreground">
-            ${finalPrice.toFixed(2)}
+            {formatAppMoney(finalPrice, currency, "en")}
           </div>
         </Field>
       </div>
@@ -284,10 +288,10 @@ export default function UnitPricingFields({
 
       <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
         <span className="text-sm text-muted-foreground">
-          {units} unit{units === 1 ? "" : "s"} × ${finalPrice.toFixed(2)}
+          {units} unit{units === 1 ? "" : "s"} × {formatAppMoney(finalPrice, currency, "en")}
         </span>
         <span className="text-base font-bold text-foreground">
-          ${(units * finalPrice).toFixed(2)}
+          {formatAppMoney(units * finalPrice, currency, "en")}
         </span>
       </div>
     </div>

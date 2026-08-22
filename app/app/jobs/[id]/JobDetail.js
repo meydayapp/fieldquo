@@ -28,6 +28,7 @@ import {
   Plus,
   FileText,
 } from "lucide-react";
+import { formatAddress } from "@/lib/format/address";
 
 const STATUS_STYLES = {
   scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
@@ -247,17 +248,16 @@ export default function JobDetail({ jobId }) {
                 // action on this page for anyone in a vehicle.
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(
-                    [job.client.address, job.client.city, job.client.province]
-                      .filter(Boolean)
-                      .join(", "),
+                    formatAddress(job.client),
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-foreground underline"
                 >
-                  {[job.client.address, job.client.city]
-                    .filter(Boolean)
-                    .join(", ")}
+                  {/* Was address + city, which duplicated the city and also
+                      disagreed with the maps link above it. One formatter now,
+                      so the text and the destination match. */}
+                  {formatAddress(job.client)}
                 </a>
               ) : (
                 "Not set"

@@ -7,8 +7,20 @@ import { Plus, X, Trash2, Search } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
+import { formatAppMoney } from "@/lib/format/money";
 
 export default function NewInvoicePage() {
+  // The company's billing currency, read off whatever this page already
+  // loaded. Null falls back to the schema default inside the formatter — the
+  // point is that it is no longer a hardcoded "$" with no grouping.
+  const [currency, setCurrency] = useState(null);
+  useEffect(() => {
+    fetch("/api/settings/business-info")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d?.currency && setCurrency(d.currency))
+      .catch(() => {});
+  }, []);
+
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -299,7 +311,7 @@ export default function NewInvoicePage() {
               />
               </label>
               <div className="sm:col-span-2 text-sm font-medium text-foreground text-right tabular-nums shrink-0 pb-2 sm:pb-0">
-                ${Number(item.amount).toFixed(2)}
+                {formatAppMoney(item.amount, currency, "en")}
               </div>
               <button
                 onClick={() => removeLineItem(i)}
@@ -366,15 +378,15 @@ export default function NewInvoicePage() {
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceNew.subtotal")}</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>{formatAppMoney(subtotal, currency, "en")}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceNew.tax")}</span>
-            <span>${tax.toFixed(2)}</span>
+            <span>{formatAppMoney(tax, currency, "en")}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>{t("app.invoiceNew.total")}</span>
-            <span>${total.toFixed(2)}</span>
+            <span>{formatAppMoney(total, currency, "en")}</span>
           </div>
         </div>
       </div>

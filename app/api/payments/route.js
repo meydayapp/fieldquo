@@ -10,6 +10,7 @@ import {
   requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { formatAppMoney } from "@/lib/format/money";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -72,10 +73,44 @@ export async function POST(request) {
 
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, companyId: member.companyId },
-    include: { payments: true },
+    // company only for the billing currency in the error message below.
+    // Invoice has no currency column of its own — reading invoice.currency
+    // would be undefined and silently format an American contractor's
+    // outstanding balance as Canadian dollars.
+    include: { payments: true, company: { select: { currency: true } } },
   });
   if (!invoice)
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+
+  // ── The stated cap has to be a real one ────────────────────────────────
+  //
+  // The form says "Amount (up to $2100.00)" and the server accepted $5,000
+  // against a $2,100 invoice. The invoice flipped to paid, the totals block
+  // rendered "Paid -$5000.00" and "Balance Due $0.00", and the $2,900 excess
+  // simply left the ledger — Math.max(0, …) below floors amountDue, so nothing
+  // downstream can tell an over-applied invoice from a settled one.
+  //
+  // Refused rather than silently clamped: clamping would record a $5,000
+  // payment as $2,100 and lose the difference just as completely, while
+  // looking deliberate. If a client genuinely overpays, that is a credit, and
+  // a credit is a feature with a decision behind it — not something to invent
+  // inside a validation branch.
+  //
+  // Tolerance matches isPaid below: half a cent, so float residue on an
+  // instalment plan can't refuse the final legitimate payment.
+  const alreadyPaid = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const outstanding = Number(invoice.total) - alreadyPaid;
+  if (Number(amount) - outstanding > 0.005) {
+    return NextResponse.json(
+      {
+        error:
+          outstanding > 0
+            ? `That's more than the ${formatAppMoney(outstanding, invoice.company?.currency)} still owing on this invoice.`
+            : "This invoice is already paid in full.",
+      },
+      { status: 400 },
+    );
+  }
 
   const payment = await db.payment.create({
     data: {
@@ -87,9 +122,7 @@ export async function POST(request) {
     },
   });
 
-  const totalPaid =
-    invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0) +
-    Number(amount);
+  const totalPaid = alreadyPaid + Number(amount);
   const amountDue = Math.max(0, Number(invoice.total) - totalPaid);
   // Half a cent, not zero — the same threshold every other balance recompute
   // uses (the Stripe webhook, credit-visit-fee). Summing Decimals through

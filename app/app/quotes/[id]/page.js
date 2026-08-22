@@ -29,8 +29,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { moneyFormatter } from "@/lib/format/money";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import SendConfirmModal from "@/app/components/SendConfirmModal";
 import {
   ArrowLeft,
   Trash2,
@@ -53,6 +55,7 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import { formatAddress } from "@/lib/format/address";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -65,10 +68,17 @@ const STATUS_STYLES = {
 // invoice detail page still does it. Prettier grouping is tempting, but quotes
 // and invoices sitting side by side with different money formatting reads as a
 // bug — that's a change to make in both places or neither.
-const money = (n) => `$${Number(n ?? 0).toFixed(2)}`;
+// Was a private `toFixed(2)` copy, which does not group — this page printed
+// $2100.00 while the list view beside it printed $2,100.00. See
+// lib/format/money.js; the formatter is bound to the quote's own currency
+// inside the component, below.
 
 export default function QuoteDetailPage() {
   const { t, language } = useTranslation();
+  // The company's billing currency, the reader's language. All eight money
+  // renders below go through this — they used to go through a private
+  // toFixed(2) helper that printed $2100.00 on the page a client opens.
+  const money = moneyFormatter(quote?.company?.currency, language);
   const { formatDate } = useCompanyPreferences();
   // The document's own furniture — "Quote", "Prepared for" — from the same
   // catalogue the PDF and the approval page use, in the STAFF's language here.
@@ -142,6 +152,8 @@ export default function QuoteDetailPage() {
    * route that emails, and only reports success once Resend has accepted the
    * message.
    */
+  const [pendingSend, setPendingSend] = useState(null);
+
   async function sendQuote(kind) {
     // ── One click used to email the client ────────────────────────────────
     //
@@ -159,12 +171,15 @@ export default function QuoteDetailPage() {
       setError(t("app.quoteDetail.noEmail", "This client has no email address, so there's nowhere to send it. Add one on the client first."));
       return;
     }
-    const ok = window.confirm(
-      kind === "follow_up"
-        ? t("app.quoteDetail.confirmFollowUp", "Send a follow-up about this quote to {email}?", { email: to })
-        : t("app.quoteDetail.confirmSend", "Send this quote to {email}?", { email: to }),
-    );
-    if (!ok) return;
+    // A rendered modal, not window.confirm — see SendConfirmModal for why.
+    // The actual send happens in doSend once they confirm.
+    setPendingSend({ kind, to });
+  }
+
+  async function doSend() {
+    const { kind, to } = pendingSend || {};
+    if (!kind) return;
+    setPendingSend(null);
 
     setSending(kind);
     setError("");
@@ -262,13 +277,10 @@ export default function QuoteDetailPage() {
       /cabinet|kitchen|countertop|remodel/.test(g.category?.key || ""),
     );
 
-  const clientAddress = [
-    quote.client?.address,
-    quote.client?.city,
-    quote.client?.province,
-  ]
-    .filter(Boolean)
-    .join(", ");
+  // The stored address is Google's FORMATTED string and already contains the
+  // city and province — appending them printed "…, Canada, Toronto, ON" on the
+  // document a client opens. See lib/format/address.js.
+  const clientAddress = formatAddress(quote.client);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-5 pb-10">
@@ -370,6 +382,24 @@ export default function QuoteDetailPage() {
           accepted the message, so "Emailed 3 July" is a fact rather than an
           intention — which is what the old sentAt recorded, since the Send
           button never sent anything. */}
+      <SendConfirmModal
+        isOpen={Boolean(pendingSend)}
+        busy={Boolean(sending)}
+        onClose={() => setPendingSend(null)}
+        onConfirm={doSend}
+        recipient={pendingSend?.to}
+        title={
+          pendingSend?.kind === "follow_up"
+            ? t("app.quoteDetail.confirmFollowUpTitle", "Send a follow-up?")
+            : t("app.quoteDetail.confirmSendTitle", "Send this quote?")
+        }
+        detail={t(
+          "app.quoteDetail.confirmSendDetail",
+          "They'll get it by email straight away. You can't unsend it.",
+        )}
+        confirmLabel={t("app.quoteDetail.send", "Send")}
+      />
+
       {justSent && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
           <CheckCircle2 size={16} className="shrink-0" />

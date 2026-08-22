@@ -39,6 +39,11 @@ export async function GET(request, { params }) {
       },
       addOns: { orderBy: { sortOrder: "asc" } },
       invoices: { select: { id: true, invoiceNumber: true, status: true } },
+      // Just the billing currency, so the page can format money the way the
+      // client's own document does. Without it the page falls back to CAD and
+      // a US contractor's totals read as Canadian dollars — the same silent
+      // default that put "$2100.00" on the document in the first place.
+      company: { select: { currency: true } },
     },
   });
 

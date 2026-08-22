@@ -21,6 +21,7 @@ import { Plus, X, Search } from "lucide-react";
 import { getDefaultLineItems } from "@/app/data/defaultLineItems";
 import { getLineItemGroups } from "@/app/data/lineItemGroups";
 import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
+import { formatAppMoney } from "@/lib/format/money";
 
 // Above this many suggestions a flat row of chips stops being a picker and
 // becomes a wall. Electrical ships 54 and plumbing 82; every other trade ships
@@ -28,6 +29,9 @@ import { getBenchmark } from "@/lib/pricing/benchmarkGuidance";
 const GROUPED_PICKER_THRESHOLD = 20;
 
 export default function LineItemsTable({
+  // The company's billing currency. Without it these rendered a bare
+  // toFixed(2), which does not group — $2100.00 next to a grouped total.
+  currency,
   items = [],
   products = [],
   categoryKey,
@@ -137,7 +141,7 @@ export default function LineItemsTable({
                 />
               </label>
               <div className="sm:col-span-2 text-sm font-medium text-foreground text-right tabular-nums shrink-0 self-end pb-2 sm:pb-0">
-                ${Number(item.amount).toFixed(2)}
+                {formatAppMoney(item.amount, currency, "en")}
               </div>
               <button
                 type="button"
@@ -194,7 +198,7 @@ export default function LineItemsTable({
               <option key={p.id} value={p.id}>
                 {p.name}
                 {p.unitPrice != null
-                  ? ` — $${Number(p.unitPrice).toFixed(2)}`
+                  ? ` — ${formatAppMoney(p.unitPrice, currency, "en")}`
                   : ""}
               </option>
             ))}

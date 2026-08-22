@@ -40,6 +40,7 @@ import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
 import TierSelector from "@/app/components/quotes/builder/TierSelector";
 import LineItemsTable from "@/app/components/quotes/builder/LineItemsTable";
 import CostMarginPanel from "@/app/components/quotes/builder/CostMarginPanel";
+import SendConfirmModal from "@/app/components/SendConfirmModal";
 import QuoteTotalsBar from "@/app/components/quotes/builder/QuoteTotalsBar";
 import ClientPicker from "@/app/components/quotes/builder/ClientPicker";
 import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
@@ -68,6 +69,7 @@ export default function NewQuotePage() {
   // never changes afterwards. See QuoteLanguageBar.
   const [quoteLanguage, setQuoteLanguage] = useState(null);
   const [companyLanguage, setCompanyLanguage] = useState("en");
+  const [companyCurrency, setCompanyCurrency] = useState(null);
   const [showNewClient, setShowNewClient] = useState(false);
   const [creatingClient, setCreatingClient] = useState(false);
   const [newClient, setNewClient] = useState({
@@ -199,6 +201,11 @@ export default function NewQuotePage() {
             : [],
         });
         setCompanyLanguage(businessInfo?.defaultLanguage || "en");
+        // The billing currency, so every money render in the builder matches
+        // the document the client will receive. businessInfo was already being
+        // fetched here — the currency was simply never read out of it, which
+        // is why the builder formatted in a hardcoded default.
+        setCompanyCurrency(businessInfo?.currency || null);
         setProducts(Array.isArray(productsData) ? productsData : []);
         setWorkers(Array.isArray(workersData) ? workersData : []);
         setRecipeOverrides(
@@ -607,7 +614,12 @@ export default function NewQuotePage() {
     }
   }
 
-  async function handleSave(status) {
+  const [pendingSend, setPendingSend] = useState(null);
+
+  // `confirmed` is a parameter rather than state on purpose: setState is not
+  // synchronous, so a flag set in the modal's onConfirm would still be false
+  // when handleSave read it, and the modal would re-open forever.
+  async function handleSave(status, { confirmed = false } = {}) {
     setError("");
     if (!selectedClient) {
       setError(t("app.quoteNew.selectClientFirst"));
@@ -615,6 +627,30 @@ export default function NewQuotePage() {
     }
     if (scopeGroups.length === 0) {
       setError(t("app.quoteNew.addServiceFirst"));
+      return;
+    }
+
+    // ── "Save & send" emails the client the moment it is pressed ──────────
+    //
+    // It sat next to "Save as draft" with the same weight and no
+    // confirmation, so one misplaced click put a price in a homeowner's inbox
+    // under the contractor's name. There is no unsend. QA sent two real
+    // emails without being asked.
+    //
+    // Only the SEND path confirms; saving a draft is reversible and asking
+    // about it would train people to click through the dialog.
+    if (status === "sent" && !confirmed) {
+      const to = selectedClient?.email;
+      if (!to) {
+        setError(
+          t(
+            "app.quoteNew.noClientEmail",
+            "This client has no email address, so there's nowhere to send it. Save it as a draft and add one first.",
+          ),
+        );
+        return;
+      }
+      setPendingSend({ to });
       return;
     }
 
@@ -816,6 +852,7 @@ export default function NewQuotePage() {
 
           {isUnitPriced(group.categoryKey) && (
             <UnitPricingFields
+              currency={companyCurrency}
               group={group}
               reasonsOpen={Boolean(reasonsOpen[group.tempId])}
               onToggleReasons={() =>
@@ -865,6 +902,7 @@ export default function NewQuotePage() {
           )}
 
           <LineItemsTable
+            currency={companyCurrency}
             items={group.lineItems}
             products={getProductsForCategory(group.categoryId)}
             categoryKey={group.categoryKey}
@@ -885,6 +923,7 @@ export default function NewQuotePage() {
 
       {/* Internal cost & margin. Never client-facing — see the component. */}
       <CostMarginPanel
+        currency={companyCurrency}
         estimate={estimate}
         workers={workers}
         costWorkerId={costWorkerId}
@@ -940,6 +979,23 @@ export default function NewQuotePage() {
         disabled={!selectedClient || scopeGroups.length === 0}
         onSaveDraft={() => handleSave("draft")}
         onSaveAndSend={() => handleSave("sent")}
+      />
+
+      <SendConfirmModal
+        isOpen={Boolean(pendingSend)}
+        busy={saving === "sent"}
+        onClose={() => setPendingSend(null)}
+        onConfirm={() => {
+          setPendingSend(null);
+          handleSave("sent", { confirmed: true });
+        }}
+        recipient={pendingSend?.to}
+        title={t("app.quoteNew.confirmSendTitle", "Send this quote?")}
+        detail={t(
+          "app.quoteNew.confirmSendDetail",
+          "They'll get it by email straight away. You can't unsend it.",
+        )}
+        confirmLabel={t("app.quoteNew.confirmSendCta", "Save & send")}
       />
 
       {/* Onboarding tour — add these two lines right here */}
