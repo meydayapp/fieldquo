@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   Plus,
   MapPin,
@@ -487,10 +488,22 @@ export default function AppointmentsPage() {
                     {appt.client?.name}
                   </span>
                   <span
-                    className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLES[appt.status]}`}
+                    className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                      STATUS_STYLES[appt.status] || "bg-muted text-muted-foreground"
+                    }`}
                   >
-                    {appt.status.replace("_", " ")}
+                    {String(appt.status || "scheduled").replace("_", " ")}
                   </span>
+                  {/* Job visits now appear on this calendar alongside
+                      appointments (they used to be invisible here entirely).
+                      They are a different thing and are labelled as one —
+                      an unlabelled visit would look like an appointment the
+                      controls below simply refuse to edit. */}
+                  {appt.kind === "visit" && (
+                    <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300">
+                      {t("app.appts.jobVisit")}
+                    </span>
+                  )}
                   {appt.requiresSupervisor && (
                     <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
                       <ShieldAlert size={12} />{t("app.appts.supervisorRequired")}</span>
@@ -513,6 +526,26 @@ export default function AppointmentsPage() {
                 )}
               </div>
 
+              {/* A visit's id is a JobVisit id — PATCHing it against
+                  /api/appointments/[id] would 404. Rather than render a select
+                  that silently fails, visits show who is assigned and link to
+                  the job, which is where a visit is actually rescheduled. */}
+              {appt.kind === "visit" ? (
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <UserIcon size={14} />
+                    {appt.assignedTo?.name || t("app.appts.unassigned")}
+                  </span>
+                  {appt.jobId && (
+                    <Link
+                      href={`/app/jobs/${appt.jobId}`}
+                      className="text-sm font-medium underline underline-offset-2 shrink-0"
+                    >
+                      {t("app.appts.openJob")}
+                    </Link>
+                  )}
+                </div>
+              ) : (
               <div className="flex items-center gap-2 shrink-0">
                 <UserIcon size={14} className="text-muted-foreground" />
                 <select
@@ -532,6 +565,7 @@ export default function AppointmentsPage() {
                   ))}
                 </select>
               </div>
+              )}
             </div>
           </div>
           </div>

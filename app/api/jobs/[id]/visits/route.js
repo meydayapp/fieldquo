@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
@@ -87,6 +88,17 @@ export async function POST(request, { params }) {
       where: { id: _params.id },
       data: { status: "scheduled" },
     });
+  }
+
+  // Quote acceptance raises a high-priority "Schedule the job for X — the job
+  // is waiting in Jobs with no date on it yet" task. It used to stay open and
+  // keep saying that after the job was scheduled, so the to-do list
+  // accumulated work already done and contradicted the job record.
+  //
+  // Keyed off the QUOTE, because that is what the task was keyed off when it
+  // was created. A job with no quote behind it never had one of these.
+  if (job.quoteId) {
+    await resolveTaskBySource(`quote_accepted:${job.quoteId}`);
   }
 
   return NextResponse.json(visit, { status: 201 });

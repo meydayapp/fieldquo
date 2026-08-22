@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { VISIT_INCLUDE, toCalendarEntry } from "@/lib/schedule/jobVisits";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -40,7 +41,33 @@ export async function GET(request) {
     orderBy: { scheduledAt: "asc" },
   });
 
-  return NextResponse.json(appointments);
+  // ── Visits belong on the calendar too ──────────────────────────────────
+  //
+  // Scheduling a visit on a job advanced the job to "scheduled" and put
+  // nothing here, because visits live in JobVisit and this reads Appointment.
+  // A manager booked crew work for Tuesday, opened the Calendar, and saw an
+  // empty week — while the dashboard's "Upcoming visits" tile read 0 against a
+  // job that plainly had one.
+  //
+  // Merged at read time rather than mirrored into an Appointment row; see
+  // lib/schedule/jobVisits.js for why. Entries carry `kind` so the UI links a
+  // visit to its job instead of offering an appointment editor that would not
+  // work on it.
+  const visits = await db.jobVisit.findMany({
+    where: {
+      job: { companyId: member.companyId },
+      ...(seesEveryone
+        ? {}
+        : { OR: [{ assignedToId: member.userId }, { assignedToId: null }] }),
+    },
+    include: VISIT_INCLUDE,
+    orderBy: { scheduledAt: "asc" },
+  });
+
+  return NextResponse.json([
+    ...appointments.map((a) => ({ ...a, kind: "appointment" })),
+    ...visits.map(toCalendarEntry).filter(Boolean),
+  ].sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)));
 }
 
 export async function POST(request) {

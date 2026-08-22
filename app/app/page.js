@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { countUpcoming } from "@/lib/schedule/jobVisits";
 import Link from "next/link";
 import {
   FileText,
@@ -24,6 +25,8 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState(null);
   const [recentQuotes, setRecentQuotes] = useState([]);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  // Separate from the preview list above, which is capped at five.
+  const [upcomingCount, setUpcomingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [onboardingError, setOnboardingError] = useState("");
 
@@ -87,12 +90,20 @@ export default function DashboardPage() {
         setRecentQuotes(
           Array.isArray(quotesData) ? quotesData.slice(0, 5) : [],
         );
-        const upcoming = (
-          Array.isArray(appointmentsData) ? appointmentsData : []
-        )
-          .filter((a) => new Date(a.scheduledAt) > new Date())
-          .slice(0, 5);
-        setUpcomingAppointments(upcoming);
+        // /api/appointments now returns job visits alongside appointments, so
+        // both of these finally count the crew work a company actually
+        // schedules — this tile read 0 against jobs that plainly had visits.
+        const all = Array.isArray(appointmentsData) ? appointmentsData : [];
+        // The COUNT is the whole upcoming list. It used to be the length of
+        // the sliced preview, so a company with twelve visits ahead of them
+        // read "5" — the tile silently topped out at the size of the list
+        // below it.
+        setUpcomingCount(countUpcoming(all));
+        setUpcomingAppointments(
+          all
+            .filter((a) => new Date(a.scheduledAt) > new Date())
+            .slice(0, 5),
+        );
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -176,7 +187,7 @@ export default function DashboardPage() {
             <Calendar size={16} /> {t("app.dash.upcomingVisits")}
           </div>
           <div className="text-2xl font-bold text-foreground mt-2">
-            {upcomingAppointments.length}
+            {upcomingCount}
           </div>
         </div>
       </div>
