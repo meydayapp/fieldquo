@@ -1,7 +1,7 @@
 // app/app/quotes/new/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import MediaUploader from "@/app/components/MediaUploader";
 import { useRouter } from "next/navigation";
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
@@ -24,6 +24,7 @@ import {
 import OnboardingTour from "@/app/components/OnboardingTour";
 import HelpButton from "@/app/components/HelpButton";
 import { fetchJson } from "@/lib/fetchJson";
+import { startComposeTimer } from "@/lib/analytics/composeTimer";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import ServiceTiles from "@/app/components/quotes/builder/ServiceTiles";
 import ScopeGroupCard from "@/app/components/quotes/builder/ScopeGroupCard";
@@ -45,6 +46,17 @@ import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NewQuotePage() {
+  // How long this quote actually took to build. Started on mount, stopped when
+  // it saves. See lib/analytics/composeTimer.js for why createdAt → sentAt
+  // can't answer this.
+  const composeTimer = useRef(null);
+  useEffect(() => {
+    composeTimer.current = startComposeTimer();
+    // Abandoned drafts report nothing rather than a stray number — a quote
+    // nobody finished says nothing about how long finishing one takes.
+    return () => composeTimer.current?.cancel();
+  }, []);
+
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -598,11 +610,16 @@ export default function NewQuotePage() {
 
     setSaving(status);
 
+    // Stopped here rather than on unmount: the work is finished at Save, and
+    // the seconds spent watching a spinner afterwards are not compose time.
+    const composeSeconds = composeTimer.current?.stop() ?? null;
+
     const res = await fetch("/api/quotes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         clientId: selectedClient.id,
+        composeSeconds,
         scopeGroups: scopeGroups.map((g) => {
           // For unit-priced trades, prepend a base line item (units × final
           // unit price) so the saved quote/PDF shows the client-facing scope,

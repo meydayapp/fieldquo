@@ -76,6 +76,12 @@ export async function POST(request) {
   const {
     clientId,
     quoteType,
+    // Active build time reported by the browser. Trusted only within a sane
+    // range and otherwise dropped — it is a product metric, not a control, so
+    // the cost of a bad value is a skewed average rather than a security
+    // problem. Clamped rather than rejected so a weird client doesn't fail the
+    // save of a real quote.
+    composeSeconds,
     scopeGroups,
     subtotal,
     discount,
@@ -115,6 +121,16 @@ export async function POST(request) {
 
   const quote = await db.quote.create({
     data: {
+      // Null unless the browser reported something plausible. Absence is not
+      // zero: a quote created by an API client or an older page carries no
+      // claim about how long it took, and summariseComposeTimes drops nulls
+      // rather than averaging them in as instant.
+      composeSeconds:
+        Number.isFinite(Number(composeSeconds)) &&
+        Number(composeSeconds) > 0 &&
+        Number(composeSeconds) <= 2700
+          ? Math.round(Number(composeSeconds))
+          : null,
       companyId: member.companyId,
       quoteNumber,
       clientId,

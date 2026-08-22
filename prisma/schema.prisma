@@ -1323,6 +1323,25 @@ model Quote {
   // "google_solar", "lawn_polygon", "manual". Free-form, not an enum, because
   // new trades add sources without a migration.
   estimateSource String?
+  /// Seconds a human actually spent BUILDING this quote — active time, not
+  /// wall-clock.
+  ///
+  /// createdAt → sentAt cannot answer "how fast can you quote": on the eight
+  /// real quotes in production it ranged from 0 minutes to 146 hours, because
+  /// it measures a contractor starting a quote on Monday and sending it on
+  /// Wednesday. Work time and idle time are indistinguishable in it.
+  ///
+  /// This is measured client-side by lib/analytics/composeTimer.js, which
+  /// stops counting when the tab is hidden or the user goes idle. It is
+  /// therefore a LOWER bound on effort and an honest one — the failure mode is
+  /// under-counting a distracted user, never inflating the number that ends up
+  /// in a marketing claim.
+  ///
+  /// Null for every quote created before this existed, and for any client that
+  /// doesn't report it. Absence is not zero, and no average may treat it as
+  /// zero.
+  composeSeconds Int?
+
   // Snapshot of what produced the figure — measurements (squares, pitch,
   // area), the satellite image URL, the chosen material key, the computed
   // range and breakdown. Kept verbatim so the reviewer sees exactly what the
