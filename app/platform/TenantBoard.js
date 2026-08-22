@@ -21,6 +21,7 @@ import {
   Loader2, TrendingDown, Users, Hammer, Timer, Sparkles, AlertCircle,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import CompanyInsight from "./CompanyInsight";
 
 const money = (n) =>
   n === null || n === undefined
@@ -32,6 +33,8 @@ const rate = (n) => (n === null || n === undefined ? "—" : `${n}%`);
 export default function TenantBoard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  // Which company's drill-down is open. Null closes it.
+  const [openCompany, setOpenCompany] = useState(null);
 
   useEffect(() => {
     fetchJson("/api/platform/analytics/tenants")
@@ -216,11 +219,18 @@ export default function TenantBoard() {
             </h4>
             <ul className="space-y-1.5">
               {health.needsAttention.map((c) => (
-                <li key={c.id} className="flex justify-between text-sm gap-4">
-                  <span className="text-foreground truncate">{c.name}</span>
-                  <span className="text-muted-foreground shrink-0 tabular-nums">
-                    {c.quotes} quote(s) · quiet {c.daysSinceLastQuote}d
-                  </span>
+                <li key={c.id}>
+                  <button
+                    onClick={() => setOpenCompany({ id: c.id, name: c.name })}
+                    className="w-full flex justify-between text-sm gap-4 text-left hover:bg-muted rounded px-2 -mx-2 py-1"
+                  >
+                    <span className="text-foreground truncate underline decoration-dotted underline-offset-2">
+                      {c.name}
+                    </span>
+                    <span className="text-muted-foreground shrink-0 tabular-nums">
+                      {c.quotes} quote(s) · quiet {c.daysSinceLastQuote}d
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -304,6 +314,51 @@ export default function TenantBoard() {
           />
         </div>
       </section>
+
+      {/* ── Every company, drillable ───────────────────────────────────────
+          The "gone quiet" list above is the call list; this is everyone,
+          because a call is sometimes to tell somebody they are doing well. */}
+      <section>
+        <SectionHead
+          icon={Users}
+          title="All companies"
+          hint="Open one to see its numbers against the median across everyone else — written for the phone call."
+        />
+        <div className="bg-card border border-border rounded-xl divide-y divide-border">
+          {health.companies.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setOpenCompany({ id: c.id, name: c.name })}
+              className="w-full px-5 py-3 flex items-center justify-between gap-4 text-left hover:bg-muted"
+            >
+              <div className="min-w-0">
+                <div className="text-sm text-foreground truncate">{c.name}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {c.trades.length ? c.trades.slice(0, 3).join(" · ") : "No trades switched on"}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm tabular-nums text-foreground">
+                  {c.quotes} quote(s)
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {c.state === "never_quoted"
+                    ? "never quoted"
+                    : c.state === "dormant"
+                      ? `quiet ${c.daysSinceLastQuote}d`
+                      : "active"}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <CompanyInsight
+        companyId={openCompany?.id}
+        name={openCompany?.name}
+        onClose={() => setOpenCompany(null)}
+      />
     </div>
   );
 }
