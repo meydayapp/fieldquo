@@ -75,9 +75,18 @@ export default function QuotesPage() {
 
       <div data-tour="quotes-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
+          // "Sent" here counts quotes whose CURRENT status is sent, while the
+          // dashboard's "Quotes sent" counts every quote ever sent. Both are
+          // legitimate and they disagree the moment a client accepts one: the
+          // dashboard said 2, this tile said 0, and neither said which question
+          // it was answering.
+          //
+          // Renamed rather than redefined. The number is genuinely useful —
+          // it is the follow-up list — it just isn't "sent", it's "sent and
+          // nobody has replied".
           { label: "Total", value: stats?.total },
           { label: "Draft", value: stats?.draft },
-          { label: "Sent", value: stats?.sent },
+          { label: "Awaiting reply", value: stats?.sent },
           { label: "Accepted", value: stats?.accepted },
         ].map((s) => (
           <div

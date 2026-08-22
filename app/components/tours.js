@@ -246,7 +246,11 @@ export const TOURS = [
     key: "schedule-v1",
     match: (p) => p === "/app/schedule",
     steps: [
-      { target: "[data-tour='schedule-header']", title: "The team at a glance", body: "A read-only view of everyone's weekly hours and what's booked in the next two weeks. People set their own hours under Settings → Availability." },
+            // Not read-only, and hasn't been for a while: the page header on the same
+      // screen says "and you can set anyone's from here", and every row carries
+      // a working Edit hours button. A coach-mark that contradicts the buttons
+      // beside it teaches people to stop reading coach-marks.
+      { target: "[data-tour='schedule-header']", title: "The team at a glance", body: "Everyone's weekly hours and what's booked in the next two weeks. People set their own under Settings → Availability, and you can set anyone's from here." },
     ],
   },
   {

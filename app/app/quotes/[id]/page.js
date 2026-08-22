@@ -143,6 +143,29 @@ export default function QuoteDetailPage() {
    * message.
    */
   async function sendQuote(kind) {
+    // ── One click used to email the client ────────────────────────────────
+    //
+    // No confirmation, no chance to check the address. Sending a quote is
+    // outbound, irreversible, and lands in a stranger's inbox under the
+    // contractor's name — a misfire is a client reading a price that wasn't
+    // meant for them yet, and there is no unsend.
+    //
+    // The recipient is named IN the prompt because that is the thing worth
+    // checking. QA created a client through the quick-add and sent to whatever
+    // address happened to be on it; "Send to whom?" is the question this
+    // answers.
+    const to = quote?.client?.email;
+    if (!to) {
+      setError(t("app.quoteDetail.noEmail", "This client has no email address, so there's nowhere to send it. Add one on the client first."));
+      return;
+    }
+    const ok = window.confirm(
+      kind === "follow_up"
+        ? t("app.quoteDetail.confirmFollowUp", "Send a follow-up about this quote to {email}?", { email: to })
+        : t("app.quoteDetail.confirmSend", "Send this quote to {email}?", { email: to }),
+    );
+    if (!ok) return;
+
     setSending(kind);
     setError("");
     try {
@@ -350,7 +373,15 @@ export default function QuoteDetailPage() {
       {justSent && (
         <div className="bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 rounded-lg px-4 py-3 flex items-center gap-2.5 text-sm text-green-800 dark:text-green-300">
           <CheckCircle2 size={16} className="shrink-0" />
-          {t("app.quoteDetail.sentTo")} <span className="font-medium">{justSent}</span>.
+          {/* The sentence is ONE flex item. It used to be three — the label,
+              the address span, and a bare "." — and the container's gap-2.5
+              spaced them all, rendering "Sent to someone@example.com ." with a
+              float before the full stop. Raw text in a flex row becomes an
+              anonymous flex item, which is easy to forget. */}
+          <span>
+            {t("app.quoteDetail.sentTo")}{" "}
+            <span className="font-medium">{justSent}</span>.
+          </span>
         </div>
       )}
 
