@@ -10,6 +10,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -37,7 +38,7 @@ const STATUS_STYLES = {
 // `unscheduled` included — it's where every auto-created job from an accepted
 // quote lands, so omitting it made the <select> show "scheduled" for a job the
 // badge above correctly called "unscheduled", and interacting silently flipped it.
-const JOB_STATUSES = ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"];
+// Shared with the Jobs list — see lib/jobs/statusLabels.js for why.
 
 function formatDateTime(value) {
   if (!value) return "Not scheduled";
@@ -153,7 +154,7 @@ export default function JobDetail({ jobId }) {
                 "bg-muted text-muted-foreground border-border"
               }`}
             >
-              {job.status?.replace(/_/g, " ")}
+              {jobStatusLabel(job.status, t)}
             </span>
           </div>
           {job.quote && (
@@ -179,7 +180,7 @@ export default function JobDetail({ jobId }) {
           >
             {JOB_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
+                {jobStatusLabel(s, t)}
               </option>
             ))}
           </select>

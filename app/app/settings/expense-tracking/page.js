@@ -39,7 +39,18 @@ const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
 
 function money(n) {
-  return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  // Two decimals, like every other money value in the app. This rounded to
+  // whole dollars, so a $125.50 expense — stored correctly — displayed as
+  // "$126" on the tile, in job-related spend and in the category breakdown.
+  // Someone reconciling a receipt against this screen finds a number that
+  // isn't on the receipt.
+  // Number(n || 0) let a non-numeric string through: "abc" is truthy, so the
+  // `|| 0` never fired and the tile rendered "$NaN". Finite check instead.
+  const v = Number(n);
+  return `$${(Number.isFinite(v) ? v : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function monthLabel(date) {

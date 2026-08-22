@@ -12,6 +12,8 @@
 
 export const dynamic = "force-dynamic";
 
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
 import QuoteApproval from "./QuoteApproval";
 import ContractorImportPanel from "./ContractorImportPanel";
 
@@ -24,6 +26,28 @@ export const metadata = {
 
 export default async function PublicQuotePage({ params }) {
   const { token } = await params;
+
+  // ── An unknown link is a 404, not a 200 ────────────────────────────────
+  //
+  // This page rendered with status 200 for any token at all; the client
+  // component then fetched, failed, and drew a friendly "this link isn't
+  // valid" message. The words were right and the status code was a lie.
+  //
+  // One indexed lookup of the id only — no quote body, no relations. That is
+  // cheap enough for a page a homeowner opens on a phone in a driveway, which
+  // is the audience this whole route is built for.
+  //
+  // notFound() renders ./not-found.js, which carries the same friendly wording
+  // the client component had. Without that file this "fix" would trade a good
+  // message for a correct status code, which is not a trade worth making.
+  const exists = token
+    ? await db.quote.findFirst({
+        where: { shareToken: token },
+        select: { id: true },
+      })
+    : null;
+  if (!exists) notFound();
+
   return (
     <>
       <QuoteApproval token={token} />

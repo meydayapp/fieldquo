@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { JOB_STATUS_LABEL_KEYS } from "@/lib/jobs/statusLabels";
 import Link from "next/link";
 import { Briefcase, Plus, Search, ArrowRight } from "lucide-react";
 import { fetchArray } from "@/lib/loadState";
@@ -18,16 +19,10 @@ const STATUS_STYLES = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
-// Human labels for statuses. Raw values like "unscheduled" / "in_progress"
-// mean nothing to a contractor — translate through app.status.* (with the
-// existing camelCase keys the rest of the app uses for shared statuses).
-const STATUS_LABEL_KEYS = {
-  unscheduled: ["app.status.unscheduled", "Needs a date"],
-  scheduled: ["app.status.scheduled", "Scheduled"],
-  in_progress: ["app.status.inProgress", "In progress"],
-  completed: ["app.status.completed", "Completed"],
-  cancelled: ["app.status.cancelled", "Cancelled"],
-};
+// Moved to lib/jobs/statusLabels.js so the job DETAIL page reads the same map.
+// It had its own `replace(/_/g, " ")`, so the list said "Needs a date" and the
+// badge on the job itself said "unscheduled".
+const STATUS_LABEL_KEYS = JOB_STATUS_LABEL_KEYS;
 
 export default function JobsPage() {
   const { t } = useTranslation();

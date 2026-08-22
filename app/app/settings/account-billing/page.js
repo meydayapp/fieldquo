@@ -363,7 +363,15 @@ function AccountBillingScreen() {
                 </p>
                 {plan.maxUsers && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {t("app.billing.upToUsersCap", "Up to {count} users", { count: plan.maxUsers })}
+                    {/* "Up to 1 users" on the 1-Employee card. Singular and
+                        plural are separate strings rather than a stripped "s",
+                        because the six languages here don't agree on how
+                        plurals work. */}
+                    {plan.maxUsers === 1
+                      ? t("app.billing.upToUsersCapOne", "Up to 1 user")
+                      : t("app.billing.upToUsersCap", "Up to {count} users", {
+                          count: plan.maxUsers,
+                        })}
                   </p>
                 )}
                 {plan.aiCopilotEnabled && (
