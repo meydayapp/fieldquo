@@ -11,6 +11,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
+import JobCosting from "@/app/components/jobs/JobCosting";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -272,6 +273,10 @@ export default function JobDetail({ jobId }) {
       </div>
 
       {/* Visits */}
+      {/* What the job has actually cost. Renders itself away when nothing has
+          been recorded and for anyone without the jobCosting toggle. */}
+      <JobCosting jobId={job.id} />
+
       <div data-tour="job-visits" className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
