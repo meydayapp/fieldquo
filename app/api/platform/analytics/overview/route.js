@@ -16,12 +16,29 @@
 //
 // Conflating the second with your own revenue would badly overstate the
 // business, so they're named and labelled separately in the UI.
+//
+// ── That warning was not enough ────────────────────────────────────────────
+//
+// It was accurate and it was invisible. The dashboard printed "$473,558
+// invoiced" next to FieldQuo's MRR, and both the owner and an external QA pass
+// read it as FieldQuo's revenue — the QA report opened with it as evidence of
+// a billing failure. A caveat only the author reads is not a caveat.
+//
+// So `outlook` is now returned alongside, and it is deliberately narrow: it
+// contains ONLY money FieldQuo can charge for its own subscriptions, and it
+// separates what can actually be collected from what is merely claimed.
+//
+// The gap is the point. Nominal MRR is $1,335 across five active
+// subscriptions. Collectable MRR is $0, because every plan is missing its
+// Stripe price. That difference is the most useful number on the page: it is
+// precisely the revenue that is one configuration fix away.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import { buildRevenueOutlook } from "@/lib/platform/revenueOutlook";
 
 /** Sales demo companies are not customers. See lib/demo/seedDemo.js. */
 const NOT_DEMO = { isDemo: false };
@@ -134,9 +151,21 @@ export async function GET(request) {
     db.company.count({
       where: { ...NOT_DEMO, onboardingStatus: "churned", updatedAt: { gte: startOfMonth } },
     }),
+    // Widened from active-only to every live subscription, and from the plan's
+    // name+price to the fields that decide whether it can actually be
+    // CHARGED. The old shape could only produce a nominal MRR — it had no way
+    // to know that none of these can raise a payment.
     db.subscription.findMany({
-      where: { status: "active" },
-      include: { plan: { select: { name: true, priceMonthly: true } } },
+      where: { status: { in: ["active", "trialing"] }, company: NOT_DEMO },
+      select: {
+        status: true,
+        trialEndsAt: true,
+        stripeSubscriptionId: true,
+        company: { select: { name: true } },
+        plan: {
+          select: { name: true, priceMonthly: true, stripePriceId: true },
+        },
+      },
     }),
     db.quote.count({ where: { createdAt: { gte: startOfMonth } } }),
     db.job.count({ where: { createdAt: { gte: startOfMonth } } }),
@@ -174,14 +203,22 @@ export async function GET(request) {
     db.invoice.aggregate({ _sum: { total: true }, _count: true }),
   ]);
 
-  const mrr = activeSubscriptions.reduce(
+  // `activeSubscriptions` now also carries trialing rows, so anything that
+  // means "currently paying" has to say so.
+  const activeOnly = activeSubscriptions.filter((s) => s.status === "active");
+
+  const mrr = activeOnly.reduce(
     (sum, s) => sum + Number(s.plan.priceMonthly),
     0,
   );
 
+  // The same subscriptions, asked the harder question: which of these can
+  // actually raise a charge next cycle?
+  const revenueOutlook = buildRevenueOutlook(activeSubscriptions);
+
   // Plan mix — which plans people actually buy.
   const planMix = {};
-  for (const s of activeSubscriptions) {
+  for (const s of activeOnly) {
     planMix[s.plan.name] = (planMix[s.plan.name] || 0) + 1;
   }
 
@@ -190,11 +227,14 @@ export async function GET(request) {
     mrr: Math.round(mrr * 100) / 100,
     arr: Math.round(mrr * 12 * 100) / 100,
     totalBilled: Number(paymentTotal._sum.amount || 0),
+    // FieldQuo's own subscription revenue, kept structurally apart from every
+    // tenant figure above it. See the header.
+    outlook: revenueOutlook,
     quotedValue: Number(quoteTotal._sum.total || 0),
     invoicedValue: Number(invoiceTotal._sum.total || 0),
 
     // Counts
-    activeSubscriptionCount: activeSubscriptions.length,
+    activeSubscriptionCount: activeOnly.length,
     totalCompanies,
     activeCompanies,
     trialCompanies,
