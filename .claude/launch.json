@@ -4,8 +4,39 @@
     {
       "name": "fieldquo-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "sunset-admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/emilioboves/sunset-space/sunset-space-admin",
+        "--",
+        "-p",
+        "3008"
+      ],
+      "port": 3008
+    },
+    {
+      "name": "sunset-store",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/emilioboves/sunset-space/sunset-space-store",
+        "--",
+        "-p",
+        "3007"
+      ],
+      "port": 3007
     }
   ]
 }

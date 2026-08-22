@@ -9,6 +9,13 @@
 // isn't a billing admin, and the existing `sub?.status !== "trialing"` guard
 // below turns that into rendering nothing.
 //
+// The badge is narrower still: OWNER only, via `showTrialBadge` on the same
+// payload. QA as a "Manager" (which maps to `admin`) saw "47 days left" on
+// every screen, and the owner's call was that the countdown is the company's
+// business, not the manager's. Admins keep the Account & Billing page — they
+// may still be the person who pays — they just stop being followed around by
+// the countdown.
+//
 // Deliberately NOT a second role check here. One place decides, and it is the
 // server — a client-side role test would be a second source of truth that can
 // drift from the payload, and the payload is the one that matters.
@@ -33,6 +40,10 @@ export default function TrialBadge({ collapsed = false }) {
       .catch(() => setSub(null));
   }, []);
 
+  // The server decides. Checking `showTrialBadge` rather than the role keeps
+  // one source of truth; an explicit `=== false` would render the badge during
+  // the first paint, before the fetch resolves, which is the flash this avoids.
+  if (!sub?.showTrialBadge) return null;
   if (!sub?.status || sub.status !== "trialing") return null;
 
   const remaining = daysLeft(sub.trialEndsAt);

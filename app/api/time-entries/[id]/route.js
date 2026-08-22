@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { resolveWallClock } from "@/lib/time/wallClock";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -53,7 +54,24 @@ export async function PATCH(request, { params }) {
   }
 
   let hours = existing.hours;
-  const resolvedClockOut = clockOut ? new Date(clockOut) : existing.clockOut;
+  // Same wall-clock rule as the POST route — the manual form's end time is a
+  // bare "2026-08-20T17:00" and only means something once resolved in the
+  // company's zone. `hours` is computed from this, and `hours` is what payroll
+  // pays, so getting it wrong here is money.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId }, // the query above already scoped to it
+    select: { timezone: true },
+  });
+  const resolvedClockOut = clockOut
+    ? resolveWallClock(clockOut, company?.timezone)
+    : existing.clockOut;
+
+  if (clockOut && !resolvedClockOut) {
+    return NextResponse.json(
+      { error: "That end time isn't a valid date and time." },
+      { status: 400 },
+    );
+  }
 
   if (resolvedClockOut) {
     const clockInMs = existing.clockIn.getTime();

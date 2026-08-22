@@ -22,6 +22,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
+import { rankOf } from "@/lib/permissions/roleManagement";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -376,6 +377,69 @@ export async function PATCH(request) {
   });
   if (!target)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // ── You cannot switch off your own access ───────────────────────────────
+  //
+  // The UI disables this checkbox for yourself. The API did not, so a single
+  // PATCH locked the caller out permanently — and the response was 401,
+  // because the write landed and THEN the session check ran against the
+  // now-inactive member. QA reproduced it and locked themselves out of a live
+  // tenant; recovery needed another owner.
+  //
+  // Mirrors the guard the /role endpoint already has ("You can't change your
+  // own role"). Same reasoning, same door, different flag — which is exactly
+  // the shape of gap a second endpoint leaves when only the first gets the
+  // rule.
+  if (active === false && userId === member.userId) {
+    return NextResponse.json(
+      {
+        error:
+          "You can't deactivate your own account — you'd lock yourself out. " +
+          "Ask an owner or another admin to do it.",
+      },
+      { status: 400 },
+    );
+  }
+
+  // Rank, not just self. An admin deactivating an OWNER is the same
+  // escalation the role endpoint refuses; without this, the active flag is a
+  // way around it.
+  if (active === false && rankOf(target.role) >= rankOf(member.role)) {
+    return NextResponse.json(
+      {
+        error:
+          "You can only deactivate team members below your own role.",
+      },
+      { status: 403 },
+    );
+  }
+
+  // ── Never leave the company with nobody who can administer it ───────────
+  //
+  // The owner guard below covers the last OWNER. It did not cover the case
+  // where the last owner is already inactive and an admin switches off the
+  // only remaining admin — which orphans the tenant just as completely, with
+  // no in-app route back.
+  if (active === false && ["owner", "admin"].includes(target.role)) {
+    const remaining = await db.member.count({
+      where: {
+        companyId: member.companyId,
+        role: { in: ["owner", "admin"] },
+        active: true,
+        userId: { not: userId },
+      },
+    });
+    if (remaining === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "That's the last active owner or admin. Someone has to be able to " +
+            "manage the account — promote or reactivate somebody first.",
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   // Deactivating the last active owner locks the company out of its own
   // billing, invitations and role management with no way back in from the app.

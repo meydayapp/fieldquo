@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { resolveWallClock } from "@/lib/time/wallClock";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
@@ -95,11 +96,30 @@ export async function POST(request) {
     );
   }
 
+  // A wall-clock time typed into the manual form ("2026-08-20T09:00") means
+  // 09:00 where the COMPANY is, not where this server happens to run. Passing
+  // it to `new Date()` resolved it against the runtime zone — UTC on Vercel —
+  // while the form's other end was converted in the browser, so the two ends
+  // disagreed by the UTC offset and every manual entry came out long. See
+  // lib/time/wallClock.js. Server-stamped clock-ins carry a zone and are
+  // returned unchanged.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { timezone: true },
+  });
+  const clockInAt = clockIn ? resolveWallClock(clockIn, company?.timezone) : new Date();
+  if (!clockInAt) {
+    return NextResponse.json(
+      { error: "That start time isn't a valid date and time." },
+      { status: 400 },
+    );
+  }
+
   const entry = await db.timeEntry.create({
     data: {
       workerId,
       jobId: jobId || null,
-      clockIn: clockIn ? new Date(clockIn) : new Date(),
+      clockIn: clockInAt,
     },
     include: { worker: { select: { id: true, name: true } } },
   });

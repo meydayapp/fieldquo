@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { isBillingAdmin } from "@/lib/billing/billingAdmin";
+import { isBillingAdmin, seesBillingState } from "@/lib/billing/billingAdmin";
 
 // Feeds the AdminSidebar TrialBadge AND the Account & Billing page.
 //
@@ -34,6 +34,21 @@ export async function GET(request) {
   // seeing less than the customer does is the failure that rule exists to stop.
   const seesPlan = member.impersonation || isBillingAdmin(member.role);
 
+  // ── The sidebar countdown is a narrower question than the billing page ──
+  //
+  // "47 days left" followed the caller onto every screen, for anyone created
+  // through the "Manager" preset — which maps to `admin`. The owner's call:
+  // how long the company's trial has to run is commercial information about
+  // the BUSINESS, and a manager running crews should not learn from a sidebar
+  // that their employer's software is weeks from a bill.
+  //
+  // Not folded into isBillingAdmin, because that gate answers a different
+  // question — who may ACT on billing — and an admin at a 20-person company
+  // still legitimately pays the bill. So the Account & Billing page keeps
+  // working for them; only the persistent badge is owner-only. Computed on the
+  // server: a client-side `role === "owner"` check is a hint, not a gate.
+  const showTrialBadge = seesBillingState(member.role);
+
   const subscription = await db.subscription.findUnique({
     where: { companyId: member.companyId },
     select: {
@@ -47,10 +62,10 @@ export async function GET(request) {
   });
 
   if (!subscription) {
-    return NextResponse.json({ status: null, trialEndsAt: null, plan: null });
+    return NextResponse.json({ status: null, trialEndsAt: null, plan: null, showTrialBadge: false });
   }
 
-  if (seesPlan) return NextResponse.json(subscription);
+  if (seesPlan) return NextResponse.json({ ...subscription, showTrialBadge });
 
   // ── Everyone else learns nothing about the company's billing ────────────
   //
@@ -68,5 +83,5 @@ export async function GET(request) {
   // every navigation, and a 403 in the console on every page load reads as a
   // broken build. "No statement" is the honest answer here, and the badge
   // renders nothing for it.
-  return NextResponse.json({ status: null, trialEndsAt: null, plan: null });
+  return NextResponse.json({ status: null, trialEndsAt: null, plan: null, showTrialBadge: false });
 }

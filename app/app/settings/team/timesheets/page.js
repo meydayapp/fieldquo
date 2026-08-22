@@ -101,9 +101,16 @@ function TimesheetsPageScreen() {
     }
     if (!form.date || !form.start) return;
 
-    // Local date + time → a Date the server parses as-is. No timezone suffix,
-    // so it lands in the contractor's own wall-clock time, which is what they
-    // typed. An empty end leaves the entry open (clock out later).
+    // Both ends go over the wire as bare wall-clock strings — no zone suffix,
+    // no browser conversion — and the SERVER resolves them in the company's
+    // timezone. See lib/time/wallClock.js.
+    //
+    // This used to send clockIn bare and clockOut through
+    // `new Date(...).toISOString()`, which converted one end in the browser and
+    // left the other to be read as UTC on the server. Every manual entry came
+    // out inflated by the UTC offset — 09:00–17:00 stored as 12 hours — and fed
+    // a pay run at 50% over. Whatever the two ends do, they must do the same
+    // thing.
     const clockIn = `${form.date}T${form.start}`;
     const clockOutStr = form.end ? `${form.date}T${form.end}` : null;
 
@@ -128,7 +135,7 @@ function TimesheetsPageScreen() {
         entry = await fetchJson(`/api/time-entries/${entry.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clockOut: new Date(clockOutStr).toISOString() }),
+          body: JSON.stringify({ clockOut: clockOutStr }),
         });
       }
 
