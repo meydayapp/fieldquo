@@ -112,6 +112,10 @@ export default function NewQuotePage() {
   const [costWorkerId, setCostWorkerId] = useState("");
   const [fallbackRate, setFallbackRate] = useState(65);
   const [overheadPct, setOverheadPct] = useState(10);
+  // The estimator's own read on this job, on top of whatever a recipe worked
+  // out. Kept as strings so an empty box stays empty instead of snapping to 0.
+  const [manualLabourHours, setManualLabourHours] = useState("");
+  const [manualMaterialCost, setManualMaterialCost] = useState("");
   // The company's real overhead for one job: monthly fixed costs divided by
   // how many jobs a week they can take on. Null until Settings > Overhead and
   // a job capacity exist — in which case the percentage above stands in and
@@ -603,6 +607,8 @@ export default function NewQuotePage() {
   const estimate = estimateQuoteCost({
     scopeGroups,
     labourRatePerHour: labourRate,
+    manualLabourHours: Number(manualLabourHours) || 0,
+    manualMaterialCost: Number(manualMaterialCost) || 0,
     price: subtotal,
     // The company's real overhead for one job when we know their capacity;
     // the percentage only stands in until they've told us.
@@ -996,6 +1002,10 @@ export default function NewQuotePage() {
         onFallbackRateChange={setFallbackRate}
         overheadPct={overheadPct}
         onOverheadChange={setOverheadPct}
+        manualLabourHours={manualLabourHours}
+        onManualLabourHoursChange={setManualLabourHours}
+        manualMaterialCost={manualMaterialCost}
+        onManualMaterialCostChange={setManualMaterialCost}
         overheadSource={overheadSource}
         subtotal={subtotal}
         totalGroupCount={scopeGroups.length}

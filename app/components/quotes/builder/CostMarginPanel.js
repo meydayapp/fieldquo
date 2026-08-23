@@ -62,44 +62,15 @@ export default function CostMarginPanel({
   overheadPct,
   onOverheadChange,
   overheadSource,
+  manualLabourHours,
+  onManualLabourHoursChange,
+  manualMaterialCost,
+  onManualMaterialCostChange,
   subtotal,
   totalGroupCount,
   marginTarget,
 }) {
   const money = (n) => formatAppMoney(n, currency, "en");
-
-  // No cost recipe has produced a figure yet. This used to `return null`, so
-  // the whole panel vanished — and on a fresh cabinet quote it vanishes at
-  // exactly the moment someone is looking for it, because the recipe needs a
-  // door or drawer count that lives two components further up the page. A
-  // panel that disappears reads as a missing feature, not as a panel waiting
-  // for input, so it now says which input it is waiting for.
-  if (!estimate?.hasEstimable) {
-    return (
-      <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground flex items-center gap-2">
-          <TrendingUp size={16} /> Cost &amp; margin
-          <span className="text-xs font-normal text-muted-foreground">
-            (internal — never shown to the client)
-          </span>
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {totalGroupCount === 0
-            ? "Add a service above and this will show what the job costs you and what is left over."
-            : "Nothing to cost yet. Cost is worked out from a materials-and-labour recipe, which so far exists for cabinet refinishing and exterior painting — and it needs the counts entered above (doors and drawers, or the surface areas) before it can produce a figure."}
-        </p>
-        {subtotal > 0 && (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Quoted so far:{" "}
-            <span className="font-medium text-foreground tabular-nums">
-              {money(subtotal)}
-            </span>{" "}
-            — margin unknown.
-          </p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -180,6 +151,14 @@ export default function CostMarginPanel({
         )}
       </div>
 
+      {!estimate.hasRecipeEstimate && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          No materials-and-labour recipe covers the trades on this quote — so
+          far only cabinet refinishing and exterior painting have one. Enter the
+          hours and materials you expect below and the margin works from those.
+        </p>
+      )}
+
       {estimate.groups.map((g) => (
         <div key={g.tempId} className="mb-3 border-t border-border pt-3">
           <div className="text-sm font-medium text-foreground mb-1">
@@ -209,6 +188,48 @@ export default function CostMarginPanel({
         </div>
       ))}
 
+      {/* What the estimator knows and the recipe doesn't. Additive on top of
+          whatever a recipe produced, never a replacement for it — an override
+          that silently discards a calculation is how you lose the calculation
+          and never notice. */}
+      <div className="border-t border-border pt-3 grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="text-xs text-muted-foreground">
+            Extra labour hours
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.5"
+            value={manualLabourHours ?? ""}
+            onChange={(e) => onManualLabourHoursChange(e.target.value)}
+            className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
+            placeholder="0"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Hours beyond what the recipe predicts, charged at the rate above.
+          </p>
+        </div>
+        <div>
+          <label className="text-xs text-muted-foreground">
+            Extra material cost
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="10"
+            value={manualMaterialCost ?? ""}
+            onChange={(e) => onManualMaterialCostChange(e.target.value)}
+            className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
+            placeholder="0"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            What you are buying in for this job — a supplier quote, a slab, a
+            rental.
+          </p>
+        </div>
+      </div>
+
       <div className="border-t border-border pt-3 space-y-1 text-sm">
         {/* Consumables and purchased goods are split: a coverage rate predicts
             paint, but a refacing door has a supplier invoice behind it. */}
@@ -224,9 +245,24 @@ export default function CostMarginPanel({
             />
           </>
         ) : (
-          <Row label="Materials" value={money(estimate.materialTotal)} />
+          // recipeMaterialTotal, not materialTotal: the added-by-hand figure
+          // gets its own row below, and materialTotal already contains it.
+          <Row label="Materials" value={money(estimate.recipeMaterialTotal)} />
         )}
-        <Row label="Labour" value={money(estimate.labourCost)} />
+        {estimate.addedMaterial > 0 && (
+          <Row
+            label="Materials — added by hand"
+            value={money(estimate.addedMaterial)}
+          />
+        )}
+        <Row
+          label={
+            estimate.labourHours > 0
+              ? `Labour — ${estimate.labourHours} hrs`
+              : "Labour"
+          }
+          value={money(estimate.labourCost)}
+        />
         <Row
           label={
             estimate.overheadBasis === "per_job"
