@@ -415,6 +415,148 @@ export const TRADE_PRICE_BOOKS = {
   // line appears — so the client sees what they are paying for either way.
   // That price ships as 0 on purpose: nobody has told us what this company
   // charges to hang a door, and a made-up default would be billed for real.
+  // ── Snow removal ──────────────────────────────────────────────────────
+  // Ottawa 2022–23, CAD, from a real signed seasonal contract (J.R. Lawn
+  // Maintenance & Snow Removal, 1569 Michael St, Ottawa): a two-car
+  // side-by-side driveway at $575.00 for the season, a $117.00 season overage
+  // fee, and a $75.00 new-client discount, subtotal $617.00 before HST.
+  //
+  // Seasonal, not per-visit, because that is how the contract is written and
+  // how the trade sells in this market. The season and the limit are part of
+  // the price and print on the quote: "up to 250 cm as recorded by Environment
+  // Canada OR 23 snow events of 4 cm+, whichever comes first" is the whole
+  // difference between two numbers a homeowner is comparing.
+  //
+  // The 2022–23 prices are carried forward at 15% for 2026 — three seasons of
+  // Canadian inflation. That uplift is the number in here most worth checking
+  // against a current invoice.
+  snow_removal: {
+    label: "Snow Removal",
+    driveways: {
+      single: { label: "Single driveway (1 car)", price: 495 },
+      double: { label: "Double driveway (2 cars side by side)", price: 660 },
+      triple: { label: "Triple driveway or extended", price: 860 },
+      commercial: { label: "Commercial lot", price: 0 },
+    },
+    // Charged when the season runs past its limit, not up front. Named on the
+    // quote so it is not a surprise in February.
+    overageFee: 135,
+    newClientDiscount: 85,
+    extras: {
+      walkwayPrice: 145,
+      frontStepsPrice: 95,
+      saltPerApplication: 45,
+      // A visit-priced fallback for anyone selling per storm rather than by
+      // the season. Not from the contract — left at 0 so nobody bills nothing
+      // by accident, and the takeoff says so.
+      perVisitPrice: 0,
+    },
+    season: {
+      startsLabel: "November 1",
+      endsLabel: "April 15",
+      snowfallLimitCm: 250,
+      eventLimit: 23,
+      eventThresholdCm: 4,
+    },
+  },
+
+  // ── Interlock and paving ──────────────────────────────────────────────
+  // Ontario 2026, CAD, from ~30 contractors' own published rates rather than
+  // cost-guide articles. The tiers ARE the published spread, not three
+  // invented steps: patio $18–$40, walkway $18–$30, driveway $20–$40.
+  //
+  // These are INSTALLED rates. Almost every Ontario contractor who itemises
+  // includes excavation, compacted granular base, bedding sand, edge restraint
+  // and polymeric sand at the headline number — so a per-square-foot figure
+  // means nothing without that scope, and it is stated here.
+  //
+  // A US source quotes labour at $4–$11/sqft. That is the LAYING step alone
+  // against a base somebody else built; Ontario contractors put excavation and
+  // base prep at $7–$13/sqft on their own. Building on the lower figure would
+  // under-price by roughly half, so it is not used.
+  paving: {
+    label: "Interlock & Paving",
+    complexity: {
+      standard: {
+        desc: "Simple shape, good access, level ground, existing surface already gone",
+        patioPricePerSqft: 18,
+        walkwayPricePerSqft: 18,
+        drivewayPricePerSqft: 20,
+      },
+      moderate: {
+        desc: "Some curves or cuts, a slope, or an average access route",
+        patioPricePerSqft: 29,
+        walkwayPricePerSqft: 24,
+        drivewayPricePerSqft: 30,
+      },
+      high: {
+        desc: "Heavy cutting, tight access, significant grading or clay excavation",
+        patioPricePerSqft: 40,
+        walkwayPricePerSqft: 30,
+        drivewayPricePerSqft: 40,
+      },
+    },
+    // The single most useful sentence in the research, encoded: the published
+    // installed rates assume the paver itself does not exceed $7/sqft. Choose
+    // a premium stone and only the DIFFERENCE is added, because the allowance
+    // is already inside the rate above — adding the full paver price would
+    // charge for it twice.
+    paverAllowancePerSqft: 7,
+    // Canadian retail, read Aug 2026 across Home Depot's 124-SKU and Rona's
+    // 72-SKU paver categories. Budget grey slabs $1.82–$4.49/sqft; standard
+    // interlock $4.45–$9.94 split by thickness — 50 mm patio-only $4.45–$4.94,
+    // 60 mm driveway-rated $5.43–$9.94; premium/architectural $4.57–$9.94.
+    // Natural stone is quoted rather than shelf-priced, so it sits at the
+    // allowance for a company to overwrite with its own supplier number.
+    //
+    // `minThicknessMm` is what decides whether a paver may go on a driveway.
+    // NOT the retailer's own "for use on driveway" field: the identical
+    // 203×102×50.8 mm Oldcastle block reads "No" in Charcoal and "Yes" in Barn
+    // Red on the same site. Thickness is consistent; the flag is not.
+    paverOptions: {
+      budget: {
+        label: "Budget concrete slab",
+        costPerSqft: 3,
+        minThicknessMm: 50,
+      },
+      standard: {
+        label: "Standard interlock (60 mm)",
+        costPerSqft: 6,
+        minThicknessMm: 60,
+      },
+      premium: {
+        label: "Premium / architectural",
+        costPerSqft: 9,
+        minThicknessMm: 60,
+      },
+      natural: { label: "Natural stone", costPerSqft: 7, minThicknessMm: 60 },
+    },
+    // A driveway needs 60 mm minimum. Neither big-box retailer sells 80 mm at
+    // all — 60 mm is the thickest either carries — so an 80 mm spec means a
+    // hardscape supplier and a price this book does not have.
+    drivewayMinThicknessMm: 60,
+    extras: {
+      // Every figure below is the midpoint of a range a contractor published,
+      // never a guess at a number nobody stated.
+      poorAccessPerSqft: 5.5, // $3–$8
+      curvesCutsPerSqft: 4, // $3–$5
+      removeExistingPerSqft: 5.5, // $3–$8
+      // "Up to $2/sqft" for a thicker driveway paver over a 50 mm patio one —
+      // a stated maximum, so it ships at the maximum.
+      drivewayPaverUpchargePerSqft: 2,
+      permeableUpliftPct: 15, // +10%–20%
+      sealingPerSqft: 3, // $2–$4
+    },
+    // Not published by ANY of the thirty-odd sources: a dollar minimum charge,
+    // a per-sqft slope premium, a per-sqft clay premium, steps, retaining
+    // walls, seat walls or fire pits. They are absent rather than invented.
+    // The published rates assume at least 500 sqft and 3 ft of machine access;
+    // below that every contractor says the rate goes up, and the takeoff says
+    // so on screen.
+    assumesMinSqft: 500,
+    minimumTotal: 0,
+  },
+
   // ── Driveway sealing ──────────────────────────────────────────────────
   // Ontario 2026, CAD. Six sources; the per-square-foot rate clusters hard at
   // $0.35–$0.55 (D&D Home Services, Kitchener–Waterloo) with Wolf ($0.35–0.40)
@@ -598,6 +740,11 @@ export function tradeIsPricedByDefault(categoryKey) {
 
 /** Human labels for the `group` key on a field, when it has one. */
 export const PRICE_BOOK_GROUPS = {
+  seasonal: "Seasonal rates",
+  snowExtras: "Add-ons",
+  snowSeason: "What the season includes",
+  pavers: "Paver options",
+  site: "Site conditions and extras",
   doors: "Doors",
   capping: "Capping frames",
   install: "Installation",
@@ -746,6 +893,176 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ / sqft",
       step: 0.25,
     },
+  ],
+  snow_removal: [
+    {
+      path: "driveways.single.price",
+      label: "Single driveway (1 car)",
+      suffix: "$ / season",
+      step: 25,
+      group: "seasonal",
+    },
+    {
+      path: "driveways.double.price",
+      label: "Double driveway (2 cars)",
+      suffix: "$ / season",
+      step: 25,
+      group: "seasonal",
+    },
+    {
+      path: "driveways.triple.price",
+      label: "Triple or extended driveway",
+      suffix: "$ / season",
+      step: 25,
+      group: "seasonal",
+    },
+    {
+      path: "driveways.commercial.price",
+      label: "Commercial lot",
+      suffix: "$ / season",
+      step: 50,
+      group: "seasonal",
+    },
+    {
+      path: "extras.walkwayPrice",
+      label: "Walkway clearing",
+      suffix: "$ / season",
+      step: 10,
+      group: "snowExtras",
+    },
+    {
+      path: "extras.frontStepsPrice",
+      label: "Front steps",
+      suffix: "$ / season",
+      step: 10,
+      group: "snowExtras",
+    },
+    {
+      path: "extras.saltPerApplication",
+      label: "Salting",
+      suffix: "$ / application",
+      step: 5,
+      group: "snowExtras",
+    },
+    {
+      path: "extras.perVisitPrice",
+      label: "Per-visit rate, if not sold by the season",
+      suffix: "$ / visit",
+      step: 5,
+      group: "snowExtras",
+    },
+    { path: "overageFee", label: "Season overage fee", suffix: "$", step: 5 },
+    {
+      path: "newClientDiscount",
+      label: "New client discount",
+      suffix: "$",
+      step: 5,
+    },
+    {
+      path: "season.snowfallLimitCm",
+      label: "Snowfall included",
+      suffix: "cm",
+      step: 10,
+      group: "snowSeason",
+    },
+    {
+      path: "season.eventLimit",
+      label: "Snow events included",
+      suffix: "events",
+      step: 1,
+      group: "snowSeason",
+    },
+    {
+      path: "season.eventThresholdCm",
+      label: "Counts as an event at",
+      suffix: "cm",
+      step: 1,
+      group: "snowSeason",
+    },
+  ],
+  paving: [
+    ...complexityFields("paving", [
+      ["patioPricePerSqft", "Patio, installed", "$ / sqft"],
+      ["walkwayPricePerSqft", "Walkway, installed", "$ / sqft"],
+      ["drivewayPricePerSqft", "Driveway, installed", "$ / sqft"],
+    ]),
+    {
+      path: "paverAllowancePerSqft",
+      label: "Paver allowance already inside the installed rate",
+      suffix: "$ / sqft",
+      step: 0.5,
+    },
+    {
+      path: "paverOptions.budget.costPerSqft",
+      label: "Budget concrete slab",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "pavers",
+    },
+    {
+      path: "paverOptions.standard.costPerSqft",
+      label: "Standard interlock",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "pavers",
+    },
+    {
+      path: "paverOptions.premium.costPerSqft",
+      label: "Premium / architectural",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "pavers",
+    },
+    {
+      path: "paverOptions.natural.costPerSqft",
+      label: "Natural stone",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "pavers",
+    },
+    {
+      path: "extras.removeExistingPerSqft",
+      label: "Remove existing surface",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "site",
+    },
+    {
+      path: "extras.poorAccessPerSqft",
+      label: "Restricted access",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "site",
+    },
+    {
+      path: "extras.curvesCutsPerSqft",
+      label: "Curves, borders and cutting",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "site",
+    },
+    {
+      path: "extras.drivewayPaverUpchargePerSqft",
+      label: "80 mm driveway paver uplift",
+      suffix: "$ / sqft",
+      step: 0.25,
+      group: "site",
+    },
+    {
+      path: "extras.sealingPerSqft",
+      label: "Sealing",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "site",
+    },
+    {
+      path: "extras.permeableUpliftPct",
+      label: "Permeable system",
+      suffix: "%",
+      step: 1,
+      group: "site",
+    },
+    { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 100 },
   ],
   driveway_sealing: [
     ...complexityFields("driveway_sealing", [

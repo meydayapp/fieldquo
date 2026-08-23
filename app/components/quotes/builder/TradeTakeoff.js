@@ -1348,6 +1348,279 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/* ── Interlock and paving ──────────────────────────────────────────────── */
+
+const PAVING_SURFACES = [
+  ["patioSqft", "Patio", "patioPricePerSqft", false],
+  ["walkwaySqft", "Walkway", "walkwayPricePerSqft", false],
+  ["drivewaySqft", "Driveway", "drivewayPricePerSqft", true],
+];
+
+function PavingTakeoff({ takeoff, book, onChange }) {
+  const level = takeoff.complexityLevel || "standard";
+  const c = book?.complexity?.[level] || {};
+  const e = book?.extras || {};
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+
+  const options = book?.paverOptions || {};
+  const chosen = options[takeoff.paverOption] || null;
+  const allowance = num(book?.paverAllowancePerSqft);
+  const paverCost =
+    num(takeoff.paverCostPerSqft) > 0
+      ? num(takeoff.paverCostPerSqft)
+      : num(chosen?.costPerSqft);
+  const uplift = Math.max(0, paverCost - allowance);
+
+  const totalSqft = PAVING_SURFACES.reduce(
+    (sum, [key]) => sum + num(takeoff[key]),
+    0,
+  );
+  const belowAssumed = totalSqft > 0 && totalSqft < num(book?.assumesMinSqft);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-3">
+        {PAVING_SURFACES.map(([key, label, rateKey, isDriveway]) => {
+          const rate =
+            num(c[rateKey]) +
+            (isDriveway ? num(e.drivewayPaverUpchargePerSqft) : 0);
+          return (
+            <Field key={key} label={`${label} (sqft)`}>
+              <Num value={takeoff[key]} onChange={(v) => set({ [key]: v })} />
+              <div className="mt-1 text-xs text-muted-foreground">
+                ${money(rate)}/sqft installed
+              </div>
+            </Field>
+          );
+        })}
+      </div>
+
+      <ComplexityPicker
+        value={level}
+        book={book}
+        onChange={(v) => set({ complexityLevel: v })}
+      />
+
+      {/* Said plainly, because the rate is only true above this size — every
+          contractor in the research says small jobs cost more per foot, and
+          none of them publishes by how much, so this warns rather than
+          silently applying an invented surcharge. */}
+      {belowAssumed && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          These rates assume a job of at least {num(book.assumesMinSqft)} sqft
+          with machine access. At {totalSqft} sqft the real cost per foot is
+          higher — every contractor says so and none of them publishes a number,
+          so nothing has been added automatically. Move the complexity up, or
+          add a line by hand.
+        </p>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Field label="Paver">
+          <select
+            value={takeoff.paverOption || "standard"}
+            onChange={(e2) => set({ paverOption: e2.target.value })}
+            className={inputClass}
+          >
+            {Object.entries(options).map(([key, opt]) => (
+              <option key={key} value={key}>
+                {opt.label} — ${money(opt.costPerSqft)}/sqft
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Or your own paver cost ($/sqft)">
+          <Num
+            prefix="$"
+            step={0.5}
+            value={takeoff.paverCostPerSqft}
+            onChange={(v) => set({ paverCostPerSqft: v })}
+          />
+        </Field>
+      </div>
+
+      {/* A 50 mm paver under a car cracks. Warned rather than blocked: a
+          company may legitimately stock something this book has never seen,
+          and the estimator is the one standing in the driveway. */}
+      {num(takeoff.drivewaySqft) > 0 &&
+        chosen &&
+        num(chosen.minThicknessMm) < num(book?.drivewayMinThicknessMm) && (
+          <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            {chosen.label} is a {num(chosen.minThicknessMm)} mm paver and this
+            quote includes a driveway. Vehicles need at least{" "}
+            {num(book.drivewayMinThicknessMm)} mm.
+          </p>
+        )}
+
+      {/* The allowance is the thing people get wrong. It is already inside the
+          installed rate, so only the excess is billable — charging the whole
+          paver price bills the stone twice. */}
+      <p className="text-xs text-muted-foreground">
+        ${money(allowance)}/sqft of paver is already included in the installed
+        rate.{" "}
+        {uplift > 0
+          ? `This one costs $${money(paverCost)}, so $${money(uplift)}/sqft is added.`
+          : "This one is inside the allowance, so nothing is added."}
+      </p>
+
+      <div>
+        <OptionRow
+          checked={takeoff.removeExisting}
+          onToggle={(v) => set({ removeExisting: v })}
+          label="Remove and dispose of the existing surface"
+          hint={`$${money(e.removeExistingPerSqft)}/sqft`}
+          amount={
+            takeoff.removeExisting
+              ? totalSqft * num(e.removeExistingPerSqft)
+              : 0
+          }
+        />
+        <OptionRow
+          checked={takeoff.poorAccess}
+          onToggle={(v) => set({ poorAccess: v })}
+          label="Restricted site access"
+          hint={`$${money(e.poorAccessPerSqft)}/sqft — no machine route, wheelbarrow distance`}
+          amount={takeoff.poorAccess ? totalSqft * num(e.poorAccessPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.curvesCuts}
+          onToggle={(v) => set({ curvesCuts: v })}
+          label="Curves, borders and cutting"
+          hint={`$${money(e.curvesCutsPerSqft)}/sqft`}
+          amount={takeoff.curvesCuts ? totalSqft * num(e.curvesCutsPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.sealing}
+          onToggle={(v) => set({ sealing: v })}
+          label="Sealing"
+          hint={`$${money(e.sealingPerSqft)}/sqft`}
+          amount={takeoff.sealing ? totalSqft * num(e.sealingPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.permeable}
+          onToggle={(v) => set({ permeable: v })}
+          label="Permeable system"
+          hint={`+${money(e.permeableUpliftPct)}% on the work above`}
+          amount={0}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Snow removal ──────────────────────────────────────────────────────── */
+
+function SnowRemovalTakeoff({ takeoff, book, onChange }) {
+  const e = book?.extras || {};
+  const season = book?.season || {};
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const drives = book?.driveways || {};
+  const chosen = drives[takeoff.drivewaySize] || null;
+
+  const saltAmount = takeoff.salting
+    ? num(takeoff.saltApplications) * num(e.saltPerApplication)
+    : 0;
+  const visitAmount = num(takeoff.extraVisits) * num(e.perVisitPrice);
+  const noVisitRate = num(takeoff.extraVisits) > 0 && num(e.perVisitPrice) <= 0;
+
+  return (
+    <div className="space-y-3">
+      <Field label="Driveway">
+        <select
+          value={takeoff.drivewaySize || "double"}
+          onChange={(ev) => set({ drivewaySize: ev.target.value })}
+          className={inputClass}
+        >
+          {Object.entries(drives).map(([key, d]) => (
+            <option key={key} value={key}>
+              {d.label}
+              {num(d.price) > 0
+                ? ` — $${money(d.price)}/season`
+                : " — no rate set"}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {chosen && num(chosen.price) <= 0 && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          No seasonal rate is set for {chosen.label.toLowerCase()}, so nothing
+          will be billed for it. Set one in Settings → Services → Snow Removal.
+        </p>
+      )}
+
+      {/* The limit is the price. Two seasonal quotes are not comparable unless
+          both say what the season covers, so it is shown here and printed on
+          the line item. */}
+      <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
+        Season runs {season.startsLabel} to {season.endsLabel}, covering up to{" "}
+        {num(season.snowfallLimitCm)} cm or {num(season.eventLimit)} events of{" "}
+        {num(season.eventThresholdCm)} cm+, whichever comes first. Past that the
+        overage fee of ${money(book?.overageFee)} applies — it is charged when
+        the season runs long, not quoted up front.
+      </p>
+
+      <div>
+        <OptionRow
+          checked={takeoff.walkway}
+          onToggle={(v) => set({ walkway: v })}
+          label="Walkway clearing"
+          hint={`$${money(e.walkwayPrice)}/season`}
+          amount={takeoff.walkway ? num(e.walkwayPrice) : 0}
+        />
+        <OptionRow
+          checked={takeoff.frontSteps}
+          onToggle={(v) => set({ frontSteps: v })}
+          label="Front steps"
+          hint={`$${money(e.frontStepsPrice)}/season`}
+          amount={takeoff.frontSteps ? num(e.frontStepsPrice) : 0}
+        />
+        <OptionRow
+          checked={takeoff.salting}
+          onToggle={(v) => set({ salting: v })}
+          label="Salting"
+          hint={`$${money(e.saltPerApplication)} per application`}
+          amount={saltAmount}
+        >
+          <div className="mt-1 w-32">
+            <Num
+              value={takeoff.saltApplications}
+              onChange={(v) => set({ saltApplications: v })}
+            />
+          </div>
+        </OptionRow>
+        <OptionRow
+          checked={takeoff.newClient}
+          onToggle={(v) => set({ newClient: v })}
+          label="New client discount"
+          hint={`−$${money(book?.newClientDiscount)}, shown to the client as its own line`}
+          amount={0}
+        />
+      </div>
+
+      <Field label="Additional visits beyond the season">
+        <Num
+          value={takeoff.extraVisits}
+          onChange={(v) => set({ extraVisits: v })}
+        />
+        <div className="mt-1 text-xs text-muted-foreground">
+          {num(e.perVisitPrice) > 0
+            ? `$${money(e.perVisitPrice)} per visit — $${money(visitAmount)}`
+            : "No per-visit rate is set, so these will not be billed."}
+        </div>
+      </Field>
+
+      {noVisitRate && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          {num(takeoff.extraVisits)} extra visits are entered but no per-visit
+          rate exists, so they add nothing to the quote. Set one in Settings →
+          Services → Snow Removal.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Entry point ───────────────────────────────────────────────────────── */
 
 const TAKEOFFS = {
@@ -1358,6 +1631,8 @@ const TAKEOFFS = {
   exterior_painting: ExteriorPaintTakeoff,
   flooring: FlooringTakeoff,
   driveway_sealing: DrivewaySealingTakeoff,
+  paving: PavingTakeoff,
+  snow_removal: SnowRemovalTakeoff,
 };
 
 export function hasTakeoff(categoryKey) {
