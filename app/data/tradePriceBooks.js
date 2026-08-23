@@ -426,8 +426,8 @@ export const TRADE_PRICE_BOOKS = {
       d8x7_no_window: { label: "8×7 garage door — no window", price: 1150 },
       d8x7_top_window: { label: "8×7 garage door — top window", price: 1400 },
       d8x7_side_window: { label: "8×7 garage door — side window", price: 1600 },
-      // Quoted at $1,999 in 2025. Carried forward at ~2.5% to 2026 rather than
-      // shipping a price that is a year stale on the day a tenant signs up.
+      // $1,999 in 2025, $2,049 for 2026 — the owner's number, confirmed, not
+      // an inflation guess to redo next year.
       d16x7_black_flush: { label: "16×7 black flush garage door", price: 2049 },
     },
     capping: {
