@@ -171,11 +171,17 @@ export default function SettingsSidebar() {
   // feature map shows everything, and so does a missing role, but conflating
   // them would make one silently stand in for the other.
   //
-  // Removing a row is cosmetics, not access control. The four rows this can
-  // remove (Account & Billing, Refer & Earn, Payroll, Booking Page) are all
-  // refused server-side for the same member whether or not the row was drawn —
-  // see lib/permissions/settingsAccess.js and the per-route notes there. An
-  // owner holds every capability, so this is a no-op on the owner's screen.
+  // Removing a row is cosmetics, not access control. Every row this can remove
+  // is refused server-side for the same member whether or not the row was
+  // drawn — see SETTINGS_ROW_CAPABILITY in lib/permissions/settingsAccess.js,
+  // which is the list, and the per-route notes beside each entry.
+  //
+  // That list is deliberately NOT restated here. It said "the four rows
+  // (Account & Billing, Refer & Earn, Payroll, Booking Page)" and had grown to
+  // fifteen without anyone noticing — a comment enumerating a map that lives
+  // in another file is a copy, and the copy is the one that rots.
+  //
+  // An owner holds every capability, so this is a no-op on the owner's screen.
   const access = useSettingsAccess();
   const groups = useMemo(
     () =>

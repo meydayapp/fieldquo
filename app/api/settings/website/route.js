@@ -55,9 +55,21 @@ const COMPANY_SELECT = {
   weekStartsOn: true,
 };
 
-async function requireAdmin(request) {
+/**
+ * @param read  true only on GET. Non-negotiable #3: the platform console views
+ *              everything and edits nothing. A support session's role is
+ *              "viewer", which holds no permission at all, so requirePermission
+ *              refused it and the console could not see the site it is being
+ *              asked about. The carve-out is an argument the READ opts into
+ *              rather than a line inside the shared gate, so a write cannot
+ *              acquire it by editing one place — PUT, POST (which runs the
+ *              generator) and DELETE all call requireAdmin(request) with no
+ *              options and stay closed to impersonation.
+ */
+async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
+  if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -117,7 +129,7 @@ async function loadSource(companyId, language) {
 }
 
 export async function GET(request) {
-  const { member, error, status } = await requireAdmin(request);
+  const { member, error, status } = await requireAdmin(request, { read: true });
   if (error) return NextResponse.json({ error }, { status });
 
   const [company, site, source] = await Promise.all([
@@ -242,7 +254,11 @@ export async function PUT(request) {
 
   const data = {
     subdomain,
-    ...(body.languages === undefined ? {} : {}),
+    // `languages` is deliberately NOT writable here. Enabling a language and
+    // writing its content are two acts (see the languages route), and letting a
+    // plain Save set the list would publish a switcher pointing at pages that
+    // don't exist yet. `create` seeds it once, below, and nothing else on this
+    // route touches it.
     blocks: sanitiseBlocks(body.blocks),
     // The multi-page structure. Each page's blocks go through the SAME sanitiser
     // as the flat blocks — the security boundary between "what a browser sent"
@@ -262,8 +278,17 @@ export async function PUT(request) {
             })),
         }
       : {}),
-    seoTitle: str(body.seoTitle, 70),
-    seoDescription: str(body.seoDescription, 200),
+    // Absent means "leave it alone", not "clear it". Only a generation sends
+    // these two — the Save and Publish buttons omit them entirely — and writing
+    // `str(undefined)` = null unconditionally meant the AI-written SEO title was
+    // deleted by the very next Save, so the public <title> (read in
+    // app/site/[subdomain]/page.js) never once saw it. Same conditional-spread
+    // shape as `pages` below, for the same reason: a partial save must not wipe
+    // a column it wasn't editing. An explicit "" still clears, via str().
+    ...(body.seoTitle !== undefined && { seoTitle: str(body.seoTitle, 70) }),
+    ...(body.seoDescription !== undefined && {
+      seoDescription: str(body.seoDescription, 200),
+    }),
     // Clamped to the closed set — a styleKey from a browser can never become an
     // arbitrary style rule.
     ...(SITE_STYLE_KEYS.includes(body.styleKey)

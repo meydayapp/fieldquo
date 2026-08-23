@@ -36,9 +36,22 @@ const SELECT = {
   name: true,
 };
 
-async function requireAdmin(request) {
+/**
+ * @param read  true only on GET. Non-negotiable #3: the platform console views
+ *              everything and edits nothing. A support session's role is
+ *              "viewer", which holds no permission at all, so requirePermission
+ *              refused it — on the screen support is most often asked to look
+ *              at, since "our quotes aren't arriving" is usually an unverified
+ *              DNS record. The carve-out is an argument the READ opts into
+ *              rather than a line inside the shared gate, so a write cannot
+ *              acquire it by editing one place: POST (registers a domain at
+ *              Resend), PATCH and DELETE all call requireAdmin(request) with no
+ *              options and stay closed to impersonation.
+ */
+async function requireAdmin(request, { read = false } = {}) {
   const member = await getCurrentMember(request);
   if (!member) return { error: "Unauthorized", status: 401 };
+  if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -51,7 +64,7 @@ async function requireAdmin(request) {
 }
 
 export async function GET(request) {
-  const { member, error, status } = await requireAdmin(request);
+  const { member, error, status } = await requireAdmin(request, { read: true });
   if (error) return NextResponse.json({ error }, { status });
 
   const company = await db.company.findUnique({

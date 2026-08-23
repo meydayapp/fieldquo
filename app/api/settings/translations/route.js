@@ -14,6 +14,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { isSupported } from "@/app/i18n/languages";
@@ -93,6 +94,25 @@ export async function PATCH(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ── This rewrites text a homeowner reads ───────────────────────────────
+  //
+  // These are the product and service names that appear on quotes and
+  // invoices in the client's own language. The catalogue itself is owner/admin
+  // (app/api/products), and this route required only a session — so anyone
+  // signed in could rewrite what a client sees a line item called, on a
+  // document that goes out under the contractor's name.
+  //
+  // Same gate as the catalogue, because it is the same content by another
+  // name.
+  try {
+    requirePermission(member.role, "user:manage");
+  } catch {
+    return NextResponse.json(
+      { error: "Only an owner or admin can change product translations." },
+      { status: 403 },
+    );
+  }
 
   const { productId, language, name, description } = await request
     .json()

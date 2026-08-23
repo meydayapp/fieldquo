@@ -17,7 +17,14 @@ export async function GET(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (member.role !== "owner" && member.role !== "admin") {
+  // Impersonation reads it. Non-negotiable #3 is "the platform console views
+  // everything and edits nothing", and this log is where support answers "who
+  // changed that price" — the question they are called about. A support
+  // session's role is "viewer", which is neither owner nor admin, so without
+  // this line the console got the 403 below. There is no write on this route to
+  // let through: the log is appended by recordActivity from other routes, and
+  // an impersonated session's own actions are stamped viaImpersonation.
+  if (!member.impersonation && member.role !== "owner" && member.role !== "admin") {
     return NextResponse.json(
       { error: "Only an owner or admin can view the activity log." },
       { status: 403 },

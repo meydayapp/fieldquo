@@ -2,7 +2,9 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import { askCopilot } from "@/lib/ai/copilotClient";
 import { isAiConfigured, AI_MODEL } from "@/lib/ai/provider";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -44,9 +46,38 @@ export async function POST(request) {
     );
   }
 
+  // WHO is asking, not just which company they're in.
+  //
+  // This route passed companyId alone, so every tool ran with the company's
+  // full rights whoever typed the question — and a Worker who is refused by
+  // /api/products, /api/jobs/[id]/costing and /api/analytics/* could ask the
+  // assistant the same thing in English and be told. The grid decides the tool
+  // list now; see lib/ai/copilotTools.js.
+  //
+  // getCurrentMember returns `id: null` for the two cases with no Member row
+  // at all — a platform admin viewing read-only, and the demo sandbox. Those
+  // fall back to the coarse session shape, where a null grid means
+  // hasLevel/hasToggle answer true, the same as for a member who predates the
+  // grid. A member who HAS an id whose row won't load is a different animal:
+  // that's refused, because a permission check that can't identify the caller
+  // should refuse rather than hand out a copilot with mystery gaps in it.
+  let enforceable;
+  if (member.id) {
+    enforceable = await loadEnforceableMember(db, member.id);
+    if (!enforceable) {
+      return NextResponse.json(
+        { error: "We couldn't confirm your access level, so FieldQuo AI is unavailable." },
+        { status: 403 },
+      );
+    }
+  } else {
+    enforceable = { role: member.role, permissions: null };
+  }
+
   try {
     const result = await askCopilot({
       companyId: member.companyId,
+      member: enforceable,
       messages,
       onUsage: (u) =>
         recordAiUsage({

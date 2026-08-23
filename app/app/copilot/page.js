@@ -14,15 +14,36 @@ import { useEffect, useRef, useState } from "react";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasToggle } from "@/lib/permissions/enforce";
 
 export default function CopilotPage() {
   const { t } = useTranslation();
-  const SUGGESTIONS = [
-    t("app.copilot.suggest1", "Which clients haven't been invoiced yet?"),
-    t("app.copilot.suggest2", "What's my average quote value this month?"),
-    t("app.copilot.suggest3", "Which material costs went up the most?"),
-    t("app.copilot.suggest4", "How many quotes are still waiting on a response?"),
-  ];
+  // ── Suggestions the asker can actually get an answer to ────────────────
+  //
+  // The copilot's tools are now filtered by the permission grid, so three of
+  // these four ask for money — average quote value, material costs, invoiced
+  // status — and a Worker with showPricing off has no tool that can answer
+  // them. A tappable suggestion that reliably fails is the dead control this
+  // codebase keeps being swept for, and it is worse coming from an assistant:
+  // the model has to refuse a question the app itself proposed.
+  //
+  // Gated on the same toggle the tools are, so the two cannot drift.
+  const caller = usePermissions();
+  const seesMoney = hasToggle(caller, "showPricing");
+  const SUGGESTIONS = seesMoney
+    ? [
+        t("app.copilot.suggest1", "Which clients haven't been invoiced yet?"),
+        t("app.copilot.suggest2", "What's my average quote value this month?"),
+        t("app.copilot.suggest3", "Which material costs went up the most?"),
+        t("app.copilot.suggest4", "How many quotes are still waiting on a response?"),
+      ]
+    : [
+        // What is left when the money tools are gone: the schedule, which
+        // getUpcomingWork still serves to anyone who may see jobs.
+        t("app.copilot.suggestWork1", "What work is coming up this week?"),
+        t("app.copilot.suggestWork2", "Which jobs am I assigned to?"),
+      ];
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);

@@ -39,6 +39,7 @@ import { auth } from "@/lib/auth";
 import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { reconcilePendingProfiles } from "@/lib/team/reconcilePendingProfile";
 import { ensureWorkersForCompany } from "@/lib/team/ensureWorker";
+import { isSupported, LANGUAGE_CODES } from "@/app/i18n/languages";
 
 // What a caller WITHOUT "user:view" gets back. Deliberately not the Member row:
 // the full row carries laborCostPerHour, home address, phone number and the
@@ -212,6 +213,38 @@ export async function POST(request) {
     );
   }
 
+  // ── Refused, not quietly downgraded ─────────────────────────────────────
+  //
+  // The New User page's picker used to carry its own list and offered ru, zh,
+  // hi and ar — none of which have a single string behind them in
+  // lib/i18n/emailCopy.js — while omitting the two (pa, tl) that are fully
+  // translated. This route stored whatever arrived, so an owner who chose
+  // Arabic for a new hire got a code nothing in the product can honour and was
+  // never told. A silent fall back to "en" would keep that lie alive for any
+  // client still holding the old list; a 400 raised BEFORE the invitation and
+  // the PendingTeamProfile exist costs a page reload and leaves nothing behind.
+  //
+  // null/"" is "they didn't choose", which is not the same as choosing wrongly,
+  // so only an explicitly supplied value is judged.
+  const languageChosen =
+    invitationLanguage !== undefined &&
+    invitationLanguage !== null &&
+    invitationLanguage !== "";
+  if (languageChosen && !isSupported(invitationLanguage)) {
+    return NextResponse.json(
+      {
+        error: `invitationLanguage must be one of: ${LANGUAGE_CODES.join(", ")}`,
+      },
+      { status: 400 },
+    );
+  }
+  // Stored lowercased because isSupported() compares that way and every reader
+  // matches on the bare code — "FR" would pass the check above and then match
+  // nothing.
+  const safeInvitationLanguage = languageChosen
+    ? String(invitationLanguage).toLowerCase()
+    : "en";
+
   // ── A value whitelist is not a permission check ─────────────────────────
   //
   // The line above only asserts the role is a real one. It said nothing about
@@ -343,7 +376,7 @@ export async function POST(request) {
       laborCostPerHour: safeLaborCost,
       permissions: safePermissions || null,
       role,
-      invitationLanguage: invitationLanguage || "en",
+      invitationLanguage: safeInvitationLanguage,
     },
     update: {
       name: name || null,
@@ -357,7 +390,7 @@ export async function POST(request) {
       laborCostPerHour: safeLaborCost,
       permissions: safePermissions || null,
       role,
-      invitationLanguage: invitationLanguage || "en",
+      invitationLanguage: safeInvitationLanguage,
     },
   });
 

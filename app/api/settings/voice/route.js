@@ -37,9 +37,20 @@ import {
   RENT_GRACE_DAYS,
 } from "@/lib/voice/spendGate";
 
-async function requireAdmin(request) {
+/**
+ * @param read  true only on GET. Non-negotiable #3: the platform console views
+ *              everything and edits nothing. A support session's role is
+ *              "viewer", which holds no permission at all, so requirePermission
+ *              refused it and the console got a 403 on the one screen that says
+ *              why a company's receptionist is not answering. The carve-out is
+ *              an argument the READ opts into rather than a line inside the
+ *              shared gate, so a write cannot acquire it by editing one place —
+ *              PUT below calls requireAdmin(request) with no options.
+ */
+async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
+  if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -49,7 +60,7 @@ async function requireAdmin(request) {
 }
 
 export async function GET(request) {
-  const { member, error, status } = await requireAdmin(request);
+  const { member, error, status } = await requireAdmin(request, { read: true });
   if (error) return NextResponse.json({ error }, { status });
 
   const [agent, number, cents, entries, company, queuedCalls, trialUsed] = await Promise.all([

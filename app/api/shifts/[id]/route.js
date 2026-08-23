@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can } from "@/lib/permissions";
@@ -14,8 +15,23 @@ export async function PATCH(request, { params }) {
   const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!can(member.role, "user:manage")) {
-    return NextResponse.json({ error: "Only an admin or owner can edit shifts." }, { status: 403 });
+  // ── The schedule grid decides this, not the coarse role ────────────────
+  //
+  // `user:manage` is held by SUPERVISORS — it means "may run a crew". The
+  // refusal message beside it said "Only an admin or owner", which was already
+  // untrue, and the granular `schedule` level was never consulted at all. So a
+  // Manager whose schedule was narrowed to their own still edited and
+  // published everyone's week.
+  //
+  // edit_all is the level whose own label is "Edit everyone's schedule" — the
+  // same one the appointments routes ask about, because a shift and a visit
+  // are the same question wearing different words.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "schedule", "edit_all")) {
+    return NextResponse.json(
+      { error: "You can only change your own schedule. Ask whoever runs the rota to change this." },
+      { status: 403 },
+    );
   }
   const existing = await ownShift(member, id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -46,8 +62,23 @@ export async function DELETE(request, { params }) {
   const { id } = await params;
   const member = await getCurrentMember(request);
   if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!can(member.role, "user:manage")) {
-    return NextResponse.json({ error: "Only an admin or owner can delete shifts." }, { status: 403 });
+  // ── The schedule grid decides this, not the coarse role ────────────────
+  //
+  // `user:manage` is held by SUPERVISORS — it means "may run a crew". The
+  // refusal message beside it said "Only an admin or owner", which was already
+  // untrue, and the granular `schedule` level was never consulted at all. So a
+  // Manager whose schedule was narrowed to their own still edited and
+  // published everyone's week.
+  //
+  // edit_all is the level whose own label is "Edit everyone's schedule" — the
+  // same one the appointments routes ask about, because a shift and a visit
+  // are the same question wearing different words.
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "schedule", "edit_all")) {
+    return NextResponse.json(
+      { error: "You can only change your own schedule. Ask whoever runs the rota to change this." },
+      { status: 403 },
+    );
   }
   const existing = await ownShift(member, id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });

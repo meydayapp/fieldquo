@@ -20,17 +20,12 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import AccessEditor from "@/app/components/team/AccessEditor";
-
-const LANGUAGES = [
-  { value: "en", label: "English" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "uk", label: "Ukrainian" },
-  { value: "ru", label: "Russian" },
-  { value: "zh", label: "Chinese" },
-  { value: "hi", label: "Hindi" },
-  { value: "ar", label: "Arabic" },
-];
+// The one list. A local copy here offered Russian, Chinese, Hindi and Arabic —
+// none of which have a single string behind them in lib/i18n/emailCopy.js — and
+// omitted Punjabi and Tagalog, which are fully translated and were picked for
+// trades specifically. Picking Arabic sent an English invitation and said
+// nothing, so the picker now can only offer what the product can actually speak.
+import { LANGUAGES } from "@/app/i18n/languages";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -560,8 +555,8 @@ function NewUserForm() {
               onChange={(e) => setInvitationLanguage(e.target.value)}
             >
               {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
+                <option key={l.code} value={l.code}>
+                  {l.nativeName}
                 </option>
               ))}
             </select>
