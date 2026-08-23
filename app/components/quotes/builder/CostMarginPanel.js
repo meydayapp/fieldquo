@@ -68,7 +68,38 @@ export default function CostMarginPanel({
 }) {
   const money = (n) => formatAppMoney(n, currency, "en");
 
-  if (!estimate?.hasEstimable) return null;
+  // No cost recipe has produced a figure yet. This used to `return null`, so
+  // the whole panel vanished — and on a fresh cabinet quote it vanishes at
+  // exactly the moment someone is looking for it, because the recipe needs a
+  // door or drawer count that lives two components further up the page. A
+  // panel that disappears reads as a missing feature, not as a panel waiting
+  // for input, so it now says which input it is waiting for.
+  if (!estimate?.hasEstimable) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground flex items-center gap-2">
+          <TrendingUp size={16} /> Cost &amp; margin
+          <span className="text-xs font-normal text-muted-foreground">
+            (internal — never shown to the client)
+          </span>
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {totalGroupCount === 0
+            ? "Add a service above and this will show what the job costs you and what is left over."
+            : "Nothing to cost yet. Cost is worked out from a materials-and-labour recipe, which so far exists for cabinet refinishing and exterior painting — and it needs the counts entered above (doors and drawers, or the surface areas) before it can produce a figure."}
+        </p>
+        {subtotal > 0 && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Quoted so far:{" "}
+            <span className="font-medium text-foreground tabular-nums">
+              {money(subtotal)}
+            </span>{" "}
+            — margin unknown.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card border border-border rounded-xl p-5">
@@ -205,7 +236,11 @@ export default function CostMarginPanel({
           value={money(estimate.overhead)}
         />
         <div className="border-t border-border mt-1 pt-1">
-          <Row label="Estimated cost" value={money(estimate.estimatedCost)} bold />
+          <Row
+            label="Estimated cost"
+            value={money(estimate.estimatedCost)}
+            bold
+          />
         </div>
         <Row label="Quote price (pre-tax)" value={money(subtotal)} />
 
@@ -241,7 +276,8 @@ export default function CostMarginPanel({
       {estimate.groups.length < totalGroupCount && (
         <p className="text-xs text-muted-foreground mt-3">
           Only quote types with a cost recipe are estimated (cabinet refinishing
-          so far). The other line items aren&apos;t included in this figure yet.
+          and exterior painting so far). The other line items aren&apos;t
+          included in this figure yet.
         </p>
       )}
     </div>

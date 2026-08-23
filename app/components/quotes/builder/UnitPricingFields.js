@@ -22,6 +22,7 @@ import {
   groupUnits,
 } from "@/app/data/cabinetPricing";
 import { formatAppMoney } from "@/lib/format/money";
+import { cabinetAddOnLines } from "@/lib/pricing/tradeScope";
 
 // Kept as a plain list rather than a lookup: the internal primer-coats rule in
 // the costing engine reads these exact strings.
@@ -34,6 +35,45 @@ const WOOD_SPECIES = [
   "mdf_prefinished",
   "thermofoil",
   "other",
+];
+
+// Money lives in the price book; only the wording is here. `needsDrawers`
+// decides which count has to be non-zero before the upgrade can be ticked —
+// offering drawer slides on a job with no drawers is a control that does
+// nothing when you use it.
+const ADD_ONS = [
+  {
+    key: "handleHoles",
+    label: "New handle holes (drilling)",
+    needsDrawers: false,
+    hint: (a) => `$${Number(a.handleHolesPerDoor) || 0} per door`,
+  },
+  {
+    key: "softCloseHinges",
+    label: "Soft-close hinges",
+    needsDrawers: false,
+    hint: (a) => `$${Number(a.softCloseHingesPerDoor) || 0} per door`,
+  },
+  {
+    key: "drawerSlides",
+    label: "Drawer slides",
+    needsDrawers: true,
+    hint: (a) => `$${Number(a.drawerSlidesPerDrawer) || 0} per drawer`,
+  },
+  {
+    key: "twoTone",
+    label: "Two-tone finish",
+    needsDrawers: false,
+    hint: (a) =>
+      `$${Number(a.twoToneFlat) || 0} + $${Number(a.twoTonePerUnit) || 0} per unit`,
+  },
+  {
+    key: "threeTone",
+    label: "Three-colour finish (replaces two-tone)",
+    needsDrawers: false,
+    hint: (a) =>
+      `$${Number(a.threeToneFlat) || 0} + $${Number(a.threeTonePerUnit) || 0} per unit`,
+  },
 ];
 
 const Field = ({ label, children }) => (
@@ -56,10 +96,18 @@ export default function UnitPricingFields({
   onIntakeChange,
   onPricingChange,
   onToggleReason,
+  // The trade's rate card, for the add-on prices.
+  book,
 }) {
   const units = groupUnits(group);
   const finalPrice = finalUnitPrice(group);
   const iv = group.intakeValues || {};
+  const doors = Number(iv.doorCount) || 0;
+  const drawers = Number(iv.drawerCount) || 0;
+  const addOnTotal = cabinetAddOnLines(
+    { doors, drawers, ...group },
+    book,
+  ).reduce((sum, i) => sum + i.amount, 0);
 
   const upcharge =
     group.complexityLevel === "custom"
@@ -286,12 +334,86 @@ export default function UnitPricingFields({
         </Field>
       </div>
 
+      {/* Add-ons & upgrades.
+          The rates for these have always been editable in Settings > Services
+          and there was no control anywhere that applied one — a company could
+          price soft-close hinges and never put them on a quote. Lines come
+          from cabinetAddOnLines so this screen and the takeoff builder cannot
+          drift apart on what an upgrade costs. */}
+      <div className="border border-border rounded-lg p-3">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Add-ons &amp; upgrades
+        </div>
+        {ADD_ONS.map((addOn) => {
+          const on = Boolean(group[addOn.key]);
+          // Priced through the shared helper one at a time, so the row shows
+          // what this upgrade alone costs on this job.
+          const own = cabinetAddOnLines(
+            { doors, drawers, [addOn.key]: true },
+            book,
+          );
+          const amount = own.reduce((sum, i) => sum + i.amount, 0);
+          const applicable = addOn.needsDrawers ? drawers > 0 : doors > 0;
+          return (
+            <label
+              key={addOn.key}
+              className="flex items-start gap-2 border-b border-border py-1.5 last:border-0"
+            >
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={on}
+                disabled={!applicable}
+                onChange={(e) =>
+                  onPricingChange({ [addOn.key]: e.target.checked })
+                }
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-baseline justify-between gap-2">
+                  <span
+                    className={`text-sm ${on ? "text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {addOn.label}
+                  </span>
+                  <span className="shrink-0 text-sm font-medium tabular-nums">
+                    {amount > 0 ? (
+                      formatAppMoney(amount, currency, "en")
+                    ) : (
+                      <span className="font-normal text-muted-foreground">
+                        —
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {applicable
+                    ? addOn.hint(book?.addOns || {})
+                    : addOn.needsDrawers
+                      ? "Enter a drawer count above"
+                      : "Enter a door count above"}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+        {addOnTotal > 0 && (
+          <div className="flex justify-between pt-2 text-sm">
+            <span className="text-muted-foreground">Add-ons</span>
+            <span className="font-semibold tabular-nums">
+              {formatAppMoney(addOnTotal, currency, "en")}
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between bg-muted border border-border rounded-lg px-4 py-2.5">
         <span className="text-sm text-muted-foreground">
-          {units} unit{units === 1 ? "" : "s"} × {formatAppMoney(finalPrice, currency, "en")}
+          {units} unit{units === 1 ? "" : "s"} ×{" "}
+          {formatAppMoney(finalPrice, currency, "en")}
+          {addOnTotal > 0 && " + add-ons"}
         </span>
         <span className="text-base font-bold text-foreground">
-          {formatAppMoney(units * finalPrice, currency, "en")}
+          {formatAppMoney(units * finalPrice + addOnTotal, currency, "en")}
         </span>
       </div>
     </div>

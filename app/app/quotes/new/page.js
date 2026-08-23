@@ -28,12 +28,15 @@ import { startComposeTimer } from "@/lib/analytics/composeTimer";
 import QuoteLanguageBar from "@/app/components/quotes/QuoteLanguageBar";
 import ServiceTiles from "@/app/components/quotes/builder/ServiceTiles";
 import ScopeGroupCard from "@/app/components/quotes/builder/ScopeGroupCard";
-import TradeTakeoff, { hasTakeoff } from "@/app/components/quotes/builder/TradeTakeoff";
+import TradeTakeoff, {
+  hasTakeoff,
+} from "@/app/components/quotes/builder/TradeTakeoff";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
 import {
   createTradeConfig,
   buildTradeLineItems,
   estimateCabinetDoorCost,
+  cabinetAddOnLines,
 } from "@/lib/pricing/tradeScope";
 import UnitPricingFields from "@/app/components/quotes/builder/UnitPricingFields";
 import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
@@ -343,7 +346,17 @@ export default function NewQuotePage() {
         // editable per quote.
         ...(unitPriced
           ? {
-              baseUnitPrice: Number(category.defaultRate || 0),
+              // From the trade's rate card, not `defaultRate`. `defaultRate`
+              // is null for every trade that HAS a rate card — Settings >
+              // Services hides the single-rate box next to one on purpose —
+              // so a cabinet group opened at $0/unit and the book's $150 per
+              // door sat there unreachable. Falls back to defaultRate for a
+              // unit-priced trade that has no book.
+              baseUnitPrice:
+                Number(
+                  getPriceBook(category.key, rateOverridesFor(category.id))
+                    ?.perDoor,
+                ) || Number(category.defaultRate || 0),
               complexityLevel: "standard",
               complexityUpcharge: 0,
               complexityReasons: [],
@@ -356,7 +369,12 @@ export default function NewQuotePage() {
         // structured takeoff. Their line items are DERIVED from it, so the
         // generic "add a line" table below only holds genuine extras.
         ...(hasTakeoff(category.key)
-          ? { takeoff: createTradeConfig(category.key, rateOverridesFor(category.id)) }
+          ? {
+              takeoff: createTradeConfig(
+                category.key,
+                rateOverridesFor(category.id),
+              ),
+            }
           : {}),
         // Unit-priced groups start with NO line items — the base scope is the
         // unit pricing; line items only hold add-ons (hinges, glass, etc.).
@@ -512,7 +530,11 @@ export default function NewQuotePage() {
   // the group so the total can never disagree with the form above it.
   function takeoffLines(g) {
     if (!g.takeoff || !hasTakeoff(g.categoryKey)) return [];
-    return buildTradeLineItems(g.categoryKey, g.takeoff, rateOverridesFor(g.categoryId));
+    return buildTradeLineItems(
+      g.categoryKey,
+      g.takeoff,
+      rateOverridesFor(g.categoryId),
+    );
   }
 
   function groupTotal(g) {
@@ -520,10 +542,37 @@ export default function NewQuotePage() {
       (s, item) => s + Number(item.amount || 0),
       0,
     );
-    const takeoffSum = takeoffLines(g).reduce((s, i) => s + Number(i.amount || 0), 0);
+    const takeoffSum = takeoffLines(g).reduce(
+      (s, i) => s + Number(i.amount || 0),
+      0,
+    );
     return (
       takeoffSum +
-      (isUnitPriced(g.categoryKey) ? unitPricingSubtotal(g) + lineSum : lineSum)
+      (isUnitPriced(g.categoryKey)
+        ? unitPricingSubtotal(g) + cabinetAddOnSum(g) + lineSum
+        : lineSum)
+    );
+  }
+
+  // Cabinet upgrades priced from the trade's rate card. Derived here rather
+  // than stored on the group, for the same reason takeoff lines are: a total
+  // that disagrees with the form above it is worse than no total.
+  function cabinetAddOnLinesFor(g) {
+    const iv = g.intakeValues || {};
+    return cabinetAddOnLines(
+      {
+        doors: Number(iv.doorCount) || 0,
+        drawers: Number(iv.drawerCount) || 0,
+        ...g,
+      },
+      getPriceBook(g.categoryKey, rateOverridesFor(g.categoryId)) || {},
+    );
+  }
+
+  function cabinetAddOnSum(g) {
+    return cabinetAddOnLinesFor(g).reduce(
+      (s, i) => s + Number(i.amount || 0),
+      0,
     );
   }
 
@@ -694,7 +743,11 @@ export default function NewQuotePage() {
                 doorStyle: g.doorStyle || "",
               },
             };
-            lineItems = [base, ...(g.lineItems || [])];
+            lineItems = [
+              base,
+              ...cabinetAddOnLinesFor(g),
+              ...(g.lineItems || []),
+            ];
           }
 
           // Structured takeoffs contribute their derived lines FIRST, so the
@@ -785,7 +838,9 @@ export default function NewQuotePage() {
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("app.quotes.new")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.quotes.new")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.quoteNew.subtitle")}
         </p>
@@ -849,9 +904,12 @@ export default function NewQuotePage() {
           subtotal={groupTotal(group)}
           onRemove={() => removeScopeGroup(group.tempId)}
         >
-
           {isUnitPriced(group.categoryKey) && (
             <UnitPricingFields
+              book={getPriceBook(
+                group.categoryKey,
+                rateOverridesFor(group.categoryId),
+              )}
               currency={companyCurrency}
               group={group}
               reasonsOpen={Boolean(reasonsOpen[group.tempId])}
@@ -875,22 +933,27 @@ export default function NewQuotePage() {
             <TradeTakeoff
               categoryKey={group.categoryKey}
               takeoff={group.takeoff}
-              book={getPriceBook(group.categoryKey, rateOverridesFor(group.categoryId))}
-              onChange={(next) => updatePricing(group.tempId, { takeoff: next })}
+              book={getPriceBook(
+                group.categoryKey,
+                rateOverridesFor(group.categoryId),
+              )}
+              onChange={(next) =>
+                updatePricing(group.tempId, { takeoff: next })
+              }
             />
           )}
 
           {!group.isTiered &&
             !isUnitPriced(group.categoryKey) &&
             !hasTakeoff(group.categoryKey) && (
-            <IntakeFields
-              fields={getGroupFields(group)}
-              values={group.intakeValues || {}}
-              onChange={(key, value) =>
-                updateIntakeValue(group.tempId, key, value)
-              }
-            />
-          )}
+              <IntakeFields
+                fields={getGroupFields(group)}
+                values={group.intakeValues || {}}
+                onChange={(key, value) =>
+                  updateIntakeValue(group.tempId, key, value)
+                }
+              />
+            )}
 
           {group.isTiered && (
             <TierSelector
@@ -941,7 +1004,9 @@ export default function NewQuotePage() {
 
       {/* Notes */}
       <div className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-2">{t("app.field.notes")}</h2>
+        <h2 className="font-semibold text-foreground mb-2">
+          {t("app.field.notes")}
+        </h2>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
