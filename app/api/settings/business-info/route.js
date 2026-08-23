@@ -87,6 +87,7 @@ export async function GET(request) {
       // New — Tax settings
       taxIdName: true,
       taxIdNumber: true,
+      taxRegistrationDismissedAt: true,
       autoApplyLocalTax: true,
       taxRates: {
         select: { id: true, name: true, rate: true, isDefault: true },
@@ -212,6 +213,7 @@ export async function PATCH(request) {
     discoverable,
     taxIdName,
     taxIdNumber,
+    taxRegistrationDismissed,
     autoApplyLocalTax,
     currency,
     servesAbroad,
@@ -341,6 +343,19 @@ export async function PATCH(request) {
       ...(discoverable !== undefined && { discoverable }),
       ...(taxIdName !== undefined && { taxIdName }),
       ...(taxIdNumber !== undefined && { taxIdNumber }),
+      // "I don't have one", from the checkbox beside the field. Stored as a
+      // timestamp rather than a boolean so the record says WHEN they said it —
+      // useful the day someone asks why the reminder stopped.
+      //
+      // Entering a number clears the flag on the same save: the two answers
+      // contradict each other, and leaving a stale "not registered" beside a
+      // real registration number is the kind of quiet inconsistency that
+      // outlives whoever created it.
+      ...(String(taxIdNumber ?? "").trim()
+        ? { taxRegistrationDismissedAt: null }
+        : taxRegistrationDismissed !== undefined && {
+            taxRegistrationDismissedAt: taxRegistrationDismissed ? new Date() : null,
+          }),
       ...(autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),

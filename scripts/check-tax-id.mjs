@@ -134,10 +134,40 @@ t("a step exists", /key: "tax_registration"/.test(ONBOARDING));
 t("done reads taxIdNumber", /company\.taxIdNumber/.test(ONBOARDING));
 // A step that can never be completed is worse than no step; one that can never
 // be removed is the same bug wearing a hat.
-t("it honours the jurisdiction's dismissibility",
-  /taxReg\.dismissible/.test(ONBOARDING));
-t("a dismissed step is dropped, not left greyed out",
-  /taxRegDone \|\| !\(taxRegDismissed && taxReg\.dismissible\)/.test(ONBOARDING));
+//
+// The answer is a checkbox in Company Settings — "I don't have one" — and it
+// is honoured in EVERY jurisdiction, not only where the config marks the
+// number optional. "Required" in every one of these rules means "required IF
+// registered", and a Canadian sole trader under the $30k threshold has no GST
+// number to give. Gating the answer on the country would leave exactly the
+// smallest businesses carrying an item they can never tick.
+t("saying you have none removes the step",
+  /taxRegDone \|\| !taxRegDismissed/.test(ONBOARDING));
+t("...in every jurisdiction, not just the optional ones",
+  !/taxRegDismissed && taxReg\.dismissible/.test(ONBOARDING));
+t("the card carries no dismiss control of its own — the answer is recorded, not waved away",
+  /dismissible: false/.test(ONBOARDING));
+
+const SETTINGS_PAGE = read("../app/app/settings/company/page.js");
+const BIZ = read("../app/api/settings/business-info/route.js");
+t("the checkbox lives in Company Settings", /taxRegNotRegistered/.test(SETTINGS_PAGE));
+t("...and hides once a number is entered",
+  /!String\(form\.taxIdNumber \|\| ""\)\.trim\(\) && \(/.test(SETTINGS_PAGE));
+t("saving a number clears the flag, so the two cannot contradict",
+  /taxRegistrationDismissedAt: null/.test(BIZ));
+
+// The whole point: a reminder, never a gate. A company with the field empty
+// runs its business exactly as before — it is their registration and their
+// filing, and FieldQuo's job was only to stop them hearing about the field
+// from a client's bookkeeper.
+for (const [label, rel] of [
+  ["sending a quote", "../app/api/quotes/[id]/send/route.js"],
+  ["sending an invoice", "../app/api/invoices/[id]/send/route.js"],
+  ["recording a payment", "../app/api/payments/route.js"],
+  ["creating an invoice", "../app/api/invoices/route.js"],
+]) {
+  t(`${label} does not check for a tax number`, !/taxId/.test(read(rel)));
+}
 
 const ROUTE = read("../app/api/onboarding-status/route.js");
 t("the dismiss endpoint exists", /export async function POST/.test(ROUTE));

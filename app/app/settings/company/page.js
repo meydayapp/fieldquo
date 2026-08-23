@@ -410,6 +410,7 @@ export default function CompanySettingsPage() {
           discoverable: !!data?.discoverable,
           taxIdName: data?.taxIdName || "",
           taxIdNumber: data?.taxIdNumber || "",
+          taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
           autoApplyLocalTax: data?.autoApplyLocalTax ?? true,
           timezone: data?.timezone || "America/Toronto",
           dateFormat: data?.dateFormat || "MM/DD/YYYY",
@@ -874,12 +875,40 @@ export default function CompanySettingsPage() {
             />
           </div>
         </div>
-        <div className="-mt-2 space-y-1">
+        <div className="-mt-2 space-y-2">
           <p className="text-xs text-muted-foreground">{t(taxReg.whyKey)}</p>
           <p className="text-xs text-muted-foreground">
             {t("app.setCompany.taxIdHint")}{" "}
             {t("app.setCompany.taxRegDisclaimer")}
           </p>
+
+          {/* ── "I don't have one" ────────────────────────────────────────
+              A fact about the business, recorded next to the field it is
+              about — not a dismiss button on the onboarding card. Ticking it
+              clears the onboarding step; untick it the day they register and
+              the step comes back.
+
+              Offered in every country, including the ones where the number is
+              required, because "required" in every one of those rules means
+              "required IF registered". A Canadian sole trader under the $30k
+              threshold has no GST number to give, and hiding this from them
+              would leave exactly the smallest businesses carrying an item
+              they can never tick.
+
+              Hidden once a number is entered: there is nothing to declare an
+              absence of, and a ticked box beside a filled field is a
+              contradiction the screen shouldn't be able to show. */}
+          {!String(form.taxIdNumber || "").trim() && (
+            <label className="flex items-start gap-2.5 text-xs text-muted-foreground pt-1">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={Boolean(form.taxRegistrationDismissed)}
+                onChange={(e) => set("taxRegistrationDismissed", e.target.checked)}
+              />
+              <span>{t("app.setCompany.taxRegNotRegistered")}</span>
+            </label>
+          )}
         </div>
 
         <div>

@@ -2523,6 +2523,7 @@ const en = {
   "app.onboarding.taxRegSkipTitle": "I don’t have one — stop asking",
   "app.onboarding.taxRegSkipFailed": "We couldn’t hide that step. Try again in a moment.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo prints what you enter here on your documents. It does not register you and does not file anything for you.",
+  "app.setCompany.taxRegNotRegistered": "I don't have one — my business isn't registered for this.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -4942,6 +4943,7 @@ const fr = {
   "app.onboarding.taxRegSkipTitle": "Je n’en ai pas — ne plus demander",
   "app.onboarding.taxRegSkipFailed": "Impossible de masquer cette étape. Réessayez dans un instant.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo imprime ce que vous saisissez ici sur vos documents. Il ne vous inscrit nulle part et ne produit aucune déclaration.",
+  "app.setCompany.taxRegNotRegistered": "Je n'en ai pas — mon entreprise n'est pas inscrite.",
 };
 
 
@@ -7282,6 +7284,7 @@ const es = {
   "app.onboarding.taxRegSkipTitle": "No tengo uno: deja de preguntar",
   "app.onboarding.taxRegSkipFailed": "No pudimos ocultar ese paso. Inténtalo de nuevo en un momento.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo imprime lo que escribas aquí en tus documentos. No te registra ni presenta nada por ti.",
+  "app.setCompany.taxRegNotRegistered": "No tengo uno — mi empresa no está registrada.",
 };
 
 const uk = {
@@ -9638,6 +9641,7 @@ const uk = {
   "app.onboarding.taxRegSkipTitle": "У мене його немає — більше не запитувати",
   "app.onboarding.taxRegSkipFailed": "Не вдалося приховати цей крок. Спробуйте ще раз за мить.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo друкує те, що ви тут вводите, у ваших документах. Він не реєструє вас і нічого за вас не подає.",
+  "app.setCompany.taxRegNotRegistered": "У мене його немає — мій бізнес не зареєстрований.",
 };
 
 const pa = {
@@ -11977,6 +11981,7 @@ const pa = {
   "app.onboarding.taxRegSkipTitle": "ਮੇਰੇ ਕੋਲ ਨਹੀਂ ਹੈ — ਦੁਬਾਰਾ ਨਾ ਪੁੱਛੋ",
   "app.onboarding.taxRegSkipFailed": "ਅਸੀਂ ਉਹ ਕਦਮ ਲੁਕਾ ਨਹੀਂ ਸਕੇ। ਕੁਝ ਪਲਾਂ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
   "app.setCompany.taxRegDisclaimer": "FieldQuo ਇੱਥੇ ਲਿਖੀ ਗੱਲ ਤੁਹਾਡੇ ਦਸਤਾਵੇਜ਼ਾਂ ਉੱਤੇ ਛਾਪਦਾ ਹੈ। ਇਹ ਤੁਹਾਨੂੰ ਰਜਿਸਟਰ ਨਹੀਂ ਕਰਦਾ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਕੁਝ ਵੀ ਫ਼ਾਈਲ ਨਹੀਂ ਕਰਦਾ।",
+  "app.setCompany.taxRegNotRegistered": "ਮੇਰੇ ਕੋਲ ਇਹ ਨਹੀਂ ਹੈ — ਮੇਰਾ ਕਾਰੋਬਾਰ ਇਸ ਲਈ ਰਜਿਸਟਰਡ ਨਹੀਂ ਹੈ।",
 };
 
 const tl = {
@@ -14321,6 +14326,7 @@ const tl = {
   "app.onboarding.taxRegSkipTitle": "Wala akong ganito — huwag nang itanong",
   "app.onboarding.taxRegSkipFailed": "Hindi namin naitago ang hakbang na iyon. Subukan ulit maya-maya.",
   "app.setCompany.taxRegDisclaimer": "Ini-print ng FieldQuo sa iyong mga dokumento ang inilagay mo rito. Hindi ka nito irerehistro at wala itong isinusumite para sa iyo.",
+  "app.setCompany.taxRegNotRegistered": "Wala akong ganito — hindi rehistrado ang negosyo ko para dito.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };
