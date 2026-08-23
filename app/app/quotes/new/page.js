@@ -37,6 +37,7 @@ import {
   buildTradeLineItems,
   estimateCabinetDoorCost,
   cabinetAddOnLines,
+  tradeLabourHours,
 } from "@/lib/pricing/tradeScope";
 import UnitPricingFields from "@/app/components/quotes/builder/UnitPricingFields";
 import IntakeFields from "@/app/components/quotes/builder/IntakeFields";
@@ -110,7 +111,16 @@ export default function NewQuotePage() {
   // fallback rate when none is chosen / no rate is set.
   const [workers, setWorkers] = useState([]);
   const [costWorkerId, setCostWorkerId] = useState("");
-  const [fallbackRate, setFallbackRate] = useState(65);
+  // What an hour of crew COSTS the company, not what it bills for. This
+  // defaulted to $65, which is a charge-out rate, not a cost — Landscape
+  // Ontario's own survey puts BILLED labour at $55–$90/hr, and a default that
+  // high understates margin on every quote by pricing labour at roughly double.
+  //
+  // $35 is the burdened cost of a crew member paid around $25/hr, which is the
+  // Job Bank Ontario median for an interlock installer and matches a real
+  // contractor's own figure. Overridden per quote, and superseded entirely
+  // when a worker with an hourlyRate is assigned.
+  const [fallbackRate, setFallbackRate] = useState(35);
   const [overheadPct, setOverheadPct] = useState(10);
   // The estimator's own read on this job, on top of whatever a recipe worked
   // out. Kept as strings so an empty box stays empty instead of snapping to 0.
@@ -581,6 +591,21 @@ export default function NewQuotePage() {
   }
 
   const subtotal = scopeGroups.reduce((sum, g) => sum + groupTotal(g), 0);
+
+  // Crew hours the priced takeoffs imply — "how long will this take", which is
+  // both a cost input and the answer to the question every client asks.
+  const takeoffLabourHours = scopeGroups.reduce(
+    (sum, g) =>
+      sum +
+      (g.takeoff
+        ? tradeLabourHours(
+            g.categoryKey,
+            g.takeoff,
+            rateOverridesFor(g.categoryId),
+          )
+        : 0),
+    0,
+  );
   const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
@@ -607,7 +632,10 @@ export default function NewQuotePage() {
   const estimate = estimateQuoteCost({
     scopeGroups,
     labourRatePerHour: labourRate,
-    manualLabourHours: Number(manualLabourHours) || 0,
+    // Hours the takeoffs imply, plus anything the estimator added by hand.
+    // Both, not either: a recipe or a productivity rate is a prediction, and
+    // the estimator standing on the site is allowed to know better.
+    manualLabourHours: takeoffLabourHours + (Number(manualLabourHours) || 0),
     manualMaterialCost: Number(manualMaterialCost) || 0,
     price: subtotal,
     // The company's real overhead for one job when we know their capacity;

@@ -555,6 +555,22 @@ export const TRADE_PRICE_BOOKS = {
     // so on screen.
     assumesMinSqft: 500,
     minimumTotal: 0,
+
+    // Man-hours per square foot, for the internal cost estimate and for
+    // telling the client how long the crew will be on site.
+    //
+    // From a real Ottawa job rather than a published productivity table (no
+    // Ontario source publishes one): 7 days, 3 crew full time — 21 crew-days,
+    // about 168 man-hours at 8-hour days — on roughly 960 sqft of interlock.
+    // 168 ÷ 960 = 0.175.
+    //
+    // That job ALSO built a deck, a concrete porch overlay, river rock beds
+    // and lighting, so some of those hours were not paving. 0.175 is therefore
+    // an upper bound on pure interlock and the figure most worth replacing
+    // with your own crew's numbers. The published Ontario timeline anchor —
+    // a 200–400 sqft patio in 2–4 days — works out to a similar 0.15–0.18 at
+    // a three-person crew, which is the only corroboration available.
+    labourHoursPerSqft: 0.175,
   },
 
   // ── Driveway sealing ──────────────────────────────────────────────────
@@ -610,6 +626,11 @@ export const TRADE_PRICE_BOOKS = {
     // invented. At $0.35/sqft a 200 sqft drive quotes at $70, which is below
     // what anyone will drive out for — set it before quoting small jobs.
     minimumTotal: 0,
+    // Sealcoating is fast: a two-person crew does a typical driveway inside a
+    // morning. No source publishes a rate, so this is a working figure to
+    // replace with your own, and it is small enough that getting it wrong
+    // moves a quote by tens of dollars rather than thousands.
+    labourHoursPerSqft: 0.004,
   },
 
   garage_door: {
