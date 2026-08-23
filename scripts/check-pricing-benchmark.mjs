@@ -14,6 +14,9 @@ import {
   compareCompany,
   normalizeServiceName,
   normalizeUnit,
+  normalizeCurrency,
+  normalizeRegionCode,
+  selectGroup,
   unmatchedNames,
   MIN_COHORT,
 } from "../lib/pricing/benchmark.js";
@@ -165,6 +168,286 @@ console.log("\nWhat didn't match — the clustering input\n");
 const un = unmatchedNames(mine, b);
 check("the invented line item is surfaced", un[0].items.some((i) => i.name === "Something we invented"));
 check("the benchmarked one is not", !un[0].items.some((i) => /painted door/i.test(i.name)));
+
+// ══════════════════════════════════════════════════════════════════════════
+// Geography
+//
+// A painter's door price in Toronto is not a painter's door price in rural
+// Saskatchewan. Everything below is about the two ways that goes wrong: a
+// national average wearing a province's name, and a CAD average with USD in it.
+// ══════════════════════════════════════════════════════════════════════════
+
+const CO = (companyId, price, province, country = "CA", currency = "CAD") => ({
+  companyId,
+  categoryKey: "interior_painting",
+  categoryLabel: "Interior Painting",
+  name: "Painted Door",
+  unit: "door",
+  price,
+  currency,
+  country,
+  province,
+});
+const inProvince = (prefix, prices, province, country, currency) =>
+  prices.map((p, i) => CO(`${prefix}${i}`, p, province, country, currency));
+const region = (rows, opts = {}) => buildBenchmarks(rows, { ...opts, scope: "region" });
+const findScope = (groups, scope, province = null) =>
+  groups.find((g) => g.scope === scope && (province === null || g.province === province));
+
+console.log("\nNo scoping asked for, nothing about the answer changes\n");
+// The existing platform screens call buildBenchmarks(rows) with no scope. The
+// region fields are on the rows here and must be ignored completely.
+const doorsWithRegion = doors.map((d, i) => ({
+  ...d,
+  currency: i % 2 ? "USD" : "CAD",
+  country: i % 2 ? "US" : "CA",
+  province: i % 2 ? "NY" : "ON",
+}));
+const unscoped = buildBenchmarks(doorsWithRegion);
+check("region fields on the rows change nothing without a scope", unscoped.length === 1 && unscoped[0].median === 165);
+check("the key is still the bare item key", unscoped[0].key === "interior_painting::painted door::each");
+check("an unscoped group says so rather than leaving it to be guessed", unscoped[0].scope === "global");
+check("and carries no country or province to be misread as local", unscoped[0].country === undefined && unscoped[0].province === undefined);
+check("itemKey matches key when unscoped", unscoped[0].itemKey === unscoped[0].key);
+
+// An unknown scope is a caller bug. Falling back to the global pool would hand
+// back national numbers to somebody who asked for local ones — silently.
+let threwOnScope = false;
+try { buildBenchmarks(doorsWithRegion, { scope: "provinces" }); } catch { threwOnScope = true; }
+check("an unrecognised scope throws instead of quietly going national", threwOnScope);
+
+console.log("\nCurrency is a hard boundary\n");
+// Five Ontario painters at ~100 CAD and five New York painters at ~100 USD.
+// The numbers are deliberately identical, so a merge would be invisible in the
+// median and only the group count would give it away.
+const twoCurrencies = [
+  ...inProvince("on", [100, 102, 104, 106, 108], "ON", "CA", "CAD"),
+  ...inProvince("ny", [100, 102, 104, 106, 108], "NY", "US", "USD"),
+];
+const tc = region(twoCurrencies);
+check("CAD and USD never share a group", tc.every((g) => g.samples <= 5));
+check("each currency gets its own province group", tc.filter((g) => g.scope === "province").length === 2);
+check("each currency gets its own country group", tc.filter((g) => g.scope === "country").length === 2);
+check("every group names its currency", tc.every((g) => g.currency === "CAD" || g.currency === "USD"));
+check("the CAD group holds only Canadian rows", tc.find((g) => g.currency === "CAD" && g.scope === "country").companies === 5);
+
+// Same currency, two countries. Currency alone is not enough to merge on —
+// a Canadian company billing USD is not in the American market.
+const oneCurrencyTwoCountries = [
+  ...inProvince("ca", [100, 100, 100, 100, 100], "ON", "CA", "USD"),
+  ...inProvince("us", [200, 200, 200, 200, 200], "NY", "US", "USD"),
+];
+const octc = region(oneCurrencyTwoCountries);
+check("one currency in two countries stays two markets", octc.filter((g) => g.scope === "country").length === 2);
+check("and the medians are each country's own", octc.filter((g) => g.scope === "country").map((g) => g.median).sort((a, b) => a - b).join() === "100,200");
+
+// No currency is not a licence to average. It is a wiring error in the caller,
+// and the message has to say so — silently defaulting to CAD is how a US
+// company's dollars end up in a Canadian median.
+let currencyError = null;
+try { region([...inProvince("on", [100, 101, 102, 103, 104], "ON"), CO("nc", 100, "ON", "CA", null)]); }
+catch (e) { currencyError = e; }
+check("a row with no currency throws rather than being averaged", currencyError !== null);
+check("and the message tells the caller what to supply", /currency/i.test(currencyError?.message || ""));
+check("a currency that isn't a currency is not a currency", normalizeCurrency("dollars") === null && normalizeCurrency("US$") === null);
+check("case and spacing fold", normalizeCurrency(" cad ") === "CAD");
+
+console.log("\nA province that clears the floor is reported as that province\n");
+// Six Ontario painters — a real Ontario cohort — and five in Alberta.
+const twoProvinces = [
+  ...inProvince("on", [100, 102, 104, 106, 108, 110], "ON"),
+  ...inProvince("ab", [300, 302, 304, 306, 308], "AB"),
+];
+const tp = region(twoProvinces);
+const onGroup = findScope(tp, "province", "ON");
+const abGroup = findScope(tp, "province", "AB");
+const caGroup = findScope(tp, "country");
+check("Ontario is published as Ontario", onGroup?.scope === "province" && onGroup.province === "ON");
+check("its median is Ontario's, not the country's", onGroup.median === 105);
+check("Alberta is its own market", abGroup.median === 304);
+check("the country group is the whole country, not the leftovers", caGroup.samples === 11 && caGroup.companies === 11);
+check("a country group carries no province to be mistaken for one", caGroup.province === null);
+check("province and country groups pair on itemKey", onGroup.itemKey === caGroup.itemKey);
+check("but never collide on key", onGroup.key !== caGroup.key);
+
+console.log("\nA province that doesn't clear falls back — and says which\n");
+// Three provinces of three. Nine companies nationally, nobody local enough.
+const thin = [
+  ...inProvince("on", [100, 102, 104], "ON"),
+  ...inProvince("qc", [200, 202, 204], "QC"),
+  ...inProvince("ab", [300, 302, 304], "AB"),
+];
+const tb = region(thin);
+check("no province clears, so no province group is published", tb.every((g) => g.scope !== "province"));
+check("the country group carries all nine", tb.length === 1 && tb[0].companies === 9);
+const qcLookup = selectGroup(tb, CO("qc0", 200, "QC"));
+check("a Quebec company still gets an answer", qcLookup !== null);
+check("and it is labelled Canada, not Quebec", qcLookup.scope === "country" && qcLookup.province === null);
+check("the fallback is legible from the group alone", qcLookup.country === "CA" && qcLookup.currency === "CAD");
+// The whole point: the caller can tell the two apart without guessing.
+check("an Ontario company in the other fixture gets the local one", selectGroup(tp, CO("on0", 100, "ON")).scope === "province");
+check("a company in a province with no data at all falls back too", selectGroup(tp, CO("ns0", 100, "NS")).scope === "country");
+
+console.log("\nA company with no province still counts nationally\n");
+// Four in Ontario plus one company that never filled the field in. Ontario is
+// four and publishes nothing; Canada is five and publishes — including them.
+const nullProvince = [...inProvince("on", [100, 100, 100, 100], "ON"), CO("blank", 200, null)];
+const np = region(nullProvince);
+check("the national cohort is five, not four", np.length === 1 && np[0].companies === 5);
+check("its rows include the province-less one", np[0].max === 200);
+check("null province never becomes a province group", np.every((g) => g.scope !== "province"));
+check("an empty-string province is the same as none", region([...inProvince("on", [100, 100, 100, 100], "ON"), CO("blank", 200, "   ")])[0].companies === 5);
+// A row with no COUNTRY is a different case: there is no cohort it can honestly
+// join, so it is dropped like a row with no unit — never folded into another.
+const noCountry = region([...inProvince("on", [100, 100, 100, 100, 100], "ON"), CO("void", 9999, "ON", null)]);
+check("a row with no country joins nothing rather than something wrong", noCountry.every((g) => g.max === 100));
+
+console.log("\nThe floor holds at both scopes\n");
+check("a four-company province publishes nothing local", region(inProvince("on", [100, 101, 102, 103], "ON")).length === 0);
+check(`exactly ${MIN_COHORT} in a province publishes it`, findScope(region(inProvince("on", [100, 101, 102, 103, 104], "ON")), "province", "ON") !== undefined);
+check("one company with five rows in one province is still one opinion",
+  region([100, 101, 102, 103, 104].map((p) => CO("solo", p, "ON"))).length === 0);
+check("a raised floor is respected at province scope",
+  region(twoProvinces, { minCohort: 6 }).every((g) => g.companies >= 6));
+
+// ── Slicing publishes the complement, so the complement needs a floor too ──
+//
+// Six Ontario companies and two in Quebec. Publishing "Ontario, 6" and
+// "Canada, 8" from the same rows publishes Quebec's two by subtraction — and
+// either of them can then subtract itself and read the other's price exactly.
+// That is the disclosure MIN_COHORT exists to prevent, arrived at by
+// arithmetic instead of a small group.
+const leaky = [
+  ...inProvince("on", [100, 102, 104, 106, 108, 110], "ON"),
+  ...inProvince("qc", [500, 502], "QC"),
+];
+const lk = region(leaky);
+check("the six-company province is still published", findScope(lk, "province", "ON") !== undefined);
+check("the country group is withheld rather than exposing the other two", findScope(lk, "country") === undefined);
+check("the two Quebec companies get nothing, which is the correct answer", selectGroup(lk, CO("qc0", 500, "QC")) === null);
+// The same shape with the residual above the floor is fine and must publish.
+const notLeaky = [
+  ...inProvince("on", [100, 102, 104, 106, 108, 110], "ON"),
+  ...inProvince("qc", [500, 502, 504, 506, 508], "QC"),
+];
+const nlk = region(notLeaky);
+check("a residual that clears the floor is published normally", findScope(nlk, "country")?.companies === 11);
+// Residual of exactly zero — every company is inside a published province — is
+// also safe: country minus provinces is nothing.
+const covered = [
+  ...inProvince("on", [100, 102, 104, 106, 108], "ON"),
+  ...inProvince("qc", [500, 502, 504, 506, 508], "QC"),
+];
+check("a residual of zero publishes both scopes", region(covered).filter((g) => g.scope === "country").length === 1);
+// And one province-less company is enough to withhold it — that company is the
+// residual, and its rows would be recoverable by subtraction.
+const oneBlank = [...inProvince("on", [100, 102, 104, 106, 108, 110], "ON"), CO("blank", 777, null)];
+check("a lone province-less company withholds the national number too", findScope(region(oneBlank), "country") === undefined);
+
+console.log("\nComparing against the market you are actually in\n");
+const rc = compareCompany([CO("on0", 100, "ON"), CO("on0", 300, "AB")], tp);
+check("each row is measured against its own scope", rc.length === 2);
+check("the Ontario row is compared to Ontario", rc.find((r) => r.province === "ON").scope === "province");
+check("the Alberta row is compared to Alberta", rc.find((r) => r.province === "AB").scope === "province");
+check("a thin-province row says it was compared nationally", compareCompany([CO("qc0", 100, "QC")], tb)[0].scope === "country");
+check("an unscoped comparison still says global", compareCompany(mine, b)[0].scope === "global");
+check("a row with no currency matches no scoped group", compareCompany([{ ...CO("x", 100, "ON"), currency: null }], tp).length === 0);
+check("unmatched names survive scoped benchmarks", unmatchedNames([CO("on0", 100, "ON"), { ...CO("on0", 40, "ON"), name: "Something we invented" }], tp)[0].items.length === 1);
+
+console.log("\nFuzz — invariants that must hold on any input at all\n");
+// Reasoning about a two-level cohort is exactly where this gets got wrong, so
+// the groups are recomputed from the raw rows by brute force and compared.
+let seed = 20260819;
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+const pick = (a) => a[Math.floor(rnd() * a.length)];
+
+const fuzzRows = [];
+for (let i = 0; i < 3000; i += 1) {
+  const country = pick(["CA", "CA", "CA", "US", "us", null]);
+  fuzzRows.push({
+    companyId: `co${Math.floor(rnd() * 60)}`,
+    categoryKey: pick(["interior_painting", "cabinets", null, ""]),
+    categoryLabel: pick(["Interior Painting", "Cabinets", null]),
+    name: pick(["Painted Door", "painted doors", "Soft-Close Hinges", "", null, "Glass Inserts (frosted)"]),
+    unit: pick(["door", "each", "EA", "linear ft", "sq ft", null, ""]),
+    price: pick([100, 150.5, 0, -3, null, "abc", 99999, 12, "45.50", 5_000_000]),
+    currency: pick(["CAD", "USD", "cad"]),
+    country,
+    // Weighted, not uniform: an even spread over eight provinces would leave
+    // every local cohort under the floor and quietly make half the invariants
+    // below vacuous. The "fuzz reaches both scopes" check guards that.
+    province: pick(["ON", "ON", "ON", "on", "QC", "QC", "AB", "NY", null, "  "]),
+  });
+}
+
+const usable = fuzzRows.filter(
+  (r) => r.categoryKey && normalizeUnit(r.unit) && normalizeServiceName(r.name)
+    && Number(r.price) > 0 && Number(r.price) <= 1_000_000 && normalizeRegionCode(r.country),
+);
+const rowItemKey = (r) => `${r.categoryKey}::${normalizeServiceName(r.name)}::${normalizeUnit(r.unit)}`;
+const median = (xs) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const pos = (s.length - 1) / 2;
+  return s.length % 2 ? s[pos] : (s[pos - 0.5] + s[pos + 0.5]) / 2;
+};
+const round2 = (n) => Math.round(n * 100) / 100;
+
+const fuzzed = region(fuzzRows);
+check("fuzz produced groups to check", fuzzed.length > 0);
+check("fuzz reaches both scopes, so nothing below is vacuous",
+  fuzzed.some((g) => g.scope === "province") && fuzzed.some((g) => g.scope === "country"));
+check("no group is below the floor at any scope", fuzzed.every((g) => g.companies >= MIN_COHORT));
+check("every group states a scope", fuzzed.every((g) => g.scope === "province" || g.scope === "country"));
+check("every scoped group names its currency and country", fuzzed.every((g) => /^[A-Z]{3}$/.test(g.currency) && g.country));
+check("province groups are the only ones with a province", fuzzed.every((g) => (g.scope === "province") === (g.province !== null)));
+check("keys are unique", new Set(fuzzed.map((g) => g.key)).size === fuzzed.length);
+
+// The numbers, recomputed from the rows the group claims to describe.
+const membersOf = (g) => usable.filter(
+  (r) => rowItemKey(r) === g.itemKey
+    && normalizeCurrency(r.currency) === g.currency
+    && normalizeRegionCode(r.country) === g.country
+    && (g.scope === "country" || normalizeRegionCode(r.province) === g.province),
+);
+check("every group's median is its own members', recomputed",
+  fuzzed.every((g) => round2(median(membersOf(g).map((r) => Number(r.price)))) === g.median));
+check("every group's sample count is its own members'",
+  fuzzed.every((g) => membersOf(g).length === g.samples));
+check("a country group covers the WHOLE country, provinces included",
+  fuzzed.filter((g) => g.scope === "country").every((g) => new Set(membersOf(g).map((r) => r.companyId)).size === g.companies));
+check("no group mixes currencies", fuzzed.every((g) => new Set(membersOf(g).map((r) => normalizeCurrency(r.currency))).size === 1));
+check("no group mixes countries", fuzzed.every((g) => new Set(membersOf(g).map((r) => normalizeRegionCode(r.country))).size === 1));
+
+// The subtraction attack, checked on every published pair.
+const leakFree = fuzzed.filter((g) => g.scope === "country").every((g) => {
+  const provinces = fuzzed.filter((p) => p.scope === "province" && p.itemKey === g.itemKey && p.currency === g.currency && p.country === g.country);
+  if (!provinces.length) return true;
+  const shown = new Set(provinces.map((p) => p.province));
+  const residual = new Set(
+    membersOf(g).filter((r) => !shown.has(normalizeRegionCode(r.province))).map((r) => r.companyId),
+  );
+  return residual.size === 0 || residual.size >= MIN_COHORT;
+});
+check("no published country group exposes a sub-floor residual by subtraction", leakFree);
+
+// Every usable row must be able to find the market it belongs to, or find
+// nothing — never somebody else's.
+const misrouted = usable.filter((r) => {
+  const g = selectGroup(fuzzed, r);
+  if (!g) return false;
+  return g.currency !== normalizeCurrency(r.currency)
+    || g.country !== normalizeRegionCode(r.country)
+    || (g.scope === "province" && g.province !== normalizeRegionCode(r.province));
+});
+check("lookup never returns another market's group", misrouted.length === 0);
+check("lookup prefers the local group when one exists", usable.every((r) => {
+  const g = selectGroup(fuzzed, r);
+  if (!g || g.scope === "province") return true;
+  const local = fuzzed.find((p) => p.scope === "province" && p.itemKey === rowItemKey(r)
+    && p.currency === normalizeCurrency(r.currency) && p.country === normalizeRegionCode(r.country)
+    && p.province === normalizeRegionCode(r.province));
+  return local === undefined;
+}));
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;
