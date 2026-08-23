@@ -15,6 +15,11 @@ export async function GET(request, { params }) {
         select: {
           name: true,
           logoUrl: true,
+          // The client portal shows the invoice too, so the tax registration
+          // number has to reach it — this narrowed select was the one surface
+          // where the fields simply weren't loaded.
+          taxIdName: true,
+          taxIdNumber: true,
           brandColor: true,
           phone: true,
           email: true,

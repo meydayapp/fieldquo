@@ -25,6 +25,7 @@ import { readableForeground } from "@/lib/brand/colour";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
+import { taxIdLine } from "@/lib/documents/taxId";
 
 export default function PortalInvoice({ token, invoiceId }) {
   const [data, setData] = useState(null);
@@ -157,6 +158,14 @@ export default function PortalInvoice({ token, invoiceId }) {
                   >
                     {c.phone}
                   </a>
+                )}
+                {/* The registration number, where the contractor has one. This
+                    is the invoice a client actually pays from, so it needs the
+                    same line the PDF carries — without it a GST/HST-registered
+                    contractor's client cannot claim the tax back. Renders
+                    nothing at all when they are not registered. */}
+                {taxIdLine(c) && (
+                  <div className="text-xs text-[#2d2520]/55">{taxIdLine(c)}</div>
                 )}
               </div>
             </div>
