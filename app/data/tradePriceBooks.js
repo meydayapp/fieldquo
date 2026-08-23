@@ -415,6 +415,61 @@ export const TRADE_PRICE_BOOKS = {
   // line appears — so the client sees what they are paying for either way.
   // That price ships as 0 on purpose: nobody has told us what this company
   // charges to hang a door, and a made-up default would be billed for real.
+  // ── Driveway sealing ──────────────────────────────────────────────────
+  // Ontario 2026, CAD. Six sources; the per-square-foot rate clusters hard at
+  // $0.35–$0.55 (D&D Home Services, Kitchener–Waterloo) with Wolf ($0.35–0.40)
+  // and Project Landscaping ($0.15–0.50) agreeing. One Canadian domain quotes
+  // $1.75–$2.10 — that is verbatim US HomeAdvisor data and is NOT used here.
+  //
+  // The tiers follow the spread the sources describe rather than three
+  // invented steps: the cheap end is a plain rectangle in good condition, the
+  // expensive end is what every source says pushes the rate up — cracking,
+  // curves, slope, tight corners.
+  driveway_sealing: {
+    label: "Driveway Sealing",
+    complexity: {
+      standard: {
+        desc: "Good condition, straight rectangular drive, easy access",
+        sealPricePerSqft: 0.35,
+      },
+      moderate: {
+        desc: "Some cracking, a curve or a slope, tighter access",
+        sealPricePerSqft: 0.45,
+      },
+      high: {
+        desc: "Heavy cracking, irregular shape, steep slope or difficult access",
+        sealPricePerSqft: 0.55,
+      },
+    },
+    // A second coat is charged at the same rate as the first. Action Home
+    // Services sells a two-coat package at $0.80/sqft against a single-coat
+    // market of $0.35–$0.55, which is the only stated two-coat price in the
+    // research — no source prices a second coat as its own line, so this is
+    // derived from that pair and is the number most worth checking.
+    secondCoatMultiplier: 1,
+    extras: {
+      // $1–$3 per linear foot (D&D); hot rubber specifically $1.00–$1.15
+      // (Wolf, Calgary), so the top of the range covers wide or difficult
+      // cracks rather than a hot-vs-cold premium. Midpoint of a stated range,
+      // not a guess at an unstated one.
+      crackFillPerFt: 2.0,
+      // Action Home Services includes the first 20 linear feet per day.
+      crackFillIncludedFt: 20,
+      // $50–$150 by severity (Project Landscaping).
+      stainTreatmentPrice: 100,
+      // Sold separately at $0.30–$0.55/sqft (Project Landscaping).
+      pressureWashPerSqft: 0.4,
+      // Material-only upgrade, $0.05–$0.15/sqft (D&D).
+      premiumSealerPerSqft: 0.1,
+      // $50–$100 beyond 30 km (Project Landscaping).
+      travelSurchargePrice: 75,
+    },
+    // No source states a minimum job charge, so this ships at 0 rather than
+    // invented. At $0.35/sqft a 200 sqft drive quotes at $70, which is below
+    // what anyone will drive out for — set it before quoting small jobs.
+    minimumTotal: 0,
+  },
+
   garage_door: {
     label: "Garage Door Installation",
     // Keyed maps rather than arrays, and not for taste: `mergeDeep` replaces
@@ -691,6 +746,54 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ / sqft",
       step: 0.25,
     },
+  ],
+  driveway_sealing: [
+    ...complexityFields("driveway_sealing", [
+      ["sealPricePerSqft", "Sealing", "$ / sqft"],
+    ]),
+    {
+      path: "secondCoatMultiplier",
+      label: "Second coat, as a multiple of the first",
+      suffix: "×",
+      step: 0.1,
+    },
+    {
+      path: "extras.crackFillPerFt",
+      label: "Crack filling",
+      suffix: "$ / linear ft",
+      step: 0.25,
+    },
+    {
+      path: "extras.crackFillIncludedFt",
+      label: "Crack filling included before charging",
+      suffix: "linear ft",
+      step: 5,
+    },
+    {
+      path: "extras.stainTreatmentPrice",
+      label: "Oil / grease stain treatment",
+      suffix: "$ flat",
+      step: 10,
+    },
+    {
+      path: "extras.pressureWashPerSqft",
+      label: "Pressure wash",
+      suffix: "$ / sqft",
+      step: 0.05,
+    },
+    {
+      path: "extras.premiumSealerPerSqft",
+      label: "Premium sealer upgrade",
+      suffix: "$ / sqft",
+      step: 0.05,
+    },
+    {
+      path: "extras.travelSurchargePrice",
+      label: "Travel beyond 30 km",
+      suffix: "$ flat",
+      step: 25,
+    },
+    { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 25 },
   ],
   garage_door: [
     {

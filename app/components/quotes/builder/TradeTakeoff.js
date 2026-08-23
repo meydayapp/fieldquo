@@ -1224,6 +1224,130 @@ function FlooringTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/* ── Driveway sealing ──────────────────────────────────────────────────── */
+
+function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
+  const level = takeoff.complexityLevel || "standard";
+  const c = book?.complexity?.[level] || {};
+  const e = book?.extras || {};
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const sqft = num(takeoff.sqft);
+
+  const coats = takeoff.twoCoats ? 2 : 1;
+  const multiplier = takeoff.twoCoats
+    ? 1 + (num(book?.secondCoatMultiplier) || 1)
+    : 1;
+  const sealAmount = sqft * num(c.sealPricePerSqft) * multiplier;
+
+  const includedFt = num(e.crackFillIncludedFt);
+  const billableFt = Math.max(0, num(takeoff.crackFt) - includedFt);
+  const crackAmount = takeoff.crackFilling
+    ? billableFt * num(e.crackFillPerFt)
+    : 0;
+
+  return (
+    <div className="space-y-3">
+      <Field label="Driveway area (sqft)">
+        <Num value={takeoff.sqft} onChange={(v) => set({ sqft: v })} />
+      </Field>
+
+      <ComplexityPicker
+        value={level}
+        book={book}
+        onChange={(v) => set({ complexityLevel: v })}
+      />
+
+      <div className="flex items-baseline justify-between border-b border-border py-1.5 text-sm">
+        <span>
+          Sealing — {coats} coat{coats === 1 ? "" : "s"}
+          <span className="ml-2 text-xs text-muted-foreground">
+            {sqft > 0
+              ? `${sqft} sqft × $${money(num(c.sealPricePerSqft) * multiplier)}/sqft`
+              : "Enter the driveway area above"}
+          </span>
+        </span>
+        <span className="font-medium tabular-nums">
+          {sealAmount > 0 ? `$${money(sealAmount)}` : "—"}
+        </span>
+      </div>
+
+      <div>
+        <OptionRow
+          checked={takeoff.twoCoats}
+          onToggle={(v) => set({ twoCoats: v })}
+          label="Second coat"
+          hint="One coat lasts two to three years; two lasts about four. Priced into the sealing line above."
+          amount={0}
+        />
+        <OptionRow
+          checked={takeoff.premiumSealer}
+          onToggle={(v) => set({ premiumSealer: v })}
+          label="Premium sealer"
+          hint={`$${money(e.premiumSealerPerSqft)}/sqft`}
+          amount={
+            takeoff.premiumSealer ? sqft * num(e.premiumSealerPerSqft) : 0
+          }
+        />
+        <OptionRow
+          checked={takeoff.crackFilling}
+          onToggle={(v) => set({ crackFilling: v })}
+          label="Crack filling"
+          hint={
+            includedFt > 0
+              ? `$${money(e.crackFillPerFt)}/linear ft after the first ${includedFt} ft`
+              : `$${money(e.crackFillPerFt)}/linear ft`
+          }
+          amount={crackAmount}
+        >
+          <div className="mt-1 w-32">
+            <Num
+              value={takeoff.crackFt}
+              onChange={(v) => set({ crackFt: v })}
+            />
+          </div>
+          {includedFt > 0 && num(takeoff.crackFt) > 0 && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              {billableFt > 0
+                ? `${includedFt} ft included, ${billableFt} ft charged`
+                : `All ${num(takeoff.crackFt)} ft fall inside the included ${includedFt} ft`}
+            </div>
+          )}
+        </OptionRow>
+        <OptionRow
+          checked={takeoff.pressureWash}
+          onToggle={(v) => set({ pressureWash: v })}
+          label="Pressure wash"
+          hint={`$${money(e.pressureWashPerSqft)}/sqft`}
+          amount={takeoff.pressureWash ? sqft * num(e.pressureWashPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.stainTreatment}
+          onToggle={(v) => set({ stainTreatment: v })}
+          label="Oil / grease stain treatment"
+          hint={`$${money(e.stainTreatmentPrice)} flat — sealer will not bond over oil`}
+          amount={takeoff.stainTreatment ? num(e.stainTreatmentPrice) : 0}
+        />
+        <OptionRow
+          checked={takeoff.travelSurcharge}
+          onToggle={(v) => set({ travelSurcharge: v })}
+          label="Travel beyond 30 km"
+          hint={`$${money(e.travelSurchargePrice)} flat`}
+          amount={takeoff.travelSurcharge ? num(e.travelSurchargePrice) : 0}
+        />
+      </div>
+
+      {num(book?.minimumTotal) <= 0 && sqft > 0 && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          No job minimum is set for this trade, so a small driveway quotes at
+          whatever the area comes to — {sqft} sqft is $
+          {money(sqft * num(c.sealPricePerSqft))} for one coat. Set one in
+          Settings → Services → Driveway Sealing.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Entry point ───────────────────────────────────────────────────────── */
 
 const TAKEOFFS = {
@@ -1233,6 +1357,7 @@ const TAKEOFFS = {
   interior_painting: InteriorPaintTakeoff,
   exterior_painting: ExteriorPaintTakeoff,
   flooring: FlooringTakeoff,
+  driveway_sealing: DrivewaySealingTakeoff,
 };
 
 export function hasTakeoff(categoryKey) {

@@ -279,6 +279,18 @@ const CATEGORIES = [
     sortOrder: 61,
   },
   { key: "parging", label: "Parging", icon: "Square", sortOrder: 62 },
+
+  // Sealcoating is maintenance, not paving: it recoats a driveway that is
+  // already there, is priced per square foot of surface rather than by depth
+  // and tonnage, and is resold to the same client every two to four years.
+  // Folding it into `paving` would have meant one rate card answering two
+  // different questions.
+  {
+    key: "driveway_sealing",
+    label: "Driveway Sealing",
+    icon: "Square",
+    sortOrder: 63,
+  },
 ];
 
 async function main() {

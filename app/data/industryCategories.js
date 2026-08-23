@@ -45,6 +45,7 @@ export const INDUSTRY_CATEGORY_KEYS = {
     // which means a driveway contractor signs up and finds their trade
     // missing from their own list.
     "paving",
+    "driveway_sealing",
     "general_contracting",
     "general_contracting_reno",
     "remodeling",
@@ -76,13 +77,19 @@ export const INDUSTRY_CATEGORY_KEYS = {
   landscaping: [
     "landscaping_design",
     "paving",
+    "driveway_sealing",
     "irrigation",
     "pool_spa",
     "pest_control",
   ],
   "lawn-care": ["lawn_care", "lawn_mowing", "snow_removal"],
   plumbing: ["plumbing", "well_water"],
-  "pressure-washing": ["pressure_washing_house", "pressure_washing_driveway"],
+  // Sealing is the job the driveway washers are already on site for.
+  "pressure-washing": [
+    "pressure_washing_house",
+    "pressure_washing_driveway",
+    "driveway_sealing",
+  ],
   roofing: ["roofing_service", "siding", "restoration"],
   "tree-care": ["tree_care_service"],
 };
