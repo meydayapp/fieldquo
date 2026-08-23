@@ -22,43 +22,16 @@ import {
   newPaintRoom,
 } from "@/lib/pricing/tradeScope";
 import { Plus, Trash2 } from "lucide-react";
-
-const inputClass =
-  "w-full mt-1 border border-border rounded px-2 py-1.5 text-sm";
-const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-const money = (v) => num(v).toFixed(2);
-const asList = (v) => (Array.isArray(v) ? v : []);
-
-function Field({ label, children, className = "" }) {
-  return (
-    <div className={className}>
-      <label className="text-xs text-muted-foreground">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Num({ value, onChange, min = 0, step = 1, prefix }) {
-  return (
-    <div className="relative">
-      {prefix && (
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-          {prefix}
-        </span>
-      )}
-      <input
-        type="number"
-        min={min}
-        step={step}
-        value={value === 0 ? 0 : value || ""}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? 0 : Number(e.target.value))
-        }
-        className={`${inputClass} ${prefix ? "pl-5" : ""}`}
-      />
-    </div>
-  );
-}
+import {
+  Field,
+  Num,
+  OptionRow,
+  inputClass,
+  num,
+  money,
+  asList,
+} from "./fields";
+import PaverDesigner from "./PaverDesigner";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
 function ComplexityPicker({ value, book, onChange }) {
@@ -622,36 +595,6 @@ function GarageDoorTakeoff({ takeoff, book, onChange }) {
  * question an estimator is actually asking is "what does adding this do to the
  * number", and a bare checkbox makes them open a calculator to find out.
  */
-function OptionRow({ checked, onToggle, label, hint, amount, children }) {
-  return (
-    <div className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
-      <input
-        type="checkbox"
-        className="mt-1"
-        checked={Boolean(checked)}
-        onChange={(e) => onToggle(e.target.checked)}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <span
-            className={`text-sm ${checked ? "text-foreground" : "text-muted-foreground"}`}
-          >
-            {label}
-          </span>
-          <span className="shrink-0 text-sm font-medium tabular-nums">
-            {amount > 0 ? (
-              `$${money(amount)}`
-            ) : (
-              <span className="font-normal text-muted-foreground">—</span>
-            )}
-          </span>
-        </div>
-        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
-        {checked && children}
-      </div>
-    </div>
-  );
-}
 
 /** Title + remove, shared by every repeatable card (rooms, floor areas). */
 function CardHeader({
@@ -1356,7 +1299,7 @@ const PAVING_SURFACES = [
   ["drivewaySqft", "Driveway", "drivewayPricePerSqft", true],
 ];
 
-function PavingTakeoff({ takeoff, book, onChange }) {
+function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
   const level = takeoff.complexityLevel || "standard";
   const c = book?.complexity?.[level] || {};
   const e = book?.extras || {};
@@ -1379,6 +1322,20 @@ function PavingTakeoff({ takeoff, book, onChange }) {
 
   return (
     <div className="space-y-3">
+      {/* Trace it rather than guess it.
+          The drawing lives inside the takeoff JSON (`takeoff.paverDesign`),
+          which is already a column — no schema change, and reopening the quote
+          restores the shapes instead of a flat number nobody can recount. The
+          three boxes below stay editable: an estimator who measured on site
+          with a tape should not have to draw it to type it. */}
+      <PaverDesigner
+        takeoff={takeoff}
+        onChange={onChange}
+        design={takeoff.paverDesign || null}
+        onDesignChange={(paverDesign) => set({ paverDesign })}
+        imageUrl={siteImageUrl || ""}
+      />
+
       <div className="grid gap-2 sm:grid-cols-3">
         {PAVING_SURFACES.map(([key, label, rateKey, isDriveway]) => {
           const rate =
@@ -1394,6 +1351,18 @@ function PavingTakeoff({ takeoff, book, onChange }) {
           );
         })}
       </div>
+
+      <Field label="Retaining / garden wall (sqft of face)">
+        <Num
+          value={takeoff.wallFaceSqft}
+          onChange={(v) => set({ wallFaceSqft: v })}
+        />
+        <div className="mt-1 text-xs text-muted-foreground">
+          ${money(book?.wallPricePerFaceSqft)}/sqft of wall face — its base,
+          structural units, capping and any steps built into it. Measured by
+          face area rather than length, because that is how it is invoiced.
+        </div>
+      </Field>
 
       <ComplexityPicker
         value={level}
@@ -1639,12 +1608,26 @@ export function hasTakeoff(categoryKey) {
   return Boolean(TAKEOFFS[categoryKey]);
 }
 
-export default function TradeTakeoff({ categoryKey, takeoff, book, onChange }) {
+export default function TradeTakeoff({
+  categoryKey,
+  takeoff,
+  book,
+  onChange,
+  // An aerial tile of the client's address, when the page has one. Optional:
+  // the designer draws on a blank grid without it, so a quote for a client
+  // whose address failed to geocode still measures.
+  siteImageUrl = "",
+}) {
   const Component = TAKEOFFS[categoryKey];
   if (!Component || !takeoff || !book) return null;
   return (
     <div className="space-y-3 pb-4 border-b border-border">
-      <Component takeoff={takeoff} book={book} onChange={onChange} />
+      <Component
+        takeoff={takeoff}
+        book={book}
+        onChange={onChange}
+        siteImageUrl={siteImageUrl}
+      />
     </div>
   );
 }

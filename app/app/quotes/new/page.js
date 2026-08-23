@@ -124,6 +124,12 @@ export default function NewQuotePage() {
   const [overheadPct, setOverheadPct] = useState(10);
   // The estimator's own read on this job, on top of whatever a recipe worked
   // out. Kept as strings so an empty box stays empty instead of snapping to 0.
+  // An aerial tile of the client's address, for the trades that measure off
+  // one. Fetched once per client and only when a scope group that can use it
+  // is on the quote — geocoding every client the moment they are selected
+  // would bill Google for quotes that never go near a map.
+  const [siteImage, setSiteImage] = useState(null);
+
   const [manualLabourHours, setManualLabourHours] = useState("");
   const [manualMaterialCost, setManualMaterialCost] = useState("");
   // The company's real overhead for one job: monthly fixed costs divided by
@@ -590,6 +596,33 @@ export default function NewQuotePage() {
     );
   }
 
+  // Trades whose takeoff can draw on an aerial photo.
+  const wantsSiteImage = scopeGroups.some((g) => g.categoryKey === "paving");
+
+  useEffect(() => {
+    const address = selectedClient?.address;
+    if (!wantsSiteImage || !address) {
+      setSiteImage(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/measure/satellite?address=${encodeURIComponent(address)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        // A failure here is not worth a toast: the designer works on a blank
+        // grid, and an address that will not geocode is the client's, not
+        // something the estimator can fix from this screen.
+        setSiteImage(data?.ok ? data : null);
+      })
+      .catch(() => {
+        if (!cancelled) setSiteImage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClient?.address, wantsSiteImage]);
+
   const subtotal = scopeGroups.reduce((sum, g) => sum + groupTotal(g), 0);
 
   // Crew hours the priced takeoffs imply — "how long will this take", which is
@@ -965,6 +998,7 @@ export default function NewQuotePage() {
 
           {hasTakeoff(group.categoryKey) && group.takeoff && (
             <TradeTakeoff
+              siteImageUrl={siteImage?.image?.url || ""}
               categoryKey={group.categoryKey}
               takeoff={group.takeoff}
               book={getPriceBook(

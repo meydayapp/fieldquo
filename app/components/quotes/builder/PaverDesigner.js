@@ -37,6 +37,7 @@ import {
   squareCheck,
 } from "@/lib/pricing/paverTakeoff";
 import { Check, Plus, Ruler, Trash2, Undo2, X } from "lucide-react";
+import { Field, Num, inputClass } from "./fields";
 
 /* ── Geometry, exported for the check script ───────────────────────────────
  *
@@ -124,7 +125,8 @@ export function quadSquareCheck(feet, toleranceFt = 0.25) {
     return null;
   }
   const [p0, p1, p2, p3] = feet;
-  const d = (a, b) => Math.hypot(numOf(b.x) - numOf(a.x), numOf(b.y) - numOf(a.y));
+  const d = (a, b) =>
+    Math.hypot(numOf(b.x) - numOf(a.x), numOf(b.y) - numOf(a.y));
   const at = (l, w, diag) =>
     squareCheck({
       lengthFt: l,
@@ -148,40 +150,6 @@ const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, numOf(n)));
 // Copied from TradeTakeoff.js rather than imported: that file exports only its
 // entry points, and this one must not edit it. If a third takeoff screen wants
 // them, they belong in a shared module — see the note in the handoff.
-const inputClass =
-  "w-full mt-1 border border-border rounded px-2 py-1.5 text-sm";
-
-function Field({ label, children, className = "" }) {
-  return (
-    <div className={className}>
-      <label className="text-xs text-muted-foreground">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Num({ value, onChange, min = 0, step = 1, suffix, id }) {
-  return (
-    <div className="relative">
-      <input
-        id={id}
-        type="number"
-        min={min}
-        step={step}
-        value={value === 0 ? 0 : value || ""}
-        onChange={(e) =>
-          onChange(e.target.value === "" ? 0 : Number(e.target.value))
-        }
-        className={`${inputClass} ${suffix ? "pr-8" : ""}`}
-      />
-      {suffix && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-          {suffix}
-        </span>
-      )}
-    </div>
-  );
-}
 
 /* ── What the estimator can choose ─────────────────────────────────────── */
 
@@ -244,8 +212,8 @@ const patternOf = (value) =>
   PATTERNS.find((p) => p.value === value) || PATTERNS[0];
 
 const JOINT_WIDTHS = [
-  { value: "narrow", label: "Narrow joints (up to 1/4\")" },
-  { value: "wide", label: "Wide joints (1/4\"–1\")" },
+  { value: "narrow", label: 'Narrow joints (up to 1/4")' },
+  { value: "wide", label: 'Wide joints (1/4"–1")' },
   { value: "flagstone", label: "Flagstone / irregular" },
 ];
 
@@ -349,9 +317,7 @@ export default function PaverDesigner({
       if (!pt) return;
       const p = { x: clamp(pt.x, 0, VIEW_W), y: clamp(pt.y, 0, VIEW_H) };
       if (mode === "draw") {
-        setDraft((d) =>
-          d ? { ...d, points: [...asPoints(d.points), p] } : d,
-        );
+        setDraft((d) => (d ? { ...d, points: [...asPoints(d.points), p] } : d));
         return;
       }
       if (mode === "scale") {
@@ -362,7 +328,11 @@ export default function PaverDesigner({
         // Keep whatever length was typed for the previous line: re-drawing the
         // reference over a better landmark shouldn't silently unset the scale.
         update((prev) => ({
-          scale: { a: scaleDraft.a, b: p, lengthFt: numOf(prev.scale?.lengthFt) },
+          scale: {
+            a: scaleDraft.a,
+            b: p,
+            lengthFt: numOf(prev.scale?.lengthFt),
+          },
         }));
         setScaleDraft(null);
         setMode("idle");
@@ -517,7 +487,9 @@ export default function PaverDesigner({
       case "Backspace":
         if (mode !== "draw") return;
         e.preventDefault();
-        setDraft((d) => (d ? { ...d, points: asPoints(d.points).slice(0, -1) } : d));
+        setDraft((d) =>
+          d ? { ...d, points: asPoints(d.points).slice(0, -1) } : d,
+        );
         return;
       case "Escape":
         if (mode === "idle") {
@@ -570,7 +542,10 @@ export default function PaverDesigner({
   const emitted = useMemo(
     () =>
       Object.fromEntries(
-        SURFACES.map((s) => [s.takeoffKey, Math.round(totals.bySurface[s.key])]),
+        SURFACES.map((s) => [
+          s.takeoffKey,
+          Math.round(totals.bySurface[s.key]),
+        ]),
       ),
     [totals],
   );
@@ -824,7 +799,9 @@ export default function PaverDesigner({
                 pointerEvents="none"
               >
                 {shape.name || s.label}
-                {m.ok ? ` · ${Math.round(m.areaSqFt)} sqft` : " · scale not set"}
+                {m.ok
+                  ? ` · ${Math.round(m.areaSqFt)} sqft`
+                  : " · scale not set"}
               </text>
             </g>
           );
@@ -929,7 +906,9 @@ export default function PaverDesigner({
               paintOrder="stroke"
               pointerEvents="none"
             >
-              {fpp ? `${round2(numOf(scalePts.lengthFt))} ft` : "length not set"}
+              {fpp
+                ? `${round2(numOf(scalePts.lengthFt))} ft`
+                : "length not set"}
             </text>
             {mode === "idle" &&
               ["a", "b"].map((end) => (
@@ -992,13 +971,17 @@ export default function PaverDesigner({
       </svg>
 
       {imageUrl && (
-        <Field label={`Background image opacity — ${Math.round(opacity * 100)}%`}>
+        <Field
+          label={`Background image opacity — ${Math.round(opacity * 100)}%`}
+        >
           <input
             type="range"
             min={0}
             max={100}
             value={Math.round(opacity * 100)}
-            onChange={(e) => update({ imageOpacity: Number(e.target.value) / 100 })}
+            onChange={(e) =>
+              update({ imageOpacity: Number(e.target.value) / 100 })
+            }
             className="mt-1 w-full"
           />
         </Field>
@@ -1184,9 +1167,9 @@ function ShapeList({
                 Not square: the diagonals disagree by {check.differenceFt} ft
                 (two sides imply {check.diagonal} ft, the trace measures{" "}
                 {check.diagonal2} ft) against a {tolerance} ft tolerance. The
-                area above is still right — the shoelace formula does not care
-                — but length × width is not, so check the corners before
-                ordering edge restraint or cutting a border.
+                area above is still right — the shoelace formula does not care —
+                but length × width is not, so check the corners before ordering
+                edge restraint or cutting a border.
               </p>
             )}
           </div>
