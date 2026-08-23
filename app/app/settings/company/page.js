@@ -10,9 +10,18 @@ import BusinessHoursModal from "@/app/components/settings/BusinessHoursModal";
 import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
-import { CURRENCIES, COUNTRIES, currencyForCountry, currencyMeta } from "@/lib/currency";
+import {
+  CURRENCIES,
+  COUNTRIES,
+  currencyForCountry,
+  currencyMeta,
+} from "@/lib/currency";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
 import { reportResponseError } from "@/lib/clientErrors";
+import {
+  contractTemplateList,
+  unfilledPlaceholders,
+} from "@/lib/documents/contractTerms";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import {
@@ -140,11 +149,20 @@ const inputClass =
 // forty inputs, because the two renderings differ in WHAT they show, not just
 // in whether it's editable — and a shared component with a boolean would have
 // hidden that.
-function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hours }) {
+function CompanyReadOnly({
+  t,
+  form,
+  slug,
+  industries,
+  quoteTypes,
+  taxRates,
+  hours,
+}) {
   const currency = currencyMeta(
     form.servesAbroad ? form.currency : currencyForCountry(form.country),
   );
-  const country = COUNTRIES.find((c) => c.code === form.country)?.name || form.country;
+  const country =
+    COUNTRIES.find((c) => c.code === form.country)?.name || form.country;
   // Never DEFAULT_HOURS. A company that has said nothing about its hours must
   // read as "not set", not as an invented Mon–Fri — the same rule the editor
   // and the public site follow.
@@ -174,10 +192,22 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
 
       <SectionCard title={t("app.setCompany.detailsTitle")}>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <ReadOnlyField label={t("app.setCompany.companyName")} value={form.name} />
-          <ReadOnlyField label={t("app.setCompany.phoneNumber")} value={form.phone} />
-          <ReadOnlyField label={t("app.setCompany.emailAddress")} value={form.email} />
-          <ReadOnlyField label={t("app.setCompany.websiteUrl")} value={form.website} />
+          <ReadOnlyField
+            label={t("app.setCompany.companyName")}
+            value={form.name}
+          />
+          <ReadOnlyField
+            label={t("app.setCompany.phoneNumber")}
+            value={form.phone}
+          />
+          <ReadOnlyField
+            label={t("app.setCompany.emailAddress")}
+            value={form.email}
+          />
+          <ReadOnlyField
+            label={t("app.setCompany.websiteUrl")}
+            value={form.website}
+          />
           <div className="sm:col-span-2">
             <ReadOnlyField
               label={t("app.setCompany.streetAddress")}
@@ -187,12 +217,102 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
         </dl>
         {slug && (
           <div className="flex items-start gap-2.5 bg-muted border border-border rounded-lg px-4 py-3">
-            <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
+            <Globe
+              size={16}
+              className="text-muted-foreground mt-0.5 shrink-0"
+            />
             <div className="text-sm font-medium text-foreground">
               {slug}.fieldquo.com
             </div>
           </div>
         )}
+      </SectionCard>
+
+      {/* Scope of work and terms.
+          Company.defaultProcessNotes is copied onto every new quote as
+          Quote.processNotes and printed on the document — and until now
+          nothing in /app could set it, so it was null everywhere. Same for
+          paymentTerms, which PaymentTermsSection renders and which no screen
+          could fill in either. Both are editable here.
+
+          The templates are starters, not defaults: nothing is written to the
+          company unless someone presses Save, and every figure a contractor
+          has to own is left in [brackets] so an unedited template is visibly
+          unfinished rather than quietly promising a warranty nobody agreed to. */}
+      <SectionCard
+        title="Scope of work and terms"
+        description="Copied onto every new quote, then editable on the quote itself. A quote that says what will happen — how deep the excavation goes, who hauls the old surface away, what changes cost — is the one that reads like somebody who has done the job before."
+      >
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Start from a trade template:
+            </span>
+            {contractTemplateList().map((tpl) => (
+              <button
+                key={tpl.key}
+                type="button"
+                disabled={!canEdit}
+                onClick={() => {
+                  // Appends rather than overwrites: silently replacing terms
+                  // somebody has already written is the destructive-operation-
+                  // labelled-as-cosmetic failure.
+                  const current = (form.defaultProcessNotes || "").trim();
+                  setForm({
+                    ...form,
+                    defaultProcessNotes: current
+                      ? `${current}\n\n${tpl.body}`
+                      : tpl.body,
+                  });
+                }}
+                className="rounded-full border border-border px-3 py-1 text-xs hover:border-foreground/40 disabled:opacity-50"
+              >
+                {tpl.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            rows={14}
+            disabled={!canEdit}
+            value={form.defaultProcessNotes || ""}
+            onChange={(e) =>
+              setForm({ ...form, defaultProcessNotes: e.target.value })
+            }
+            placeholder="What happens, in what order, and what is not included. Pick a trade template above to start from one."
+            className="w-full rounded border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+          />
+          {unfilledPlaceholders(form.defaultProcessNotes).length > 0 && (
+            <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {unfilledPlaceholders(form.defaultProcessNotes).length} thing
+              {unfilledPlaceholders(form.defaultProcessNotes).length === 1
+                ? ""
+                : "s"}{" "}
+              still to decide, and they will print on the quote exactly as they
+              appear here:{" "}
+              <span className="font-mono">
+                {unfilledPlaceholders(form.defaultProcessNotes)
+                  .slice(0, 6)
+                  .join("  ")}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground">Payment terms</label>
+          <input
+            disabled={!canEdit}
+            value={form.paymentTerms || ""}
+            onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
+            placeholder="e.g. 50% deposit, balance on completion — or Net 30"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Read straight onto the document. A schedule it can parse renders as
+            cards; anything else prints as you wrote it. Left blank, the section
+            does not appear at all rather than inventing a schedule for you.
+          </p>
+        </div>
       </SectionCard>
 
       {/* The one the owner named: opening hours as text, not as checkboxes. */}
@@ -210,7 +330,9 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
                 <dt className="text-sm text-foreground">{run.label}</dt>
                 <dd
                   className={`text-sm tabular-nums ${
-                    run.closed ? "text-muted-foreground" : "text-foreground font-medium"
+                    run.closed
+                      ? "text-muted-foreground"
+                      : "text-foreground font-medium"
                   }`}
                 >
                   {run.closed ? t("app.setCompany.closed") : run.hours}
@@ -250,7 +372,9 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
                   </dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      day ? "text-foreground font-medium" : "text-muted-foreground"
+                      day
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {day
@@ -276,7 +400,10 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
           <div className="border border-border rounded-lg divide-y divide-border">
             {taxRates.map((r) => (
               <div key={r.id} className="px-3 py-2 text-sm text-foreground">
-                {r.name} <span className="text-muted-foreground">— {Number(r.rate)}%</span>
+                {r.name}{" "}
+                <span className="text-muted-foreground">
+                  — {Number(r.rate)}%
+                </span>
                 {r.isDefault && (
                   <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                     {t("app.setCompany.default")}
@@ -295,11 +422,20 @@ function CompanyReadOnly({ t, form, slug, industries, quoteTypes, taxRates, hour
             label={t("app.setCompany.billingCurrency")}
             value={`${currency.code} — ${currency.label} (${currency.symbol})`}
           />
-          <ReadOnlyField label={t("app.setCompany.timeZone")} value={form.timezone} />
-          <ReadOnlyField label={t("app.setCompany.dateFormat")} value={form.dateFormat} />
+          <ReadOnlyField
+            label={t("app.setCompany.timeZone")}
+            value={form.timezone}
+          />
+          <ReadOnlyField
+            label={t("app.setCompany.dateFormat")}
+            value={form.dateFormat}
+          />
           <ReadOnlyField
             label={t("app.setCompany.weekStart")}
-            value={t(`app.setCompany.day${form.weekStartsOn}`, WEEKDAYS[form.weekStartsOn])}
+            value={t(
+              `app.setCompany.day${form.weekStartsOn}`,
+              WEEKDAYS[form.weekStartsOn],
+            )}
           />
         </dl>
       </SectionCard>
@@ -396,6 +532,10 @@ export default function CompanySettingsPage() {
       .then((data) => {
         setSlug(data?.slug || "");
         setForm({
+          // Both of these print on every quote and neither had an editor
+          // anywhere in /app, so both were null on every company.
+          defaultProcessNotes: data?.defaultProcessNotes || "",
+          paymentTerms: data?.paymentTerms || "",
           name: data?.name || "",
           phone: data?.phone || "",
           website: data?.website || "",
@@ -528,7 +668,8 @@ export default function CompanySettingsPage() {
     const res = await fetch(`/api/settings/tax-rate/${id}`, {
       method: "DELETE",
     });
-    if (res.ok) setTaxRates((prev) => prev.filter((r) => r.id !== id)); else {
+    if (res.ok) setTaxRates((prev) => prev.filter((r) => r.id !== id));
+    else {
       // Was silent: a failed request did nothing visible at all.
       await reportResponseError(res);
     }
@@ -565,7 +706,9 @@ export default function CompanySettingsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">{t("app.settings.company")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {t("app.settings.company")}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {t("app.setCompany.subtitle")}
         </p>
@@ -585,7 +728,9 @@ export default function CompanySettingsPage() {
             {t("app.setCompany.industries")}
           </h3>
           {industries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("app.setCompany.noneSelected")}</p>
+            <p className="text-sm text-muted-foreground">
+              {t("app.setCompany.noneSelected")}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {industries.map((slug) => (
@@ -629,7 +774,9 @@ export default function CompanySettingsPage() {
                 >
                   {c.label}
                   {!c.isSystem && (
-                    <span className="text-amber-600 dark:text-amber-400">{t("app.setCompany.custom")}</span>
+                    <span className="text-amber-600 dark:text-amber-400">
+                      {t("app.setCompany.custom")}
+                    </span>
                   )}
                 </span>
               ))}
@@ -698,7 +845,9 @@ export default function CompanySettingsPage() {
           <Globe size={16} className="text-muted-foreground mt-0.5 shrink-0" />
           <div>
             <div className="text-sm font-medium text-foreground">
-              {slug ? `${slug}.fieldquo.com` : t("app.setCompany.yourSubdomain")}
+              {slug
+                ? `${slug}.fieldquo.com`
+                : t("app.setCompany.yourSubdomain")}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {t("app.setCompany.subdomainHint")}{" "}
@@ -814,10 +963,14 @@ export default function CompanySettingsPage() {
                   key={dayOfWeek}
                   className="flex items-center justify-between px-4 py-2.5"
                 >
-                  <dt className="text-sm text-foreground">{t(`app.setCompany.day${dayOfWeek}`, label)}</dt>
+                  <dt className="text-sm text-foreground">
+                    {t(`app.setCompany.day${dayOfWeek}`, label)}
+                  </dt>
                   <dd
                     className={`text-sm tabular-nums ${
-                      day ? "text-foreground font-medium" : "text-muted-foreground"
+                      day
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {day
@@ -904,7 +1057,9 @@ export default function CompanySettingsPage() {
                 type="checkbox"
                 className="mt-0.5"
                 checked={Boolean(form.taxRegistrationDismissed)}
-                onChange={(e) => set("taxRegistrationDismissed", e.target.checked)}
+                onChange={(e) =>
+                  set("taxRegistrationDismissed", e.target.checked)
+                }
               />
               <span>{t("app.setCompany.taxRegNotRegistered")}</span>
             </label>
@@ -913,7 +1068,9 @@ export default function CompanySettingsPage() {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-foreground">{t("app.setCompany.taxRates")}</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("app.setCompany.taxRates")}
+            </h3>
             <button
               onClick={() => setShowNewRate((v) => !v)}
               className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground"
@@ -937,7 +1094,9 @@ export default function CompanySettingsPage() {
                 >
                   <div className="text-sm text-foreground">
                     {r.name}{" "}
-                    <span className="text-muted-foreground">— {Number(r.rate)}%</span>
+                    <span className="text-muted-foreground">
+                      — {Number(r.rate)}%
+                    </span>
                     {r.isDefault && (
                       <span className="ml-2 text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                         {t("app.setCompany.default")}
@@ -947,7 +1106,9 @@ export default function CompanySettingsPage() {
                   <button
                     onClick={() => handleDeleteTaxRate(r.id)}
                     className="text-muted-foreground hover:text-red-500"
-                    aria-label={t("app.setCompany.deleteRate", { name: r.name })}
+                    aria-label={t("app.setCompany.deleteRate", {
+                      name: r.name,
+                    })}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1023,7 +1184,10 @@ export default function CompanySettingsPage() {
 
       <SectionCard
         title={t("app.setCompany.benchmarkTitle", "Industry benchmark")}
-        description={t("app.setCompany.benchmarkDesc", "Compare your pricing and conversion against similar trades — anonymously.")}
+        description={t(
+          "app.setCompany.benchmarkDesc",
+          "Compare your pricing and conversion against similar trades — anonymously.",
+        )}
       >
         <label className="flex items-start gap-2.5 text-sm text-foreground">
           <input
@@ -1033,9 +1197,15 @@ export default function CompanySettingsPage() {
             onChange={(e) => set("shareAnonymizedPricing", e.target.checked)}
           />
           <span>
-            {t("app.setCompany.benchmarkLabel", "Share my anonymized figures to unlock benchmarks")}
+            {t(
+              "app.setCompany.benchmarkLabel",
+              "Share my anonymized figures to unlock benchmarks",
+            )}
             <span className="block text-xs text-muted-foreground mt-1">
-              {t("app.setCompany.benchmarkHint", "Your numbers are pooled with other companies and never shown individually. You can turn this off any time.")}
+              {t(
+                "app.setCompany.benchmarkHint",
+                "Your numbers are pooled with other companies and never shown individually. You can turn this off any time.",
+              )}
             </span>
           </span>
         </label>
@@ -1069,9 +1239,10 @@ export default function CompanySettingsPage() {
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
             >
-              {!COUNTRIES.some((c) => c.code === form.country) && form.country && (
-                <option value={form.country}>{form.country}</option>
-              )}
+              {!COUNTRIES.some((c) => c.code === form.country) &&
+                form.country && (
+                  <option value={form.country}>{form.country}</option>
+                )}
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
@@ -1105,7 +1276,9 @@ export default function CompanySettingsPage() {
               // shown read-only. A Canadian shop is never asked to pick between
               // CAD/USD/EUR. Reflects the selected country live; the server
               // enforces the same on save.
-              <div className={`${inputClass} flex items-center text-muted-foreground`}>
+              <div
+                className={`${inputClass} flex items-center text-muted-foreground`}
+              >
                 {(() => {
                   const m = currencyMeta(currencyForCountry(form.country));
                   return `${m.code} — ${m.label} (${m.symbol})`;
@@ -1118,7 +1291,10 @@ export default function CompanySettingsPage() {
                 checked={!!form.servesAbroad}
                 onChange={(e) => set("servesAbroad", e.target.checked)}
               />
-              {t("app.setCompany.servesAbroad", "I serve clients outside my country (bill in other currencies)")}
+              {t(
+                "app.setCompany.servesAbroad",
+                "I serve clients outside my country (bill in other currencies)",
+              )}
             </label>
           </div>
 
@@ -1177,7 +1353,6 @@ export default function CompanySettingsPage() {
                 </option>
               ))}
             </select>
-
           </div>
         </div>
       </SectionCard>
@@ -1187,7 +1362,11 @@ export default function CompanySettingsPage() {
           which vary with the AdminSidebar's collapsed state. Keeping it in
           normal flow avoids that fragility. */}
       <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
-        {saved && <span className="text-sm text-green-600 dark:text-green-400">{t("app.action.saved")}</span>}
+        {saved && (
+          <span className="text-sm text-green-600 dark:text-green-400">
+            {t("app.action.saved")}
+          </span>
+        )}
         <button
           onClick={handleSave}
           disabled={saving}

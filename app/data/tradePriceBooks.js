@@ -477,25 +477,67 @@ export const TRADE_PRICE_BOOKS = {
   paving: {
     label: "Interlock & Paving",
     complexity: {
+      // Anchored to two REAL Ottawa jobs rather than to the endpoints of a
+      // province-wide published range. Both are historical, so both are
+      // escalated — see ESCALATION below.
+      //
+      //   standard  INTERLO-KING / INW, 636 Mikinak Rd, May 2020. A 262 sqft
+      //             back-of-house patio, itemised: excavation $877.70,
+      //             aggregates and base $872.46, Melville 60 slabs installed
+      //             $2,332.80 = $4,082.96, or $15.58/sqft in 2020 money.
+      //             ×1.40 → $21.81. Shipped at $22.
+      //
+      //   moderate  Custom Interlocking, 636 Mikinak Rd, Feb 2021. A 1,220
+      //             sqft patio at $30,679.34 after a $550 quarry discount =
+      //             $25.15/sqft in 2021 money. That job carried 12" of base in
+      //             3 lifts, Techo-Bloc Blu 60 mm, snap edge, Gator G2,
+      //             geotextile, fence-panel removal, disposal, grading, soil
+      //             and seed, and a 3-year warranty — which is what "moderate"
+      //             should mean. ×1.30 → $32.70. Shipped at $33.
+      //
+      //   high      No real job in evidence, so this stays at the top of the
+      //             published Ontario range rather than being extrapolated.
+      //
+      // ESCALATION. These are construction-cost factors, not CPI: residential
+      // construction inputs in Ontario rose far faster than the consumer index
+      // across 2021–22. ×1.40 for 2020, ×1.30 for 2021, ×1.15 for 2022. They
+      // are estimates and they are the numbers here most worth replacing the
+      // moment you have a current invoice of your own.
       standard: {
         desc: "Simple shape, good access, level ground, existing surface already gone",
-        patioPricePerSqft: 18,
-        walkwayPricePerSqft: 18,
-        drivewayPricePerSqft: 20,
+        patioPricePerSqft: 22,
+        walkwayPricePerSqft: 22,
+        drivewayPricePerSqft: 25,
       },
       moderate: {
-        desc: "Some curves or cuts, a slope, or an average access route",
-        patioPricePerSqft: 29,
-        walkwayPricePerSqft: 24,
-        drivewayPricePerSqft: 30,
+        desc: "Curves or cuts, a slope, deeper base, premium stone, or full grading and seed",
+        patioPricePerSqft: 33,
+        walkwayPricePerSqft: 30,
+        drivewayPricePerSqft: 35,
       },
       high: {
         desc: "Heavy cutting, tight access, significant grading or clay excavation",
-        patioPricePerSqft: 40,
-        walkwayPricePerSqft: 30,
-        drivewayPricePerSqft: 40,
+        patioPricePerSqft: 42,
+        walkwayPricePerSqft: 36,
+        drivewayPricePerSqft: 45,
       },
     },
+
+    // Retaining and garden walls, with steps built into them.
+    //
+    // No published source priced these at all — I said so when the paving book
+    // shipped, and left them out rather than inventing them. The INW invoice
+    // supplies them: its Steps / Garden / Retaining Walls section totals
+    // $2,751.77 over 75 sqft of Melville Tandem veneer face — base prep
+    // $464.52, structural units $943.16, veneer $842.25, starter units
+    // $159.12, capping $342.72 — which is $36.69 per square foot of wall FACE
+    // in 2020. ×1.40 → $51.37.
+    //
+    // Steps are not separable from that total: the invoice bundles "step
+    // include veneer" into the same section. So there is no per-step price
+    // here, because the source does not contain one — a wall with steps in it
+    // is quoted by its face area, which is how the invoice quoted it.
+    wallPricePerFaceSqft: 51,
     // The single most useful sentence in the research, encoded: the published
     // installed rates assume the paver itself does not exceed $7/sqft. Choose
     // a premium stone and only the DIFFERENCE is added, because the allowance
