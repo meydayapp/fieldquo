@@ -32,6 +32,7 @@ import {
   asList,
 } from "./fields";
 import PaverDesigner from "./PaverDesigner";
+import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
 function ComplexityPicker({ value, book, onChange }) {
@@ -1483,66 +1484,96 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
   const e = book?.extras || {};
   const season = book?.season || {};
   const set = (patch) => onChange({ ...takeoff, ...patch });
-  const drives = book?.driveways || {};
-  const chosen = drives[takeoff.drivewaySize] || null;
+  const plans = book?.plans || {};
+  const plan = plans[takeoff.plan] || plans.basic || {};
+  const drives = plan.driveways || {};
+  const driveRate = num(drives[takeoff.drivewaySize]);
+  const hasDriveway = driveRate > 0;
 
   const saltAmount = takeoff.salting
     ? num(takeoff.saltApplications) * num(e.saltPerApplication)
     : 0;
   const visitAmount = num(takeoff.extraVisits) * num(e.perVisitPrice);
   const noVisitRate = num(takeoff.extraVisits) > 0 && num(e.perVisitPrice) <= 0;
+  const shovelBlocked =
+    takeoff.shovelling &&
+    !hasDriveway &&
+    book?.shovellingRequiresDriveway !== false;
 
   return (
     <div className="space-y-3">
+      {/* The plan is the product. What separates these two is the depth that
+          triggers a visit, which is the only part a client actually feels. */}
+      <div>
+        <label className="text-xs text-muted-foreground">Plan</label>
+        <div className="mt-1 grid gap-2 sm:grid-cols-2">
+          {Object.entries(plans).map(([key, p]) => {
+            const active = (takeoff.plan || "basic") === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set({ plan: key })}
+                className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                  active
+                    ? "border-foreground/40 bg-muted"
+                    : "border-border hover:border-foreground/30"
+                }`}
+              >
+                <span className="block font-medium text-foreground">
+                  {p.label}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {num(p.driveways?.[takeoff.drivewaySize]) > 0
+                    ? `$${money(p.driveways[takeoff.drivewaySize])} for the season`
+                    : "No rate set for this driveway"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <Field label="Driveway">
         <select
           value={takeoff.drivewaySize || "double"}
           onChange={(ev) => set({ drivewaySize: ev.target.value })}
           className={inputClass}
         >
-          {Object.entries(drives).map(([key, d]) => (
+          {Object.entries(drives).map(([key, price]) => (
             <option key={key} value={key}>
-              {d.label}
-              {num(d.price) > 0
-                ? ` — $${money(d.price)}/season`
-                : " — no rate set"}
+              {DRIVEWAY_LABELS[key] || key}
+              {num(price) > 0 ? ` — $${money(price)}` : " — no rate set"}
             </option>
           ))}
         </select>
       </Field>
 
-      {chosen && num(chosen.price) <= 0 && (
+      {!hasDriveway && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          No seasonal rate is set for {chosen.label.toLowerCase()}, so nothing
-          will be billed for it. Set one in Settings → Services → Snow Removal.
+          No seasonal rate is set for this size on the {plan.label || "chosen"}{" "}
+          plan, so nothing will be billed for it. Set one in Settings → Services
+          → Snow Removal.
         </p>
       )}
 
-      {/* The limit is the price. Two seasonal quotes are not comparable unless
-          both say what the season covers, so it is shown here and printed on
-          the line item. */}
       <p className="rounded bg-muted px-3 py-2 text-xs text-muted-foreground">
         Season runs {season.startsLabel} to {season.endsLabel}, covering up to{" "}
         {num(season.snowfallLimitCm)} cm or {num(season.eventLimit)} events of{" "}
         {num(season.eventThresholdCm)} cm+, whichever comes first. Past that the
-        overage fee of ${money(book?.overageFee)} applies — it is charged when
-        the season runs long, not quoted up front.
+        overage fee of ${money(book?.overageFee)} applies — charged when the
+        season runs long, not quoted up front.
       </p>
 
       <div>
         <OptionRow
-          checked={takeoff.walkway}
-          onToggle={(v) => set({ walkway: v })}
-          label="Walkway clearing"
-          hint={`$${money(e.walkwayPrice)}/season`}
-          amount={takeoff.walkway ? num(e.walkwayPrice) : 0}
-        />
-        <OptionRow
-          checked={takeoff.frontSteps}
-          onToggle={(v) => set({ frontSteps: v })}
-          label="Front steps"
-          hint={`$${money(e.frontStepsPrice)}/season`}
-          amount={takeoff.frontSteps ? num(e.frontStepsPrice) : 0}
+          checked={takeoff.shovelling}
+          onToggle={(v) => set({ shovelling: v })}
+          label="Walkway and steps"
+          hint={`$${money(plan.shovelling)} for the season, on the ${plan.label || "chosen"} plan`}
+          amount={
+            takeoff.shovelling && !shovelBlocked ? num(plan.shovelling) : 0
+          }
         />
         <OptionRow
           checked={takeoff.salting}
@@ -1567,6 +1598,15 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
         />
       </div>
 
+      {shovelBlocked && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          Walkway and steps are sold alongside a driveway, not on their own, so
+          this will not be billed until a driveway with a rate is selected
+          above. That is the contract these rates come from, not a software
+          limit — pick a driveway, or change the rule in Settings.
+        </p>
+      )}
+
       <Field label="Additional visits beyond the season">
         <Num
           value={takeoff.extraVisits}
@@ -1582,8 +1622,8 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
       {noVisitRate && (
         <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           {num(takeoff.extraVisits)} extra visits are entered but no per-visit
-          rate exists, so they add nothing to the quote. Set one in Settings →
-          Services → Snow Removal.
+          rate exists, so they add nothing. Set one in Settings → Services →
+          Snow Removal.
         </p>
       )}
     </div>

@@ -432,25 +432,70 @@ export const TRADE_PRICE_BOOKS = {
   // against a current invoice.
   snow_removal: {
     label: "Snow Removal",
-    driveways: {
-      single: { label: "Single driveway (1 car)", price: 495 },
-      double: { label: "Double driveway (2 cars side by side)", price: 660 },
-      triple: { label: "Triple driveway or extended", price: 860 },
-      commercial: { label: "Commercial lot", price: 0 },
+
+    // Two real Ottawa seasonal contracts, and they disagree in a way worth
+    // recording rather than averaging away:
+    //
+    //   J.R. Lawn & Snow, 2022–23 — "Driveway Clearing" $575.00, plus a
+    //   $117.00 season overage fee and a $75.00 new-client discount. Covers
+    //   up to 250 cm OR 23 events of 4 cm+, whichever comes first.
+    //
+    //   SkyHigh Enterprises, 2025–26, Orleans — Basic snowblowing $440.00,
+    //   Premium $528.00; shovelling $350.00 basic, $490.00 premium. Season
+    //   ends at 250 cm or April 1.
+    //
+    // The CURRENT season is cheaper than the one three years older. This book
+    // originally carried $660 for a double, from inflating the 2022–23 figure
+    // by 15% — an assumption the 2025–26 contract contradicts. Seasonal snow
+    // pricing is set by competition for a fixed number of driveways on a
+    // route, not by input costs, and it has not tracked inflation. SkyHigh's
+    // current numbers are the anchor; the 15% uplift is gone.
+    //
+    // Only the DOUBLE is a read figure. Single and triple are scaled from it
+    // and say so — no source states a size ladder.
+    plans: {
+      basic: {
+        label: "Basic — service at 5 cm and above",
+        driveways: {
+          single: 375, // scaled from the double, unverified
+          double: 440, // SkyHigh 2025–26, read
+          triple: 570, // scaled, unverified
+          commercial: 0, // quoted per site; no rate to invent
+        },
+        shovelling: 350, // SkyHigh basic shovel service
+      },
+      premium: {
+        label: "Premium — service from 2.5 cm, plow ridges unlimited",
+        driveways: {
+          single: 450, // scaled, unverified
+          double: 528, // SkyHigh 2025–26, read
+          triple: 685, // scaled, unverified
+          commercial: 0,
+        },
+        shovelling: 490, // SkyHigh premium shovel service
+      },
     },
-    // Charged when the season runs past its limit, not up front. Named on the
-    // quote so it is not a surprise in February.
+
+    // "Shovel services are not available unless snowblowing service is
+    // chosen" — SkyHigh's own contract. A real business rule, so the takeoff
+    // enforces it rather than letting someone sell a walkway-only season the
+    // company will not staff.
+    shovellingRequiresDriveway: true,
+
+    // Charged when the season runs past its limit, not quoted up front.
+    // J.R.'s $117 from 2022–23, carried at the same 15% the driveway rate has
+    // now lost — kept because nothing more recent contradicts it, and flagged
+    // as the weakest number here.
     overageFee: 135,
     newClientDiscount: 85,
+
     extras: {
-      walkwayPrice: 145,
-      frontStepsPrice: 95,
       saltPerApplication: 45,
-      // A visit-priced fallback for anyone selling per storm rather than by
-      // the season. Not from the contract — left at 0 so nobody bills nothing
-      // by accident, and the takeoff says so.
+      // For anyone selling per storm rather than by the season. Not in either
+      // contract, so 0 — and the takeoff says so rather than billing nothing.
       perVisitPrice: 0,
     },
+
     season: {
       startsLabel: "November 1",
       endsLabel: "April 15",
@@ -803,7 +848,8 @@ export function tradeIsPricedByDefault(categoryKey) {
 
 /** Human labels for the `group` key on a field, when it has one. */
 export const PRICE_BOOK_GROUPS = {
-  seasonal: "Seasonal rates",
+  snowBasic: "Basic plan — service at 5 cm and above",
+  snowPremium: "Premium plan — service from 2.5 cm",
   snowExtras: "Add-ons",
   snowSeason: "What the season includes",
   pavers: "Paver options",
@@ -959,46 +1005,74 @@ export const PRICE_BOOK_FIELDS = {
   ],
   snow_removal: [
     {
-      path: "driveways.single.price",
+      path: "plans.basic.driveways.single",
       label: "Single driveway (1 car)",
       suffix: "$ / season",
       step: 25,
-      group: "seasonal",
+      group: "snowBasic",
     },
     {
-      path: "driveways.double.price",
+      path: "plans.basic.driveways.double",
       label: "Double driveway (2 cars)",
       suffix: "$ / season",
       step: 25,
-      group: "seasonal",
+      group: "snowBasic",
     },
     {
-      path: "driveways.triple.price",
-      label: "Triple or extended driveway",
+      path: "plans.basic.driveways.triple",
+      label: "Triple or extended",
       suffix: "$ / season",
       step: 25,
-      group: "seasonal",
+      group: "snowBasic",
     },
     {
-      path: "driveways.commercial.price",
+      path: "plans.basic.driveways.commercial",
       label: "Commercial lot",
       suffix: "$ / season",
       step: 50,
-      group: "seasonal",
+      group: "snowBasic",
     },
     {
-      path: "extras.walkwayPrice",
-      label: "Walkway clearing",
+      path: "plans.basic.shovelling",
+      label: "Walkway and steps",
       suffix: "$ / season",
       step: 10,
-      group: "snowExtras",
+      group: "snowBasic",
     },
     {
-      path: "extras.frontStepsPrice",
-      label: "Front steps",
+      path: "plans.premium.driveways.single",
+      label: "Single driveway (1 car)",
+      suffix: "$ / season",
+      step: 25,
+      group: "snowPremium",
+    },
+    {
+      path: "plans.premium.driveways.double",
+      label: "Double driveway (2 cars)",
+      suffix: "$ / season",
+      step: 25,
+      group: "snowPremium",
+    },
+    {
+      path: "plans.premium.driveways.triple",
+      label: "Triple or extended",
+      suffix: "$ / season",
+      step: 25,
+      group: "snowPremium",
+    },
+    {
+      path: "plans.premium.driveways.commercial",
+      label: "Commercial lot",
+      suffix: "$ / season",
+      step: 50,
+      group: "snowPremium",
+    },
+    {
+      path: "plans.premium.shovelling",
+      label: "Walkway and steps",
       suffix: "$ / season",
       step: 10,
-      group: "snowExtras",
+      group: "snowPremium",
     },
     {
       path: "extras.saltPerApplication",
