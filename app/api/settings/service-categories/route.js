@@ -4,7 +4,11 @@ export const runtime = "nodejs";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getPriceBook, PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
+import {
+  getPriceBook,
+  PRICE_BOOK_FIELDS,
+  defaultTradeRate,
+} from "@/app/data/tradePriceBooks";
 import { getCurrentMember } from "@/lib/currentMember"; // resolves session -> { companyId, role }
 import { toStoredFields } from "@/app/data/intakeFieldLibrary";
 
@@ -38,8 +42,13 @@ export async function GET(request) {
       enabled: setting?.enabled ?? false,
       // No `pricingModel`: see the PATCH below. The column still exists but
       // nothing reads it, so returning it only invited a new caller to.
-      defaultRate: setting?.defaultRate ?? null,
-      unit: setting?.unit ?? null,
+      // Opening rate for a trade with no price book, when this company has
+      // not set its own. Read-time only — nothing writes it, so a company
+      // keeps inheriting changes to the default and the benchmark data stays
+      // built from rates real companies chose. See defaultTradeRate.
+      defaultRate:
+        setting?.defaultRate ?? defaultTradeRate(c.key)?.rate ?? null,
+      unit: setting?.unit ?? defaultTradeRate(c.key)?.unit ?? null,
       // The trade's structured rates: code defaults with this company's sparse
       // overrides merged in. `rateOverrides` is sent alongside so the settings
       // screen can show which fields have actually been customised — and so a
@@ -205,7 +214,8 @@ export async function PATCH(request) {
  */
 function sanitiseRates(categoryKey, rates) {
   const fields = PRICE_BOOK_FIELDS[categoryKey];
-  if (!fields || !rates || typeof rates !== "object" || Array.isArray(rates)) return null;
+  if (!fields || !rates || typeof rates !== "object" || Array.isArray(rates))
+    return null;
 
   const out = {};
   let count = 0;
@@ -231,11 +241,13 @@ function writePath(obj, path, value) {
   let node = obj;
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i];
-    if (part === "__proto__" || part === "constructor" || part === "prototype") return;
+    if (part === "__proto__" || part === "constructor" || part === "prototype")
+      return;
     if (!node[part] || typeof node[part] !== "object") node[part] = {};
     node = node[part];
   }
   const last = parts[parts.length - 1];
-  if (last === "__proto__" || last === "constructor" || last === "prototype") return;
+  if (last === "__proto__" || last === "constructor" || last === "prototype")
+    return;
   node[last] = value;
 }

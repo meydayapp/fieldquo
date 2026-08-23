@@ -499,6 +499,44 @@ function isPlainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+/* ── Trades priced by the hour ─────────────────────────────────────────── */
+//
+// The books above are for trades that price by counting things. Most of the
+// ~50-category catalog doesn't: an electrician quotes by the hour, and
+// CompanyServiceCategory.defaultRate + unit is where that lives.
+//
+// It started as null for every company, so a new tenant's first quote seeded a
+// line item at $0.00 and they had to know their own number before the software
+// was any use. These are opening positions, not claims about a market — one
+// city's going rate, editable at onboarding and in Settings > Services.
+//
+// Read-time fallback ONLY. Nothing writes these into a row, for two reasons:
+// a company that never opens the rates screen keeps inheriting improvements
+// here (same contract as the books), and lib/pricing/benchmarkData.js builds
+// its peer comparisons from rates companies actually set — seeding the column
+// would feed it FieldQuo's own defaults back as though they were market data.
+//
+// A trade with a price book is deliberately absent: it is priced BY something
+// (per door, per sq ft), the settings screen hides the single-rate box for
+// exactly that reason, and a second contradictory number is worse than none.
+export const TRADE_DEFAULT_RATES = {
+  electrical: { rate: 80, unit: "hour" },
+  plumbing: { rate: 95, unit: "hour" },
+  lawn_care: { rate: 82, unit: "hour" },
+  residential_cleaning: { rate: 65, unit: "hour" },
+};
+
+/** The opening rate for a trade with no price book, or null. */
+export function defaultTradeRate(categoryKey) {
+  if (hasPriceBook(categoryKey)) return null;
+  return ownEntry(TRADE_DEFAULT_RATES, categoryKey) || null;
+}
+
+/** True when a trade prices itself out of the box — a book or an opening rate. */
+export function tradeIsPricedByDefault(categoryKey) {
+  return hasPriceBook(categoryKey) || Boolean(defaultTradeRate(categoryKey));
+}
+
 /* ── Settings UI descriptors ───────────────────────────────────────────── */
 // Same shape as RECIPE_EDITABLE_FIELDS so the rates screen can render a book
 // it has never seen. `path` is dot-notation into the book.
