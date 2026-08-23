@@ -110,7 +110,10 @@ export default function NewQuotePage() {
   // hourlyRate; the estimate uses the selected worker's rate, or a manual
   // fallback rate when none is chosen / no rate is set.
   const [workers, setWorkers] = useState([]);
-  const [costWorkerId, setCostWorkerId] = useState("");
+  // Who is on the job. A pool of hours shared between them, each at their own
+  // rate — see lib/costing/crew.js. Replaces a single worker and a single
+  // fallback rate, which could not express a crew at all.
+  const [crew, setCrew] = useState([]);
   // What an hour of crew COSTS the company, not what it bills for. This
   // defaulted to $65, which is a charge-out rate, not a cost — Landscape
   // Ontario's own survey puts BILLED labour at $55–$90/hr, and a default that
@@ -645,11 +648,9 @@ export default function NewQuotePage() {
   // Internal cost/margin estimate — only for scope groups whose category has a
   // recipe (cabinet refinishing in Phase 1). Uses the selected worker's
   // hourlyRate, else the manual fallback rate.
-  const selectedWorker = workers.find((w) => w.id === costWorkerId);
-  const labourRate =
-    selectedWorker?.hourlyRate != null
-      ? Number(selectedWorker.hourlyRate)
-      : Number(fallbackRate) || 0;
+  // Kept only as the floor when no crew has been named yet, so a quote with
+  // nobody assigned still costs something rather than nothing.
+  const labourRate = Number(fallbackRate) || 0;
   // Doors bought for a refacing job — a real supplier cost, not a consumable a
   // coverage rate predicts. Summed across groups so a quote with refacing in it
   // shows what the doors actually cost before margin.
@@ -665,6 +666,7 @@ export default function NewQuotePage() {
   const estimate = estimateQuoteCost({
     scopeGroups,
     labourRatePerHour: labourRate,
+    crew,
     // Hours the takeoffs imply, plus anything the estimator added by hand.
     // Both, not either: a recipe or a productivity rate is a prediction, and
     // the estimator standing on the site is allowed to know better.
@@ -1057,11 +1059,8 @@ export default function NewQuotePage() {
         currency={companyCurrency}
         estimate={estimate}
         workers={workers}
-        costWorkerId={costWorkerId}
-        onWorkerChange={setCostWorkerId}
-        selectedWorker={selectedWorker}
-        fallbackRate={fallbackRate}
-        onFallbackRateChange={setFallbackRate}
+        crew={crew}
+        onCrewChange={setCrew}
         overheadPct={overheadPct}
         onOverheadChange={setOverheadPct}
         manualLabourHours={manualLabourHours}

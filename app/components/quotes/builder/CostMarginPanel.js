@@ -17,7 +17,7 @@
 // price, and the one people get wrong when quoting quickly on site.
 "use client";
 
-import { TrendingUp, AlertTriangle } from "lucide-react";
+import { TrendingUp, AlertTriangle, Plus, Trash2 } from "lucide-react";
 import { formatAppMoney } from "@/lib/format/money";
 
 // toFixed does not group, so this panel printed $1113.11 and $2100.00 beside
@@ -54,11 +54,8 @@ export default function CostMarginPanel({
   currency,
   estimate,
   workers = [],
-  costWorkerId,
-  onWorkerChange,
-  selectedWorker,
-  fallbackRate,
-  onFallbackRateChange,
+  crew = [],
+  onCrewChange,
   overheadPct,
   onOverheadChange,
   overheadSource,
@@ -102,40 +99,172 @@ export default function CostMarginPanel({
       {/* Where the labour rate comes from. A worker with an hourly rate on
           their record wins; otherwise the manual box appears. */}
       <div className="flex flex-wrap items-end gap-3 mt-3 mb-4">
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">
-            Assigned worker
-          </label>
-          <select
-            value={costWorkerId}
-            onChange={(e) => onWorkerChange(e.target.value)}
-            className="border border-border rounded px-2 py-1.5 text-sm bg-card"
-          >
-            <option value="">Use manual rate</option>
-            {workers.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-                {w.hourlyRate != null
-                  ? ` — $${Number(w.hourlyRate)}/hr`
-                  : " — no rate set"}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(!selectedWorker || selectedWorker.hourlyRate == null) && (
-          <div>
-            <label className="text-xs text-muted-foreground block mb-1">
-              Labour rate $/hr
+        <div className="w-full">
+          {/* A crew, not a worker.
+              This was one select and one rate, which forced a three-person
+              job into a single number — and both ways of doing that are
+              wrong: one rate leaves the supervisor free, and multiplying by
+              head count triples a total that already counts everyone's hours.
+              The hours are a pool the crew shares. See lib/costing/crew.js. */}
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label className="text-xs text-muted-foreground">
+              Crew — hours are shared between them
             </label>
-            <input
-              type="number"
-              value={fallbackRate}
-              onChange={(e) => onFallbackRateChange(e.target.value)}
-              className="border border-border rounded px-2 py-1.5 text-sm w-24"
-            />
+            {estimate.blendedRate != null && (
+              <span className="text-xs text-muted-foreground">
+                blended {money(estimate.blendedRate)}/hr
+              </span>
+            )}
           </div>
-        )}
+
+          <div className="rounded-lg border border-border">
+            {crew.length === 0 && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                Nobody on the crew yet, so labour costs nothing and the margin
+                below is higher than the job&apos;s.
+              </p>
+            )}
+            {crew.map((m, i) => {
+              const priced = estimate.crew?.[i];
+              return (
+                <div
+                  key={i}
+                  className="grid grid-cols-12 items-center gap-2 border-b border-border px-3 py-2 last:border-0"
+                >
+                  <input
+                    className="col-span-12 rounded border border-border px-2 py-1 text-sm sm:col-span-4"
+                    placeholder="Name or role"
+                    value={m.name || ""}
+                    onChange={(e) =>
+                      onCrewChange(
+                        crew.map((x, j) =>
+                          j === i ? { ...x, name: e.target.value } : x,
+                        ),
+                      )
+                    }
+                  />
+                  <div className="col-span-4 sm:col-span-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="$/hr"
+                      value={m.rate ?? ""}
+                      onChange={(e) =>
+                        onCrewChange(
+                          crew.map((x, j) =>
+                            j === i
+                              ? {
+                                  ...x,
+                                  rate:
+                                    e.target.value === ""
+                                      ? 0
+                                      : Number(e.target.value),
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      className="w-full rounded border border-border px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-4 sm:col-span-3">
+                    {/* Blank means "take an even share of what is left".
+                        Typing a number here takes those hours out of the pool
+                        and the others re-share the remainder — it does not
+                        silently change what everyone else worked. */}
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      placeholder={priced ? `${priced.hours} h` : "hours"}
+                      value={m.hours ?? ""}
+                      onChange={(e) =>
+                        onCrewChange(
+                          crew.map((x, j) =>
+                            j === i
+                              ? {
+                                  ...x,
+                                  hours:
+                                    e.target.value === ""
+                                      ? null
+                                      : Number(e.target.value),
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      className="w-full rounded border border-border px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div className="col-span-3 text-right text-sm tabular-nums sm:col-span-1">
+                    {priced ? money(priced.cost) : "—"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onCrewChange(crew.filter((_, j) => j !== i))}
+                    className="col-span-1 text-muted-foreground hover:text-red-600"
+                    aria-label={`Remove ${m.name || "crew member"}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onCrewChange([...crew, { name: "", rate: 0, hours: null }])
+              }
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Plus size={15} /> Add crew member
+            </button>
+            {workers.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  const w = workers.find((x) => x.id === e.target.value);
+                  if (!w) return;
+                  onCrewChange([
+                    ...crew,
+                    {
+                      id: w.id,
+                      name: w.name || "Crew member",
+                      // A worker with no rate on file joins at 0 and is
+                      // flagged, rather than being quietly left off the job.
+                      rate: Number(w.hourlyRate) || 0,
+                      hours: null,
+                    },
+                  ]);
+                }}
+                className="rounded border border-border px-2 py-1 text-sm"
+              >
+                <option value="">Add from your team…</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                    {w.hourlyRate != null
+                      ? ` — $${w.hourlyRate}/hr`
+                      : " — no rate set"}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {estimate.crewUnrated > 0 && (
+            <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {estimate.crewUnrated} on the crew{" "}
+              {estimate.crewUnrated === 1 ? "has" : "have"} no rate, so their
+              hours cost nothing here. The margin below is higher than the
+              job&apos;s until every rate is filled in.
+            </p>
+          )}
+        </div>
 
         {/* Only offered when we have nothing better. Once the company's real
             cost per job is known, a percentage box next to it would just be
@@ -157,9 +286,9 @@ export default function CostMarginPanel({
 
       {estimate.costIncomplete && (
         <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          {estimate.labourHours} hours of work are costed at $0 because no
-          labour rate is set. Pick a worker, or type a rate below — until then
-          this margin is higher than the job's.
+          {estimate.labourHours} hours of work are costed at $0 because nobody
+          on the crew has a rate. Add someone above — until then this margin is
+          higher than the job&apos;s.
         </p>
       )}
 
