@@ -1,4 +1,3 @@
-
 "use client";
 
 /**
@@ -46,6 +45,14 @@ import {
   DollarSign,
   ChevronRight,
   ChevronDown,
+  WashingMachine,
+  Shirt,
+  Layers,
+  Archive,
+  Footprints,
+  Rows3,
+  Table2,
+  AlertTriangle,
 } from "lucide-react";
 import {
   priceCabinet,
@@ -55,6 +62,8 @@ import {
   DOOR_MATERIALS,
   BOX_MATERIALS,
   KITCHEN_ACCESSORIES,
+  ROOM_TYPES,
+  ROOM_ELEMENT_KINDS,
 } from "@/lib/kitchen/pricing";
 
 // Geometry lives in lib/kitchen/geometry.js so the presentation drawing and the
@@ -62,7 +71,7 @@ import {
 // copy is a drawing that slowly stops matching what the client moved.
 import {
   WALLS,
-  KINDS,
+  KINDS as KITCHEN_KINDS,
   islandModules,
   islandSideModules,
   islandFrontModules,
@@ -82,6 +91,18 @@ import {
   SNAP,
   RETURN_DEPTH,
 } from "@/lib/kitchen/geometry";
+
+// Every element this designer can place, kitchen and otherwise.
+//
+// The closet and laundry half lives in lib/kitchen/pricing.js rather than in
+// geometry.js beside the kitchen half — see the comment on ROOM_ELEMENT_KINDS
+// for why, and for what it costs. Merged here so everything below reads one
+// table; a component that had to ask "which of the two KINDS is this?" at every
+// lookup would get it wrong somewhere.
+// KITCHEN_KINDS already contains the room elements — geometry.js spreads
+// ROOM_ELEMENT_KINDS into KINDS so the PDF plan can see them. Merged again
+// here would be a no-op that outlives the reason for it.
+const KINDS = KITCHEN_KINDS;
 
 // The palette buttons' icons. Split from KINDS when the geometry moved out —
 // lucide components can't be imported by a PDF renderer or a bare-node test.
@@ -106,6 +127,25 @@ const KIND_ICONS = {
   dishwasher: Square,
   window: RectangleHorizontal,
   door: DoorOpen,
+
+  // Laundry
+  washer: WashingMachine,
+  dryer: WashingMachine,
+  washerDryerStacked: Layers,
+  washTower: Layers,
+  laundryCentre: Layers,
+  laundrySinkBase: CookingPot,
+  foldingCounter: Table2,
+  laundryUpper: Box,
+  broomTall: Archive,
+
+  // Closet
+  closetSingleHang: Shirt,
+  closetDoubleHang: Shirt,
+  closetShelfStack: Rows3,
+  closetDrawerBank: Columns2,
+  closetShoeRack: Footprints,
+  closetCorner: CornerDownRight,
 };
 
 import CabinetFace from "./CabinetFace";
@@ -141,7 +181,6 @@ function isLightColor(hex) {
 
 const WALL_HEIGHT_CLASSES = ["12", "24", "30", "34", "36", "42"];
 
-
 // corner → the two walls it joins, in [first, second] order (legA, legB)
 const CORNER_WALLS = {
   AD: ["A", "D"],
@@ -169,18 +208,60 @@ function defaultCornerForView(view) {
   return "AD";
 }
 
+// One palette per room, the way IKEA ships one planner per room: somebody
+// laying out a walk-in should not have to scroll past sink bases to reach a
+// shoe rack. Only the PALETTE changes — the drawing, the drag, the snapping and
+// the pricing are the same tool underneath, and nothing stops a laundry room
+// from holding a run of kitchen bases, because plenty of them do.
+const PALETTE_GROUPS_BY_ROOM = {
+  kitchen: [
+    { title: "Base", kinds: ["base", "drawerBase", "sinkBase", "spiceBase"] },
+    { title: "Upper", kinds: ["wall", "microwave", "hoodCabinet"] },
+    { title: "Tall", kinds: ["tall", "fridgeSurround", "island"] },
+    {
+      title: "Corner",
+      kinds: ["cornerBase", "cornerBaseDiag", "cornerWall", "cornerWallDiag"],
+    },
+    {
+      title: "Appliance",
+      kinds: ["fridge", "stove", "dishwasher", "hoodVent"],
+    },
+    { title: "Opening", kinds: ["window", "door"] },
+  ],
+  laundry: [
+    {
+      title: "Appliance",
+      kinds: [
+        "washer",
+        "dryer",
+        "washerDryerStacked",
+        "washTower",
+        "laundryCentre",
+      ],
+    },
+    { title: "Base", kinds: ["laundrySinkBase", "base", "drawerBase"] },
+    { title: "Counter", kinds: ["foldingCounter"] },
+    { title: "Upper", kinds: ["laundryUpper", "wall"] },
+    { title: "Tall", kinds: ["broomTall", "tall"] },
+    { title: "Opening", kinds: ["window", "door"] },
+  ],
+  closet: [
+    { title: "Hanging", kinds: ["closetSingleHang", "closetDoubleHang"] },
+    { title: "Storage", kinds: ["closetShelfStack", "closetShoeRack"] },
+    { title: "Drawers", kinds: ["closetDrawerBank"] },
+    { title: "Corner", kinds: ["closetCorner"] },
+    // The walk-in island IS the kitchen island: a free-standing run of boxes
+    // with a finished top, laid out side by side. Reused rather than cloned as
+    // `closetIsland`, which would have been a second copy of the island module
+    // editor and the plan footprint maths to keep in step with this one.
+    { title: "Island", kinds: ["island"] },
+    { title: "Opening", kinds: ["window", "door"] },
+  ],
+};
 
-const PALETTE_GROUPS = [
-  { title: "Base", kinds: ["base", "drawerBase", "sinkBase", "spiceBase"] },
-  { title: "Upper", kinds: ["wall", "microwave", "hoodCabinet"] },
-  { title: "Tall", kinds: ["tall", "fridgeSurround", "island"] },
-  {
-    title: "Corner",
-    kinds: ["cornerBase", "cornerBaseDiag", "cornerWall", "cornerWallDiag"],
-  },
-  { title: "Appliance", kinds: ["fridge", "stove", "dishwasher", "hoodVent"] },
-  { title: "Opening", kinds: ["window", "door"] },
-];
+function paletteFor(roomType) {
+  return PALETTE_GROUPS_BY_ROOM[roomType] || PALETTE_GROUPS_BY_ROOM.kitchen;
+}
 
 let _seq = 0;
 const uid = () => `el_${Date.now().toString(36)}_${(_seq++).toString(36)}`;
@@ -193,13 +274,26 @@ const WALL_FAMILY = [
   "cornerWallDiag",
   "microwave",
   "hoodCabinet",
+  "laundryUpper",
 ];
-const TALL_FAMILY = ["tall", "fridgeSurround"];
+const TALL_FAMILY = ["tall", "fridgeSurround", "broomTall"];
 const CORNER_KINDS = [
   "cornerBase",
   "cornerBaseDiag",
   "cornerWall",
   "cornerWallDiag",
+  "closetCorner",
+];
+
+// Closet units carry rails and open shelves instead of doors, so the inspector
+// offers different controls for them. Listed by kind rather than inferred from
+// the config, so an empty config still gets the right editor.
+const CLOSET_KINDS = [
+  "closetSingleHang",
+  "closetDoubleHang",
+  "closetShelfStack",
+  "closetShoeRack",
+  "closetCorner",
 ];
 
 /* ───────────────────────── element factories ──────────────────────────── */
@@ -311,7 +405,53 @@ function defaultCabinetConfig(kind) {
       finishedRightPanel: true,
     };
 
-  if (["fridge", "stove", "dishwasher", "hoodVent"].includes(kind)) {
+  /* ── Laundry ── */
+  if (kind === "laundrySinkBase")
+    return { doors: 2, doorRows: 1, drawers: [], sink: true };
+
+  // A counter surface: no box, no faces, nothing to finish. Doors: 0 keeps it
+  // out of the refinishing count, which would otherwise bill spray-finishing a
+  // door that doesn't exist.
+  if (kind === "foldingCounter") return { doors: 0, doorRows: 1, drawers: [] };
+
+  if (kind === "laundryUpper")
+    return { doors: 2, doorRows: 1, drawers: [], heightClass: "24" };
+
+  if (kind === "broomTall")
+    return { doors: 1, doorRows: 1, drawers: [], shelves: 3 };
+
+  /* ── Closet ── */
+  if (kind === "closetSingleHang")
+    return { doors: 0, doorRows: 1, drawers: [], rods: 1, shelves: 1 };
+
+  if (kind === "closetDoubleHang")
+    return { doors: 0, doorRows: 1, drawers: [], rods: 2, shelves: 1 };
+
+  if (kind === "closetShelfStack")
+    return { doors: 0, doorRows: 1, drawers: [], rods: 0, shelves: 5 };
+
+  if (kind === "closetShoeRack")
+    return { doors: 0, doorRows: 1, drawers: [], rods: 0, shelves: 4 };
+
+  if (kind === "closetCorner")
+    return {
+      doors: 0,
+      doorRows: 1,
+      drawers: [],
+      rods: 0,
+      shelves: 4,
+      legA: 24,
+      legB: 24,
+    };
+
+  if (kind === "closetDrawerBank")
+    return {
+      doors: 0,
+      doorRows: 1,
+      drawers: ["medium", "medium", "medium", "medium"],
+    };
+
+  if (isApplianceKind(kind)) {
     return {
       billable: false,
 
@@ -324,8 +464,32 @@ function defaultCabinetConfig(kind) {
   return { doors: 2, doorRows: 1, drawers: ["small"], sink: false };
 }
 
+// Asked of the merged KINDS table rather than a hand-kept list. The list was
+// the kitchen's four appliances; five laundry units later, a list is a thing
+// somebody forgets to extend and a washtower quietly starts pricing as a
+// cabinet at $850/lf.
 function isApplianceKind(kind) {
-  return ["fridge", "stove", "dishwasher", "hoodVent"].includes(kind);
+  return KINDS[kind]?.group === "appliance";
+}
+
+/**
+ * Guard an element patch before it lands.
+ *
+ * One rule, and it earns its place: a closet or laundry element must never end
+ * up with a zero depth. lib/kitchen/geometry.js's planRect falls back to
+ * `KINDS[el.kind].plane` when `el.depth` is falsy, and that KINDS is the KITCHEN
+ * table — it has no entry for a shoe rack, so a 0 typed into the Depth field
+ * throws while the plan is drawing and takes the whole designer down.
+ *
+ * Clamped rather than rejected, matching how pricing.js treats a hostile width:
+ * one silly number should not stop the other twenty pieces rendering while
+ * somebody is standing in a driveway looking at it.
+ */
+function safePatch(el, patch) {
+  if (!patch || !("depth" in patch)) return patch;
+  if (KITCHEN_KINDS[el.kind]) return patch; // geometry knows it; 0 is survivable
+  const d = Number(patch.depth);
+  return { ...patch, depth: Number.isFinite(d) && d >= 1 ? d : 1 };
 }
 
 function priceAppliance(el) {
@@ -391,7 +555,15 @@ function makeElement(kind, wall, activeView = "plan") {
     kind,
     wall: k.free ? null : wall || "A",
     pos: 0,
-    y: k.plane === "upper" ? UPPER_BOTTOM : k.plane === "free" ? 40 : 0,
+    // `defaultY` overrides the kitchen's 54" upper line where a kind has a
+    // reason to sit somewhere else — an upper over a 39" washer, a folding
+    // counter at waist height. Absent, the kitchen rule stands.
+    y:
+      k.plane === "upper"
+        ? (k.defaultY ?? UPPER_BOTTOM)
+        : k.plane === "free"
+          ? 40
+          : 0,
     width: k.w,
     height: k.h,
     depth: k.d,
@@ -565,7 +737,6 @@ function touchesWallBand(wall, rect, room) {
    Removed rather than left: two components with the same name and different
    props is how someone "fixes" a drawing by editing the copy nobody renders. */
 
-
 /* ──────────────────────────── main component ──────────────────────────── */
 /**
  * @param value       the saved design ({ room, elements, ... })
@@ -607,6 +778,12 @@ export default function KitchenDesigner({
   const [elements, setElementsRaw] = useState(value?.elements || []);
   // ancillary config: pricing + modules (seeded from value, editable here, saved upstream)
   const [cfg, setCfgRaw] = useState(() => ({
+    // Which planner this design is. Kitchen unless the saved design says
+    // otherwise, so every design drawn before closets existed opens as what it
+    // is rather than as an empty closet.
+    roomType: ROOM_TYPES.some((r) => r.id === value?.roomType)
+      ? value.roomType
+      : "kitchen",
     supplyMode: value?.supplyMode || "supply_install",
     // ── Whose prices are these ─────────────────────────────────────────────
     //
@@ -622,7 +799,11 @@ export default function KitchenDesigner({
     // None of this is authoritative anyway — the server reprices from
     // Company.cabinetRates before a line item is written. This is what the
     // person drawing sees while they draw.
-    rates: { ...DEFAULT_CABINET_RATES, ...(value?.rates || {}), ...(ratesProp || {}) },
+    rates: {
+      ...DEFAULT_CABINET_RATES,
+      ...(value?.rates || {}),
+      ...(ratesProp || {}),
+    },
     // Custom Finish is ON by default — every new kitchen gets its doors/drawers finished
     modules: {
       delivery: true,
@@ -740,6 +921,8 @@ export default function KitchenDesigner({
     (els = elements, rm = room, cf = cfg) => ({
       serviceType: "kitchen",
 
+      roomType: cf.roomType,
+
       room: rm,
 
       elements: els,
@@ -833,7 +1016,7 @@ export default function KitchenDesigner({
 
   const update = (id, patch) =>
     setElements((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      prev.map((e) => (e.id === id ? { ...e, ...safePatch(e, patch) } : e)),
     );
 
   const updateConfig = (id, patch) =>
@@ -1423,15 +1606,30 @@ export default function KitchenDesigner({
             />
           )}
           {k.group === "appliance" && (
-            <ApplianceGlyph
-              kind={el.kind}
-              x={ex}
-              y={ey}
-              w={ew}
-              h={eh}
-              theme={theme}
-              variant={el.config?.hoodVariant || "standalone"}
-            />
+            <>
+              <ApplianceGlyph
+                kind={el.kind}
+                x={ex}
+                y={ey}
+                w={ew}
+                h={eh}
+                theme={theme}
+                variant={el.config?.hoodVariant || "standalone"}
+              />
+              {/* ApplianceGlyph only knows the kitchen's four and returns null
+                  for anything else — leaving a 74" washtower as an empty
+                  rectangle, which tells a homeowner nothing about whether it
+                  fits under the shelf above it. Drawn here rather than there
+                  because that file is outside this pass. */}
+              <LaundryGlyph
+                kind={el.kind}
+                x={ex}
+                y={ey}
+                w={ew}
+                h={eh}
+                theme={theme}
+              />
+            </>
           )}
           <text
             x={ex + ew / 2}
@@ -1544,6 +1742,34 @@ export default function KitchenDesigner({
 
   return (
     <div style={{ color: theme.text, fontFamily: "ui-sans-serif, system-ui" }}>
+      {/* ── Which room ─────────────────────────────────────────────────────
+          Switching swaps the PALETTE, nothing else. Pieces already drawn stay
+          drawn and stay priced: a laundry room really can contain a run of
+          kitchen bases, and silently deleting somebody's work because they
+          tapped a tab is the destructive-operation-labelled-as-cosmetic
+          failure AGENTS.md lists. */}
+      {!readOnly && (
+        <div
+          style={{
+            display: "flex",
+            gap: "0.4rem",
+            flexWrap: "wrap",
+            marginBottom: "0.8rem",
+          }}
+        >
+          {ROOM_TYPES.map((r) => (
+            <ViewTab
+              key={r.id}
+              active={cfg.roomType === r.id}
+              onClick={() => patchCfg({ roomType: r.id })}
+              theme={theme}
+            >
+              {r.label}
+            </ViewTab>
+          ))}
+        </div>
+      )}
+
       {/* room dims */}
       {/* wall dimensions */}
       <div
@@ -1822,59 +2048,59 @@ export default function KitchenDesigner({
           broken rather than that the quote is closed. The banner on the page
           above says why. */}
       {!readOnly && (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.4rem",
-          marginBottom: "0.7rem",
-        }}
-      >
-        {PALETTE_GROUPS.map((g) => (
-          <div
-            key={g.title}
-            style={{
-              display: "flex",
-              gap: "0.35rem",
-              alignItems: "center",
-              overflowX: "auto",
-              paddingBottom: 2,
-            }}
-          >
-            <span
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.4rem",
+            marginBottom: "0.7rem",
+          }}
+        >
+          {paletteFor(cfg.roomType).map((g) => (
+            <div
+              key={g.title}
               style={{
-                fontSize: "0.6rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                color: theme.textMuted,
-                minWidth: 54,
-                flexShrink: 0,
+                display: "flex",
+                gap: "0.35rem",
+                alignItems: "center",
+                overflowX: "auto",
+                paddingBottom: 2,
               }}
             >
-              {g.title}
-            </span>
-            {g.kinds.map((kind) => {
-              const K = KINDS[kind];
-              // From KIND_ICONS now, not K.icon — the geometry module can't
-              // carry lucide components. Without this the whole palette would
-              // have silently fallen back to the generic Box glyph and every
-              // button would look identical.
-              const Icon = KIND_ICONS[kind] || Box;
-              return (
-                <button
-                  key={kind}
-                  type="button"
-                  onClick={() => add(kind)}
-                  style={chipBtn(theme)}
-                  title={`Add ${K.label}`}
-                >
-                  <Icon size={13} /> {K.label}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
+              <span
+                style={{
+                  fontSize: "0.6rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: theme.textMuted,
+                  minWidth: 54,
+                  flexShrink: 0,
+                }}
+              >
+                {g.title}
+              </span>
+              {g.kinds.map((kind) => {
+                const K = KINDS[kind];
+                // From KIND_ICONS now, not K.icon — the geometry module can't
+                // carry lucide components. Without this the whole palette would
+                // have silently fallen back to the generic Box glyph and every
+                // button would look identical.
+                const Icon = KIND_ICONS[kind] || Box;
+                return (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => add(kind)}
+                    style={chipBtn(theme)}
+                    title={`Add ${K.label}`}
+                  >
+                    <Icon size={13} /> {K.label}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* drawing surface */}
@@ -2025,107 +2251,153 @@ export default function KitchenDesigner({
           finish; the contractor reprices from the company's own rates and sends
           an updated quote, which is the document where a number belongs. */}
       {!clientMode && (
-      <div
-        style={{
-          marginTop: "1rem",
-          border: `1px solid ${theme.border}`,
-          borderRadius: "0.9rem",
-          overflow: "hidden",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setShowPricing((s) => !s)}
+        <div
           style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.7rem 0.9rem",
-            background: `${theme.text}08`,
-            border: "none",
-            color: theme.text,
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: "0.9rem",
+            marginTop: "1rem",
+            border: `1px solid ${theme.border}`,
+            borderRadius: "0.9rem",
+            overflow: "hidden",
           }}
         >
-          <DollarSign size={15} style={{ color: theme.gold }} />
-          Pricing &amp; modules
-          <span
+          <button
+            type="button"
+            onClick={() => setShowPricing((s) => !s)}
             style={{
-              marginLeft: "auto",
-              fontSize: "0.78rem",
-              color: theme.textMuted,
-              fontWeight: 400,
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.7rem 0.9rem",
+              background: `${theme.text}08`,
+              border: "none",
+              color: theme.text,
+              cursor: "pointer",
+              fontWeight: 700,
+              fontSize: "0.9rem",
             }}
           >
-            {breakdown.linearFeet} lf · ${breakdown.total.toFixed(0)}
-          </span>
-          <ChevronRight
-            size={15}
-            style={{
-              transform: showPricing ? "rotate(90deg)" : "none",
-              transition: "transform 0.2s",
-              color: theme.textMuted,
-            }}
+            <DollarSign size={15} style={{ color: theme.gold }} />
+            Pricing &amp; modules
+            <span
+              style={{
+                marginLeft: "auto",
+                fontSize: "0.78rem",
+                color: theme.textMuted,
+                fontWeight: 400,
+              }}
+            >
+              {breakdown.linearFeet} lf · ${breakdown.total.toFixed(0)}
+            </span>
+            <ChevronRight
+              size={15}
+              style={{
+                transform: showPricing ? "rotate(90deg)" : "none",
+                transition: "transform 0.2s",
+                color: theme.textMuted,
+              }}
+            />
+          </button>
+          {showPricing && (
+            <PricingPanel
+              theme={theme}
+              cfg={cfg}
+              rates={rates}
+              breakdown={breakdown}
+              faceCounts={countKitchenFaces(elements)}
+              patchRates={patchRates}
+              patchModules={patchModules}
+              patchCfg={patchCfg}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Pieces with no rate ────────────────────────────────────────────
+          A closet that totals $0 reads as a bug or as a gift, and either way it
+          goes out. This says which it is, before the quote does.
+
+          Contractor-side only, like every other number here: the client's copy
+          of the quote carries the $0 line without this notice, because "we
+          haven't set a price for this" is a conversation between the shop and
+          its rate card, not something to print on a document. */}
+      {!clientMode && breakdown.unpriced > 0 && (
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            gap: "0.6rem",
+            alignItems: "flex-start",
+            padding: "0.75rem 1rem",
+            background: "#f59e0b18",
+            border: "1px solid #f59e0b66",
+            borderRadius: "0.75rem",
+          }}
+        >
+          <AlertTriangle
+            size={16}
+            style={{ color: "#f59e0b", flexShrink: 0 }}
           />
-        </button>
-        {showPricing && (
-          <PricingPanel
-            theme={theme}
-            cfg={cfg}
-            rates={rates}
-            breakdown={breakdown}
-            faceCounts={countKitchenFaces(elements)}
-            patchRates={patchRates}
-            patchModules={patchModules}
-            patchCfg={patchCfg}
-          />
-        )}
-      </div>
+          <div style={{ fontSize: "0.78rem", lineHeight: 1.5 }}>
+            <strong>
+              {breakdown.unpriced} piece{breakdown.unpriced === 1 ? "" : "s"} on
+              this drawing {breakdown.unpriced === 1 ? "has" : "have"} no rate
+              on your card, so {breakdown.unpriced === 1 ? "it is" : "they are"}{" "}
+              priced at $0.
+            </strong>{" "}
+            <span style={{ color: theme.textMuted }}>
+              Closet and laundry casework ships with no starting rate on purpose
+              — the kitchen rates are one shop&apos;s real prices, and a guessed
+              closet rate would be a number nobody chose going out on a signed
+              quote. Set them before sending this.
+            </span>
+          </div>
+        </div>
       )}
 
       {/* breakdown footer — money, so equally not for the client view */}
       {!clientMode && (
-      <div
-        style={{
-          marginTop: "1rem",
-          display: "flex",
-          gap: "1rem",
-          flexWrap: "wrap",
-          padding: "0.75rem 1rem",
-          background: `${theme.gold}10`,
-          border: `1px solid ${theme.gold}33`,
-          borderRadius: "0.75rem",
-        }}
-      >
-        <Tot
-          label={`Cabinetry (${breakdown.linearFeet} lf)`}
-          v={breakdown.cabinetry}
-          theme={theme}
-        />
-        {breakdown.install > 0 && (
-          <Tot label="Install" v={breakdown.install} theme={theme} />
-        )}
-        {breakdown.appliances > 0 && (
-          <Tot label="Appliances" v={breakdown.appliances} theme={theme} />
-        )}
-        {breakdown.accessories > 0 && (
-          <Tot label="Accessories" v={breakdown.accessories} theme={theme} />
-        )}
-        {breakdown.refinish > 0 && (
-          <Tot label="Finishing" v={breakdown.refinish} theme={theme} />
-        )}
-        {breakdown.countertop > 0 && (
-          <Tot label="Countertop" v={breakdown.countertop} theme={theme} />
-        )}
-        {breakdown.logistics > 0 && (
-          <Tot label="Delivery/removal" v={breakdown.logistics} theme={theme} />
-        )}
-        <div style={{ flex: 1, minWidth: 8 }} />
-        <Tot label="Quote subtotal" v={breakdown.total} theme={theme} big />
-      </div>
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            gap: "1rem",
+            flexWrap: "wrap",
+            padding: "0.75rem 1rem",
+            background: `${theme.gold}10`,
+            border: `1px solid ${theme.gold}33`,
+            borderRadius: "0.75rem",
+          }}
+        >
+          <Tot
+            label={`Cabinetry (${breakdown.linearFeet} lf)`}
+            v={breakdown.cabinetry}
+            theme={theme}
+          />
+          {breakdown.install > 0 && (
+            <Tot label="Install" v={breakdown.install} theme={theme} />
+          )}
+          {breakdown.appliances > 0 && (
+            <Tot label="Appliances" v={breakdown.appliances} theme={theme} />
+          )}
+          {breakdown.accessories > 0 && (
+            <Tot label="Accessories" v={breakdown.accessories} theme={theme} />
+          )}
+          {breakdown.refinish > 0 && (
+            <Tot label="Finishing" v={breakdown.refinish} theme={theme} />
+          )}
+          {breakdown.countertop > 0 && (
+            <Tot label="Countertop" v={breakdown.countertop} theme={theme} />
+          )}
+          {breakdown.logistics > 0 && (
+            <Tot
+              label="Delivery/removal"
+              v={breakdown.logistics}
+              theme={theme}
+            />
+          )}
+          <div style={{ flex: 1, minWidth: 8 }} />
+          <Tot label="Quote subtotal" v={breakdown.total} theme={theme} big />
+        </div>
       )}
     </div>
   );
@@ -2492,6 +2764,60 @@ function PricingPanel({
 }
 
 /* ───────────────────────────── subcomponents ──────────────────────────── */
+
+/**
+ * The laundry appliances on an elevation.
+ *
+ * Same rules as ApplianceGlyph, deliberately: proportional to the rect it is
+ * given, line-work over a wash, no photorealism. A drawn stainless washtower
+ * would suggest the contractor is supplying that exact machine.
+ *
+ * One drum for a washer or a dryer; two for anything stacked, split where the
+ * real units split — the WashTower's washer is the lower half, the GE laundry
+ * centre's washer is the wider lower box. What a client is checking here is
+ * whether the door swings clear of the cabinet beside it.
+ */
+function LaundryGlyph({ kind, x = 0, y = 0, w = 0, h = 0, theme = {} }) {
+  const stacked = ["washerDryerStacked", "washTower", "laundryCentre"].includes(
+    kind,
+  );
+  if (!stacked && kind !== "washer" && kind !== "dryer") return null;
+  if (w <= 0 || h <= 0) return null;
+
+  const stroke = theme.textMuted || "#9ca3af";
+  const sw = Math.max(0.6, Math.min(w, h) * 0.012);
+  const drums = stacked ? [0.25, 0.72] : [0.58];
+  // Control panel band sits at the top of each machine, which is where the
+  // split is on a stacked pair — hence one band per drum.
+  const r = Math.min(w, stacked ? h / 2 : h) * 0.3;
+
+  return (
+    <g pointerEvents="none">
+      {drums.map((f, i) => (
+        <circle
+          key={i}
+          cx={x + w / 2}
+          cy={y + h * f}
+          r={r}
+          fill="none"
+          stroke={stroke}
+          strokeWidth={sw}
+        />
+      ))}
+      {drums.map((f, i) => (
+        <line
+          key={`b${i}`}
+          x1={x + w * 0.08}
+          y1={y + h * (f - (stacked ? 0.19 : 0.4))}
+          x2={x + w * 0.92}
+          y2={y + h * (f - (stacked ? 0.19 : 0.4))}
+          stroke={stroke}
+          strokeWidth={sw}
+        />
+      ))}
+    </g>
+  );
+}
 
 function IslandPlanModules({ island, x, y, sx, syPlan, scale, theme }) {
   const W = islandTotalWidth(island);
@@ -3297,7 +3623,19 @@ function ElementEditor({
     "tall",
     "fridgeSurround",
     "island",
+    // Laundry & closet. A hanging section with a drawer bank under the rail is
+    // the commonest closet unit there is.
+    "laundrySinkBase",
+    "broomTall",
+    "closetDrawerBank",
+    ...CLOSET_KINDS,
   ].includes(el.kind);
+
+  // Rails and shelves — the closet's equivalent of doors and drawers. Shown
+  // where they exist so the number reaching the quote line is the one the
+  // contractor set, not a default nobody looked at.
+  const canRods = ["closetSingleHang", "closetDoubleHang"].includes(el.kind);
+  const canShelves = [...CLOSET_KINDS, "broomTall"].includes(el.kind);
 
   const isPantry = ["tall", "fridgeSurround"].includes(el.kind);
   const c = el.config || {};
@@ -3628,6 +3966,38 @@ function ElementEditor({
               ))}
             </div>
           )}
+          {canRods && (
+            <div>
+              <span style={{ fontSize: "0.72rem", color: theme.textMuted }}>
+                Hanging rails:&nbsp;
+              </span>
+              {[1, 2].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => onConfig({ rods: n })}
+                  style={{
+                    ...miniToggle(theme, (c.rods || 0) === n),
+                    marginRight: 4,
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          )}
+          {canShelves && (
+            <div style={{ minWidth: 110 }}>
+              <NumField
+                label="Shelves"
+                v={c.shelves ?? 0}
+                onChange={(v) =>
+                  onConfig({ shelves: clamp(Math.round(v), 0, 20) })
+                }
+                theme={theme}
+              />
+            </div>
+          )}
           {canDrawers && (
             <div>
               <span style={{ fontSize: "0.72rem", color: theme.textMuted }}>
@@ -3802,6 +4172,30 @@ function ElementEditor({
           <strong style={{ color: theme.gold }}>
             ${pricing.total?.toFixed(2)}
           </strong>
+          {/* Said at the piece, not only in the summary above. Somebody
+              inspecting a shoe rack should not have to scroll to find out why
+              their closet costs nothing. */}
+          {pricing.rateMissing && (
+            <div
+              style={{
+                marginTop: "0.35rem",
+                display: "flex",
+                gap: 5,
+                alignItems: "flex-start",
+                color: "#f59e0b",
+              }}
+            >
+              <AlertTriangle
+                size={13}
+                style={{ flexShrink: 0, marginTop: 1 }}
+              />
+              <span>
+                No rate on your card for{" "}
+                {(KINDS[el.kind]?.label || el.kind).toLowerCase()}, so this line
+                is $0. It ships blank rather than guessed.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -3980,6 +4374,25 @@ function shortLabel(el) {
     dishwasher: "DW",
     window: "Window",
     door: "Door",
+
+    // Laundry & closet. Short on purpose — these are 8.5pt labels printed
+    // inside a cabinet footprint on a phone, and "Laundry centre (unitized)"
+    // spills across the piece next to it.
+    washer: "Washer",
+    dryer: "Dryer",
+    washerDryerStacked: "W/D stack",
+    washTower: "Washtower",
+    laundryCentre: "Laundry ctr",
+    laundrySinkBase: "Laundry sink",
+    foldingCounter: "Folding",
+    laundryUpper: "Upper",
+    broomTall: "Broom",
+    closetSingleHang: "Hang",
+    closetDoubleHang: "Dbl hang",
+    closetShelfStack: "Shelves",
+    closetDrawerBank: "Drawers",
+    closetShoeRack: "Shoes",
+    closetCorner: "Cnr",
   };
 
   return `${m[el.kind] || el.kind} ${el.width}"`;
