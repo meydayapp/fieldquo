@@ -669,6 +669,15 @@ model Company {
 
   taxIdName         String? // e.g. "GST"
   taxIdNumber       String?
+  /// Set when the company has told the onboarding card to stop asking for a
+  /// tax registration number. NOT a claim that they are unregistered and not
+  /// read by anything client-facing — it only suppresses one onboarding step.
+  /// Only offered where lib/compliance/taxRegistration.js says the number is
+  /// optional in that country, or where a mandatory e-invoicing regime means
+  /// FieldQuo cannot deliver the thing being asked for anyway. Nullable
+  /// because "never answered" and "said no" are different states, and padding
+  /// the first into the second would silently hide the step from everyone.
+  taxRegistrationDismissedAt DateTime?
   autoApplyLocalTax Boolean @default(true)
 
   /// Offer clients pay-over-time financing (Affirm) at invoice checkout, on top

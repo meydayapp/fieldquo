@@ -369,6 +369,50 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Somebody finally asks for the tax registration number.**
+
+  `lib/compliance/taxRegistration.js` (new), `lib/onboarding.js`,
+  `app/api/onboarding-status/route.js`, `app/components/dashboard/OnboardingProgress.js`,
+  `app/app/settings/company/page.js`, `Company.taxRegistrationDismissedAt`.
+
+  `lib/documents/taxId.js` already printed the number on every client-facing
+  surface, but nothing ever prompted for it — a contractor could invoice for
+  months and hear about the gap from a client's bookkeeper. There is now an
+  onboarding step, labelled the way the contractor's own country labels the
+  register ("GST/HST number", "VAT number", "ABN"), with one plain sentence
+  saying why the client wants it.
+
+  Two things in here are the point, not the trim:
+
+  1. **The config refuses to overclaim.** The USA has no federal requirement to
+     show an EIN on an invoice, so it is marked OPTIONAL and the copy says so
+     rather than inventing a rule for symmetry.
+  2. **The step is dismissible exactly where the number is optional.**
+     Elsewhere (CA, GB, EU, CH, NO, IS, AU, NZ) it stays, because that is where
+     the client cannot claim the tax back without it. The server re-checks the
+     country on dismiss rather than trusting the browser, and a stale dismissal
+     stops applying if the company moves to a jurisdiction that requires the
+     number.
+
+  **Mexico and Brazil are deliberately not supported.** Both are mandatory
+  electronic invoicing regimes — CFDI stamped through the SAT, and NFS-e issued
+  per municipality. Printing an RFC or a CNPJ on a PDF does not make a
+  contractor compliant in either, so capturing the number would have implied a
+  capability the product does not have. They fall through to the neutral
+  profile. Adding them means integrating a local e-invoicing provider (a PAC;
+  a municipal gateway aggregator) and issuing the fiscal document — a phase of
+  work, not two config rows. The reasoning is written out at the head of
+  `lib/compliance/taxRegistration.js`; read it before adding them back.
+
+  No format validation, deliberately, and none should be added: registration
+  formats vary by country and change when a country reforms its register. A
+  false rejection costs the contractor the compliance the field exists to give
+  them; a typo costs one correction.
+
+  Still open: `taxIdName` remains a free-text label beside the number, so the
+  document line can disagree with the country-derived label shown in settings.
+  Worth collapsing into one field.
+
 - **Signup is resumable, and an account with no company can't reach /app.**
 
   `app/signup/page.js`, `app/app/layout.js` (`getSetupRedirect`),

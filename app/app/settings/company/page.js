@@ -11,6 +11,7 @@ import { SettingsDrillLink } from "@/app/components/settings/SettingsDrillDown";
 import OpeningHoursEditor from "@/app/components/settings/OpeningHoursEditor";
 import { INDUSTRIES } from "@/app/data/industries";
 import { CURRENCIES, COUNTRIES, currencyForCountry, currencyMeta } from "@/lib/currency";
+import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -445,6 +446,13 @@ export default function CompanySettingsPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
+  // What the registration is CALLED where this company works, and why a client
+  // wants to see it. Reads the country already in the form, so switching the
+  // country field relabels the number field immediately — the label and the
+  // jurisdiction can't drift apart. Null-safe: an unknown or not-yet-loaded
+  // country gets the generic profile, which asserts nothing about anybody's law.
+  const taxReg = taxRegistrationFor(form?.country);
+
   function handlePlaceSelected({
     address,
     city,
@@ -851,8 +859,13 @@ export default function CompanySettingsPage() {
             />
           </div>
           <div>
+            {/* Labelled the way the contractor's own country labels it —
+                "GST/HST number", "VAT number", "ABN" — rather than "Tax ID
+                number", which is what a database calls it. No format
+                validation, deliberately: see lib/compliance/taxRegistration.js
+                for why rejecting a valid number is the expensive mistake. */}
             <label className="text-sm font-medium text-foreground block mb-1">
-              {t("app.setCompany.taxIdNumber")}
+              {t(taxReg.nameKey)}
             </label>
             <input
               className={inputClass}
@@ -861,9 +874,13 @@ export default function CompanySettingsPage() {
             />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground -mt-2">
-          {t("app.setCompany.taxIdHint")}
-        </p>
+        <div className="-mt-2 space-y-1">
+          <p className="text-xs text-muted-foreground">{t(taxReg.whyKey)}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("app.setCompany.taxIdHint")}{" "}
+            {t("app.setCompany.taxRegDisclaimer")}
+          </p>
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">

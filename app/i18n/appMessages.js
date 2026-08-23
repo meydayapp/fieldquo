@@ -2484,6 +2484,45 @@ const en = {
   "app.scheduler.loadError": "Couldn't load the schedule.",
   "app.scheduler.publishError": "Couldn't publish.",
   "app.scheduler.saveError": "Couldn't save the shift.",
+
+  // ── Tax registration (lib/compliance/taxRegistration.js) ─────────────────
+  //
+  // The name half of these is NOT a translation problem. A Canadian has a
+  // GST/HST number and a Briton has a VAT number; neither phrase is the other
+  // one rendered in another language, and swapping them would be wrong in
+  // every locale. So each locale translates the surrounding words ("number",
+  // "Add your …") and leaves the register's own name as it is called there.
+  //
+  // The why sentences are written around what the CLIENT needs to see, never
+  // around the contractor's standing with a tax authority — FieldQuo prints a
+  // number, it does not register anyone or file anything. The US entry says
+  // plainly that there is no federal requirement rather than inventing one for
+  // symmetry. Mexico and Brazil have no entry at all, on purpose — see the
+  // header of lib/compliance/taxRegistration.js before writing one.
+  "app.taxReg.name.ca": "GST/HST number",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "VAT number",
+  "app.taxReg.name.eu": "VAT number",
+  "app.taxReg.name.ch": "VAT number (UID)",
+  "app.taxReg.name.no": "VAT number (MVA)",
+  "app.taxReg.name.is": "VAT number (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "GST number",
+  "app.taxReg.name.generic": "Tax registration number",
+  "app.taxReg.why.ca": "Canadian clients need your GST/HST number on an invoice before they can claim the tax back.",
+  "app.taxReg.why.us": "There is no federal rule requiring an EIN on an invoice. Add it if your clients ask for it.",
+  "app.taxReg.why.gb": "If you are VAT registered, a VAT invoice has to show your VAT number.",
+  "app.taxReg.why.eu": "If you are VAT registered, EU invoicing rules expect your VAT number on the invoice.",
+  "app.taxReg.why.eea": "If you are VAT registered, your country’s invoicing rules expect the registration number on the invoice.",
+  "app.taxReg.why.ch": "If you are VAT registered in Switzerland, your invoices are expected to show your VAT number.",
+  "app.taxReg.why.au": "A tax invoice has to show your ABN. Without it, a business client may have to withhold tax from your payment.",
+  "app.taxReg.why.nz": "If you are GST registered, the details you give a client have to include your GST number.",
+  "app.taxReg.why.generic": "If you are registered for VAT or a sales tax, your clients usually need the number on the invoice.",
+  "app.onboarding.taxRegLabel": "Add your {name}",
+  "app.onboarding.taxRegSkip": "Not registered",
+  "app.onboarding.taxRegSkipTitle": "I don’t have one — stop asking",
+  "app.onboarding.taxRegSkipFailed": "We couldn’t hide that step. Try again in a moment.",
+  "app.setCompany.taxRegDisclaimer": "FieldQuo prints what you enter here on your documents. It does not register you and does not file anything for you.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -4875,6 +4914,34 @@ const fr = {
   "app.scheduler.loadError": "Impossible de charger l'horaire.",
   "app.scheduler.publishError": "Impossible de publier.",
   "app.scheduler.saveError": "Impossible d'enregistrer le quart.",
+
+  // ── Tax registration ────────────────────────────────────────────────────
+  // Registration names stay in the form used where the contractor works — see
+  // the note above the English block for why they are not translated.
+  "app.taxReg.name.ca": "Numéro de TPS/TVH",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "Numéro de TVA",
+  "app.taxReg.name.eu": "Numéro de TVA",
+  "app.taxReg.name.ch": "Numéro de TVA (IDE)",
+  "app.taxReg.name.no": "Numéro de TVA (MVA)",
+  "app.taxReg.name.is": "Numéro de TVA (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "Numéro de GST",
+  "app.taxReg.name.generic": "Numéro d’immatriculation fiscale",
+  "app.taxReg.why.ca": "Vos clients canadiens ont besoin de votre numéro de TPS/TVH sur la facture pour récupérer la taxe.",
+  "app.taxReg.why.us": "Aucune règle fédérale n’oblige à inscrire un EIN sur une facture. Ajoutez-le si vos clients le demandent.",
+  "app.taxReg.why.gb": "Si vous êtes inscrit à la TVA, une facture de TVA doit indiquer votre numéro de TVA.",
+  "app.taxReg.why.eu": "Si vous êtes inscrit à la TVA, les règles de facturation de l’UE exigent votre numéro de TVA sur la facture.",
+  "app.taxReg.why.eea": "Si vous êtes inscrit à la TVA, les règles de facturation de votre pays exigent le numéro d’immatriculation sur la facture.",
+  "app.taxReg.why.ch": "Si vous êtes assujetti à la TVA en Suisse, vos factures doivent indiquer votre numéro de TVA.",
+  "app.taxReg.why.au": "Une facture fiscale doit indiquer votre ABN. Sans lui, un client professionnel peut devoir retenir de l’impôt sur votre paiement.",
+  "app.taxReg.why.nz": "Si vous êtes inscrit à la GST, les informations remises au client doivent inclure votre numéro de GST.",
+  "app.taxReg.why.generic": "Si vous êtes inscrit à la TVA ou à une taxe de vente, vos clients ont généralement besoin du numéro sur la facture.",
+  "app.onboarding.taxRegLabel": "Ajoutez votre {name}",
+  "app.onboarding.taxRegSkip": "Non inscrit",
+  "app.onboarding.taxRegSkipTitle": "Je n’en ai pas — ne plus demander",
+  "app.onboarding.taxRegSkipFailed": "Impossible de masquer cette étape. Réessayez dans un instant.",
+  "app.setCompany.taxRegDisclaimer": "FieldQuo imprime ce que vous saisissez ici sur vos documents. Il ne vous inscrit nulle part et ne produit aucune déclaration.",
 };
 
 
@@ -7187,6 +7254,34 @@ const es = {
   "app.scheduler.loadError": "No se pudo cargar la programación.",
   "app.scheduler.publishError": "No se pudo publicar.",
   "app.scheduler.saveError": "No se pudo guardar el turno.",
+
+  // ── Tax registration ────────────────────────────────────────────────────
+  // Registration names stay in the form used where the contractor works — see
+  // the note above the English block for why they are not translated.
+  "app.taxReg.name.ca": "Número de GST/HST",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "Número de IVA (VAT)",
+  "app.taxReg.name.eu": "Número de IVA",
+  "app.taxReg.name.ch": "Número de IVA (UID)",
+  "app.taxReg.name.no": "Número de IVA (MVA)",
+  "app.taxReg.name.is": "Número de IVA (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "Número de GST",
+  "app.taxReg.name.generic": "Número de registro fiscal",
+  "app.taxReg.why.ca": "Los clientes canadienses necesitan tu número de GST/HST en la factura para poder recuperar el impuesto.",
+  "app.taxReg.why.us": "No existe una norma federal que obligue a poner el EIN en una factura. Añádelo si tus clientes lo piden.",
+  "app.taxReg.why.gb": "Si estás registrado a efectos de IVA, la factura debe mostrar tu número de IVA.",
+  "app.taxReg.why.eu": "Si estás registrado a efectos de IVA, las normas de facturación de la UE exigen tu número de IVA en la factura.",
+  "app.taxReg.why.eea": "Si estás registrado a efectos de IVA, las normas de facturación de tu país exigen el número de registro en la factura.",
+  "app.taxReg.why.ch": "Si estás registrado a efectos de IVA en Suiza, tus facturas deben mostrar tu número de IVA.",
+  "app.taxReg.why.au": "Una factura fiscal debe mostrar tu ABN. Sin él, un cliente empresa puede tener que retener impuestos de tu pago.",
+  "app.taxReg.why.nz": "Si estás registrado en GST, los datos que entregas al cliente deben incluir tu número de GST.",
+  "app.taxReg.why.generic": "Si estás registrado para el IVA o un impuesto sobre ventas, tus clientes suelen necesitar el número en la factura.",
+  "app.onboarding.taxRegLabel": "Añade tu {name}",
+  "app.onboarding.taxRegSkip": "No registrado",
+  "app.onboarding.taxRegSkipTitle": "No tengo uno: deja de preguntar",
+  "app.onboarding.taxRegSkipFailed": "No pudimos ocultar ese paso. Inténtalo de nuevo en un momento.",
+  "app.setCompany.taxRegDisclaimer": "FieldQuo imprime lo que escribas aquí en tus documentos. No te registra ni presenta nada por ti.",
 };
 
 const uk = {
@@ -9515,6 +9610,34 @@ const uk = {
   "app.scheduler.loadError": "Не вдалося завантажити розклад.",
   "app.scheduler.publishError": "Не вдалося опублікувати.",
   "app.scheduler.saveError": "Не вдалося зберегти зміну.",
+
+  // ── Tax registration ────────────────────────────────────────────────────
+  // Registration names stay in the form used where the contractor works — see
+  // the note above the English block for why they are not translated.
+  "app.taxReg.name.ca": "Номер GST/HST",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "Номер ПДВ (VAT)",
+  "app.taxReg.name.eu": "Номер ПДВ",
+  "app.taxReg.name.ch": "Номер ПДВ (UID)",
+  "app.taxReg.name.no": "Номер ПДВ (MVA)",
+  "app.taxReg.name.is": "Номер ПДВ (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "Номер GST",
+  "app.taxReg.name.generic": "Номер податкової реєстрації",
+  "app.taxReg.why.ca": "Канадським клієнтам потрібен ваш номер GST/HST у рахунку, щоб повернути податок.",
+  "app.taxReg.why.us": "Федеральних вимог указувати EIN у рахунку немає. Додайте його, якщо клієнти просять.",
+  "app.taxReg.why.gb": "Якщо ви зареєстровані платником ПДВ, рахунок має містити ваш номер ПДВ.",
+  "app.taxReg.why.eu": "Якщо ви зареєстровані платником ПДВ, правила ЄС вимагають зазначати номер ПДВ у рахунку.",
+  "app.taxReg.why.eea": "Якщо ви зареєстровані платником ПДВ, правила вашої країни вимагають зазначати реєстраційний номер у рахунку.",
+  "app.taxReg.why.ch": "Якщо ви зареєстровані платником ПДВ у Швейцарії, у ваших рахунках має бути номер ПДВ.",
+  "app.taxReg.why.au": "Податковий рахунок має містити ваш ABN. Без нього клієнт-компанія може бути змушений утримати податок із вашої оплати.",
+  "app.taxReg.why.nz": "Якщо ви зареєстровані платником GST, дані для клієнта мають містити ваш номер GST.",
+  "app.taxReg.why.generic": "Якщо ви зареєстровані платником ПДВ або податку з продажу, клієнтам зазвичай потрібен цей номер у рахунку.",
+  "app.onboarding.taxRegLabel": "Додайте свій {name}",
+  "app.onboarding.taxRegSkip": "Не зареєстрований",
+  "app.onboarding.taxRegSkipTitle": "У мене його немає — більше не запитувати",
+  "app.onboarding.taxRegSkipFailed": "Не вдалося приховати цей крок. Спробуйте ще раз за мить.",
+  "app.setCompany.taxRegDisclaimer": "FieldQuo друкує те, що ви тут вводите, у ваших документах. Він не реєструє вас і нічого за вас не подає.",
 };
 
 const pa = {
@@ -11826,6 +11949,34 @@ const pa = {
   "app.scheduler.loadError": "ਸਮਾਂ-ਸਾਰਣੀ ਲੋਡ ਨਹੀਂ ਹੋ ਸਕੀ।",
   "app.scheduler.publishError": "ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
   "app.scheduler.saveError": "ਸ਼ਿਫਟ ਸੰਭਾਲੀ ਨਹੀਂ ਜਾ ਸਕੀ।",
+
+  // ── Tax registration ────────────────────────────────────────────────────
+  // Registration names stay in the form used where the contractor works — see
+  // the note above the English block for why they are not translated.
+  "app.taxReg.name.ca": "GST/HST ਨੰਬਰ",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "VAT ਨੰਬਰ",
+  "app.taxReg.name.eu": "VAT ਨੰਬਰ",
+  "app.taxReg.name.ch": "VAT ਨੰਬਰ (UID)",
+  "app.taxReg.name.no": "VAT ਨੰਬਰ (MVA)",
+  "app.taxReg.name.is": "VAT ਨੰਬਰ (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "GST ਨੰਬਰ",
+  "app.taxReg.name.generic": "ਟੈਕਸ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਨੰਬਰ",
+  "app.taxReg.why.ca": "ਕੈਨੇਡੀਅਨ ਗਾਹਕਾਂ ਨੂੰ ਟੈਕਸ ਵਾਪਸ ਲੈਣ ਲਈ ਇਨਵੌਇਸ ਉੱਤੇ ਤੁਹਾਡਾ GST/HST ਨੰਬਰ ਚਾਹੀਦਾ ਹੈ।",
+  "app.taxReg.why.us": "ਇਨਵੌਇਸ ਉੱਤੇ EIN ਦਿਖਾਉਣ ਦਾ ਕੋਈ ਸੰਘੀ ਨਿਯਮ ਨਹੀਂ ਹੈ। ਜੇ ਗਾਹਕ ਮੰਗਣ ਤਾਂ ਜੋੜ ਦਿਓ।",
+  "app.taxReg.why.gb": "ਜੇ ਤੁਸੀਂ VAT ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ VAT ਇਨਵੌਇਸ ਉੱਤੇ ਤੁਹਾਡਾ VAT ਨੰਬਰ ਹੋਣਾ ਲਾਜ਼ਮੀ ਹੈ।",
+  "app.taxReg.why.eu": "ਜੇ ਤੁਸੀਂ VAT ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ EU ਦੇ ਇਨਵੌਇਸਿੰਗ ਨਿਯਮ ਇਨਵੌਇਸ ਉੱਤੇ ਤੁਹਾਡਾ VAT ਨੰਬਰ ਮੰਗਦੇ ਹਨ।",
+  "app.taxReg.why.eea": "ਜੇ ਤੁਸੀਂ VAT ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਤੁਹਾਡੇ ਦੇਸ਼ ਦੇ ਨਿਯਮ ਇਨਵੌਇਸ ਉੱਤੇ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਨੰਬਰ ਮੰਗਦੇ ਹਨ।",
+  "app.taxReg.why.ch": "ਜੇ ਤੁਸੀਂ ਸਵਿਟਜ਼ਰਲੈਂਡ ਵਿੱਚ VAT ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਤੁਹਾਡੇ ਇਨਵੌਇਸਾਂ ਉੱਤੇ VAT ਨੰਬਰ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।",
+  "app.taxReg.why.au": "ਟੈਕਸ ਇਨਵੌਇਸ ਉੱਤੇ ਤੁਹਾਡਾ ABN ਹੋਣਾ ਲਾਜ਼ਮੀ ਹੈ। ਇਸ ਤੋਂ ਬਿਨਾਂ ਕਾਰੋਬਾਰੀ ਗਾਹਕ ਨੂੰ ਤੁਹਾਡੀ ਅਦਾਇਗੀ ਵਿੱਚੋਂ ਟੈਕਸ ਰੋਕਣਾ ਪੈ ਸਕਦਾ ਹੈ।",
+  "app.taxReg.why.nz": "ਜੇ ਤੁਸੀਂ GST ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਗਾਹਕ ਨੂੰ ਦਿੱਤੀ ਜਾਣਕਾਰੀ ਵਿੱਚ ਤੁਹਾਡਾ GST ਨੰਬਰ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ।",
+  "app.taxReg.why.generic": "ਜੇ ਤੁਸੀਂ VAT ਜਾਂ ਸੇਲਜ਼ ਟੈਕਸ ਲਈ ਰਜਿਸਟਰਡ ਹੋ, ਤਾਂ ਗਾਹਕਾਂ ਨੂੰ ਆਮ ਤੌਰ ’ਤੇ ਇਨਵੌਇਸ ਉੱਤੇ ਇਹ ਨੰਬਰ ਚਾਹੀਦਾ ਹੁੰਦਾ ਹੈ।",
+  "app.onboarding.taxRegLabel": "ਆਪਣਾ {name} ਜੋੜੋ",
+  "app.onboarding.taxRegSkip": "ਰਜਿਸਟਰਡ ਨਹੀਂ",
+  "app.onboarding.taxRegSkipTitle": "ਮੇਰੇ ਕੋਲ ਨਹੀਂ ਹੈ — ਦੁਬਾਰਾ ਨਾ ਪੁੱਛੋ",
+  "app.onboarding.taxRegSkipFailed": "ਅਸੀਂ ਉਹ ਕਦਮ ਲੁਕਾ ਨਹੀਂ ਸਕੇ। ਕੁਝ ਪਲਾਂ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+  "app.setCompany.taxRegDisclaimer": "FieldQuo ਇੱਥੇ ਲਿਖੀ ਗੱਲ ਤੁਹਾਡੇ ਦਸਤਾਵੇਜ਼ਾਂ ਉੱਤੇ ਛਾਪਦਾ ਹੈ। ਇਹ ਤੁਹਾਨੂੰ ਰਜਿਸਟਰ ਨਹੀਂ ਕਰਦਾ ਅਤੇ ਤੁਹਾਡੇ ਵੱਲੋਂ ਕੁਝ ਵੀ ਫ਼ਾਈਲ ਨਹੀਂ ਕਰਦਾ।",
 };
 
 const tl = {
@@ -14142,6 +14293,34 @@ const tl = {
   "app.scheduler.loadError": "Hindi ma-load ang iskedyul.",
   "app.scheduler.publishError": "Hindi ma-publish.",
   "app.scheduler.saveError": "Hindi ma-save ang shift.",
+
+  // ── Tax registration ────────────────────────────────────────────────────
+  // Registration names stay in the form used where the contractor works — see
+  // the note above the English block for why they are not translated.
+  "app.taxReg.name.ca": "GST/HST number",
+  "app.taxReg.name.us": "EIN",
+  "app.taxReg.name.gb": "VAT number",
+  "app.taxReg.name.eu": "VAT number",
+  "app.taxReg.name.ch": "VAT number (UID)",
+  "app.taxReg.name.no": "VAT number (MVA)",
+  "app.taxReg.name.is": "VAT number (VSK)",
+  "app.taxReg.name.au": "ABN",
+  "app.taxReg.name.nz": "GST number",
+  "app.taxReg.name.generic": "Numero ng rehistro sa buwis",
+  "app.taxReg.why.ca": "Kailangan ng mga kliyenteng Canadian ang iyong GST/HST number sa invoice para mabawi nila ang buwis.",
+  "app.taxReg.why.us": "Walang pederal na patakaran na nag-uutos ilagay ang EIN sa invoice. Idagdag ito kung hinihingi ng iyong mga kliyente.",
+  "app.taxReg.why.gb": "Kung VAT registered ka, kailangang nakalagay ang iyong VAT number sa VAT invoice.",
+  "app.taxReg.why.eu": "Kung VAT registered ka, hinihingi ng mga panuntunan sa invoice ng EU ang iyong VAT number sa invoice.",
+  "app.taxReg.why.eea": "Kung VAT registered ka, hinihingi ng mga panuntunan ng iyong bansa ang registration number sa invoice.",
+  "app.taxReg.why.ch": "Kung VAT registered ka sa Switzerland, dapat nakalagay ang iyong VAT number sa mga invoice mo.",
+  "app.taxReg.why.au": "Dapat nakalagay ang iyong ABN sa isang tax invoice. Kung wala, maaaring kaltasan ng buwis ng kliyenteng negosyo ang bayad sa iyo.",
+  "app.taxReg.why.nz": "Kung GST registered ka, dapat kasama ang iyong GST number sa impormasyong ibinibigay mo sa kliyente.",
+  "app.taxReg.why.generic": "Kung rehistrado ka sa VAT o sales tax, kadalasang kailangan ng mga kliyente ang numero sa invoice.",
+  "app.onboarding.taxRegLabel": "Idagdag ang iyong {name}",
+  "app.onboarding.taxRegSkip": "Hindi rehistrado",
+  "app.onboarding.taxRegSkipTitle": "Wala akong ganito — huwag nang itanong",
+  "app.onboarding.taxRegSkipFailed": "Hindi namin naitago ang hakbang na iyon. Subukan ulit maya-maya.",
+  "app.setCompany.taxRegDisclaimer": "Ini-print ng FieldQuo sa iyong mga dokumento ang inilagay mo rito. Hindi ka nito irerehistro at wala itong isinusumite para sa iyo.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };
