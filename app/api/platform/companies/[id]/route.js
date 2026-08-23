@@ -36,6 +36,28 @@ export async function GET(request, { params }) {
       // Client and quote counts only — not the records themselves. Aggregates
       // give support the context they need without putting every homeowner's
       // name and address in front of staff by default.
+      // ── Every number here is billed to FieldQuo ────────────────────────
+      //
+      // Numbers are provisioned on FieldQuo's own Retell account and charged
+      // to FieldQuo monthly, whether or not the tenant's prepaid balance ever
+      // covers them. The company's own settings screen shows its numbers and
+      // even warns "don't buy another one, this one is already being charged
+      // for" — and nothing showed the same thing to the person actually paying.
+      //
+      // Big painter Inc is carrying two numbers stuck in `provisioning` and
+      // one in `porting`: rent going out against lines nothing can answer on.
+      // That was invisible from this console.
+      voiceNumbers: {
+        select: {
+          id: true,
+          e164: true,
+          source: true,
+          numberType: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
       _count: {
         select: { quotes: true, invoices: true, jobs: true, clients: true },
       },

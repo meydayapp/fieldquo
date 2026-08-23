@@ -265,6 +265,71 @@ export default function CompanyDetail({ companyId }) {
         </dl>
       </div>
 
+      {/* ── Phone numbers ──────────────────────────────────────────────────
+          Every one of these is provisioned on FieldQuo's own Retell account
+          and billed to FieldQuo monthly, whether or not the tenant's prepaid
+          balance ever covers it. The company's own settings screen lists them
+          and even warns "don't buy another one, this one is already being
+          charged for" — and the person actually paying could not see them at
+          all.
+
+          Renders nothing when a company has none, so the panel appears only
+          for the tenants it says something about. */}
+      {company.voiceNumbers?.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">Phone numbers</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Billed to FieldQuo on our provider account, monthly, from the day
+            they are created. Anything not <strong>active</strong> is rent going
+            out on a line nothing can answer.
+          </p>
+          <div className="divide-y divide-border">
+            {company.voiceNumbers.map((n) => {
+              const live = n.status === "active";
+              return (
+                <div
+                  key={n.id}
+                  className="flex items-center justify-between gap-3 py-2.5 flex-wrap"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-foreground tabular-nums">
+                      {n.e164}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {n.source} · {String(n.numberType || "").replace("_", "-")}
+                      {n.createdAt
+                        ? ` · since ${new Date(n.createdAt).toLocaleDateString()}`
+                        : ""}
+                    </div>
+                  </div>
+                  <span
+                    className={`text-xs px-2.5 py-1 rounded-full shrink-0 ${
+                      live
+                        ? "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    {n.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {/* Named rather than merely coloured. A stuck number is money
+              leaving on something the tenant cannot use and cannot fix
+              themselves — the app tells them to get in touch, so this is the
+              side that has to notice. */}
+          {company.voiceNumbers.some((n) => n.status !== "active") && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-3">
+              {company.voiceNumbers.filter((n) => n.status !== "active").length} of{" "}
+              {company.voiceNumbers.length} never finished activating. The
+              company is told to contact us rather than buy another — nothing in
+              the app can repair one.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* The full company record.
           Mirrors /app/settings/company so support and the customer are looking
           at the same fields while on the phone — "what does it say under tax
