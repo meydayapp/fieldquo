@@ -15,7 +15,12 @@
 "use client";
 
 import { COMPLEXITY_LEVELS } from "@/app/data/tradePriceBooks";
-import { clientPriceFromCost, newStairSection } from "@/lib/pricing/tradeScope";
+import {
+  clientPriceFromCost,
+  newStairSection,
+  newFloorSection,
+  newPaintRoom,
+} from "@/lib/pricing/tradeScope";
 import { Plus, Trash2 } from "lucide-react";
 
 const inputClass =
@@ -610,12 +615,624 @@ function GarageDoorTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/**
+ * A scope option: tick it and it prices itself from the complexity grid.
+ *
+ * The label carries the arithmetic — "$2.50/sqft × 300 = $750" — because the
+ * question an estimator is actually asking is "what does adding this do to the
+ * number", and a bare checkbox makes them open a calculator to find out.
+ */
+function OptionRow({ checked, onToggle, label, hint, amount, children }) {
+  return (
+    <div className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
+      <input
+        type="checkbox"
+        className="mt-1"
+        checked={Boolean(checked)}
+        onChange={(e) => onToggle(e.target.checked)}
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span
+            className={`text-sm ${checked ? "text-foreground" : "text-muted-foreground"}`}
+          >
+            {label}
+          </span>
+          <span className="shrink-0 text-sm font-medium tabular-nums">
+            {amount > 0 ? (
+              `$${money(amount)}`
+            ) : (
+              <span className="font-normal text-muted-foreground">—</span>
+            )}
+          </span>
+        </div>
+        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
+        {checked && children}
+      </div>
+    </div>
+  );
+}
+
+/** Title + remove, shared by every repeatable card (rooms, floor areas). */
+function CardHeader({
+  value,
+  placeholder,
+  onChange,
+  onRemove,
+  canRemove,
+  removeLabel,
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 border border-border rounded px-2 py-1.5 text-sm font-medium"
+      />
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-1.5 text-muted-foreground hover:text-red-600"
+          aria-label={removeLabel}
+        >
+          <Trash2 size={15} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Add-another button, shared by the repeatable takeoffs. */
+function AddButton({ onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+    >
+      <Plus size={15} /> {children}
+    </button>
+  );
+}
+
+/* ── Interior painting ─────────────────────────────────────────────────── */
+
+// Room types are a label, not a price. The list exists so a quote reads
+// "Master bedroom" rather than "Room 2"; nothing downstream branches on it,
+// and no square footage is guessed from it — an assumed 250 sqft is a number
+// the client gets billed for that nobody measured.
+const ROOM_TYPES = [
+  ["living_room", "Living room"],
+  ["dining_room", "Dining room"],
+  ["kitchen", "Kitchen"],
+  ["master_bedroom", "Master bedroom"],
+  ["bedroom", "Bedroom"],
+  ["bathroom", "Bathroom"],
+  ["master_bathroom", "Master bathroom"],
+  ["hallway", "Hallway / corridor"],
+  ["stairwell", "Stairwell"],
+  ["office", "Home office"],
+  ["laundry", "Laundry room"],
+  ["basement", "Basement / rec room"],
+  ["other", "Other"],
+];
+
+function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
+  const level = room.complexityLevel || "standard";
+  const c = book?.complexity?.[level] || {};
+  const set = (patch) => onChange({ ...room, ...patch });
+  const sqft = num(room.sqft);
+
+  const wallAmount =
+    room.walls && sqft > 0 ? sqft * num(c.wallPricePerSqft) : 0;
+  const doorAmount = room.doors ? num(room.doorsCount) * num(c.doorPrice) : 0;
+  const closetAmount = room.closets
+    ? num(room.closetsCount) * num(c.closetPrice)
+    : 0;
+  const total =
+    wallAmount +
+    doorAmount +
+    closetAmount +
+    (room.ceiling ? num(c.ceilingPrice) : 0) +
+    (room.trim ? num(c.trimPrice) : 0) +
+    (room.colorChange ? num(c.colorChangeSurcharge) : 0) +
+    (room.drywallPrep ? num(c.drywallPrepPrice) : 0);
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-3">
+      <CardHeader
+        value={room.title}
+        placeholder={`Room ${index + 1}`}
+        onChange={(title) => set({ title })}
+        onRemove={onRemove}
+        canRemove={canRemove}
+        removeLabel="Remove room"
+      />
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Field label="Room type">
+          <select
+            value={room.roomType || "bedroom"}
+            onChange={(e) => set({ roomType: e.target.value })}
+            className={inputClass}
+          >
+            {ROOM_TYPES.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Floor area (sqft)">
+          <Num value={room.sqft} onChange={(v) => set({ sqft: v })} />
+        </Field>
+      </div>
+
+      <ComplexityPicker
+        value={level}
+        book={book}
+        onChange={(v) => set({ complexityLevel: v })}
+      />
+
+      <div>
+        <OptionRow
+          checked={room.walls}
+          onToggle={(v) => set({ walls: v })}
+          label="Walls"
+          hint={
+            sqft > 0
+              ? `${sqft} sqft × $${money(c.wallPricePerSqft)}/sqft`
+              : "Enter the floor area above to price this"
+          }
+          amount={wallAmount}
+        />
+        <OptionRow
+          checked={room.ceiling}
+          onToggle={(v) => set({ ceiling: v })}
+          label="Ceiling"
+          hint={`$${money(c.ceilingPrice)} for the room`}
+          amount={room.ceiling ? num(c.ceilingPrice) : 0}
+        />
+        <OptionRow
+          checked={room.trim}
+          onToggle={(v) => set({ trim: v })}
+          label="Trim & baseboards"
+          hint={`$${money(c.trimPrice)} for the room`}
+          amount={room.trim ? num(c.trimPrice) : 0}
+        />
+        <OptionRow
+          checked={room.doors}
+          onToggle={(v) => set({ doors: v })}
+          label="Interior doors"
+          hint={`$${money(c.doorPrice)} each`}
+          amount={doorAmount}
+        >
+          <div className="mt-1 w-28">
+            <Num
+              value={room.doorsCount}
+              onChange={(v) => set({ doorsCount: v })}
+            />
+          </div>
+        </OptionRow>
+        <OptionRow
+          checked={room.closets}
+          onToggle={(v) => set({ closets: v })}
+          label="Closet interiors"
+          hint={`$${money(c.closetPrice)} each`}
+          amount={closetAmount}
+        >
+          <div className="mt-1 w-28">
+            <Num
+              value={room.closetsCount}
+              onChange={(v) => set({ closetsCount: v })}
+            />
+          </div>
+        </OptionRow>
+        <OptionRow
+          checked={room.colorChange}
+          onToggle={(v) => set({ colorChange: v })}
+          label="Colour change surcharge"
+          hint="Dark-to-light or a dramatic change"
+          amount={room.colorChange ? num(c.colorChangeSurcharge) : 0}
+        />
+        <OptionRow
+          checked={room.drywallPrep}
+          onToggle={(v) => set({ drywallPrep: v })}
+          label="Drywall prep / repairs"
+          hint="Patches, sanding, skim coat"
+          amount={room.drywallPrep ? num(c.drywallPrepPrice) : 0}
+        />
+      </div>
+
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Room total</span>
+        <span className="font-semibold tabular-nums">${money(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+function InteriorPaintTakeoff({ takeoff, book, onChange }) {
+  const rooms = asList(takeoff.rooms);
+  const g = book?.global || {};
+  const setRoom = (i, room) =>
+    onChange({ ...takeoff, rooms: rooms.map((r, j) => (j === i ? room : r)) });
+
+  const popcornAmount = takeoff.popcornRemoval
+    ? num(takeoff.popcornSqft) * num(g.popcornRemovalPricePerSqft)
+    : 0;
+
+  return (
+    <div className="space-y-3">
+      {rooms.map((room, i) => (
+        <PaintRoom
+          key={i}
+          room={room}
+          index={i}
+          book={book}
+          canRemove={rooms.length > 1}
+          onChange={(next) => setRoom(i, next)}
+          onRemove={() =>
+            onChange({ ...takeoff, rooms: rooms.filter((_, j) => j !== i) })
+          }
+        />
+      ))}
+
+      <AddButton
+        onClick={() =>
+          onChange({
+            ...takeoff,
+            rooms: [...rooms, newPaintRoom(`Room ${rooms.length + 1}`)],
+          })
+        }
+      >
+        Add room
+      </AddButton>
+
+      <div className="rounded-lg border border-border p-3">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Whole-project add-ons
+        </div>
+        <OptionRow
+          checked={takeoff.popcornRemoval}
+          onToggle={(v) => onChange({ ...takeoff, popcornRemoval: v })}
+          label="Popcorn / stipple ceiling removal"
+          hint={`$${money(g.popcornRemovalPricePerSqft)}/sqft`}
+          amount={popcornAmount}
+        >
+          <div className="mt-1 w-32">
+            <Num
+              value={takeoff.popcornSqft}
+              onChange={(v) => onChange({ ...takeoff, popcornSqft: v })}
+            />
+          </div>
+        </OptionRow>
+        <OptionRow
+          checked={takeoff.furnitureMoving}
+          onToggle={(v) => onChange({ ...takeoff, furnitureMoving: v })}
+          label="Furniture moving & protection"
+          hint={`$${money(g.furnitureMovingPrice)} flat`}
+          amount={takeoff.furnitureMoving ? num(g.furnitureMovingPrice) : 0}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ── Exterior painting ─────────────────────────────────────────────────── */
+
+function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
+  const level = takeoff.complexityLevel || "standard";
+  const c = book?.complexity?.[level] || {};
+  const picks = asList(takeoff.items);
+  const e = book?.extras || {};
+
+  // Surfaces move with the complexity grid; fixtures are flat per item — a
+  // garage door is a garage door whether the house is one storey or three.
+  const rateFor = (bookItem) =>
+    bookItem.priceType === "flat"
+      ? num(bookItem.flatPrice)
+      : num(c[bookItem.priceType]);
+
+  const setItem = (id, patch) =>
+    onChange({
+      ...takeoff,
+      items: picks.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    });
+
+  const primeAmount = takeoff.priming
+    ? num(takeoff.primeSqft) * num(e.primePricePerSqft)
+    : 0;
+
+  return (
+    <div className="space-y-3">
+      <ComplexityPicker
+        value={level}
+        book={book}
+        onChange={(v) => onChange({ ...takeoff, complexityLevel: v })}
+      />
+
+      <div className="rounded-lg border border-border px-3">
+        {asList(book?.items).map((bookItem) => {
+          const pick = picks.find((p) => p.id === bookItem.id) || {
+            id: bookItem.id,
+            enabled: false,
+            quantity: 0,
+            override: 0,
+          };
+          const base = rateFor(bookItem);
+          const rate = num(pick.override) > 0 ? num(pick.override) : base;
+          const amount = pick.enabled ? num(pick.quantity) * rate : 0;
+          return (
+            <OptionRow
+              key={bookItem.id}
+              checked={pick.enabled}
+              onToggle={(v) => setItem(bookItem.id, { enabled: v })}
+              label={bookItem.label}
+              hint={`$${money(base)} / ${bookItem.unit}`}
+              amount={amount}
+            >
+              <div className="mt-1 grid grid-cols-2 gap-2">
+                <Field label={`Quantity (${bookItem.unit})`}>
+                  <Num
+                    value={pick.quantity}
+                    onChange={(v) => setItem(bookItem.id, { quantity: v })}
+                  />
+                </Field>
+                {/* An override replaces the RATE, not the line total — that is
+                    what the builder does with it, and labelling it "override
+                    total" while it behaves per-unit is how the same field ends
+                    up meaning two things on two screens. */}
+                <Field label={`Override rate (per ${bookItem.unit})`}>
+                  <Num
+                    prefix="$"
+                    step={0.25}
+                    value={pick.override}
+                    onChange={(v) => setItem(bookItem.id, { override: v })}
+                  />
+                </Field>
+              </div>
+            </OptionRow>
+          );
+        })}
+      </div>
+
+      <div className="rounded-lg border border-border p-3">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Project add-ons
+        </div>
+        <OptionRow
+          checked={takeoff.pressureWashing}
+          onToggle={(v) => onChange({ ...takeoff, pressureWashing: v })}
+          label="Pressure washing"
+          hint={`$${money(e.pressureWashingPrice)} flat — full exterior wash before painting`}
+          amount={takeoff.pressureWashing ? num(e.pressureWashingPrice) : 0}
+        />
+        <OptionRow
+          checked={takeoff.priming}
+          onToggle={(v) => onChange({ ...takeoff, priming: v })}
+          label="Priming"
+          hint={`$${money(e.primePricePerSqft)}/sqft — bare wood, colour change, weathered surfaces`}
+          amount={primeAmount}
+        >
+          <div className="mt-1 w-32">
+            <Num
+              value={takeoff.primeSqft}
+              onChange={(v) => onChange({ ...takeoff, primeSqft: v })}
+            />
+          </div>
+        </OptionRow>
+      </div>
+    </div>
+  );
+}
+
+/* ── Hardwood flooring ─────────────────────────────────────────────────── */
+
+const WOOD_SPECIES = [
+  "Red oak",
+  "White oak",
+  "Maple",
+  "Cherry",
+  "Walnut",
+  "Hickory",
+  "Pine",
+  "Ash",
+  "Birch",
+  "Douglas fir",
+];
+const FINISH_TYPES = [
+  "Water-based polyurethane",
+  "Oil-based polyurethane",
+  "Hard-wax oil",
+  "Penetrating oil",
+  "Swedish finish",
+  "Satin",
+  "Semi-gloss",
+  "Matte",
+];
+
+function FloorSection({ section, index, book, canRemove, onChange, onRemove }) {
+  const level = section.complexityLevel || "standard";
+  const c = book?.complexity?.[level] || {};
+  const set = (patch) => onChange({ ...section, ...patch });
+  const sqft = num(section.sqft);
+
+  const refinish = sqft * num(c.pricePerSqft);
+  const stain = section.stainChange ? sqft * num(c.stainChangePricePerSqft) : 0;
+  const gaps = section.gapFilling ? sqft * num(c.gapFillingPricePerSqft) : 0;
+  const total =
+    refinish +
+    stain +
+    gaps +
+    (section.waterDamageRepair ? num(c.waterDamagePrice) : 0) +
+    (section.furnitureMoving ? num(c.furnitureMovingPrice) : 0) +
+    (section.stairBlending ? num(c.stairBlendingPrice) : 0);
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-3">
+      <CardHeader
+        value={section.title}
+        placeholder={`Floor area ${index + 1}`}
+        onChange={(title) => set({ title })}
+        onRemove={onRemove}
+        canRemove={canRemove}
+        removeLabel="Remove floor area"
+      />
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Field label="Square footage">
+          <Num value={section.sqft} onChange={(v) => set({ sqft: v })} />
+        </Field>
+        <Field label="Wood species">
+          <select
+            value={section.woodSpecies || ""}
+            onChange={(e) => set({ woodSpecies: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">Not specified</option>
+            {WOOD_SPECIES.map((w) => (
+              <option key={w} value={w}>
+                {w}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Finish type">
+          <select
+            value={section.finishType || ""}
+            onChange={(e) => set({ finishType: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">Not specified</option>
+            {FINISH_TYPES.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <ComplexityPicker
+        value={level}
+        book={book}
+        onChange={(v) => set({ complexityLevel: v })}
+      />
+
+      <div className="flex items-baseline justify-between border-b border-border py-1.5 text-sm">
+        <span>
+          Refinishing
+          <span className="ml-2 text-xs text-muted-foreground">
+            {sqft > 0
+              ? `${sqft} sqft × $${money(c.pricePerSqft)}/sqft`
+              : "Enter the square footage above"}
+          </span>
+        </span>
+        <span className="font-medium tabular-nums">
+          {refinish > 0 ? `$${money(refinish)}` : "—"}
+        </span>
+      </div>
+
+      <div>
+        <OptionRow
+          checked={section.stainChange}
+          onToggle={(v) => set({ stainChange: v })}
+          label="Stain colour change"
+          hint={`$${money(c.stainChangePricePerSqft)}/sqft`}
+          amount={stain}
+        />
+        <OptionRow
+          checked={section.gapFilling}
+          onToggle={(v) => set({ gapFilling: v })}
+          label="Gap filling"
+          hint={`$${money(c.gapFillingPricePerSqft)}/sqft`}
+          amount={gaps}
+        />
+        <OptionRow
+          checked={section.waterDamageRepair}
+          onToggle={(v) => set({ waterDamageRepair: v })}
+          label="Water damage repair"
+          hint={`$${money(c.waterDamagePrice)} flat`}
+          amount={section.waterDamageRepair ? num(c.waterDamagePrice) : 0}
+        />
+        <OptionRow
+          checked={section.furnitureMoving}
+          onToggle={(v) => set({ furnitureMoving: v })}
+          label="Furniture moving"
+          hint={`$${money(c.furnitureMovingPrice)} flat`}
+          amount={section.furnitureMoving ? num(c.furnitureMovingPrice) : 0}
+        />
+        <OptionRow
+          checked={section.stairBlending}
+          onToggle={(v) => set({ stairBlending: v })}
+          label="Stair blending"
+          hint={`$${money(c.stairBlendingPrice)} flat`}
+          amount={section.stairBlending ? num(c.stairBlendingPrice) : 0}
+        />
+      </div>
+
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Area total</span>
+        <span className="font-semibold tabular-nums">${money(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+function FlooringTakeoff({ takeoff, book, onChange }) {
+  const sections = asList(takeoff.sections);
+  return (
+    <div className="space-y-3">
+      {sections.map((section, i) => (
+        <FloorSection
+          key={i}
+          section={section}
+          index={i}
+          book={book}
+          canRemove={sections.length > 1}
+          onChange={(next) =>
+            onChange({
+              ...takeoff,
+              sections: sections.map((s, j) => (j === i ? next : s)),
+            })
+          }
+          onRemove={() =>
+            onChange({
+              ...takeoff,
+              sections: sections.filter((_, j) => j !== i),
+            })
+          }
+        />
+      ))}
+      <AddButton
+        onClick={() =>
+          onChange({
+            ...takeoff,
+            sections: [
+              ...sections,
+              newFloorSection(`Floor area ${sections.length + 1}`),
+            ],
+          })
+        }
+      >
+        Add floor area
+      </AddButton>
+    </div>
+  );
+}
+
 /* ── Entry point ───────────────────────────────────────────────────────── */
 
 const TAKEOFFS = {
   stairs: StairsTakeoff,
   countertop: CountertopTakeoff,
   garage_door: GarageDoorTakeoff,
+  interior_painting: InteriorPaintTakeoff,
+  exterior_painting: ExteriorPaintTakeoff,
+  flooring: FlooringTakeoff,
 };
 
 export function hasTakeoff(categoryKey) {
