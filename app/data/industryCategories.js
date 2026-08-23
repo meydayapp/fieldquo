@@ -35,6 +35,11 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "window_cleaning",
   ],
   "construction-contracting": [
+    // Garage doors are sold by more than the handyman trade: a general
+    // contractor or carpenter fits them on a reno, and the category carries a
+    // real price book now, so surfacing it here is the difference between
+    // "quotable" and "type the total in yourself".
+    "garage_door",
     "general_contracting",
     "general_contracting_reno",
     "remodeling",
@@ -60,18 +65,10 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "locksmith",
     "garage_door",
   ],
-  landscaping: [
-    "landscaping_design",
-    "irrigation",
-    "pool_spa",
-    "pest_control",
-  ],
+  landscaping: ["landscaping_design", "irrigation", "pool_spa", "pest_control"],
   "lawn-care": ["lawn_care", "lawn_mowing", "snow_removal"],
   plumbing: ["plumbing", "well_water"],
-  "pressure-washing": [
-    "pressure_washing_house",
-    "pressure_washing_driveway",
-  ],
+  "pressure-washing": ["pressure_washing_house", "pressure_washing_driveway"],
   roofing: ["roofing_service", "siding", "restoration"],
   "tree-care": ["tree_care_service"],
 };

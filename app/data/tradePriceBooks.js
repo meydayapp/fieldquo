@@ -225,11 +225,37 @@ export const TRADE_PRICE_BOOKS = {
     // with the supplier's actual number. Zero means "no sensible default,
     // you must enter it", which is honest for stone that is priced per slab.
     items: [
-      { id: "countertop", label: "Countertop Supply & Installation", kind: "supply", defaultCost: 0 },
-      { id: "backsplash", label: "Backsplash", kind: "supply", defaultCost: 0, heightOption: "4in" },
-      { id: "sink", label: "Sink / Undermount Cutout", kind: "supply", defaultCost: 0 },
-      { id: "waterfall", label: "Waterfall Edge", kind: "supply", defaultCost: 0 },
-      { id: "removal", label: "Countertop Removal", kind: "labour", defaultCost: 0 },
+      {
+        id: "countertop",
+        label: "Countertop Supply & Installation",
+        kind: "supply",
+        defaultCost: 0,
+      },
+      {
+        id: "backsplash",
+        label: "Backsplash",
+        kind: "supply",
+        defaultCost: 0,
+        heightOption: "4in",
+      },
+      {
+        id: "sink",
+        label: "Sink / Undermount Cutout",
+        kind: "supply",
+        defaultCost: 0,
+      },
+      {
+        id: "waterfall",
+        label: "Waterfall Edge",
+        kind: "supply",
+        defaultCost: 0,
+      },
+      {
+        id: "removal",
+        label: "Countertop Removal",
+        kind: "labour",
+        defaultCost: 0,
+      },
       // The one fee with a real default, per the owner: disposal is a known
       // cost, not a per-job quotation.
       { id: "disposal", label: "Disposal Fee", kind: "fee", defaultCost: 900 },
@@ -334,12 +360,35 @@ export const TRADE_PRICE_BOOKS = {
       },
     },
     items: [
-      { id: "siding", label: "Siding / Cladding", unit: "sqft", priceType: "siding" },
+      {
+        id: "siding",
+        label: "Siding / Cladding",
+        unit: "sqft",
+        priceType: "siding",
+      },
       { id: "trim", label: "Trim & Soffit", unit: "sqft", priceType: "trim" },
       { id: "fascia", label: "Fascia Boards", unit: "lf", priceType: "fascia" },
-      { id: "front_door", label: "Front Door(s)", unit: "door", priceType: "flat", flatPrice: 200 },
-      { id: "garage_door", label: "Garage Door", unit: "door", priceType: "flat", flatPrice: 350 },
-      { id: "shutters", label: "Shutters", unit: "pair", priceType: "flat", flatPrice: 75 },
+      {
+        id: "front_door",
+        label: "Front Door(s)",
+        unit: "door",
+        priceType: "flat",
+        flatPrice: 200,
+      },
+      {
+        id: "garage_door",
+        label: "Garage Door",
+        unit: "door",
+        priceType: "flat",
+        flatPrice: 350,
+      },
+      {
+        id: "shutters",
+        label: "Shutters",
+        unit: "pair",
+        priceType: "flat",
+        flatPrice: 75,
+      },
       { id: "deck", label: "Deck / Porch", unit: "sqft", priceType: "deck" },
       { id: "fence", label: "Fence", unit: "lf", priceType: "fence" },
     ],
@@ -347,6 +396,53 @@ export const TRADE_PRICE_BOOKS = {
       pressureWashingPrice: 350,
       primePricePerSqft: 0.5,
     },
+  },
+
+  // ── Garage doors (supply and install) ─────────────────────────────────
+  // A different trade from the `garage_door` painting item above: that one
+  // repaints the door you have, this one sells you a new one. The category
+  // already existed (Garage Door Services, seed.js) with intake fields for
+  // repair / install / spring replacement, but no book — so an install could
+  // only be quoted by typing a total.
+  //
+  // Doors are priced per unit, not per square foot: a homeowner chooses a
+  // model, not an area. The window options are separate models rather than an
+  // upcharge because that is how they are ordered and how the client shops.
+  //
+  // Installation is included in the door price by default, which is how most
+  // of this trade sells. A company that quotes supply-only unticks it, and the
+  // door price drops by `installPricePerDoor` while a separate Installation
+  // line appears — so the client sees what they are paying for either way.
+  // That price ships as 0 on purpose: nobody has told us what this company
+  // charges to hang a door, and a made-up default would be billed for real.
+  garage_door: {
+    label: "Garage Door Installation",
+    // Keyed maps rather than arrays, and not for taste: `mergeDeep` replaces
+    // arrays wholesale, so a company editing one door price through the rate
+    // card would write `doors: {0: {price: …}}` over an array and the merge
+    // would silently discard it. Keys merge; indices don't. Insertion order is
+    // the display order.
+    doors: {
+      d8x7_no_window: { label: "8×7 garage door — no window", price: 1150 },
+      d8x7_top_window: { label: "8×7 garage door — top window", price: 1400 },
+      d8x7_side_window: { label: "8×7 garage door — side window", price: 1600 },
+      // Quoted at $1,999 in 2025. Carried forward at ~2.5% to 2026 rather than
+      // shipping a price that is a year stale on the day a tenant signs up.
+      d16x7_black_flush: { label: "16×7 black flush garage door", price: 2049 },
+    },
+    capping: {
+      cap_8x7: { label: "Aluminum capping frame — 8×7", price: 350 },
+      cap_16x7: { label: "Aluminum capping frame — 16×7", price: 499 },
+    },
+    installIncluded: true,
+    installPricePerDoor: 0,
+    // Said on the door's own line rather than as a "what's included" bullet on
+    // the whole category. The same category also covers spring replacements
+    // and repairs, and "fully insulated for maximum comfort" printed on a
+    // broken-spring callout is a claim about nothing that was sold.
+    doorSpec: "Fully insulated for maximum comfort · custom framing",
+    installNote: "Professional installation included",
+    warrantyNote: "Made in Canada · 5-year manufacturer warranty",
   },
 };
 
@@ -392,7 +488,8 @@ function mergeDeep(base, patch) {
     // Guard the prototype: overrides are company-supplied JSON that has been
     // round-tripped through the database, and a "__proto__" key here would
     // otherwise poison every object in the process.
-    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+    if (key === "__proto__" || key === "constructor" || key === "prototype")
+      continue;
     out[key] = mergeDeep(base[key], patch[key]);
   }
   return out;
@@ -408,6 +505,10 @@ function isPlainObject(v) {
 
 /** Human labels for the `group` key on a field, when it has one. */
 export const PRICE_BOOK_GROUPS = {
+  doors: "Doors",
+  capping: "Capping frames",
+  install: "Installation",
+  wording: "What the quote says",
   thermofoil: "Thermofoil door",
   painted_mdf: "Painted MDF door",
   red_oak: "Wood door — red oak",
@@ -424,14 +525,57 @@ export const PRICE_BOOK_FIELDS = {
     // Door specs: what you charge for each, and what each costs you. The cost
     // side is internal — it drives the margin panel, never the client's copy.
     ...["thermofoil", "painted_mdf", "red_oak", "white_oak"].flatMap((key) => [
-      { path: `doorMaterials.${key}.sellPerDoor`, label: "Sell — per door", suffix: "$ / door", step: 10, group: key },
-      { path: `doorMaterials.${key}.sellPerDrawer`, label: "Sell — per drawer", suffix: "$ / drawer", step: 10, group: key },
-      { path: `doorMaterials.${key}.costPerSqft`, label: "Supplier cost", suffix: "$ / sq ft", step: 0.25, group: key, internal: true },
+      {
+        path: `doorMaterials.${key}.sellPerDoor`,
+        label: "Sell — per door",
+        suffix: "$ / door",
+        step: 10,
+        group: key,
+      },
+      {
+        path: `doorMaterials.${key}.sellPerDrawer`,
+        label: "Sell — per drawer",
+        suffix: "$ / drawer",
+        step: 10,
+        group: key,
+      },
+      {
+        path: `doorMaterials.${key}.costPerSqft`,
+        label: "Supplier cost",
+        suffix: "$ / sq ft",
+        step: 0.25,
+        group: key,
+        internal: true,
+      },
     ]),
-    { path: "avgDoorSqft", label: "Average door area", suffix: "sq ft", step: 0.25, internal: true },
-    { path: "avgDrawerSqft", label: "Average drawer front area", suffix: "sq ft", step: 0.25, internal: true },
-    { path: "supplierFinishingPerSqft", label: "Supplier finishing", suffix: "$ / sq ft", step: 0.25, internal: true },
-    { path: "freightPerOrder", label: "Freight per order (under 20 doors)", suffix: "$", step: 5, internal: true },
+    {
+      path: "avgDoorSqft",
+      label: "Average door area",
+      suffix: "sq ft",
+      step: 0.25,
+      internal: true,
+    },
+    {
+      path: "avgDrawerSqft",
+      label: "Average drawer front area",
+      suffix: "sq ft",
+      step: 0.25,
+      internal: true,
+    },
+    {
+      path: "supplierFinishingPerSqft",
+      label: "Supplier finishing",
+      suffix: "$ / sq ft",
+      step: 0.25,
+      internal: true,
+    },
+    {
+      path: "freightPerOrder",
+      label: "Freight per order (under 20 doors)",
+      suffix: "$",
+      step: 5,
+      internal: true,
+    },
   ],
   stairs: [
     ...complexityFields("stairs", [
@@ -443,7 +587,12 @@ export const PRICE_BOOK_FIELDS = {
       ["landingPricePerSqft", "Landing / hallway", "$ / sqft"],
       ["twoToneSurcharge", "Two-tone surcharge", "$ flat"],
     ]),
-    { path: "basementTreadPrice", label: "Basement tread", suffix: "$ / tread", step: 1 },
+    {
+      path: "basementTreadPrice",
+      label: "Basement tread",
+      suffix: "$ / tread",
+      step: 1,
+    },
   ],
   flooring: complexityFields("flooring", [
     ["pricePerSqft", "Refinishing", "$ / sqft"],
@@ -454,7 +603,12 @@ export const PRICE_BOOK_FIELDS = {
     ["stairBlendingPrice", "Stair blending", "$ flat"],
   ]),
   countertop: [
-    { path: "defaultMarkupPct", label: "Default markup on supplier cost", suffix: "%", step: 1 },
+    {
+      path: "defaultMarkupPct",
+      label: "Default markup on supplier cost",
+      suffix: "%",
+      step: 1,
+    },
   ],
   interior_painting: [
     ...complexityFields("interior_painting", [
@@ -466,8 +620,18 @@ export const PRICE_BOOK_FIELDS = {
       ["colorChangeSurcharge", "Colour change", "$ / room"],
       ["drywallPrepPrice", "Drywall prep", "$ / room"],
     ]),
-    { path: "global.popcornRemovalPricePerSqft", label: "Popcorn ceiling removal", suffix: "$ / sqft", step: 0.25 },
-    { path: "global.furnitureMovingPrice", label: "Furniture moving", suffix: "$ flat", step: 10 },
+    {
+      path: "global.popcornRemovalPricePerSqft",
+      label: "Popcorn ceiling removal",
+      suffix: "$ / sqft",
+      step: 0.25,
+    },
+    {
+      path: "global.furnitureMovingPrice",
+      label: "Furniture moving",
+      suffix: "$ flat",
+      step: 10,
+    },
   ],
   exterior_painting: [
     ...complexityFields("exterior_painting", [
@@ -477,24 +641,156 @@ export const PRICE_BOOK_FIELDS = {
       ["deck", "Deck / porch", "$ / sqft"],
       ["fence", "Fence", "$ / linear ft"],
     ]),
-    { path: "extras.pressureWashingPrice", label: "Pressure washing", suffix: "$ flat", step: 10 },
-    { path: "extras.primePricePerSqft", label: "Priming", suffix: "$ / sqft", step: 0.25 },
+    {
+      path: "extras.pressureWashingPrice",
+      label: "Pressure washing",
+      suffix: "$ flat",
+      step: 10,
+    },
+    {
+      path: "extras.primePricePerSqft",
+      label: "Priming",
+      suffix: "$ / sqft",
+      step: 0.25,
+    },
+  ],
+  garage_door: [
+    {
+      path: "doors.d8x7_no_window.price",
+      label: "8×7 door — no window",
+      suffix: "$ / door",
+      step: 25,
+      group: "doors",
+    },
+    {
+      path: "doors.d8x7_top_window.price",
+      label: "8×7 door — top window",
+      suffix: "$ / door",
+      step: 25,
+      group: "doors",
+    },
+    {
+      path: "doors.d8x7_side_window.price",
+      label: "8×7 door — side window",
+      suffix: "$ / door",
+      step: 25,
+      group: "doors",
+    },
+    {
+      path: "doors.d16x7_black_flush.price",
+      label: "16×7 door — black flush",
+      suffix: "$ / door",
+      step: 25,
+      group: "doors",
+    },
+    {
+      path: "capping.cap_8x7.price",
+      label: "Aluminum capping — 8×7",
+      suffix: "$ each",
+      step: 25,
+      group: "capping",
+    },
+    {
+      path: "capping.cap_16x7.price",
+      label: "Aluminum capping — 16×7",
+      suffix: "$ each",
+      step: 25,
+      group: "capping",
+    },
+    {
+      path: "installPricePerDoor",
+      label: "Installation, when charged separately per door",
+      suffix: "$ / door",
+      step: 25,
+      group: "install",
+    },
+    // Wording, not money. The rate card renders these as text because the
+    // owner asked for the warranty line to be a default a company can change,
+    // and a default it cannot change is not one.
+    {
+      path: "doorSpec",
+      label: "Door specification",
+      type: "text",
+      group: "wording",
+    },
+    {
+      path: "installNote",
+      label: "Installation line wording",
+      type: "text",
+      group: "wording",
+    },
+    {
+      path: "warrantyNote",
+      label: "Warranty wording",
+      type: "text",
+      group: "wording",
+    },
   ],
 };
 
 function cabinetFields() {
   return [
     { path: "perDoor", label: "Per door", suffix: "$ / door", step: 5 },
-    { path: "perDrawer", label: "Per drawer front", suffix: "$ / drawer", step: 5 },
-    { path: "complexityUpchargePerUnit.moderate", label: "Moderate complexity uplift", suffix: "$ / unit", step: 5 },
-    { path: "complexityUpchargePerUnit.high", label: "High complexity uplift", suffix: "$ / unit", step: 5 },
-    { path: "addOns.handleHolesPerDoor", label: "New handle holes", suffix: "$ / door", step: 1 },
-    { path: "addOns.softCloseHingesPerDoor", label: "Soft-close hinges", suffix: "$ / door", step: 1 },
-    { path: "addOns.drawerSlidesPerDrawer", label: "Drawer slides", suffix: "$ / drawer", step: 1 },
-    { path: "addOns.twoToneFlat", label: "Two-tone base", suffix: "$ flat", step: 25 },
-    { path: "addOns.twoTonePerUnit", label: "Two-tone per unit", suffix: "$ / unit", step: 1 },
-    { path: "addOns.threeToneFlat", label: "Three-colour base", suffix: "$ flat", step: 25 },
-    { path: "addOns.threeTonePerUnit", label: "Three-colour per unit", suffix: "$ / unit", step: 1 },
+    {
+      path: "perDrawer",
+      label: "Per drawer front",
+      suffix: "$ / drawer",
+      step: 5,
+    },
+    {
+      path: "complexityUpchargePerUnit.moderate",
+      label: "Moderate complexity uplift",
+      suffix: "$ / unit",
+      step: 5,
+    },
+    {
+      path: "complexityUpchargePerUnit.high",
+      label: "High complexity uplift",
+      suffix: "$ / unit",
+      step: 5,
+    },
+    {
+      path: "addOns.handleHolesPerDoor",
+      label: "New handle holes",
+      suffix: "$ / door",
+      step: 1,
+    },
+    {
+      path: "addOns.softCloseHingesPerDoor",
+      label: "Soft-close hinges",
+      suffix: "$ / door",
+      step: 1,
+    },
+    {
+      path: "addOns.drawerSlidesPerDrawer",
+      label: "Drawer slides",
+      suffix: "$ / drawer",
+      step: 1,
+    },
+    {
+      path: "addOns.twoToneFlat",
+      label: "Two-tone base",
+      suffix: "$ flat",
+      step: 25,
+    },
+    {
+      path: "addOns.twoTonePerUnit",
+      label: "Two-tone per unit",
+      suffix: "$ / unit",
+      step: 1,
+    },
+    {
+      path: "addOns.threeToneFlat",
+      label: "Three-colour base",
+      suffix: "$ flat",
+      step: 25,
+    },
+    {
+      path: "addOns.threeTonePerUnit",
+      label: "Three-colour per unit",
+      suffix: "$ / unit",
+      step: 1,
+    },
     { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 100 },
   ];
 }
@@ -568,7 +864,8 @@ export function priceBookBasis(categoryKey) {
   const basis = [];
   for (const field of fields) {
     if (field.internal) continue;
-    if (EXTRA_PREFIXES.some((prefix) => field.path.startsWith(prefix))) continue;
+    if (EXTRA_PREFIXES.some((prefix) => field.path.startsWith(prefix)))
+      continue;
     const unit = unitFromSuffix(field.suffix);
     if (!unit || seen.has(field.label)) continue;
     seen.add(field.label);
@@ -590,7 +887,9 @@ export function priceBookComplexity(categoryKey) {
   if (!book) return null;
   const grid = book.complexity || book.complexityUpchargePerUnit;
   if (!grid) return null;
-  const levels = COMPLEXITY_LEVELS.filter((level) => grid[level.value] !== undefined);
+  const levels = COMPLEXITY_LEVELS.filter(
+    (level) => grid[level.value] !== undefined,
+  );
   return levels.length ? levels : null;
 }
 

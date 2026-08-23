@@ -36,6 +36,10 @@ import {
 
 const inputClass =
   "w-28 border border-border rounded px-2 py-1 text-sm text-right tabular-nums";
+// Wording needs room to be read back; a sentence in a 7rem right-aligned box
+// is a field you can type into and cannot check.
+const textInputClass =
+  "flex-[2] min-w-0 border border-border rounded px-2 py-1 text-sm";
 
 /** Group fields in declaration order, keeping ungrouped ones in a lead block. */
 function groupFields(fields) {
@@ -65,20 +69,26 @@ export default function RateCard({ category, overrides, onChange }) {
   // Writing a value that equals the default would pin the company to today's
   // number forever. Clearing a field removes it from the patch instead, so the
   // trade goes back to inheriting.
-  function setField(path, raw) {
+  // `type` decides how the value is stored, not just how it renders. Most of a
+  // rate card is money, but a few fields are the wording a quote prints — the
+  // garage-door spec and warranty lines — and Number("Made in Canada") is NaN.
+  function setField(path, raw, type = "number") {
     const next = structuredClone(overrides || {});
     const parts = path.split(".");
-    if (raw === "" || raw === null) {
+    const blank = raw === "" || raw === null || raw === undefined;
+    if (blank) {
       let node = next;
       for (let i = 0; i < parts.length - 1; i++) node = node?.[parts[i]];
       if (node) delete node[parts[parts.length - 1]];
     } else {
       let node = next;
       for (let i = 0; i < parts.length - 1; i++) {
-        if (!node[parts[i]] || typeof node[parts[i]] !== "object") node[parts[i]] = {};
+        if (!node[parts[i]] || typeof node[parts[i]] !== "object")
+          node[parts[i]] = {};
         node = node[parts[i]];
       }
-      node[parts[parts.length - 1]] = Number(raw);
+      node[parts[parts.length - 1]] =
+        type === "text" ? String(raw) : Number(raw);
     }
     onChange(Object.keys(next).length ? next : null);
   }
@@ -108,8 +118,8 @@ export default function RateCard({ category, overrides, onChange }) {
         <div className="mt-3 space-y-4">
           <p className="text-xs text-muted-foreground">
             What you charge for the main scope of this trade. Quotes build their
-            core lines from these. One-off extras — handles, hinges, a rush fee —
-            live in Products &amp; Services instead.
+            core lines from these. One-off extras — handles, hinges, a rush fee
+            — live in Products &amp; Services instead.
           </p>
 
           {blocks.map((block, bi) => (
@@ -122,7 +132,8 @@ export default function RateCard({ category, overrides, onChange }) {
               <div className="space-y-1">
                 {block.fields.map((field) => {
                   const effective = readField(book, field.path);
-                  const isOverridden = readField(overrides || {}, field.path) !== undefined;
+                  const isOverridden =
+                    readField(overrides || {}, field.path) !== undefined;
                   return (
                     <div key={field.path} className="flex items-center gap-2">
                       <span className="flex-1 text-sm text-foreground">
@@ -140,12 +151,18 @@ export default function RateCard({ category, overrides, onChange }) {
                         {field.suffix}
                       </span>
                       <input
-                        type="number"
-                        step={field.step ?? 1}
+                        type={field.type === "text" ? "text" : "number"}
+                        {...(field.type === "text"
+                          ? {}
+                          : { step: field.step ?? 1 })}
                         value={effective ?? ""}
-                        onChange={(e) => setField(field.path, e.target.value)}
-                        className={`${inputClass} ${
-                          isOverridden ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30" : ""
+                        onChange={(e) =>
+                          setField(field.path, e.target.value, field.type)
+                        }
+                        className={`${field.type === "text" ? textInputClass : inputClass} ${
+                          isOverridden
+                            ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+                            : ""
                         }`}
                       />
                       {isOverridden ? (
