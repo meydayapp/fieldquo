@@ -7,6 +7,7 @@ import { Plus, X, Trash2, Search } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
+import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
 
 export default function NewInvoicePage() {
@@ -38,6 +39,11 @@ export default function NewInvoicePage() {
   const [dueDate, setDueDate] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
+  // Internal crew / hours / materials, never part of the document. Null until
+  // InvoiceCostSection has loaded — and null again if it can't be shown, so a
+  // save from a user without the jobCosting toggle posts no `costing` key at
+  // all rather than an empty one.
+  const [costing, setCosting] = useState(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -130,6 +136,10 @@ export default function NewInvoicePage() {
           clientPhotos,
           dueDate: dueDate || null,
           status,
+          // Saved in the same request that creates the invoice. A second call
+          // afterwards could fail on its own and leave an invoice whose cost
+          // panel silently didn't stick.
+          ...(costing ? { costing } : {}),
         }),
       });
 
@@ -331,6 +341,16 @@ export default function NewInvoicePage() {
           <Plus size={12} /> {t("app.invoiceNew.addLineItemBtn")}
         </button>
       </div>
+
+      {/* Internal cost & margin. Renders nothing for anyone without the
+          jobCosting toggle, and never reaches the invoice the client sees —
+          the figures live in their own table. */}
+      <InvoiceCostSection
+        subtotal={subtotal}
+        currency={currency}
+        value={costing}
+        onChange={setCosting}
+      />
 
       <div className="bg-card border border-border rounded-xl p-5">
         <h2 className="font-semibold text-foreground mb-2">{t("app.invoiceNew.dueDate")}</h2>

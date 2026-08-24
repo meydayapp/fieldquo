@@ -15,6 +15,17 @@
 // Everything else here is reference. The badge answers "am I about to quote
 // this too cheap", which is the question you can't answer by looking at a
 // price, and the one people get wrong when quoting quickly on site.
+//
+// ── It runs on invoices too ─────────────────────────────────────────────────
+//
+// Same component, one switch: `hoursAreActual`. On a quote the hours are a
+// prediction and the crew shares a pool a recipe worked out; on an invoice
+// they are per-person facts off a timesheet and the pool is whatever they add
+// up to. That changes three things on screen — the crew label, whether the
+// "extra labour hours" box exists at all (on an invoice there is no recipe for
+// hours to be extra TO), and the recipe-coverage notes — and nothing about the
+// arithmetic. Copying the panel instead would have left two margin badges to
+// keep honest, and the copy is always the one that rots.
 "use client";
 
 import { TrendingUp, AlertTriangle, Plus, Trash2 } from "lucide-react";
@@ -64,8 +75,18 @@ export default function CostMarginPanel({
   manualMaterialCost,
   onManualMaterialCostChange,
   subtotal,
-  totalGroupCount,
+  totalGroupCount = 0,
   marginTarget,
+  // Invoice mode. See the header comment — one flag, because the three things
+  // it changes are three faces of the same fact and letting a caller set them
+  // independently would allow "actual hours" beside an "extra hours" box.
+  hoursAreActual = false,
+  // What the price row is called. "Quote price" on an invoice would be wrong
+  // twice over: wrong document, and the figure is what was billed, not offered.
+  priceLabel = "Quote price (pre-tax)",
+  // Rendered under the crew: where the numbers came from, and what is missing
+  // from them. Null on a quote, which has no timesheets to seed from.
+  crewNotice = null,
 }) {
   const money = (n) => formatAppMoney(n, currency, "en");
 
@@ -90,8 +111,14 @@ export default function CostMarginPanel({
             {estimate.signal === "red" && " · losing money"}
             {estimate.signal === "amber" &&
               !estimate.costIncomplete &&
+              !estimate.crewUnrated &&
               ` · below ${marginTarget}% target`}
             {estimate.costIncomplete && " · labour not costed"}
+            {/* Says which, because "labour not costed" over a crew where two
+                of three ARE costed reads as a bug in the panel. */}
+            {!estimate.costIncomplete &&
+              estimate.crewUnrated > 0 &&
+              " · some labour not costed"}
           </span>
         )}
       </div>
@@ -108,7 +135,9 @@ export default function CostMarginPanel({
               The hours are a pool the crew shares. See lib/costing/crew.js. */}
           <div className="mb-1 flex items-center justify-between gap-2">
             <label className="text-xs text-muted-foreground">
-              Crew — hours are shared between them
+              {hoursAreActual
+                ? "Crew — hours worked, edit any that are wrong"
+                : "Crew — hours are shared between them"}
             </label>
             {estimate.blendedRate != null && (
               <span className="text-xs text-muted-foreground">
@@ -123,6 +152,19 @@ export default function CostMarginPanel({
                 Nobody on the crew yet, so labour costs nothing and the margin
                 below is higher than the job&apos;s.
               </p>
+            )}
+            {/* Hidden on a quote, where blank means "take an even share of the
+                pool" and a header would be explaining a column that is often
+                empty on purpose. On an invoice every cell is a fact and the
+                columns need naming. */}
+            {hoursAreActual && crew.length > 0 && (
+              <div className="hidden sm:grid grid-cols-12 gap-2 border-b border-border px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="col-span-4">Name</span>
+                <span className="col-span-3">Cost $/hr</span>
+                <span className="col-span-3">Hours worked</span>
+                <span className="col-span-1 text-right">Cost</span>
+                <span className="col-span-1" />
+              </div>
             )}
             {crew.map((m, i) => {
               const priced = estimate.crew?.[i];
@@ -256,6 +298,12 @@ export default function CostMarginPanel({
             )}
           </div>
 
+          {crewNotice && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {crewNotice}
+            </div>
+          )}
+
           {estimate.crewUnrated > 0 && (
             <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
               {estimate.crewUnrated} on the crew{" "}
@@ -292,7 +340,10 @@ export default function CostMarginPanel({
         </p>
       )}
 
-      {!estimate.hasRecipeEstimate && (
+      {/* Only a quote has recipes to be missing. On an invoice the work is
+          done and the hours are known, so this paragraph would be explaining
+          the absence of a prediction nobody wanted. */}
+      {!hoursAreActual && !estimate.hasRecipeEstimate && (
         <p className="mt-2 text-sm text-muted-foreground">
           No materials-and-labour recipe covers the trades on this quote — so
           far only cabinet refinishing and exterior painting have one. Enter the
@@ -334,26 +385,32 @@ export default function CostMarginPanel({
           that silently discards a calculation is how you lose the calculation
           and never notice. */}
       <div className="border-t border-border pt-3 grid gap-3 sm:grid-cols-2">
+        {/* No "extra" hours on an invoice: there is no recipe prediction for
+            them to be extra to, and a second hours box beside the crew's own
+            would double-count the same day's work. The crew rows are the
+            hours. */}
+        {!hoursAreActual && (
+          <div>
+            <label className="text-xs text-muted-foreground">
+              Extra labour hours
+            </label>
+            <input
+              type="number"
+              min="0"
+              step="0.5"
+              value={manualLabourHours ?? ""}
+              onChange={(e) => onManualLabourHoursChange(e.target.value)}
+              className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
+              placeholder="0"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Hours beyond what the recipe predicts, charged at the rate above.
+            </p>
+          </div>
+        )}
         <div>
           <label className="text-xs text-muted-foreground">
-            Extra labour hours
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.5"
-            value={manualLabourHours ?? ""}
-            onChange={(e) => onManualLabourHoursChange(e.target.value)}
-            className="w-full mt-1 border border-border rounded px-2 py-1.5 text-sm"
-            placeholder="0"
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Hours beyond what the recipe predicts, charged at the rate above.
-          </p>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground">
-            Extra material cost
+            {hoursAreActual ? "Materials for this job" : "Extra material cost"}
           </label>
           <input
             type="number"
@@ -365,16 +422,21 @@ export default function CostMarginPanel({
             placeholder="0"
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            What you are buying in for this job — a supplier quote, a slab, a
-            rental.
+            {hoursAreActual
+              ? "What the job actually consumed — paint, hardware, a slab, a rental."
+              : "What you are buying in for this job — a supplier quote, a slab, a rental."}
           </p>
         </div>
       </div>
 
       <div className="border-t border-border pt-3 space-y-1 text-sm">
-        {/* Consumables and purchased goods are split: a coverage rate predicts
-            paint, but a refacing door has a supplier invoice behind it. */}
-        {estimate.purchasedMaterial > 0 ? (
+        {/* An invoice has no recipe, so the consumables/purchased/by-hand split
+            has nothing to split: two of the three are always zero and printing
+            "Materials $0.00" above the real figure is noise that makes the
+            column stop adding up on a read-through. One row, the total. */}
+        {hoursAreActual ? (
+          <Row label="Materials" value={money(estimate.materialTotal)} />
+        ) : estimate.purchasedMaterial > 0 ? (
           <>
             <Row
               label="Materials — consumables"
@@ -390,7 +452,7 @@ export default function CostMarginPanel({
           // gets its own row below, and materialTotal already contains it.
           <Row label="Materials" value={money(estimate.recipeMaterialTotal)} />
         )}
-        {estimate.addedMaterial > 0 && (
+        {!hoursAreActual && estimate.addedMaterial > 0 && (
           <Row
             label="Materials — added by hand"
             value={money(estimate.addedMaterial)}
@@ -413,17 +475,21 @@ export default function CostMarginPanel({
           value={money(estimate.overhead)}
         />
         <div className="border-t border-border mt-1 pt-1">
+          {/* "Estimated" is a claim about how the figure was arrived at, and on
+              an invoice it is a false one — these are hours that were worked
+              and materials that were bought. Overhead stays an apportionment
+              either way, which is what the note below the table is for. */}
           <Row
-            label="Estimated cost"
+            label={hoursAreActual ? "Job cost" : "Estimated cost"}
             value={money(estimate.estimatedCost)}
             bold
           />
         </div>
-        <Row label="Quote price (pre-tax)" value={money(subtotal)} />
+        <Row label={priceLabel} value={money(subtotal)} />
 
         {estimate.marginPct != null && (
           <Row
-            label="Estimated profit"
+            label={hoursAreActual ? "Profit on this job" : "Estimated profit"}
             value={`${money(estimate.profit)} (${estimate.marginPct}%)`}
             bold
             tone={estimate.signal === "red" ? "red" : undefined}

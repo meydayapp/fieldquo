@@ -19,6 +19,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle, History } from "lucide-react";
 import MediaUploader from "@/app/components/MediaUploader";
+import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
@@ -44,6 +45,10 @@ export default function EditInvoicePage() {
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [dueDate, setDueDate] = useState("");
   const [changeReason, setChangeReason] = useState("");
+  // Crew, their actual hours and materials. Loaded and seeded by
+  // InvoiceCostSection; null means "don't touch what's stored", which is what
+  // a user without the jobCosting toggle must send.
+  const [costing, setCosting] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,6 +146,9 @@ export default function EditInvoicePage() {
           dueDate: dueDate || undefined,
           notes,
           clientPhotos,
+          // Only when the panel actually loaded. Omitting the key leaves the
+          // stored costing alone; sending an empty one would wipe it.
+          ...(costing ? { costing } : {}),
           ...(isDraft ? {} : { changeReason: changeReason.trim() }),
         }),
       });
@@ -281,6 +289,16 @@ export default function EditInvoicePage() {
           <Plus size={14} /> {t("app.invoiceEdit.addLine")}
         </button>
       </div>
+
+      {/* Internal cost & margin — where the billable hours are corrected when
+          a job ran long. Never rendered on the client's copy, the PDF or the
+          email; see app/components/invoices/InvoiceCostSection.js. */}
+      <InvoiceCostSection
+        invoiceId={id}
+        subtotal={totals.subtotal - money(discount)}
+        value={costing}
+        onChange={setCosting}
+      />
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">
         <div className="grid gap-4 sm:grid-cols-3">

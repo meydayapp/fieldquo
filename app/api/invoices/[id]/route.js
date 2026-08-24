@@ -13,6 +13,7 @@ import {
   redactQuote,
 } from "@/lib/permissions/enforce";
 import { normaliseMediaList } from "@/lib/media/validate";
+import { buildCostingRow, mayCost, isEmptyCosting } from "../costingWrite";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -75,6 +76,7 @@ export async function PATCH(request, { params }) {
 
   const existing = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },
+    include: { costing: true },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -91,9 +93,29 @@ export async function PATCH(request, { params }) {
     status,
     changeReason,
     clientPhotos,
+    costing,
   } = body;
 
   const isDraft = existing.status === "draft";
+
+  // Costed against subtotal minus discount — the pre-tax money the work has to
+  // come out of. Falls back to what the invoice already carries when this PATCH
+  // is only flipping a status, so re-saving a cost panel doesn't reprice it
+  // against 0.
+  const costingPrice =
+    (subtotal !== undefined ? Number(subtotal) || 0 : Number(existing.subtotal) || 0) -
+    (discount !== undefined ? Number(discount) || 0 : Number(existing.discount) || 0);
+  // `undefined` means the request said nothing about costing, which is not the
+  // same as sending an empty one — a status-only PATCH must leave the crew and
+  // hours exactly where they were.
+  const costingRow =
+    costing !== undefined && mayCost(full)
+      ? await buildCostingRow({
+          companyId: member.companyId,
+          costing,
+          price: costingPrice,
+        })
+      : null;
 
   if (isDraft) {
     const updated = await db.invoice.update({
@@ -110,6 +132,19 @@ export async function PATCH(request, { params }) {
         ...(clientPhotos !== undefined && {
           clientPhotos: normaliseMediaList(clientPhotos),
         }),
+        // Upsert: the panel may be filled in long after the invoice was
+        // raised, so there is often no row to update yet.
+        //
+        // An empty block writes only when there is already a row to empty —
+        // that is someone deleting the crew, and refusing it would be a Save
+        // button that doesn't save. With no row it means the panel was never
+        // touched, and there is nothing to record.
+        ...(costingRow &&
+          (existing.costing || !isEmptyCosting(costingRow)) && {
+            costing: {
+              upsert: { create: costingRow, update: costingRow },
+            },
+          }),
       },
       include: { client: true },
     });
@@ -122,6 +157,39 @@ export async function PATCH(request, { params }) {
       client: redactClient(full, updated.client),
     });
   }
+
+  // ── What costing the NEW version row gets ────────────────────────────────
+  //
+  // Three cases, and the middle one is the easy thing to get wrong:
+  //
+  //   the request sent a panel   → use it, even if it is empty. An empty one
+  //                                over an existing row is somebody deleting
+  //                                the crew, and ignoring that would be a Save
+  //                                button that doesn't.
+  //   the request said nothing   → copy the previous version's row forward.
+  //                                Every list and report reads the LATEST row,
+  //                                so dropping it here would look like the
+  //                                figures had been deleted rather than
+  //                                superseded — same reasoning as the photos.
+  //   neither                    → no row, and nothing pretends there is one.
+  //
+  // Copied field by field: the previous version keeps its own row, and that
+  // row's id and timestamps must not be reused.
+  const versionCosting =
+    costingRow && (existing.costing || !isEmptyCosting(costingRow))
+      ? costingRow
+      : existing.costing
+        ? {
+            crew: existing.costing.crew ?? [],
+            materialCost: existing.costing.materialCost,
+            overheadPct: existing.costing.overheadPct,
+            note: existing.costing.note,
+            labourHours: existing.costing.labourHours,
+            labourCost: existing.costing.labourCost,
+            overhead: existing.costing.overhead,
+            totalCost: existing.costing.totalCost,
+          }
+        : null;
 
   // Already sent — snapshot a new version instead of silently rewriting history
   const rootId = existing.parentInvoiceId || existing.id;
@@ -160,6 +228,7 @@ export async function PATCH(request, { params }) {
           ? normaliseMediaList(clientPhotos)
           : existing.clientPhotos,
       language: existing.language,
+      ...(versionCosting ? { costing: { create: versionCosting } } : {}),
     },
     include: { client: true },
   });

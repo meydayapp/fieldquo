@@ -21,6 +21,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { formatAppMoney } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
+import { compareJobCost } from "@/lib/costing/actualJobCost";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -65,6 +66,11 @@ export default function InvoiceDetailPage() {
   // Paid booking/visit fees this client already paid that can be credited here.
   const [creditInfo, setCreditInfo] = useState(null);
   const [creditingId, setCreditingId] = useState("");
+  // What this job cost, as it was worked out when the invoice was costed.
+  // Fetched from its own permission-gated endpoint rather than included on
+  // GET /api/invoices/[id] — that response goes to anyone who can read an
+  // invoice, and cost data answers to the jobCosting toggle instead.
+  const [savedCosting, setSavedCosting] = useState(null);
 
   useEffect(() => {
     // Guard res.ok: a 404/401 returns { error }, and setting that as the invoice
@@ -75,6 +81,13 @@ export default function InvoiceDetailPage() {
       .then(setInvoice)
       .catch(() => setInvoice(null))
       .finally(() => setLoading(false));
+    // 403 is the normal answer for someone without the jobCosting toggle, and
+    // `saved` is null when nobody has costed this invoice — both mean "show
+    // nothing", not "show zeroes".
+    fetch(`/api/invoices/costing?invoiceId=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setSavedCosting(d?.saved || null))
+      .catch(() => {});
     fetch(`/api/invoices/${id}/credit-visit-fee`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setCreditInfo)
@@ -552,6 +565,17 @@ export default function InvoiceDetailPage() {
         )}
       </div>
 
+      {savedCosting && (
+        <InternalJobCost
+          costing={savedCosting}
+          revenue={
+            Number(invoice.subtotal || 0) - Number(invoice.discount || 0)
+          }
+          currency={currency}
+          editHref={`/app/invoices/${id}/edit`}
+        />
+      )}
+
       {showPayment && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl w-full max-w-sm p-6">
@@ -615,6 +639,110 @@ export default function InvoiceDetailPage() {
         message={t("app.invoiceDetail.deleteMessage")}
         itemName={invoice.invoiceNumber}
       />
+    </div>
+  );
+}
+
+/**
+ * What this job cost, read back rather than recomputed.
+ *
+ * These figures were worked out server-side when the invoice was costed and
+ * stored on InvoiceCosting. Recomputing them here would answer a different
+ * question — "what would this cost at today's overhead" — and the number would
+ * move on an invoice nobody had touched. The editor recomputes live while you
+ * type; this is the record.
+ *
+ * Internal. It is on the contractor's own back-office page and reaches no
+ * client surface: the client's copy is /portal/[token]/invoices/[id], which
+ * reads a different endpoint that never loads this table.
+ */
+function InternalJobCost({ costing, revenue, currency, editHref }) {
+  const money = (n) => formatAppMoney(n, currency, "en");
+  const totals = costing.totals || {};
+  const crew = Array.isArray(costing.crew) ? costing.crew : [];
+  const cmp = compareJobCost({
+    estimatedCost: null,
+    actualCost: totals.totalCost,
+    revenue,
+  });
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <h2 className="font-semibold text-foreground">
+          Job cost{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            (internal — never shown to the client)
+          </span>
+        </h2>
+        <Link href={editHref} className="text-xs font-semibold underline">
+          Edit hours &amp; crew
+        </Link>
+      </div>
+
+      {crew.length > 0 && (
+        <div className="mb-3 space-y-0.5 text-xs text-muted-foreground">
+          {crew.map((m, i) => (
+            <div key={i} className="flex justify-between gap-3">
+              <span>
+                {m.name || "Crew member"} — {Number(m.hours) || 0} hrs @{" "}
+                {money(m.rate)}/hr
+              </span>
+              <span className="tabular-nums">
+                {money((Number(m.hours) || 0) * (Number(m.rate) || 0))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between text-muted-foreground">
+          <span>
+            Labour
+            {Number(totals.labourHours) > 0
+              ? ` — ${Number(totals.labourHours)} hrs`
+              : ""}
+          </span>
+          <span className="tabular-nums">{money(totals.labourCost)}</span>
+        </div>
+        <div className="flex justify-between text-muted-foreground">
+          <span>Materials</span>
+          <span className="tabular-nums">{money(totals.materialCost)}</span>
+        </div>
+        <div className="flex justify-between text-muted-foreground">
+          <span>Overhead</span>
+          <span className="tabular-nums">{money(totals.overhead)}</span>
+        </div>
+        <div className="flex justify-between font-semibold text-foreground border-t border-border pt-1">
+          <span>Job cost</span>
+          <span className="tabular-nums">{money(totals.totalCost)}</span>
+        </div>
+        {/* Null rather than 0% when there is no pre-tax revenue to measure
+            against — compareJobCost refuses to divide by nothing, and a made-up
+            0% would read as "this job broke even". */}
+        {cmp.profit != null && (
+          <div
+            className={`flex justify-between font-semibold ${
+              cmp.profit < 0
+                ? "text-red-600 dark:text-red-400"
+                : "text-foreground"
+            }`}
+          >
+            <span>Profit</span>
+            <span className="tabular-nums">
+              {money(cmp.profit)}
+              {cmp.marginPct != null ? ` (${cmp.marginPct}%)` : ""}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {costing.note ? (
+        <p className="mt-3 text-xs text-muted-foreground whitespace-pre-wrap">
+          {costing.note}
+        </p>
+      ) : null}
     </div>
   );
 }

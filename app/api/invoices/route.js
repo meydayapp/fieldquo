@@ -12,6 +12,7 @@ import {
   requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { buildCostingRow, mayCost, isEmptyCosting } from "./costingWrite";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -54,8 +55,11 @@ export async function POST(request) {
   // Invoices carry pricing, so two checks: the category level, and the
   // showPricing toggle. A member who can't see prices shouldn't be able to
   // create a document that consists mostly of them.
+  // Hoisted out of the try because the costing block below needs it too, and
+  // loading the same member twice to learn the same thing is waste.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "create invoices");
     requireToggle(full, "showPricing", "create invoices");
   } catch (err) {
@@ -76,6 +80,9 @@ export async function POST(request) {
     notes,
     language,
     clientPhotos,
+    // Internal cost panel — crew, their actual hours, materials. Never part of
+    // the document; see the InvoiceCosting model for why it is a separate row.
+    costing,
   } = body;
 
   if (!clientId || total === undefined) {
@@ -91,6 +98,19 @@ export async function POST(request) {
     select: { invoiceNumber: true },
   });
   const nextNumber = getNextInvoiceNumber(lastInvoice?.invoiceNumber);
+
+  // Costed against subtotal MINUS discount — the pre-tax money the crew's time
+  // and materials actually have to come out of. Tax is the government's, not
+  // the company's, and a discount given away is not revenue either; counting
+  // either as income flatters the margin.
+  const costingRow =
+    costing !== undefined && mayCost(full)
+      ? await buildCostingRow({
+          companyId: member.companyId,
+          costing,
+          price: (Number(subtotal) || 0) - (Number(discount) || 0),
+        })
+      : null;
 
   const invoice = await db.invoice.create({
     data: {
@@ -116,10 +136,24 @@ export async function POST(request) {
       ...(clientPhotos !== undefined && {
         clientPhotos: normaliseMediaList(clientPhotos),
       }),
+      // Nested create rather than a second round-trip: the cost panel is
+      // filled in on the same screen as the line items, and an invoice that
+      // saved while its crew and hours quietly didn't is the failure the whole
+      // "never ship a control that appears to work" rule is about.
+      //
+      // Nothing typed, nothing written. A brand-new invoice from someone who
+      // never opened the panel gets no costing row, rather than a row of
+      // zeroes that then renders as "Job cost $0.00" on the invoice page.
+      ...(costingRow && !isEmptyCosting(costingRow) && {
+        costing: { create: costingRow },
+      }),
     },
     include: { client: true },
   });
 
+  // `costing` is deliberately NOT included in the response. Nothing on the
+  // create path needs it back, and the fewer places a whole invoice row
+  // carries cost data, the fewer places it can be forwarded to a client.
   return NextResponse.json(invoice, { status: 201 });
 }
 

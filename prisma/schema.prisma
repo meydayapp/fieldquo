@@ -1583,6 +1583,68 @@ model Invoice {
   // show as "Emailed 3 July" in front of a client dispute.
   sentAt      DateTime?
   sentToEmail String?
+
+  // What the job cost the company. A separate row, never a column here — see
+  // InvoiceCosting for why that distinction is load-bearing.
+  costing InvoiceCosting?
+}
+
+/// What one invoice's job actually cost: who worked it, for how many hours, at
+/// what rate, plus materials and overhead. Internal only.
+///
+/// ── Why this is a table and not a Json column on Invoice ────────────────────
+///
+/// Two live code paths hand a whole Invoice row onwards without naming its
+/// fields:
+///
+///   app/api/portal/[token]/route.js  returns `client.invoices` — full rows —
+///     from a PUBLIC, token-only endpoint the homeowner loads.
+///   app/api/invoices/[id]/pdf/route.js  spreads `...invoice` into the PDF's
+///     `data`.
+///
+/// A `costing Json?` column on Invoice would ride along on both. It would
+/// render nowhere and still be sitting in the JSON the client's browser
+/// received — which is how a homeowner ends up reading the contractor's labour
+/// rates and margin. A separate row that nothing joins cannot leak by
+/// accident, and that is a stronger guarantee than remembering to strip a key
+/// in every future query. Same reasoning as the reserved-subdomain rule: make
+/// the boundary structural, not a habit.
+///
+/// No companyId of its own: every read goes through an Invoice already scoped
+/// to the member's company, and a second copy of the tenant key is a second
+/// thing that can disagree.
+model InvoiceCosting {
+  id        String  @id @default(cuid())
+  invoiceId String  @unique
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  /// [{ id, name, rate, hours }] — one row per person on the job.
+  ///
+  /// `hours` is per-person and ACTUAL here, not a share of a predicted pool
+  /// the way it is on a quote: an invoice bills the time that was worked. The
+  /// worker id is kept for provenance only; name and rate are COPIES, frozen
+  /// at save. A raise next year must not rewrite what last year's job cost.
+  crew Json?
+
+  /// Materials bought for this job, and the overhead basis used. overheadPct
+  /// is only consulted when the company has no real cost-per-job figure — see
+  /// estimateQuoteCost's overheadBasis.
+  materialCost Decimal @default(0) @db.Decimal(12, 2)
+  overheadPct  Decimal @default(0) @db.Decimal(6, 3)
+  note         String?
+
+  /// Computed SERVER-side from the fields above at save time, never accepted
+  /// from the browser. Stored rather than recomputed on read because the
+  /// company's overhead and rates move: this row is the answer as of the day
+  /// the invoice was costed, which is the only version of it worth comparing
+  /// against later.
+  labourHours Decimal @default(0) @db.Decimal(10, 2)
+  labourCost  Decimal @default(0) @db.Decimal(12, 2)
+  overhead    Decimal @default(0) @db.Decimal(12, 2)
+  totalCost   Decimal @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payment {
