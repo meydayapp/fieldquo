@@ -664,7 +664,14 @@ export default function NewQuotePage() {
   }, 0);
 
   const estimate = estimateQuoteCost({
-    scopeGroups,
+    // The company's rate overrides ride along with each group, so the cost
+    // side reads the same book the priced lines were built from. Without it a
+    // company that edited its gravel cost would see the default in the margin
+    // panel and its own number on the quote.
+    scopeGroups: scopeGroups.map((g) => ({
+      ...g,
+      rateOverrides: rateOverridesFor(g.categoryId),
+    })),
     labourRatePerHour: labourRate,
     crew,
     // Hours the takeoffs imply, plus anything the estimator added by hand.

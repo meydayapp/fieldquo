@@ -369,6 +369,47 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Materials: quantities everywhere, prices where somebody actually read
+  one.**
+
+  `lib/costing/tradeMaterials.js` (new), `lib/costing/estimateJobCost.js`,
+  `app/data/tradePriceBooks.js` (`materialCosts` on four books),
+  `app/components/quotes/builder/CostMarginPanel.js`.
+
+  Roofing, siding, paving and insulation now derive a BILL OF MATERIALS from
+  the takeoff — bundles from squares, cubic yards from area and base depth,
+  bags from square-foot-inches — and feed it into the cost panel. Before this
+  the books held sell rates only and margin was overstated by the whole
+  material cost.
+
+  1. **Quantities and prices are separated on purpose.** Packaging is product
+     spec (three bundles to a square, a 4x8 sheet is 32 sqft, a board foot is a
+     square foot one inch thick) and ships as constants. Unit cost is a market,
+     and only PAVING has one: two Ottawa suppliers were read and they agree.
+     Greely Sand's delivered ladder fits $33.50/cu yd + $190 delivery exactly at
+     every published quantity, which is $45.38/cu yd at a full load; Manotick
+     Gardens lists $45.00 independently. Delivery is carried per LOAD, not
+     smeared per yard — the fixed-cost lesson, arriving in the material this
+     time.
+  2. **Roofing, siding and insulation unit costs ship NULL.** No supplier
+     pricing was read, so a line has a quantity and no money, is flagged
+     `unpriced`, and the panel says "N materials have no price set, so this is
+     an understatement and the real margin is lower". Costing shingles at zero
+     would put the biggest input in a roofing job into the margin as free.
+  3. **The bill returns NO labour.** These trades already answer "how long"
+     through `tradeLabourHours`, which the quote page adds separately. Returning
+     hours here too would double every one of them, and the check asserts it.
+  4. **Every rate-card row is now verified to resolve.** Two siding materials
+     silently missed their cost field when it was added by regex, which would
+     have rendered two rows that read blank and saved nothing. `check:trade-labour`
+     walks every declared path against its book.
+
+  **Next, and the reason this list exists:** the same bill is the job's
+  SOURCING list. `Material`, `MaterialPriceEntry` and `Expense` already exist,
+  and `Task.sourceKey` is the de-dupe key for a generated to-do. What is missing
+  is a per-job purchase state — what has been bought — and one roll-up task so
+  it appears on /app/tasks without one row per bag of gravel.
+
 - **Quotes can say how long each phase takes, and companies can finally edit
   what their quotes say.**
 

@@ -365,7 +365,19 @@ export default function CostMarginPanel({
                 <span>
                   {m.name} — {m.qty} {m.unit}
                 </span>
-                <span className="tabular-nums">{money(m.cost)}</span>
+                {/* A quantity with no supplier price shows as exactly that. It
+                    used to be impossible to reach this state, because the only
+                    trades with materials had every cost seeded; the takeoff-
+                    derived bills have real quantities and mostly no prices yet,
+                    and rendering those as $0.00 would put the biggest input in
+                    a roofing job into the margin as free. */}
+                {m.unpriced ? (
+                  <span className="shrink-0 text-amber-700 dark:text-amber-400">
+                    no price set
+                  </span>
+                ) : (
+                  <span className="tabular-nums">{money(m.cost)}</span>
+                )}
               </div>
             ))}
             {g.labourBreakdown.map((l, i) => (
@@ -457,6 +469,17 @@ export default function CostMarginPanel({
             label="Materials — added by hand"
             value={money(estimate.addedMaterial)}
           />
+        )}
+        {/* Said next to the number it undermines, not tucked in a corner. The
+            hole is on the COST side, so the real margin is lower than the one
+            below — never higher — and that is the direction worth stating. */}
+        {estimate.unpricedMaterials > 0 && (
+          <p className="text-[11px] text-amber-700 dark:text-amber-400">
+            {estimate.unpricedMaterials} material
+            {estimate.unpricedMaterials === 1 ? " has" : "s have"} no price set,
+            so this is an understatement and the real margin is lower. Set them
+            on the rate card in Settings &rsaquo; Services.
+          </p>
         )}
         <Row
           label={

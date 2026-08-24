@@ -709,6 +709,40 @@ export const TRADE_PRICE_BOOKS = {
     // restated so the engine, the rate card and the cost panel read one set of
     // numbers.
     labour: { ...PAVER_LABOUR_DEFAULTS },
+
+    // What the materials COST, as opposed to what the job sells for. Internal
+    // only — this drives the margin panel and the job's sourcing list, and
+    // never appears on anything a client reads.
+    //
+    // ── Two Ottawa suppliers, read August 2026, and they agree ──────────────
+    //
+    // Greely Sand & Gravel publishes a delivered ladder rather than a rate.
+    // Fitting it gives a marginal cost and a fixed delivery, and the fit is
+    // exact at every published quantity from 1 to 16 cubic yards:
+    //
+    //   Granular A   $33.50/cu yd + $190 delivery   (1 cy $223.50 … 16 cy $726.08)
+    //   Stonedust    $30.25/cu yd + $190 delivery
+    //
+    // At a full 16-yard load that is $45.38/cu yd all in. Manotick Gardens,
+    // independently, lists Granular "A" at $45.00/cu yd and screened sand at
+    // $43.00. Two suppliers, two pricing models, 0.8% apart.
+    //
+    // Delivery is carried SEPARATELY rather than smeared into the yardage,
+    // because $190 on an 11-yard patio is $17/yd and on a 60-yard driveway is
+    // $3 — the same fixed-cost lesson the labour engines needed, arriving this
+    // time in the material.
+    materialCosts: {
+      gravelPerCuYd: 45,
+      sandPerCuYd: 43,
+      deliveryPerLoad: 190,
+      cuYdPerLoad: 16,
+      // No source read for these three, so they ship unset rather than
+      // invented. The bill of materials still lists them with a quantity, and
+      // the cost panel says how many lines have no price on them.
+      polySandPerBag: null,
+      edgeRestraintPerLength: null,
+      geotextilePerRoll: null,
+    },
   },
 
   // ── Driveway sealing ──────────────────────────────────────────────────
@@ -996,36 +1030,43 @@ export const TRADE_PRICE_BOOKS = {
         label: "3-tab asphalt shingles",
         pricePerSquare: 400,
         labourFactor: 0.95,
+        materialCostPerBundle: null,
       },
       asphalt_arch: {
         label: "Architectural shingles",
         pricePerSquare: 550,
         labourFactor: 1,
+        materialCostPerBundle: null,
       },
       asphalt_premium: {
         label: "Premium / designer shingles",
         pricePerSquare: 700,
         labourFactor: 1.15,
+        materialCostPerBundle: null,
       },
       metal_corrugated: {
         label: "Corrugated / ribbed metal",
         pricePerSquare: 850,
         labourFactor: 1.5,
+        materialCostPerBundle: null,
       },
       metal_standing_seam: {
         label: "Standing seam metal",
         pricePerSquare: 1300,
         labourFactor: 1.9,
+        materialCostPerBundle: null,
       },
       cedar_shake: {
         label: "Cedar shake",
         pricePerSquare: 1150,
         labourFactor: 2.2,
+        materialCostPerBundle: null,
       },
       membrane_flat: {
         label: "EPDM / modified bitumen (low slope)",
         pricePerSquare: 750,
         labourFactor: 1.3,
+        materialCostPerBundle: null,
       },
     },
     defaultMaterial: "asphalt_arch",
@@ -1085,6 +1126,32 @@ export const TRADE_PRICE_BOOKS = {
     // cost panel uses. See that file for how each constant was calibrated
     // against real production rates.
     labour: { ...ROOF_LABOUR_DEFAULTS },
+
+    // What the materials COST. Internal only.
+    //
+    // Every one of these is NULL, and that is the honest state: no supplier
+    // pricing was read for roofing. A bill of materials with quantities and no
+    // prices is useful — it is the sourcing list — and a bill costed at zero is
+    // worse than useless, because it tells the margin panel the shingles were
+    // free. Filling one in is one edit on the rate card.
+    //
+    // The packaging above them is NOT null, because packaging is product spec:
+    // three bundles to a square is three bundles to a square wherever you buy.
+    materialCosts: {
+      underlaymentPerRoll: null,
+      iceWaterPerRoll: null,
+      dripEdgePerLength: null,
+      starterPerBundle: null,
+      ridgeCapPerBundle: null,
+      ridgeVentPerSection: null,
+      stepFlashingPerBox: null,
+      ventBootEach: null,
+      boxVentEach: null,
+      skylightKitEach: null,
+      chimneyFlashingEach: null,
+      deckSheetEach: null,
+      nailBoxEach: null,
+    },
   },
 
   siding: {
@@ -1113,27 +1180,41 @@ export const TRADE_PRICE_BOOKS = {
     // midpoint is stated as a midpoint rather than dressed up as a rate: it is
     // the one line here a company should expect to edit first.
     materials: {
-      vinyl: { label: "Vinyl siding", pricePerSqft: 6, labourFactor: 1 },
+      vinyl: {
+        label: "Vinyl siding",
+        pricePerSqft: 6,
+        labourFactor: 1,
+        materialCostPerBox: null,
+      },
       aluminum: {
         label: "Aluminum siding",
         pricePerSqft: 7,
         labourFactor: 1.1,
+        materialCostPerBox: null,
       },
       fiber_cement: {
         label: "Fibre cement",
         pricePerSqft: 9,
         labourFactor: 1.6,
+        materialCostPerBox: null,
       },
-      cedar: { label: "Cedar", pricePerSqft: 12, labourFactor: 1.7 },
+      cedar: {
+        label: "Cedar",
+        pricePerSqft: 12,
+        labourFactor: 1.7,
+        materialCostPerBox: null,
+      },
       engineered_wood: {
         label: "Engineered wood",
         pricePerSqft: 8,
         labourFactor: 1.3,
+        materialCostPerBox: null,
       },
       stone_veneer: {
         label: "Stone or brick veneer",
         pricePerSqft: 17,
         labourFactor: 2.4,
+        materialCostPerBox: null,
       },
     },
     defaultMaterial: "vinyl",
@@ -1159,6 +1240,17 @@ export const TRADE_PRICE_BOOKS = {
     // each material's labourFactor above is for — it is read by
     // tradeLabourHours(), not decoration.
     labourHoursPerSqft: 0.032,
+
+    // What the materials COST. Internal only, and all null for the same reason
+    // as roofing: no supplier pricing was read. See that note.
+    materialCosts: {
+      housewrapPerRoll: null,
+      trimPerLength: null,
+      fasciaPerLength: null,
+      soffitPerSqft: null,
+      deckSheetEach: null,
+      fastenersPerSquare: null,
+    },
   },
 
   insulation: {
@@ -1229,6 +1321,12 @@ export const TRADE_PRICE_BOOKS = {
       blown_fiberglass: {
         label: "Blown fibreglass",
         rPerInch: 2.5,
+        // Coverage is printed on the bag as square feet at a stated R. Divided
+        // by the R per inch that is square-foot-inches, which is the unit the
+        // depth engine already works in. Editable because it is the bag's
+        // number and it varies by product — check the bag.
+        sqftInchesPerBag: 400,
+        materialCostPerBag: null,
         installedPerSqftPerR: 0.034,
         hoursPerSqft: 0.002,
         hoursPerSqftPerInch: 0.0004,
@@ -1236,6 +1334,8 @@ export const TRADE_PRICE_BOOKS = {
       blown_cellulose: {
         label: "Blown cellulose",
         rPerInch: 3.5,
+        sqftInchesPerBag: 300,
+        materialCostPerBag: null,
         installedPerSqftPerR: 0.04,
         hoursPerSqft: 0.002,
         hoursPerSqftPerInch: 0.0004,
@@ -1243,6 +1343,11 @@ export const TRADE_PRICE_BOOKS = {
       batt_fiberglass: {
         label: "Fibreglass batt",
         rPerInch: 3.2,
+        // A bundle covers less as it gets thicker. One figure per material is
+        // the simplification here, and it is the first thing to correct against
+        // the product actually being installed.
+        sqftPerBundle: 60,
+        materialCostPerBundle: null,
         needsVapourBarrier: true,
         installedPerSqftPerR: 0.045,
         hoursPerSqft: 0.012,
@@ -1251,6 +1356,8 @@ export const TRADE_PRICE_BOOKS = {
       batt_stone_wool: {
         label: "Stone wool batt",
         rPerInch: 4.1,
+        sqftPerBundle: 50,
+        materialCostPerBundle: null,
         needsVapourBarrier: true,
         installedPerSqftPerR: 0.062,
         hoursPerSqft: 0.014,
@@ -1259,6 +1366,11 @@ export const TRADE_PRICE_BOOKS = {
       spray_open_cell: {
         label: "Open-cell spray foam",
         rPerInch: 3.7,
+        // Sold as a set, measured in board feet. A board foot IS a square foot
+        // one inch thick, so the depth engine and the purchase order already
+        // speak the same unit.
+        boardFeetPerSet: 16000,
+        materialCostPerSet: null,
         // CANADIAN, and Toronto-anchored. See the note below.
         installedPerSqftPerR: 0.28,
         // Open cell is vapour-permeable and needs a separate barrier. Closed
@@ -1272,6 +1384,8 @@ export const TRADE_PRICE_BOOKS = {
       spray_closed_cell: {
         label: "Closed-cell spray foam",
         rPerInch: 6.5,
+        boardFeetPerSet: 4000,
+        materialCostPerSet: null,
         // CANADIAN, and Toronto-anchored. See the note below.
         installedPerSqftPerR: 0.33,
         hoursPerSqft: 0.004,
@@ -1281,6 +1395,8 @@ export const TRADE_PRICE_BOOKS = {
       rigid_board: {
         label: "Rigid board — XPS or polyiso",
         rPerInch: 5,
+        sqftPerSheet: 32,
+        materialCostPerSheet: null,
         installedPerSqftPerR: 0.09,
         hoursPerSqft: 0.018,
         hoursPerSqftPerInch: 0.0008,
@@ -1292,6 +1408,7 @@ export const TRADE_PRICE_BOOKS = {
       radiant_barrier: {
         label: "Foil radiant barrier",
         rPerInch: 0,
+        materialCostPerSqft: null,
         pricePerSqft: 1.2,
         hoursPerSqft: 0.01,
         hoursPerSqftPerInch: 0,
@@ -1314,6 +1431,17 @@ export const TRADE_PRICE_BOOKS = {
     },
 
     labour: { ...INSULATION_LABOUR_DEFAULTS },
+
+    packaging: { vapourBarrierSqftPerRoll: 1000 },
+
+    // What the materials COST. Internal only, all null — no supplier pricing
+    // was read. The PACKAGING on each material above is not null, because how
+    // much a bag or a set covers is the product's own number.
+    materialCosts: {
+      vapourBarrierPerRoll: null,
+      bafflePerUnit: null,
+      airSealCasePerUnit: null,
+    },
   },
 };
 
@@ -1449,6 +1577,14 @@ export const PRICE_BOOK_GROUPS = {
   insulationMaterials: "Insulation — installed",
   insulationExtras: "Air sealing, baffles and removal",
   insulationLabour: "How long it takes — internal, never shown to a client",
+  roofMaterialCost:
+    "What the materials cost you — internal, never shown to a client",
+  sidingMaterialCost:
+    "What the materials cost you — internal, never shown to a client",
+  insulationMaterialCost:
+    "What the materials cost you — internal, never shown to a client",
+  pavingMaterialCost:
+    "What the materials cost you — internal, never shown to a client",
 };
 
 export const PRICE_BOOK_FIELDS = {
@@ -1769,6 +1905,55 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "hours",
       step: 0.5,
       group: "pavingLabour",
+    },
+    {
+      path: "materialCosts.gravelPerCuYd",
+      label: "Granular base",
+      suffix: "$ / cu yd",
+      step: 1,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.sandPerCuYd",
+      label: "Bedding sand",
+      suffix: "$ / cu yd",
+      step: 1,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.deliveryPerLoad",
+      label: "Aggregate delivery",
+      suffix: "$ / load",
+      step: 5,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.cuYdPerLoad",
+      label: "What a truck holds",
+      suffix: "cu yd",
+      step: 1,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.polySandPerBag",
+      label: "Polymeric sand",
+      suffix: "$ / bag",
+      step: 1,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.edgeRestraintPerLength",
+      label: "Edge restraint",
+      suffix: "$ / 8 ft length",
+      step: 1,
+      group: "pavingMaterialCost",
+    },
+    {
+      path: "materialCosts.geotextilePerRoll",
+      label: "Geotextile",
+      suffix: "$ / roll",
+      step: 5,
+      group: "pavingMaterialCost",
     },
     {
       path: "paverAllowancePerSqft",
@@ -2191,6 +2376,146 @@ export const PRICE_BOOK_FIELDS = {
       step: 0.5,
       group: "roofLabour",
     },
+    {
+      path: "materials.asphalt_3tab.materialCostPerBundle",
+      label: "3-tab asphalt shingles",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.asphalt_arch.materialCostPerBundle",
+      label: "Architectural shingles",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.asphalt_premium.materialCostPerBundle",
+      label: "Premium / designer shingles",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.metal_corrugated.materialCostPerBundle",
+      label: "Corrugated / ribbed metal",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.metal_standing_seam.materialCostPerBundle",
+      label: "Standing seam metal",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.cedar_shake.materialCostPerBundle",
+      label: "Cedar shake",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materials.membrane_flat.materialCostPerBundle",
+      label: "EPDM / modified bitumen",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.underlaymentPerRoll",
+      label: "Synthetic underlayment",
+      suffix: "$ / roll (10 squares)",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.iceWaterPerRoll",
+      label: "Ice & water membrane",
+      suffix: "$ / roll (200 sqft)",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.dripEdgePerLength",
+      label: "Drip edge",
+      suffix: "$ / 10 ft length",
+      step: 1,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.starterPerBundle",
+      label: "Starter strip",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.ridgeCapPerBundle",
+      label: "Hip & ridge cap",
+      suffix: "$ / bundle",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.ridgeVentPerSection",
+      label: "Ridge vent",
+      suffix: "$ / 4 ft section",
+      step: 1,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.stepFlashingPerBox",
+      label: "Step flashing",
+      suffix: "$ / box of 100",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.ventBootEach",
+      label: "Plumbing vent boot",
+      suffix: "$ each",
+      step: 1,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.boxVentEach",
+      label: "Roof vent",
+      suffix: "$ each",
+      step: 1,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.skylightKitEach",
+      label: "Skylight flashing kit",
+      suffix: "$ each",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.chimneyFlashingEach",
+      label: "Chimney flashing",
+      suffix: "$ each",
+      step: 5,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.deckSheetEach",
+      label: "Sheathing",
+      suffix: "$ / sheet",
+      step: 1,
+      group: "roofMaterialCost",
+    },
+    {
+      path: "materialCosts.nailBoxEach",
+      label: "Roofing nails",
+      suffix: "$ / box",
+      step: 5,
+      group: "roofMaterialCost",
+    },
   ],
 
   siding: [
@@ -2264,6 +2589,90 @@ export const PRICE_BOOK_FIELDS = {
       step: 0.005,
       group: "sidingLabour",
     },
+    {
+      path: "materials.vinyl.materialCostPerBox",
+      label: "Vinyl siding",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materials.aluminum.materialCostPerBox",
+      label: "Aluminum siding",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materials.fiber_cement.materialCostPerBox",
+      label: "Fibre cement",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materials.cedar.materialCostPerBox",
+      label: "Cedar",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materials.engineered_wood.materialCostPerBox",
+      label: "Engineered wood",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materials.stone_veneer.materialCostPerBox",
+      label: "Stone or brick veneer",
+      suffix: "$ / box (200 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.housewrapPerRoll",
+      label: "House wrap",
+      suffix: "$ / roll (1,350 sqft)",
+      step: 5,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.trimPerLength",
+      label: "Trim",
+      suffix: "$ / 12 ft length",
+      step: 1,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.fasciaPerLength",
+      label: "Fascia",
+      suffix: "$ / 12 ft length",
+      step: 1,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.soffitPerSqft",
+      label: "Soffit",
+      suffix: "$ / sqft",
+      step: 0.25,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.deckSheetEach",
+      label: "Sheathing",
+      suffix: "$ / sheet",
+      step: 1,
+      group: "sidingMaterialCost",
+    },
+    {
+      path: "materialCosts.fastenersPerSquare",
+      label: "Fasteners",
+      suffix: "$ / square",
+      step: 1,
+      group: "sidingMaterialCost",
+    },
   ],
 
   insulation: [
@@ -2331,6 +2740,83 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "hours",
       step: 0.5,
       group: "insulationLabour",
+    },
+    {
+      path: "materials.blown_fiberglass.materialCostPerBag",
+      label: "Blown fibreglass",
+      suffix: "$ / bag",
+      step: 1,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.blown_cellulose.materialCostPerBag",
+      label: "Blown cellulose",
+      suffix: "$ / bag",
+      step: 1,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.batt_fiberglass.materialCostPerBundle",
+      label: "Fibreglass batt",
+      suffix: "$ / bundle",
+      step: 1,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.batt_stone_wool.materialCostPerBundle",
+      label: "Stone wool batt",
+      suffix: "$ / bundle",
+      step: 1,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.spray_open_cell.materialCostPerSet",
+      label: "Open-cell spray foam",
+      suffix: "$ / set",
+      step: 50,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.spray_closed_cell.materialCostPerSet",
+      label: "Closed-cell spray foam",
+      suffix: "$ / set",
+      step: 50,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.rigid_board.materialCostPerSheet",
+      label: "Rigid board",
+      suffix: "$ / 4x8 sheet",
+      step: 1,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materials.radiant_barrier.materialCostPerSqft",
+      label: "Foil radiant barrier",
+      suffix: "$ / sqft",
+      step: 0.05,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materialCosts.vapourBarrierPerRoll",
+      label: "Vapour barrier — 6 mil poly",
+      suffix: "$ / roll (1,000 sqft)",
+      step: 5,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materialCosts.bafflePerUnit",
+      label: "Soffit baffle",
+      suffix: "$ each",
+      step: 0.5,
+      group: "insulationMaterialCost",
+    },
+    {
+      path: "materialCosts.airSealCasePerUnit",
+      label: "Air sealing foam & caulk",
+      suffix: "$ / case",
+      step: 5,
+      group: "insulationMaterialCost",
     },
   ],
 };

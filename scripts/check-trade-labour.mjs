@@ -38,7 +38,17 @@ import {
   tradeLabourHours,
   tradeLabourDetail,
 } from "@/lib/pricing/tradeScope";
-import { getPriceBook } from "@/app/data/tradePriceBooks";
+import {
+  getPriceBook,
+  PRICE_BOOK_FIELDS,
+  PRICE_BOOK_GROUPS,
+  readField,
+} from "@/app/data/tradePriceBooks";
+import {
+  tradeMaterialsFor,
+  hasTradeMaterials,
+} from "@/lib/costing/tradeMaterials";
+import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
   resolveServiceContent,
   dominantGlossary,
@@ -904,6 +914,259 @@ check(
     assert.ok(!off.some((i) => /vapour barrier/i.test(i.description)));
   },
 );
+
+/* ── The rate card must not point at fields that do not exist ──────────── */
+
+check(
+  "every rate-card row resolves to a real field, in a labelled group",
+  () => {
+    // Two siding materials silently missed their cost field when it was added by
+    // regex, and the rate card would have rendered two rows that read blank and
+    // saved nothing. A row pointing at a path the book does not have is a control
+    // that appears to work and doesn't — the rule this codebase is swept for.
+    const dead = [];
+    for (const [key, fields] of Object.entries(PRICE_BOOK_FIELDS)) {
+      const book = getPriceBook(key);
+      for (const f of fields) {
+        if (readField(book, f.path) === undefined)
+          dead.push(`${key}: ${f.path}`);
+        if (f.group && !PRICE_BOOK_GROUPS[f.group])
+          dead.push(`${key}: unlabelled group "${f.group}"`);
+      }
+    }
+    assert.deepEqual(dead, []);
+  },
+);
+
+/* ── The bill of materials ─────────────────────────────────────────────── */
+
+const bill = (key, takeoff, overrides) =>
+  tradeMaterialsFor(key, { ...createTradeConfig(key), ...takeoff }, overrides);
+
+check("every trade with a takeoff-derived bill produces one", () => {
+  const cases = {
+    roofing_service: {
+      areaSqft: 2400,
+      pitchRise: 8,
+      layers: 1,
+      dripEdgeFt: 180,
+    },
+    siding: { sqft: 2000, trimFt: 200 },
+    insulation: { climateZone: "6", sqft: 1200 },
+    paving: { patioSqft: 1220, complexityLevel: "moderate" },
+  };
+  for (const [key, takeoff] of Object.entries(cases)) {
+    assert.ok(hasTradeMaterials(key), key);
+    const b = bill(key, takeoff);
+    assert.ok(b && b.materials.length > 0, `${key} produced nothing`);
+    assert.ok(
+      b.materials.every((m) => m.qty > 0),
+      `${key} has a zero quantity`,
+    );
+    assert.ok(
+      b.materials.every((m) => Number.isFinite(m.cost) && m.cost >= 0),
+      key,
+    );
+  }
+  assert.equal(hasTradeMaterials("plumbing"), false);
+  assert.equal(bill("plumbing", { sqft: 100 }), null);
+});
+
+check("an unpriced material is counted, never costed at zero", () => {
+  // Roofing ships with no supplier prices, deliberately. Every line must have
+  // a quantity, no money, and be counted — a $0 shingle line would tell the
+  // margin panel the biggest input in the job was free.
+  const b = bill("roofing_service", {
+    areaSqft: 2400,
+    pitchRise: 8,
+    layers: 1,
+  });
+  assert.ok(b.unpricedCount > 0);
+  assert.equal(b.materialTotal, 0);
+  assert.ok(b.materials.every((m) => m.unpriced && m.unitCost === null));
+  assert.equal(b.unpricedCount, b.materials.length);
+});
+
+check("paving is priced, and against the two Ottawa suppliers", () => {
+  const b = bill("paving", {
+    patioSqft: 1220,
+    complexityLevel: "moderate",
+    paverOption: "standard",
+  });
+  const line = (re) => b.materials.find((m) => re.test(m.name));
+  const base = line(/Granular base/);
+  const sand = line(/Bedding sand/);
+  const delivery = line(/delivery/i);
+  // Greely Sand's ladder fits $33.50/cu yd + $190 delivery exactly, and at a
+  // full 16-yard load that is $45.38/cu yd. Manotick Gardens lists $45.00.
+  assert.ok(
+    base.unitCost >= 43 && base.unitCost <= 47,
+    `$${base.unitCost}/cu yd`,
+  );
+  assert.ok(
+    sand.unitCost >= 40 && sand.unitCost <= 46,
+    `$${sand.unitCost}/cu yd`,
+  );
+  assert.equal(delivery.unitCost, 190);
+  // 1,220 sqft at a 12" frost-region base, plus 20% compaction.
+  assert.ok(base.qty > 50 && base.qty < 58, `${base.qty} cu yd`);
+  assert.ok(b.materialTotal > 0);
+});
+
+check(
+  "delivery is charged per LOAD, so it stops scaling with the yardage",
+  () => {
+    const small = bill("paving", {
+      patioSqft: 300,
+      complexityLevel: "moderate",
+    });
+    const big = bill("paving", {
+      patioSqft: 3000,
+      complexityLevel: "moderate",
+    });
+    const loads = (b) => b.materials.find((m) => /delivery/i.test(m.name)).qty;
+    const yards = (b) =>
+      b.materials.find((m) => /Granular base/.test(m.name)).qty;
+    assert.ok(loads(big) > loads(small));
+    // Per cubic yard, delivery is cheaper on the big job — which is the point.
+    assert.ok(
+      (loads(big) * 190) / yards(big) < (loads(small) * 190) / yards(small),
+    );
+  },
+);
+
+check("the bill follows the takeoff, not an average", () => {
+  const one = bill("roofing_service", {
+    areaSqft: 2400,
+    pitchRise: 6,
+    layers: 1,
+  });
+  const two = bill("roofing_service", {
+    areaSqft: 4800,
+    pitchRise: 6,
+    layers: 1,
+  });
+  const bundles = (b) => b.materials.find((m) => /bundles/.test(m.name)).qty;
+  assert.equal(bundles(one), 72, "3 bundles to a square, 24 squares");
+  assert.equal(bundles(two), 144);
+  // Details are bought by the foot the estimator counted, not by the area.
+  const withValleys = bill("roofing_service", {
+    areaSqft: 2400,
+    pitchRise: 6,
+    layers: 1,
+    dripEdgeFt: 180,
+  });
+  assert.equal(
+    withValleys.materials.find((m) => /Drip edge/.test(m.name)).qty,
+    18,
+    "180 ft in 10 ft lengths",
+  );
+});
+
+check("insulation buys by the packaging its material actually comes in", () => {
+  const at = (materialKey) =>
+    bill("insulation", { climateZone: "6", sqft: 1200, materialKey }).materials;
+  assert.ok(at("blown_fiberglass").some((m) => m.unit === "bag"));
+  assert.ok(at("batt_fiberglass").some((m) => m.unit === "bundle"));
+  assert.ok(at("spray_closed_cell").some((m) => m.unit === "set"));
+  assert.ok(at("rigid_board").some((m) => m.unit === "sheet"));
+  // And the vapour barrier rides with the material that needs one.
+  assert.ok(at("spray_open_cell").some((m) => /vapour barrier/i.test(m.name)));
+  assert.ok(
+    !at("spray_closed_cell").some((m) => /vapour barrier/i.test(m.name)),
+  );
+});
+
+check("a top-up buys fewer bags than a bare attic", () => {
+  const bags = (over) =>
+    bill("insulation", {
+      climateZone: "6",
+      sqft: 1200,
+      ...over,
+    }).materials.find((m) => m.unit === "bag").qty;
+  assert.ok(bags({ existingDepthIn: 4 }) < bags({}));
+});
+
+check("the bill returns NO labour — hours come from tradeLabourHours", () => {
+  // Returning hours here as well would count every one of them twice: the
+  // quote page already adds tradeLabourHours into manualLabourHours.
+  const est = estimateQuoteCost({
+    scopeGroups: [
+      {
+        tempId: "a",
+        label: "Roof",
+        categoryKey: "roofing_service",
+        takeoff: {
+          ...createTradeConfig("roofing_service"),
+          areaSqft: 2400,
+          pitchRise: 8,
+          layers: 1,
+        },
+      },
+    ],
+    price: 20000,
+    labourRatePerHour: 35,
+  });
+  assert.equal(
+    est.groups.reduce((s2, g) => s2 + g.labourHours, 0),
+    0,
+  );
+  assert.ok(
+    est.unpricedMaterials > 0,
+    "and the panel is told about the prices",
+  );
+});
+
+check("a blank takeoff buys nothing", () => {
+  for (const key of ["roofing_service", "siding", "insulation", "paving"]) {
+    const b = tradeMaterialsFor(key, createTradeConfig(key));
+    assert.deepEqual(b.materials, [], key);
+    assert.equal(b.materialTotal, 0, key);
+  }
+});
+
+check("the bill survives hostile input", () => {
+  const bases = {
+    roofing_service: { areaSqft: 2400, pitchRise: 8, layers: 1 },
+    siding: { sqft: 2000 },
+    insulation: { climateZone: "6", sqft: 1200 },
+    paving: { patioSqft: 1220 },
+  };
+  for (const v of [
+    1e308,
+    1e400,
+    -1,
+    NaN,
+    Infinity,
+    "x",
+    null,
+    [],
+    {},
+    "__proto__",
+  ]) {
+    for (const [key, base] of Object.entries(bases)) {
+      for (const f of Object.keys(base).concat([
+        "materialKey",
+        "paverOption",
+      ])) {
+        const b = tradeMaterialsFor(key, {
+          ...createTradeConfig(key),
+          ...base,
+          [f]: v,
+        });
+        assert.ok(b, `${key}.${f}=${String(v)} returned null`);
+        assert.ok(
+          b.materials.every(
+            (m) =>
+              Number.isFinite(m.qty) && Number.isFinite(m.cost) && m.qty >= 0,
+          ),
+          `${key}.${f}=${String(v)}`,
+        );
+        assert.ok(Number.isFinite(b.materialTotal), `${key}.${f}=${String(v)}`);
+      }
+    }
+  }
+});
 
 /* ── Process timelines ─────────────────────────────────────────────────── */
 
