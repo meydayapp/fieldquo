@@ -35,6 +35,7 @@ import {
   FileText,
   CalendarDays,
   Zap,
+  Megaphone,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";

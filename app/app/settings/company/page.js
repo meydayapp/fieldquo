@@ -228,93 +228,6 @@ function CompanyReadOnly({
         )}
       </SectionCard>
 
-      {/* Scope of work and terms.
-          Company.defaultProcessNotes is copied onto every new quote as
-          Quote.processNotes and printed on the document — and until now
-          nothing in /app could set it, so it was null everywhere. Same for
-          paymentTerms, which PaymentTermsSection renders and which no screen
-          could fill in either. Both are editable here.
-
-          The templates are starters, not defaults: nothing is written to the
-          company unless someone presses Save, and every figure a contractor
-          has to own is left in [brackets] so an unedited template is visibly
-          unfinished rather than quietly promising a warranty nobody agreed to. */}
-      <SectionCard
-        title="Scope of work and terms"
-        description="Copied onto every new quote, then editable on the quote itself. A quote that says what will happen — how deep the excavation goes, who hauls the old surface away, what changes cost — is the one that reads like somebody who has done the job before."
-      >
-        <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              Start from a trade template:
-            </span>
-            {contractTemplateList().map((tpl) => (
-              <button
-                key={tpl.key}
-                type="button"
-                disabled={!canEdit}
-                onClick={() => {
-                  // Appends rather than overwrites: silently replacing terms
-                  // somebody has already written is the destructive-operation-
-                  // labelled-as-cosmetic failure.
-                  const current = (form.defaultProcessNotes || "").trim();
-                  setForm({
-                    ...form,
-                    defaultProcessNotes: current
-                      ? `${current}\n\n${tpl.body}`
-                      : tpl.body,
-                  });
-                }}
-                className="rounded-full border border-border px-3 py-1 text-xs hover:border-foreground/40 disabled:opacity-50"
-              >
-                {tpl.label}
-              </button>
-            ))}
-          </div>
-          <textarea
-            rows={14}
-            disabled={!canEdit}
-            value={form.defaultProcessNotes || ""}
-            onChange={(e) =>
-              setForm({ ...form, defaultProcessNotes: e.target.value })
-            }
-            placeholder="What happens, in what order, and what is not included. Pick a trade template above to start from one."
-            className="w-full rounded border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
-          />
-          {unfilledPlaceholders(form.defaultProcessNotes).length > 0 && (
-            <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {unfilledPlaceholders(form.defaultProcessNotes).length} thing
-              {unfilledPlaceholders(form.defaultProcessNotes).length === 1
-                ? ""
-                : "s"}{" "}
-              still to decide, and they will print on the quote exactly as they
-              appear here:{" "}
-              <span className="font-mono">
-                {unfilledPlaceholders(form.defaultProcessNotes)
-                  .slice(0, 6)
-                  .join("  ")}
-              </span>
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="text-xs text-muted-foreground">Payment terms</label>
-          <input
-            disabled={!canEdit}
-            value={form.paymentTerms || ""}
-            onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
-            placeholder="e.g. 50% deposit, balance on completion — or Net 30"
-            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Read straight onto the document. A schedule it can parse renders as
-            cards; anything else prints as you wrote it. Left blank, the section
-            does not appear at all rather than inventing a schedule for you.
-          </p>
-        </div>
-      </SectionCard>
-
       {/* The one the owner named: opening hours as text, not as checkboxes. */}
       <SectionCard
         title={t("app.setCompany.openingHoursTitle")}
@@ -713,6 +626,93 @@ export default function CompanySettingsPage() {
           {t("app.setCompany.subtitle")}
         </p>
       </div>
+
+      {/* Scope of work and terms.
+          Company.defaultProcessNotes is copied onto every new quote as
+          Quote.processNotes and printed on the document — and until now
+          nothing in /app could set it, so it was null everywhere. Same for
+          paymentTerms, which PaymentTermsSection renders and which no screen
+          could fill in either. Both are editable here.
+
+          The templates are starters, not defaults: nothing is written to the
+          company unless someone presses Save, and every figure a contractor
+          has to own is left in [brackets] so an unedited template is visibly
+          unfinished rather than quietly promising a warranty nobody agreed to. */}
+      <SectionCard
+        title="Scope of work and terms"
+        description="Copied onto every new quote, then editable on the quote itself. A quote that says what will happen — how deep the excavation goes, who hauls the old surface away, what changes cost — is the one that reads like somebody who has done the job before."
+      >
+        <div>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              Start from a trade template:
+            </span>
+            {contractTemplateList().map((tpl) => (
+              <button
+                key={tpl.key}
+                type="button"
+                disabled={!canEdit}
+                onClick={() => {
+                  // Appends rather than overwrites: silently replacing terms
+                  // somebody has already written is the destructive-operation-
+                  // labelled-as-cosmetic failure.
+                  const current = (form.defaultProcessNotes || "").trim();
+                  setForm({
+                    ...form,
+                    defaultProcessNotes: current
+                      ? `${current}\n\n${tpl.body}`
+                      : tpl.body,
+                  });
+                }}
+                className="rounded-full border border-border px-3 py-1 text-xs hover:border-foreground/40 disabled:opacity-50"
+              >
+                {tpl.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            rows={14}
+            disabled={!canEdit}
+            value={form.defaultProcessNotes || ""}
+            onChange={(e) =>
+              setForm({ ...form, defaultProcessNotes: e.target.value })
+            }
+            placeholder="What happens, in what order, and what is not included. Pick a trade template above to start from one."
+            className="w-full rounded border border-border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+          />
+          {unfilledPlaceholders(form.defaultProcessNotes).length > 0 && (
+            <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {unfilledPlaceholders(form.defaultProcessNotes).length} thing
+              {unfilledPlaceholders(form.defaultProcessNotes).length === 1
+                ? ""
+                : "s"}{" "}
+              still to decide, and they will print on the quote exactly as they
+              appear here:{" "}
+              <span className="font-mono">
+                {unfilledPlaceholders(form.defaultProcessNotes)
+                  .slice(0, 6)
+                  .join("  ")}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground">Payment terms</label>
+          <input
+            disabled={!canEdit}
+            value={form.paymentTerms || ""}
+            onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
+            placeholder="e.g. 50% deposit, balance on completion — or Net 30"
+            className="mt-1 w-full rounded border border-border bg-background px-3 py-2 text-sm"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Read straight onto the document. A schedule it can parse renders as
+            cards; anything else prints as you wrote it. Left blank, the section
+            does not appear at all rather than inventing a schedule for you.
+          </p>
+        </div>
+      </SectionCard>
 
       {/* Industry & quote types — read-only reflection of what was picked at
           signup (industries) and what's currently enabled in Settings >

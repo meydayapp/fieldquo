@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-imports.mjs && node scripts/check-missing-imports.mjs && node scripts/check-env-docs.mjs && prisma generate && next build",
+    "build": "node scripts/check-imports.mjs && npx eslint app lib --config scripts/check-undef.config.mjs && node scripts/check-env-docs.mjs && prisma generate && next build",
     "check:imports": "node scripts/check-imports.mjs",
-    "check:undef": "eslint app lib scripts --config scripts/check-undef.config.mjs",
+    "check:undef": "npx eslint app lib --config scripts/check-undef.config.mjs",
     "check:t-shadow": "node scripts/check-t-shadow.mjs",
     "start": "next start",
     "lint": "eslint",
@@ -102,7 +102,7 @@
     "check:job-deletion": "node --import ./scripts/alias-loader.mjs scripts/check-job-deletion.mjs",
     "check:rbac-side-doors": "node --import ./scripts/alias-loader.mjs scripts/check-rbac-sideDoors.mjs",
     "check:tax-id": "node --import ./scripts/alias-loader.mjs scripts/check-tax-id.mjs",
-    "check:missing-imports": "node scripts/check-missing-imports.mjs"
+    "check:bio-link": "node --import ./scripts/alias-loader.mjs scripts/check-bio-link.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
