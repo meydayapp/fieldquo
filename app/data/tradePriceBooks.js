@@ -643,21 +643,30 @@ export const TRADE_PRICE_BOOKS = {
     assumesMinSqft: 500,
     minimumTotal: 0,
 
-    // Man-hours per square foot, for the internal cost estimate and for
-    // telling the client how long the crew will be on site.
+    // Man-hours per square foot, for the internal cost estimate and for telling
+    // a client how long the crew will be on site. No Ontario source publishes a
+    // productivity figure, so this comes from two real jobs — and they disagree
+    // in a way that matters.
     //
-    // From a real Ottawa job rather than a published productivity table (no
-    // Ontario source publishes one): 7 days, 3 crew full time — 21 crew-days,
-    // about 168 man-hours at 8-hour days — on roughly 960 sqft of interlock.
-    // 168 ÷ 960 = 0.175.
+    //   Welandscaping, 2023 — 7 days, 3 crew, ~161 man-hours over roughly 960
+    //   sqft of interlock. That is 0.168 h/sqft, BUT the same seven days also
+    //   built a deck with railings, a porch concrete overlay, river rock beds
+    //   and lighting. So 0.168 is an upper bound on interlock, not a
+    //   measurement of it.
     //
-    // That job ALSO built a deck, a concrete porch overlay, river rock beds
-    // and lighting, so some of those hours were not paving. 0.175 is therefore
-    // an upper bound on pure interlock and the figure most worth replacing
-    // with your own crew's numbers. The published Ontario timeline anchor —
-    // a 200–400 sqft patio in 2–4 days — works out to a similar 0.15–0.18 at
-    // a three-person crew, which is the only corroboration available.
-    labourHoursPerSqft: 0.175,
+    //   Custom Interlocking, 2021 — 1,220 sqft, "6 Days to complete", and pure
+    //   interlock: 12" excavation, three compacted lifts, snap edge, polymeric
+    //   sand, grading and seed, nothing else. At a 3-person crew on 8-hour days
+    //   that is 144 man-hours, or 0.118 h/sqft.
+    //
+    // The crew size on the second job is NOT stated — that is the assumption
+    // this number rests on, and it is the thing to check first. At two crew it
+    // would be 0.079, at four 0.157.
+    //
+    // 0.12 is the second job's figure, which the first corroborates as an upper
+    // bound. The 0.175 this shipped with was measured on a job that was only
+    // partly paving and ran ~45% long as a result.
+    labourHoursPerSqft: 0.12,
   },
 
   // ── Driveway sealing ──────────────────────────────────────────────────
