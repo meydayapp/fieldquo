@@ -58,6 +58,14 @@ export async function PATCH(request, { params }) {
   // The whole company's chain is loaded because approval walks upward: knowing
   // the requester's manager is not enough to tell whether the actor is three
   // steps above them.
+  //
+  // Note what is deliberately NOT here: availability. Escalation past a manager
+  // who is away (lib/org/leaveRouting.js) decides who a request WAITS on, and
+  // waiting is not permission. Checking `isAway` here would mean a manager back
+  // from holiday couldn't approve a request that escalated past them while they
+  // were out, and — worse — a database hiccup in the availability lookup would
+  // start refusing approvals. Who may act is answered from the org chart and
+  // the role alone, both of which are already loaded.
   const [actor, orgWorkers] = await Promise.all([
     db.worker.findFirst({
       where: { companyId: member.companyId, userId: member.userId },

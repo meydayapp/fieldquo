@@ -23,6 +23,7 @@ import {
 } from "@/lib/leave/accrual";
 import { consumeBalance, refreshAccruals } from "@/lib/leave/balances";
 import { ensureWorkerForMember } from "@/lib/team/ensureWorker";
+import { annotateRouting } from "@/lib/org/leaveRouting";
 
 const YEAR = () => new Date().getUTCFullYear();
 
@@ -93,7 +94,7 @@ export async function GET(request) {
         { status: 403 },
       );
     }
-    const [requests, balances] = await Promise.all([
+    const [requests, balances, viewer] = await Promise.all([
       db.leaveRequest.findMany({
         where: { companyId: member.companyId },
         orderBy: [{ status: "asc" }, { startDate: "desc" }],
@@ -110,11 +111,26 @@ export async function GET(request) {
           worker: { select: { id: true, name: true } },
         },
       }),
+      // Read, never create: someone browsing the team's leave who has no Worker
+      // row of their own is a viewer, not a person to be enrolled as crew.
+      db.worker.findFirst({
+        where: { companyId: member.companyId, userId: member.userId },
+        select: { id: true },
+      }),
     ]);
     return NextResponse.json({
       scope: "team",
       policies,
-      requests,
+      // Each pending request carries who it is waiting on, escalated past
+      // whoever is away today, and whether THIS viewer may act on it. The
+      // second is not the first: a request waiting on a supervisor is still
+      // approvable by the owner. See lib/org/leaveRouting.js.
+      requests: await annotateRouting({
+        companyId: member.companyId,
+        requests,
+        actorWorkerId: viewer?.id || null,
+        hasManagePermission: can(member.role, "user:manage"),
+      }),
       balances: balances.map((b) => ({ ...b, ...remainingBalance(b) })),
       canApprove: can(member.role, "user:manage"),
     });
@@ -158,7 +174,15 @@ export async function GET(request) {
     scope: "self",
     worker,
     policies,
-    requests,
+    // The person who asked for the time off is the one most in the dark about
+    // where it went. `canAct` comes back false on their own request, which is
+    // correct and is what the PATCH route enforces.
+    requests: await annotateRouting({
+      companyId: member.companyId,
+      requests,
+      actorWorkerId: worker.id,
+      hasManagePermission: can(member.role, "user:manage"),
+    }),
     balances: balances.map((b) => ({
       ...b,
       ...remainingBalance(b, { pendingDays: pendingByPolicy[b.policyId] || 0 }),
@@ -269,5 +293,15 @@ export async function POST(request) {
     metadata: { days, policy: policy.name, startDate, endDate },
   });
 
-  return NextResponse.json(created, { status: 201 });
+  // Tell them where it went. "Submitted" and "submitted to Dana, because Sam is
+  // away this week" are different amounts of reassurance, and the second one is
+  // the answer to the question everybody actually asks next.
+  const [routed] = await annotateRouting({
+    companyId: member.companyId,
+    requests: [created],
+    actorWorkerId: worker.id,
+    hasManagePermission: can(member.role, "user:manage"),
+  });
+
+  return NextResponse.json(routed || created, { status: 201 });
 }

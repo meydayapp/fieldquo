@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   Users,
   User,
+  ArrowUpRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
@@ -171,6 +172,7 @@ export default function TimeOffPage() {
 function MyTimeOff({ data, reload }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [sentTo, setSentTo] = useState("");
 
   if (!data) {
     return (
@@ -231,12 +233,22 @@ function MyTimeOff({ data, reload }) {
         <RequestForm
           policies={data.policies}
           balances={data.balances || []}
-          onDone={() => {
+          onDone={(created) => {
             setOpen(false);
+            // The new row lands in a list sorted by date, which may be a long
+            // way down. Say where the request went at the point of asking.
+            setSentTo(created?.routing?.label || "");
             reload();
           }}
           onCancel={() => setOpen(false)}
         />
+      )}
+
+      {sentTo && (
+        <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-foreground flex items-start gap-2">
+          <Check size={15} className="mt-0.5 shrink-0" />
+          Request submitted. {sentTo}
+        </div>
       )}
 
       <div className="space-y-2">
@@ -327,12 +339,12 @@ function RequestForm({ policies, balances, onDone, onCancel }) {
     setBusy(true);
     setError("");
     try {
-      await fetchJson("/api/leave", {
+      const created = await fetchJson("/api/leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, halfDay: sameDay && form.halfDay }),
       });
-      onDone();
+      onDone(created);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -516,6 +528,21 @@ function RequestRow({ request, reload, canCancel, canReview, showWho }) {
               Manager note: {request.reviewNote}
             </p>
           )}
+          {/* Only pending requests carry routing — an approved one is waiting
+              on nobody, and saying otherwise would be noise. */}
+          {request.status === "pending" && request.routing?.label && (
+            <p className="text-xs text-muted-foreground mt-1 flex items-start gap-1.5">
+              <ArrowUpRight size={13} className="mt-0.5 shrink-0" />
+              <span>
+                {request.routing.label}
+                {request.routing.note && (
+                  <span className="block text-amber-600 dark:text-amber-400">
+                    {request.routing.note}
+                  </span>
+                )}
+              </span>
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2 shrink-0">
@@ -610,7 +637,12 @@ function TeamTimeOff({ data, reload }) {
                 key={r.id}
                 request={r}
                 reload={reload}
-                canReview={data.canApprove}
+                // Per request, not per role. The PATCH route already refuses a
+                // supervisor who isn't above this person, and a button that
+                // renders only to return 403 is the dead control this codebase
+                // keeps finding. Falls back to the role when routing couldn't
+                // be computed, which is the behaviour that was here before.
+                canReview={r.routing ? r.routing.canAct : data.canApprove}
                 showWho
               />
             ))}
@@ -618,7 +650,8 @@ function TeamTimeOff({ data, reload }) {
         ) : (
           <p className="text-sm text-muted-foreground">{t("app.timeOff.nothingToApprove")}</p>
         )}
-        {!data.canApprove && pending.length > 0 && (
+        {pending.length > 0 &&
+          !pending.some((r) => (r.routing ? r.routing.canAct : data.canApprove)) && (
           <p className="mt-2 text-xs text-muted-foreground flex items-start gap-1.5">
             <Info size={13} className="mt-0.5 shrink-0" />
             {t("app.timeOff.viewOnly")}
