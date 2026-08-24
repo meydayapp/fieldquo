@@ -23,11 +23,19 @@ import {
 import { reportResponseError } from "@/lib/clientErrors";
 import { embedSnippet } from "@/lib/embed/snippet";
 import { readableForeground } from "@/lib/brand/colour";
+import {
+  bandFieldsFor,
+  choiceFieldsFor,
+  estimateStepIssues,
+  funnelEstimateSteps,
+  DEFAULT_ESTIMATE_ORDER,
+} from "@/app/data/funnelBlocks";
 
 const STEP_KINDS = [
   { kind: "intro", label: "Intro" },
   { kind: "question_single", label: "Single choice" },
   { kind: "question_multi", label: "Multiple choice" },
+  { kind: "instant_estimate", label: "Instant estimate" },
   { kind: "photo_upload", label: "Photo upload" },
   { kind: "form", label: "Contact form" },
   { kind: "thankyou", label: "Thank you" },
@@ -62,6 +70,21 @@ function newStep(kind, i) {
         answers: [
           { id: `a_${Date.now().toString(36)}`, label: "Option A", value: "a" },
         ],
+      };
+    case "instant_estimate":
+      return {
+        id,
+        kind,
+        headline: "Your instant price",
+        subhead: "",
+        sizeQuestion: "Roughly how big is the job?",
+        buttonText: "Continue",
+        // No trade and no bands: this step cannot be guessed. The editor asks
+        // for both and publish is blocked until they exist, rather than seeding
+        // a size the company never chose and quietly pricing it.
+        trade: "",
+        order: DEFAULT_ESTIMATE_ORDER,
+        bands: [],
       };
     case "photo_upload":
       return {
@@ -108,6 +131,12 @@ export default function FunnelBuilderPage() {
   });
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
+  // The company's own instant-quote services, read from the public endpoint the
+  // homeowner-facing estimator uses. Labels and modes only — that response has
+  // never carried a rate, and reading it here keeps "what a funnel may price"
+  // and "what /instant-quote may price" as one list rather than two.
+  const [iqTrades, setIqTrades] = useState(null);
+  const [iqError, setIqError] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/funnels/${id}`);
@@ -132,6 +161,30 @@ export default function FunnelBuilderPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!company?.slug) return;
+    let cancelled = false;
+    fetch(`/api/instant-quote/${company.slug}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        // Only the trades a funnel step can actually render — the rest need a
+        // map, a satellite lookup or the junk taxonomy, none of which is a tap
+        // on a full-screen card. bandFieldsFor() is the same filter the
+        // sanitiser uses, so the dropdown can't offer a trade the server would
+        // then refuse.
+        setIqTrades((d?.trades || []).filter((t) => bandFieldsFor(t.trade).length > 0));
+      })
+      .catch(() => {
+        // Left as null — "unknown", not "none". Treating a failed lookup as an
+        // empty list would block publish on a funnel that is perfectly fine.
+        if (!cancelled) setIqError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [company?.slug]);
 
   useEffect(() => {
     fetch(`/api/funnels/${id}/analytics`)
@@ -199,8 +252,41 @@ export default function FunnelBuilderPage() {
     }
   }
 
+  // ── What stops this funnel going live ─────────────────────────────────────
+  //
+  // An estimate step with no service, no size options, or a service the company
+  // hasn't switched on for instant quotes renders NOTHING. The public route
+  // removes such a step rather than serving an empty card in a driveway — which
+  // means publishing it would quietly ship a funnel missing the step the owner
+  // built it for. So publish refuses here and names the fix.
+  //
+  // Availability is only judged when it is known: a failed lookup leaves the
+  // list null and blocks nothing, because "we couldn't check" is not "you
+  // haven't got one".
+  const estimateBlockers = useMemo(() => {
+    const out = [];
+    for (const s of funnelEstimateSteps(steps)) {
+      const name = s.headline || "Instant estimate";
+      for (const issue of estimateStepIssues(s)) {
+        if (issue.code === "no_trade" || issue.code === "no_bands") {
+          out.push(`${name}: ${issue.message}`);
+        }
+      }
+      if (s.trade && iqTrades && !iqTrades.some((t) => t.trade === s.trade)) {
+        out.push(
+          `${name}: that service isn't switched on for instant quotes, so the step can't price anything. Turn it on in Settings → Instant quotes.`,
+        );
+      }
+    }
+    return out;
+  }, [steps, iqTrades]);
+
   async function togglePublish() {
     const next = funnel.status === "published" ? "draft" : "published";
+    if (next === "published" && estimateBlockers.length) {
+      setError(estimateBlockers[0]);
+      return;
+    }
     const updated = await save({ status: next });
     if (updated) setFunnel((f) => ({ ...f, status: updated.status }));
   }
@@ -298,7 +384,14 @@ export default function FunnelBuilderPage() {
         </button>
         <button
           onClick={togglePublish}
-          disabled={saving}
+          disabled={
+            saving || (funnel.status !== "published" && estimateBlockers.length > 0)
+          }
+          title={
+            funnel.status !== "published" && estimateBlockers.length
+              ? estimateBlockers[0]
+              : undefined
+          }
           className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-1.5 rounded-full text-sm font-semibold disabled:opacity-50"
           data-tour="funnel-publish"
         >
@@ -309,6 +402,21 @@ export default function FunnelBuilderPage() {
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {error}
+        </div>
+      )}
+
+      {/* Named in full rather than left on the disabled button, because a
+          greyed-out Publish with no reason is its own kind of dead control. */}
+      {estimateBlockers.length > 0 && funnel.status !== "published" && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <div className="font-semibold">
+            This funnel can&rsquo;t go live yet
+          </div>
+          <ul className="list-disc ml-4 mt-1 space-y-0.5">
+            {estimateBlockers.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -470,7 +578,12 @@ export default function FunnelBuilderPage() {
         {/* Step editor */}
         <div className="bg-card border border-border rounded-xl p-4">
           {step ? (
-            <StepEditor step={step} onChange={updateStep} />
+            <StepEditor
+              step={step}
+              onChange={updateStep}
+              iqTrades={iqTrades}
+              iqError={iqError}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">
               Add a step to begin.
@@ -555,7 +668,7 @@ const MAPS_OPTIONS = [
   { value: "budget", label: "Feeds budget" },
 ];
 
-function StepEditor({ step, onChange }) {
+function StepEditor({ step, onChange, iqTrades, iqError }) {
   const isQuestion =
     step.kind === "question_single" || step.kind === "question_multi";
 
@@ -589,6 +702,7 @@ function StepEditor({ step, onChange }) {
       {(step.kind === "intro" ||
         step.kind === "photo_upload" ||
         step.kind === "thankyou" ||
+        step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
           label="Headline"
@@ -599,12 +713,22 @@ function StepEditor({ step, onChange }) {
       {(step.kind === "intro" ||
         step.kind === "photo_upload" ||
         step.kind === "thankyou" ||
+        step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
           label="Subtext"
           value={step.subhead}
           onChange={(v) => onChange({ subhead: v })}
           textarea
+        />
+      )}
+
+      {step.kind === "instant_estimate" && (
+        <EstimateStepEditor
+          step={step}
+          onChange={onChange}
+          iqTrades={iqTrades}
+          iqError={iqError}
         />
       )}
       {isQuestion && (
@@ -693,6 +817,7 @@ function StepEditor({ step, onChange }) {
       {(step.kind === "intro" ||
         step.kind === "photo_upload" ||
         step.kind === "question_multi" ||
+        step.kind === "instant_estimate" ||
         step.kind === "form") && (
         <Field
           label="Button text"
@@ -730,6 +855,242 @@ function StepEditor({ step, onChange }) {
             })}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The instant-estimate step's editor.
+ *
+ * Three decisions live here: which of the company's own instant-quote services
+ * this step prices, whether the number comes before or after the contact form,
+ * and the size options the visitor taps. Everything it knows about the
+ * company's pricing comes from the same public endpoint the homeowner-facing
+ * estimator reads — labels and modes, never a rate.
+ */
+function EstimateStepEditor({ step, onChange, iqTrades, iqError }) {
+  const fields = bandFieldsFor(step.trade);
+  const choices = choiceFieldsFor(step.trade);
+  const bands = Array.isArray(step.bands) ? step.bands : [];
+  const selected = (iqTrades || []).find((t) => t.trade === step.trade) || null;
+  const issues = estimateStepIssues(step);
+
+  function setBand(i, patch) {
+    onChange({ bands: bands.map((b, idx) => (idx === i ? { ...b, ...patch } : b)) });
+  }
+  function setBandValue(i, key, raw) {
+    const values = { ...(bands[i]?.values || {}) };
+    // Kept as the typed string is NOT an option — the sanitiser stores numbers
+    // and the server multiplies by them. An empty box means zero, which
+    // estimateStepIssues() then reports as an option that can't be priced.
+    values[key] = raw === "" ? 0 : Number(raw);
+    setBand(i, { values });
+  }
+  function addBand() {
+    onChange({
+      bands: [
+        ...bands,
+        { id: `b_${Date.now().toString(36)}`, label: "", values: {} },
+      ],
+    });
+  }
+
+  return (
+    <div className="space-y-3 border-t border-border pt-3">
+      {iqError && (
+        <p className="text-[11px] text-muted-foreground">
+          Couldn&rsquo;t check your instant-quote services just now.
+        </p>
+      )}
+
+      {iqTrades && iqTrades.length === 0 && (
+        <div className="text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-amber-800 dark:text-amber-200">
+          You haven&rsquo;t set up a service that can be priced inside a funnel.
+          Turn one on in{" "}
+          <a href="/app/settings/instant-quotes" className="underline font-semibold">
+            Settings → Instant quotes
+          </a>
+          . Roofing, lawn mowing and junk removal are priced from a satellite
+          measurement, a drawn map or an item list, so they stay on your
+          instant-quote page rather than a tap-through funnel.
+        </div>
+      )}
+
+      <label className="block text-xs">
+        <span className="text-muted-foreground">Service to price</span>
+        <select
+          value={step.trade || ""}
+          onChange={(e) =>
+            // The bands carry measurements in the OLD trade's units, so
+            // switching service clears them rather than silently repricing
+            // "500 sq ft" as 500 doors.
+            onChange({ trade: e.target.value, bands: [], assumptions: {} })
+          }
+          className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
+        >
+          <option value="">Choose a service…</option>
+          {(iqTrades || []).map((t) => (
+            <option key={t.trade} value={t.trade}>
+              {t.label}
+            </option>
+          ))}
+          {/* A trade saved earlier and since switched off would otherwise
+              vanish from the box, making the step look untouched. */}
+          {step.trade && !selected && (
+            <option value={step.trade}>{step.trade} (not switched on)</option>
+          )}
+        </select>
+      </label>
+
+      {selected?.estimateDisplay === "gated" && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          This service is set to “don&rsquo;t show a price”, so this step will
+          show your callback message instead of a number. Change that in
+          Settings → Instant quotes if you want a figure on screen.
+        </p>
+      )}
+      {selected?.estimateDisplay === "after_submit" && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400">
+          This service reveals its range only after someone submits, so the price
+          appears after the contact step whichever order you pick below.
+        </p>
+      )}
+
+      <div>
+        <div className="text-xs text-muted-foreground mb-1.5">Order</div>
+        <div className="flex flex-col gap-1.5">
+          {[
+            {
+              value: "price_first",
+              title: "Price first, then their details",
+              hint: "Fewer contacts, each much warmer. This is what the step is for.",
+            },
+            {
+              value: "details_first",
+              title: "Their details first, then the price",
+              hint: "More contacts, colder — plenty of them only wanted the number.",
+            },
+          ].map((o) => {
+            const on = (step.order || DEFAULT_ESTIMATE_ORDER) === o.value;
+            return (
+              <button
+                key={o.value}
+                onClick={() => onChange({ order: o.value })}
+                className={`text-left rounded-lg border px-3 py-2 ${
+                  on ? "border-foreground bg-accent" : "border-border"
+                }`}
+              >
+                <div className="text-xs font-semibold text-foreground">{o.title}</div>
+                <div className="text-[11px] text-muted-foreground">{o.hint}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {choices.length > 0 && (
+        <div>
+          <div className="text-xs text-muted-foreground mb-1.5">
+            Assume for every visitor
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {choices.map((c) => (
+              <label key={c.key} className="block text-xs">
+                <span className="text-muted-foreground">{c.label}</span>
+                <select
+                  value={step.assumptions?.[c.key] || ""}
+                  onChange={(e) =>
+                    onChange({
+                      assumptions: { ...(step.assumptions || {}), [c.key]: e.target.value },
+                    })
+                  }
+                  className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
+                >
+                  <option value="">Leave to the estimator&rsquo;s default</option>
+                  {c.options.map((o) => (
+                    <option key={o} value={o}>
+                      {o.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            A funnel can&rsquo;t ask everything, so state it once here. An
+            exterior job left unset is priced as interior.
+          </p>
+        </div>
+      )}
+
+      <Field
+        label="Size question"
+        value={step.sizeQuestion}
+        onChange={(v) => onChange({ sizeQuestion: v })}
+      />
+
+      {step.trade && (
+        <div>
+          <div className="text-xs text-muted-foreground mb-1.5">
+            Size options — the visitor taps one
+          </div>
+          <div className="space-y-2">
+            {bands.map((b, i) => (
+              <div key={b.id} className="border border-border rounded-lg p-2 space-y-1.5">
+                <div className="flex gap-1.5">
+                  <input
+                    value={b.label || ""}
+                    onChange={(e) => setBand(i, { label: e.target.value })}
+                    placeholder="What they see, e.g. “One room, about 200 sq ft”"
+                    className="flex-1 border border-border rounded px-2 py-1 text-xs bg-card"
+                  />
+                  <button
+                    onClick={() =>
+                      onChange({ bands: bands.filter((_, idx) => idx !== i) })
+                    }
+                    className="text-muted-foreground hover:text-red-600"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {fields.map((f) => (
+                    <label key={f.key} className="text-[11px] text-muted-foreground">
+                      {f.label}
+                      <input
+                        type="number"
+                        min="0"
+                        value={b.values?.[f.key] ?? ""}
+                        onChange={(e) => setBandValue(i, f.key, e.target.value)}
+                        className="w-full border border-border rounded px-2 py-1 text-xs bg-card text-foreground"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={addBand}
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground"
+          >
+            <Plus size={12} /> Add size option
+          </button>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            The measurement never leaves this page — the visitor&rsquo;s phone
+            sends which option they tapped and the price is worked out here from
+            your saved rates.
+          </p>
+        </div>
+      )}
+
+      {issues.length > 0 && (
+        <ul className="text-[11px] text-amber-600 dark:text-amber-400 list-disc ml-4 space-y-0.5">
+          {issues.map((i) => (
+            <li key={i.code}>{i.message}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -799,6 +1160,50 @@ function StepPreview({ step, accent, company }) {
             >
               {step.buttonText || "Submit"}
             </button>
+          </div>
+        ) : step.kind === "instant_estimate" ? (
+          <div>
+            <h3 className="font-bold text-[#2d2520]">
+              {step.headline || "Your instant price"}
+            </h3>
+            {step.subhead && (
+              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
+            )}
+            {step.sizeQuestion && (
+              <p className="text-xs font-semibold text-[#2d2520] mt-3">
+                {step.sizeQuestion}
+              </p>
+            )}
+            <div className="mt-2 space-y-2">
+              {(step.bands || []).length === 0 ? (
+                <div className="border border-dashed border-black/15 rounded-lg px-3 py-4 text-center text-xs text-neutral-400">
+                  Add a size option
+                </div>
+              ) : (
+                (step.bands || []).map((b) => (
+                  <div
+                    key={b.id}
+                    className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
+                  >
+                    {b.label || "Untitled option"}
+                  </div>
+                ))
+              )}
+            </div>
+            {/* A stand-in, never an invented figure: the real number is
+                computed on the server from this company's saved rates and the
+                option the visitor taps, so there is nothing truthful to show
+                here until someone taps one. */}
+            <div className="mt-3 rounded-lg border border-black/10 px-3 py-4 text-center">
+              <div className="text-xl font-bold" style={{ color: accent }}>
+                $—— – $——
+              </div>
+              <div className="text-[11px] text-neutral-400 mt-1">
+                {step.order === "details_first"
+                  ? "Their price appears here after the contact step"
+                  : "Their price appears here, before the contact step"}
+              </div>
+            </div>
           </div>
         ) : step.kind === "photo_upload" ? (
           <div>

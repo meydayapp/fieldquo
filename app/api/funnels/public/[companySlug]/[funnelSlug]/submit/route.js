@@ -10,6 +10,8 @@ import { createScoredLead } from "@/lib/leads/createLead";
 import { buildLeadFromFunnel } from "@/lib/funnels/ingest";
 import { recordConsent } from "@/lib/voice/outbound";
 import { DISCLOSURE } from "@/lib/voice/disclosure";
+import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
+import { confirmedFunnelEstimates } from "../../../funnelEstimate";
 
 // Public — a completed funnel run becomes a scored LeadRequest in the normal
 // pipeline, plus a FunnelResponse for the funnel's own analytics. Same shape and
@@ -24,7 +26,11 @@ export async function POST(request, { params }) {
   const { companySlug, funnelSlug } = await params;
   const body = await request.json().catch(() => ({}));
 
-  const company = await findBookingCompany(companySlug, { id: true });
+  const company = await findBookingCompany(companySlug, {
+    id: true,
+    currency: true,
+    defaultLanguage: true,
+  });
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -43,10 +49,36 @@ export async function POST(request, { params }) {
     );
   }
 
+  // ── The estimate, priced again from the company's own rows ────────────────
+  //
+  // Nothing about a price is read from the body. The browser posted which SIZE
+  // BAND was tapped; the measurement behind it, the rates, and the arithmetic
+  // all come from the server, exactly as they did when the number first went on
+  // screen. So the figure recorded on the lead is the figure the visitor saw,
+  // and neither of them came from the browser.
+  //
+  // This is also the only place a "show the range after they submit" trade
+  // unlocks: a lead now exists, which is the condition the owner set.
+  const cleanSteps = sanitiseFunnelSteps(funnel.steps);
+  const estimates = await confirmedFunnelEstimates({
+    companyId: company.id,
+    steps: cleanSteps,
+    answers: body.answers && typeof body.answers === "object" ? body.answers : {},
+    language: company.defaultLanguage || "en",
+    currency: company.currency,
+  });
+
   const media = normaliseMediaList(body.media);
   const lead = await createScoredLead({
     companyId: company.id,
     ...leadInput,
+    // What was quoted at them, on the lead the contractor opens. Appended
+    // rather than merged into buildLeadFromFunnel because that helper is pure
+    // and knows nothing about rates — pricing needs the database.
+    message: [leadInput.message, ...estimates.notes].filter(Boolean).join("\n") || null,
+    intake: Object.keys(estimates.intake).length
+      ? { ...(leadInput.intake || {}), ...estimates.intake }
+      : leadInput.intake,
     clientPhotos: media,
   });
 
@@ -70,5 +102,11 @@ export async function POST(request, { params }) {
     }).catch((err) => console.error("[funnel] consent not recorded:", err?.message));
   }
 
-  return NextResponse.json({ success: true, leadId: lead.id }, { status: 201 });
+  return NextResponse.json(
+    // `estimates` is keyed by step id and is empty unless the funnel has an
+    // estimate step the visitor answered. A details-first step reveals its
+    // number from here, which is why the reveal cannot happen without a lead.
+    { success: true, leadId: lead.id, estimates: estimates.byStep },
+    { status: 201 },
+  );
 }
