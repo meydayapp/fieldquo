@@ -13,9 +13,16 @@
 // None of those is a compile error. All of them are a blank screen.
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import TradeTakeoff, { hasTakeoff } from "../app/components/quotes/builder/TradeTakeoff.js";
-import { getPriceBook, TRADE_PRICE_BOOKS } from "../app/data/tradePriceBooks.js";
+import TradeTakeoff, {
+  hasTakeoff,
+} from "../app/components/quotes/builder/TradeTakeoff.js";
+import {
+  getPriceBook,
+  TRADE_PRICE_BOOKS,
+} from "../app/data/tradePriceBooks.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
+import QuoteWording from "../app/app/settings/services/QuoteWording.js";
+import { resolveServiceContent } from "../lib/documents/serviceContent.js";
 
 let pass = 0;
 const fails = [];
@@ -77,11 +84,62 @@ for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
           siteAddress="204 Avro Cir, Ottawa"
         />,
       );
-      if (!html || html.length < 40) throw new Error(`rendered ${html.length} chars`);
+      if (!html || html.length < 40)
+        throw new Error(`rendered ${html.length} chars`);
       pass += 1;
     } catch (err) {
       fails.push(`${key} (${label}): ${err.message}`);
     }
+  }
+}
+
+// The quote-wording editor, OPENED — a collapsed panel renders fine over
+// corrupt input and proves nothing. These are Json columns, so a row can hold
+// a string where the editor expects an array.
+const WORDING_CASES = [
+  [
+    "inheriting",
+    {
+      content: resolveServiceContent("insulation", null),
+      contentOverrides: { includedItems: null, processSteps: null },
+    },
+  ],
+  [
+    "customised",
+    {
+      content: resolveServiceContent("insulation", null),
+      contentOverrides: {
+        includedItems: ["a", "b"],
+        processSteps: [{ title: "T", body: "B", timeline: "1 day" }],
+      },
+    },
+  ],
+  ["no content at all", {}],
+  [
+    "junk in the Json columns",
+    {
+      content: {},
+      contentOverrides: { includedItems: "nope", processSteps: 42 },
+    },
+  ],
+  [
+    "a trade with no defaults",
+    {
+      content: resolveServiceContent("nonexistent_trade", null),
+      contentOverrides: {},
+    },
+  ],
+];
+for (const [label, category] of WORDING_CASES) {
+  try {
+    const html = renderToStaticMarkup(
+      <QuoteWording category={category} onChange={() => {}} defaultOpen />,
+    );
+    if (!html || html.length < 40)
+      throw new Error(`rendered ${html.length} chars`);
+    pass += 1;
+  } catch (err) {
+    fails.push(`quote wording (${label}): ${err.message}`);
   }
 }
 
@@ -90,4 +148,4 @@ if (fails.length) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log(`✓ takeoffs render: ${pass} renders across every trade with a form`);
+console.log(`✓ builder & settings render: ${pass} renders`);

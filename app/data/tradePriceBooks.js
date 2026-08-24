@@ -1192,33 +1192,39 @@ export const TRADE_PRICE_BOOKS = {
     // what decides the depth — so it is the one field here that is physics
     // rather than a market. A company should edit the money and leave it alone.
     //
-    // ── The spray foam rates are CANADIAN; the rest are not ─────────────────
+    // ── The spray foam rates are TORONTO; the rest are not ──────────────────
     //
-    // Both spray foams shipped at a US-derived figure and both were below the
-    // Canadian floor. Konstruction Group (Toronto) publishes closed-cell at
-    // $4.00–$8.00 per square foot installed and open-cell at $2.50–$5.00,
-    // "depending on thickness, accessibility, and project size".
+    // Both spray foams shipped at a US-derived figure and both were low.
+    // Konstruction Group (Toronto) publishes EIGHT separate spray-foam figures,
+    // and the useful thing about that is they can be cross-checked against each
+    // other. Converted to dollars per square foot per point of R, they imply:
     //
-    // Read as a THICKNESS band — which is what they say it is — those numbers
-    // corroborate this file's whole model rather than just correcting a price:
+    //   closed-cell  $1.50–$3.50 per board foot ..................  0.222–0.519
+    //                $4.50–$7.50 /sqft at 3" ....................... 0.222–0.370
+    //                1,000 sqft basement to OBC R20, $4.5k–$8k ..... 0.225–0.400
+    //                20x20 garage, 1,120 sqft at 2", $4.5k–$8.5k ... 0.298–0.562
+    //                2,000 sqft home at 2", $8k–$18k ............... 0.269–0.606
+    //   open-cell    $0.80–$1.50 per board foot ................... 0.213–0.400
+    //                $2.50–$5.00 /sqft at 3.5" ..................... 0.190–0.381
+    //                20x20 garage at 3.5", $2.5k–$5k ............... 0.170–0.340
     //
-    //   closed-cell  $4.00 at 2" (R13) = $0.308/sqft/R
-    //                $8.00 at 4" (R26) = $0.308/sqft/R
-    //   open-cell    $2.50 at 3.5" (R13) = $0.193/sqft/R
-    //                $5.00 at 7"   (R26) = $0.193/sqft/R
+    // Five independent figures for closed cell and three for open, and each set
+    // OVERLAPS — which is not something a made-up price does. The intersections
+    // are 0.298–0.370 and 0.213–0.340, and this book ships their midpoints:
+    // 0.33 and 0.28. scripts/check-trade-labour.mjs asserts every one of the
+    // eight rows above, so a future edit that drifts outside any of them fails.
     //
-    // Both ends of both bands land on the SAME per-R figure. A dollars-per-
-    // square-foot band four numbers wide collapses to one number once depth is
-    // taken out of it, which is the argument for pricing per point of R made
-    // arithmetically rather than asserted. The old 0.15 and 0.09 quoted a GTA
-    // wall at $3.00 and $1.80 against published floors of $4.00 and $2.50 —
-    // roughly half.
+    // A board foot IS a square foot one inch thick, so a trade that has always
+    // quoted spray foam by the board foot has always been pricing per
+    // square-foot-per-inch. This book's per-R model is that same unit divided
+    // by the material's R per inch. The convergence above is the evidence.
     //
-    // The other five materials are still the US-derived Fixr figures, so this
-    // book now sits on two anchors. That is worth knowing before quoting in
-    // Ontario: the spray foams are local, the blown-in and batt rates are not,
-    // and the first thing an Ontario company should do on this rate card is
-    // check the batt and blown-in numbers against their own supplier.
+    // The old 0.15 and 0.09 quoted a Toronto wall at roughly half the local
+    // floor. The other five materials are still the US-derived Fixr figures, so
+    // this book now sits on two anchors. That is worth knowing before quoting
+    // in Ontario: the spray foams are local, the blown-in and batt rates are
+    // not, and the first thing an Ontario company should do on this rate card
+    // is check the batt and blown-in numbers against their own supplier.
     materials: {
       blown_fiberglass: {
         label: "Blown fibreglass",
@@ -1237,6 +1243,7 @@ export const TRADE_PRICE_BOOKS = {
       batt_fiberglass: {
         label: "Fibreglass batt",
         rPerInch: 3.2,
+        needsVapourBarrier: true,
         installedPerSqftPerR: 0.045,
         hoursPerSqft: 0.012,
         hoursPerSqftPerInch: 0.0006,
@@ -1244,6 +1251,7 @@ export const TRADE_PRICE_BOOKS = {
       batt_stone_wool: {
         label: "Stone wool batt",
         rPerInch: 4.1,
+        needsVapourBarrier: true,
         installedPerSqftPerR: 0.062,
         hoursPerSqft: 0.014,
         hoursPerSqftPerInch: 0.0006,
@@ -1251,8 +1259,12 @@ export const TRADE_PRICE_BOOKS = {
       spray_open_cell: {
         label: "Open-cell spray foam",
         rPerInch: 3.7,
-        // CANADIAN, not the US figure this shipped with. See the note below.
-        installedPerSqftPerR: 0.19,
+        // CANADIAN, and Toronto-anchored. See the note below.
+        installedPerSqftPerR: 0.28,
+        // Open cell is vapour-permeable and needs a separate barrier. Closed
+        // cell at these thicknesses is its own, which is why only this one
+        // carries the flag.
+        needsVapourBarrier: true,
         hoursPerSqft: 0.004,
         hoursPerSqftPerInch: 0.0008,
         sprayRig: true,
@@ -1260,8 +1272,8 @@ export const TRADE_PRICE_BOOKS = {
       spray_closed_cell: {
         label: "Closed-cell spray foam",
         rPerInch: 6.5,
-        // CANADIAN, not the US figure this shipped with. See the note below.
-        installedPerSqftPerR: 0.3,
+        // CANADIAN, and Toronto-anchored. See the note below.
+        installedPerSqftPerR: 0.33,
         hoursPerSqft: 0.004,
         hoursPerSqftPerInch: 0.0012,
         sprayRig: true,
@@ -1292,6 +1304,10 @@ export const TRADE_PRICE_BOOKS = {
       // blown over the leaks instead of sealed first. Priced so it can be sold
       // rather than absorbed and skipped.
       airSealPerSqft: 0.75,
+      // Open cell and unfaced batt are vapour-permeable and need one; closed
+      // cell is its own. Priced so the assembly can be quoted complete rather
+      // than quoted cheap and finished at somebody else's expense.
+      vapourBarrierPerSqft: 0.65,
       baffleEach: 12,
       removalPerSqft: 1.25,
       housewrapPerSqft: 0.85,

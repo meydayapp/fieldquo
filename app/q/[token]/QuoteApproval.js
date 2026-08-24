@@ -529,6 +529,15 @@ export default function QuoteApproval({ token }) {
                       <div className={last ? "pb-0" : "pb-4"}>
                         <p className="text-sm font-semibold text-[#2d2520]">
                           {s.title}
+                          {/* "When do I get my house back" is what a client
+                              scans a process list for. Beside the step, not
+                              buried in the sentence — and simply absent for a
+                              trade whose content does not state one. */}
+                          {s.timeline && (
+                            <span className="ml-2 text-xs font-normal text-[#2d2520]/45">
+                              {s.timeline}
+                            </span>
+                          )}
                         </p>
                         <p className="text-xs text-[#2d2520]/65 leading-relaxed mt-0.5">
                           {s.body}

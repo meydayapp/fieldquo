@@ -369,6 +369,47 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Quotes can say how long each phase takes, and companies can finally edit
+  what their quotes say.**
+
+  `lib/documents/serviceContent.js`, `lib/documentSections/ProcessStepsSection.js`,
+  `app/q/[token]/QuoteApproval.js`, `app/app/settings/services/QuoteWording.js`
+  (new), `app/api/settings/service-categories/route.js`.
+
+  1. **`CompanyServiceCategory.includedItems` and `.processSteps` were read and
+     never written.** `resolveServiceContent` has honoured them since scope
+     groups shipped and no screen ever saved one, so the comment promising "a
+     company that has customised theirs is never overwritten" described a state
+     no company could reach. Settings > Services now has a "What the quote
+     says" panel beside the rate card. Clearing every row removes the override
+     and the trade goes back to inheriting — same rule as the rate card.
+  2. **Steps carry an optional `timeline`**, printed beside the step in the PDF,
+     the email and the public quote. Present only on the sets that come from a
+     real contractor's published process (insulation, drywall, general
+     contracting, construction) and absent everywhere else — a duration is the
+     most quotable sentence on a quote and inventing one for sixty trades would
+     put a commitment in a contractor's mouth.
+  3. **Ontario Building Code minimums** (basement R20, wall R22, attic R60) sit
+     beside the ENERGY STAR recommendations as a separate basis, and the takeoff
+     reports which one produced the target. A code minimum and a recommendation
+     are different claims: "recommended" understates a legal floor and
+     "required" overstates advice.
+  4. **Open cell and unfaced batt now quote the vapour barrier they need**;
+     closed cell does not, because at these thicknesses it is its own. Quoting
+     an incomplete assembly against a competitor who quoted a complete one is a
+     quote that looks cheap and loses twice.
+  5. **Spray foam corrected again, and now pinned to eight figures.** The first
+     correction used two published $/sqft bands and read them as thickness
+     bands. Konstruction's own page carries eight — board feet, $/sqft at a
+     stated thickness, and three whole-project totals — and converting all eight
+     to dollars per square foot per point of R gives overlapping ranges whose
+     intersections are 0.298–0.370 and 0.213–0.340. Shipped at their midpoints,
+     0.33 and 0.28, with every one of the eight asserted in the check script.
+
+  **Pre-existing and untouched:** `npm run check:settings-access` fails on
+  "Company Settings: does not fall back to disabling inputs". It failed before
+  this work and is unrelated to it.
+
 - **Paving and insulation join the component labour model; spray foam was
   half price in Canada.**
 

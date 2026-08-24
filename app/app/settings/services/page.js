@@ -5,6 +5,7 @@ import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
 import { hasStandardAddOns } from "@/app/data/standardAddOns";
 import RateCard from "./RateCard";
+import QuoteWording from "./QuoteWording";
 import {
   hasPriceBook,
   priceBookBasis,
@@ -120,6 +121,18 @@ export default function ServiceSettingsPage() {
             // Sparse patch only — the API filters it against the fields the
             // trade declares and stores null when nothing is customised.
             rates: c.rateOverrides ?? null,
+            // Round-tripped, not reconstructed: the GET sends the sparse
+            // override (null when the trade is inheriting) and the save sends
+            // exactly that back unless the editor changed it. A save that
+            // rebuilt these from the RESOLVED content would silently convert
+            // every inheriting trade into a customised one, and it would do it
+            // on a page where the user only came to change a rate.
+            ...(c.contentOverrides?.includedItems !== undefined && {
+              includedItems: c.contentOverrides.includedItems,
+            }),
+            ...(c.contentOverrides?.processSteps !== undefined && {
+              processSteps: c.contentOverrides.processSteps,
+            }),
           })),
         }),
       });
@@ -285,146 +298,165 @@ export default function ServiceSettingsPage() {
           const complexity = priceBookComplexity(c.key);
           const priced = hasPriceBook(c.key);
           return (
-          <div
-            key={c.id}
-            className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
-          >
-            <div className="flex items-start gap-4 flex-1 min-w-0">
-            <input
-              type="checkbox"
-              checked={c.enabled}
-              onChange={(e) => update(c.id, { enabled: e.target.checked })}
-              className="h-5 w-5 shrink-0 mt-0.5"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="font-medium flex items-center gap-2">
-                {c.label}
-                {!c.isSystem && (
-                  <span className="flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
-                    <Sparkles size={11} /> {t("app.setServices.customBadge")}
-                  </span>
-                )}
-              </div>
-              {!c.isSystem && Array.isArray(c.customFields) && (
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {c.customFields.length === 0
-                    ? t("app.setServices.noFieldsFlatRate")
-                    : c.customFields.map((f) => f.label).join(", ")}
-                </div>
-              )}
-              {/* What this trade actually charges by, read off its price book
+            <div
+              key={c.id}
+              className="border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4"
+            >
+              <div className="flex items-start gap-4 flex-1 min-w-0">
+                <input
+                  type="checkbox"
+                  checked={c.enabled}
+                  onChange={(e) => update(c.id, { enabled: e.target.checked })}
+                  className="h-5 w-5 shrink-0 mt-0.5"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium flex items-center gap-2">
+                    {c.label}
+                    {!c.isSystem && (
+                      <span className="flex items-center gap-1 text-xs bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                        <Sparkles size={11} />{" "}
+                        {t("app.setServices.customBadge")}
+                      </span>
+                    )}
+                  </div>
+                  {!c.isSystem && Array.isArray(c.customFields) && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {c.customFields.length === 0
+                        ? t("app.setServices.noFieldsFlatRate")
+                        : c.customFields.map((f) => f.label).join(", ")}
+                    </div>
+                  )}
+                  {/* What this trade actually charges by, read off its price book
                   rather than restated here — see priceBookBasis. A trade
                   quoted from a supplier's invoice (countertop) has no per-unit
                   basis and shows none, which is the truth about it. */}
-              {c.enabled && basis.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                  <span className="text-xs text-muted-foreground mr-0.5">
-                    {t("app.setServices.pricedBy", "Priced by")}
-                  </span>
-                  {basis.map((b) => (
-                    <span
-                      key={b.label}
-                      className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
-                    >
-                      {basisChipLabel(b)}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {c.enabled && complexity && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span>
-                    {t(
-                      "app.setServices.complexityNote",
-                      "Rates change with the complexity picked on the quote",
-                    )}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    {complexity.map((level) => (
-                      <span key={level.value} className="flex items-center gap-1">
-                        <span
-                          aria-hidden="true"
-                          className="inline-block h-1.5 w-1.5 rounded-full"
-                          style={{ backgroundColor: level.color }}
-                        />
-                        {level.label}
+                  {c.enabled && basis.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <span className="text-xs text-muted-foreground mr-0.5">
+                        {t("app.setServices.pricedBy", "Priced by")}
                       </span>
-                    ))}
-                  </span>
-                </div>
-              )}
+                      {basis.map((b) => (
+                        <span
+                          key={b.label}
+                          className="rounded-full bg-muted px-2 py-0.5 text-xs text-foreground"
+                        >
+                          {basisChipLabel(b)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-              {c.enabled && hasStandardAddOns(c.key) && (
-                <button
-                  type="button"
-                  onClick={() => handleSeedStandard(c.id, c.label)}
-                  disabled={seedingId === c.id}
-                  className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-                >
-                  <PackagePlus size={12} />
-                  {seedingId === c.id
-                    ? t("app.setServices.adding")
-                    : t("app.setServices.addStandardItems")}
-                </button>
-              )}
-              {seedMsg?.id === c.id && (
-                <div
-                  className={`text-xs mt-1 ${seedMsg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
-                >
-                  {seedMsg.text}
-                </div>
-              )}
-            </div>
-            </div>
+                  {c.enabled && complexity && (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {t(
+                          "app.setServices.complexityNote",
+                          "Rates change with the complexity picked on the quote",
+                        )}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {complexity.map((level) => (
+                          <span
+                            key={level.value}
+                            className="flex items-center gap-1"
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="inline-block h-1.5 w-1.5 rounded-full"
+                              style={{ backgroundColor: level.color }}
+                            />
+                            {level.label}
+                          </span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
 
-            {/* A trade with a price book is priced BY something — per door and
+                  {c.enabled && hasStandardAddOns(c.key) && (
+                    <button
+                      type="button"
+                      onClick={() => handleSeedStandard(c.id, c.label)}
+                      disabled={seedingId === c.id}
+                      className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                      <PackagePlus size={12} />
+                      {seedingId === c.id
+                        ? t("app.setServices.adding")
+                        : t("app.setServices.addStandardItems")}
+                    </button>
+                  )}
+                  {seedMsg?.id === c.id && (
+                    <div
+                      className={`text-xs mt-1 ${seedMsg.error ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
+                    >
+                      {seedMsg.text}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* A trade with a price book is priced BY something — per door and
                 per drawer, per tread and riser, per sq ft — and the rate card
                 below holds those numbers. Showing a single rate box next to it
                 would be a second, contradictory answer to the same question,
                 so the basis is stated and the numbers live in one place. */}
-            {c.enabled && !priced && (
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder={t("app.setServices.ratePlaceholder")}
-                  value={c.defaultRate ?? ""}
-                  onChange={(e) =>
+              {c.enabled && !priced && (
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={t("app.setServices.ratePlaceholder")}
+                    value={c.defaultRate ?? ""}
+                    onChange={(e) =>
+                      update(c.id, {
+                        defaultRate: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                    className="border rounded px-2 py-1 text-sm w-24"
+                  />
+
+                  <span className="text-sm text-muted-foreground">
+                    {t("app.setServices.per", "per")}
+                  </span>
+
+                  <input
+                    type="text"
+                    list="fq-unit-suggestions"
+                    placeholder={t("app.setServices.unitPlaceholder")}
+                    value={c.unit ?? ""}
+                    onChange={(e) => update(c.id, { unit: e.target.value })}
+                    className="border rounded px-2 py-1 text-sm w-28"
+                  />
+                </div>
+              )}
+
+              {/* The structured rate card, for trades that have one. The single
+                rate above stays for trades that genuinely are one number. */}
+              {c.enabled && (
+                <RateCard
+                  category={c}
+                  overrides={c.rateOverrides}
+                  onChange={(next) => update(c.id, { rateOverrides: next })}
+                />
+              )}
+
+              {/* The wording, not the price. These two columns have been read by
+                every quote since scope groups shipped and written by nothing —
+                so "a company that customised theirs" described a state no
+                company could reach. */}
+              {c.enabled && (
+                <QuoteWording
+                  category={c}
+                  onChange={(patch) =>
                     update(c.id, {
-                      defaultRate: e.target.value
-                        ? Number(e.target.value)
-                        : null,
+                      contentOverrides: { ...c.contentOverrides, ...patch },
                     })
                   }
-                  className="border rounded px-2 py-1 text-sm w-24"
                 />
-
-                <span className="text-sm text-muted-foreground">
-                  {t("app.setServices.per", "per")}
-                </span>
-
-                <input
-                  type="text"
-                  list="fq-unit-suggestions"
-                  placeholder={t("app.setServices.unitPlaceholder")}
-                  value={c.unit ?? ""}
-                  onChange={(e) => update(c.id, { unit: e.target.value })}
-                  className="border rounded px-2 py-1 text-sm w-28"
-                />
-              </div>
-            )}
-
-            {/* The structured rate card, for trades that have one. The single
-                rate above stays for trades that genuinely are one number. */}
-            {c.enabled && (
-              <RateCard
-                category={c}
-                overrides={c.rateOverrides}
-                onChange={(next) => update(c.id, { rateOverrides: next })}
-              />
-            )}
-          </div>
+              )}
+            </div>
           );
         })}
       </div>
@@ -519,7 +551,9 @@ export default function ServiceSettingsPage() {
                   ))}
                   {filteredFields.length === 0 && (
                     <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-                      {t("app.setServices.noFieldsMatch", { query: fieldSearch })}
+                      {t("app.setServices.noFieldsMatch", {
+                        query: fieldSearch,
+                      })}
                     </p>
                   )}
                 </div>

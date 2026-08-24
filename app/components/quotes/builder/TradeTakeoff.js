@@ -40,6 +40,7 @@ import {
   insulationTakeoff,
   insulationCrewDays,
   recommendedR,
+  codeMinimumR,
   CLIMATE_ZONES,
 } from "@/lib/pricing/insulation";
 import { useState } from "react";
@@ -2332,18 +2333,49 @@ function InsulationTakeoff({ takeoff, book, onChange }) {
               : "Leave 0 for a bare assembly"}
           </p>
         </Field>
-        <Field label="Target R (optional)">
-          <Num
-            value={takeoff.targetR}
-            step={1}
-            onChange={(v) => set({ targetR: v })}
-          />
+        <Field label="Target R">
+          <select
+            value={
+              num(takeoff.targetR) > 0
+                ? "manual"
+                : takeoff.targetBasis || "energy_star"
+            }
+            onChange={(e2) =>
+              set(
+                e2.target.value === "manual"
+                  ? { targetBasis: "manual" }
+                  : { targetBasis: e2.target.value, targetR: 0 },
+              )
+            }
+            className={inputClass}
+          >
+            <option value="energy_star">ENERGY STAR recommendation</option>
+            <option value="code">Ontario code minimum (OBC)</option>
+            <option value="manual">A number I&apos;ll type</option>
+          </select>
+          {(takeoff.targetBasis === "manual" || num(takeoff.targetR) > 0) && (
+            <div className="mt-1">
+              <Num
+                value={takeoff.targetR}
+                step={1}
+                onChange={(v) => set({ targetR: v })}
+              />
+            </div>
+          )}
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {num(takeoff.targetR) > 0
-              ? "Overriding the zone recommendation"
-              : recommended
-                ? `Using R${recommended}`
-                : "Choose a zone or type a target"}
+            {/* A code MINIMUM and a recommendation are different claims. The
+                field says which one produced the number, because "recommended"
+                on a legal minimum understates it and "required" on a
+                recommendation overstates it. */}
+            {detail.targetBasis === "code"
+              ? `OBC minimum for this assembly: R${detail.targetR}`
+              : detail.targetBasis === "energy_star"
+                ? `ENERGY STAR: R${detail.targetR}`
+                : detail.targetBasis === "manual"
+                  ? "Your own target"
+                  : codeMinimumR(takeoff.assembly)
+                    ? `No zone chosen — OBC minimum here is R${codeMinimumR(takeoff.assembly)}`
+                    : "Choose a zone or type a target"}
           </p>
         </Field>
         <Field label="Cavity depth limit">
@@ -2399,6 +2431,22 @@ function InsulationTakeoff({ takeoff, book, onChange }) {
           hint={`$${money(e.removalPerSqft)}/sqft — wet, compacted or contaminated`}
           amount={takeoff.removeExisting ? sqft * num(e.removalPerSqft) : 0}
         />
+        {/* Only for the materials that actually need one. Closed-cell foam is
+            its own vapour barrier at these thicknesses, and offering the line
+            anyway would sell a homeowner something the assembly already has. */}
+        {material?.needsVapourBarrier && (
+          <OptionRow
+            checked={takeoff.vapourBarrier !== false}
+            onToggle={(v) => set({ vapourBarrier: v })}
+            label="Vapour barrier"
+            hint={`$${money(e.vapourBarrierPerSqft)}/sqft — ${material.label} is vapour-permeable and needs one`}
+            amount={
+              takeoff.vapourBarrier !== false
+                ? sqft * num(e.vapourBarrierPerSqft)
+                : 0
+            }
+          />
+        )}
       </div>
 
       <Field label="Soffit baffles" className="max-w-[10rem]">

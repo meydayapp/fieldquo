@@ -29,6 +29,7 @@ import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
 import {
   insulationTakeoff,
   recommendedR,
+  codeMinimumR,
   depthForTarget,
 } from "@/lib/pricing/insulation";
 import {
@@ -55,6 +56,10 @@ function check(name, fn) {
 }
 
 const BOOK = getPriceBook("roofing_service");
+// Every book, for the checks that compare a shipped constant against a source.
+const BOOKS = {
+  insulation: getPriceBook("insulation"),
+};
 const simple = (over = {}) => ({
   squares: 20,
   pitchRise: 4,
@@ -772,41 +777,215 @@ check("the priced result lands inside the published bands", () => {
   assert.ok(perSqft >= 1.65 && perSqft <= 3.8, `$${perSqft.toFixed(2)}/sqft`);
 });
 
-check("both spray foams land inside the published GTA bands", () => {
-  // Konstruction Group (Toronto): closed-cell $4.00-$8.00/sqft installed,
-  // open-cell $2.50-$5.00, "depending on thickness". Checked at the thin and
-  // thick ends of each, because the band IS a thickness band — the low price
-  // is a 2" lift and the high one is 4".
-  const at = (materialKey, targetR) => {
+check("every published Konstruction spray-foam figure is satisfied", () => {
+  // Eight independent Toronto figures. Each is converted to dollars per square
+  // foot per point of R and the shipped rate must fall inside all eight — which
+  // is a stronger claim than "inside a band", because the eight were derived
+  // from different units (board feet, $/sqft at a stated thickness, and three
+  // whole-project totals) and they agree.
+  const R = { spray_closed_cell: [6.5, 7.0], spray_open_cell: [3.5, 4.0] };
+  const midR = (k) => (R[k][0] + R[k][1]) / 2;
+  const rate = (k) => BOOKS.insulation.materials[k].installedPerSqftPerR;
+
+  const rows = [
+    // [material, low, high, implied R the price covers]
+    ["spray_closed_cell", 1.5, 3.5, 1 * midR("spray_closed_cell")], // per board foot
+    ["spray_closed_cell", 4.5, 7.5, 3 * midR("spray_closed_cell")], // $/sqft at 3"
+    ["spray_closed_cell", 4500 / 1000, 8000 / 1000, 20], // basement, OBC R20
+    [
+      "spray_closed_cell",
+      4500 / 1120,
+      8500 / 1120,
+      2 * midR("spray_closed_cell"),
+    ], // garage at 2"
+    [
+      "spray_closed_cell",
+      8000 / 2200,
+      18000 / 2200,
+      2 * midR("spray_closed_cell"),
+    ], // home at 2"
+    ["spray_open_cell", 0.8, 1.5, 1 * midR("spray_open_cell")], // per board foot
+    ["spray_open_cell", 2.5, 5.0, 3.5 * midR("spray_open_cell")], // $/sqft at 3.5"
+    [
+      "spray_open_cell",
+      2500 / 1120,
+      5000 / 1120,
+      3.5 * midR("spray_open_cell"),
+    ], // garage
+  ];
+
+  for (const [key, lo, hi, coveredR] of rows) {
+    const perR = rate(key);
+    assert.ok(
+      perR >= lo / coveredR - 1e-9 && perR <= hi / coveredR + 1e-9,
+      `${key} at ${perR} is outside ${(lo / coveredR).toFixed(3)}–${(hi / coveredR).toFixed(3)}`,
+    );
+  }
+});
+
+check(
+  "the OBC minimums are the published ones, and are not ENERGY STAR",
+  () => {
+    assert.equal(codeMinimumR("basement_wall"), 20);
+    assert.equal(codeMinimumR("wall"), 22);
+    assert.equal(codeMinimumR("attic"), 60);
+    // Silent where the code is silent.
+    for (const a of ["floor", "", null, "__proto__", "roof"]) {
+      assert.equal(codeMinimumR(a), null, String(a));
+    }
+    // A code minimum and a recommendation are different claims. They agree on
+    // the attic in Zone 6 and they have no wall figure in common at all.
+    assert.equal(recommendedR(6, "attic", 0), codeMinimumR("attic"));
+    assert.equal(recommendedR(6, "wall"), null);
+  },
+);
+
+check(
+  "the target basis is traceable, and manual beats code beats ENERGY STAR",
+  () => {
+    const base = {
+      ...createTradeConfig("insulation"),
+      sqft: 500,
+      assembly: "wall",
+    };
+    const code = tradeLabourDetail("insulation", {
+      ...base,
+      targetBasis: "code",
+    });
+    assert.equal(code.targetR, 22);
+    assert.equal(code.targetBasis, "code");
+    const manual = tradeLabourDetail("insulation", {
+      ...base,
+      targetBasis: "code",
+      targetR: 31,
+    });
+    assert.equal(manual.targetR, 31);
+    assert.equal(manual.targetBasis, "manual");
+    const es = tradeLabourDetail("insulation", {
+      ...base,
+      assembly: "attic",
+      climateZone: "6",
+    });
+    assert.equal(es.targetR, 60);
+    assert.equal(es.targetBasis, "energy_star");
+    // Nothing to go on is "none", not a silent zero dressed as a target.
+    assert.equal(tradeLabourDetail("insulation", base).targetBasis, "none");
+  },
+);
+
+check(
+  "open cell is quoted with the vapour barrier it needs; closed cell is not",
+  () => {
+    const base = {
+      ...createTradeConfig("insulation"),
+      sqft: 800,
+      targetR: 20,
+      airSeal: false,
+    };
+    const open = buildTradeLineItems("insulation", {
+      ...base,
+      materialKey: "spray_open_cell",
+    });
+    assert.ok(open.some((i) => /vapour barrier/i.test(i.description)));
+    const closed = buildTradeLineItems("insulation", {
+      ...base,
+      materialKey: "spray_closed_cell",
+    });
+    assert.ok(
+      !closed.some((i) => /vapour barrier/i.test(i.description)),
+      "closed cell is its own barrier",
+    );
+    // And it is a decision, not a trap: turning it off removes the line.
+    const off = buildTradeLineItems("insulation", {
+      ...base,
+      materialKey: "spray_open_cell",
+      vapourBarrier: false,
+    });
+    assert.ok(!off.some((i) => /vapour barrier/i.test(i.description)));
+  },
+);
+
+/* ── Process timelines ─────────────────────────────────────────────────── */
+
+check("sourced trades carry timelines; unsourced ones carry none", () => {
+  for (const key of [
+    "insulation",
+    "drywall",
+    "general_contracting",
+    "construction",
+  ]) {
+    const steps = resolveServiceContent(key, null).steps;
+    assert.ok(steps.length > 0, key);
+    assert.ok(
+      steps.every((s) => s.timeline),
+      `${key} has a step with no timeline`,
+    );
+  }
+  // A duration is the most quotable sentence on a quote. Inventing one for a
+  // trade with no source would put a commitment in a contractor's mouth.
+  const roofing = resolveServiceContent("roofing_service", null).steps;
+  assert.ok(roofing.every((s) => !s.timeline));
+});
+
+check("steps stay numbered from 1 whatever a company does to them", () => {
+  const custom = resolveServiceContent("insulation", {
+    processSteps: [
+      { title: "Only step", body: "x", timeline: "1 day" },
+      { title: "Second", body: "y" },
+    ],
+  });
+  assert.deepEqual(
+    custom.steps.map((s) => s.num),
+    [1, 2],
+  );
+  assert.equal(custom.steps[0].timeline, "1 day");
+  assert.equal(custom.steps[1].timeline, undefined);
+  // An empty or junk override falls back rather than blanking the document.
+  for (const bad of [[], null, "steps", 42, {}]) {
+    const r = resolveServiceContent("insulation", { processSteps: bad });
+    assert.ok(r.steps.length > 0, JSON.stringify(bad));
+  }
+});
+
+check("closed-cell and open-cell R per inch match the published specs", () => {
+  // Konstruction: closed cell R-6.5 to R-7.0 per inch at 2 lb; open cell
+  // R-3.5 to R-4.0 at 0.5 lb. This book must sit inside both.
+  const cc = BOOKS.insulation.materials.spray_closed_cell.rPerInch;
+  const oc = BOOKS.insulation.materials.spray_open_cell.rPerInch;
+  assert.ok(cc >= 6.5 && cc <= 7.0, `closed cell R${cc}/inch`);
+  assert.ok(oc >= 3.5 && oc <= 4.0, `open cell R${oc}/inch`);
+});
+
+check("the quoted foam LINE lands inside the published $/sqft band", () => {
+  // The eight-figure check above proves the RATE. This proves the thing that
+  // reaches a client: the priced line for the material, at the thickness the
+  // published band is quoted at. Vapour barrier and air sealing are excluded
+  // deliberately — they are separate lines here because they are separate
+  // work, and folding them in would compare our total against somebody else's
+  // subtotal.
+  const foamLine = (materialKey, targetR) => {
     const cfg = {
       ...createTradeConfig("insulation"),
       sqft: 1000,
       targetR,
       materialKey,
       airSeal: false,
+      vapourBarrier: false,
     };
     return (
       buildTradeLineItems("insulation", cfg).reduce((s, l) => s + l.amount, 0) /
       1000
     );
   };
-  // Closed-cell at R6.5/inch: 2" is R13, 4" is R26.
+  const cc = foamLine("spray_closed_cell", 3 * 6.75);
   assert.ok(
-    Math.abs(at("spray_closed_cell", 13) - 4.0) < 0.6,
-    `$${at("spray_closed_cell", 13).toFixed(2)} at R13`,
+    cc >= 4.5 && cc <= 7.5,
+    `closed cell $${cc.toFixed(2)}/sqft at 3in`,
   );
+  const oc = foamLine("spray_open_cell", 3.5 * 3.75);
   assert.ok(
-    Math.abs(at("spray_closed_cell", 26) - 8.0) < 1.0,
-    `$${at("spray_closed_cell", 26).toFixed(2)} at R26`,
-  );
-  // Open-cell at R3.7/inch: 3.5" is R13, 7" is R26.
-  assert.ok(
-    Math.abs(at("spray_open_cell", 13) - 2.5) < 0.5,
-    `$${at("spray_open_cell", 13).toFixed(2)} at R13`,
-  );
-  assert.ok(
-    Math.abs(at("spray_open_cell", 26) - 5.0) < 0.7,
-    `$${at("spray_open_cell", 26).toFixed(2)} at R26`,
+    oc >= 2.5 && oc <= 5.0,
+    `open cell $${oc.toFixed(2)}/sqft at 3.5in`,
   );
 });
 

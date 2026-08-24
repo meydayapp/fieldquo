@@ -11,6 +11,7 @@ import {
 } from "@/app/data/tradePriceBooks";
 import { getCurrentMember } from "@/lib/currentMember"; // resolves session -> { companyId, role }
 import { toStoredFields } from "@/app/data/intakeFieldLibrary";
+import { resolveServiceContent } from "@/lib/documents/serviceContent";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
@@ -56,6 +57,20 @@ export async function GET(request) {
       // defaults, which would detach the company from future improvements.
       priceBook: getPriceBook(c.key, setting?.rates) || null,
       rateOverrides: setting?.rates ?? null,
+      // What this company's quotes SAY about the trade. The columns existed and
+      // resolveServiceContent read them, but nothing ever wrote one — so every
+      // company sat on the defaults with no way off them. Sent here, edited in
+      // Settings > Services, saved by the PATCH below.
+      //
+      // `content` is the RESOLVED result, defaults included, so the editor can
+      // show what a quote would actually print. `contentOverrides` is the
+      // sparse patch, so it can tell "customised" from "inherited" — the same
+      // pair as priceBook / rateOverrides above, for the same reason.
+      content: resolveServiceContent(c.key, setting || null),
+      contentOverrides: {
+        includedItems: setting?.includedItems ?? null,
+        processSteps: setting?.processSteps ?? null,
+      },
     };
   });
 
@@ -121,7 +136,8 @@ export async function POST(request) {
 }
 
 // PATCH — bulk upsert company's category settings
-// body: { categories: [{ categoryId, enabled, defaultRate, unit, rates }] }
+// body: { categories: [{ categoryId, enabled, defaultRate, unit, rates,
+//                        includedItems, processSteps }] }
 //
 // `pricingModel` (flat | per_unit | hourly) is deliberately NOT accepted any
 // more. It was written on every save and read by nothing: no quote, PDF,
@@ -184,6 +200,12 @@ export async function PATCH(request) {
           ...(c.rates !== undefined && {
             rates: sanitiseRates(keyById.get(c.categoryId), c.rates),
           }),
+          ...(c.includedItems !== undefined && {
+            includedItems: sanitiseIncluded(c.includedItems),
+          }),
+          ...(c.processSteps !== undefined && {
+            processSteps: sanitiseSteps(c.processSteps),
+          }),
         },
         create: {
           companyId: member.companyId,
@@ -194,12 +216,68 @@ export async function PATCH(request) {
           ...(c.rates !== undefined && {
             rates: sanitiseRates(keyById.get(c.categoryId), c.rates),
           }),
+          ...(c.includedItems !== undefined && {
+            includedItems: sanitiseIncluded(c.includedItems),
+          }),
+          ...(c.processSteps !== undefined && {
+            processSteps: sanitiseSteps(c.processSteps),
+          }),
         },
       }),
     ),
   );
 
   return NextResponse.json({ success: true, updated: results.length });
+}
+
+// How much of either list a company may store. Not a style rule — this text is
+// rendered into a PDF with a fixed page, and an unbounded array arriving from a
+// browser is both a layout bug and a payload nobody bounded.
+const MAX_ITEMS = 20;
+const MAX_LEN = 400;
+
+const cleanText = (v, max = MAX_LEN) =>
+  typeof v === "string" ? v.trim().slice(0, max) : "";
+
+/**
+ * A company's "what's included" list.
+ *
+ * Strings only, trimmed, empty ones dropped. An empty result stores NULL rather
+ * than [], because resolveServiceContent treats a non-empty array as an
+ * override and anything else as "not customised" — storing [] would hand a
+ * company a quote with no included list and no way to tell why.
+ */
+function sanitiseIncluded(items) {
+  if (!Array.isArray(items)) return null;
+  const out = items
+    .map((i) => cleanText(i))
+    .filter(Boolean)
+    .slice(0, MAX_ITEMS);
+  return out.length ? out : null;
+}
+
+/**
+ * A company's process steps.
+ *
+ * `timeline` is optional and STAYS optional: a company that clears it gets a
+ * step with no duration printed, which is the honest rendering of "we are not
+ * committing to one". A step with no title is dropped rather than stored — it
+ * would render as a numbered bubble beside nothing.
+ */
+function sanitiseSteps(steps) {
+  if (!Array.isArray(steps)) return null;
+  const out = [];
+  for (const s of steps) {
+    if (!s || typeof s !== "object") continue;
+    const title = cleanText(s.title, 120);
+    if (!title) continue;
+    const step = { title, body: cleanText(s.body) };
+    const timeline = cleanText(s.timeline, 40);
+    if (timeline) step.timeline = timeline;
+    out.push(step);
+    if (out.length >= MAX_ITEMS) break;
+  }
+  return out.length ? out : null;
 }
 
 /**
