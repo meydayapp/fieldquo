@@ -530,7 +530,7 @@ export const TRADE_PRICE_BOOKS = {
       //             back-of-house patio, itemised: excavation $877.70,
       //             aggregates and base $872.46, Melville 60 slabs installed
       //             $2,332.80 = $4,082.96, or $15.58/sqft in 2020 money.
-      //             ×1.40 → $21.81. Shipped at $22.
+      //             ×1.32 → $20.57. Shipped at $21.
       //
       //   moderate  Custom Interlocking, 636 Mikinak Rd, Feb 2021. A 1,220
       //             sqft patio at $30,679.34 after a $550 quarry discount =
@@ -538,27 +538,51 @@ export const TRADE_PRICE_BOOKS = {
       //             3 lifts, Techo-Bloc Blu 60 mm, snap edge, Gator G2,
       //             geotextile, fence-panel removal, disposal, grading, soil
       //             and seed, and a 3-year warranty — which is what "moderate"
-      //             should mean. ×1.30 → $32.70. Shipped at $33.
+      //             should mean. ×1.29 → $32.44. Shipped at $32.
       //
       //   high      No real job in evidence, so this stays at the top of the
       //             published Ontario range rather than being extrapolated.
       //
-      // ESCALATION. These are construction-cost factors, not CPI: residential
-      // construction inputs in Ontario rose far faster than the consumer index
-      // across 2021–22. ×1.40 for 2020, ×1.30 for 2021, ×1.15 for 2022. They
-      // are estimates and they are the numbers here most worth replacing the
-      // moment you have a current invoice of your own.
+      // ESCALATION. Not estimates any more — Statistics Canada, table
+      // 18-10-0289-01, Building construction price indexes, Ottawa–Gatineau
+      // (Ontario part), residential, 2026 Q2:
+      //
+      //   Earthwork (excavation)        80.8 → 113.6   ×1.406 from 2020 Q2
+      //   Exterior improvements         88.3 → 108.4   ×1.228 from 2020 Q2
+      //
+      // Those two divisions ARE this scope, and they are installed-price
+      // indexes: labour, material, equipment, overhead and profit are already
+      // inside them, so no weighting is needed. Blended across a paving mix
+      // they give ×1.32 from May 2020 and ×1.29 from February 2021, which a
+      // wholly independent bottom-up blend (Canada-wide IPPI/RMPI for concrete
+      // and aggregates against Ontario construction wage indexes) reproduces
+      // at 1.30–1.33 and 1.28–1.30.
+      //
+      // ×1.40 was too high by about 6%. The larger error was the GAP between
+      // the two factors: 1.40/1.30 asserts 7.7% escalation between May 2020
+      // and February 2021, and Ottawa BCPI says exterior improvements moved
+      // 1.6% and earthwork 3.0% over that window. The hardscaping run-up came
+      // in 2022 — after both base dates — so the 2020 figure was carrying
+      // inflation that had not happened yet.
+      //
+      // Do NOT reach for the headline residential composite (×1.64). It is
+      // dominated by framing, finishes and mechanical trades that took the
+      // 2021 lumber shock; hardscaping did not. Ontario-wide runs hotter than
+      // Ottawa on every division because it is Toronto-weighted.
+      //
+      // These are re-pullable quarterly rather than re-estimated. 2026 Q2 is
+      // the latest published quarter and is subject to revision.
       standard: {
         desc: "Simple shape, good access, level ground, existing surface already gone",
-        patioPricePerSqft: 22,
-        walkwayPricePerSqft: 22,
-        drivewayPricePerSqft: 25,
+        patioPricePerSqft: 21,
+        walkwayPricePerSqft: 21,
+        drivewayPricePerSqft: 24,
       },
       moderate: {
         desc: "Curves or cuts, a slope, deeper base, premium stone, or full grading and seed",
-        patioPricePerSqft: 33,
-        walkwayPricePerSqft: 30,
-        drivewayPricePerSqft: 35,
+        patioPricePerSqft: 32,
+        walkwayPricePerSqft: 29,
+        drivewayPricePerSqft: 34,
       },
       high: {
         desc: "Heavy cutting, tight access, significant grading or clay excavation",
@@ -576,13 +600,13 @@ export const TRADE_PRICE_BOOKS = {
     // $2,751.77 over 75 sqft of Melville Tandem veneer face — base prep
     // $464.52, structural units $943.16, veneer $842.25, starter units
     // $159.12, capping $342.72 — which is $36.69 per square foot of wall FACE
-    // in 2020. ×1.40 → $51.37.
+    // in 2020. ×1.32 → $48.43.
     //
     // Steps are not separable from that total: the invoice bundles "step
     // include veneer" into the same section. So there is no per-step price
     // here, because the source does not contain one — a wall with steps in it
     // is quoted by its face area, which is how the invoice quoted it.
-    wallPricePerFaceSqft: 51,
+    wallPricePerFaceSqft: 48,
     // The single most useful sentence in the research, encoded: the published
     // installed rates assume the paver itself does not exceed $7/sqft. Choose
     // a premium stone and only the DIFFERENCE is added, because the allowance
