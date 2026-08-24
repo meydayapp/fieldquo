@@ -35,7 +35,10 @@ export async function POST(request, { params }) {
       isDefault: true,
     },
   });
-  const sections = usableSections("invoice_pdf", template?.sections || getDefaultSections("invoice_pdf")).sections;
+  const sections = usableSections(
+    "invoice_pdf",
+    template?.sections || getDefaultSections("invoice_pdf"),
+  ).sections;
 
   const pdfBuffer = await renderDocumentPdfBuffer({
     sections,
@@ -49,29 +52,47 @@ export async function POST(request, { params }) {
     data: {
       ...invoice,
       client: invoice.client,
-      scopeGroups: Array.isArray(invoice.lineItems) && invoice.lineItems.length
-        ? [
-            {
-              label: "Work completed",
-              lineItems: invoice.lineItems,
-              subtotal: invoice.subtotal,
-            },
-          ]
-        : [],
+      scopeGroups:
+        Array.isArray(invoice.lineItems) && invoice.lineItems.length
+          ? [
+              {
+                label: "Work completed",
+                lineItems: invoice.lineItems,
+                subtotal: invoice.subtotal,
+              },
+            ]
+          : [],
     },
     company,
   });
 
-  const uploaded = await uploadBuffer(pdfBuffer, {
-    folder: `fieldquo/${member.companyId}/invoices`,
-    publicId: invoice.invoiceNumber,
-    resourceType: "raw",
-  });
-
-  await db.invoice.update({
-    where: { id: invoice.id },
-    data: { pdfUrl: uploaded.secure_url },
-  });
+  // ── The archive copy must never cost you the download ────────────────────
+  //
+  // The PDF is already rendered and is what the caller asked for. Uploading a
+  // copy to Cloudinary is a side effect, and until this was wrapped it ran
+  // BEFORE the response with nothing catching it: a Cloudinary outage, a rate
+  // limit, or an account whose PDF delivery is restricted would throw here and
+  // 500 the route — so an estimator could not download a quote that had
+  // already been built successfully in memory.
+  //
+  // Nothing currently READS `pdfUrl` (grep it). The upload is kept because an
+  // archived copy of what was sent is worth having and removing it is a product
+  // decision, not a cleanup — but it is now demoted to what it is: best
+  // effort, logged when it fails, never in the way of the document.
+  let uploaded = null;
+  try {
+    uploaded = await uploadBuffer(pdfBuffer, {
+      folder: `fieldquo/${member.companyId}/invoices`,
+      publicId: invoice.invoiceNumber,
+      resourceType: "raw",
+    });
+    await db.invoice.update({
+      where: { id: invoice.id },
+      data: { pdfUrl: uploaded.secure_url },
+    });
+  } catch (err) {
+    console.error("[invoices/pdf] archive copy failed:", err?.message);
+  }
 
   return new NextResponse(pdfBuffer, {
     status: 200,
