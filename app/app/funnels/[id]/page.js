@@ -21,6 +21,7 @@ import {
   Radio,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { embedSnippet } from "@/lib/embed/snippet";
 import { readableForeground } from "@/lib/brand/colour";
 
 const STEP_KINDS = [

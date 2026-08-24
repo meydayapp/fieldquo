@@ -122,7 +122,28 @@ export default function LeadFormPage() {
   const { t } = useTranslation();
   const [slug, setSlug] = useState("");
   const [origin, setOrigin] = useState("");
+  // Funnels belong on this page too: it is the one screen that answers "what
+  // can I share?", and a funnel is the most shareable thing the app makes. It
+  // is a list rather than a card because a company has many, and each carries
+  // its own link and its own embed.
+  const [funnels, setFunnels] = useState([]);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    // Published only. An unpublished funnel's link 404s for a visitor, and
+    // handing someone a link to paste that does not work yet is worse than
+    // showing nothing.
+    fetch("/api/funnels")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) =>
+        setFunnels(
+          (Array.isArray(list) ? list : []).filter(
+            (f) => f.status === "published" && f.slug,
+          ),
+        ),
+      )
+      .catch(() => setFunnels([]));
+  }, []);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -216,6 +237,23 @@ export default function LeadFormPage() {
         url={instantUrl}
         embed={embed("instant-quote")}
       />
+
+      {funnels.map((f) => (
+        <ShareBlock
+          key={f.id}
+          icon={Megaphone}
+          title={f.name}
+          description="A tap-through lead funnel — share the link on an ad, or put it on your site."
+          url={`${origin}/f/${slug}/${f.slug}`}
+          embed={embedSnippet({
+            origin,
+            slug,
+            widget: "funnel",
+            funnelSlug: f.slug,
+            title: f.name,
+          })}
+        />
+      ))}
 
       <p className="text-xs text-muted-foreground">
         {t("app.setLeadForm.footer")}
