@@ -910,6 +910,55 @@ model Company {
   /// sitePublished, discoverable…) — those are the CONTRACTOR's switches. See
   /// lib/features/registry.js for why the two axes stay separate.
   featureOverrides CompanyFeatureOverride[]
+
+  /// The bio-link page (/l/<slug>). Optional: no row means the page is live
+  /// with the defaults derived from what the company already has — see
+  /// lib/links/candidates.js — which is what makes it work the moment a
+  /// contractor pastes the URL, without a setup step they'd have to be told
+  /// about first.
+  linkPage LinkPage?
+}
+
+/// Configuration for the bio-link page at /l/<slug> — the single link an
+/// Instagram or TikTok profile allows, pointing at everything a contractor can
+/// send traffic to.
+///
+/// ── Why so few columns ──────────────────────────────────────────────────────
+///
+/// Almost nothing about this page is stored. WHICH links exist is derived at
+/// request time from active event types, enabled estimators, published funnels
+/// and the company's own contact columns, so publishing a funnel makes it
+/// appear and deleting one makes it vanish — no copy here to go stale, and no
+/// way for this table to promise a link that 404s.
+///
+/// `items` is therefore an ORDERED OVERRIDE LIST, not the list:
+/// [{ key, enabled, label?, url? }]. A key it doesn't mention keeps its
+/// derived default and appends in the natural order. Shape and sanitising live
+/// in lib/links/config.js, which is the boundary between what a browser sent
+/// and what a stranger is served.
+model LinkPage {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Off takes the page down (404), for a company that doesn't want one.
+  /// Defaults to true so the URL works before anyone visits Settings.
+  published Boolean @default(true)
+
+  /// Shown instead of the company name, and only when they wrote one. Null
+  /// means "use the company name", not "no heading".
+  headline String?
+  /// One line under it. Null renders nothing — FieldQuo does not write a
+  /// sentence about a business it hasn't been told about.
+  bio      String?
+
+  items Json?
+
+  createdAt DateTime @default(now())
+  /// @default(now()) alongside @updatedAt for the same reason Company.updatedAt
+  /// carries one: without it Prisma cannot add a required column to a table
+  /// that already has rows.
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 // Per-company overrides on top of the built-in defaults in

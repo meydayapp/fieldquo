@@ -83,6 +83,11 @@ const SUBDOMAIN_PASSTHROUGH = [
   // get the drawing, not that tenant's marketing site.
   "/design",
   "/refer",
+  // The bio link (/l/<company>). Handed out as an apex URL, so this is not a
+  // live break — but a contractor who types their own subdomain in front of it
+  // would otherwise land on their marketing site's 404 rather than their own
+  // links page, and there is no reason for the two spellings to disagree.
+  "/l",
   // Public lead funnels (/f/<company>/<funnel>). A stranger reaching a funnel
   // from an ad linked on the tenant's own subdomain must get the funnel, not
   // that tenant's marketing site.
@@ -140,7 +145,11 @@ export async function middleware(request) {
     // renderer emits those hrefs as same-origin paths on purpose: sending a
     // visitor from the contractor's own domain to fieldquo.com mid-enquiry is
     // exactly the handoff a white-labelled site exists to avoid.
-    if (SUBDOMAIN_PASSTHROUGH.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    if (
+      SUBDOMAIN_PASSTHROUGH.some(
+        (p) => pathname === p || pathname.startsWith(`${p}/`),
+      )
+    ) {
       return NextResponse.next();
     }
 
@@ -176,7 +185,10 @@ export async function middleware(request) {
   if (impersonationToken && !isPlatformSurface) {
     const claims = await verifyImpersonationToken(impersonationToken);
 
-    if (claims && (pathname.startsWith("/app") || pathname.startsWith("/api"))) {
+    if (
+      claims &&
+      (pathname.startsWith("/app") || pathname.startsWith("/api"))
+    ) {
       // A demo sandbox may write. The mode was decided from Company.isDemo
       // when the token was minted and is signed into it — a forged or
       // hand-edited cookie fails jwtVerify before it reaches here, and a token
