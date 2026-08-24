@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import EmbedCode from "@/app/components/settings/EmbedCode";
 import { Plus, X } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -46,7 +47,8 @@ function policyFrom(info) {
     refund: Boolean(info?.refundVisitFeeOnCancel),
     // "" is not 0: blank means "same notice as the change window", which is
     // what a null column means to changePolicy.
-    refundHours: info?.refundCutoffHours == null ? "" : String(info.refundCutoffHours),
+    refundHours:
+      info?.refundCutoffHours == null ? "" : String(info.refundCutoffHours),
   };
 }
 
@@ -102,26 +104,41 @@ function BookingPageScreen() {
   // How much notice the crew needs, whether a paid visit fee comes back, and
   // how much notice the money needs. Read on the public side by
   // lib/booking/changePolicy.js.
-  const [policy, setPolicy] = useState({ changeHours: "24", refund: false, refundHours: "" });
+  const [policy, setPolicy] = useState({
+    changeHours: "24",
+    refund: false,
+    refundHours: "",
+  });
+  // The same pair findBookingCompany resolves at the other end of the embed —
+  // bookingSlug wins because a company that set one chose that URL.
+  const [slug, setSlug] = useState("");
 
   useEffect(() => {
     Promise.all([
       fetch("/api/event-types").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/settings/business-info").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/settings/business-info").then((r) =>
+        r.ok ? r.json() : null,
+      ),
     ])
       .then(([types, info]) => {
         setEventTypes(Array.isArray(types) ? types : []);
         // Whether the company can actually collect a booking fee (Connect done).
         setStripeReady(Boolean(info?.stripeChargesEnabled));
-        if (info?.defaultVisitMinutes) setVisitMinutes(info.defaultVisitMinutes);
-        if (Array.isArray(info?.bookingModes) && info.bookingModes.length) setModes(info.bookingModes);
+        if (info?.defaultVisitMinutes)
+          setVisitMinutes(info.defaultVisitMinutes);
+        if (Array.isArray(info?.bookingModes) && info.bookingModes.length)
+          setModes(info.bookingModes);
         setTravel({
           enabled: info?.travelCheckEnabled !== false,
           buffer: info?.travelBufferMinutes ?? 0,
         });
         setArrival(info?.arrivalWindowMinutes ?? 0);
         if (info) setPolicy(policyFrom(info));
-        setForm((f) => ({ ...f, durationMinutes: info?.defaultVisitMinutes || 60 }));
+        setSlug(info?.bookingSlug || info?.slug || "");
+        setForm((f) => ({
+          ...f,
+          durationMinutes: info?.defaultVisitMinutes || 60,
+        }));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -201,7 +218,9 @@ function BookingPageScreen() {
   async function toggleMode(key) {
     // Never allowed to reach zero — that would leave a booking page nobody can
     // complete. The last remaining mode simply can't be switched off.
-    const next = modes.includes(key) ? modes.filter((m) => m !== key) : [...modes, key];
+    const next = modes.includes(key)
+      ? modes.filter((m) => m !== key)
+      : [...modes, key];
     if (!next.length) return;
     setModes(next);
     const res = await fetch("/api/settings/business-info", {
@@ -209,7 +228,8 @@ function BookingPageScreen() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookingModes: next }),
     });
-    if (!res.ok) await reportResponseError(res, t("app.setBooking.modesSaveError"));
+    if (!res.ok)
+      await reportResponseError(res, t("app.setBooking.modesSaveError"));
   }
 
   async function saveVisitMinutes(minutes) {
@@ -241,7 +261,9 @@ function BookingPageScreen() {
     });
     if (res.ok) {
       const updated = await res.json();
-      setEventTypes((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      setEventTypes((prev) =>
+        prev.map((e) => (e.id === updated.id ? updated : e)),
+      );
     } else {
       await reportResponseError(res, t("app.setBooking.durationSaveError"));
     }
@@ -256,7 +278,9 @@ function BookingPageScreen() {
     });
     if (res.ok) {
       const updated = await res.json();
-      setEventTypes((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      setEventTypes((prev) =>
+        prev.map((e) => (e.id === updated.id ? updated : e)),
+      );
     } else {
       await reportResponseError(res);
     }
@@ -342,6 +366,25 @@ function BookingPageScreen() {
         </button>
       </div>
 
+      {/* The export, on the screen where the calendar is set up.
+          Somebody who has just finished configuring their availability, their
+          event types and their booking policy asks "right — how do I use
+          this?" next. Sending them to Settings → Lead Capture Form to find the
+          code for the thing they are looking at is how it never gets pasted. */}
+      <EmbedCode
+        slug={slug}
+        widget="book"
+        title={t("app.setLeadForm.bookTitle")}
+        heading={t(
+          "app.setBooking.embedHeading",
+          "Put your booking calendar on your website",
+        )}
+        note={t(
+          "app.setBooking.embedNote",
+          "Paste this where you want the calendar to appear. It works on Wix, Squarespace, WordPress and hand-written HTML — it is an ordinary HTML element. The small script only resizes the box as the visitor moves through the steps; if your site strips scripts the calendar still works at a fixed height.",
+        )}
+      />
+
       {/* One answer to "how long is a visit", used for anything FieldQuo creates
           automatically. Separate from the per-event lengths below because those
           are exceptions and this is the rule. */}
@@ -397,7 +440,9 @@ function BookingPageScreen() {
                 type="button"
                 role="switch"
                 aria-checked={travel.enabled}
-                onClick={() => saveTravel({ travelCheckEnabled: !travel.enabled })}
+                onClick={() =>
+                  saveTravel({ travelCheckEnabled: !travel.enabled })
+                }
                 className={`shrink-0 w-11 h-6 rounded-full transition-colors ${
                   travel.enabled ? "bg-emerald-600" : "bg-muted-foreground/30"
                 }`}
@@ -430,7 +475,9 @@ function BookingPageScreen() {
                           : "border-border text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {m === 0 ? t("app.setBooking.none") : t("app.setBooking.minutesShort", { m })}
+                      {m === 0
+                        ? t("app.setBooking.none")
+                        : t("app.setBooking.minutesShort", { m })}
                     </button>
                   ))}
                 </div>
@@ -460,7 +507,9 @@ function BookingPageScreen() {
                       : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {m === 0 ? t("app.setBooking.exactTime") : t("app.setBooking.plusMinusMin", { m })}
+                  {m === 0
+                    ? t("app.setBooking.exactTime")
+                    : t("app.setBooking.plusMinusMin", { m })}
                 </button>
               ))}
             </div>
@@ -468,8 +517,10 @@ function BookingPageScreen() {
               {arrival === 0
                 ? t("app.setBooking.previewExact")
                 : t("app.setBooking.previewWindow", {
-                    lo: arrival >= 60 ? "1:00" : arrival === 30 ? "1:30" : "1:45",
-                    hi: arrival >= 60 ? "3:00" : arrival === 30 ? "2:30" : "2:15",
+                    lo:
+                      arrival >= 60 ? "1:00" : arrival === 30 ? "1:30" : "1:45",
+                    hi:
+                      arrival >= 60 ? "3:00" : arrival === 30 ? "2:30" : "2:15",
                   })}
             </p>
           </div>
@@ -524,11 +575,17 @@ function BookingPageScreen() {
               min="0"
               step="1"
               value={policy.changeHours}
-              onChange={(e) => setPolicy((p) => ({ ...p, changeHours: e.target.value }))}
-              onBlur={(e) => savePolicy({ ...policy, changeHours: e.target.value })}
+              onChange={(e) =>
+                setPolicy((p) => ({ ...p, changeHours: e.target.value }))
+              }
+              onBlur={(e) =>
+                savePolicy({ ...policy, changeHours: e.target.value })
+              }
               className="w-24 border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
             />
-            <span className="text-muted-foreground">{t("app.setBooking.hoursUnit", "hours")}</span>
+            <span className="text-muted-foreground">
+              {t("app.setBooking.hoursUnit", "hours")}
+            </span>
           </label>
         </div>
 
@@ -581,8 +638,12 @@ function BookingPageScreen() {
                   step="1"
                   placeholder={String(changeH)}
                   value={policy.refundHours}
-                  onChange={(e) => setPolicy((p) => ({ ...p, refundHours: e.target.value }))}
-                  onBlur={(e) => savePolicy({ ...policy, refundHours: e.target.value })}
+                  onChange={(e) =>
+                    setPolicy((p) => ({ ...p, refundHours: e.target.value }))
+                  }
+                  onBlur={(e) =>
+                    savePolicy({ ...policy, refundHours: e.target.value })
+                  }
                   className="w-24 border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
                 />
                 <span className="text-muted-foreground">
@@ -637,109 +698,141 @@ function BookingPageScreen() {
           </div>
         )}
         {eventTypes.map((et) => (
-          <div key={et.id} className="bg-card border border-border rounded-xl p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-medium text-foreground">{et.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {et.location || t("app.setBooking.noLocation")}
+          <div
+            key={et.id}
+            className="bg-card border border-border rounded-xl p-4"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-medium text-foreground">{et.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {et.location || t("app.setBooking.noLocation")}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <label className="flex items-center gap-1.5 text-sm">
-                <span className="text-muted-foreground text-xs">{t("app.setBooking.length")}</span>
-                <select
-                  value={et.durationMinutes}
-                  onChange={(e) => setDuration(et, Number(e.target.value))}
-                  className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
-                >
-                  {/* The saved value is included even if it isn't one of the
+              <div className="flex items-center gap-3 shrink-0">
+                <label className="flex items-center gap-1.5 text-sm">
+                  <span className="text-muted-foreground text-xs">
+                    {t("app.setBooking.length")}
+                  </span>
+                  <select
+                    value={et.durationMinutes}
+                    onChange={(e) => setDuration(et, Number(e.target.value))}
+                    className="border border-border rounded-lg px-2 py-1.5 text-sm bg-background"
+                  >
+                    {/* The saved value is included even if it isn't one of the
                       presets, so an existing 75-minute visit isn't silently
                       rounded to 60 the moment someone opens this page. */}
-                  {[...new Set([...DURATIONS, et.durationMinutes])]
-                    .sort((a, b) => a - b)
-                    .map((m) => (
-                      <option key={m} value={m}>
-                        {t("app.setBooking.minutesShort", { m })}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={et.active}
-                onChange={() => toggleActive(et)}
-              />
-              {t("app.status.active")}
-            </label>
-            </div>
-          </div>
-
-          {/* Fee for this booking type — a paid on-site / estimate visit. Free
-              when blank. Collected via Stripe Connect at booking; the contractor
-              can later credit it onto the client's invoice by hand. */}
-          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3" data-tour="booking-fee">
-            <label className="text-sm">
-              <span className="block text-xs text-muted-foreground mb-1">
-                {t("app.setBooking.visitFee", "Visit fee")}
-              </span>
-              <div className="relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  defaultValue={et.feeCents ? (et.feeCents / 100).toString() : ""}
-                  onBlur={(e) => patchEventType(et, { feeCents: toCents(e.target.value) })}
-                  placeholder={t("app.setBooking.free", "Free")}
-                  className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
-                />
-              </div>
-            </label>
-
-            {et.feeCents > 0 && (
-              <>
-                <label className="text-sm">
-                  <span className="block text-xs text-muted-foreground mb-1">
-                    {t("app.setBooking.promoPrice", "Promo price")}
-                  </span>
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      defaultValue={et.promoFeeCents ? (et.promoFeeCents / 100).toString() : ""}
-                      onBlur={(e) => patchEventType(et, { promoFeeCents: toCents(e.target.value) })}
-                      className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
-                    />
-                  </div>
+                    {[...new Set([...DURATIONS, et.durationMinutes])]
+                      .sort((a, b) => a - b)
+                      .map((m) => (
+                        <option key={m} value={m}>
+                          {t("app.setBooking.minutesShort", { m })}
+                        </option>
+                      ))}
+                  </select>
                 </label>
-                <label className="flex items-center gap-2 text-sm pb-1.5">
+                <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
-                    checked={!!et.promoActive}
-                    disabled={!et.promoFeeCents}
-                    onChange={(e) => patchEventType(et, { promoActive: e.target.checked })}
+                    checked={et.active}
+                    onChange={() => toggleActive(et)}
                   />
-                  {t("app.setBooking.promoOn", "Promo on")}
+                  {t("app.status.active")}
                 </label>
-              </>
-            )}
-          </div>
-
-          {/* Can't collect a fee without a connected payout account. Prompt it
-              rather than silently taking a fee that goes nowhere. */}
-          {et.feeCents > 0 && !stripeReady && (
-            <div className="mt-2 text-xs rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-3 py-2">
-              {t("app.setBooking.connectToCharge", "Connect Stripe to collect this fee —")}{" "}
-              <a href="/app/settings/payments" className="underline font-medium">
-                {t("app.setBooking.goToPayments", "set it up in Payments")}
-              </a>
-              .
+              </div>
             </div>
-          )}
+
+            {/* Fee for this booking type — a paid on-site / estimate visit. Free
+              when blank. Collected via Stripe Connect at booking; the contractor
+              can later credit it onto the client's invoice by hand. */}
+            <div
+              className="mt-3 pt-3 border-t border-border flex flex-wrap items-end gap-3"
+              data-tour="booking-fee"
+            >
+              <label className="text-sm">
+                <span className="block text-xs text-muted-foreground mb-1">
+                  {t("app.setBooking.visitFee", "Visit fee")}
+                </span>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    defaultValue={
+                      et.feeCents ? (et.feeCents / 100).toString() : ""
+                    }
+                    onBlur={(e) =>
+                      patchEventType(et, { feeCents: toCents(e.target.value) })
+                    }
+                    placeholder={t("app.setBooking.free", "Free")}
+                    className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                  />
+                </div>
+              </label>
+
+              {et.feeCents > 0 && (
+                <>
+                  <label className="text-sm">
+                    <span className="block text-xs text-muted-foreground mb-1">
+                      {t("app.setBooking.promoPrice", "Promo price")}
+                    </span>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        defaultValue={
+                          et.promoFeeCents
+                            ? (et.promoFeeCents / 100).toString()
+                            : ""
+                        }
+                        onBlur={(e) =>
+                          patchEventType(et, {
+                            promoFeeCents: toCents(e.target.value),
+                          })
+                        }
+                        className="w-28 border border-border rounded-lg pl-6 pr-2 py-1.5 text-sm bg-background"
+                      />
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-2 text-sm pb-1.5">
+                    <input
+                      type="checkbox"
+                      checked={!!et.promoActive}
+                      disabled={!et.promoFeeCents}
+                      onChange={(e) =>
+                        patchEventType(et, { promoActive: e.target.checked })
+                      }
+                    />
+                    {t("app.setBooking.promoOn", "Promo on")}
+                  </label>
+                </>
+              )}
+            </div>
+
+            {/* Can't collect a fee without a connected payout account. Prompt it
+              rather than silently taking a fee that goes nowhere. */}
+            {et.feeCents > 0 && !stripeReady && (
+              <div className="mt-2 text-xs rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 px-3 py-2">
+                {t(
+                  "app.setBooking.connectToCharge",
+                  "Connect Stripe to collect this fee —",
+                )}{" "}
+                <a
+                  href="/app/settings/payments"
+                  className="underline font-medium"
+                >
+                  {t("app.setBooking.goToPayments", "set it up in Payments")}
+                </a>
+                .
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -748,7 +841,9 @@ function BookingPageScreen() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">{t("app.setBooking.newEventType")}</h2>
+              <h2 className="font-semibold">
+                {t("app.setBooking.newEventType")}
+              </h2>
               <button onClick={() => setShowForm(false)}>
                 <X size={18} />
               </button>
