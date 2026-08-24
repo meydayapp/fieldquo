@@ -291,6 +291,24 @@ const CATEGORIES = [
     icon: "Square",
     sortOrder: 63,
   },
+
+  // Home inspection is not a trade that BUILDS anything, which is why it fits
+  // no existing category: it sells a visit and a report, priced from the
+  // house's square footage rather than from a quantity of work. Folding it
+  // into `general_contracting` would have meant one rate card answering both
+  // "what does a reno cost" and "what does an inspection cost".
+  //
+  // Icon: "Home" because ServiceTiles.js curates its lucide imports by hand
+  // (a deliberate bundle-size decision documented there) and the obvious
+  // ClipboardCheck / Search is not in that map — an unlisted name falls back
+  // to a generic Package box rather than erroring, which is worse than reusing
+  // an accurate one.
+  {
+    key: "home_inspection",
+    label: "Home Inspection",
+    icon: "Home",
+    sortOrder: 64,
+  },
 ];
 
 async function main() {

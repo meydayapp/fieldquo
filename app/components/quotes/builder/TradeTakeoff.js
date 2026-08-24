@@ -17,6 +17,7 @@
 import { COMPLEXITY_LEVELS } from "@/app/data/tradePriceBooks";
 import {
   clientPriceFromCost,
+  inspectionBandFor,
   newStairSection,
   newFloorSection,
   newPaintRoom,
@@ -1292,6 +1293,152 @@ function DrivewaySealingTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/* ── Home inspection ───────────────────────────────────────────────────── */
+
+// The band, spelled out. An inspector quoting from a printed price list reads
+// down a column to a row; this screen has to show which row it landed on,
+// because "3,100 sq ft" and "$625" side by side look like a per-foot rate that
+// went wrong. The band label is the thing that reaches the client's document.
+function HomeInspectionTakeoff({ takeoff, book, onChange }) {
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const sqft = num(takeoff.sqft);
+  const band = inspectionBandFor(book?.bands, sqft);
+  const bandPrice = num(band?.price);
+
+  // Mirrors buildHomeInspection exactly. A screen that showed the band price
+  // alone would under-state a large house by hundreds of dollars against the
+  // quote it goes on to produce.
+  const ceiling = Number(band?.maxSqft);
+  const per1000 = num(book?.oversize?.pricePer1000Sqft);
+  const oversizeThousands =
+    bandPrice > 0 && Number.isFinite(ceiling) && per1000 > 0 && sqft > ceiling
+      ? Math.ceil((sqft - ceiling) / 1000)
+      : 0;
+
+  const ancillary = book?.ancillary || {};
+  const counts =
+    takeoff.ancillary && typeof takeoff.ancillary === "object"
+      ? takeoff.ancillary
+      : {};
+  const setCount = (id, value) =>
+    set({ ancillary: { ...counts, [id]: value } });
+
+  const warranty = book?.warrantyInspection || {};
+  const warrantyRate = num(warranty.price);
+  const visits = num(takeoff.warrantyVisits);
+
+  return (
+    <div className="space-y-3">
+      <Field label="Living area (sq ft)">
+        <Num
+          step={50}
+          value={takeoff.sqft}
+          onChange={(v) => set({ sqft: v })}
+        />
+      </Field>
+
+      <div className="flex items-baseline justify-between border-b border-border py-1.5 text-sm">
+        <span>
+          Full home inspection
+          <span className="ml-2 text-xs text-muted-foreground">
+            {sqft <= 0
+              ? "Enter the area — the price comes from the band it falls in"
+              : band
+                ? band.label || band.id
+                : "No band covers this area"}
+          </span>
+        </span>
+        <span className="font-medium tabular-nums">
+          {bandPrice > 0 ? `$${money(bandPrice)}` : "—"}
+        </span>
+      </div>
+
+      {oversizeThousands > 0 && (
+        <div className="flex items-baseline justify-between border-b border-border py-1.5 text-sm">
+          <span>
+            {book?.oversize?.label || "Additional square footage"}
+            <span className="ml-2 text-xs text-muted-foreground">
+              {sqft - ceiling} sq ft over the largest band, charged per 1,000 or
+              part thereof
+            </span>
+          </span>
+          <span className="font-medium tabular-nums">
+            ${money(oversizeThousands * per1000)}
+          </span>
+        </div>
+      )}
+
+      {sqft > 0 && bandPrice <= 0 && (
+        <p className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          {band
+            ? `The “${band.label || band.id}” band has no price set, so no inspection line will appear on this quote.`
+            : `No band covers ${sqft} sq ft, so no inspection line will appear on this quote.`}{" "}
+          Fix it in Settings → Services → Home Inspection.
+        </p>
+      )}
+
+      <div>
+        {Object.entries(ancillary).map(([id, entry]) => {
+          const qty = num(counts[id]);
+          const rate = num(entry?.price);
+          const unpriced = rate <= 0;
+          return (
+            <OptionRow
+              key={id}
+              checked={qty > 0}
+              onToggle={(on) => setCount(id, on ? 1 : 0)}
+              label={entry?.label || id}
+              hint={
+                unpriced
+                  ? // Said on the row rather than in a footnote: a ticked box
+                    // that adds nothing to the total is the exact failure this
+                    // codebase keeps finding.
+                    `No price set — ticking this adds nothing to the quote. ${entry?.note || ""}`.trim()
+                  : [
+                      `$${money(rate)} ${entry?.unit ? `/ ${entry.unit}` : "each"}`,
+                      entry?.note,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+              }
+              amount={unpriced ? 0 : qty * rate}
+            >
+              {entry?.countable && (
+                <div className="mt-1 w-24">
+                  <Num value={qty} onChange={(v) => setCount(id, v)} />
+                </div>
+              )}
+            </OptionRow>
+          );
+        })}
+
+        <OptionRow
+          checked={visits > 0}
+          onToggle={(on) => set({ warrantyVisits: on ? 1 : 0 })}
+          label={warranty.label || "Warranty inspection"}
+          hint={
+            warrantyRate > 0
+              ? `$${money(warrantyRate)} per visit${warranty.note ? ` · ${warranty.note}` : ""}`
+              : "No price set — ticking this adds nothing to the quote."
+          }
+          amount={warrantyRate > 0 ? visits * warrantyRate : 0}
+        >
+          <div className="mt-1 w-24">
+            <Num
+              value={takeoff.warrantyVisits}
+              onChange={(v) => set({ warrantyVisits: v })}
+            />
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            One visit per milestone. Bill the milestones the client is booking
+            now — the rest are separate visits, months apart.
+          </div>
+        </OptionRow>
+      </div>
+    </div>
+  );
+}
+
 /* ── Interlock and paving ──────────────────────────────────────────────── */
 
 const PAVING_SURFACES = [
@@ -1640,6 +1787,7 @@ const TAKEOFFS = {
   exterior_painting: ExteriorPaintTakeoff,
   flooring: FlooringTakeoff,
   driveway_sealing: DrivewaySealingTakeoff,
+  home_inspection: HomeInspectionTakeoff,
   paving: PavingTakeoff,
   snow_removal: SnowRemovalTakeoff,
 };

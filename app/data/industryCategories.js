@@ -60,6 +60,23 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "excavation",
     "tiling",
     "flooring_install",
+    // Home inspection sits here under protest: none of the twelve marketing
+    // industries (app/data/industries.js) is "Home Inspection", and an
+    // inspector is not a contractor — they are paid precisely because they
+    // build nothing on the house they are looking at.
+    //
+    // It goes here rather than nowhere for two reasons. The service on the
+    // source invoice that ISN'T the inspection is a Construction Performance
+    // Guideline inspection — the Tarion new-build warranty milestones — which
+    // is construction work by definition and is bought by builders and their
+    // clients. And a seeded category in no preset is reachable only by
+    // pressing "show other trades", which is how `paving` ended up invisible
+    // to paving contractors. One imperfect home beats none.
+    //
+    // The right fix is a `home-inspection` industry slug of its own; that
+    // needs app/data/industries.js and the /industries/[slug] marketing page,
+    // and is a product decision rather than a data one.
+    "home_inspection",
   ],
   electrical: ["electrical"],
   hvac: ["hvac_install", "hvac_repair"],

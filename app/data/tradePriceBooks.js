@@ -729,6 +729,177 @@ export const TRADE_PRICE_BOOKS = {
     labourHoursPerSqft: 0.004,
   },
 
+  // ── Home inspection ───────────────────────────────────────────────────
+  //
+  // PROVENANCE. Exactly ONE number here is read from a document:
+  //
+  //   Avelar Home Inspection Inc. (Ottawa), invoice 1898, 2025-06-07
+  //     FHI06  "Full Home Inspection - 3000-3499 sqft" .... $625.00
+  //     HIC-04 "Construction Performance Guideline
+  //             Inspection (30-day, 6-Month, Year End)" ... $150.00
+  //     subtotal $775.00, HST (ON) 13% $100.75, total $875.75
+  //
+  // Everything else is either read from an Ontario inspector's OWN published
+  // price page (marked "own page" with the firm and city) or derived from the
+  // $625 anchor by a stated rule (marked DERIVED). Nothing is a guess, and
+  // where no Ontario firm publishes a figure the field ships at 0 with a note
+  // the takeoff screen shows — cost-guide articles and US aggregator ranges
+  // were found and deliberately not used.
+  //
+  // THE BAND STRUCTURE is inferred from the SKU. FHI06 is the 3000–3499 band;
+  // five 500-wide bands below it land FHI01 exactly on "up to 999", which is
+  // the only band layout consistent with the code. Consistent is not the same
+  // as confirmed — Avelar's ladder is behind their booking widget and only the
+  // one band was ever seen.
+  //
+  // THE STEP is $50 per 500 sq ft band, DERIVED. It is the modal step across
+  // seven Ontario ladders: Cherry Home Inspections (Brantford, own page) runs
+  // a flat $50 per 500 sq ft; Artech Home Inspection (Ottawa, own page) and
+  // Homestar (GTA, own page) both state "$100 per 1,000 sq ft" for area above
+  // their top band; Crooker Hancox (Kitchener, own page) charges $10 per 100
+  // sq ft — the same slope reached three different ways.
+  //
+  // WHERE THE LADDER IS WEAKEST: the bottom. Nearly every published Ontario
+  // ladder FLATTENS below about 2,000 sq ft into one wide base band, so a
+  // straight-line extrapolation five bands down from $625 under-prices small
+  // homes against the market (Inspectionly's floor is $499, iInspect360's
+  // $475, Cherry's $525). Avelar's own SKU numbering argues they do band the
+  // bottom finely — but the two smallest bands here are the first two numbers
+  // an inspector should overwrite.
+  //
+  // The $625 sits mid-market for Ottawa: Artech (Ottawa, own page) quotes
+  // $625+ for the same class of home, Armada (Kingston, own page) $650, Cherry
+  // (Brantford, own page) $675.
+  home_inspection: {
+    label: "Home Inspection",
+    // Keyed map, not an array — `mergeDeep` replaces arrays wholesale, so a
+    // company editing one band price on the rate card would silently discard
+    // the other eight. Same reasoning as the garage door catalogue.
+    //
+    // `maxSqft` is the band's inclusive ceiling. Order is enforced by that
+    // number at read time (see inspectionBandFor), not by insertion order.
+    bands: {
+      b01: { label: "Up to 999 sq ft", maxSqft: 999, price: 375 },
+      b02: { label: "1,000–1,499 sq ft", maxSqft: 1499, price: 425 },
+      b03: { label: "1,500–1,999 sq ft", maxSqft: 1999, price: 475 },
+      b04: { label: "2,000–2,499 sq ft", maxSqft: 2499, price: 525 },
+      b05: { label: "2,500–2,999 sq ft", maxSqft: 2999, price: 575 },
+      // ── The one read figure in this book ──
+      b06: { label: "3,000–3,499 sq ft", maxSqft: 3499, price: 625 },
+      b07: { label: "3,500–3,999 sq ft", maxSqft: 3999, price: 675 },
+      b08: { label: "4,000–4,499 sq ft", maxSqft: 4499, price: 725 },
+      b09: { label: "4,500–4,999 sq ft", maxSqft: 4999, price: 775 },
+    },
+    // Above the top band the ladder would otherwise stop, and a 9,000 sq ft
+    // house would quote at the 4,500 price with nobody noticing until the
+    // inspector had spent a day in it. Artech (Ottawa) and Homestar (GTA) both
+    // publish this rule in almost identical words — "$100 for additional
+    // square footage, per 1,000 sq ft or portion thereof" — so it is read, not
+    // invented, and it is the same slope as the band step above.
+    oversize: {
+      label: "Additional square footage beyond the largest band",
+      pricePer1000Sqft: 100,
+    },
+    // The invoice's second line. $150 per visit reproduces it exactly at
+    // quantity 1. Avelar's own booking page describes the CPG inspection as
+    // "an additional fee of $150.00 beyond the Standard Home Inspection",
+    // which is why it is priced per visit rather than as a package: the
+    // invoice sold one, and the three milestones are months apart.
+    //
+    // Corroboration: Ottawa Home Inspections (own page) sells warranty phases
+    // at $499–$699 for the first and $145–$175 for each subsequent one. $150
+    // sits inside that subsequent-phase band.
+    //
+    // The label repeats the invoice's own wording. Note that Tarion has no
+    // official 6-month milestone — the Year-End form merely OPENS for
+    // additions on day 183 — so "6-month" is the trade's name for a real and
+    // useful visit, not a statutory one. Left as the invoice says it because
+    // that is what an Ontario client will have been told to ask for.
+    warrantyInspection: {
+      label:
+        "Construction Performance Guideline inspection — 30-day, 6-month or year-end",
+      price: 150,
+      note: "Charged per milestone visit, in addition to a standard inspection",
+    },
+    // Ancillary services and surcharges. Same keyed-map reasoning as the
+    // bands. `countable` means the estimator types a number rather than just
+    // ticking a box — two wood stoves is two WETT inspections, and travel is
+    // charged by the kilometre.
+    ancillary: {
+      radon_short: {
+        label: "Radon test — 48-hour short-term device",
+        price: 100,
+        note: "Barrhaven Home Inspectors (Ottawa, own page): $100 booked with the inspection",
+      },
+      radon_long: {
+        label: "Radon test — 3-month long-term device",
+        price: 150,
+        note: "Barrhaven Home Inspectors (Ottawa, own page)",
+      },
+      wett: {
+        label: "WETT inspection — wood-burning appliance",
+        price: 250,
+        unit: "appliance",
+        countable: true,
+        note: "Parish (own page) $250 bundled Level 1; Cherry (Brantford, own page) $275",
+      },
+      septic: {
+        label: "Septic system inspection",
+        price: 350,
+        note: "Parish and Cherry publish the identical $350 bundled rate — the strongest ancillary figure found",
+      },
+      // Every specific well / potability figure found was American
+      // (Thumbtack, HomeAdvisor). Twin Peaks states a $400–$700 Ontario
+      // market range but explicitly not as their own rate. A number is not
+      // shipped here for that reason; the takeoff says so on the row.
+      well_water: {
+        label: "Well inspection and water sampling",
+        price: 0,
+        note: "No Ontario inspector publishes a rate — every figure found was US. Set your own.",
+      },
+      air_quality: {
+        label: "Mould / air quality sampling",
+        price: 195,
+        unit: "sample",
+        countable: true,
+        note: "iInspect360 (own page) $195 per sample, three-sample minimum is common",
+      },
+      thermal: {
+        label: "Thermal imaging scan",
+        price: 250,
+        note: "Standalone price (iInspect360, own page). Most Ontario inspectors now include thermal imaging in the inspection at no charge — check before adding this.",
+      },
+      // The only re-inspection figure in the whole survey was one firm's WETT
+      // revisit. One data point for a different service is not a rate.
+      reinspection: {
+        label: "Re-inspection of completed repairs",
+        price: 0,
+        note: "No Ontario inspector publishes a general re-inspection fee. Set your own.",
+      },
+      age_surcharge: {
+        label: "Home built 1950 or earlier — additional inspection time",
+        price: 70,
+        note: "Avelar's own booking page. Ontario firms range $25–$70; Avelar sits at the top with the strictest trigger.",
+      },
+      travel_km: {
+        label: "Travel beyond an 80 km round trip",
+        price: 0.82,
+        unit: "km",
+        countable: true,
+        note: "Avelar's own booking page: $0.82 per additional kilometre",
+      },
+    },
+    // No Ontario source states a minimum call-out for an inspector, and the
+    // smallest band is already an effective floor for a full inspection. It
+    // ships at 0 rather than invented — but an ancillary-only sale (a $100
+    // radon test on its own) has no floor at all until this is set.
+    minimumTotal: 0,
+    // Deliberately no `labourHoursPerSqft`. An inspection takes two to four
+    // hours and nobody publishes a production rate per square foot; a made-up
+    // one would feed the margin panel and the schedule with fiction.
+    // tradeLabourHours() returns 0 for a book that states none.
+  },
+
   garage_door: {
     label: "Garage Door Installation",
     // Keyed maps rather than arrays, and not for taste: `mergeDeep` replaces
@@ -874,6 +1045,10 @@ export const PRICE_BOOK_GROUPS = {
   standard: "Standard complexity",
   moderate: "Moderate complexity",
   high: "High complexity",
+  inspectionBands: "Full home inspection — by living area",
+  inspectionWarranty: "New-build warranty inspections",
+  inspectionAncillary: "Ancillary inspections and testing",
+  inspectionSurcharges: "Surcharges",
 };
 
 export const PRICE_BOOK_FIELDS = {
@@ -1210,6 +1385,51 @@ export const PRICE_BOOK_FIELDS = {
     },
     { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 100 },
   ],
+  // Derived from the book rather than typed out a second time: the band rows
+  // and the ancillary rows ARE the book's own keys, so a company that adds a
+  // band or a service to its overrides gets an editable row for it without an
+  // edit here, and a band deleted from the book cannot leave an orphan field
+  // pointing at nothing.
+  home_inspection: [
+    ...Object.entries(TRADE_PRICE_BOOKS.home_inspection.bands).map(
+      ([id, band]) => ({
+        path: `bands.${id}.price`,
+        label: band.label,
+        suffix: "$ flat",
+        step: 25,
+        group: "inspectionBands",
+      }),
+    ),
+    {
+      path: "oversize.pricePer1000Sqft",
+      label: "Area above the largest band",
+      suffix: "$ per 1,000 sqft",
+      step: 25,
+      group: "inspectionBands",
+    },
+    {
+      path: "warrantyInspection.price",
+      label: "Per milestone visit",
+      suffix: "$ / visit",
+      step: 25,
+      group: "inspectionWarranty",
+    },
+    ...Object.entries(TRADE_PRICE_BOOKS.home_inspection.ancillary).map(
+      ([id, entry]) => ({
+        path: `ancillary.${id}.price`,
+        label: entry.label,
+        suffix: entry.unit ? `$ / ${entry.unit}` : "$ each",
+        // Travel is charged in cents per kilometre; a step of 25 would make
+        // the only way to edit it typing over the box.
+        step: entry.unit === "km" ? 0.01 : 25,
+        group:
+          id === "age_surcharge" || id === "travel_km"
+            ? "inspectionSurcharges"
+            : "inspectionAncillary",
+      }),
+    ),
+    { path: "minimumTotal", label: "Job minimum", suffix: "$", step: 25 },
+  ],
   driveway_sealing: [
     ...complexityFields("driveway_sealing", [
       ["sealPricePerSqft", "Sealing", "$ / sqft"],
@@ -1443,6 +1663,14 @@ const EXTRA_PREFIXES = [
   "global.",
   "doorMaterials.",
   "complexityUpchargePerUnit.",
+  // A home inspection is priced by the BAND the house falls in, not by the
+  // kilometre or the sample. Without these, priceBookBasis would read the
+  // travel and warranty rows and tell the settings screen that inspectors
+  // charge "per km" and "per visit" — true of the extras, false of the trade.
+  // The bands themselves are excluded already by their "$ flat" suffix.
+  "ancillary.",
+  "warrantyInspection.",
+  "oversize.",
 ];
 
 // "$ / tread" -> "tread". "$ flat", "$" and "%" name a whole-job price or a

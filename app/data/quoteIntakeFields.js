@@ -949,6 +949,50 @@ export const INTAKE_FIELDS = {
       options: ["one_time", "weekly", "biweekly"],
     },
   ],
+  // Home inspection has a structured takeoff (TradeTakeoff.js), and the quote
+  // builder shows the takeoff INSTEAD of these fields — see the
+  // `!hasTakeoff(...)` guard in app/app/quotes/new/page.js. So this entry
+  // exists for the PUBLIC self-quote form, which has no takeoff and shows the
+  // first three number/select fields. Those three are ordered deliberately:
+  // square footage is the only thing that moves the price, and the other two
+  // decide whether the inspector is even the right person to call.
+  home_inspection: [
+    { key: "squareFootage", label: "Square Footage", type: "number" },
+    {
+      key: "inspectionType",
+      label: "Inspection Type",
+      type: "select",
+      options: [
+        "buyer_pre_purchase",
+        "pre_listing",
+        "new_build_pdi",
+        "warranty_milestone",
+        "maintenance_review",
+      ],
+    },
+    {
+      key: "propertyType",
+      label: "Property Type",
+      type: "select",
+      options: [
+        "detached",
+        "semi_detached",
+        "townhouse",
+        "condo_apartment",
+        "multi_unit",
+        "rural_acreage",
+      ],
+    },
+    // Booleans never reach the public form (publicIntakeFields filters to
+    // number/select), so these are the internal builder's fallback only.
+    { key: "radonTest", label: "Radon Test", type: "boolean" },
+    {
+      key: "wettInspection",
+      label: "WETT Inspection (wood stove)",
+      type: "boolean",
+    },
+    { key: "wellAndSeptic", label: "Well and Septic", type: "boolean" },
+  ],
   snow_removal: [
     {
       key: "pricingMethod",
