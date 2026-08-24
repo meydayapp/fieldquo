@@ -2559,6 +2559,21 @@ model Worker {
   company                   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   userId                    String?    @unique
   user                      User?      @relation(fields: [userId], references: [id])
+  // Who this person reports to. Null means the top of the chain — an owner, or
+  // a company that has never drawn an org chart, which is most of them.
+  //
+  // Leave approval walks this: a request goes to the direct manager, and past
+  // them to THEIR manager when they are away. Without it every owner and admin
+  // could approve holiday for crews they have never met. See
+  // lib/org/reportingLine.js.
+  //
+  // Self-relation on Worker rather than Member because Member is the auth and
+  // role record, and this is about the crew: a leave request already points at
+  // a Worker, and some workers have no login at all.
+  managerId                 String?
+  manager                   Worker?    @relation("WorkerReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                   Worker[]   @relation("WorkerReports")
+
   name                      String
   email                     String?
   phone                     String?

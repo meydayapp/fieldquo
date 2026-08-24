@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Info, Check, AlertTriangle } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { eligibleManagers } from "@/lib/org/reportingLine";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
@@ -46,7 +47,6 @@ export default function WorkersPage() {
 }
 
 function WorkersScreen() {
-
   const { t } = useTranslation();
   const [workers, setWorkers] = useState(null);
   const [error, setError] = useState("");
@@ -122,6 +122,7 @@ function WorkersScreen() {
       <div className="space-y-2">
         {workers.map((w) => (
           <WorkerRow
+            workers={workers}
             key={w.id}
             worker={w}
             reload={load}
@@ -143,7 +144,7 @@ function WorkersScreen() {
   );
 }
 
-function WorkerRow({ worker, reload, onConnect }) {
+function WorkerRow({ worker, workers = [], reload, onConnect }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -151,6 +152,7 @@ function WorkerRow({ worker, reload, onConnect }) {
     hourlyRate: worker.hourlyRate == null ? "" : String(worker.hourlyRate),
     hiredOn: dateInput(worker.hiredOn),
     active: worker.active !== false,
+    managerId: worker.managerId || "",
   });
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -171,6 +173,10 @@ function WorkerRow({ worker, reload, onConnect }) {
           hourlyRate: form.hourlyRate === "" ? null : Number(form.hourlyRate),
           hiredOn: form.hiredOn,
           active: form.active,
+          // "" clears the reporting line back to "top of the chain", which is
+          // the right state for an owner and for any company that has never
+          // drawn one.
+          managerId: form.managerId || null,
         }),
       });
       setSaved(true);
@@ -215,6 +221,33 @@ function WorkerRow({ worker, reload, onConnect }) {
               placeholder={t("app.setWorkers.notSet")}
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+          </label>
+          {/* Who this person reports to.
+              Leave requests go to the direct manager, and past them to THEIR
+              manager when they are away. Anyone who already reports to this
+              worker is left out of the list rather than offered and then
+              refused — a cycle makes requests unroutable, and the walk that
+              survives one is a backstop, not a licence to create them. */}
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">
+              Reports to
+            </span>
+            <select
+              value={form.managerId}
+              onChange={(e) => setForm({ ...form, managerId: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="">Nobody — top of the chain</option>
+              {eligibleManagers(worker.id, workers).map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              Their time-off requests go here first, and to this person&apos;s
+              own manager if they are away.
+            </span>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">

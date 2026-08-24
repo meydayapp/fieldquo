@@ -2,10 +2,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { loadEnforceableMember, canSeeAllPay, redactPay } from "@/lib/permissions/enforce";
+import {
+  loadEnforceableMember,
+  canSeeAllPay,
+  redactPay,
+} from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
+import { managementChain } from "@/lib/org/reportingLine";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { requirePermission, can } from "@/lib/permissions";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -83,7 +88,7 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, email, hourlyRate, active, hiredOn } = body;
+  const { name, email, hourlyRate, active, hiredOn, managerId } = body;
 
   // Setting someone's pay is payroll. The Workers tab offered a "Pay rate
   // ($/hour)" field to a Manager and the write landed — QA moved a colleague
@@ -116,6 +121,60 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  // Who this person reports to. Setting one is a people-management change, not
+  // a profile edit, so it needs the same permission as the rest of the team
+  // screen.
+  let managerValue;
+  if (managerId !== undefined) {
+    if (!can(member.role, "user:manage")) {
+      return NextResponse.json(
+        { error: "Only an owner or admin can change who someone reports to." },
+        { status: 403 },
+      );
+    }
+    if (managerId === null || managerId === "") {
+      managerValue = null;
+    } else if (managerId === _params.id) {
+      return NextResponse.json(
+        { error: "Someone can't report to themselves." },
+        { status: 400 },
+      );
+    } else {
+      // Refused, not stored and worked around later. A cycle makes leave
+      // requests unroutable, and the walk in lib/org/reportingLine.js survives
+      // one only because it is defensive — that guard is a backstop, not a
+      // licence to write bad data.
+      const org = await db.worker.findMany({
+        where: { companyId: member.companyId },
+        select: { id: true, managerId: true },
+      });
+      const proposed = org.map((w) =>
+        w.id === _params.id ? { ...w, managerId } : w,
+      );
+      const { cycle } = managementChain(
+        _params.id,
+        new Map(proposed.map((w) => [w.id, w])),
+      );
+      if (cycle) {
+        return NextResponse.json(
+          {
+            error:
+              "That would make two people report to each other. Pick someone who doesn't already report to them.",
+          },
+          { status: 400 },
+        );
+      }
+      const exists = org.some((w) => w.id === managerId);
+      if (!exists) {
+        return NextResponse.json(
+          { error: "That manager isn't on your team." },
+          { status: 400 },
+        );
+      }
+      managerValue = managerId;
+    }
+  }
+
   // type is intentionally NOT editable here — flipping contractor<->employee has real
   // legal/tax implications and shouldn't be a casual field update. Treat it as
   // "deactivate this worker record, create a new one" if that's genuinely needed.
@@ -127,6 +186,7 @@ export async function PATCH(request, { params }) {
       ...(hourlyRate !== undefined && { hourlyRate }),
       ...(active !== undefined && { active }),
       ...(hiredOn !== undefined && { hiredOn: hiredOnValue }),
+      ...(managerId !== undefined && { managerId: managerValue }),
     },
   });
 

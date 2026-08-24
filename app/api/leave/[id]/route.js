@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can } from "@/lib/permissions";
+import { canApprove } from "@/lib/org/reportingLine";
 import { recordActivity } from "@/lib/activity/log";
 import { canTakeLeave } from "@/lib/leave/accrual";
 import { consumeBalance, releaseBalance } from "@/lib/leave/balances";
@@ -49,9 +50,39 @@ export async function PATCH(request, { params }) {
   const isOwnRequest = req.worker.userId && req.worker.userId === member.userId;
   const canManage = can(member.role, "user:manage");
 
-  if (action !== "cancel" && !canManage) {
+  // Who may act on this. Company-wide people permission still works — an owner
+  // is never locked out — but a supervisor now needs to be somewhere ABOVE the
+  // requester in the reporting line rather than merely holding the role. Before
+  // this, any admin could approve holiday for a crew they had never met.
+  //
+  // The whole company's chain is loaded because approval walks upward: knowing
+  // the requester's manager is not enough to tell whether the actor is three
+  // steps above them.
+  const [actor, orgWorkers] = await Promise.all([
+    db.worker.findFirst({
+      where: { companyId: member.companyId, userId: member.userId },
+      select: { id: true },
+    }),
+    db.worker.findMany({
+      where: { companyId: member.companyId },
+      select: { id: true, managerId: true },
+    }),
+  ]);
+  const byId = new Map(orgWorkers.map((w) => [w.id, w]));
+  const allowed = canApprove({
+    actorWorkerId: actor?.id || null,
+    workerId: req.worker.id,
+    byId,
+    hasManagePermission: canManage,
+  });
+
+  if (action !== "cancel" && !allowed) {
     return NextResponse.json(
-      { error: "Only a manager can approve or decline time off." },
+      {
+        error: isOwnRequest
+          ? "You can't approve your own time off — it goes to your manager."
+          : "Only this person's manager, or someone above them, can approve or decline their time off.",
+      },
       { status: 403 },
     );
   }
@@ -186,7 +217,10 @@ export async function PATCH(request, { params }) {
   const startedAlready = req.startDate <= new Date();
   if (startedAlready && !canManage) {
     return NextResponse.json(
-      { error: "That time off has already started — ask a manager to change it." },
+      {
+        error:
+          "That time off has already started — ask a manager to change it.",
+      },
       { status: 409 },
     );
   }
@@ -214,7 +248,10 @@ export async function PATCH(request, { params }) {
     entityType: "leave",
     entityId: req.id,
     summary: `Cancelled ${req.days} day(s) of ${req.policy.name} for ${req.worker.name}`,
-    metadata: { policy: req.policy.name, wasApproved: req.status === "approved" },
+    metadata: {
+      policy: req.policy.name,
+      wasApproved: req.status === "approved",
+    },
   });
   return NextResponse.json(updated);
 }
