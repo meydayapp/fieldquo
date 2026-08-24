@@ -369,12 +369,56 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Paving and insulation join the component labour model; spray foam was
+  half price in Canada.**
+
+  `lib/pricing/paverLabour.js` (new), `lib/pricing/insulation.js` (new),
+  `app/data/tradePriceBooks.js` (`insulation`, `paving.labour`),
+  `app/components/quotes/builder/LabourPanel.js` (new), `prisma/seed.js`,
+  `scripts/seed-categories.mjs` (new).
+
+  1. **Paving's flat `labourHoursPerSqft: 0.12` is no longer what the cost
+     panel uses.** The number was well corroborated; the SHAPE was wrong. It had
+     no fixed component and could not see how deep the hole was. Costed by
+     component the same constants give 0.16 h/sqft on a 300 sqft patio, 0.12 on
+     the 1,220 sqft anchor job and 0.11 on a 3,000 sqft one — and an 18" driveway
+     now costs more than a 12" patio of the same area, which is what happens on
+     site. The anchor reproduces the invoice's own "6 Days to complete".
+  2. **The complexity tier is READ, never asked again.** Every multiplier hangs
+     off a field the takeoff already carries — the standard/moderate/high tier,
+     "poor access", "curves and cuts". Moderate is the reference tier because
+     the anchor job is what set the moderate PRICE tier; calibrating at standard
+     would have moved the anchor off its own measurement.
+  3. **Insulation is a new `ServiceCategory`** (sortOrder 43; everything above
+     shifted by one, upserted with `npm run seed:categories`). It is priced per
+     square foot PER POINT OF R ADDED, not per square foot — which is why the
+     published $1.65–$3.80 blown-in band is four numbers wide, and why an attic
+     with four inches already in it stops being invisible.
+  4. **Konstruction Group's GTA figures caught a real miss.** Closed-cell
+     $4.00–$8.00/sqft and open-cell $2.50–$5.00 "depending on thickness". Read
+     as thickness bands, both ends of both land on the same per-R figure
+     (0.308 and 0.193) — which corroborates the per-R model itself, not just the
+     price. The book's US-derived 0.15/0.09 quoted a GTA wall at roughly half
+     the local floor. Fixed. **The other five insulation materials are still
+     US-derived**, so that book now sits on two anchors and says so.
+  5. Roofing and siding were checked against Canadian bands at the same time
+     and did NOT need the correction; both are asserted in the check script now.
+
+  `LabourPanel.js` is shared by all three takeoffs rather than copied — the
+  second copy is the one that rots.
+
+  **Still to do here:** the material COST side. `estimateJobCost` derives
+  materials from `app/data/materialRecipes.js`, which covers cabinet refinishing
+  and exterior painting only. For roofing, siding, paving and insulation the
+  margin panel uses whatever the estimator types, so margin is overstated until
+  they do. The books hold SELL rates; they need a cost side.
+
 - **Roofing gets a component labour engine, and siding gets a price book.**
 
   `lib/pricing/roofLabour.js` (new), `app/data/tradePriceBooks.js`
   (`roofing_service`, `siding`), `lib/pricing/tradeScope.js` (`buildRoofing`,
   `buildSiding`, `tradeLabourDetail`), `app/components/quotes/builder/TradeTakeoff.js`,
-  `app/api/measure/roof/route.js` (new), `scripts/check-roof-labour.mjs`,
+  `app/api/measure/roof/route.js` (new), `scripts/check-trade-labour.mjs`,
   `scripts/check-takeoff-render.jsx` (new).
 
   Roofing had a public instant estimate and nothing in the builder at all. It

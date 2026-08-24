@@ -33,7 +33,15 @@ import {
   asList,
 } from "./fields";
 import PaverDesigner from "./PaverDesigner";
+import LabourPanel from "./LabourPanel";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
+import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
+import {
+  insulationTakeoff,
+  insulationCrewDays,
+  recommendedR,
+  CLIMATE_ZONES,
+} from "@/lib/pricing/insulation";
 import { useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 
@@ -1451,6 +1459,14 @@ const PAVING_SURFACES = [
 
 function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
   const level = takeoff.complexityLevel || "standard";
+  // The hours come from the same tier and access answers the estimator has
+  // already given above — see lib/pricing/paverLabour.js for why the panel does
+  // not ask "how hard is this?" a second time in different words.
+  const labour = paverLabour(takeoff, book?.labour);
+  const crew = paverCrewDays(labour.hours, {
+    crewSize: num(takeoff.crewSize) || 3,
+    rates: book?.labour,
+  });
   const c = book?.complexity?.[level] || {};
   const e = book?.extras || {};
   const set = (patch) => onChange({ ...takeoff, ...patch });
@@ -1623,6 +1639,23 @@ function PavingTakeoff({ takeoff, book, onChange, siteImageUrl }) {
           amount={0}
         />
       </div>
+
+      <LabourPanel
+        detail={labour}
+        crewSize={takeoff.crewSize}
+        onCrewSize={(v) => set({ crewSize: v })}
+        crew={crew}
+        emptyHint="Enter an area above first."
+        factorNote={
+          labour.incomplete
+            ? null
+            : `On-site work ${labour.onSiteHours} h (${labour.complexity.tier} ×${labour.complexity.tierFactor}${
+                labour.complexity.accessFactor !== 1
+                  ? `, poor access ×${labour.complexity.accessFactor}`
+                  : ""
+              }) · mobilising, compaction passes and ${labour.spoilCuYd} cu yd of spoil hauled away ${labour.fixedHours} h, which do not scale with either.`
+        }
+      />
     </div>
   );
 }
@@ -2019,92 +2052,22 @@ function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
         </div>
       </div>
 
-      {/* Internal. The client's quote shows the priced lines above; this shows
-          where the hours go, which is the number the estimator is actually
-          betting the margin on. */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="text-sm font-medium text-foreground">
-            How long it takes
-          </span>
-          <span className="text-xs text-muted-foreground">internal only</span>
-        </div>
-
-        {labour.incomplete ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {labour.warnings[0] || "Enter the roof area first."}
-          </p>
-        ) : (
-          <>
-            <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <span className="text-lg font-semibold tabular-nums text-foreground">
-                {labour.hours} crew-hours
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {labour.hoursPerSquare} h per square, all in
-              </span>
-            </div>
-
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Crew of</span>
-              <div className="w-16">
-                <Num
-                  value={takeoff.crewSize}
-                  min={1}
-                  step={1}
-                  onChange={(v) => set({ crewSize: v })}
-                />
-              </div>
-              <span className="text-xs text-muted-foreground">
-                → {crew.crewHours} h each, about{" "}
-                <strong className="text-foreground">{crew.days} days</strong> on
-                site at {crew.hoursPerDay} productive hours a day
-                {crew.crewEfficiency !== 1
-                  ? ` (×${crew.crewEfficiency} for crew size)`
-                  : ""}
-              </span>
-            </div>
-
-            <ul className="mt-2 space-y-0.5">
-              {labour.breakdown.map((row) => (
-                <li
-                  key={row.key}
-                  className="flex items-baseline justify-between gap-2 text-xs"
-                >
-                  <span className="text-muted-foreground">
-                    {row.label}
-                    {row.detail ? (
-                      <span className="ml-1.5 text-[11px] opacity-70">
-                        {row.detail}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="shrink-0 tabular-nums text-foreground">
-                    {row.hours} h
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
-              On-roof work {labour.onRoofHours} h (pitch ×{labour.pitch.factor},
-              storeys ×{labour.storeyFactor}
-              {labour.materialFactor !== 1
-                ? `, ${material?.label || "material"} ×${labour.materialFactor}`
-                : ""}
-              ) · set-up, cleanup and dump runs {labour.fixedHours} h, which do
-              not scale with pitch.
-            </p>
-            {labour.warnings.map((w) => (
-              <p
-                key={w}
-                className="mt-1 text-[11px] text-amber-700 dark:text-amber-400"
-              >
-                {w}
-              </p>
-            ))}
-          </>
-        )}
-      </div>
+      <LabourPanel
+        detail={labour}
+        crewSize={takeoff.crewSize}
+        onCrewSize={(v) => set({ crewSize: v })}
+        crew={crew}
+        emptyHint="Enter the roof area first."
+        factorNote={
+          labour.incomplete
+            ? null
+            : `On-roof work ${labour.onRoofHours} h (pitch ×${labour.pitch.factor}, storeys ×${labour.storeyFactor}${
+                labour.materialFactor !== 1
+                  ? `, ${material?.label || "material"} ×${labour.materialFactor}`
+                  : ""
+              }) · set-up, cleanup and dump runs ${labour.fixedHours} h, which do not scale with pitch.`
+        }
+      />
 
       <Field label="Scope notes">
         <textarea
@@ -2265,6 +2228,211 @@ function SidingTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/* ── Insulation ────────────────────────────────────────────────────────── */
+
+/**
+ * The insulation takeoff.
+ *
+ * The depth is calculated, not chosen: target R minus what is already there,
+ * divided by the material's R per inch. Everything on this form exists to feed
+ * that one sum, which is why the climate zone is a required question with no
+ * default — Ottawa is Zone 6 and Miami is Zone 1, and the recommendation is
+ * R60 in one and R30 in the other.
+ */
+function InsulationTakeoff({ takeoff, book, onChange }) {
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const materials = book?.materials || {};
+  const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
+  const material = Object.prototype.hasOwnProperty.call(materials, materialKey)
+    ? materials[materialKey]
+    : null;
+  const e = book?.extras || {};
+
+  const detail = insulationTakeoff(takeoff, material, book?.labour);
+  const crew = insulationCrewDays(detail.hours, {
+    crewSize: num(takeoff.crewSize) || 2,
+    rates: book?.labour,
+  });
+
+  const recommended = recommendedR(
+    takeoff.climateZone,
+    takeoff.assembly,
+    takeoff.existingDepthIn,
+  );
+  const sqft = num(takeoff.sqft);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="What's being insulated">
+          <select
+            value={takeoff.assembly || "attic"}
+            onChange={(e2) => set({ assembly: e2.target.value })}
+            className={inputClass}
+          >
+            <option value="attic">Attic</option>
+            <option value="floor">Floor or crawlspace</option>
+            <option value="wall">Wall cavity</option>
+            <option value="other">Something else</option>
+          </select>
+        </Field>
+        <Field label="Climate zone">
+          <select
+            value={takeoff.climateZone || ""}
+            onChange={(e2) => set({ climateZone: e2.target.value })}
+            className={inputClass}
+          >
+            <option value="">Choose a zone…</option>
+            {CLIMATE_ZONES.map((z) => (
+              <option key={z.value} value={z.value}>
+                {z.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {recommended
+              ? `ENERGY STAR recommends R${recommended} here`
+              : "Check the IECC map — nothing is assumed from the address"}
+          </p>
+        </Field>
+        <Field label="Area (sqft)">
+          <Num
+            value={takeoff.sqft}
+            step={10}
+            onChange={(v) => set({ sqft: v })}
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Field label="Material">
+          <select
+            value={materialKey}
+            onChange={(e2) => set({ materialKey: e2.target.value })}
+            className={inputClass}
+          >
+            {Object.entries(materials).map(([key, m]) => (
+              <option key={key} value={key}>
+                {m.label}
+                {num(m.rPerInch) > 0 ? ` — R${m.rPerInch}/inch` : ""}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Already in place">
+          <Num
+            value={takeoff.existingDepthIn}
+            step={0.5}
+            onChange={(v) => set({ existingDepthIn: v })}
+            suffix="in"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {num(takeoff.existingDepthIn) >= 3
+              ? "Top-up target applies"
+              : "Leave 0 for a bare assembly"}
+          </p>
+        </Field>
+        <Field label="Target R (optional)">
+          <Num
+            value={takeoff.targetR}
+            step={1}
+            onChange={(v) => set({ targetR: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {num(takeoff.targetR) > 0
+              ? "Overriding the zone recommendation"
+              : recommended
+                ? `Using R${recommended}`
+                : "Choose a zone or type a target"}
+          </p>
+        </Field>
+        <Field label="Cavity depth limit">
+          <Num
+            value={takeoff.maxDepthIn}
+            step={0.5}
+            onChange={(v) => set({ maxDepthIn: v })}
+            suffix="in"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            0 for an open attic
+          </p>
+        </Field>
+      </div>
+
+      {/* The whole point of the form, said back in one sentence. */}
+      <div className="rounded-lg border border-border px-3 py-2 text-sm">
+        {detail.incomplete ? (
+          <span className="text-muted-foreground">{detail.warnings[0]}</span>
+        ) : detail.rated ? (
+          <span className="text-foreground">
+            <strong>{detail.inches}&quot;</strong> of {material?.label} adds{" "}
+            <strong>R{detail.addedR}</strong>
+            {detail.existingR > 0
+              ? ` on top of the R${detail.existingR} already there`
+              : ""}{" "}
+            → the assembly finishes at <strong>R{detail.finalR}</strong>
+            {detail.targetR > 0
+              ? ` against a target of R${detail.targetR}`
+              : ""}
+            .
+          </span>
+        ) : (
+          <span className="text-muted-foreground">
+            {material?.label} is sold by the square foot and carries no R-value
+            claim — see the note on the quote.
+          </span>
+        )}
+      </div>
+
+      <div>
+        <OptionRow
+          checked={takeoff.airSeal}
+          onToggle={(v) => set({ airSeal: v })}
+          label="Air seal before insulating"
+          hint={`$${money(e.airSealPerSqft)}/sqft — blowing over the leaks is the most common way an attic job fails to perform`}
+          amount={takeoff.airSeal ? sqft * num(e.airSealPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.removeExisting}
+          onToggle={(v) => set({ removeExisting: v })}
+          label="Remove existing insulation"
+          hint={`$${money(e.removalPerSqft)}/sqft — wet, compacted or contaminated`}
+          amount={takeoff.removeExisting ? sqft * num(e.removalPerSqft) : 0}
+        />
+      </div>
+
+      <Field label="Soffit baffles" className="max-w-[10rem]">
+        <Num
+          value={takeoff.baffles}
+          step={1}
+          onChange={(v) => set({ baffles: v })}
+        />
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          ${money(e.baffleEach)} each
+        </p>
+      </Field>
+
+      <LabourPanel
+        detail={detail}
+        crewSize={takeoff.crewSize}
+        onCrewSize={(v) => set({ crewSize: v })}
+        crew={crew}
+        emptyHint="Enter the area first."
+      />
+
+      <Field label="Scope notes">
+        <textarea
+          value={takeoff.notes || ""}
+          onChange={(e2) => set({ notes: e2.target.value })}
+          rows={2}
+          className={inputClass}
+          placeholder="Access, hatch location, anything the crew needs to know"
+        />
+      </Field>
+    </div>
+  );
+}
+
 const TAKEOFFS = {
   stairs: StairsTakeoff,
   countertop: CountertopTakeoff,
@@ -2277,6 +2445,7 @@ const TAKEOFFS = {
   paving: PavingTakeoff,
   roofing_service: RoofingTakeoff,
   siding: SidingTakeoff,
+  insulation: InsulationTakeoff,
   snow_removal: SnowRemovalTakeoff,
 };
 

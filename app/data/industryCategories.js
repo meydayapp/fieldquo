@@ -107,7 +107,7 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "pressure_washing_driveway",
     "driveway_sealing",
   ],
-  roofing: ["roofing_service", "siding", "restoration"],
+  roofing: ["roofing_service", "siding", "insulation", "restoration"],
   "tree-care": ["tree_care_service"],
 };
 

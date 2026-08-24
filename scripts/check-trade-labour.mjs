@@ -1,11 +1,11 @@
-// scripts/check-roof-labour.mjs
+// scripts/check-trade-labour.mjs
 //
 // Executes the roofing labour engine, the roofing and siding scope builders
 // that read it, and the client-facing wording both trades put on a quote —
 // against hostile input and against the reference calculator and published
 // price bands this model was reconciled with. No database, no network, no key.
 //
-//   node --import ./scripts/alias-loader.mjs scripts/check-roof-labour.mjs
+//   node --import ./scripts/alias-loader.mjs scripts/check-trade-labour.mjs
 //
 // The three things worth guarding here, in order of how much money they move:
 //
@@ -25,6 +25,12 @@ import {
   PITCH_BANDS,
   ROOF_LABOUR_DEFAULTS,
 } from "@/lib/pricing/roofLabour";
+import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
+import {
+  insulationTakeoff,
+  recommendedR,
+  depthForTarget,
+} from "@/lib/pricing/insulation";
 import {
   buildTradeLineItems,
   createTradeConfig,
@@ -545,6 +551,391 @@ check("every cladding in the book has a rate and a labour factor", () => {
   }
 });
 
+/* ── Paving: the fix the flat 0.12 h/sqft needed ───────────────────────── */
+
+const anchor = (over = {}) =>
+  paverLabour({ patioSqft: 1220, complexityLevel: "moderate", ...over });
+
+check("the anchor job reproduces the invoice's own six days", () => {
+  // Custom Interlocking, 636 Mikinak Rd: 1,220 sqft, "6 Days to complete".
+  // At three crew that is ~144 crew-hours, and the component model must land
+  // on it or the constants are wrong.
+  const r = anchor();
+  assert.ok(Math.abs(r.hours - 144) / 144 < 0.06, `${r.hours} crew-hours`);
+  const d = paverCrewDays(r.hours, { crewSize: 3 });
+  assert.ok(Math.abs(d.days - 6) <= 0.5, `${d.days} days`);
+});
+
+check(
+  "hours per sqft FALLS with size — the fixed component the flat rate lacked",
+  () => {
+    const small = paverLabour({ patioSqft: 300, complexityLevel: "moderate" });
+    const mid = anchor();
+    const big = paverLabour({ patioSqft: 3000, complexityLevel: "moderate" });
+    assert.ok(
+      small.hoursPerSqft > mid.hoursPerSqft &&
+        mid.hoursPerSqft > big.hoursPerSqft,
+      `${small.hoursPerSqft} / ${mid.hoursPerSqft} / ${big.hoursPerSqft}`,
+    );
+    // And the flat rate is wrong at both ends, which is the whole point.
+    assert.ok(
+      small.hours > 300 * 0.12,
+      "a flat rate underquotes the small job",
+    );
+    assert.ok(big.hours < 3000 * 0.12, "and overquotes the big one");
+  },
+);
+
+check(
+  "depth is a driver: a driveway costs more than a patio of the same area",
+  () => {
+    const patio = paverLabour({ patioSqft: 3000, complexityLevel: "moderate" });
+    const drive = paverLabour({
+      drivewaySqft: 3000,
+      complexityLevel: "moderate",
+    });
+    assert.ok(drive.hours > patio.hours, `${drive.hours} vs ${patio.hours}`);
+    // 18" of base against 12" is 50% more spoil to dig, haul and replace.
+    assert.ok(drive.spoilCuYd > patio.spoilCuYd * 1.3);
+  },
+);
+
+check("the complexity tier is READ, never asked again", () => {
+  const std = anchor({ complexityLevel: "standard" });
+  const mod = anchor({ complexityLevel: "moderate" });
+  const high = anchor({ complexityLevel: "high" });
+  assert.ok(std.hours < mod.hours && mod.hours < high.hours);
+  assert.equal(mod.complexity.tierFactor, 1, "moderate is the reference tier");
+  // An unknown tier falls back to the reference rather than to 0 hours.
+  assert.equal(
+    anchor({ complexityLevel: "__proto__" }).complexity.tier,
+    "moderate",
+  );
+  assert.equal(anchor({ complexityLevel: null }).complexity.tier, "moderate");
+});
+
+check("poor access and cuts come from the boxes already ticked", () => {
+  const plain = anchor();
+  const access = anchor({ poorAccess: true });
+  const cuts = anchor({ curvesCuts: true });
+  assert.ok(access.hours > plain.hours);
+  assert.ok(cuts.hours > plain.hours);
+  // Cuts touch LAYING only — the hole is the same hole.
+  const layPlain = plain.breakdown.find((b) => b.key === "lay").hours;
+  const layCuts = cuts.breakdown.find((b) => b.key === "lay").hours;
+  const digPlain = plain.breakdown.find((b) => b.key === "excavation").hours;
+  const digCuts = cuts.breakdown.find((b) => b.key === "excavation").hours;
+  assert.ok(layCuts > layPlain);
+  assert.equal(digPlain, digCuts);
+});
+
+check("mobilisation and haulage are NOT scaled by complexity", () => {
+  const std = anchor({ complexityLevel: "standard", poorAccess: true });
+  const high = anchor({ complexityLevel: "high", poorAccess: true });
+  assert.equal(std.fixedHours, high.fixedHours);
+});
+
+check("paving hours survive hostile input", () => {
+  for (const v of [1e308, 1e400, -1, NaN, Infinity, "12abc", null, [], {}]) {
+    for (const f of [
+      "patioSqft",
+      "drivewaySqft",
+      "wallFaceSqft",
+      "perimeterFt",
+    ]) {
+      const r = paverLabour({
+        patioSqft: 500,
+        complexityLevel: "moderate",
+        [f]: v,
+      });
+      assert.ok(Number.isFinite(r.hours) && r.hours >= 0, `${f}=${String(v)}`);
+      assert.ok(Number.isFinite(paverCrewDays(r.hours, { crewSize: 3 }).days));
+    }
+  }
+});
+
+check("no area is incomplete, not a free patio", () => {
+  for (const cfg of [null, {}, { patioSqft: 0 }, 42, "yard"]) {
+    const r = paverLabour(cfg);
+    assert.equal(r.incomplete, true, JSON.stringify(cfg));
+    assert.equal(r.hours, 0);
+  }
+});
+
+check("tradeLabourHours delegates paving to the engine", () => {
+  const cfg = {
+    ...createTradeConfig("paving"),
+    patioSqft: 1220,
+    complexityLevel: "moderate",
+  };
+  const hours = tradeLabourHours("paving", cfg);
+  const detail = tradeLabourDetail("paving", cfg);
+  assert.equal(hours, detail.hours);
+  const summed = detail.breakdown.reduce((s, r) => s + r.hours, 0);
+  assert.ok(Math.abs(summed - detail.hours) < 0.05);
+  // The rate card moves it.
+  assert.ok(
+    tradeLabourHours("paving", cfg, { labour: { layHoursPerSqft: 0.124 } }) >
+      hours,
+  );
+});
+
+/* ── Insulation: depth, not area ───────────────────────────────────────── */
+
+check(
+  "ENERGY STAR targets are the published ones, and a zone is never assumed",
+  () => {
+    assert.equal(recommendedR(1, "attic", 0), 30);
+    assert.equal(recommendedR(2, "attic", 0), 49);
+    assert.equal(recommendedR(3, "attic", 0), 49);
+    assert.equal(recommendedR(6, "attic", 0), 60);
+    assert.equal(recommendedR(8, "attic", 0), 60);
+    // The top-up row, where three to four inches are already there.
+    assert.equal(recommendedR(1, "attic", 4), 25);
+    assert.equal(recommendedR(3, "attic", 4), 38);
+    assert.equal(recommendedR(6, "attic", 4), 49);
+    assert.equal(recommendedR(6, "floor"), 30);
+    // Absence of a recommendation is not a recommendation of zero.
+    for (const z of ["", null, undefined, 0, 99, "__proto__", "six"]) {
+      assert.equal(recommendedR(z, "attic", 0), null, String(z));
+    }
+  },
+);
+
+check("depth is target minus what is already there, over R per inch", () => {
+  const d = depthForTarget({ targetR: 60, existingR: 0, rPerInch: 2.5 });
+  assert.equal(d.inches, 24);
+  const top = depthForTarget({
+    targetR: 49,
+    existingDepthIn: 4,
+    rPerInch: 2.5,
+  });
+  assert.equal(top.existingR, 10);
+  assert.equal(top.inches, 15.6);
+  // Already there: nothing to add, and no negative depth.
+  assert.equal(
+    depthForTarget({ targetR: 30, existingR: 60, rPerInch: 2.5 }).inches,
+    0,
+  );
+});
+
+check("a cavity that cannot reach the target says so", () => {
+  const d = depthForTarget({ targetR: 38, rPerInch: 3.2, maxDepthIn: 5.5 });
+  assert.equal(d.capped, true);
+  assert.equal(d.inches, 5.5);
+  assert.ok(d.addedR < 38);
+  const take = insulationTakeoff(
+    { sqft: 900, targetR: 38, maxDepthIn: 5.5 },
+    {
+      label: "batt",
+      rPerInch: 3.2,
+      hoursPerSqft: 0.012,
+      hoursPerSqftPerInch: 0.0006,
+    },
+  );
+  assert.ok(take.warnings.some((w) => /cavity holds/i.test(w)));
+});
+
+check("a top-up costs less than a bare attic of the same area", () => {
+  const base = {
+    ...createTradeConfig("insulation"),
+    climateZone: "6",
+    sqft: 1200,
+  };
+  const bare = buildTradeLineItems("insulation", base);
+  const top = buildTradeLineItems("insulation", {
+    ...base,
+    existingDepthIn: 4,
+  });
+  const sum = (i) => i.reduce((s, l) => s + l.amount, 0);
+  assert.ok(sum(top) < sum(bare), `${sum(top)} vs ${sum(bare)}`);
+  assert.ok(
+    tradeLabourHours("insulation", { ...base, existingDepthIn: 4 }) <
+      tradeLabourHours("insulation", base),
+  );
+  // And the line says what was already there, so the client can see why.
+  assert.ok(top.some((l) => /already in place/.test(l.description)));
+});
+
+check("the priced result lands inside the published bands", () => {
+  const base = {
+    ...createTradeConfig("insulation"),
+    climateZone: "6",
+    sqft: 1200,
+    airSeal: false,
+  };
+  const items = buildTradeLineItems("insulation", base);
+  const total = items.reduce((s, l) => s + l.amount, 0);
+  // Attic blown-in commonly $1,750-$5,500; blown-in $1.65-$3.80 per sqft.
+  assert.ok(total >= 1750 && total <= 5500, `$${total}`);
+  const perSqft = total / 1200;
+  assert.ok(perSqft >= 1.65 && perSqft <= 3.8, `$${perSqft.toFixed(2)}/sqft`);
+});
+
+check("both spray foams land inside the published GTA bands", () => {
+  // Konstruction Group (Toronto): closed-cell $4.00-$8.00/sqft installed,
+  // open-cell $2.50-$5.00, "depending on thickness". Checked at the thin and
+  // thick ends of each, because the band IS a thickness band — the low price
+  // is a 2" lift and the high one is 4".
+  const at = (materialKey, targetR) => {
+    const cfg = {
+      ...createTradeConfig("insulation"),
+      sqft: 1000,
+      targetR,
+      materialKey,
+      airSeal: false,
+    };
+    return (
+      buildTradeLineItems("insulation", cfg).reduce((s, l) => s + l.amount, 0) /
+      1000
+    );
+  };
+  // Closed-cell at R6.5/inch: 2" is R13, 4" is R26.
+  assert.ok(
+    Math.abs(at("spray_closed_cell", 13) - 4.0) < 0.6,
+    `$${at("spray_closed_cell", 13).toFixed(2)} at R13`,
+  );
+  assert.ok(
+    Math.abs(at("spray_closed_cell", 26) - 8.0) < 1.0,
+    `$${at("spray_closed_cell", 26).toFixed(2)} at R26`,
+  );
+  // Open-cell at R3.7/inch: 3.5" is R13, 7" is R26.
+  assert.ok(
+    Math.abs(at("spray_open_cell", 13) - 2.5) < 0.5,
+    `$${at("spray_open_cell", 13).toFixed(2)} at R13`,
+  );
+  assert.ok(
+    Math.abs(at("spray_open_cell", 26) - 5.0) < 0.7,
+    `$${at("spray_open_cell", 26).toFixed(2)} at R26`,
+  );
+});
+
+check("Canadian asphalt roofing quotes inside the local per-sqft band", () => {
+  // A Canadian asphalt re-roof commonly quotes $4.50-$7.50 per square foot of
+  // roof, tear-off included. The roofing book is US-derived, so this is the
+  // check that it did not need the same correction the spray foams did.
+  const cfg = {
+    ...createTradeConfig("roofing_service"),
+    areaSqft: 2400,
+    pitchRise: 5,
+    layers: 1,
+  };
+  const perSqft =
+    buildTradeLineItems("roofing_service", cfg).reduce(
+      (s, i) => s + i.amount,
+      0,
+    ) / 2400;
+  assert.ok(perSqft >= 4.5 && perSqft <= 7.5, `$${perSqft.toFixed(2)}/sqft`);
+});
+
+check(
+  "vinyl siding reproduces the published installed rate, and says what it adds",
+  () => {
+    // The published "$6 per square foot installed for vinyl" is the CLADDING.
+    // The same source's next sentence — "tear-off, rot repair and trim often
+    // swing the total more than the cladding brand" — is the reason those are
+    // separate lines here rather than folded in. So the apples-to-apples check
+    // is the cladding alone, and the full job is checked against the wider
+    // Canadian $4-$10 band that a strip and a weather barrier put it in.
+    const sum = (cfg) =>
+      buildTradeLineItems("siding", cfg).reduce((s, i) => s + i.amount, 0) /
+      2000;
+    const bare = sum({
+      ...createTradeConfig("siding"),
+      sqft: 2000,
+      storeys: "one",
+      tearOff: false,
+      housewrap: false,
+    });
+    assert.ok(
+      Math.abs(bare - 6) < 0.01,
+      `cladding alone $${bare.toFixed(2)}/sqft`,
+    );
+    const full = sum({
+      ...createTradeConfig("siding"),
+      sqft: 2000,
+      storeys: "one",
+    });
+    assert.ok(
+      full > bare,
+      "the strip and the wrap are real money, not folded in",
+    );
+    assert.ok(full >= 4 && full <= 10, `full job $${full.toFixed(2)}/sqft`);
+  },
+);
+
+check("closed-cell on a wall lands inside the US spray foam band too", () => {
+  const cfg = {
+    ...createTradeConfig("insulation"),
+    sqft: 900,
+    targetR: 20,
+    materialKey: "spray_closed_cell",
+    airSeal: false,
+  };
+  const perSqft =
+    buildTradeLineItems("insulation", cfg).reduce((s, l) => s + l.amount, 0) /
+    900;
+  assert.ok(perSqft >= 2.75 && perSqft <= 7.5, `$${perSqft.toFixed(2)}/sqft`);
+});
+
+check("foil makes no R-value claim anywhere", () => {
+  const cfg = {
+    ...createTradeConfig("insulation"),
+    sqft: 800,
+    climateZone: "6",
+    materialKey: "radiant_barrier",
+    airSeal: false,
+  };
+  const items = buildTradeLineItems("insulation", cfg);
+  assert.equal(items.length, 1);
+  assert.ok(!/R\d/.test(items[0].description), items[0].description);
+  const d = tradeLabourDetail("insulation", cfg);
+  assert.equal(d.rated, false);
+  assert.equal(d.finalR, 0);
+  assert.ok(d.warnings.some((w) => /emissivity/i.test(w)));
+});
+
+check("insulation survives hostile input", () => {
+  const base = {
+    ...createTradeConfig("insulation"),
+    climateZone: "6",
+    sqft: 1000,
+  };
+  for (const v of [1e308, 1e400, -1, NaN, Infinity, "x", null, [], {}]) {
+    for (const f of [
+      "sqft",
+      "existingDepthIn",
+      "existingR",
+      "targetR",
+      "maxDepthIn",
+      "baffles",
+    ]) {
+      const h = tradeLabourHours("insulation", { ...base, [f]: v });
+      assert.ok(Number.isFinite(h) && h >= 0, `${f}=${String(v)} -> ${h}`);
+      assert.ok(
+        buildTradeLineItems("insulation", { ...base, [f]: v }).every((i) =>
+          Number.isFinite(i.amount),
+        ),
+        `${f}=${String(v)}`,
+      );
+    }
+  }
+});
+
+check("a blank insulation takeoff prices nothing", () => {
+  const cfg = createTradeConfig("insulation");
+  assert.equal(cfg.climateZone, "", "no zone is assumed");
+  assert.deepEqual(buildTradeLineItems("insulation", cfg), []);
+  assert.equal(tradeLabourHours("insulation", cfg), 0);
+});
+
+check("insulation carries its own quote wording", () => {
+  const c = resolveServiceContent("insulation", null);
+  assert.ok(c.included.length > 0);
+  assert.ok(c.mayChange.length >= 2);
+  assert.ok(c.glossary.some((g) => /R-value/i.test(g.term)));
+});
+
 /* ── The quote wording ─────────────────────────────────────────────────── */
 
 check("roofing carries the two new client-facing blocks", () => {
@@ -584,4 +975,4 @@ if (fails.length) {
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log(`✓ roofing & siding: ${pass} checks passed`);
+console.log(`✓ trade labour & pricing: ${pass} checks passed`);

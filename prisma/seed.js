@@ -184,12 +184,18 @@ const CATEGORIES = [
   },
   { key: "roofing_service", label: "Roofing", icon: "Home", sortOrder: 41 },
   { key: "siding", label: "Siding", icon: "Home", sortOrder: 42 },
-  { key: "restoration", label: "Restoration", icon: "Home", sortOrder: 43 },
+  {
+    key: "insulation",
+    label: "Insulation",
+    icon: "Layers",
+    sortOrder: 43,
+  },
+  { key: "restoration", label: "Restoration", icon: "Home", sortOrder: 44 },
   {
     key: "chimney_sweep",
     label: "Chimney Sweep",
     icon: "Flame",
-    sortOrder: 44,
+    sortOrder: 45,
   },
 
   // ── Outdoor / Landscaping ──
@@ -197,41 +203,41 @@ const CATEGORIES = [
     key: "landscaping_design",
     label: "Landscaping",
     icon: "Trees",
-    sortOrder: 45,
+    sortOrder: 46,
   },
-  { key: "lawn_care", label: "Lawn Care", icon: "Sprout", sortOrder: 46 },
-  { key: "lawn_mowing", label: "Lawn Mowing", icon: "Sprout", sortOrder: 47 },
+  { key: "lawn_care", label: "Lawn Care", icon: "Sprout", sortOrder: 47 },
+  { key: "lawn_mowing", label: "Lawn Mowing", icon: "Sprout", sortOrder: 48 },
   {
     key: "irrigation",
     label: "Irrigation Services",
     icon: "Droplet",
-    sortOrder: 48,
+    sortOrder: 49,
   },
   {
     key: "tree_care_service",
     label: "Tree Care",
     icon: "Trees",
-    sortOrder: 49,
+    sortOrder: 50,
   },
   {
     key: "snow_removal",
     label: "Snow Removal",
     icon: "Snowflake",
-    sortOrder: 50,
+    sortOrder: 51,
   },
-  { key: "pest_control", label: "Pest Control", icon: "Bug", sortOrder: 51 },
+  { key: "pest_control", label: "Pest Control", icon: "Bug", sortOrder: 52 },
   {
     key: "pool_spa",
     label: "Pool & Spa Services",
     icon: "Waves",
-    sortOrder: 52,
+    sortOrder: 53,
   },
-  { key: "junk_removal", label: "Junk Removal", icon: "Trash2", sortOrder: 53 },
+  { key: "junk_removal", label: "Junk Removal", icon: "Trash2", sortOrder: 54 },
   {
     key: "property_maintenance",
     label: "Property Maintenance",
     icon: "Wrench",
-    sortOrder: 54,
+    sortOrder: 55,
   },
 
   // ── Pressure Washing / Auto ──
@@ -239,28 +245,28 @@ const CATEGORIES = [
     key: "pressure_washing_house",
     label: "House Pressure Washing",
     icon: "Droplet",
-    sortOrder: 55,
+    sortOrder: 56,
   },
   {
     key: "pressure_washing_driveway",
     label: "Driveway/Walkway Washing",
     icon: "Droplet",
-    sortOrder: 56,
+    sortOrder: 57,
   },
   {
     key: "auto_detailing",
     label: "Auto Detailing",
     icon: "Car",
-    sortOrder: 57,
+    sortOrder: 58,
   },
 
   // ── Pet services ──
-  { key: "dog_walking", label: "Dog Walking", icon: "PawPrint", sortOrder: 58 },
+  { key: "dog_walking", label: "Dog Walking", icon: "PawPrint", sortOrder: 59 },
   {
     key: "pooper_scooper",
     label: "Pooper Scooper Service",
     icon: "PawPrint",
-    sortOrder: 59,
+    sortOrder: 60,
   },
 
   // ── Installation / misc ──
@@ -268,7 +274,7 @@ const CATEGORIES = [
     key: "installation_services",
     label: "Installation Services",
     icon: "Package",
-    sortOrder: 60,
+    sortOrder: 61,
   },
 
   // ── Coatings / concrete (added for the instant estimator) ──
@@ -276,9 +282,9 @@ const CATEGORIES = [
     key: "epoxy",
     label: "Epoxy & Concrete Coatings",
     icon: "Square",
-    sortOrder: 61,
+    sortOrder: 62,
   },
-  { key: "parging", label: "Parging", icon: "Square", sortOrder: 62 },
+  { key: "parging", label: "Parging", icon: "Square", sortOrder: 63 },
 
   // Sealcoating is maintenance, not paving: it recoats a driveway that is
   // already there, is priced per square foot of surface rather than by depth
@@ -289,7 +295,7 @@ const CATEGORIES = [
     key: "driveway_sealing",
     label: "Driveway Sealing",
     icon: "Square",
-    sortOrder: 63,
+    sortOrder: 64,
   },
 
   // Home inspection is not a trade that BUILDS anything, which is why it fits
@@ -307,7 +313,7 @@ const CATEGORIES = [
     key: "home_inspection",
     label: "Home Inspection",
     icon: "Home",
-    sortOrder: 64,
+    sortOrder: 65,
   },
 ];
 

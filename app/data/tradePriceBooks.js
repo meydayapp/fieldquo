@@ -24,6 +24,8 @@
 // engine that reads them, and are spread into the roofing book below so the
 // rate card can edit them. One set of numbers, two consumers.
 import { ROOF_LABOUR_DEFAULTS } from "@/lib/pricing/roofLabour";
+import { PAVER_LABOUR_DEFAULTS } from "@/lib/pricing/paverLabour";
+import { INSULATION_LABOUR_DEFAULTS } from "@/lib/pricing/insulation";
 
 /* ── Shared vocabulary ─────────────────────────────────────────────────── */
 
@@ -695,7 +697,18 @@ export const TRADE_PRICE_BOOKS = {
     // 0.12 is the second job's figure, which the first corroborates as an upper
     // bound. The 0.175 this shipped with was measured on a job that was only
     // partly paving and ran ~45% long as a result.
+    // Kept as the sanity check the component model is measured against, and
+    // as the fallback for anything that has not been taught to call
+    // lib/pricing/paverLabour.js. It is no longer what the cost panel uses:
+    // a flat rate has no fixed component and cannot see how deep the hole is.
+    // See that file for why, and for how the anchor job reproduces at 148
+    // crew-hours against the invoice's stated six days.
     labourHoursPerSqft: 0.12,
+
+    // How long it takes, as opposed to what it sells for. Spread rather than
+    // restated so the engine, the rate card and the cost panel read one set of
+    // numbers.
+    labour: { ...PAVER_LABOUR_DEFAULTS },
   },
 
   // ── Driveway sealing ──────────────────────────────────────────────────
@@ -1147,6 +1160,145 @@ export const TRADE_PRICE_BOOKS = {
     // tradeLabourHours(), not decoration.
     labourHoursPerSqft: 0.032,
   },
+
+  insulation: {
+    label: "Insulation",
+
+    // Priced per square foot PER POINT OF R ADDED, not per square foot.
+    //
+    // The published figures are a band four numbers wide — blown-in $1.65-$3.80
+    // per sqft, spray foam $2.75-$7.50 — because they are quietly averaging
+    // over DEPTH. An attic with four inches already in it and a bare one of the
+    // same area are not the same job, and a $/sqft rate cannot tell them apart.
+    // Per point of R, the band collapses and the existing insulation becomes
+    // visible on the quote. See lib/pricing/insulation.js.
+    //
+    // Checked against the sources at both ends:
+    //
+    //   1,200 sqft bare attic to R60 in blown fibreglass
+    //     1,200 x 60 x $0.034 = $2,448, or $2.04/sqft — inside the $1.65-$3.80
+    //     blown-in band and inside the $1,750-$5,500 attic band.
+    //
+    //   900 sqft of wall to R20 in closed-cell
+    //     900 x 20 x $0.15 = $2,700, or $3.00/sqft — inside the $2.75-$7.50
+    //     spray band, near the bottom, which is right for a 3" wall lift.
+    //
+    //   Whole home, 2,000 sqft
+    //     Attic 1,000 sqft to R60 blown ($2,040) + 1,600 sqft of wall to R20 in
+    //     batt ($1,440) + air sealing ($750) = $4,230, against Fixr's January
+    //     2026 average of roughly $4,700 for 2,000 sqft.
+    //
+    // R per inch is the standard published value for each product, and it is
+    // what decides the depth — so it is the one field here that is physics
+    // rather than a market. A company should edit the money and leave it alone.
+    //
+    // ── The spray foam rates are CANADIAN; the rest are not ─────────────────
+    //
+    // Both spray foams shipped at a US-derived figure and both were below the
+    // Canadian floor. Konstruction Group (Toronto) publishes closed-cell at
+    // $4.00–$8.00 per square foot installed and open-cell at $2.50–$5.00,
+    // "depending on thickness, accessibility, and project size".
+    //
+    // Read as a THICKNESS band — which is what they say it is — those numbers
+    // corroborate this file's whole model rather than just correcting a price:
+    //
+    //   closed-cell  $4.00 at 2" (R13) = $0.308/sqft/R
+    //                $8.00 at 4" (R26) = $0.308/sqft/R
+    //   open-cell    $2.50 at 3.5" (R13) = $0.193/sqft/R
+    //                $5.00 at 7"   (R26) = $0.193/sqft/R
+    //
+    // Both ends of both bands land on the SAME per-R figure. A dollars-per-
+    // square-foot band four numbers wide collapses to one number once depth is
+    // taken out of it, which is the argument for pricing per point of R made
+    // arithmetically rather than asserted. The old 0.15 and 0.09 quoted a GTA
+    // wall at $3.00 and $1.80 against published floors of $4.00 and $2.50 —
+    // roughly half.
+    //
+    // The other five materials are still the US-derived Fixr figures, so this
+    // book now sits on two anchors. That is worth knowing before quoting in
+    // Ontario: the spray foams are local, the blown-in and batt rates are not,
+    // and the first thing an Ontario company should do on this rate card is
+    // check the batt and blown-in numbers against their own supplier.
+    materials: {
+      blown_fiberglass: {
+        label: "Blown fibreglass",
+        rPerInch: 2.5,
+        installedPerSqftPerR: 0.034,
+        hoursPerSqft: 0.002,
+        hoursPerSqftPerInch: 0.0004,
+      },
+      blown_cellulose: {
+        label: "Blown cellulose",
+        rPerInch: 3.5,
+        installedPerSqftPerR: 0.04,
+        hoursPerSqft: 0.002,
+        hoursPerSqftPerInch: 0.0004,
+      },
+      batt_fiberglass: {
+        label: "Fibreglass batt",
+        rPerInch: 3.2,
+        installedPerSqftPerR: 0.045,
+        hoursPerSqft: 0.012,
+        hoursPerSqftPerInch: 0.0006,
+      },
+      batt_stone_wool: {
+        label: "Stone wool batt",
+        rPerInch: 4.1,
+        installedPerSqftPerR: 0.062,
+        hoursPerSqft: 0.014,
+        hoursPerSqftPerInch: 0.0006,
+      },
+      spray_open_cell: {
+        label: "Open-cell spray foam",
+        rPerInch: 3.7,
+        // CANADIAN, not the US figure this shipped with. See the note below.
+        installedPerSqftPerR: 0.19,
+        hoursPerSqft: 0.004,
+        hoursPerSqftPerInch: 0.0008,
+        sprayRig: true,
+      },
+      spray_closed_cell: {
+        label: "Closed-cell spray foam",
+        rPerInch: 6.5,
+        // CANADIAN, not the US figure this shipped with. See the note below.
+        installedPerSqftPerR: 0.3,
+        hoursPerSqft: 0.004,
+        hoursPerSqftPerInch: 0.0012,
+        sprayRig: true,
+      },
+      rigid_board: {
+        label: "Rigid board — XPS or polyiso",
+        rPerInch: 5,
+        installedPerSqftPerR: 0.09,
+        hoursPerSqft: 0.018,
+        hoursPerSqftPerInch: 0.0008,
+      },
+      // No rPerInch, deliberately. Foil resists radiant heat by emissivity and
+      // its effective R depends on the air gap and the assembly around it; any
+      // single "R per inch" for foil is marketing. Sold by the square foot,
+      // with no depth calculation and no R claim on the quote.
+      radiant_barrier: {
+        label: "Foil radiant barrier",
+        rPerInch: 0,
+        pricePerSqft: 1.2,
+        hoursPerSqft: 0.01,
+        hoursPerSqftPerInch: 0,
+      },
+    },
+    defaultMaterial: "blown_fiberglass",
+
+    extras: {
+      // The single most common way an attic job fails to perform is being
+      // blown over the leaks instead of sealed first. Priced so it can be sold
+      // rather than absorbed and skipped.
+      airSealPerSqft: 0.75,
+      baffleEach: 12,
+      removalPerSqft: 1.25,
+      housewrapPerSqft: 0.85,
+    },
+
+    labour: { ...INSULATION_LABOUR_DEFAULTS },
+  },
 };
 
 /* ── Access ────────────────────────────────────────────────────────────── */
@@ -1277,6 +1429,10 @@ export const PRICE_BOOK_GROUPS = {
   sidingExtras: "Strip, repair and trim",
   sidingAccess: "Access",
   sidingLabour: "How long it takes — internal, never shown to a client",
+  pavingLabour: "How long it takes — internal, never shown to a client",
+  insulationMaterials: "Insulation — installed",
+  insulationExtras: "Air sealing, baffles and removal",
+  insulationLabour: "How long it takes — internal, never shown to a client",
 };
 
 export const PRICE_BOOK_FIELDS = {
@@ -1535,6 +1691,69 @@ export const PRICE_BOOK_FIELDS = {
       ["walkwayPricePerSqft", "Walkway, installed", "$ / sqft"],
       ["drivewayPricePerSqft", "Driveway, installed", "$ / sqft"],
     ]),
+    {
+      path: "labour.mobilisationHours",
+      label: "Mobilise and demobilise, per job",
+      suffix: "crew-hours",
+      step: 0.5,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.excavationHoursPerCuYd",
+      label: "Excavate",
+      suffix: "crew-hours / cu yd",
+      step: 0.05,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.baseHoursPerCuYd",
+      label: "Place granular base",
+      suffix: "crew-hours / cu yd",
+      step: 0.05,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.layHoursPerSqft",
+      label: "Lay and cut in pavers",
+      suffix: "crew-hours / sqft",
+      step: 0.005,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.wallHoursPerFaceSqft",
+      label: "Build walls and steps",
+      suffix: "crew-hours / face sqft",
+      step: 0.02,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.haulHoursPerLoad",
+      label: "One round trip to the pit",
+      suffix: "crew-hours",
+      step: 0.25,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.cuYdPerLoad",
+      label: "Spoil a truck holds",
+      suffix: "cu yd",
+      step: 1,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.poorAccessFactor",
+      label: "Poor access — everything barrowed",
+      suffix: "x on-site hours",
+      step: 0.05,
+      group: "pavingLabour",
+    },
+    {
+      path: "labour.productiveHoursPerDay",
+      label: "Hours a crew gets on site in a day",
+      suffix: "hours",
+      step: 0.5,
+      group: "pavingLabour",
+    },
     {
       path: "paverAllowancePerSqft",
       label: "Paver allowance already inside the installed rate",
@@ -2028,6 +2247,74 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "hours / sqft",
       step: 0.005,
       group: "sidingLabour",
+    },
+  ],
+
+  insulation: [
+    ...Object.entries(TRADE_PRICE_BOOKS.insulation.materials)
+      .filter(([, m]) => m.installedPerSqftPerR > 0)
+      .map(([id, m]) => ({
+        path: `materials.${id}.installedPerSqftPerR`,
+        label: m.label,
+        suffix: "$ / sqft per point of R",
+        step: 0.005,
+        group: "insulationMaterials",
+      })),
+    {
+      path: "materials.radiant_barrier.pricePerSqft",
+      label: "Foil radiant barrier",
+      suffix: "$ / sqft",
+      step: 0.1,
+      group: "insulationMaterials",
+    },
+    {
+      path: "extras.airSealPerSqft",
+      label: "Air sealing",
+      suffix: "$ / sqft",
+      step: 0.05,
+      group: "insulationExtras",
+    },
+    {
+      path: "extras.baffleEach",
+      label: "Soffit baffle",
+      suffix: "$ each",
+      step: 1,
+      group: "insulationExtras",
+    },
+    {
+      path: "extras.removalPerSqft",
+      label: "Remove existing insulation",
+      suffix: "$ / sqft",
+      step: 0.05,
+      group: "insulationExtras",
+    },
+    {
+      path: "labour.mobilisationHours",
+      label: "Set up and protect, per job",
+      suffix: "crew-hours",
+      step: 0.5,
+      group: "insulationLabour",
+    },
+    {
+      path: "labour.sprayRigSetupHours",
+      label: "Spray rig set-up and flush",
+      suffix: "crew-hours",
+      step: 0.5,
+      group: "insulationLabour",
+    },
+    {
+      path: "labour.airSealHoursPerSqft",
+      label: "Air sealing",
+      suffix: "crew-hours / sqft",
+      step: 0.001,
+      group: "insulationLabour",
+    },
+    {
+      path: "labour.productiveHoursPerDay",
+      label: "Hours a crew gets on site in a day",
+      suffix: "hours",
+      step: 0.5,
+      group: "insulationLabour",
     },
   ],
 };

@@ -37,6 +37,15 @@ const FILLED = {
     deckSheets: 2,
     crewSize: 3,
   },
+  insulation: {
+    assembly: "attic",
+    climateZone: "6",
+    sqft: 1200,
+    existingDepthIn: 4,
+    airSeal: true,
+    baffles: 14,
+    crewSize: 2,
+  },
   siding: {
     sqft: 2000,
     storeys: "two",
