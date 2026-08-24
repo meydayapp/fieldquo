@@ -20,6 +20,11 @@
 // They are one contractor's market. Every field is editable, and anything a
 // tenant edits stops tracking these defaults.
 
+// The roofing labour constants live in lib/pricing/roofLabour.js beside the
+// engine that reads them, and are spread into the roofing book below so the
+// rate card can edit them. One set of numbers, two consumers.
+import { ROOF_LABOUR_DEFAULTS } from "@/lib/pricing/roofLabour";
+
 /* ── Shared vocabulary ─────────────────────────────────────────────────── */
 
 export const COMPLEXITY_LEVELS = [
@@ -953,6 +958,195 @@ export const TRADE_PRICE_BOOKS = {
     installNote: "Professional installation included",
     warrantyNote: "Made in Canada · 5-year manufacturer warranty",
   },
+
+  roofing_service: {
+    label: "Roofing",
+
+    // Keyed map, not an array — mergeDeep replaces arrays wholesale, so a
+    // company editing one shingle rate on the rate card would silently discard
+    // the other six. Same reasoning as the garage door catalogue.
+    //
+    // The starting rates are deliberately IDENTICAL to
+    // INSTANT_ESTIMATE_DEFAULTS.roofing in lib/estimate/instantEstimate.js.
+    // They are two tables for two different jobs — that one is the public
+    // ballpark a stranger gets from an address, this one is the estimator's
+    // builder — stored and overridden separately. What they must never do is
+    // disagree on day one, because a company that tunes one and not the other
+    // ends up with a website quoting a price its own office doesn't recognise.
+    //
+    // `labourFactor` rides with the rate rather than living in a second table:
+    // a company that adds standing seam sets what it sells for and how much
+    // slower it is to lay in the same place, instead of having to remember
+    // that a separate labour map exists.
+    materials: {
+      asphalt_3tab: {
+        label: "3-tab asphalt shingles",
+        pricePerSquare: 400,
+        labourFactor: 0.95,
+      },
+      asphalt_arch: {
+        label: "Architectural shingles",
+        pricePerSquare: 550,
+        labourFactor: 1,
+      },
+      asphalt_premium: {
+        label: "Premium / designer shingles",
+        pricePerSquare: 700,
+        labourFactor: 1.15,
+      },
+      metal_corrugated: {
+        label: "Corrugated / ribbed metal",
+        pricePerSquare: 850,
+        labourFactor: 1.5,
+      },
+      metal_standing_seam: {
+        label: "Standing seam metal",
+        pricePerSquare: 1300,
+        labourFactor: 1.9,
+      },
+      cedar_shake: {
+        label: "Cedar shake",
+        pricePerSquare: 1150,
+        labourFactor: 2.2,
+      },
+      membrane_flat: {
+        label: "EPDM / modified bitumen (low slope)",
+        pricePerSquare: 750,
+        labourFactor: 1.3,
+      },
+    },
+    defaultMaterial: "asphalt_arch",
+
+    // Split first/additional rather than the flat per-layer the public
+    // estimator uses. The first layer carries the setup of the strip; the
+    // second comes off an already-opened roof. A flat rate overcharges the
+    // three-layer job and undercharges the one-layer one, and the estimator is
+    // standing in front of the roof and can see which it is.
+    tearOff: { firstLayerPerSquare: 65, additionalLayerPerSquare: 45 },
+
+    // Sell-side steepness, keyed to PITCH_BANDS in lib/pricing/roofLabour.js.
+    //
+    // These are NOT the steepnessTier() names the public instant estimator uses
+    // (standard/moderate/steep/very_steep). That tier has four bands and no
+    // discount band; this one has five, because a 3/12 and a 16/12 are off the
+    // walkable default in opposite directions — a distinction a quote needs and
+    // a ballpark can live without.
+    steepnessSurcharge: {
+      low_slope: 0,
+      walkable: 0,
+      moderate: 0.1,
+      steep: 0.22,
+      very_steep: 0.4,
+    },
+
+    // Linear details, per foot. This is where a cut-up roof stops resembling a
+    // simple one of the same area, and pricing by the foot is how the quote
+    // shows the client why.
+    details: {
+      iceWaterPerLf: 3.5,
+      dripEdgePerLf: 3,
+      starterPerLf: 2.5,
+      valleyPerLf: 12,
+      ridgeCapPerLf: 9,
+      ridgeVentPerLf: 14,
+      stepFlashingPerLf: 11,
+    },
+
+    penetrations: {
+      vent_boot: { label: "Plumbing vent boot", price: 65 },
+      box_vent: { label: "Roof vent", price: 95 },
+      skylight: { label: "Skylight flashing", price: 450 },
+      chimney: { label: "Chimney flashing", price: 550 },
+    },
+
+    // Sheathing is quoted as an allowance and reconciled on the invoice: nobody
+    // knows how much of a deck is rotten until the shingles are off it. Priced
+    // per 4x8 sheet, supplied and fitted.
+    deckSheetPrice: 95,
+
+    // How long it takes, as opposed to what it sells for.
+    //
+    // Spread rather than restated so there is one set of numbers: the engine in
+    // lib/pricing/roofLabour.js reads them, the rate card edits them, and a
+    // company that changes its tear-off productivity changes the figure the
+    // cost panel uses. See that file for how each constant was calibrated
+    // against real production rates.
+    labour: { ...ROOF_LABOUR_DEFAULTS },
+  },
+
+  siding: {
+    label: "Siding",
+
+    // Installed $/sqft of WALL, cladding and labour together.
+    //
+    // Source figures: This Old House puts a full replacement on a typical
+    // 2,000 sqft home at roughly $8,000-$30,000, averaging near $19,000, with
+    // installed rates of about $6 vinyl, $7 aluminum, $9 fibre cement, $12
+    // cedar and $14-$20 stone or brick veneer.
+    //
+    // Two things about that "2,000 sqft home" worth stating, because getting
+    // them wrong is the whole estimate:
+    //
+    //   It is the FLOOR area of the house, not the wall area. A 2,000 sqft
+    //   two-storey clads out at roughly 1,800-2,400 sqft of wall. This book is
+    //   priced per square foot of WALL, which is what a sider measures, and the
+    //   takeoff asks for wall area for that reason.
+    //
+    //   $6/sqft x 2,000 = $12,000, inside the $8k-$30k band and below the
+    //   $19,000 average — which is right, because the average includes the
+    //   fibre cement and cedar jobs and the tear-off and trim below.
+    //
+    // Stone veneer ships at $17, the midpoint of the published $14-$20. A
+    // midpoint is stated as a midpoint rather than dressed up as a rate: it is
+    // the one line here a company should expect to edit first.
+    materials: {
+      vinyl: { label: "Vinyl siding", pricePerSqft: 6, labourFactor: 1 },
+      aluminum: {
+        label: "Aluminum siding",
+        pricePerSqft: 7,
+        labourFactor: 1.1,
+      },
+      fiber_cement: {
+        label: "Fibre cement",
+        pricePerSqft: 9,
+        labourFactor: 1.6,
+      },
+      cedar: { label: "Cedar", pricePerSqft: 12, labourFactor: 1.7 },
+      engineered_wood: {
+        label: "Engineered wood",
+        pricePerSqft: 8,
+        labourFactor: 1.3,
+      },
+      stone_veneer: {
+        label: "Stone or brick veneer",
+        pricePerSqft: 17,
+        labourFactor: 2.4,
+      },
+    },
+    defaultMaterial: "vinyl",
+
+    // The source's own sentence, encoded: "tear-off, rot repair and trim often
+    // swing the total more than the cladding brand". If that is true — and it
+    // is — then a book that prices only the cladding is pricing the part that
+    // matters least. Each of these is its own line on the quote.
+    tearOffPerSqft: 1.5,
+    housewrapPerSqft: 0.85,
+    rotRepairPerSqft: 6.5,
+    trimPerLf: 7,
+    soffitPerSqft: 9,
+    fasciaPerLf: 9,
+    // Access, the way a sider actually prices it: not a complexity word, but
+    // the storey the wall is on, because that is what decides ladders vs
+    // scaffold and it is not a judgement call.
+    storeySurcharge: { one: 0, two: 0.12, three_plus: 0.28 },
+
+    // Crew-hours per square foot of wall, before the material factor. Two
+    // installers hang roughly 500 sqft of vinyl in a day: 16 crew-hours over
+    // 500 sqft is 0.032. Fibre cement and cedar are slower, and that is what
+    // each material's labourFactor above is for — it is read by
+    // tradeLabourHours(), not decoration.
+    labourHoursPerSqft: 0.032,
+  },
 };
 
 /* ── Access ────────────────────────────────────────────────────────────── */
@@ -1073,6 +1267,16 @@ export const PRICE_BOOK_GROUPS = {
   inspectionWarranty: "New-build warranty inspections",
   inspectionAncillary: "Ancillary inspections and testing",
   inspectionSurcharges: "Surcharges",
+  roofMaterials: "Roofing material — installed, per square",
+  roofTearOff: "Tear-off and deck repair",
+  roofDetails: "Linear details",
+  roofPenetrations: "Penetrations and flashing",
+  roofSteepness: "Steepness surcharge",
+  roofLabour: "How long it takes — internal, never shown to a client",
+  sidingMaterials: "Cladding — installed, per square foot of wall",
+  sidingExtras: "Strip, repair and trim",
+  sidingAccess: "Access",
+  sidingLabour: "How long it takes — internal, never shown to a client",
 };
 
 export const PRICE_BOOK_FIELDS = {
@@ -1572,6 +1776,258 @@ export const PRICE_BOOK_FIELDS = {
       label: "Warranty wording",
       type: "text",
       group: "wording",
+    },
+  ],
+
+  roofing_service: [
+    ...Object.entries(TRADE_PRICE_BOOKS.roofing_service.materials).map(
+      ([id, m]) => ({
+        path: `materials.${id}.pricePerSquare`,
+        label: m.label,
+        suffix: "$ / square",
+        step: 25,
+        group: "roofMaterials",
+      }),
+    ),
+    {
+      path: "tearOff.firstLayerPerSquare",
+      label: "Tear off — first layer",
+      suffix: "$ / square",
+      step: 5,
+      group: "roofTearOff",
+    },
+    {
+      path: "tearOff.additionalLayerPerSquare",
+      label: "Tear off — each further layer",
+      suffix: "$ / square",
+      step: 5,
+      group: "roofTearOff",
+    },
+    {
+      path: "deckSheetPrice",
+      label: "Replace sheathing, supplied and fitted",
+      suffix: "$ / 4x8 sheet",
+      step: 5,
+      group: "roofTearOff",
+    },
+    {
+      path: "details.iceWaterPerLf",
+      label: "Ice & water membrane",
+      suffix: "$ / linear ft",
+      step: 0.25,
+      group: "roofDetails",
+    },
+    {
+      path: "details.dripEdgePerLf",
+      label: "Drip edge",
+      suffix: "$ / linear ft",
+      step: 0.25,
+      group: "roofDetails",
+    },
+    {
+      path: "details.starterPerLf",
+      label: "Starter course",
+      suffix: "$ / linear ft",
+      step: 0.25,
+      group: "roofDetails",
+    },
+    {
+      path: "details.valleyPerLf",
+      label: "Valleys",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "roofDetails",
+    },
+    {
+      path: "details.ridgeCapPerLf",
+      label: "Ridge & hip cap",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "roofDetails",
+    },
+    {
+      path: "details.ridgeVentPerLf",
+      label: "Ridge vent",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "roofDetails",
+    },
+    {
+      path: "details.stepFlashingPerLf",
+      label: "Step flashing",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "roofDetails",
+    },
+    ...Object.entries(TRADE_PRICE_BOOKS.roofing_service.penetrations).map(
+      ([id, pen]) => ({
+        path: `penetrations.${id}.price`,
+        label: pen.label,
+        suffix: "$ each",
+        step: 5,
+        group: "roofPenetrations",
+      }),
+    ),
+    {
+      path: "steepnessSurcharge.moderate",
+      label: "Steepness surcharge — 6-8/12",
+      suffix: "x subtotal",
+      step: 0.02,
+      group: "roofSteepness",
+    },
+    {
+      path: "steepnessSurcharge.steep",
+      label: "Steepness surcharge — 9-12/12",
+      suffix: "x subtotal",
+      step: 0.02,
+      group: "roofSteepness",
+    },
+    {
+      path: "steepnessSurcharge.very_steep",
+      label: "Steepness surcharge — over 12/12",
+      suffix: "x subtotal",
+      step: 0.02,
+      group: "roofSteepness",
+    },
+    // Hours, not dollars. These drive the internal cost panel and the
+    // production-time figure; they never reach a client-facing surface. Shown
+    // on the rate card because a company's crew is faster or slower than the
+    // default and the estimator is the only person who knows which.
+    {
+      path: "labour.installPerSquare",
+      label: "Install",
+      suffix: "crew-hours / square",
+      step: 0.1,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.tearOffFirstLayerPerSquare",
+      label: "Strip — first layer",
+      suffix: "crew-hours / square",
+      step: 0.05,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.tearOffAdditionalLayerPerSquare",
+      label: "Strip — each further layer",
+      suffix: "crew-hours / square",
+      step: 0.05,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.underlaymentPerSquare",
+      label: "Underlayment",
+      suffix: "crew-hours / square",
+      step: 0.05,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.mobilisationHours",
+      label: "Set up & break down, per job",
+      suffix: "crew-hours",
+      step: 0.5,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.cleanupPerSquare",
+      label: "Debris & magnet sweep",
+      suffix: "crew-hours / square",
+      step: 0.05,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.dumpRunHours",
+      label: "One dump run",
+      suffix: "crew-hours",
+      step: 0.25,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.squaresPerDumpRun",
+      label: "Squares of debris a trailer holds",
+      suffix: "squares",
+      step: 1,
+      group: "roofLabour",
+    },
+    {
+      path: "labour.productiveHoursPerDay",
+      label: "Hours a crew gets on the roof in a day",
+      suffix: "hours",
+      step: 0.5,
+      group: "roofLabour",
+    },
+  ],
+
+  siding: [
+    ...Object.entries(TRADE_PRICE_BOOKS.siding.materials).map(([id, m]) => ({
+      path: `materials.${id}.pricePerSqft`,
+      label: m.label,
+      suffix: "$ / sqft of wall",
+      step: 0.5,
+      group: "sidingMaterials",
+    })),
+    {
+      path: "tearOffPerSqft",
+      label: "Strip existing cladding",
+      suffix: "$ / sqft",
+      step: 0.25,
+      group: "sidingExtras",
+    },
+    {
+      path: "housewrapPerSqft",
+      label: "House wrap / weather barrier",
+      suffix: "$ / sqft",
+      step: 0.05,
+      group: "sidingExtras",
+    },
+    {
+      path: "rotRepairPerSqft",
+      label: "Sheathing and rot repair",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "sidingExtras",
+    },
+    {
+      path: "trimPerLf",
+      label: "Trim — corners, windows, doors",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "sidingExtras",
+    },
+    {
+      path: "soffitPerSqft",
+      label: "Soffit",
+      suffix: "$ / sqft",
+      step: 0.5,
+      group: "sidingExtras",
+    },
+    {
+      path: "fasciaPerLf",
+      label: "Fascia",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "sidingExtras",
+    },
+    {
+      path: "storeySurcharge.two",
+      label: "Two storeys",
+      suffix: "x subtotal",
+      step: 0.02,
+      group: "sidingAccess",
+    },
+    {
+      path: "storeySurcharge.three_plus",
+      label: "Three or more storeys",
+      suffix: "x subtotal",
+      step: 0.02,
+      group: "sidingAccess",
+    },
+    {
+      path: "labourHoursPerSqft",
+      label: "Crew-hours per square foot of wall",
+      suffix: "hours / sqft",
+      step: 0.005,
+      group: "sidingLabour",
     },
   ],
 };

@@ -29,6 +29,7 @@ function clientIp(request) {
 }
 import {
   resolveServiceContent,
+  dominantGlossary,
   dominantProcessSteps,
 } from "@/lib/documents/serviceContent";
 // From lib/documents, NOT from the PDF section that also uses it — that
@@ -44,7 +45,9 @@ async function loadQuote(token) {
   const quote = await db.quote.findUnique({
     where: { shareToken: token },
     include: {
-      client: { select: { name: true, email: true, address: true, language: true } },
+      client: {
+        select: { name: true, email: true, address: true, language: true },
+      },
       company: {
         // No id. `present()` returns this object wholesale to an
         // unauthenticated caller, and quote.companyId below covers the one
@@ -186,6 +189,9 @@ function present(quote) {
         subtotal: num(g.subtotal),
         accent: content.accent,
         included: content.included,
+        // Empty for every trade that has none, so the page renders nothing
+        // rather than a heading over a blank panel.
+        mayChange: content.mayChange,
         lineItems: (Array.isArray(g.lineItems) ? g.lineItems : []).map(
           (li) => ({
             description: li.description || "",
@@ -195,6 +201,15 @@ function present(quote) {
         ),
       };
     }),
+    // The vocabulary of the trade the client is actually deciding about,
+    // once. Same reasoning, and the same dominant-group rule, as the steps.
+    glossary: dominantGlossary(
+      quote.scopeGroups.map((g) => ({
+        categoryKey: g.category?.key,
+        override: g.companySettings || null,
+        subtotal: num(g.subtotal),
+      })),
+    ),
     // Shown once at the bottom, from the largest scope group — see
     // dominantProcessSteps for why this isn't per-service.
     processSteps: dominantProcessSteps(
@@ -416,8 +431,10 @@ export async function POST(request, { params }) {
     // A homeowner who bothers to type a reason is giving the contractor the
     // most valuable thing in this whole flow. Optional — declining must never
     // require an explanation.
-    await onQuoteDeclined(updated.id, { reason: body?.declineReason || null }).catch(
-      (err) => console.error("[public quote] lead close failed:", err?.message),
+    await onQuoteDeclined(updated.id, {
+      reason: body?.declineReason || null,
+    }).catch((err) =>
+      console.error("[public quote] lead close failed:", err?.message),
     );
   }
 
@@ -467,7 +484,10 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
     }),
   ]);
 
-  const { from, replyTo } = await resolveSender(company || {}, updated.companyId);
+  const { from, replyTo } = await resolveSender(
+    company || {},
+    updated.companyId,
+  );
 
   // The document's own language, resolved the same way the covering email and
   // the PDF were at send time — so the signed copy the client now receives is
@@ -484,7 +504,12 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
   let pdfBuffer = null;
   if (accepted) {
     try {
-      pdfBuffer = await renderApprovedQuotePdf(quote, updated.companyId, priced, language);
+      pdfBuffer = await renderApprovedQuotePdf(
+        quote,
+        updated.companyId,
+        priced,
+        language,
+      );
     } catch (err) {
       console.error("[public quote] approved PDF render failed:", err?.message);
     }
@@ -592,12 +617,10 @@ async function dispatchDecisionEmails(updated, quote, decision, priced) {
 // figure the client actually agreed to — extras included — not the pre-add-on
 // quote total sitting on the row.
 async function renderApprovedQuotePdf(quote, companyId, priced, language) {
-  const { renderDocumentPdfBuffer } = await import(
-    "@/app/admin/lib/pdf/renderDocumentPdf"
-  );
-  const { getDefaultSections } = await import(
-    "@/app/admin/lib/pdf/defaultSections"
-  );
+  const { renderDocumentPdfBuffer } =
+    await import("@/app/admin/lib/pdf/renderDocumentPdf");
+  const { getDefaultSections } =
+    await import("@/app/admin/lib/pdf/defaultSections");
 
   const [fullCompany, template] = await Promise.all([
     db.company.findUnique({ where: { id: companyId } }),
@@ -606,7 +629,10 @@ async function renderApprovedQuotePdf(quote, companyId, priced, language) {
     }),
   ]);
 
-  const sections = usableSections("quote_pdf", template?.sections || getDefaultSections("quote_pdf")).sections;
+  const sections = usableSections(
+    "quote_pdf",
+    template?.sections || getDefaultSections("quote_pdf"),
+  ).sections;
   // quote.scopeGroups already carry this company's customised service wording —
   // attachServiceSettings ran in loadQuote — so the PDF resolves the identical
   // content the client saw on the page.

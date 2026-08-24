@@ -369,6 +369,52 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Roofing gets a component labour engine, and siding gets a price book.**
+
+  `lib/pricing/roofLabour.js` (new), `app/data/tradePriceBooks.js`
+  (`roofing_service`, `siding`), `lib/pricing/tradeScope.js` (`buildRoofing`,
+  `buildSiding`, `tradeLabourDetail`), `app/components/quotes/builder/TradeTakeoff.js`,
+  `app/api/measure/roof/route.js` (new), `scripts/check-roof-labour.mjs`,
+  `scripts/check-takeoff-render.jsx` (new).
+
+  Roofing had a public instant estimate and nothing in the builder at all. It
+  now has both, and the labour side is the part worth reading before building
+  the next trade:
+
+  1. **Components, not `area × difficulty`.** Install, tear-off, underlayment,
+     linear details, penetrations, a FIXED mobilisation charge and dump runs.
+     The fixed component is why a 6-square garage costs more per square than a
+     50-square roof — a pure per-square rate is wrong at both ends.
+  2. **Layers are additive to demolition.** A second layer does not make
+     installation twice as slow; it makes the strip slower and the trailer
+     fuller. This is asserted in the check script.
+  3. **Pitch multiplies HOURS, never AREA.** `lib/measure/roofMeasurement.js`
+     returns the already-sloped surface. `slopedAreaSqft()` is the one place
+     area and pitch meet, for a footprint typed off a survey, and its output
+     matches the published pitch-multiplier table exactly (12/12 → 1.414).
+  4. **The pitch bands are the industry ones, unchanged** (walkable 1.0,
+     6–8/12 1.3, 9/12+ 1.6), with a low-slope and a >12/12 band added where
+     that table is silent. Nothing familiar was moved under anyone.
+  5. **Crew size is not free division.** A lone roofer and a crowded roof both
+     cost hours; the curve is editable and can be flattened back to plain
+     division.
+
+  Quotes for both trades also gained two client-facing blocks — "what could
+  change this price" and a plain-language glossary — in
+  `lib/documents/serviceContent.js`, rendered by the PDF and `/q/[token]`. Both
+  default to EMPTY for every other trade: a generic "your price may change
+  if…" on behalf of a contractor who never said it is a contract term they did
+  not agree to.
+
+  `scripts/check-takeoff-render.jsx` is new institutional cover: it renders
+  every trade takeoff to static HTML, blank, filled and sparse. `next build`
+  compiled cleanly through two shipped crashes in this codebase; that class is
+  now caught twice.
+
+  **Not built, and deliberately:** window replacement and insulation. The
+  supplied figures are a $300–$2,500 band and a table of R-values by climate
+  zone — a spec, not a price book — and neither has a `ServiceCategory` yet.
+
 - **Somebody finally asks for the tax registration number.**
 
   `lib/compliance/taxRegistration.js` (new), `lib/onboarding.js`,

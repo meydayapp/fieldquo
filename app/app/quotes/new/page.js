@@ -1001,6 +1001,7 @@ export default function NewQuotePage() {
           {hasTakeoff(group.categoryKey) && group.takeoff && (
             <TradeTakeoff
               siteImageUrl={siteImage?.image?.url || ""}
+              siteAddress={selectedClient?.address || ""}
               categoryKey={group.categoryKey}
               takeoff={group.takeoff}
               book={getPriceBook(

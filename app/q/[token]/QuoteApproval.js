@@ -37,7 +37,8 @@ export default function QuoteApproval({ token }) {
   const [sigName, setSigName] = useState("");
   const [sigDataUrl, setSigDataUrl] = useState("");
   const [sigConsent, setSigConsent] = useState(false);
-  const canSign = sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
+  const canSign =
+    sigName.trim().length > 1 && Boolean(sigDataUrl) && sigConsent;
 
   // The language is resolved server-side (quote.language → client.language →
   // company default → en), so it matches the PDF and the covering email the
@@ -66,7 +67,9 @@ export default function QuoteApproval({ token }) {
           // Reopening a decided quote should show what was agreed, extras
           // included — not the figure before they were added.
           setSettledTotal(data.acceptedTotal ?? null);
-          setPicked((data.addOns || []).filter((a) => a.selected).map((a) => a.id));
+          setPicked(
+            (data.addOns || []).filter((a) => a.selected).map((a) => a.id),
+          );
         }
       } catch (err) {
         if (!cancelled) setLoadError(err.message);
@@ -93,7 +96,13 @@ export default function QuoteApproval({ token }) {
           decision,
           addOnIds: decision === "accepted" ? picked : [],
           ...(decision === "accepted"
-            ? { signature: { name: sigName.trim(), dataUrl: sigDataUrl, consent: sigConsent } }
+            ? {
+                signature: {
+                  name: sigName.trim(),
+                  dataUrl: sigDataUrl,
+                  consent: sigConsent,
+                },
+              }
             : {}),
         }),
       });
@@ -190,6 +199,9 @@ export default function QuoteApproval({ token }) {
     quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
 
   const addOns = quote.addOns || [];
+  // Resolved server-side from the largest scope group; [] for a trade that has
+  // no jargon worth explaining, and the panel then does not render at all.
+  const glossary = quote.glossary || [];
   // Once decided or expired the extras are a record of what was agreed, not
   // a menu. Nothing here is a security boundary — the server refuses a second
   // decision regardless — it's just not being misleading about what's still
@@ -364,10 +376,54 @@ export default function QuoteApproval({ token }) {
                       </ul>
                     </div>
                   )}
+
+                  {/* Said before the work starts rather than on day three. The
+                      unknowns a roof (or a foundation, or a rewire) genuinely
+                      has are the questions this client is about to ask anyway;
+                      answering them here is what a second opinion reads like. */}
+                  {g.mayChange?.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-black/5">
+                      <p className="text-[10px] font-bold tracking-wider text-[#2d2520]/40 mb-1.5 uppercase">
+                        {copy.whatCouldChange}
+                      </p>
+                      <dl className="space-y-1.5">
+                        {g.mayChange.map((entry, k) => (
+                          <div key={k}>
+                            <dt className="text-xs font-semibold text-[#2d2520]/80">
+                              {entry.title}
+                            </dt>
+                            <dd className="text-xs leading-relaxed text-[#2d2520]/70">
+                              {entry.body}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
+
+          {glossary.length > 0 && (
+            <div className="rounded-xl border border-black/5 bg-black/[0.02] px-4 py-3">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[#2d2520]/40">
+                {copy.termsExplained}
+              </p>
+              <dl className="space-y-1.5">
+                {glossary.map((entry, k) => (
+                  <div key={k} className="sm:flex sm:gap-3">
+                    <dt className="text-xs font-semibold text-[#2d2520]/80 sm:w-32 sm:shrink-0">
+                      {entry.term}
+                    </dt>
+                    <dd className="text-xs leading-relaxed text-[#2d2520]/70">
+                      {entry.body}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
 
           {addOns.length > 0 && (
             <div className="pt-4 border-t border-black/5">
@@ -531,7 +587,9 @@ export default function QuoteApproval({ token }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-[#2d2520]/70">{quote.paymentTerms}</p>
+                <p className="text-sm text-[#2d2520]/70">
+                  {quote.paymentTerms}
+                </p>
               )}
             </div>
           )}
@@ -548,9 +606,17 @@ export default function QuoteApproval({ token }) {
           )}
 
           <div className="pt-4 border-t border-black/5 space-y-1 text-sm">
-            <Row label={labels.subtotal} value={pricing.subtotal} money={money} />
+            <Row
+              label={labels.subtotal}
+              value={pricing.subtotal}
+              money={money}
+            />
             {quote.discount > 0 && (
-              <Row label={labels.discount} value={-quote.discount} money={money} />
+              <Row
+                label={labels.discount}
+                value={-quote.discount}
+                money={money}
+              />
             )}
             <Row label={labels.tax} value={pricing.tax} money={money} />
             {pricing.extras > 0 && (
@@ -642,7 +708,9 @@ export default function QuoteApproval({ token }) {
               <div className="flex gap-3 justify-center mt-4 flex-wrap">
                 <button
                   onClick={() => submit(confirming)}
-                  disabled={submitting || (confirming === "accepted" && !canSign)}
+                  disabled={
+                    submitting || (confirming === "accepted" && !canSign)
+                  }
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-white disabled:opacity-60"
                   style={{
                     backgroundColor:
@@ -650,7 +718,9 @@ export default function QuoteApproval({ token }) {
                   }}
                 >
                   {submitting && <Loader2 size={15} className="animate-spin" />}
-                  {confirming === "accepted" ? copy.yesApprove : copy.yesDecline}
+                  {confirming === "accepted"
+                    ? copy.yesApprove
+                    : copy.yesDecline}
                 </button>
                 <button
                   onClick={() => setConfirming(null)}
@@ -715,9 +785,7 @@ function Settled({ tone, title, body }) {
   return (
     <div
       className={`rounded-xl px-5 py-5 text-center border ${
-        ok
-          ? "bg-green-50 border-green-200"
-          : "bg-white border-black/10"
+        ok ? "bg-green-50 border-green-200" : "bg-white border-black/10"
       }`}
     >
       <p

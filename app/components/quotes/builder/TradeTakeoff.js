@@ -33,6 +33,8 @@ import {
   asList,
 } from "./fields";
 import PaverDesigner from "./PaverDesigner";
+import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
+import { useState } from "react";
 import { DRIVEWAY_LABELS } from "@/lib/pricing/tradeScope";
 
 /** Complexity tiles — the whole rate grid moves with the selection. */
@@ -1779,6 +1781,490 @@ function SnowRemovalTakeoff({ takeoff, book, onChange }) {
 
 /* ── Entry point ───────────────────────────────────────────────────────── */
 
+/* ── Roofing ───────────────────────────────────────────────────────────── */
+
+/**
+ * The roof takeoff.
+ *
+ * Two things it does that a bare "area × rate" form cannot:
+ *
+ *   MEASURES. Area and pitch come from the client's address, through the same
+ *   Google Solar model the public instant quote uses. The estimator confirms
+ *   rather than guesses, and the field says which of the two it is — a number
+ *   nobody measured must never look like one somebody did.
+ *
+ *   SHOWS THE HOURS. Roofing is the one trade whose labour is itemised
+ *   (lib/pricing/roofLabour.js), so the panel at the bottom is the actual
+ *   breakdown, not a total to be trusted. Internal only: none of it reaches the
+ *   client's quote, the PDF or the email — the line items above do that.
+ */
+function RoofingTakeoff({ takeoff, book, onChange, siteAddress = "" }) {
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const [measuring, setMeasuring] = useState(false);
+  const [measureNote, setMeasureNote] = useState("");
+
+  const materials = book?.materials || {};
+  const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
+  const material = Object.prototype.hasOwnProperty.call(materials, materialKey)
+    ? materials[materialKey]
+    : null;
+
+  const squares = num(takeoff.areaSqft) / 100;
+  const band = pitchBand(num(takeoff.pitchRise));
+  const labour = roofLabour({ ...takeoff, materials }, book?.labour);
+  const crew = roofCrewDays(labour.hours, {
+    crewSize: num(takeoff.crewSize) || 2,
+    rates: book?.labour,
+  });
+
+  async function measure() {
+    if (!siteAddress) return;
+    setMeasuring(true);
+    setMeasureNote("");
+    try {
+      const res = await fetch(
+        `/api/measure/roof?address=${encodeURIComponent(siteAddress)}`,
+      );
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        // Named, not swallowed: an estimator who clicked a button and saw
+        // nothing happen has no way to tell "no coverage here" from "broken".
+        setMeasureNote(
+          data?.message ||
+            "Roof measuring is unavailable. Enter the area below.",
+        );
+        return;
+      }
+      set({
+        areaSqft: Math.round(num(data.areaSqft)),
+        pitchRise: num(data.predominantPitch?.rise),
+        measuredFrom: "satellite",
+      });
+      setMeasureNote(
+        `Measured ${Math.round(num(data.areaSqft)).toLocaleString()} sqft of roof surface across ${num(data.segmentCount)} facets` +
+          (data.predominantPitch?.shareOfRoof
+            ? ` — ${data.predominantPitch.rise}/12 over ${data.predominantPitch.shareOfRoof}% of it.`
+            : "."),
+      );
+    } catch {
+      setMeasureNote("Roof measuring is unavailable. Enter the area below.");
+    } finally {
+      setMeasuring(false);
+    }
+  }
+
+  const lf = [
+    ["iceWaterFt", "Ice & water membrane", book?.details?.iceWaterPerLf],
+    ["dripEdgeFt", "Drip edge", book?.details?.dripEdgePerLf],
+    ["starterFt", "Starter course", book?.details?.starterPerLf],
+    ["valleyFt", "Valleys", book?.details?.valleyPerLf],
+    ["ridgeHipFt", "Ridge & hip cap", book?.details?.ridgeCapPerLf],
+    ["ridgeVentFt", "Ridge vent", book?.details?.ridgeVentPerLf],
+    [
+      "stepFlashingFt",
+      "Step flashing to wall",
+      book?.details?.stepFlashingPerLf,
+    ],
+  ];
+  const pens = [
+    ["ventBoots", "vent_boot"],
+    ["boxVents", "box_vent"],
+    ["skylights", "skylight"],
+    ["chimneys", "chimney"],
+  ];
+
+  return (
+    <div className="space-y-3">
+      {siteAddress && (
+        <div className="rounded-lg border border-border p-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 text-xs text-muted-foreground">
+              Measure the roof from {siteAddress}
+            </span>
+            <button
+              type="button"
+              onClick={measure}
+              disabled={measuring}
+              className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+            >
+              {measuring ? "Measuring…" : "Measure from satellite"}
+            </button>
+          </div>
+          {measureNote && (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {measureNote}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Roof surface (sqft)">
+          <Num
+            value={takeoff.areaSqft}
+            step={10}
+            onChange={(v) => set({ areaSqft: v, measuredFrom: "manual" })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {squares > 0
+              ? `${squares.toFixed(1)} squares${takeoff.measuredFrom === "satellite" ? " · measured" : ""}`
+              : "The sloped surface, not the footprint"}
+          </p>
+        </Field>
+        <Field label="Pitch (rise per 12)">
+          <Num
+            value={takeoff.pitchRise}
+            step={1}
+            onChange={(v) => set({ pitchRise: v })}
+            suffix="/12"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {band.label} · labour ×{band.factor}
+          </p>
+        </Field>
+        <Field label="Existing layers to strip">
+          <Num
+            value={takeoff.layers}
+            step={1}
+            onChange={(v) => set({ layers: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {num(takeoff.layers) === 0
+              ? "New deck — nothing to tear off"
+              : "Each layer adds to the strip, not to the install"}
+          </p>
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Roofing material">
+          <select
+            value={materialKey}
+            onChange={(e) => set({ materialKey: e.target.value })}
+            className={inputClass}
+          >
+            {Object.entries(materials).map(([key, m]) => (
+              <option key={key} value={key}>
+                {m.label} — ${money(m.pricePerSquare)}/sq
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Storeys">
+          <select
+            value={takeoff.storeys || "one"}
+            onChange={(e) => set({ storeys: e.target.value })}
+            className={inputClass}
+          >
+            <option value="one">One storey</option>
+            <option value="two">Two storeys</option>
+            <option value="three_plus">Three or more</option>
+          </select>
+        </Field>
+        <Field label="Sheathing to replace">
+          <Num
+            value={takeoff.deckSheets}
+            step={1}
+            onChange={(v) => set({ deckSheets: v })}
+            suffix="sheets"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            An allowance — reconcile it on the invoice
+          </p>
+        </Field>
+      </div>
+
+      <div>
+        <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Linear details
+        </h5>
+        <div className="grid gap-2 sm:grid-cols-4">
+          {lf.map(([key, label, rate]) => (
+            <Field key={key} label={label}>
+              <Num
+                value={takeoff[key]}
+                step={5}
+                onChange={(v) => set({ [key]: v })}
+                suffix="ft"
+              />
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {num(rate) > 0 ? `$${money(rate)}/ft` : "not priced"}
+              </p>
+            </Field>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Penetrations
+        </h5>
+        <div className="grid gap-2 sm:grid-cols-4">
+          {pens.map(([field, id]) => {
+            const entry = book?.penetrations?.[id];
+            if (!entry) return null;
+            return (
+              <Field key={field} label={entry.label}>
+                <Num
+                  value={takeoff[field]}
+                  step={1}
+                  onChange={(v) => set({ [field]: v })}
+                />
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  ${money(entry.price)} each
+                </p>
+              </Field>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Internal. The client's quote shows the priced lines above; this shows
+          where the hours go, which is the number the estimator is actually
+          betting the margin on. */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-sm font-medium text-foreground">
+            How long it takes
+          </span>
+          <span className="text-xs text-muted-foreground">internal only</span>
+        </div>
+
+        {labour.incomplete ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {labour.warnings[0] || "Enter the roof area first."}
+          </p>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <span className="text-lg font-semibold tabular-nums text-foreground">
+                {labour.hours} crew-hours
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {labour.hoursPerSquare} h per square, all in
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Crew of</span>
+              <div className="w-16">
+                <Num
+                  value={takeoff.crewSize}
+                  min={1}
+                  step={1}
+                  onChange={(v) => set({ crewSize: v })}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                → {crew.crewHours} h each, about{" "}
+                <strong className="text-foreground">{crew.days} days</strong> on
+                site at {crew.hoursPerDay} productive hours a day
+                {crew.crewEfficiency !== 1
+                  ? ` (×${crew.crewEfficiency} for crew size)`
+                  : ""}
+              </span>
+            </div>
+
+            <ul className="mt-2 space-y-0.5">
+              {labour.breakdown.map((row) => (
+                <li
+                  key={row.key}
+                  className="flex items-baseline justify-between gap-2 text-xs"
+                >
+                  <span className="text-muted-foreground">
+                    {row.label}
+                    {row.detail ? (
+                      <span className="ml-1.5 text-[11px] opacity-70">
+                        {row.detail}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-foreground">
+                    {row.hours} h
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              On-roof work {labour.onRoofHours} h (pitch ×{labour.pitch.factor},
+              storeys ×{labour.storeyFactor}
+              {labour.materialFactor !== 1
+                ? `, ${material?.label || "material"} ×${labour.materialFactor}`
+                : ""}
+              ) · set-up, cleanup and dump runs {labour.fixedHours} h, which do
+              not scale with pitch.
+            </p>
+            {labour.warnings.map((w) => (
+              <p
+                key={w}
+                className="mt-1 text-[11px] text-amber-700 dark:text-amber-400"
+              >
+                {w}
+              </p>
+            ))}
+          </>
+        )}
+      </div>
+
+      <Field label="Scope notes">
+        <textarea
+          value={takeoff.notes || ""}
+          onChange={(e) => set({ notes: e.target.value })}
+          rows={2}
+          className={inputClass}
+          placeholder="Access, staging, anything the crew needs to know"
+        />
+      </Field>
+    </div>
+  );
+}
+
+/* ── Siding ────────────────────────────────────────────────────────────── */
+
+/**
+ * The siding takeoff.
+ *
+ * Wall area, not floor area — the number a sider measures. The published
+ * $/sqft figures behind this book are quoted against "a 2,000 sqft home",
+ * which is the house's floor area and clads out at roughly 1,800-2,400 sqft of
+ * wall; asking for the wrong one of those is a 20% error before anything else
+ * happens, so the field says which it wants.
+ */
+function SidingTakeoff({ takeoff, book, onChange }) {
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+  const materials = book?.materials || {};
+  const materialKey = takeoff.materialKey || book?.defaultMaterial || "";
+  const material = Object.prototype.hasOwnProperty.call(materials, materialKey)
+    ? materials[materialKey]
+    : null;
+  const sqft = num(takeoff.sqft);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Wall area (sqft)">
+          <Num
+            value={takeoff.sqft}
+            step={10}
+            onChange={(v) => set({ sqft: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            The wall being clad, not the floor area of the house
+          </p>
+        </Field>
+        <Field label="Cladding">
+          <select
+            value={materialKey}
+            onChange={(e) => set({ materialKey: e.target.value })}
+            className={inputClass}
+          >
+            {Object.entries(materials).map(([key, m]) => (
+              <option key={key} value={key}>
+                {m.label} — ${money(m.pricePerSqft)}/sqft
+              </option>
+            ))}
+          </select>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {material && sqft > 0
+              ? `$${money(sqft * num(material.pricePerSqft))} installed`
+              : "Installed, cladding and labour"}
+          </p>
+        </Field>
+        <Field label="Storeys">
+          <select
+            value={takeoff.storeys || "one"}
+            onChange={(e) => set({ storeys: e.target.value })}
+            className={inputClass}
+          >
+            <option value="one">One storey</option>
+            <option value="two">Two storeys</option>
+            <option value="three_plus">Three or more</option>
+          </select>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {num(book?.storeySurcharge?.[takeoff.storeys || "one"]) > 0
+              ? `+${Math.round(num(book.storeySurcharge[takeoff.storeys]) * 100)}% for staging`
+              : "Ladders — no access surcharge"}
+          </p>
+        </Field>
+      </div>
+
+      <div>
+        <OptionRow
+          checked={takeoff.tearOff}
+          onToggle={(v) => set({ tearOff: v })}
+          label="Strip and dispose of existing cladding"
+          hint={`$${money(book?.tearOffPerSqft)}/sqft`}
+          amount={takeoff.tearOff ? sqft * num(book?.tearOffPerSqft) : 0}
+        />
+        <OptionRow
+          checked={takeoff.housewrap}
+          onToggle={(v) => set({ housewrap: v })}
+          label="House wrap and weather barrier"
+          hint={`$${money(book?.housewrapPerSqft)}/sqft`}
+          amount={takeoff.housewrap ? sqft * num(book?.housewrapPerSqft) : 0}
+        />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-4">
+        <Field label="Rot repair allowance">
+          <Num
+            value={takeoff.rotRepairSqft}
+            step={5}
+            onChange={(v) => set({ rotRepairSqft: v })}
+            suffix="sqft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.rotRepairPerSqft)}/sqft — reconcile on the invoice
+          </p>
+        </Field>
+        <Field label="Trim">
+          <Num
+            value={takeoff.trimFt}
+            step={5}
+            onChange={(v) => set({ trimFt: v })}
+            suffix="ft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.trimPerLf)}/ft
+          </p>
+        </Field>
+        <Field label="Fascia">
+          <Num
+            value={takeoff.fasciaFt}
+            step={5}
+            onChange={(v) => set({ fasciaFt: v })}
+            suffix="ft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.fasciaPerLf)}/ft
+          </p>
+        </Field>
+        <Field label="Soffit">
+          <Num
+            value={takeoff.soffitSqft}
+            step={5}
+            onChange={(v) => set({ soffitSqft: v })}
+            suffix="sqft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.soffitPerSqft)}/sqft
+          </p>
+        </Field>
+      </div>
+
+      <Field label="Scope notes">
+        <textarea
+          value={takeoff.notes || ""}
+          onChange={(e) => set({ notes: e.target.value })}
+          rows={2}
+          className={inputClass}
+          placeholder="Access, colour, anything the crew needs to know"
+        />
+      </Field>
+    </div>
+  );
+}
+
 const TAKEOFFS = {
   stairs: StairsTakeoff,
   countertop: CountertopTakeoff,
@@ -1789,6 +2275,8 @@ const TAKEOFFS = {
   driveway_sealing: DrivewaySealingTakeoff,
   home_inspection: HomeInspectionTakeoff,
   paving: PavingTakeoff,
+  roofing_service: RoofingTakeoff,
+  siding: SidingTakeoff,
   snow_removal: SnowRemovalTakeoff,
 };
 
@@ -1805,6 +2293,10 @@ export default function TradeTakeoff({
   // the designer draws on a blank grid without it, so a quote for a client
   // whose address failed to geocode still measures.
   siteImageUrl = "",
+  // The client's address, for the trades that measure off it rather than draw
+  // on it. Separate from siteImageUrl because a roof is measured by Google's
+  // 3-D model, not by tracing a photo — there is nothing to show.
+  siteAddress = "",
 }) {
   const Component = TAKEOFFS[categoryKey];
   if (!Component || !takeoff || !book) return null;
@@ -1815,6 +2307,7 @@ export default function TradeTakeoff({
         book={book}
         onChange={onChange}
         siteImageUrl={siteImageUrl}
+        siteAddress={siteAddress}
       />
     </div>
   );

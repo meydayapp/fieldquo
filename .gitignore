@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Bundled output of scripts/check-takeoff-render.jsx — written and deleted by
+# `npm run check:takeoff-render`, never committed.
+.takeoff-render.cjs
