@@ -369,6 +369,42 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The sourcing list: tick a material off, and what you paid becomes your own
+  price book.**
+
+  `prisma/schema.prisma` (`JobMaterial`), `lib/jobs/sourcingList.js` (new),
+  `app/api/jobs/[id]/materials/route.js` (new),
+  `app/components/jobs/JobMaterials.js` (new), `lib/tasks/autoCreate.js`.
+
+  The bill of materials from the previous entry, seen from the other end: the
+  cost panel asks whether the price covers it, the job asks whether it has been
+  bought. Same derivation, so the two can never disagree about how many bundles
+  a roof needs.
+
+  1. **A table, not a Json column on Job.** This list is ticked one line at a
+     time by different people on different days, and each tick can carry money.
+     A Json blob read-modify-written by two phones in a supply yard loses one of
+     the ticks, and the person who lost it has no way to know.
+  2. **Estimated and actual are two columns.** Overwriting the derived cost with
+     the receipt would destroy the only record of whether the estimate was any
+     good — which is the entire reason for collecting the receipt.
+  3. **A tick with a receipt writes `MaterialPriceEntry`.** This is the loop
+     closing: roofing, siding and insulation ship with unit costs UNSET because
+     no supplier pricing was read, and the honest way to fill them is what this
+     company actually paid, not a guess. Per-unit is derived from the total,
+     because a receipt is a total and asking someone at a till to divide by 17
+     bags is asking for a wrong number.
+  4. **The checkbox commits on its own.** Price and supplier are an expansion
+     beside it, skippable. Demanding paperwork before a tick registers is how a
+     list like this stops being used by the second job.
+  5. **Regenerating never destroys a tick.** Purchased lines and hand-added
+     lines survive; only underived, unbought lines are replaced. A quote
+     revision does not un-buy a pallet of pavers.
+  6. **ONE to-do, not one per material.** `job_materials:<jobId>`, title
+     carrying the count, updated in place on every tick and resolved when the
+     list is done. Seventeen rows on /app/tasks for one job would bury the four
+     things actually waiting on a person.
+
 - **Materials: quantities everywhere, prices where somebody actually read
   one.**
 

@@ -1016,6 +1016,7 @@ model User {
   workingHours          WorkingHours[]
   eventTypes            EventType[]
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
+  jobMaterialsPurchased JobMaterial[]          @relation("JobMaterialPurchaser")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
@@ -2132,6 +2133,69 @@ model Job {
   /// merged with `visits` — conflating the two is exactly the confusion this
   /// link exists to make legible on /app/tasks.
   tasks Task[]
+
+  /// What has to be bought before the crew leaves the yard.
+  materials JobMaterial[]
+}
+
+/// One line of a job's sourcing list: what to buy, how much, and whether it has
+/// been bought yet.
+///
+/// ── Why this is a table and not a Json column on Job ────────────────────────
+///
+/// Every other derived list in this schema that nobody ticks is Json. This one
+/// is ticked, one line at a time, by different people on different days, and
+/// each tick can carry money and a supplier. A Json blob read-modify-written by
+/// two phones in a supply yard loses one of the ticks, and the person who lost
+/// it has no way to know.
+///
+/// ── Estimated and actual are two columns, not one ───────────────────────────
+///
+/// `estUnitCost` is what lib/costing/tradeMaterials.js derived from the takeoff
+/// — often NULL, because for roofing, siding and insulation no supplier pricing
+/// ships. `actualCost` is what the receipt said. Overwriting the first with the
+/// second would destroy the only record of whether the estimate was any good,
+/// which is the whole point of collecting the second.
+model JobMaterial {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  name String
+  qty  Decimal @db.Decimal(12, 2)
+  unit String
+
+  /// Which scope group this came from, so a regenerate can tell a roofing line
+  /// from a paving one on a two-trade job.
+  categoryKey String?
+
+  /// Per-unit cost the estimate used. Null means nobody has priced it — see
+  /// the note above, and the `unpriced` flag in lib/costing/tradeMaterials.js.
+  estUnitCost Decimal? @db.Decimal(12, 2)
+
+  /// The whole line as actually paid, entered when it is ticked off. Not a
+  /// per-unit figure: a receipt is a total, and asking someone standing at a
+  /// till to divide it by 17 bags is asking for a wrong number.
+  actualCost Decimal? @db.Decimal(12, 2)
+  supplier   String?
+
+  /// Ticked. A timestamp rather than a boolean, for the same reason
+  /// Job.archivedAt is: "when was this bought" is worth knowing, costs nothing,
+  /// and null reads as "not yet" with no default to maintain.
+  purchasedAt   DateTime?
+  purchasedById String?
+  purchasedBy   User?     @relation("JobMaterialPurchaser", fields: [purchasedById], references: [id])
+
+  /// Hand-added lines survive a regenerate; derived ones are replaced. Someone
+  /// who wrote "gas for the compactor" on the list did not derive it from a
+  /// takeoff and should not lose it when the quote is revised.
+  addedByHand Boolean @default(false)
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobId, purchasedAt])
 }
 
 model JobVisit {

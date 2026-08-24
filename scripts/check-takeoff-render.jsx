@@ -22,6 +22,11 @@ import {
 } from "../app/data/tradePriceBooks.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import QuoteWording from "../app/app/settings/services/QuoteWording.js";
+import JobMaterials from "../app/components/jobs/JobMaterials.js";
+import {
+  deriveSourcingLines,
+  sourcingProgress,
+} from "../lib/jobs/sourcingList.js";
 import { resolveServiceContent } from "../lib/documents/serviceContent.js";
 
 let pass = 0;
@@ -143,9 +148,132 @@ for (const [label, category] of WORDING_CASES) {
   }
 }
 
+// ── The job's sourcing list ────────────────────────────────────────────────
+//
+// deriveSourcingLines runs inside an API route, so a throw on a malformed job
+// is a 500 on the job page. It is exercised here rather than in the pure check
+// script because the module imports the Prisma client.
+try {
+  const html = renderToStaticMarkup(<JobMaterials jobId="j1" />);
+  if (!html || html.length < 40)
+    throw new Error(`rendered ${html.length} chars`);
+  pass += 1;
+} catch (err) {
+  fails.push(`job materials panel: ${err.message}`);
+}
+
+try {
+  const job = {
+    quote: {
+      scopeGroups: [
+        {
+          categoryId: "c1",
+          category: { key: "roofing_service" },
+          takeoff: {
+            ...createTradeConfig("roofing_service"),
+            areaSqft: 2400,
+            pitchRise: 8,
+            layers: 1,
+            dripEdgeFt: 180,
+          },
+        },
+        {
+          categoryId: "c2",
+          category: { key: "paving" },
+          takeoff: {
+            ...createTradeConfig("paving"),
+            patioSqft: 600,
+            complexityLevel: "moderate",
+            paverOption: "standard",
+          },
+        },
+        // A trade with no bill, and two malformed groups.
+        {
+          categoryId: "c3",
+          category: { key: "plumbing" },
+          takeoff: { sqft: 10 },
+        },
+        { categoryId: "c4", category: null, takeoff: null },
+      ],
+    },
+  };
+  const lines = deriveSourcingLines(job);
+  const must = (cond, msg) => {
+    if (!cond) throw new Error(msg);
+  };
+  must(lines.length > 0, "derived nothing");
+  must(
+    lines.some((l) => l.categoryKey === "roofing_service"),
+    "no roofing lines",
+  );
+  must(
+    lines.some((l) => l.categoryKey === "paving"),
+    "no paving lines",
+  );
+  must(
+    !lines.some((l) => l.categoryKey === "plumbing"),
+    "plumbing has no bill",
+  );
+  must(
+    lines.every((l) => l.qty > 0 && l.unit && l.name),
+    "a line is malformed",
+  );
+  // The whole point: an unpriced line stays null so the panel can say so.
+  must(
+    lines.some((l) => l.estUnitCost === null),
+    "unpriced became 0",
+  );
+  must(
+    new Set(lines.map((l) => l.sortOrder)).size === lines.length,
+    "sort order collides",
+  );
+  for (const bad of [
+    null,
+    undefined,
+    {},
+    { quote: null },
+    { quote: { scopeGroups: "x" } },
+    42,
+  ]) {
+    must(
+      deriveSourcingLines(bad).length === 0,
+      `derived from ${JSON.stringify(bad)}`,
+    );
+  }
+  // Progress must not fold unpriced lines into the estimate as free.
+  const p = sourcingProgress([
+    {
+      qty: 2,
+      unit: "bag",
+      estUnitCost: 10,
+      actualCost: 25,
+      purchasedAt: new Date(),
+    },
+    {
+      qty: 3,
+      unit: "bag",
+      estUnitCost: null,
+      actualCost: null,
+      purchasedAt: null,
+    },
+  ]);
+  must(
+    p.total === 2 && p.bought === 1 && p.outstanding === 1,
+    "progress counts",
+  );
+  must(!p.complete, "not complete with one outstanding");
+  must(p.estimatedTotal === 20, `estimated ${p.estimatedTotal}`);
+  must(p.actualTotal === 25, `actual ${p.actualTotal}`);
+  must(p.unpriced === 1, "unpriced count");
+  must(!sourcingProgress([]).complete, "an empty list is not complete");
+  pass += 1;
+} catch (err) {
+  fails.push(`sourcing list: ${err.message}`);
+}
+
 if (fails.length) {
   console.error(`✗ ${fails.length} failed, ${pass} rendered`);
   for (const f of fails) console.error("  - " + f);
   process.exit(1);
 }
-console.log(`✓ builder & settings render: ${pass} renders`);
+console.log(`✓ builder, settings & sourcing: ${pass} checks`);

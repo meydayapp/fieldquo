@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
 import JobCosting from "@/app/components/jobs/JobCosting";
+import JobMaterials from "@/app/components/jobs/JobMaterials";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -37,9 +38,12 @@ import { hasLevel } from "@/lib/permissions/enforce";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 
 const STATUS_STYLES = {
-  scheduled: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
-  in_progress: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
-  completed: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
+  scheduled:
+    "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900",
+  in_progress:
+    "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900",
+  completed:
+    "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   cancelled: "bg-muted text-muted-foreground border-border",
 };
 
@@ -86,7 +90,9 @@ export default function JobDetail({ jobId }) {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => null);
-        throw new Error(d?.error || t("app.jobs.archiveFailed", "That didn't save."));
+        throw new Error(
+          d?.error || t("app.jobs.archiveFailed", "That didn't save."),
+        );
       }
       const updated = await res.json();
       setJob((j) => ({ ...j, archivedAt: updated.archivedAt }));
@@ -107,7 +113,10 @@ export default function JobDetail({ jobId }) {
         // 409 is the server explaining that this job carries records of work.
         // Surfaced verbatim — it names what is attached and what to do
         // instead, which a generic "couldn't delete" would throw away.
-        throw new Error(d?.error || t("app.jobs.deleteFailed", "That job couldn't be deleted."));
+        throw new Error(
+          d?.error ||
+            t("app.jobs.deleteFailed", "That job couldn't be deleted."),
+        );
       }
       router.push("/app/jobs");
     } catch (err) {
@@ -130,7 +139,8 @@ export default function JobDetail({ jobId }) {
       if (!res.ok) {
         const d = await res.json().catch(() => null);
         throw new Error(
-          d?.error || (res.status === 404 ? "Job not found." : "Couldn't load."),
+          d?.error ||
+            (res.status === 404 ? "Job not found." : "Couldn't load."),
         );
       }
       setJob(await res.json());
@@ -206,7 +216,9 @@ export default function JobDetail({ jobId }) {
         href="/app/jobs"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft size={14} />{t("app.jobs.title")}</Link>
+        <ArrowLeft size={14} />
+        {t("app.jobs.title")}
+      </Link>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
@@ -260,7 +272,9 @@ export default function JobDetail({ jobId }) {
             href={`/app/jobs/${jobId}/edit`}
             className="inline-flex items-center gap-1.5 border border-border text-foreground px-3 py-2 rounded-lg text-sm font-semibold"
           >
-            <Pencil size={13} />{t("app.action.edit")}</Link>
+            <Pencil size={13} />
+            {t("app.action.edit")}
+          </Link>
 
           {/* ── Delete ──────────────────────────────────────────────────────
               DELETE /api/jobs/[id] has existed all along with nothing calling
@@ -330,7 +344,8 @@ export default function JobDetail({ jobId }) {
         <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200">
             <Calendar size={16} className="shrink-0" />
-            This job needs a date. Schedule its first visit to get it on the calendar.
+            This job needs a date. Schedule its first visit to get it on the
+            calendar.
           </div>
           <Link
             href={`/app/jobs/${jobId}/visits/new`}
@@ -342,8 +357,13 @@ export default function JobDetail({ jobId }) {
       )}
 
       {/* Client — the details someone needs before they set off */}
-      <div data-tour="job-client" className="bg-card border border-border rounded-xl p-5">
-        <h2 className="font-semibold text-foreground mb-4">{t("app.job.client")}</h2>
+      <div
+        data-tour="job-client"
+        className="bg-card border border-border rounded-xl p-5"
+      >
+        <h2 className="font-semibold text-foreground mb-4">
+          {t("app.job.client")}
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field icon={User} label="Name" value={job.client?.name} />
           <Field
@@ -400,10 +420,21 @@ export default function JobDetail({ jobId }) {
           been recorded and for anyone without the jobCosting toggle. */}
       <JobCosting jobId={job.id} />
 
-      <div data-tour="job-visits" className="bg-card border border-border rounded-xl p-5">
+      {/* What has to be bought before the crew leaves the yard. Sits under the
+          costing because it is the same bill of materials — one derived from
+          the quote's takeoff — seen from the other end: the cost panel asks
+          whether the price covers it, this asks whether it has been bought. */}
+      <JobMaterials jobId={job.id} />
+
+      <div
+        data-tour="job-visits"
+        className="bg-card border border-border rounded-xl p-5"
+      >
         <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <div>
-            <h2 className="font-semibold text-foreground">{t("app.job.visits")}</h2>
+            <h2 className="font-semibold text-foreground">
+              {t("app.job.visits")}
+            </h2>
             {job.visits?.length > 0 && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {completedVisits} of {job.visits.length} complete
@@ -414,7 +445,9 @@ export default function JobDetail({ jobId }) {
             href={`/app/jobs/${jobId}/visits/new`}
             className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
           >
-            <Plus size={13} />{t("app.job.addVisit")}</Link>
+            <Plus size={13} />
+            {t("app.job.addVisit")}
+          </Link>
         </div>
 
         {!job.visits?.length ? (
