@@ -11,6 +11,7 @@
 // one: a component that references a prop that isn't passed, maps over
 // something that isn't an array, or reads a book field that doesn't exist.
 // None of those is a compile error. All of them are a blank screen.
+import fs from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TradeTakeoff, {
@@ -269,6 +270,42 @@ try {
   pass += 1;
 } catch (err) {
   fails.push(`sourcing list: ${err.message}`);
+}
+
+// ── Every auto-task is keyed to ONE record ─────────────────────────────────
+//
+// A job, a quote and an invoice each get their own to-do, because they are
+// separate things that happen on separate days — but a task per MATERIAL would
+// put seventeen rows on /app/tasks for one job. The rule is one task per
+// record, and the sourceKey is what enforces it: it is uniquely indexed, so a
+// key that did not carry an id would let the first job's task block every
+// other job's forever.
+try {
+  const src = fs.readFileSync("lib/tasks/autoCreate.js", "utf8");
+  const keys = [...src.matchAll(/`(\w+):\$\{([^}]+)\}`/g)].map((m) => ({
+    prefix: m[1],
+    id: m[2],
+  }));
+  if (keys.length < 4) throw new Error(`only found ${keys.length} source keys`);
+  for (const k of keys) {
+    if (!/\.id\b/.test(k.id))
+      throw new Error(`${k.prefix} is not keyed to a record id (${k.id})`);
+  }
+  const prefixes = keys.map((k) => k.prefix);
+  for (const want of [
+    "quote_accepted",
+    "job_materials",
+    "invoice_sent",
+    "job_completed",
+  ]) {
+    if (!prefixes.includes(want)) throw new Error(`missing ${want}`);
+  }
+  // One per record, not one per record TYPE — two jobs must not collide.
+  if (new Set(prefixes).size !== prefixes.length)
+    throw new Error("two task kinds share a prefix and would collide");
+  pass += 1;
+} catch (err) {
+  fails.push(`auto-task keys: ${err.message}`);
 }
 
 if (fails.length) {

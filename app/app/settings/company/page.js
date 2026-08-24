@@ -400,6 +400,58 @@ function CompanyReadOnly({
           )}
         </div>
       </SectionCard>
+
+      {/* Scope of work and payment terms, for someone who cannot change them.
+          These two print on EVERY quote this company sends, so an estimator
+          without user:manage needs to be able to read what their own documents
+          say — they are the one standing in front of the client being asked
+          about it. Leaving them out of this view meant the only way to see the
+          terms you were sending was to send one. */}
+      <SectionCard
+        title="Scope of work and terms"
+        description="Copied onto every new quote, then editable on the quote itself."
+      >
+        <div>
+          <dt className="text-xs font-medium text-muted-foreground">
+            Default scope of work
+          </dt>
+          {form.defaultProcessNotes ? (
+            <>
+              <dd className="mt-1 whitespace-pre-wrap rounded border border-border bg-muted/40 px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
+                {form.defaultProcessNotes}
+              </dd>
+              {unfilledPlaceholders(form.defaultProcessNotes).length > 0 && (
+                <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  {/* Worth saying to someone who cannot fix it: they are the
+                      person who will be asked about it on a doorstep. */}
+                  {unfilledPlaceholders(form.defaultProcessNotes).length} thing
+                  {unfilledPlaceholders(form.defaultProcessNotes).length === 1
+                    ? ""
+                    : "s"}{" "}
+                  in here still to decide, and they print on the quote exactly
+                  as they appear. Ask an owner or admin to finish them:{" "}
+                  <span className="font-mono">
+                    {unfilledPlaceholders(form.defaultProcessNotes)
+                      .slice(0, 6)
+                      .join("  ")}
+                  </span>
+                </p>
+              )}
+            </>
+          ) : (
+            <dd className="mt-0.5 text-sm italic text-muted-foreground">
+              Not set — quotes carry no default scope of work
+            </dd>
+          )}
+        </div>
+        <dl>
+          <ReadOnlyField
+            label="Payment terms"
+            value={form.paymentTerms}
+            empty="Not set — the payment section does not appear on quotes"
+          />
+        </dl>
+      </SectionCard>
     </div>
   );
 }
@@ -651,7 +703,6 @@ export default function CompanySettingsPage() {
               <button
                 key={tpl.key}
                 type="button"
-                disabled={!canEdit}
                 onClick={() => {
                   // Appends rather than overwrites: silently replacing terms
                   // somebody has already written is the destructive-operation-
@@ -672,7 +723,6 @@ export default function CompanySettingsPage() {
           </div>
           <textarea
             rows={14}
-            disabled={!canEdit}
             value={form.defaultProcessNotes || ""}
             onChange={(e) =>
               setForm({ ...form, defaultProcessNotes: e.target.value })
@@ -700,7 +750,6 @@ export default function CompanySettingsPage() {
         <div>
           <label className="text-xs text-muted-foreground">Payment terms</label>
           <input
-            disabled={!canEdit}
             value={form.paymentTerms || ""}
             onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
             placeholder="e.g. 50% deposit, balance on completion — or Net 30"

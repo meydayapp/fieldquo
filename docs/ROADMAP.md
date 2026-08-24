@@ -369,6 +369,29 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **`check:settings-access` passes again, and it was hiding a real gap.**
+
+  `app/app/settings/company/page.js`, `scripts/check-takeoff-render.jsx`.
+
+  The failing assertion was "Company Settings: does not fall back to disabling
+  inputs" — three `disabled={!canEdit}` props on the scope-of-work card. They
+  were DEAD: the page returns `<CompanyReadOnly>` above them when `canEdit` is
+  false, so those props were always `disabled={false}`.
+
+  Deleting them fixes the check. What the check was actually pointing at is that
+  the card had been given a disabled-form treatment INSTEAD of a read-only one,
+  and `CompanyReadOnly` never rendered `defaultProcessNotes` or `paymentTerms`
+  at all. Both print on every quote the company sends, so an estimator without
+  `user:manage` had no way to read the terms they were putting their name to
+  short of sending one. The read-only view now shows both, with the
+  unfilled-`[placeholder]` warning worded for somebody who cannot fix it —
+  they are the one who gets asked about it on a doorstep.
+
+  Also asserted: every auto-created task's `sourceKey` carries a record id, and
+  no two kinds share a prefix. One task per job, per quote, per invoice — the
+  unique index means a key without an id would let the first record's task block
+  every later one forever.
+
 - **The sourcing list: tick a material off, and what you paid becomes your own
   price book.**
 
