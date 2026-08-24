@@ -28,7 +28,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Copy, Check, ExternalLink, FileText, CalendarDays, Zap } from "lucide-react";
+import {
+  Copy,
+  Check,
+  ExternalLink,
+  FileText,
+  CalendarDays,
+  Zap,
+} from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { embedSnippet } from "@/lib/embed/snippet";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -65,7 +72,9 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
           className="inline-flex items-center gap-1.5 border border-border rounded-full px-3 py-2 text-xs font-semibold text-foreground shrink-0"
         >
           {copied === "link" ? <Check size={13} /> : <Copy size={13} />}
-          {copied === "link" ? t("app.action.copied") : t("app.action.copyLink")}
+          {copied === "link"
+            ? t("app.action.copied")
+            : t("app.action.copyLink")}
         </button>
         <a
           href={url}
@@ -77,11 +86,17 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
         </a>
       </div>
 
+      {/* Shown, not folded away.
+          This used to sit inside a collapsed <details> labelled "Embed it on
+          your website instead". That made sense when the page led with an
+          iframe and most contractors had no website. It does not when the
+          question someone arrives with is "how do I put this on my site" —
+          a grey summary line is not an answer they will find. */}
       {embed && (
-        <details className="mt-3">
-          <summary className="text-xs text-muted-foreground cursor-pointer">
+        <div className="mt-3">
+          <div className="text-xs text-muted-foreground">
             {t("app.setLeadForm.embedToggle")}
-          </summary>
+          </div>
           <div className="mt-2 flex items-start gap-2">
             <pre className="flex-1 min-w-0 bg-muted border border-border rounded-lg p-3 text-[11px] overflow-x-auto">
               {embed}
@@ -92,10 +107,12 @@ function ShareBlock({ icon: Icon, title, description, url, embed }) {
               className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0 mt-1"
             >
               {copied === "embed" ? <Check size={13} /> : <Copy size={13} />}
-              {copied === "embed" ? t("app.action.copied") : t("app.setLeadForm.copy")}
+              {copied === "embed"
+                ? t("app.action.copied")
+                : t("app.setLeadForm.copy")}
             </button>
           </div>
-        </details>
+        </div>
       )}
     </div>
   );
@@ -143,7 +160,9 @@ export default function LeadFormPage() {
       title:
         widget === "book"
           ? t("app.setLeadForm.bookTitle")
-          : t("app.setLeadForm.quoteTitle"),
+          : widget === "instant-quote"
+            ? t("app.setLeadForm.instantTitle")
+            : t("app.setLeadForm.quoteTitle"),
     });
 
   if (!slug) {
@@ -195,6 +214,7 @@ export default function LeadFormPage() {
         title={t("app.setLeadForm.instantTitle")}
         description={t("app.setLeadForm.instantDesc")}
         url={instantUrl}
+        embed={embed("instant-quote")}
       />
 
       <p className="text-xs text-muted-foreground">

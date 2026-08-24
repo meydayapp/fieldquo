@@ -36,15 +36,47 @@ function newStep(kind, i) {
   const id = `${kind}_${i}_${Date.now().toString(36)}`;
   switch (kind) {
     case "intro":
-      return { id, kind, headline: "Get a quote", subhead: "", buttonText: "Get started" };
+      return {
+        id,
+        kind,
+        headline: "Get a quote",
+        subhead: "",
+        buttonText: "Get started",
+      };
     case "question_single":
-      return { id, kind, question: "Your question?", answers: [{ id: `a_${Date.now().toString(36)}`, label: "Option A", value: "a" }] };
+      return {
+        id,
+        kind,
+        question: "Your question?",
+        answers: [
+          { id: `a_${Date.now().toString(36)}`, label: "Option A", value: "a" },
+        ],
+      };
     case "question_multi":
-      return { id, kind, question: "Pick any that apply", buttonText: "Continue", answers: [{ id: `a_${Date.now().toString(36)}`, label: "Option A", value: "a" }] };
+      return {
+        id,
+        kind,
+        question: "Pick any that apply",
+        buttonText: "Continue",
+        answers: [
+          { id: `a_${Date.now().toString(36)}`, label: "Option A", value: "a" },
+        ],
+      };
     case "photo_upload":
-      return { id, kind, headline: "Add photos (optional)", buttonText: "Continue" };
+      return {
+        id,
+        kind,
+        headline: "Add photos (optional)",
+        buttonText: "Continue",
+      };
     case "form":
-      return { id, kind, headline: "Where should we send it?", fields: ["name", "email", "phone"], buttonText: "Submit" };
+      return {
+        id,
+        kind,
+        headline: "Where should we send it?",
+        fields: ["name", "email", "phone"],
+        buttonText: "Submit",
+      };
     case "thankyou":
       return { id, kind, headline: "Thanks — we'll be in touch." };
     default:
@@ -68,8 +100,13 @@ export default function FunnelBuilderPage() {
   const [dirty, setDirty] = useState(false);
   const [analytics, setAnalytics] = useState(null);
   const [showPixels, setShowPixels] = useState(false);
-  const [pixels, setPixels] = useState({ metaPixelId: "", tiktokPixelId: "", ga4Id: "" });
+  const [pixels, setPixels] = useState({
+    metaPixelId: "",
+    tiktokPixelId: "",
+    ga4Id: "",
+  });
   const [copied, setCopied] = useState(false);
+  const [copiedEmbed, setCopiedEmbed] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/funnels/${id}`);
@@ -83,7 +120,11 @@ export default function FunnelBuilderPage() {
     setCompany(f.company);
     setSteps(Array.isArray(f.steps) ? f.steps : []);
     setName(f.name || "");
-    setPixels({ metaPixelId: f.metaPixelId || "", tiktokPixelId: f.tiktokPixelId || "", ga4Id: f.ga4Id || "" });
+    setPixels({
+      metaPixelId: f.metaPixelId || "",
+      tiktokPixelId: f.tiktokPixelId || "",
+      ga4Id: f.ga4Id || "",
+    });
     setLoading(false);
   }, [id]);
 
@@ -176,8 +217,33 @@ export default function FunnelBuilderPage() {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  // The embed, beside the link rather than instead of it — they answer
+  // different questions. A link is right for an ad, a QR code or a
+  // link-in-bio, where the visitor is arriving from somewhere else. The embed
+  // is right for the company's own website, where sending someone OFF the page
+  // they are already on is how you lose them.
+  const embedCode = useMemo(() => {
+    if (!company?.slug || !funnel?.slug) return "";
+    return embedSnippet({
+      origin: typeof window !== "undefined" ? window.location.origin : "",
+      slug: company.slug,
+      widget: "funnel",
+      funnelSlug: funnel.slug,
+      title: funnel.name || "Get a quote",
+    });
+  }, [company, funnel]);
+
+  function copyEmbed() {
+    if (!embedCode) return;
+    navigator.clipboard?.writeText(embedCode);
+    setCopiedEmbed(true);
+    setTimeout(() => setCopiedEmbed(false), 1500);
+  }
+
   if (loading)
-    return <div className="p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />;
+    return (
+      <div className="p-6 max-w-6xl mx-auto animate-pulse h-96 bg-accent rounded-xl" />
+    );
   if (!funnel)
     return (
       <div className="p-6 max-w-3xl mx-auto">
@@ -189,7 +255,10 @@ export default function FunnelBuilderPage() {
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
-        <button onClick={() => router.push("/app/funnels")} className="text-muted-foreground hover:text-foreground">
+        <button
+          onClick={() => router.push("/app/funnels")}
+          className="text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft size={18} />
         </button>
         <input
@@ -214,7 +283,17 @@ export default function FunnelBuilderPage() {
           disabled={saving || !dirty}
           className="inline-flex items-center gap-1.5 border border-border px-3 py-1.5 rounded-full text-sm font-semibold disabled:opacity-50"
         >
-          {saving ? <Loader2 size={14} className="animate-spin" /> : dirty ? "Save" : savedAt ? <><Check size={14} /> Saved</> : "Save"}
+          {saving ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : dirty ? (
+            "Save"
+          ) : savedAt ? (
+            <>
+              <Check size={14} /> Saved
+            </>
+          ) : (
+            "Save"
+          )}
         </button>
         <button
           onClick={togglePublish}
@@ -235,13 +314,44 @@ export default function FunnelBuilderPage() {
       {/* Public link */}
       {funnel.status === "published" && publicUrl && (
         <div className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
-          <span className="text-xs text-muted-foreground truncate flex-1">{publicUrl}</span>
-          <button onClick={copyLink} className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
-            {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy link"}
+          <span className="text-xs text-muted-foreground truncate flex-1">
+            {publicUrl}
+          </span>
+          <button
+            onClick={copyLink}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-foreground"
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}{" "}
+            {copied ? "Copied" : "Copy link"}
           </button>
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-foreground underline">
+          <a
+            href={publicUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-semibold text-foreground underline"
+          >
             Open
           </a>
+        </div>
+      )}
+
+      {funnel.status === "published" && embedCode && (
+        <div className="bg-card border border-border rounded-lg px-3 py-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              Or paste this into your own website
+            </span>
+            <button
+              onClick={copyEmbed}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-foreground shrink-0"
+            >
+              {copiedEmbed ? <Check size={13} /> : <Copy size={13} />}{" "}
+              {copiedEmbed ? "Copied" : "Copy code"}
+            </button>
+          </div>
+          <pre className="mt-2 bg-muted border border-border rounded p-2 text-[11px] overflow-x-auto">
+            {embedCode}
+          </pre>
         </div>
       )}
 
@@ -254,14 +364,29 @@ export default function FunnelBuilderPage() {
           <div className="grid grid-cols-3 gap-3 text-center mb-3">
             <Stat label="Starts" value={analytics.starts} />
             <Stat label="Leads" value={analytics.completions} />
-            <Stat label="Conversion" value={analytics.conversionRate != null ? `${analytics.conversionRate}%` : "—"} />
+            <Stat
+              label="Conversion"
+              value={
+                analytics.conversionRate != null
+                  ? `${analytics.conversionRate}%`
+                  : "—"
+              }
+            />
           </div>
           <div className="space-y-1">
             {analytics.steps.map((s) => (
               <div key={s.id} className="flex items-center gap-2 text-xs">
-                <span className="w-32 truncate text-muted-foreground">{s.label}</span>
+                <span className="w-32 truncate text-muted-foreground">
+                  {s.label}
+                </span>
                 <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${s.retention ?? 100}%`, backgroundColor: accent }} />
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${s.retention ?? 100}%`,
+                      backgroundColor: accent,
+                    }}
+                  />
                 </div>
                 <span className="w-16 text-right text-muted-foreground">
                   {s.views} {s.retention != null ? `· ${s.retention}%` : ""}
@@ -276,7 +401,9 @@ export default function FunnelBuilderPage() {
       <div className="grid gap-4 lg:grid-cols-[220px_1fr_300px]">
         {/* Step list */}
         <div className="space-y-2" data-tour="funnel-steps">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Steps</div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Steps
+          </div>
           {steps.map((s, i) => (
             <div
               key={s.id}
@@ -284,7 +411,10 @@ export default function FunnelBuilderPage() {
                 i === sel ? "border-foreground bg-accent" : "border-border"
               }`}
             >
-              <button onClick={() => setSel(i)} className="flex-1 text-left min-w-0">
+              <button
+                onClick={() => setSel(i)}
+                className="flex-1 text-left min-w-0"
+              >
                 <div className="text-xs font-medium text-foreground truncate">
                   {STEP_KINDS.find((k) => k.kind === s.kind)?.label || s.kind}
                 </div>
@@ -293,22 +423,35 @@ export default function FunnelBuilderPage() {
                 </div>
               </button>
               <div className="flex flex-col">
-                <button onClick={() => move(i, -1)} disabled={i === 0} className="text-muted-foreground disabled:opacity-30">
+                <button
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
                   <ChevronUp size={13} />
                 </button>
-                <button onClick={() => move(i, 1)} disabled={i === steps.length - 1} className="text-muted-foreground disabled:opacity-30">
+                <button
+                  onClick={() => move(i, 1)}
+                  disabled={i === steps.length - 1}
+                  className="text-muted-foreground disabled:opacity-30"
+                >
                   <ChevronDown size={13} />
                 </button>
               </div>
               {steps.length > 1 && (
-                <button onClick={() => removeStep(i)} className="text-muted-foreground hover:text-red-600">
+                <button
+                  onClick={() => removeStep(i)}
+                  className="text-muted-foreground hover:text-red-600"
+                >
                   <Trash2 size={13} />
                 </button>
               )}
             </div>
           ))}
           <div className="pt-1">
-            <div className="text-[11px] text-muted-foreground mb-1">Add step</div>
+            <div className="text-[11px] text-muted-foreground mb-1">
+              Add step
+            </div>
             <div className="flex flex-wrap gap-1">
               {STEP_KINDS.map((k) => (
                 <button
@@ -328,13 +471,17 @@ export default function FunnelBuilderPage() {
           {step ? (
             <StepEditor step={step} onChange={updateStep} />
           ) : (
-            <p className="text-sm text-muted-foreground">Add a step to begin.</p>
+            <p className="text-sm text-muted-foreground">
+              Add a step to begin.
+            </p>
           )}
         </div>
 
         {/* Preview */}
         <div>
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Preview</div>
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            Preview
+          </div>
           <StepPreview step={step} accent={accent} company={company} />
         </div>
       </div>
@@ -408,14 +555,24 @@ const MAPS_OPTIONS = [
 ];
 
 function StepEditor({ step, onChange }) {
-  const isQuestion = step.kind === "question_single" || step.kind === "question_multi";
+  const isQuestion =
+    step.kind === "question_single" || step.kind === "question_multi";
 
   function setAnswer(i, patch) {
-    const answers = (step.answers || []).map((a, idx) => (idx === i ? { ...a, ...patch } : a));
+    const answers = (step.answers || []).map((a, idx) =>
+      idx === i ? { ...a, ...patch } : a,
+    );
     onChange({ answers });
   }
   function addAnswer() {
-    const answers = [...(step.answers || []), { id: `a_${Date.now().toString(36)}`, label: "Option", value: `opt${(step.answers || []).length + 1}` }];
+    const answers = [
+      ...(step.answers || []),
+      {
+        id: `a_${Date.now().toString(36)}`,
+        label: "Option",
+        value: `opt${(step.answers || []).length + 1}`,
+      },
+    ];
     onChange({ answers });
   }
   function removeAnswer(i) {
@@ -428,17 +585,40 @@ function StepEditor({ step, onChange }) {
         {STEP_KINDS.find((k) => k.kind === step.kind)?.label}
       </div>
 
-      {(step.kind === "intro" || step.kind === "photo_upload" || step.kind === "thankyou" || step.kind === "form") && (
-        <Field label="Headline" value={step.headline} onChange={(v) => onChange({ headline: v })} />
+      {(step.kind === "intro" ||
+        step.kind === "photo_upload" ||
+        step.kind === "thankyou" ||
+        step.kind === "form") && (
+        <Field
+          label="Headline"
+          value={step.headline}
+          onChange={(v) => onChange({ headline: v })}
+        />
       )}
-      {(step.kind === "intro" || step.kind === "photo_upload" || step.kind === "thankyou" || step.kind === "form") && (
-        <Field label="Subtext" value={step.subhead} onChange={(v) => onChange({ subhead: v })} textarea />
+      {(step.kind === "intro" ||
+        step.kind === "photo_upload" ||
+        step.kind === "thankyou" ||
+        step.kind === "form") && (
+        <Field
+          label="Subtext"
+          value={step.subhead}
+          onChange={(v) => onChange({ subhead: v })}
+          textarea
+        />
       )}
       {isQuestion && (
-        <Field label="Question" value={step.question} onChange={(v) => onChange({ question: v })} />
+        <Field
+          label="Question"
+          value={step.question}
+          onChange={(v) => onChange({ question: v })}
+        />
       )}
       {isQuestion && (
-        <Field label="Help text (optional)" value={step.help} onChange={(v) => onChange({ help: v })} />
+        <Field
+          label="Help text (optional)"
+          value={step.help}
+          onChange={(v) => onChange({ help: v })}
+        />
       )}
 
       {step.kind === "question_single" && (
@@ -450,7 +630,9 @@ function StepEditor({ step, onChange }) {
             className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
           >
             {MAPS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
             ))}
           </select>
           {step.maps === "budget" && (
@@ -471,7 +653,10 @@ function StepEditor({ step, onChange }) {
           <div className="text-xs text-muted-foreground mb-1.5">Answers</div>
           <div className="space-y-2">
             {(step.answers || []).map((a, i) => (
-              <div key={a.id} className="border border-border rounded-lg p-2 space-y-1.5">
+              <div
+                key={a.id}
+                className="border border-border rounded-lg p-2 space-y-1.5"
+              >
                 <div className="flex gap-1.5">
                   <input
                     value={a.label || ""}
@@ -479,7 +664,10 @@ function StepEditor({ step, onChange }) {
                     placeholder="Label"
                     className="flex-1 border border-border rounded px-2 py-1 text-xs bg-card"
                   />
-                  <button onClick={() => removeAnswer(i)} className="text-muted-foreground hover:text-red-600">
+                  <button
+                    onClick={() => removeAnswer(i)}
+                    className="text-muted-foreground hover:text-red-600"
+                  >
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -492,19 +680,31 @@ function StepEditor({ step, onChange }) {
               </div>
             ))}
           </div>
-          <button onClick={addAnswer} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground">
+          <button
+            onClick={addAnswer}
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-foreground"
+          >
             <Plus size={12} /> Add answer
           </button>
         </div>
       )}
 
-      {(step.kind === "intro" || step.kind === "photo_upload" || step.kind === "question_multi" || step.kind === "form") && (
-        <Field label="Button text" value={step.buttonText} onChange={(v) => onChange({ buttonText: v })} />
+      {(step.kind === "intro" ||
+        step.kind === "photo_upload" ||
+        step.kind === "question_multi" ||
+        step.kind === "form") && (
+        <Field
+          label="Button text"
+          value={step.buttonText}
+          onChange={(v) => onChange({ buttonText: v })}
+        />
       )}
 
       {step.kind === "form" && (
         <div>
-          <div className="text-xs text-muted-foreground mb-1.5">Fields collected</div>
+          <div className="text-xs text-muted-foreground mb-1.5">
+            Fields collected
+          </div>
           <div className="flex gap-2">
             {["name", "email", "phone"].map((f) => {
               const on = (step.fields || []).includes(f);
@@ -512,11 +712,15 @@ function StepEditor({ step, onChange }) {
                 <button
                   key={f}
                   onClick={() => {
-                    const fields = on ? (step.fields || []).filter((x) => x !== f) : [...(step.fields || []), f];
+                    const fields = on
+                      ? (step.fields || []).filter((x) => x !== f)
+                      : [...(step.fields || []), f];
                     onChange({ fields });
                   }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold border capitalize ${
-                    on ? "bg-inverted text-inverted-foreground border-transparent" : "border-border text-muted-foreground"
+                    on
+                      ? "bg-inverted text-inverted-foreground border-transparent"
+                      : "border-border text-muted-foreground"
                   }`}
                 >
                   {f}
@@ -534,42 +738,73 @@ function StepEditor({ step, onChange }) {
 function StepPreview({ step, accent, company }) {
   const on = readableForeground(accent);
   return (
-    <div className="rounded-2xl p-4 min-h-[380px] flex items-center justify-center" style={{ backgroundColor: accent }}>
+    <div
+      className="rounded-2xl p-4 min-h-[380px] flex items-center justify-center"
+      style={{ backgroundColor: accent }}
+    >
       <div className="w-full bg-white rounded-xl p-5 shadow-lg">
         {!step ? (
-          <p className="text-sm text-neutral-500 text-center">No step selected</p>
+          <p className="text-sm text-neutral-500 text-center">
+            No step selected
+          </p>
         ) : step.kind === "thankyou" ? (
           <div className="text-center py-4">
-            <div className="w-12 h-12 rounded-full grid place-items-center mx-auto mb-3" style={{ backgroundColor: accent, color: on }}>
+            <div
+              className="w-12 h-12 rounded-full grid place-items-center mx-auto mb-3"
+              style={{ backgroundColor: accent, color: on }}
+            >
               <Check size={22} />
             </div>
-            <h3 className="font-bold text-[#2d2520]">{step.headline || "Thanks!"}</h3>
-            {step.subhead && <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>}
+            <h3 className="font-bold text-[#2d2520]">
+              {step.headline || "Thanks!"}
+            </h3>
+            {step.subhead && (
+              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
+            )}
           </div>
         ) : step.kind === "intro" ? (
           <div className="text-center">
-            <h3 className="text-lg font-bold text-[#2d2520]">{step.headline}</h3>
-            {step.subhead && <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>}
-            <button className="w-full mt-4 py-2.5 rounded-full text-sm font-bold" style={{ backgroundColor: accent, color: on }}>
+            <h3 className="text-lg font-bold text-[#2d2520]">
+              {step.headline}
+            </h3>
+            {step.subhead && (
+              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
+            )}
+            <button
+              className="w-full mt-4 py-2.5 rounded-full text-sm font-bold"
+              style={{ backgroundColor: accent, color: on }}
+            >
               {step.buttonText || "Get started"}
             </button>
           </div>
         ) : step.kind === "form" ? (
           <div>
-            <h3 className="font-bold text-[#2d2520]">{step.headline || "Your details"}</h3>
+            <h3 className="font-bold text-[#2d2520]">
+              {step.headline || "Your details"}
+            </h3>
             <div className="mt-3 space-y-2">
               {(step.fields || ["name", "email", "phone"]).map((f) => (
-                <div key={f} className="border border-black/15 rounded-lg px-3 py-2 text-xs text-neutral-400 capitalize">{f}</div>
+                <div
+                  key={f}
+                  className="border border-black/15 rounded-lg px-3 py-2 text-xs text-neutral-400 capitalize"
+                >
+                  {f}
+                </div>
               ))}
             </div>
-            <button className="w-full mt-3 py-2.5 rounded-full text-sm font-bold" style={{ backgroundColor: accent, color: on }}>
+            <button
+              className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
+              style={{ backgroundColor: accent, color: on }}
+            >
               {step.buttonText || "Submit"}
             </button>
           </div>
         ) : step.kind === "photo_upload" ? (
           <div>
             <h3 className="font-bold text-[#2d2520]">{step.headline}</h3>
-            {step.subhead && <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>}
+            {step.subhead && (
+              <p className="text-xs text-[#2d2520]/70 mt-1">{step.subhead}</p>
+            )}
             <div className="mt-3 border-2 border-dashed border-black/15 rounded-lg py-6 text-center text-xs text-neutral-400">
               Tap to add photos
             </div>
@@ -577,14 +812,24 @@ function StepPreview({ step, accent, company }) {
         ) : (
           <div>
             <h3 className="font-bold text-[#2d2520]">{step.question}</h3>
-            {step.help && <p className="text-xs text-[#2d2520]/60 mt-1">{step.help}</p>}
+            {step.help && (
+              <p className="text-xs text-[#2d2520]/60 mt-1">{step.help}</p>
+            )}
             <div className="mt-3 space-y-2">
               {(step.answers || []).map((a) => (
-                <div key={a.id} className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]">{a.label}</div>
+                <div
+                  key={a.id}
+                  className="border border-black/15 rounded-lg px-3 py-2 text-sm text-[#2d2520]"
+                >
+                  {a.label}
+                </div>
               ))}
             </div>
             {step.kind === "question_multi" && (
-              <button className="w-full mt-3 py-2.5 rounded-full text-sm font-bold" style={{ backgroundColor: accent, color: on }}>
+              <button
+                className="w-full mt-3 py-2.5 rounded-full text-sm font-bold"
+                style={{ backgroundColor: accent, color: on }}
+              >
                 {step.buttonText || "Continue"}
               </button>
             )}

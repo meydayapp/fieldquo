@@ -42,10 +42,20 @@ import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { loadPublicReviews } from "@/lib/reviews/publicReviews";
 import BookingFlow from "@/app/book/[companySlug]/BookingFlow";
 import SelfQuoteFlow from "@/app/quote/[companySlug]/SelfQuoteFlow";
+import InstantQuoteFlow from "@/app/instant-quote/[companySlug]/InstantQuoteFlow";
 import EmbedFrame from "../../EmbedFrame";
 import Reviews from "../../Reviews";
 
-const WIDGETS = new Set(["book", "quote", "reviews"]);
+// ── The fourth widget: the instant estimate ────────────────────────────────
+//
+// This one was the odd gap. Settings → Lead Capture Form has offered a
+// shareable /instant-quote link since it shipped, next to two cards that DO
+// hand out embed code — so a contractor could put "book a visit" and "request
+// a quote" on their own site and, for the one feature that answers a
+// homeowner's actual question in thirty seconds, only had a link to somewhere
+// else. The flow already exists and takes the same single prop as the other
+// two; it was never served here.
+const WIDGETS = new Set(["book", "quote", "reviews", "instant-quote"]);
 
 // ── The tab title is a white-label surface too ────────────────────────────
 //
@@ -79,7 +89,10 @@ export default async function EmbedPage({ params }) {
   // Checked before rendering rather than letting the flow's own fetch fail:
   // an iframe that loads and then shows "not found" is indistinguishable from
   // a broken embed, and the company pasting it in has no way to tell which.
-  const company = await findBookingCompany(companySlug, { id: true, brandColor: true });
+  const company = await findBookingCompany(companySlug, {
+    id: true,
+    brandColor: true,
+  });
   if (!company) notFound();
 
   if (widget === "reviews") {
@@ -98,6 +111,8 @@ export default async function EmbedPage({ params }) {
     <EmbedFrame>
       {widget === "book" ? (
         <BookingFlow companySlug={companySlug} />
+      ) : widget === "instant-quote" ? (
+        <InstantQuoteFlow companySlug={companySlug} />
       ) : (
         <SelfQuoteFlow companySlug={companySlug} />
       )}
