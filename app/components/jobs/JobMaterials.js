@@ -21,12 +21,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 
 const money = (v) => `$${(Number(v) || 0).toFixed(2)}`;
 const inputClass =
   "w-full border border-border rounded px-2 py-1 text-sm bg-background";
 
 export default function JobMaterials({ jobId }) {
+  // The same question the route asks, asked of the same grid. Every write here
+  // needs jobs:view_create_edit, and without this every viewer got a page full
+  // of checkboxes that 403 on the first tap — a control that appears to work
+  // and doesn't, which is the one rule this codebase is swept for.
+  //
+  // Reading the list is deliberately NOT gated beyond seeing the job: a crew
+  // member who can open the job should be able to see what was meant to be
+  // bought for it.
+  const caller = usePermissions();
+  const canEdit = hasLevel(caller, "jobs", "view_create_edit");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -119,21 +131,23 @@ export default function JobMaterials({ jobId }) {
             </span>
           )}
         </h2>
-        <button
-          type="button"
-          onClick={() => send("POST", { regenerate: true })}
-          className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <RefreshCw size={12} />
-          Rebuild from the quote
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => send("POST", { regenerate: true })}
+            className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <RefreshCw size={12} />
+            Rebuild from the quote
+          </button>
+        )}
       </div>
 
       {materials.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing here yet. &ldquo;Rebuild from the quote&rdquo; derives the
-          list from the takeoff — squares into bundles, area and base depth into
-          cubic yards — for the trades that measure. Or add a line by hand.
+          {canEdit
+            ? "Nothing here yet. Rebuild from the quote derives the list from the takeoff \u2014 squares into bundles, area and base depth into cubic yards \u2014 for the trades that measure. Or add a line by hand."
+            : "Nothing here yet. Whoever priced this job can build the list from the quote."}
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
@@ -143,25 +157,39 @@ export default function JobMaterials({ jobId }) {
             return (
               <li key={m.id} className="py-2">
                 <div className="flex items-start gap-2.5">
-                  <button
-                    type="button"
-                    disabled={busyId === m.id}
-                    onClick={() =>
-                      bought || open ? toggle(m) : setExpanded(m.id)
-                    }
-                    aria-label={
-                      bought
-                        ? `Mark ${m.name} as not bought`
-                        : `Mark ${m.name} as bought`
-                    }
-                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
-                      bought
-                        ? "border-emerald-600 bg-emerald-600 text-white"
-                        : "border-border hover:border-foreground/40"
-                    } disabled:opacity-50`}
-                  >
-                    {bought && <Check size={13} strokeWidth={3} />}
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      disabled={busyId === m.id}
+                      onClick={() =>
+                        bought || open ? toggle(m) : setExpanded(m.id)
+                      }
+                      aria-label={
+                        bought
+                          ? `Mark ${m.name} as not bought`
+                          : `Mark ${m.name} as bought`
+                      }
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+                        bought
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-border hover:border-foreground/40"
+                      } disabled:opacity-50`}
+                    >
+                      {bought && <Check size={13} strokeWidth={3} />}
+                    </button>
+                  ) : (
+                    <span
+                      role="img"
+                      aria-label={bought ? "Bought" : "Not bought yet"}
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                        bought
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-border"
+                      }`}
+                    >
+                      {bought && <Check size={13} strokeWidth={3} />}
+                    </span>
+                  )}
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -250,20 +278,22 @@ export default function JobMaterials({ jobId }) {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      send(
-                        "DELETE",
-                        null,
-                        `?materialId=${encodeURIComponent(m.id)}`,
-                      )
-                    }
-                    aria-label={`Remove ${m.name}`}
-                    className="mt-0.5 shrink-0 text-muted-foreground hover:text-red-600"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        send(
+                          "DELETE",
+                          null,
+                          `?materialId=${encodeURIComponent(m.id)}`,
+                        )
+                      }
+                      aria-label={`Remove ${m.name}`}
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-red-600"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </li>
             );
@@ -293,7 +323,7 @@ export default function JobMaterials({ jobId }) {
         </div>
       )}
 
-      {adding ? (
+      {adding && canEdit ? (
         <form
           className="mt-3 flex flex-wrap items-end gap-2"
           onSubmit={async (e) => {
@@ -345,13 +375,15 @@ export default function JobMaterials({ jobId }) {
           </button>
         </form>
       ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Plus size={13} /> Add a line
-        </button>
+        canEdit && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="mt-3 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Plus size={13} /> Add a line
+          </button>
+        )
       )}
 
       {error && (

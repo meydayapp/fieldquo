@@ -2525,6 +2525,43 @@ const en = {
   "app.onboarding.taxRegSkipFailed": "We couldn’t hide that step. Try again in a moment.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo prints what you enter here on your documents. It does not register you and does not file anything for you.",
   "app.setCompany.taxRegNotRegistered": "I don't have one — my business isn't registered for this.",
+
+  // Bio link page, website embeds, and the closet/vanity cabinet rates.
+  // Added after those screens shipped with inline English fallbacks: they read
+  // correctly but nothing on them was translatable. check:translations caught it.
+  //
+  // One key per line, and NOT prettier-formatted — this file is greped by
+  // check-tax-id and friends for `"key": "value"` on a single line, and
+  // running prettier over it rewrites six thousand lines and breaks them.
+  "app.setBioLink.subtitle": "One page for the single link Instagram and TikTok allow in your profile. It carries your logo and your colour — nothing on it says FieldQuo.",
+  "app.setBioLink.loadError": "Couldn't load your bio link page.",
+  "app.setBioLink.saveError": "Couldn't save.",
+  "app.setBioLink.yourLink": "Your link",
+  "app.setBioLink.live": "Paste this into your Instagram or TikTok bio.",
+  "app.setBioLink.down": "The page is switched off — this link shows a not-found page.",
+  "app.setBioLink.publishedLabel": "Page is live",
+  "app.setBioLink.headline": "Heading",
+  "app.setBioLink.headlineHint": "Leave it empty to use your company name.",
+  "app.setBioLink.bio": "One line under it",
+  "app.setBioLink.bioPlaceholder": "Kitchen refinishing across Ottawa–Gatineau",
+  "app.setBioLink.bioHint": "Optional. Empty means nothing is shown — we don't write one for you.",
+  "app.setBioLink.linksTitle": "What's on the page",
+  "app.setBioLink.linksHint": "The first one is the big button. Only things you actually have show up here.",
+  "app.setBioLink.showOnPage": "Show on the page",
+  "app.setBioLink.buttonText": "Button text",
+  "app.setBioLink.moveUp": "Move up",
+  "app.setBioLink.moveDown": "Move down",
+  "app.setBioLink.addCustom": "Add your own link",
+  "app.setBioLink.notYet": "Not available yet",
+  "app.setBioLink.incomplete": "Your own links need both text and a URL.",
+  "app.setBooking.embedHeading": "Put your booking calendar on your website",
+  "app.setBooking.embedNote": "Paste this where you want the calendar to appear. It works on Wix, Squarespace, WordPress and hand-written HTML — it is an ordinary HTML element. The small script only resizes the box as the visitor moves through the steps; if your site strips scripts the calendar still works at a fixed height.",
+  "app.setInstantQuotes.embedHeading": "Put the instant estimate on your website",
+  "app.setInstantQuotes.embedNote": "Paste this where you want it to appear. It is an ordinary HTML element, so it works on Wix, Squarespace, WordPress and hand-written HTML alike. The small script only resizes the box as the homeowner answers; if your site strips scripts it still works at a fixed height.",
+  "app.setCabinetRates.closet": "Closet casework",
+  "app.setCabinetRates.closetHint": "Leave blank to bill closets at your kitchen rates — a hanging section as a tall (${tall}/lf), a drawer bank as a base (${base}/lf). Set one only if you sell closet casework at a different price; it is a shallower box.",
+  "app.setCabinetRates.vanity": "Vanity / laundry sink base",
+  "app.setCabinetRates.vanityHint": "Leave blank to bill these as a base cabinet (${base}/lf).",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -4946,6 +4983,43 @@ const fr = {
   "app.onboarding.taxRegSkipFailed": "Impossible de masquer cette étape. Réessayez dans un instant.",
   "app.setCompany.taxRegDisclaimer": "FieldQuo imprime ce que vous saisissez ici sur vos documents. Il ne vous inscrit nulle part et ne produit aucune déclaration.",
   "app.setCompany.taxRegNotRegistered": "Je n'en ai pas — mon entreprise n'est pas inscrite.",
+
+  // Bio link page, website embeds, and the closet/vanity cabinet rates.
+  // Added after those screens shipped with inline English fallbacks: they read
+  // correctly but nothing on them was translatable. check:translations caught it.
+  //
+  // One key per line, and NOT prettier-formatted — this file is greped by
+  // check-tax-id and friends for `"key": "value"` on a single line, and
+  // running prettier over it rewrites six thousand lines and breaks them.
+  "app.setBioLink.subtitle": "Une page pour le lien unique qu'Instagram et TikTok autorisent dans votre profil. Elle porte votre logo et votre couleur — rien n'y mentionne FieldQuo.",
+  "app.setBioLink.loadError": "Impossible de charger votre page de liens.",
+  "app.setBioLink.saveError": "Impossible d'enregistrer.",
+  "app.setBioLink.yourLink": "Votre lien",
+  "app.setBioLink.live": "Collez ceci dans votre bio Instagram ou TikTok.",
+  "app.setBioLink.down": "La page est désactivée — ce lien affiche une page introuvable.",
+  "app.setBioLink.publishedLabel": "La page est en ligne",
+  "app.setBioLink.headline": "Titre",
+  "app.setBioLink.headlineHint": "Laissez vide pour utiliser le nom de votre entreprise.",
+  "app.setBioLink.bio": "Une ligne en dessous",
+  "app.setBioLink.bioPlaceholder": "Restauration d'armoires de cuisine à Ottawa–Gatineau",
+  "app.setBioLink.bioHint": "Facultatif. Vide signifie que rien ne s'affiche — nous n'en rédigeons pas à votre place.",
+  "app.setBioLink.linksTitle": "Ce qui figure sur la page",
+  "app.setBioLink.linksHint": "Le premier est le grand bouton. Seuls les éléments que vous avez réellement apparaissent ici.",
+  "app.setBioLink.showOnPage": "Afficher sur la page",
+  "app.setBioLink.buttonText": "Texte du bouton",
+  "app.setBioLink.moveUp": "Monter",
+  "app.setBioLink.moveDown": "Descendre",
+  "app.setBioLink.addCustom": "Ajouter votre propre lien",
+  "app.setBioLink.notYet": "Pas encore disponible",
+  "app.setBioLink.incomplete": "Vos liens personnalisés ont besoin d'un texte et d'une adresse.",
+  "app.setBooking.embedHeading": "Ajoutez votre calendrier de réservation à votre site web",
+  "app.setBooking.embedNote": "Collez ceci à l'endroit où vous voulez que le calendrier apparaisse. Cela fonctionne sur Wix, Squarespace, WordPress et en HTML écrit à la main — c'est un élément HTML ordinaire. Le petit script ne fait que redimensionner le cadre au fil des étapes; si votre site retire les scripts, le calendrier fonctionne quand même à hauteur fixe.",
+  "app.setInstantQuotes.embedHeading": "Ajoutez l'estimation instantanée à votre site web",
+  "app.setInstantQuotes.embedNote": "Collez ceci à l'endroit voulu. C'est un élément HTML ordinaire, il fonctionne donc aussi bien sur Wix, Squarespace, WordPress qu'en HTML écrit à la main. Le petit script ne fait que redimensionner le cadre à mesure que le client répond; si votre site retire les scripts, cela fonctionne quand même à hauteur fixe.",
+  "app.setCabinetRates.closet": "Caissons de garde-robe",
+  "app.setCabinetRates.closetHint": "Laissez vide pour facturer les garde-robes à vos tarifs de cuisine — une section de penderie comme une armoire haute (${tall} $/pi lin.), un bloc de tiroirs comme un caisson bas (${base} $/pi lin.). N'en fixez un que si vous vendez les caissons de garde-robe à un autre prix; le caisson est moins profond.",
+  "app.setCabinetRates.vanity": "Meuble-lavabo / caisson d'évier de buanderie",
+  "app.setCabinetRates.vanityHint": "Laissez vide pour les facturer comme un caisson bas (${base} $/pi lin.).",
 };
 
 

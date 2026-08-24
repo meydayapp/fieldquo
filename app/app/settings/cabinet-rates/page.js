@@ -296,10 +296,13 @@ export default function CabinetRatesPage() {
             value={rates.lfCloset}
             onChange={(v) => set("lfCloset", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
-            hint={t(
-              "app.setCabinetRates.closetHint",
-              `Leave blank to bill closets at your kitchen rates — a hanging section as a tall ($${Number(rates.lfTall) || 0}/lf), a drawer bank as a base ($${Number(rates.lfBase) || 0}/lf). Set one only if you sell closet casework at a different price; it is a shallower box.`,
-            )}
+            hint={t("app.setCabinetRates.closetHint", {
+              // Values, not a built sentence: the rates move, so the catalogue
+              // keeps one translatable string with {placeholders} in it rather
+              // than the page assembling French out of English word order.
+              tall: Number(rates.lfTall) || 0,
+              base: Number(rates.lfBase) || 0,
+            })}
           />
           <Rate
             label={t(
@@ -309,10 +312,9 @@ export default function CabinetRatesPage() {
             value={rates.lfVanity}
             onChange={(v) => set("lfVanity", v)}
             suffix={t("app.setCabinetRates.perLf", "/ lf")}
-            hint={t(
-              "app.setCabinetRates.vanityHint",
-              `Leave blank to bill these as a base cabinet ($${Number(rates.lfBase) || 0}/lf).`,
-            )}
+            hint={t("app.setCabinetRates.vanityHint", {
+              base: Number(rates.lfBase) || 0,
+            })}
           />
 
           <label className="flex items-start gap-2.5 text-sm text-foreground">

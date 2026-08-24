@@ -24,6 +24,8 @@ import {
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import QuoteWording from "../app/app/settings/services/QuoteWording.js";
 import JobMaterials from "../app/components/jobs/JobMaterials.js";
+import { PermissionProvider } from "../app/providers/PermissionProvider.js";
+import { hasLevel } from "../lib/permissions/enforce.js";
 import {
   deriveSourcingLines,
   sourcingProgress,
@@ -154,13 +156,51 @@ for (const [label, category] of WORDING_CASES) {
 // deriveSourcingLines runs inside an API route, so a throw on a malformed job
 // is a 500 on the job page. It is exercised here rather than in the pure check
 // script because the module imports the Prisma client.
+// Every write on this panel needs jobs:view_create_edit. Rendered through the
+// real provider at each level, because a viewer handed a page of checkboxes
+// that 403 on the first tap is the one rule this codebase is swept for.
+// PermissionProvider takes `role` and `permissions` as separate props, NOT a
+// caller object — passing one as `value` renders every case as "unresolved"
+// and the test proves nothing. Learned by writing it wrong first.
+const GATE_CASES = [
+  ["unresolved", null, null],
+  ["viewer", "employee", { jobs: "view" }],
+  ["editor", "admin", { jobs: "view_create_edit" }],
+  ["owner", "owner", {}],
+];
+// The render above proves the panel survives every level. It cannot prove the
+// GATE, because renderToStaticMarkup runs no effects — the fetch never
+// resolves, so every level renders the loading skeleton and a viewer would
+// look correctly gated even if it were not. So the gate is asserted against
+// the exact expression the component evaluates.
 try {
-  const html = renderToStaticMarkup(<JobMaterials jobId="j1" />);
-  if (!html || html.length < 40)
-    throw new Error(`rendered ${html.length} chars`);
+  for (const [label, role, permissions] of GATE_CASES) {
+    const caller = role === null ? null : { role, permissions };
+    const canEdit = hasLevel(caller, "jobs", "view_create_edit");
+    const expected = label === "editor" || label === "owner";
+    if (canEdit !== expected)
+      throw new Error(
+        `${label}: hasLevel says ${canEdit}, expected ${expected}`,
+      );
+  }
   pass += 1;
 } catch (err) {
-  fails.push(`job materials panel: ${err.message}`);
+  fails.push(`job materials gate: ${err.message}`);
+}
+
+for (const [label, role, permissions] of GATE_CASES) {
+  try {
+    const html = renderToStaticMarkup(
+      <PermissionProvider role={role} permissions={permissions}>
+        <JobMaterials jobId="j1" />
+      </PermissionProvider>,
+    );
+    if (!html || html.length < 40)
+      throw new Error(`rendered ${html.length} chars`);
+    pass += 1;
+  } catch (err) {
+    fails.push(`job materials panel (${label}): ${err.message}`);
+  }
 }
 
 try {

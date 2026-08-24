@@ -37,6 +37,20 @@
         "3007"
       ],
       "port": 3007
+    },
+    {
+      "name": "truefinish-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/emilioboves/truefinish-cabinets",
+        "--",
+        "-p",
+        "3010"
+      ],
+      "port": 3010
     }
   ]
 }

@@ -35,6 +35,12 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "window_cleaning",
   ],
   "construction-contracting": [
+    // Insulation belongs to more than the roofing trade. A garden suite or a
+    // basement finish is framing, insulation and drywall in sequence — the
+    // three the construction process steps describe — so a general contractor
+    // who never opens "show other trades" would otherwise have a quotable
+    // trade missing from their own list.
+    "insulation",
     // Garage doors are sold by more than the handyman trade: a general
     // contractor or carpenter fits them on a reno, and the category carries a
     // real price book now, so surfacing it here is the difference between
