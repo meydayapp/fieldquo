@@ -23,6 +23,7 @@ import {
 } from "../app/data/tradePriceBooks.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import QuoteWording from "../app/app/settings/services/QuoteWording.js";
+import PayCycleCard from "../app/components/settings/PayCycleCard.js";
 import JobMaterials from "../app/components/jobs/JobMaterials.js";
 import { PermissionProvider } from "../app/providers/PermissionProvider.js";
 import { hasLevel } from "../lib/permissions/enforce.js";
@@ -346,6 +347,18 @@ try {
   pass += 1;
 } catch (err) {
   fails.push(`auto-task keys: ${err.message}`);
+}
+
+// The pay-cycle card renders before its fetch resolves and after it fails —
+// both are the states a settings page is actually in most of the time.
+try {
+  const html = renderToStaticMarkup(<PayCycleCard />);
+  // Null data renders nothing, which is correct: a card that flashed defaults
+  // before the company's real cadence loaded would show the wrong payday.
+  if (html !== "") throw new Error("rendered before data loaded");
+  pass += 1;
+} catch (err) {
+  fails.push(`pay cycle card: ${err.message}`);
 }
 
 if (fails.length) {

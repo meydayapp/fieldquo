@@ -566,6 +566,24 @@ model Company {
   emailDomainRecords     Json?
   emailDomainCheckedAt   DateTime?
   paymentTerms           String?
+
+  /// When this company pays, and for what stretch of work.
+  ///
+  /// { frequency, periodEndDayOfWeek, payDayOfWeek, anchorDate } — resolved and
+  /// defaulted by lib/payroll/payCycle.js, which is also where the reasoning
+  /// lives for why the PERIOD END is the anchor and the payday is derived from
+  /// it rather than the other way round (buildPayRun computes overtime against
+  /// a weekly threshold, so periods have to contain whole weeks).
+  ///
+  /// Null until someone sets it, and null resolves to the documented default
+  /// rather than to nothing: every company was already being handed "the last
+  /// fourteen days ending today", so a default here is strictly more honest
+  /// than the guess it replaces. What changes is that the default is now
+  /// stated, stable, and editable.
+  ///
+  /// One Json column rather than four scalars because nothing queries on the
+  /// parts — they are read together, as one policy, every time.
+  payCycle Json?
   taxRate                Decimal          @default(0) @db.Decimal(6, 3)
   paymentMethods         String[]         @default(["cash", "e_transfer", "cheque"])
   bookingSlug            String?          @unique

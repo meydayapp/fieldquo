@@ -18,18 +18,40 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Loader2, Plus, Trash2, Wallet, Info, Percent, Hash, BarChart3, Check, X,
+  Loader2,
+  Plus,
+  Trash2,
+  Wallet,
+  Info,
+  Percent,
+  Hash,
+  BarChart3,
+  Check,
+  X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import PayCycleCard from "@/app/components/settings/PayCycleCard";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const CALC_META = {
-  fixed: { label: "Fixed amount", icon: Hash, hint: "Same amount every pay period" },
-  percent: { label: "Percent of gross", icon: Percent, hint: "e.g. CPP at 5.95%" },
-  slabs: { label: "Progressive bands", icon: BarChart3, hint: "Income tax brackets" },
+  fixed: {
+    label: "Fixed amount",
+    icon: Hash,
+    hint: "Same amount every pay period",
+  },
+  percent: {
+    label: "Percent of gross",
+    icon: Percent,
+    hint: "e.g. CPP at 5.95%",
+  },
+  slabs: {
+    label: "Progressive bands",
+    icon: BarChart3,
+    hint: "Income tax brackets",
+  },
 };
 
 function blankComponent() {
@@ -62,13 +84,17 @@ function SlabEditor({ slabs, onChange }) {
       {slabs.map((s, i) => (
         <div key={i} className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground w-12 shrink-0">
-            {i === 0 ? t("app.setPayroll.slabUpTo") : t("app.setPayroll.slabThenTo")}
+            {i === 0
+              ? t("app.setPayroll.slabUpTo")
+              : t("app.setPayroll.slabThenTo")}
           </span>
           <input
             type="number"
             value={s.upTo ?? ""}
             onChange={(e) => update(i, "upTo", e.target.value)}
-            placeholder={i === slabs.length - 1 ? t("app.setPayroll.andAbove") : "55867"}
+            placeholder={
+              i === slabs.length - 1 ? t("app.setPayroll.andAbove") : "55867"
+            }
             className="w-28 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
           />
           <input
@@ -196,7 +222,9 @@ function PayrollSettingsScreen() {
     if (!confirm(t("app.setPayroll.removeConfirm", { name }))) return;
     setBusy(true);
     try {
-      await fetchJson(`/api/settings/payroll-components?id=${id}`, { method: "DELETE" });
+      await fetchJson(`/api/settings/payroll-components?id=${id}`, {
+        method: "DELETE",
+      });
       await load();
     } catch (err) {
       showError(err.message);
@@ -231,8 +259,16 @@ function PayrollSettingsScreen() {
       <div>
         <div className="flex items-center gap-2 mb-1">
           <Wallet size={20} className="text-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">{t("app.setPayroll.title")}</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.setPayroll.title")}
+          </h1>
         </div>
+
+        {/* When the company pays. Sits above the salary components because it is
+          the thing they are computed FOR — and because nothing else in the
+          product knew the answer, which is why a worker could not be shown
+          what they had earned so far. */}
+        <PayCycleCard />
         <p className="text-sm text-muted-foreground">
           {t("app.setPayroll.subtitle")}
         </p>
@@ -241,10 +277,14 @@ function PayrollSettingsScreen() {
       {/* Seed from a regional template */}
       {components.length === 0 && (
         <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <h2 className="text-sm font-bold text-foreground mb-1">{t("app.setPayroll.startRegion")}</h2>
+          <h2 className="text-sm font-bold text-foreground mb-1">
+            {t("app.setPayroll.startRegion")}
+          </h2>
           <p className="text-xs text-muted-foreground mb-3">
             {t("app.setPayroll.regionDesc1")}{" "}
-            <strong className="text-foreground">{t("app.setPayroll.regionDescStrong")}</strong>{" "}
+            <strong className="text-foreground">
+              {t("app.setPayroll.regionDescStrong")}
+            </strong>{" "}
             {t("app.setPayroll.regionDesc2")}
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -255,7 +295,9 @@ function PayrollSettingsScreen() {
                 disabled={busy}
                 className="flex-1 rounded-lg border border-border px-3 py-2.5 text-left hover:bg-muted disabled:opacity-60"
               >
-                <div className="text-sm font-semibold text-foreground">{tpl.label}</div>
+                <div className="text-sm font-semibold text-foreground">
+                  {tpl.label}
+                </div>
                 <div className="text-[11px] text-muted-foreground">
                   {t("app.setPayroll.templateMeta", {
                     count: tpl.count,
@@ -269,7 +311,10 @@ function PayrollSettingsScreen() {
       )}
 
       {/* Existing components */}
-      {[[t("app.setPayroll.deductions"), deductions], [t("app.setPayroll.allowancesEarnings"), earnings]].map(
+      {[
+        [t("app.setPayroll.deductions"), deductions],
+        [t("app.setPayroll.allowancesEarnings"), earnings],
+      ].map(
         ([title, list]) =>
           list.length > 0 && (
             <section key={title}>
@@ -281,12 +326,20 @@ function PayrollSettingsScreen() {
                   const Meta = CALC_META[c.calculation] || CALC_META.fixed;
                   const Icon = Meta.icon;
                   return (
-                    <div key={c.id} className="rounded-xl border border-border bg-card p-4">
+                    <div
+                      key={c.id}
+                      className="rounded-xl border border-border bg-card p-4"
+                    >
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Icon size={14} className="text-muted-foreground shrink-0" />
-                            <span className="text-sm font-semibold text-foreground">{c.name}</span>
+                            <Icon
+                              size={14}
+                              className="text-muted-foreground shrink-0"
+                            />
+                            <span className="text-sm font-semibold text-foreground">
+                              {c.name}
+                            </span>
                             {c.statutory && (
                               <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                                 {t("app.setPayroll.statutory")}
@@ -300,11 +353,17 @@ function PayrollSettingsScreen() {
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {c.calculation === "percent"
-                              ? t("app.setPayroll.percentOfGross", { percent: Number(c.percent) })
+                              ? t("app.setPayroll.percentOfGross", {
+                                  percent: Number(c.percent),
+                                })
                               : c.calculation === "slabs"
-                                ? t("app.setPayroll.progressiveBands", { count: (c.slabs || []).length })
+                                ? t("app.setPayroll.progressiveBands", {
+                                    count: (c.slabs || []).length,
+                                  })
                                 : money(c.amount)}
-                            {c.appliesToAll ? t("app.setPayroll.everyone") : t("app.setPayroll.assignedIndividually")}
+                            {c.appliesToAll
+                              ? t("app.setPayroll.everyone")
+                              : t("app.setPayroll.assignedIndividually")}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -313,7 +372,9 @@ function PayrollSettingsScreen() {
                             disabled={busy}
                             className="text-xs font-semibold text-muted-foreground hover:text-foreground"
                           >
-                            {c.active ? t("app.setPayroll.turnOff") : t("app.setPayroll.turnOn")}
+                            {c.active
+                              ? t("app.setPayroll.turnOff")
+                              : t("app.setPayroll.turnOn")}
                           </button>
                           <button
                             onClick={() => remove(c.id, c.name)}
@@ -330,31 +391,43 @@ function PayrollSettingsScreen() {
                       {c.calculation !== "slabs" && (
                         <div className="mt-3 flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {c.calculation === "percent" ? t("app.setPayroll.percent") : t("app.setPayroll.amount")}
+                            {c.calculation === "percent"
+                              ? t("app.setPayroll.percent")
+                              : t("app.setPayroll.amount")}
                           </span>
                           <input
                             type="number"
                             step="0.01"
-                            defaultValue={c.calculation === "percent" ? Number(c.percent) : Number(c.amount)}
+                            defaultValue={
+                              c.calculation === "percent"
+                                ? Number(c.percent)
+                                : Number(c.amount)
+                            }
                             onBlur={(e) => {
                               const v = Number(e.target.value);
                               if (!Number.isFinite(v) || v < 0) return;
                               patch(c.id, {
                                 calculation: c.calculation,
-                                ...(c.calculation === "percent" ? { percent: v } : { amount: v }),
+                                ...(c.calculation === "percent"
+                                  ? { percent: v }
+                                  : { amount: v }),
                               });
                             }}
                             className="w-24 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
                           />
                           {c.calculation === "percent" && (
-                            <span className="text-xs text-muted-foreground">%</span>
+                            <span className="text-xs text-muted-foreground">
+                              %
+                            </span>
                           )}
                         </div>
                       )}
                       {c.calculation === "slabs" && (
                         <details className="mt-3">
                           <summary className="text-xs font-semibold text-muted-foreground cursor-pointer">
-                            {t("app.setPayroll.bandsViewEdit", { count: (c.slabs || []).length })}
+                            {t("app.setPayroll.bandsViewEdit", {
+                              count: (c.slabs || []).length,
+                            })}
                           </summary>
                           <div className="mt-2">
                             <SlabEditor
@@ -362,7 +435,9 @@ function PayrollSettingsScreen() {
                                 upTo: s.upTo ?? "",
                                 percent: s.percent,
                               }))}
-                              onChange={(slabs) => patch(c.id, { calculation: "slabs", slabs })}
+                              onChange={(slabs) =>
+                                patch(c.id, { calculation: "slabs", slabs })
+                              }
                             />
                           </div>
                         </details>
@@ -378,7 +453,9 @@ function PayrollSettingsScreen() {
       {/* Add new */}
       {draft ? (
         <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
-          <h2 className="text-sm font-bold text-foreground">{t("app.setPayroll.newComponent")}</h2>
+          <h2 className="text-sm font-bold text-foreground">
+            {t("app.setPayroll.newComponent")}
+          </h2>
           <input
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
@@ -396,7 +473,9 @@ function PayrollSettingsScreen() {
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {k === "deduction" ? t("app.setPayroll.deduction") : t("app.setPayroll.allowanceEarning")}
+                {k === "deduction"
+                  ? t("app.setPayroll.deduction")
+                  : t("app.setPayroll.allowanceEarning")}
               </button>
             ))}
           </div>
@@ -438,14 +517,19 @@ function PayrollSettingsScreen() {
             />
           )}
           {draft.calculation === "slabs" && (
-            <SlabEditor slabs={draft.slabs} onChange={(slabs) => setDraft({ ...draft, slabs })} />
+            <SlabEditor
+              slabs={draft.slabs}
+              onChange={(slabs) => setDraft({ ...draft, slabs })}
+            />
           )}
 
           <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={draft.appliesToAll}
-              onChange={(e) => setDraft({ ...draft, appliesToAll: e.target.checked })}
+              onChange={(e) =>
+                setDraft({ ...draft, appliesToAll: e.target.checked })
+              }
             />
             {t("app.setPayroll.applyEveryone")}
           </label>
@@ -456,7 +540,11 @@ function PayrollSettingsScreen() {
               disabled={busy || !draft.name.trim()}
               className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground rounded-full px-4 py-2 text-sm font-bold disabled:opacity-50"
             >
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+              {busy ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Check size={14} />
+              )}
               {t("app.action.add")}
             </button>
             <button
