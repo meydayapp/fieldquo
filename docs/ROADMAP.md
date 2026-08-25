@@ -428,6 +428,46 @@ they set the pattern.
      list is done. Seventeen rows on /app/tasks for one job would bury the four
      things actually waiting on a person.
 
+- **Scheduling and payroll: a pay period exists, and availability finally
+  means something.**
+
+  `lib/payroll/payCycle.js` (new), `lib/scheduling/shiftFit.js` (new),
+  `lib/scheduling/loadShiftFit.js` (new), `app/api/settings/pay-cycle/route.js`
+  (new), `app/components/settings/PayCycleCard.js` (new),
+  `app/api/shifts/*`, `app/app/scheduler/page.js`, `app/app/payroll/page.js`,
+  `app/api/payroll/my-payslips/route.js`, `Company.payCycle`.
+
+  The schema already drew every distinction this needed —`WorkingHours` (the
+  usual pattern), `AvailabilitySchedule` (when they CAN work), `Shift` (the
+  manager's dated plan) — and nothing read any of them together.
+
+  1. **There was no such thing as "the current period".** Payroll guessed "the
+     last fourteen days ending today", so running a day late moved every
+     boundary. `Company.payCycle` stores the real cadence.
+  2. **The PERIOD END is the anchor, not the payday** — `buildPayRun` computes
+     overtime weekly, so a period that does not contain whole weeks splits a
+     week across two runs and understates the overtime in both. Move payday and
+     the periods hold still; only the review gap changes, which is what a
+     company is actually choosing. The card prints the gap.
+  3. **A worker can see what they have earned** in the open period — approved
+     hours only, pending shown separately, gross and labelled so, and "—" with
+     a sentence when no rate is set rather than $0.00.
+  4. **Availability now BLOCKS and the usual pattern only WARNS.** Get that
+     backwards and the tool refuses the overtime week, which is the week people
+     need it for. Approved leave blocks; a pending request does not. Nothing
+     declared does not block at all — inferring "never" from an empty table
+     would make every new hire unschedulable on their first day.
+  5. **The rota names who has no hours set**, rather than counting them: "3
+     people are missing hours" sends someone hunting.
+
+  Refusals render inside the add-shift modal beside the fields that caused them,
+  not in a toast that vanishes while the manager is still looking at the wrong
+  times.
+
+  **Not built:** no override for a genuine emergency — availability is a hard
+  block, as specified. If that proves too strict in the field the shape is a
+  confirm-with-reason, not a permission.
+
 - **Materials: quantities everywhere, prices where somebody actually read
   one.**
 

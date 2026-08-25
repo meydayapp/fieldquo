@@ -10,15 +10,19 @@ import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can } from "@/lib/permissions";
+import { assessShiftFit } from "@/lib/scheduling/loadShiftFit";
+import { workersMissingHours } from "@/lib/scheduling/shiftFit";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!member)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const range = from && to ? { start: { gte: new Date(from), lte: new Date(to) } } : {};
+  const range =
+    from && to ? { start: { gte: new Date(from), lte: new Date(to) } } : {};
 
   const isManager = can(member.role, "user:view");
 
@@ -28,7 +32,12 @@ export async function GET(request) {
         where: { companyId: member.companyId, ...range },
         orderBy: { start: "asc" },
         select: {
-          id: true, workerId: true, start: true, end: true, note: true, published: true,
+          id: true,
+          workerId: true,
+          start: true,
+          end: true,
+          note: true,
+          published: true,
           worker: { select: { name: true } },
           job: { select: { id: true, title: true } },
         },
@@ -37,10 +46,36 @@ export async function GET(request) {
       db.worker.findMany({
         where: { companyId: member.companyId, active: true },
         orderBy: { name: "asc" },
-        select: { id: true, name: true },
+        select: { id: true, name: true, userId: true },
       }),
     ]);
-    return NextResponse.json({ manager: true, shifts, workers });
+
+    // ── Who has no hours set ──────────────────────────────────────────────
+    //
+    // A worker with no WorkingHours has no usual pattern, so nothing warns
+    // when they are scheduled at an odd time and nothing can tell payroll what
+    // to expect. The rota is where somebody notices, so the count is returned
+    // with the rota rather than left for a settings screen nobody opens.
+    //
+    // Workers with no login are EXCLUDED: they cannot have working hours, so
+    // counting them would make the banner permanent and therefore invisible.
+    const userIds = workers.map((w) => w.userId).filter(Boolean);
+    const hoursRows = userIds.length
+      ? await db.workingHours.findMany({
+          where: { companyId: member.companyId, userId: { in: userIds } },
+          select: { userId: true },
+        })
+      : [];
+    const hoursByUserId = {};
+    for (const r of hoursRows) (hoursByUserId[r.userId] ||= []).push(r);
+    const missingHours = workersMissingHours(workers, hoursByUserId).map(
+      (w) => ({
+        id: w.id,
+        name: w.name,
+      }),
+    );
+
+    return NextResponse.json({ manager: true, shifts, workers, missingHours });
   }
 
   // A worker: their own published shifts only.
@@ -48,13 +83,24 @@ export async function GET(request) {
     where: { companyId: member.companyId, userId: member.userId },
     select: { id: true },
   });
-  if (!worker) return NextResponse.json({ manager: false, shifts: [], workers: [] });
+  if (!worker)
+    return NextResponse.json({ manager: false, shifts: [], workers: [] });
 
   const shifts = await db.shift.findMany({
-    where: { companyId: member.companyId, workerId: worker.id, published: true, ...range },
+    where: {
+      companyId: member.companyId,
+      workerId: worker.id,
+      published: true,
+      ...range,
+    },
     orderBy: { start: "asc" },
     select: {
-      id: true, workerId: true, start: true, end: true, note: true, published: true,
+      id: true,
+      workerId: true,
+      start: true,
+      end: true,
+      note: true,
+      published: true,
       job: { select: { id: true, title: true } },
     },
   });
@@ -63,7 +109,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!member)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   // ── The schedule grid decides this, not the coarse role ────────────────
   //
   // `user:manage` is held by SUPERVISORS — it means "may run a crew". The
@@ -78,24 +125,63 @@ export async function POST(request) {
   const full = await loadEnforceableMember(db, member.id);
   if (!hasLevel(full, "schedule", "edit_all")) {
     return NextResponse.json(
-      { error: "You can only change your own schedule. Ask whoever runs the rota to change this." },
+      {
+        error:
+          "You can only change your own schedule. Ask whoever runs the rota to change this.",
+      },
       { status: 403 },
     );
   }
 
-  const { workerId, start, end, jobId, note } = await request.json().catch(() => ({}));
+  const { workerId, start, end, jobId, note } = await request
+    .json()
+    .catch(() => ({}));
   const s = start && new Date(start);
   const e = end && new Date(end);
   if (!workerId || !s || !e || isNaN(s) || isNaN(e)) {
-    return NextResponse.json({ error: "workerId, start and end are required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "workerId, start and end are required." },
+      { status: 400 },
+    );
   }
   if (e <= s) {
-    return NextResponse.json({ error: "The shift's end must be after its start." }, { status: 400 });
+    return NextResponse.json(
+      { error: "The shift's end must be after its start." },
+      { status: 400 },
+    );
   }
 
   // The worker must belong to this company — never schedule across tenants.
-  const worker = await db.worker.findFirst({ where: { id: workerId, companyId: member.companyId }, select: { id: true } });
-  if (!worker) return NextResponse.json({ error: "Unknown worker." }, { status: 404 });
+  const worker = await db.worker.findFirst({
+    where: { id: workerId, companyId: member.companyId },
+    select: { id: true, name: true, userId: true },
+  });
+  if (!worker)
+    return NextResponse.json({ error: "Unknown worker." }, { status: 404 });
+
+  // ── Does the shift fit the person? ───────────────────────────────────────
+  //
+  // Until now nothing asked. A manager could put anyone on any hour of any
+  // day — through their declared availability, through approved leave, through
+  // a Sunday they had never agreed to work — and the only thing that would
+  // object was the worker, on the morning.
+  //
+  // lib/scheduling/shiftFit.js draws the line the schema already implied:
+  // declared availability and approved leave BLOCK, the usual working pattern
+  // only warns. That last part is load-bearing — an extra day at a six o'clock
+  // start is the case a rota tool exists for, and refusing it would be a rota
+  // tool nobody uses.
+  const fit = await assessShiftFit(worker, s, e, member.companyId);
+  if (!fit.ok) {
+    return NextResponse.json(
+      {
+        error: `${worker.name} can't be scheduled then. ${fit.blocks.join(" ")}`,
+        blocks: fit.blocks,
+        warnings: fit.warnings,
+      },
+      { status: 409 },
+    );
+  }
 
   const shift = await db.shift.create({
     data: {
@@ -106,7 +192,22 @@ export async function POST(request) {
       jobId: jobId || null,
       note: note?.slice(0, 300) || null,
     },
-    select: { id: true, workerId: true, start: true, end: true, note: true, published: true },
+    select: {
+      id: true,
+      workerId: true,
+      start: true,
+      end: true,
+      note: true,
+      published: true,
+    },
   });
-  return NextResponse.json({ ok: true, shift });
+  // Warnings ride back with the created shift rather than blocking it: the
+  // manager meant to do this, and they should still be told it is not their
+  // usual pattern so a typo reads as a typo.
+  return NextResponse.json({
+    ok: true,
+    shift,
+    warnings: fit.warnings,
+    notes: fit.notes,
+  });
 }

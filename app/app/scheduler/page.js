@@ -7,7 +7,16 @@
 // so it stays readable on a phone. Pure scheduling — no pay, no money.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarDays, Send } from "lucide-react";
+import Link from "next/link";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  X,
+  Loader2,
+  CalendarDays,
+  Send,
+} from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 
@@ -26,7 +35,10 @@ function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 function fmtTime(iso) {
-  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function SchedulerPage() {
@@ -36,14 +48,23 @@ export default function SchedulerPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState(null); // { dateStr } when adding
+  const [shiftNotice, setShiftNotice] = useState(null); // warnings from the last save
 
   const weekEnd = useMemo(() => addDays(weekStart, 7), [weekStart]);
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const days = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    [weekStart],
+  );
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/shifts?from=${weekStart.toISOString()}&to=${weekEnd.toISOString()}`);
+    const res = await fetch(
+      `/api/shifts?from=${weekStart.toISOString()}&to=${weekEnd.toISOString()}`,
+    );
     if (!res.ok) {
-      await reportResponseError(res, t("app.scheduler.loadError", "Couldn't load the schedule."));
+      await reportResponseError(
+        res,
+        t("app.scheduler.loadError", "Couldn't load the schedule."),
+      );
       return;
     }
     setData(await res.json());
@@ -70,9 +91,16 @@ export default function SchedulerPage() {
       const res = await fetch("/api/shifts/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: weekStart.toISOString(), to: weekEnd.toISOString() }),
+        body: JSON.stringify({
+          from: weekStart.toISOString(),
+          to: weekEnd.toISOString(),
+        }),
       });
-      if (!res.ok) return reportResponseError(res, t("app.scheduler.publishError", "Couldn't publish."));
+      if (!res.ok)
+        return reportResponseError(
+          res,
+          t("app.scheduler.publishError", "Couldn't publish."),
+        );
       await load();
     } finally {
       setBusy(false);
@@ -93,36 +121,65 @@ export default function SchedulerPage() {
       <div className="mb-4">
         <div className="flex items-center gap-2">
           <CalendarDays size={20} className="text-foreground" />
-          <h1 className="text-2xl font-bold text-foreground">{t("app.scheduler.title")}</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {t("app.scheduler.title")}
+          </h1>
         </div>
         {isManager && (
           <p className="mt-1 text-sm text-muted-foreground">
-            {t("app.scheduler.managerSubtitle", "Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.")}
+            {t(
+              "app.scheduler.managerSubtitle",
+              "Add shifts for the week, then Publish so your team can see them — shifts stay hidden until you publish.",
+            )}
           </p>
         )}
       </div>
 
       {/* Week nav */}
-      <div data-tour="scheduler-week" className="flex items-center justify-between gap-2 mb-4">
+      <div
+        data-tour="scheduler-week"
+        className="flex items-center justify-between gap-2 mb-4"
+      >
         <div className="flex items-center gap-1">
-          <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="p-2 rounded-lg border border-border hover:bg-muted" aria-label={t("app.scheduler.prevWeek", "Previous week")}>
+          <button
+            onClick={() => setWeekStart(addDays(weekStart, -7))}
+            className="p-2 rounded-lg border border-border hover:bg-muted"
+            aria-label={t("app.scheduler.prevWeek", "Previous week")}
+          >
             <ChevronLeft size={16} />
           </button>
-          <button onClick={() => setWeekStart(startOfWeek(new Date()))} className="px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted">
+          <button
+            onClick={() => setWeekStart(startOfWeek(new Date()))}
+            className="px-3 py-2 rounded-lg border border-border text-sm font-medium hover:bg-muted"
+          >
             {t("app.scheduler.thisWeek")}
           </button>
-          <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="p-2 rounded-lg border border-border hover:bg-muted" aria-label={t("app.scheduler.nextWeek", "Next week")}>
+          <button
+            onClick={() => setWeekStart(addDays(weekStart, 7))}
+            className="p-2 rounded-lg border border-border hover:bg-muted"
+            aria-label={t("app.scheduler.nextWeek", "Next week")}
+          >
             <ChevronRight size={16} />
           </button>
         </div>
-        <span className="text-sm font-semibold text-foreground">{weekLabel}</span>
+        <span className="text-sm font-semibold text-foreground">
+          {weekLabel}
+        </span>
       </div>
 
       {isManager && (
         <div className="flex items-center gap-2 mb-4">
           <button
             data-tour="scheduler-add"
-            onClick={() => setModal({ dateStr: ymd(new Date() >= weekStart && new Date() < weekEnd ? new Date() : weekStart) })}
+            onClick={() =>
+              setModal({
+                dateStr: ymd(
+                  new Date() >= weekStart && new Date() < weekEnd
+                    ? new Date()
+                    : weekStart,
+                ),
+              })
+            }
             className="inline-flex items-center gap-1.5 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2"
           >
             <Plus size={15} /> {t("app.scheduler.addShift")}
@@ -133,55 +190,131 @@ export default function SchedulerPage() {
               disabled={busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 disabled:opacity-60"
             >
-              {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              {busy ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Send size={15} />
+              )}
               {t("app.scheduler.publishWeek")}
             </button>
           )}
         </div>
       )}
 
+      {/* ── Who has no usual hours set ──────────────────────────────────────
+          A worker with no WorkingHours has no pattern, so nothing warns when
+          they are scheduled at an odd time and payroll has no baseline to
+          sanity-check their logged time against. The rota is where somebody
+          notices, so the reminder lives here rather than on a settings screen
+          nobody opens.
+
+          Named, not counted. "3 people are missing hours" sends someone
+          hunting; the names send them straight there. */}
+      {isManager && data?.missingHours?.length > 0 && (
+        <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-800 dark:bg-amber-950/40">
+          <p className="text-amber-900 dark:text-amber-200">
+            No working hours set for{" "}
+            <strong>{data.missingHours.map((w) => w.name).join(", ")}</strong>.
+            Until they have some, nothing flags a shift at an odd hour for them
+            and payroll has nothing to check their logged time against.
+          </p>
+          <Link
+            href="/app/settings/availability"
+            className="mt-1 inline-block text-xs font-medium text-amber-900 underline dark:text-amber-200"
+          >
+            Set their hours
+          </Link>
+        </div>
+      )}
+
+      {/* Created, and worth a word: the shift is outside this person's usual
+          pattern. Not an error — that is what an extra day or an early start
+          IS — but a mistyped hour looks exactly the same, and only the manager
+          can tell the two apart. */}
+      {shiftNotice && (
+        <div className="mb-3 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
+          Shift added. {shiftNotice.join(" ")}
+        </div>
+      )}
+
       {loading ? (
-        <div className="min-h-[30vh] grid place-items-center"><Loader2 className="animate-spin text-muted-foreground" /></div>
+        <div className="min-h-[30vh] grid place-items-center">
+          <Loader2 className="animate-spin text-muted-foreground" />
+        </div>
       ) : (
         <div className="space-y-3">
           {days.map((day) => {
             const key = ymd(day);
-            const list = (shiftsByDay[key] || []).sort((a, b) => new Date(a.start) - new Date(b.start));
+            const list = (shiftsByDay[key] || []).sort(
+              (a, b) => new Date(a.start) - new Date(b.start),
+            );
             const isToday = ymd(new Date()) === key;
             return (
-              <div key={key} className={`rounded-xl border bg-card p-4 ${isToday ? "border-foreground/40" : "border-border"}`}>
+              <div
+                key={key}
+                className={`rounded-xl border bg-card p-4 ${isToday ? "border-foreground/40" : "border-border"}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-bold text-foreground">
-                    {day.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
-                    {isToday && <span className="ml-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">{t("app.scheduler.today")}</span>}
+                    {day.toLocaleDateString([], {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {isToday && (
+                      <span className="ml-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        {t("app.scheduler.today")}
+                      </span>
+                    )}
                   </h3>
                   {isManager && (
-                    <button onClick={() => setModal({ dateStr: key })} className="text-muted-foreground hover:text-foreground" aria-label={t("app.scheduler.addShift")}>
+                    <button
+                      onClick={() => setModal({ dateStr: key })}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label={t("app.scheduler.addShift")}
+                    >
                       <Plus size={16} />
                     </button>
                   )}
                 </div>
                 {!list.length ? (
-                  <p className="text-sm text-muted-foreground">{t("app.scheduler.noShifts")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("app.scheduler.noShifts")}
+                  </p>
                 ) : (
                   <ul className="space-y-1.5">
                     {list.map((s) => (
-                      <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2">
+                      <li
+                        key={s.id}
+                        className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2"
+                      >
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground truncate">
                             {fmtTime(s.start)} – {fmtTime(s.end)}
-                            {isManager && s.worker?.name ? ` · ${s.worker.name}` : ""}
+                            {isManager && s.worker?.name
+                              ? ` · ${s.worker.name}`
+                              : ""}
                           </div>
                           {(s.job?.title || s.note) && (
-                            <div className="text-xs text-muted-foreground truncate">{[s.job?.title, s.note].filter(Boolean).join(" · ")}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[s.job?.title, s.note]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {!s.published && (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">{t("app.scheduler.draft")}</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                              {t("app.scheduler.draft")}
+                            </span>
                           )}
                           {isManager && (
-                            <button onClick={() => removeShift(s.id)} className="text-muted-foreground hover:text-red-600" aria-label={t("app.action.delete")}>
+                            <button
+                              onClick={() => removeShift(s.id)}
+                              className="text-muted-foreground hover:text-red-600"
+                              aria-label={t("app.action.delete")}
+                            >
                               <X size={15} />
                             </button>
                           )}
@@ -197,7 +330,9 @@ export default function SchedulerPage() {
       )}
 
       {!isManager && !loading && (
-        <p className="mt-4 text-xs text-muted-foreground">{t("app.scheduler.workerNote")}</p>
+        <p className="mt-4 text-xs text-muted-foreground">
+          {t("app.scheduler.workerNote")}
+        </p>
       )}
 
       {modal && isManager && (
@@ -205,7 +340,11 @@ export default function SchedulerPage() {
           dateStr={modal.dateStr}
           workers={data.workers}
           onClose={() => setModal(null)}
-          onSaved={async () => { setModal(null); await load(); }}
+          onSaved={async (warnings) => {
+            setModal(null);
+            setShiftNotice(warnings?.length ? warnings : null);
+            await load();
+          }}
           t={t}
         />
       )}
@@ -220,10 +359,15 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
   const [end, setEnd] = useState("17:00");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  // A refusal belongs INSIDE the modal, beside the time fields that caused it.
+  // Sent to the global toast instead, it would vanish while the manager was
+  // still looking at the wrong times with no idea which number to change.
+  const [refusal, setRefusal] = useState(null);
 
   async function save() {
     if (!workerId || end <= start) return;
     setSaving(true);
+    setRefusal(null);
     try {
       const res = await fetch("/api/shifts", {
         method: "POST",
@@ -235,47 +379,129 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
           note: note.trim() || undefined,
         }),
       });
-      if (!res.ok) return reportResponseError(res, t("app.scheduler.saveError", "Couldn't save the shift."));
-      await onSaved();
+      if (!res.ok) {
+        // 409 is the fit check: this person is not available, or is on
+        // approved leave. It has reasons worth reading, unlike a 500.
+        const body = await res.json().catch(() => null);
+        if (res.status === 409 && body?.blocks?.length) {
+          setRefusal(body.blocks);
+          return;
+        }
+        return reportResponseError(
+          res,
+          t("app.scheduler.saveError", "Couldn't save the shift."),
+        );
+      }
+      // Warnings are not refusals — the shift was created. Passed up so the
+      // manager is told it is outside this person's usual pattern, which is
+      // how a mistyped hour reads as a mistyped hour.
+      const body = await res.json().catch(() => null);
+      await onSaved(body?.warnings || []);
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground">{t("app.scheduler.newShift")}</h2>
-          <button onClick={onClose} aria-label={t("app.action.close")}><X size={18} className="text-muted-foreground" /></button>
+          <h2 className="text-lg font-bold text-foreground">
+            {t("app.scheduler.newShift")}
+          </h2>
+          <button onClick={onClose} aria-label={t("app.action.close")}>
+            <X size={18} className="text-muted-foreground" />
+          </button>
         </div>
         <div className="space-y-3">
+          {refusal && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              {refusal.map((r) => (
+                <p key={r}>{r}</p>
+              ))}
+              <p className="mt-1 opacity-80">
+                Change the time, or update what they&apos;re available for.
+              </p>
+            </div>
+          )}
           <label className="block">
-            <span className="text-xs text-muted-foreground">{t("app.scheduler.worker")}</span>
-            <select value={workerId} onChange={(e) => setWorkerId(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
-              {(workers || []).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            <span className="text-xs text-muted-foreground">
+              {t("app.scheduler.worker")}
+            </span>
+            <select
+              value={workerId}
+              onChange={(e) => setWorkerId(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              {(workers || []).map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block">
-            <span className="text-xs text-muted-foreground">{t("app.scheduler.date")}</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <span className="text-xs text-muted-foreground">
+              {t("app.scheduler.date")}
+            </span>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
           </label>
           <div className="flex gap-3">
             <label className="block flex-1">
-              <span className="text-xs text-muted-foreground">{t("app.scheduler.start")}</span>
-              <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <span className="text-xs text-muted-foreground">
+                {t("app.scheduler.start")}
+              </span>
+              <input
+                type="time"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
             </label>
             <label className="block flex-1">
-              <span className="text-xs text-muted-foreground">{t("app.scheduler.end")}</span>
-              <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <span className="text-xs text-muted-foreground">
+                {t("app.scheduler.end")}
+              </span>
+              <input
+                type="time"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              />
             </label>
           </div>
           <label className="block">
-            <span className="text-xs text-muted-foreground">{t("app.scheduler.noteOptional")}</span>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("app.scheduler.notePlaceholder")} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+            <span className="text-xs text-muted-foreground">
+              {t("app.scheduler.noteOptional")}
+            </span>
+            <input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t("app.scheduler.notePlaceholder")}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
           </label>
-          {end <= start && <p className="text-xs text-red-600">{t("app.scheduler.endAfterStart")}</p>}
-          <button onClick={save} disabled={saving || !workerId || end <= start} className="w-full rounded-lg bg-inverted text-inverted-foreground py-2.5 text-sm font-semibold disabled:opacity-60">
+          {end <= start && (
+            <p className="text-xs text-red-600">
+              {t("app.scheduler.endAfterStart")}
+            </p>
+          )}
+          <button
+            onClick={save}
+            disabled={saving || !workerId || end <= start}
+            className="w-full rounded-lg bg-inverted text-inverted-foreground py-2.5 text-sm font-semibold disabled:opacity-60"
+          >
             {saving ? t("app.action.saving") : t("app.scheduler.addToDraft")}
           </button>
         </div>
