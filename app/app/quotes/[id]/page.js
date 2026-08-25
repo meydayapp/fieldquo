@@ -56,6 +56,10 @@ import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import { formatAddress } from "@/lib/format/address";
+import {
+  COMPLEXITY_LEVELS,
+  COMPLEXITY_REASONS,
+} from "@/app/data/cabinetPricing";
 
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
@@ -671,6 +675,27 @@ export default function QuoteDetailPage() {
                       </span>
                     </div>
                   ))}
+                  {/* ── Why this line costs what it costs ──────────────────
+                      The takeoff already stores it. `meta` carries the base
+                      unit price, the complexity level the estimator chose and
+                      the reasons they ticked — and until now this page threw
+                      all of it away and printed a bare "Cabinet Refinishing ×
+                      37". Somebody looking at a quote three weeks later, or
+                      defending it to a client on the phone, had no way to see
+                      that $170 was $150 plus a moderate uplift, let alone
+                      why.
+
+                      Staff-only, like the rest of this page. The client's copy
+                      states the price; this states the reasoning behind it. */}
+                  {(group.lineItems || []).map((item, i) =>
+                    item?.meta?.complexityLevel ? (
+                      <PriceReasoning
+                        key={`why${i}`}
+                        item={item}
+                        money={money}
+                      />
+                    ) : null,
+                  )}
                 </div>
               </div>
             ))}
@@ -825,6 +850,70 @@ function Block({ title, children }) {
 }
 
 /** A label/value pair in the document's fact column. */
+/**
+ * The estimator's reasoning, read back off the stored takeoff.
+ *
+ * Nothing here is computed: `meta.baseUnitPrice`, `meta.complexityLevel` and
+ * `meta.complexityReasons` are what the builder wrote when the quote was
+ * priced. Re-deriving them from today's rate card would show what the job
+ * WOULD cost now, which is a different and much less useful number than what
+ * was actually quoted.
+ *
+ * Renders nothing when the line carries no complexity — most trades don't.
+ */
+function PriceReasoning({ item, money }) {
+  const meta = item?.meta || {};
+  const level = COMPLEXITY_LEVELS.find((l) => l.value === meta.complexityLevel);
+  if (!level) return null;
+
+  const base = Number(meta.baseUnitPrice) || 0;
+  const rate = Number(item.rate) || 0;
+  const uplift = rate - base;
+
+  // Ids are stored; the labels live in one catalogue. An id nobody recognises
+  // is dropped rather than printed raw — "deep_damage" on screen is a leak of
+  // the database into the office.
+  const labels = [];
+  for (const list of Object.values(COMPLEXITY_REASONS)) {
+    for (const r of list) {
+      if ((meta.complexityReasons || []).includes(r.id)) labels.push(r.label);
+    }
+  }
+
+  return (
+    <div className="border-t border-border py-2 text-xs">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <span className="font-medium" style={{ color: level.color }}>
+          {level.label} complexity
+        </span>
+        {base > 0 && uplift > 0 && (
+          <span className="text-muted-foreground tabular-nums">
+            {money(base)} + {money(uplift)} uplift = {money(rate)} per{" "}
+            {item.unit || "unit"}
+          </span>
+        )}
+      </div>
+      {labels.length > 0 ? (
+        <ul className="mt-1 space-y-0.5 text-muted-foreground">
+          {labels.map((l) => (
+            <li key={l} className="flex gap-1.5">
+              <span aria-hidden="true">·</span>
+              {l}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        // A level with no reasons ticked is a judgement nobody wrote down.
+        // Saying so is more useful than an empty space, because the person
+        // reading this is usually about to be asked to justify it.
+        <p className="mt-1 text-muted-foreground">
+          No reasons were recorded for this level.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Fact({ label, value }) {
   return (
     <div>
