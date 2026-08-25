@@ -71,16 +71,39 @@ export default function AppError({ error, reset }) {
         </pre>
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {/* ── Reload first, retry second ────────────────────────────────
+              This shipped with reset() as the primary action and that was
+              wrong. reset() re-renders using the JavaScript ALREADY LOADED in
+              this tab. For a crash in module or component code — which is most
+              of them — it re-runs the same broken bytes and fails identically,
+              and it can never pick up a deploy that fixed the bug.
+
+              The owner hit exactly that: the fix was live, and pressing "Try
+              again" showed the same error, so it read as not fixed. A button
+              that cannot work for the case it is offered in is the failure this
+              codebase is swept for, sitting in the screen that reports
+              failures.
+
+              A reload fetches fresh chunks. reset() stays, second and honestly
+              labelled, because for a transient error — a fetch that failed once
+              — it is genuinely quicker. */}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
+          >
+            <RotateCw size={14} /> Reload the page
+          </button>
           <button
             type="button"
             onClick={() => reset()}
-            className="flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background"
+            className="flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground"
           >
-            <RotateCw size={14} /> Try again
+            Retry without reloading
           </button>
           <Link
             href="/app"
-            className="flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-foreground"
+            className="flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted-foreground"
           >
             <ArrowLeft size={14} /> Back to the dashboard
           </Link>
@@ -90,7 +113,9 @@ export default function AppError({ error, reset }) {
           {reported
             ? "We've been told about this automatically."
             : "Reporting this…"}
-          {error?.digest ? ` Reference ${error.digest}.` : ""}
+          {error?.digest ? ` Reference ${error.digest}.` : ""} If it keeps
+          happening right after an update, reload with Ctrl/Cmd + Shift + R to
+          clear the old version out of your browser.
         </p>
       </div>
     </div>
