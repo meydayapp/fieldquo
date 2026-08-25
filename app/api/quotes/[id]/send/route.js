@@ -46,6 +46,10 @@ import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import {
+  quoteEmailSectionGate,
+  QUOTE_EMAIL_COMPANY_SELECT,
+} from "@/lib/quotes/emailSections";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -114,9 +118,44 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       phone: true,
+      currency: true,
       defaultLanguage: true,
+      // Without these the optional sections resolve to "off" for every quote
+      // this route sends, silently. buildQuoteEmail refuses to run on a
+      // company row that is missing them rather than guessing — see
+      // assertSectionFieldsLoaded.
+      ...QUOTE_EMAIL_COMPANY_SELECT,
     },
   });
+
+  // ── The empty-section gate ───────────────────────────────────────────────
+  //
+  // A section switched on with nothing in it must not reach a homeowner, and
+  // must not be dropped behind the sender's back either. So the send stops
+  // here, BEFORE the share token is minted and before a PDF is rendered, and
+  // the 409 names each offending section and carries both ways out: fill it
+  // (a link to the settings page) or remove it from this quote (a PATCH the
+  // UI can fire and then retry the send).
+  //
+  // 409 rather than 400 for the same reason the needsReview gate above uses
+  // it: nothing about the request is malformed, the quote simply isn't in a
+  // state where this can happen yet.
+  //
+  // This is the first of two enforcement points. The second is inside
+  // buildQuoteEmail, which throws — see lib/quotes/emailSections.js for why a
+  // check here alone would not survive the next send path someone writes.
+  const gate = quoteEmailSectionGate({ company: company || {}, quote });
+  if (!gate.ok) {
+    return NextResponse.json(
+      {
+        error:
+          "This quote's email has a section switched on with nothing in it. Add the content, or take the section off this quote, then send.",
+        code: "email_sections_empty",
+        blocked: gate.blocked,
+      },
+      { status: 409 },
+    );
+  }
 
   // Mint the link if this quote has never been shared. Doing it here rather
   // than expecting the caller to have pressed "Get approved" first means the
@@ -130,11 +169,31 @@ export async function POST(request, { params }) {
   const url = `${getAppOrigin(request)}/q/${shareToken}`;
   const { from, replyTo } = await resolveSender(company || {}, member.companyId);
 
+  // The scope groups, with any per-company wording attached. Loaded here
+  // rather than inside the PDF block below because the EMAIL now prints the
+  // same breakdown the attachment does, and the two reading different rows is
+  // the kind of divergence attachServiceSettings exists to prevent. The PDF
+  // block reuses this array.
+  //
+  // Not best-effort: the email is built from it. If the groups can't be read
+  // the send should fail loudly rather than post a quote email with no scope
+  // in it, which is the same silent hollowing-out the section gate refuses.
+  const scopeGroups = await attachServiceSettings(
+    db,
+    member.companyId,
+    await db.quoteScopeGroup.findMany({
+      where: { quoteId: quote.id },
+      include: { category: true },
+      orderBy: { sortOrder: "asc" },
+    }),
+  );
+
   const { subject, html, text } = buildQuoteEmail({
     quote,
     client: quote.client,
     company: company || {},
     url,
+    scopeGroups,
     kind: isFollowUp ? "follow_up" : "quote",
     // The quote's own language wins — the covering note must match the
     // document it's carrying. See lib/i18n/clientLanguage.js.
@@ -152,19 +211,13 @@ export async function POST(request, { params }) {
   // and the on-screen document are the same thing.
   let attachments;
   try {
-    const [fullCompany, scopeGroupsRaw, template] = await Promise.all([
+    const [fullCompany, template] = await Promise.all([
       db.company.findUnique({ where: { id: member.companyId } }),
-      db.quoteScopeGroup.findMany({
-        where: { quoteId: quote.id },
-        include: { category: true },
-        orderBy: { sortOrder: "asc" },
-      }),
       db.documentTemplate.findFirst({
         where: { companyId: member.companyId, type: "quote_pdf", isDefault: true },
       }),
     ]);
     const sections = usableSections("quote_pdf", template?.sections || getDefaultSections("quote_pdf")).sections;
-    const scopeGroups = await attachServiceSettings(db, member.companyId, scopeGroupsRaw);
     const pdfBuffer = await renderDocumentPdfBuffer({
       sections,
       // Same client-aware precedence as the covering email above — the PDF and

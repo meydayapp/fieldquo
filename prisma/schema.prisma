@@ -599,6 +599,33 @@ model Company {
   // must keep saying what it said in March, even after the terms change.
   defaultProcessNotes String?
 
+  // ── The two optional sections of the quote email ────────────────────────
+  //
+  // Everything else in that email is derived from the quote: the scope, the
+  // line items, what's included, the process steps. These two are the
+  // COMPANY's proof rather than the quote's content, so they live here and a
+  // quote points at them.
+  //
+  // quoteEmailReferences:  [{ id, name, phone, note? }] — past clients who
+  //   have AGREED to take a call from a stranger. That consent is the whole
+  //   reason this is a deliberate list a human types rather than a query over
+  //   past clients: publishing a homeowner's phone number to a prospect
+  //   because they once bought a deck is not a feature.
+  // quoteEmailBeforeAfter: [{ id, beforeUrl, afterUrl, beforePublicId?,
+  //   afterPublicId?, caption? }] — photo pairs, Cloudinary URLs.
+  //
+  // Null and [] mean the same thing here (no entries) and both are honest;
+  // the three-state distinction that matters is on Quote, below.
+  quoteEmailReferences  Json?
+  quoteEmailBeforeAfter Json?
+
+  // Whether a NEW quote starts with each section switched on. Default false,
+  // not true: a company with nothing in the list would otherwise have every
+  // quote stopped at the send gate by a section they never asked for. Turning
+  // one on is how a company says "this belongs on my quotes".
+  quoteEmailIncludeReferences  Boolean @default(false)
+  quoteEmailIncludeBeforeAfter Boolean @default(false)
+
   pendingTeamProfiles PendingTeamProfile[]
   customFields        CustomField[]
 
@@ -1385,6 +1412,26 @@ model Quote {
   // from Company.defaultProcessNotes so it's written once, then editable per
   // quote because a two-day repair and a three-week reno need different words.
   processNotes String?
+
+  // ── Per-quote control of the two optional email sections ────────────────
+  //
+  // THREE states, and the third is the point. NULL means "follow the company
+  // default", so a company that adds references next month gets them on the
+  // drafts already sitting in the pipeline; `true`/`false` mean this quote was
+  // decided on its own and stops following. Collapsing this to a Boolean with
+  // a default would freeze every existing draft at whatever the company
+  // setting happened to be the day it was written.
+  emailIncludeReferences  Boolean?
+  emailIncludeBeforeAfter Boolean?
+
+  // Per-quote CONTENT, when this quote shouldn't use the company list — the
+  // referee who did this exact kitchen, the before/after from this street.
+  // NULL means "use the company's". An empty array is deliberately NOT a way
+  // to remove a section: it is an included-but-empty section, which is exactly
+  // what the send gate refuses to let out (lib/quotes/emailSections.js).
+  // Removing a section is turning the flag above off.
+  emailReferences  Json?
+  emailBeforeAfter Json?
 
   // Last AI review. Stored rather than recomputed so reopening the quote
   // doesn't spend tokens again, and so a review can be dismissed item by item

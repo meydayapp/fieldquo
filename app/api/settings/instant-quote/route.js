@@ -109,7 +109,15 @@ export async function PUT(request) {
       action: "settings.financing_updated",
       entityType: "settings",
       summary: financing.enabled ? "Turned on financing on estimates" : "Turned off financing",
-      metadata: { enabled: financing.enabled, mode: financing.url ? "provider" : "contact" },
+      metadata: {
+        enabled: financing.enabled,
+        mode: financing.url ? "provider" : "contact",
+        // Whether a monthly estimate is now shown to homeowners, and on what.
+        // This is the company committing to a rate in front of clients, so it
+        // belongs in the audit trail rather than only in the row.
+        aprPct: financing.aprPct,
+        termMonths: financing.termMonths,
+      },
     });
     return NextResponse.json({ ok: true, financing });
   }

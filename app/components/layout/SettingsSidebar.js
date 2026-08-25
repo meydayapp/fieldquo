@@ -57,6 +57,7 @@ import {
   Bell,
   ListChecks,
   Languages,
+  MailOpen,
   Zap,
   Activity,
   Settings as SettingsIcon,
@@ -113,6 +114,7 @@ const GROUPS = [
   {
     key: "app.settings.group.documents",
     items: [
+      { key: "app.settings.quoteEmail", href: "/app/settings/quote-email", icon: MailOpen },
       { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail },
       { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText },
       { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign },

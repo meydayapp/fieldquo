@@ -1054,18 +1054,127 @@ check("every trade with a takeoff-derived bill produces one", () => {
 });
 
 check("an unpriced material is counted, never costed at zero", () => {
-  // Roofing ships with no supplier prices, deliberately. Every line must have
-  // a quantity, no money, and be counted — a $0 shingle line would tell the
-  // margin panel the biggest input in the job was free.
+  // Roofing is now priced off Home Depot Canada, so the all-null case moved to
+  // the lines that genuinely have no source: chimney flashing is bent from
+  // coil on site and has no part number. It must still come out with a
+  // quantity, no money, and a place in unpricedCount — a $0 chimney line would
+  // tell the margin panel the flashing was free.
+  const b = bill("roofing_service", {
+    areaSqft: 2400,
+    pitchRise: 8,
+    layers: 1,
+    chimneys: 1,
+  });
+  const chimney = b.materials.find((m) => /Chimney/.test(m.name));
+  assert.ok(chimney, "the chimney line is still on the sourcing list");
+  assert.equal(chimney.unitCost, null);
+  assert.equal(chimney.cost, 0);
+  assert.ok(chimney.unpriced);
+  assert.equal(
+    b.unpricedCount,
+    b.materials.filter((m) => m.unpriced).length,
+    "the count is the count",
+  );
+  // And the rest of the roof is priced, so the total is not zero.
+  assert.ok(b.materialTotal > 0);
+});
+
+check("roofing is priced, and against the Home Depot Canada reads", () => {
+  // 24 squares of architectural shingle at GAF Timberline HDZ, $41.93 a
+  // 33.3 sqft bundle, plus 10% waste: 24 x 3 x 1.1 = 79.2 -> 80 bundles.
   const b = bill("roofing_service", {
     areaSqft: 2400,
     pitchRise: 8,
     layers: 1,
   });
-  assert.ok(b.unpricedCount > 0);
-  assert.equal(b.materialTotal, 0);
-  assert.ok(b.materials.every((m) => m.unpriced && m.unitCost === null));
-  assert.equal(b.unpricedCount, b.materials.length);
+  const line = (re) => b.materials.find((m) => re.test(m.name));
+  const shingles = line(/bundles/);
+  assert.equal(shingles.unitCost, 41.93);
+  assert.equal(shingles.qty, 80);
+  assert.equal(shingles.cost, 3354.4);
+  // Underlayment is a 1,000 sqft roll, so 24 squares plus waste is 3 rolls.
+  assert.equal(line(/underlayment/i).qty, 3);
+  assert.equal(line(/underlayment/i).unitCost, 151);
+  // Nails: a 7,200 coil box does 15 squares at the six-nail pattern.
+  assert.equal(line(/nails/i).qty, 2);
+  assert.equal(b.unpricedCount, 0, "nothing on this roof is unsourced");
+  assert.ok(b.materialTotal > 3000 && b.materialTotal < 5000, b.materialTotal);
+});
+
+check("waste moves the quantity and never the unit cost", () => {
+  // The rule the owner asked for: 10% more material, at the same price per
+  // bundle. Zero the waste on the rate card and the count drops back to the
+  // measured roof while every unitCost stays exactly where it was.
+  const measured = bill(
+    "roofing_service",
+    { areaSqft: 2400, pitchRise: 8, layers: 1, dripEdgeFt: 180 },
+    { wastePct: 0 },
+  );
+  const wasted = bill("roofing_service", {
+    areaSqft: 2400,
+    pitchRise: 8,
+    layers: 1,
+    dripEdgeFt: 180,
+  });
+  const qty = (b, re) => b.materials.find((m) => re.test(m.name)).qty;
+  const unit = (b, re) => b.materials.find((m) => re.test(m.name)).unitCost;
+  assert.equal(qty(measured, /bundles/), 72);
+  assert.equal(qty(wasted, /bundles/), 80);
+  assert.equal(qty(measured, /Drip edge/), 18);
+  assert.equal(qty(wasted, /Drip edge/), 20);
+  for (const re of [/bundles/, /Drip edge/, /underlayment/i])
+    assert.equal(unit(measured, re), unit(wasted, re), String(re));
+  // Counted things are not wasted: nobody buys a tenth of a vent boot.
+  const boots = (b) => b.materials.find((m) => /vent boots/i.test(m.name)).qty;
+  const withBoots = (over) =>
+    bill(
+      "roofing_service",
+      { areaSqft: 2400, pitchRise: 8, layers: 1, ventBoots: 3 },
+      over,
+    );
+  assert.equal(boots(withBoots()), 3);
+  assert.equal(boots(withBoots({ wastePct: 0 })), 3);
+});
+
+check("a material that isn't three bundles to a square says so", () => {
+  // Metal panel and low-slope membrane carry their own bundlesPerSquare.
+  // Ordering 3 panels to a square would buy a third more roof than exists.
+  const at = (materialKey) =>
+    bill("roofing_service", {
+      areaSqft: 2400,
+      pitchRise: 8,
+      layers: 1,
+      materialKey,
+    }).materials.find((m) => /bundles/.test(m.name));
+  // 24 squares + 10% at 4.3 panels a square (Vicwest UltraVic, 23.25 sqft).
+  assert.equal(at("metal_corrugated").qty, Math.ceil(24 * 1.1 * 4.3));
+  // One 100 sqft cap sheet roll to a square.
+  assert.equal(at("membrane_flat").qty, Math.ceil(24 * 1.1));
+  // Cedar's coverage is known (25 sqft a bundle) even though its price is not.
+  const cedar = at("cedar_shake");
+  assert.equal(cedar.qty, Math.ceil(24 * 1.1 * 4));
+  assert.equal(cedar.unitCost, null);
+});
+
+check("siding and insulation buy the box the product comes in", () => {
+  // Stone veneer is a 49.32 sqft box, not the 200 sqft vinyl default.
+  const stone = bill("siding", {
+    sqft: 2000,
+    materialKey: "stone_veneer",
+  }).materials.find((m) => /veneer/i.test(m.name));
+  assert.equal(stone.qty, Math.ceil(2000 / 49.32));
+  assert.equal(stone.unitCost, 298);
+  const vinyl = bill("siding", { sqft: 2000 }).materials.find((m) =>
+    /Vinyl/.test(m.name),
+  );
+  assert.equal(vinyl.qty, 10, "2,000 sqft in 200 sqft boxes");
+  assert.equal(vinyl.unitCost, 262);
+  // House wrap is a 900 sqft Tyvek roll, not the 1,350 that was never sold.
+  const wrap = bill("siding", { sqft: 2000, housewrap: true }).materials.find(
+    (m) => /wrap/i.test(m.name),
+  );
+  assert.equal(wrap.qty, 3);
+  assert.equal(wrap.unitCost, 137);
 });
 
 check("paving is priced, and against the two Ottawa suppliers", () => {
@@ -1128,8 +1237,9 @@ check("the bill follows the takeoff, not an average", () => {
     layers: 1,
   });
   const bundles = (b) => b.materials.find((m) => /bundles/.test(m.name)).qty;
-  assert.equal(bundles(one), 72, "3 bundles to a square, 24 squares");
-  assert.equal(bundles(two), 144);
+  // 3 bundles to a square, 24 squares, +10% waste: 79.2 rounded up.
+  assert.equal(bundles(one), 80);
+  assert.equal(bundles(two), 159);
   // Details are bought by the foot the estimator counted, not by the area.
   const withValleys = bill("roofing_service", {
     areaSqft: 2400,
@@ -1139,8 +1249,8 @@ check("the bill follows the takeoff, not an average", () => {
   });
   assert.equal(
     withValleys.materials.find((m) => /Drip edge/.test(m.name)).qty,
-    18,
-    "180 ft in 10 ft lengths",
+    20,
+    "180 ft plus 10% waste, in 10 ft lengths",
   );
 });
 
@@ -1192,10 +1302,11 @@ check("the bill returns NO labour — hours come from tradeLabourHours", () => {
     est.groups.reduce((s2, g) => s2 + g.labourHours, 0),
     0,
   );
-  assert.ok(
-    est.unpricedMaterials > 0,
-    "and the panel is told about the prices",
-  );
+  // Roofing is priced now, so the panel gets a real material figure rather
+  // than a count of blanks. Both facts matter and both are asserted: the
+  // money is there, and nothing on this roof is silently costed at zero.
+  assert.ok(est.materialTotal > 0, "and the panel is told what it costs");
+  assert.equal(est.unpricedMaterials, 0);
 });
 
 check("a blank takeoff buys nothing", () => {

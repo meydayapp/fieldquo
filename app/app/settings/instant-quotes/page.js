@@ -1078,28 +1078,62 @@ export default function InstantQuotesSettingsPage() {
 }
 
 /**
- * Company-wide financing offer shown on estimates.
+ * Company-wide financing offer shown on estimates and on the quote a client
+ * approves.
  *
- * FieldQuo computes NO monthly payment — it doesn't provide financing. This is
- * either the company's own "ask us" wording, or a link to a real provider that
- * quotes the terms itself. Off by default. See lib/estimate/financing.js.
+ * FieldQuo invents no monthly payment — it doesn't provide financing. The
+ * homeowner sees the company's own "ask us" wording, a link to a real provider
+ * that quotes the terms itself, or a monthly ESTIMATE computed from the rate
+ * and term the company types into the two fields below. Nothing is defaulted:
+ * leave either field blank and no monthly figure is shown anywhere, which is
+ * why the save below refuses a half-filled pair rather than quietly keeping one
+ * value. See lib/estimate/financing.js and lib/financing/monthlyEstimate.js.
  */
 function FinancingCard({ financing, canEdit, onSaved }) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(Boolean(financing.enabled));
   const [note, setNote] = useState(financing.note || "");
   const [url, setUrl] = useState(financing.url || "");
+  // Strings, not numbers: "" is the honest representation of "not stated", and
+  // a numeric state would turn a cleared field into 0% APR — a rate the company
+  // never typed, on a document a homeowner acts on.
+  const [aprPct, setAprPct] = useState(
+    financing.aprPct === null || financing.aprPct === undefined
+      ? ""
+      : String(financing.aprPct),
+  );
+  const [termMonths, setTermMonths] = useState(
+    financing.termMonths === null || financing.termMonths === undefined
+      ? ""
+      : String(financing.termMonths),
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // One stated without the other can't produce a payment, so the server stores
+  // neither. Saying so here beats saving a value that silently vanishes.
+  const halfStated =
+    Boolean(aprPct.trim()) !== Boolean(termMonths.trim());
+
   async function save() {
+    if (halfStated) return;
     setSaving(true);
     setSaved(false);
     try {
       await fetchJson("/api/settings/instant-quote", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ financing: { enabled, note, url } }),
+        body: JSON.stringify({
+          financing: {
+            enabled,
+            note,
+            url,
+            // Blank means "not stated" all the way down — normaliseTerms turns
+            // "" into null rather than into 0.
+            aprPct: aprPct.trim() === "" ? null : aprPct.trim(),
+            termMonths: termMonths.trim() === "" ? null : termMonths.trim(),
+          },
+        }),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -1199,6 +1233,61 @@ function FinancingCard({ financing, canEdit, onSaved }) {
               )}
             </span>
           </label>
+
+          {/* The only place a monthly figure can come from. Empty = silent. */}
+          <div className="pt-3 border-t border-border">
+            <span className="text-sm text-foreground">
+              {t("app.setInstantQuotes.statedTerms", "Your stated terms (optional)")}
+            </span>
+            <div className="mt-1 grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs text-muted-foreground">
+                  {t("app.setInstantQuotes.aprLabel", "Annual rate (APR %)")}
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={aprPct}
+                  onChange={(e) => setAprPct(e.target.value)}
+                  placeholder="9.9"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs text-muted-foreground">
+                  {t("app.setInstantQuotes.termLabel", "Term (months)")}
+                </span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  max="600"
+                  step="1"
+                  value={termMonths}
+                  onChange={(e) => setTermMonths(e.target.value)}
+                  placeholder="12"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground"
+                />
+              </label>
+            </div>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {t(
+                "app.setInstantQuotes.statedTermsHelp",
+                "Fill in both and the quote shows an estimated monthly payment, labelled as an estimate on your stated terms. Leave either one blank and no monthly figure is ever shown — FieldQuo has no default rate and no default term.",
+              )}
+            </span>
+            {halfStated && (
+              <span className="mt-1 block text-xs text-amber-600 dark:text-amber-400">
+                {t(
+                  "app.setInstantQuotes.termsIncomplete",
+                  "Enter both a rate and a term, or leave both blank.",
+                )}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -1207,7 +1296,7 @@ function FinancingCard({ financing, canEdit, onSaved }) {
           <button
             type="button"
             onClick={save}
-            disabled={saving}
+            disabled={saving || halfStated}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : null}{" "}

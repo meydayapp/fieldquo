@@ -1030,43 +1030,78 @@ export const TRADE_PRICE_BOOKS = {
         label: "3-tab asphalt shingles",
         pricePerSquare: 400,
         labourFactor: 0.95,
-        materialCostPerBundle: null,
+        // GAF Marquis WeatherMax Autumn Brown 3-Tab, 33.3 sqft per bundle,
+        // Home Depot Canada (Gatineau), read 25 Aug 2026. Three to a square
+        // is $99.54 of shingle against a $400 sell. BP Dakota 3-tab (32.3
+        // sqft, $38.76) and BP Yukon ($39.76) bracket it from above.
+        materialCostPerBundle: 33.18,
       },
       asphalt_arch: {
         label: "Architectural shingles",
         pricePerSquare: 550,
         labourFactor: 1,
-        materialCostPerBundle: null,
+        // GAF Timberline HDZ Charcoal, 33.3 sqft per bundle, $41.93 — Home
+        // Depot Canada (Gatineau), read 25 Aug 2026. $125.79 a square.
+        // Cross-check: Owens Corning TruDefinition Duration is 32.8 sqft at
+        // $47.20, or $143.90 a square. Same market, different brand.
+        materialCostPerBundle: 41.93,
       },
       asphalt_premium: {
         label: "Premium / designer shingles",
         pricePerSquare: 700,
         labourFactor: 1.15,
-        materialCostPerBundle: null,
+        // GAF Slateline Royal Slate Designer Laminated, 33.3 sqft per bundle,
+        // $69.67 — Home Depot Canada, read 25 Aug 2026. Chosen over Camelot II
+        // (25 sqft, $32.45) and Grand Sequoia (20 sqft, $60.49) because it is
+        // the one designer line that still packs three to a square, so the
+        // default packaging holds. A company laying Camelot sets 4 below.
+        materialCostPerBundle: 69.67,
       },
       metal_corrugated: {
         label: "Corrugated / ribbed metal",
         pricePerSquare: 850,
         labourFactor: 1.5,
-        materialCostPerBundle: null,
+        // Vicwest Cladding UltraVic, 36" x 93" 28-gauge steel, $72.28 — Home
+        // Depot Canada, read 25 Aug 2026. The product page states 36" of net
+        // coverage per sheet (the side lap is outside the 36"), so one panel
+        // is 23.25 sqft and 100/23.25 = 4.3 panels to a square.
+        bundlesPerSquare: 4.3,
+        materialCostPerBundle: 72.28,
       },
       metal_standing_seam: {
         label: "Standing seam metal",
         pricePerSquare: 1300,
         labourFactor: 1.9,
+        // Home Depot Canada does not sell standing seam panel — the closest
+        // thing on the shelf is a metal SHINGLE (Vicwest True Nature, 50 sqft
+        // per box, $266.00), which is a different product and would be a
+        // dishonest stand-in. Stays unpriced until a real supplier is read.
         materialCostPerBundle: null,
       },
       cedar_shake: {
         label: "Cedar shake",
         pricePerSquare: 1150,
         labourFactor: 2.2,
+        // Coverage IS known — IRVING 16" Eastern White Cedar states 25 sqft
+        // per bundle at 5" exposure, so four bundles to a square — but the
+        // only cedar Home Depot Canada stocks is WALLGRADE ($143.98), which
+        // is a siding shingle and must not be sold as a roof. The quantity is
+        // right; the price stays null until a roof-grade supplier is read.
+        bundlesPerSquare: 4,
         materialCostPerBundle: null,
       },
       membrane_flat: {
         label: "EPDM / modified bitumen (low slope)",
         pricePerSquare: 750,
         labourFactor: 1.3,
-        materialCostPerBundle: null,
+        // GAF Liberty SBS Self-Adhering Cap Sheet, 3 ft x 34 ft = 100 sqft,
+        // $146.00 — Home Depot Canada, read 25 Aug 2026. One roll to a square.
+        // This is the CAP sheet only; a two-ply system also needs a base sheet
+        // (GAF #75 Tri-Ply, 300 sqft, $99.96), which this bill does not yet
+        // carry — so a two-ply job is under-costed by about $33 a square and
+        // an estimator should say so rather than trust this line alone.
+        bundlesPerSquare: 1,
+        materialCostPerBundle: 146,
       },
     },
     defaultMaterial: "asphalt_arch",
@@ -1127,30 +1162,74 @@ export const TRADE_PRICE_BOOKS = {
     // against real production rates.
     labour: { ...ROOF_LABOUR_DEFAULTS },
 
-    // What the materials COST. Internal only.
+    // How much MORE material to buy than the roof measures.
     //
-    // Every one of these is NULL, and that is the honest state: no supplier
-    // pricing was read for roofing. A bill of materials with quantities and no
-    // prices is useful — it is the sourcing list — and a bill costed at zero is
-    // worse than useless, because it tells the margin panel the shingles were
-    // free. Filling one in is one edit on the rate card.
+    // 10% is the owner's number, and it is a QUANTITY factor, not a price one —
+    // lib/costing/tradeMaterials.js multiplies the squares and the linear feet
+    // by it, and never touches a unit cost. Burying the same 10% in the dollar
+    // figures would make the sourcing list and the cost panel disagree about
+    // how many bundles to buy, and the yard loads the truck from the list.
     //
-    // The packaging above them is NOT null, because packaging is product spec:
-    // three bundles to a square is three bundles to a square wherever you buy.
+    // It is on the rate card because a plain gable and a cut-up hip roof waste
+    // very different amounts, and the company knows which it does.
+    wastePct: 0.1,
+
+    // What the materials COST. Internal only — this drives the margin panel
+    // and the job's sourcing list, and never appears on anything a client
+    // reads.
+    //
+    // ── Home Depot Canada, Gatineau store, read 25 August 2026 ─────────────
+    //
+    // Retail, not a contractor account. That is the point of stating the SKU:
+    // a roofer with a supplier account will be under these, and can see by how
+    // much rather than being handed an anonymous number to trust. Two lines
+    // are still null and say why.
     materialCosts: {
-      underlaymentPerRoll: null,
-      iceWaterPerRoll: null,
-      dripEdgePerLength: null,
-      starterPerBundle: null,
-      ridgeCapPerBundle: null,
-      ridgeVentPerSection: null,
-      stepFlashingPerBox: null,
-      ventBootEach: null,
-      boxVentEach: null,
-      skylightKitEach: null,
+      // GAF FeltBuster, 1,000 sqft synthetic roll. OC ProArmor is the same
+      // 1,000 sqft at $105.00 and OC RhinoRoof U20 works out to $79.28 per
+      // 1,000 — this is the top of a $79–$151 band, deliberately, because
+      // FeltBuster is the one an estimator is most likely to actually buy.
+      underlaymentPerRoll: 151,
+      // GAF WeatherWatch mineral-surfaced leak barrier, 200 sqft. GAF
+      // StormGuard ($119.00) and OC WeatherLock G ($118.00) are the same
+      // 200 sqft, so the band is $98–$119 and this is the bottom of it.
+      iceWaterPerRoll: 97.96,
+      // Peak Gutters 2" x 1-3/4" x 3/8" 29-gauge steel drip edge, black
+      // (model 8553). The listing does not state the length; the product
+      // page's own Q&A does — 10 feet — which is why the constant stands.
+      dripEdgePerLength: 14.06,
+      // GAF Pro-Start, 120 linear feet. See ROOF_PACKAGING: this is what moved
+      // starterFtPerBundle off 100.
+      starterPerBundle: 57.6,
+      // GAF Seal-A-Ridge Charcoal, 25 linear feet per bundle (45 pieces).
+      ridgeCapPerBundle: 63.82,
+      // GAF Snow Country Advanced filtered ridge exhaust vent, 11.5" x 48".
+      ridgeVentPerSection: 26.24,
+      // Peak Gutters step flashing, 3" x 4" x 10.5", galvanized — sold ONE AT
+      // A TIME, which is why the packaging constant is now pieces per foot
+      // rather than a box of 100 that nobody sells.
+      stepFlashingEach: 3.29,
+      // Perma-Boot 3", the size that suits a standard 3" plumbing stack.
+      ventBootEach: 29.69,
+      // GAF Master Flow 50 sq. in. NFA aluminum square-top roof vent.
+      boxVentEach: 30.54,
+      // VELUX EDL engineered step flashing kit for deck-mount skylights,
+      // C01–C06. The curb-mount ECL kit is $164.00.
+      skylightKitEach: 188,
+      // NULL on purpose. Home Depot Canada sells no chimney flashing kit —
+      // chimney work here is bent from coil stock and counter-flashed into the
+      // masonry, which is a labour line, not a part number. The quote already
+      // prices it at penetrations.chimney; this is only the material half, and
+      // inventing a figure for it would be worse than leaving the line
+      // uncosted and counted.
       chimneyFlashingEach: null,
-      deckSheetEach: null,
-      nailBoxEach: null,
+      // 1/2" x 4 ft x 8 ft standard spruce plywood — the usual re-sheet over
+      // rotten deck. 5/8" is $50.98 if the framing is 24" o.c.
+      deckSheetEach: 39.98,
+      // Everbilt 1-1/4" x .120 electro-galvanized coil roofing nails, 7,200
+      // pieces. DEWALT's identical 7,200 count is $79.98. At the 6-nail
+      // high-wind pattern a box is 15 squares, which is squaresPerNailBox.
+      nailBoxEach: 55.98,
     },
   },
 
@@ -1184,37 +1263,64 @@ export const TRADE_PRICE_BOOKS = {
         label: "Vinyl siding",
         pricePerSqft: 6,
         labourFactor: 1,
-        materialCostPerBox: null,
+        // ABTCO Cedar Creek (D4D) Double Dutchlap, 4" x 150" panel — Home
+        // Depot Canada (Gatineau), read 25 Aug 2026, listed at $1.31 / sq. ft.
+        // ($10.94 a piece). x 200 sqft to the box = $262.
+        //
+        // The x200 is packaging, not a guess: ABTCO TimberCrest Plus D4.5D
+        // ships 22 panels of 4.5" double x 145.5", which is 200.1 sqft, at
+        // $625.00 a box. So the real vinyl band here is $262–$625 a box, or
+        // $1.31–$3.13 a square foot, and builder-grade is what a $6/sqft
+        // installed rate assumes. A company selling the premium line edits
+        // this first.
+        materialCostPerBox: 262,
       },
       aluminum: {
         label: "Aluminum siding",
         pricePerSqft: 7,
         labourFactor: 1.1,
+        // NULL: Home Depot Canada's "Metal Siding" category holds exactly one
+        // product, a starter strip. There is no aluminum cladding to price.
         materialCostPerBox: null,
       },
       fiber_cement: {
         label: "Fibre cement",
         pricePerSqft: 9,
         labourFactor: 1.6,
+        // NULL: no fibre cement plank is stocked at Home Depot Canada. It is
+        // a lumberyard order here, and no lumberyard was read.
         materialCostPerBox: null,
       },
       cedar: {
         label: "Cedar",
         pricePerSqft: 12,
         labourFactor: 1.7,
-        materialCostPerBox: null,
+        // IRVING 16" Wallgrade Eastern White Cedar Shingles, $143.98 — Home
+        // Depot Canada, read 25 Aug 2026. The product page states each bundle
+        // covers 25 sqft at 5" exposure, so the box here is 25, not 200.
+        sqftPerBox: 25,
+        materialCostPerBox: 143.98,
       },
       engineered_wood: {
         label: "Engineered wood",
         pricePerSqft: 8,
         labourFactor: 1.3,
-        materialCostPerBox: null,
+        // LP SmartSide 38 Series Cedar Texture, 8" o.c. panel, 4 ft x 8 ft,
+        // $64.88 — Home Depot Canada, read 25 Aug 2026. A sheet is 32 sqft.
+        sqftPerBox: 32,
+        materialCostPerBox: 64.88,
       },
       stone_veneer: {
         label: "Stone or brick veneer",
         pricePerSqft: 17,
         labourFactor: 2.4,
-        materialCostPerBox: null,
+        // Novik NovikStone SK Stacked Stone in Onyx, 10 panels per box,
+        // 49.32 sqft per box, $298.00 — Home Depot Canada, read 25 Aug 2026,
+        // i.e. $6.04/sqft. The same range runs to $8.66/sqft (NovikStone DS,
+        // 25.18 sqft at $218.00), so the cheap end is the default and the
+        // spread is the profile, not the supplier.
+        sqftPerBox: 49.32,
+        materialCostPerBox: 298,
       },
     },
     defaultMaterial: "vinyl",
@@ -1241,14 +1347,33 @@ export const TRADE_PRICE_BOOKS = {
     // tradeLabourHours(), not decoration.
     labourHoursPerSqft: 0.032,
 
-    // What the materials COST. Internal only, and all null for the same reason
-    // as roofing: no supplier pricing was read. See that note.
+    // What the materials COST. Internal only. Home Depot Canada, Gatineau
+    // store, read 25 August 2026 — same caveat as roofing: this is retail, and
+    // a sider with an account will be under it.
     materialCosts: {
-      housewrapPerRoll: null,
-      trimPerLength: null,
-      fasciaPerLength: null,
-      soffitPerSqft: null,
-      deckSheetEach: null,
+      // DuPont Tyvek HomeWrap, 9 ft x 100 ft = 900 sqft. This is what moved
+      // SIDING_PACKAGING.housewrapSqftPerRoll off an invented 1,350: the roll
+      // that constant described is not sold here. The house-brand 10 x 100
+      // (1,000 sqft) is $139.00, so the two agree to within 2% per square foot.
+      housewrapPerRoll: 137,
+      // ABTCO J-Channel, 5/8" x 150" white — 12.5 ft, which is what moved
+      // trimFtPerLength off 12.
+      trimPerLength: 9.78,
+      // Peak Gutters aluminum fascia cover, 10 ft x 6" x 1", white. The 8"
+      // profile is $32.59. Fascia used to borrow the trim length; it is a
+      // 10 ft piece and now has its own constant.
+      fasciaPerLength: 28.23,
+      // ABTCO Perforated Soffit, 16" x 144" = 16 sqft at $22.96, so $1.44/sqft.
+      // Vented rather than solid on purpose — a soffit that does not breathe
+      // is how the attic job above it fails. Solid (ABTCO D5) is listed
+      // directly at $1.30/sqft, and the 12-piece box works out to $1.48.
+      soffitPerSqft: 1.44,
+      // Same 1/2" 4x8 spruce plywood as the roofing book, and deliberately the
+      // same number: it is the same sheet off the same rack.
+      deckSheetEach: 39.98,
+      // NULL: no siding-nail SKU was read. Home Depot Canada's roofing coil
+      // nail is the wrong fastener for cladding and would be a stand-in, not
+      // a source.
       fastenersPerSquare: null,
     },
   },
@@ -1325,8 +1450,32 @@ export const TRADE_PRICE_BOOKS = {
         // by the R per inch that is square-foot-inches, which is the unit the
         // depth engine already works in. Editable because it is the bag's
         // number and it varies by product — check the bag.
-        sqftInchesPerBag: 400,
-        materialCostPerBag: null,
+        //
+        // WAS 400. Owens Corning AttiCat prints TWO coverage points on the
+        // bag — "R-40 (14.6") = 47.4 ft² / R-80 (28.5") = 22.3 ft²" — which
+        // are 692 and 636 square-foot-inches. They disagree by 8% because
+        // blown fibreglass settles differently at depth; 692 is the shallower
+        // and therefore the conservative one for an attic top-up.
+        //
+        // Note AttiCat's own numbers imply 2.74–2.81 R per inch against the
+        // 2.5 kept above. Leaving 2.5 makes the depth engine ask for ~10%
+        // more inches than OC would, which over-orders slightly. That is the
+        // right direction to be wrong on a cost panel, and rPerInch stays a
+        // published generic figure rather than one brand's.
+        sqftInchesPerBag: 692,
+        // Owens Corning AttiCat Expanding PINK FIBERGLAS, $93.20 a bag —
+        // Home Depot Canada (Gatineau), read 25 Aug 2026. Blower rental is
+        // extra and is not in this bill.
+        //
+        // READ THIS BEFORE "FIXING" IT: at $93.20 a bag, a 1,200 sqft attic to
+        // R60 costs about $3,900 in material against an installed sell of
+        // $2,448 at the rate above. The cost panel will show that job losing
+        // money, and it is RIGHT to: AttiCat is a DIY bag, and no insulator
+        // buys blowing wool at Home Depot retail — they buy it by the pallet
+        // from an insulation supplier at a fraction of this. This number is a
+        // real, traceable ceiling, not a working cost, and it is the first
+        // line an insulation contractor should replace with their own invoice.
+        materialCostPerBag: 93.2,
         installedPerSqftPerR: 0.034,
         hoursPerSqft: 0.002,
         hoursPerSqftPerInch: 0.0004,
@@ -1334,8 +1483,15 @@ export const TRADE_PRICE_BOOKS = {
       blown_cellulose: {
         label: "Blown cellulose",
         rPerInch: 3.5,
-        sqftInchesPerBag: 300,
-        materialCostPerBag: null,
+        // WAS 300. Greenfiber SANCTUARY states "Covers 14 sq. ft. per 25 lbs
+        // bag at recommended R-50 (18.6 sq ft @ R40)". At the product's own
+        // 3.7 R per inch those are 13.5" over 14 sqft (189 sqft-inches) and
+        // 10.8" over 18.6 sqft (201). 195 is the midpoint of the bag's own
+        // two statements, not a round number picked between them.
+        sqftInchesPerBag: 195,
+        // Greenfiber SANCTUARY Cellulose Blown-In, $17.96 a bag — Home Depot
+        // Canada, read 25 Aug 2026. Soprema Sopra-Cellulose is $16.40.
+        materialCostPerBag: 17.96,
         installedPerSqftPerR: 0.04,
         hoursPerSqft: 0.002,
         hoursPerSqftPerInch: 0.0004,
@@ -1346,8 +1502,16 @@ export const TRADE_PRICE_BOOKS = {
         // A bundle covers less as it gets thicker. One figure per material is
         // the simplification here, and it is the first thing to correct against
         // the product actually being installed.
-        sqftPerBundle: 60,
-        materialCostPerBundle: null,
+        //
+        // WAS 60. Owens Corning R-20 PINK NEXT GEN, 15" x 47" x 6", is 78.3
+        // sqft — the standard 2x6 wall batt at 16" o.c., which is what an
+        // Ontario sider or renovator is putting in. The range across the shelf
+        // is wide (R-12 at 15x47 is 97.9 sqft, R-24 is 33.7), which is exactly
+        // the simplification the comment above warns about.
+        sqftPerBundle: 78.3,
+        // $57.83 a bundle — Home Depot Canada, read 25 Aug 2026, for that same
+        // R-20 15x47x6 bag. $0.74 per square foot.
+        materialCostPerBundle: 57.83,
         needsVapourBarrier: true,
         installedPerSqftPerR: 0.045,
         hoursPerSqft: 0.012,
@@ -1356,8 +1520,14 @@ export const TRADE_PRICE_BOOKS = {
       batt_stone_wool: {
         label: "Stone wool batt",
         rPerInch: 4.1,
-        sqftPerBundle: 50,
-        materialCostPerBundle: null,
+        // WAS 50. ROCKWOOL R22 Comfortbatt for 2x6 wood stud at 16" o.c. is
+        // 39.8 sqft a bundle (15.25" x 47" x 5.5"). The 24" o.c. bundle is
+        // 37.5 and R14 for 2x4 is 59.7 — same caveat as fibreglass above.
+        sqftPerBundle: 39.8,
+        // $115.91 a bundle — Home Depot Canada, read 25 Aug 2026. $2.91 per
+        // square foot, four times the fibreglass, which is the real reason
+        // stone wool loses jobs it deserves to win.
+        materialCostPerBundle: 115.91,
         needsVapourBarrier: true,
         installedPerSqftPerR: 0.062,
         hoursPerSqft: 0.014,
@@ -1370,6 +1540,10 @@ export const TRADE_PRICE_BOOKS = {
         // one inch thick, so the depth engine and the purchase order already
         // speak the same unit.
         boardFeetPerSet: 16000,
+        // NULL. Home Depot Canada's spray foam aisle is single cans — the
+        // largest is a 30 oz Boom at $18.60, which is a gap filler, not the
+        // rig a 16,000 board-foot set describes. Pricing a set off a can would
+        // be a unit conversion between two different products.
         materialCostPerSet: null,
         // CANADIAN, and Toronto-anchored. See the note below.
         installedPerSqftPerR: 0.28,
@@ -1385,6 +1559,7 @@ export const TRADE_PRICE_BOOKS = {
         label: "Closed-cell spray foam",
         rPerInch: 6.5,
         boardFeetPerSet: 4000,
+        // NULL, for the same reason as open cell above.
         materialCostPerSet: null,
         // CANADIAN, and Toronto-anchored. See the note below.
         installedPerSqftPerR: 0.33,
@@ -1395,8 +1570,14 @@ export const TRADE_PRICE_BOOKS = {
       rigid_board: {
         label: "Rigid board — XPS or polyiso",
         rPerInch: 5,
+        // A 4x8 sheet is 32 sqft — confirmed against Owens Corning FOAMULAR
+        // NGX CodeBord XPS 1" x 48" x 96" R-5. Unchanged.
         sqftPerSheet: 32,
-        materialCostPerSheet: null,
+        // $62.40 a sheet — Home Depot Canada, read 25 Aug 2026. Note this is
+        // an R-5 (1") sheet against the rPerInch 5 above, so one sheet is one
+        // inch: a company using 2" board (R-10, $125.00) buys half as many
+        // sheets at twice the price and should edit both.
+        materialCostPerSheet: 62.4,
         installedPerSqftPerR: 0.09,
         hoursPerSqft: 0.018,
         hoursPerSqftPerInch: 0.0008,
@@ -1408,6 +1589,9 @@ export const TRADE_PRICE_BOOKS = {
       radiant_barrier: {
         label: "Foil radiant barrier",
         rPerInch: 0,
+        // NULL: Home Depot Canada shelves foil under a different category and
+        // none was read. Left unsourced rather than borrowed from the sell
+        // price above it.
         materialCostPerSqft: null,
         pricePerSqft: 1.2,
         hoursPerSqft: 0.01,
@@ -1432,14 +1616,20 @@ export const TRADE_PRICE_BOOKS = {
 
     labour: { ...INSULATION_LABOUR_DEFAULTS },
 
+    // Confirmed: Everbilt 6 mil vapour barrier is stocked as 10' x 100'.
     packaging: { vapourBarrierSqftPerRoll: 1000 },
 
-    // What the materials COST. Internal only, all null — no supplier pricing
-    // was read. The PACKAGING on each material above is not null, because how
-    // much a bag or a set covers is the product's own number.
+    // What the materials COST. Internal only. Home Depot Canada, Gatineau
+    // store, read 25 August 2026.
     materialCosts: {
-      vapourBarrierPerRoll: null,
-      bafflePerUnit: null,
+      // Everbilt 10' x 100' (1,000 sqft) CCMC-evaluated 6 mil vapour barrier.
+      vapourBarrierPerRoll: 92.96,
+      // Owens Corning Raft-R-Mate rigid XPS attic rafter vent, 22.5" x 48".
+      bafflePerUnit: 2.3,
+      // NULL. The bill asks for a CASE per 500 sqft of air sealing; Home Depot
+      // Canada sells single cans (GREAT STUFF Pro at $16.80–$21.92) and a
+      // two-pack, never a case. Multiplying a can by twelve would be inventing
+      // a pack size, so this stays uncosted and counted.
       airSealCasePerUnit: null,
     },
   },
@@ -2468,10 +2658,10 @@ export const PRICE_BOOK_FIELDS = {
       group: "roofMaterialCost",
     },
     {
-      path: "materialCosts.stepFlashingPerBox",
+      path: "materialCosts.stepFlashingEach",
       label: "Step flashing",
-      suffix: "$ / box of 100",
-      step: 5,
+      suffix: "$ each",
+      step: 0.5,
       group: "roofMaterialCost",
     },
     {
@@ -2514,6 +2704,15 @@ export const PRICE_BOOK_FIELDS = {
       label: "Roofing nails",
       suffix: "$ / box",
       step: 5,
+      group: "roofMaterialCost",
+    },
+    // Editable on purpose: it moves the QUANTITY on every measured line, which
+    // is a different lever from any of the prices above it.
+    {
+      path: "wastePct",
+      label: "Waste — extra material ordered over the measured roof",
+      suffix: "share of the takeoff",
+      step: 0.01,
       group: "roofMaterialCost",
     },
   ],
@@ -2613,42 +2812,42 @@ export const PRICE_BOOK_FIELDS = {
     {
       path: "materials.cedar.materialCostPerBox",
       label: "Cedar",
-      suffix: "$ / box (200 sqft)",
+      suffix: "$ / bundle (25 sqft)",
       step: 5,
       group: "sidingMaterialCost",
     },
     {
       path: "materials.engineered_wood.materialCostPerBox",
       label: "Engineered wood",
-      suffix: "$ / box (200 sqft)",
+      suffix: "$ / 4x8 panel (32 sqft)",
       step: 5,
       group: "sidingMaterialCost",
     },
     {
       path: "materials.stone_veneer.materialCostPerBox",
       label: "Stone or brick veneer",
-      suffix: "$ / box (200 sqft)",
+      suffix: "$ / box (49 sqft)",
       step: 5,
       group: "sidingMaterialCost",
     },
     {
       path: "materialCosts.housewrapPerRoll",
       label: "House wrap",
-      suffix: "$ / roll (1,350 sqft)",
+      suffix: "$ / roll (900 sqft)",
       step: 5,
       group: "sidingMaterialCost",
     },
     {
       path: "materialCosts.trimPerLength",
       label: "Trim",
-      suffix: "$ / 12 ft length",
+      suffix: "$ / 12.5 ft length",
       step: 1,
       group: "sidingMaterialCost",
     },
     {
       path: "materialCosts.fasciaPerLength",
       label: "Fascia",
-      suffix: "$ / 12 ft length",
+      suffix: "$ / 10 ft length",
       step: 1,
       group: "sidingMaterialCost",
     },

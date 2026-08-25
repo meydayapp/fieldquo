@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 9 August 2026. **Update this file when you finish something.**
+Last updated: 25 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -35,7 +35,7 @@ secrets, `GOOGLE_MAPS_SERVER_KEY`, `CRON_SECRET`, the two JWT secrets, the
 `*.fieldquo.com` wildcard domain, three secrets to rotate, and the Resend DNS.
 
 **Cloudinary — "Allow delivery of PDF and ZIP files" (owner action, unverified).**
-Cloudinary blocks PDF *delivery* on new and free accounts. The upload returns
+Cloudinary blocks PDF _delivery_ on new and free accounts. The upload returns
 200 and the asset appears in the Media Library; the delivery URL then returns
 HTTP 401 forever. This affects two things at once: the client PDF-plan upload,
 and the quote/invoice PDFs the app already stores and links as `pdfUrl`
@@ -47,7 +47,7 @@ npm run check:cloudinary-pdf
 
 It uploads a throwaway PDF, fetches it back, prints PASS/FAIL and deletes the
 probe. It could NOT be run against the real account from this machine, because
-the local `.env` has `CLOUDINARY_CLOUD_NAME=fieldquo` — the API key's *label*,
+the local `.env` has `CLOUDINARY_CLOUD_NAME=fieldquo` — the API key's _label_,
 not the product-environment id — so every call fails with `Invalid cloud_name`
 before reaching the delivery question. Fix the local `.env` (or run it against
 the Vercel values), then run it. If it fails: Cloudinary console → Settings →
@@ -69,21 +69,21 @@ voice calls, bookings) with a speed-to-lead metric. Check whether `/app/leads`
 already covers most of this first. Needs a product decision on which
 marketplaces justify the integration cost.
 
-
 ### 1. AI phone agent / receptionist — built, first live test done
 
 Provider is **Retell**, platform-owned: FieldQuo holds one account and
 provisions an agent and a number per company, so a contractor never sees Retell.
 
 Built and checked:
-  * `lib/voice/retell.js` — the only file that talks to the vendor
-  * `lib/voice/numbers.js` — buy / **forward** / port. Forwarding is the
-    recommended default; read the header before changing that.
-  * `lib/voice/credits.js` — prepaid, 35¢/min local and 40¢ toll-free, priced
-    against Jobber's $0.79/conversation. Toll-free costs more BOTH ways.
-  * `lib/voice/prompt.js` — the guardrails. Never a price, never an unchecked
-    time, always admits to being an assistant.
-  * `/api/voice/webhook` — signature-verified, bills once per call.
+
+- `lib/voice/retell.js` — the only file that talks to the vendor
+- `lib/voice/numbers.js` — buy / **forward** / port. Forwarding is the
+  recommended default; read the header before changing that.
+- `lib/voice/credits.js` — prepaid, 35¢/min local and 40¢ toll-free, priced
+  against Jobber's $0.79/conversation. Toll-free costs more BOTH ways.
+- `lib/voice/prompt.js` — the guardrails. Never a price, never an unchecked
+  time, always admits to being an assistant.
+- `/api/voice/webhook` — signature-verified, bills once per call.
 
 Also built since: the settings screen (`/app/settings/voice`), number
 provisioning, Stripe top-ups, agent provisioning from the company's own data,
@@ -111,47 +111,48 @@ button); the port card promised an email nothing sends; and the crew inbox
 could be switched on against a number no text could reach.
 
 **Still to do:**
-  * **A port request reaches no one.** It writes a `VoicePhoneNumber` row and an
-    `ActivityLog` entry — both inside the company's own account. The platform
-    console reads `PlatformAuditLog`, a different table, and no email is sent.
-    So "a human has to action it" is currently "a human would have to already
-    know". It needs an ops queue or a notification before porting is offered as
-    a real option. A contractor can now at least *cancel* a request (DELETE on
-    `/api/settings/voice/number`, porting rows only — no provider call, no
-    money), which was the immediate problem: a port row matched the duplicate
-    guard, so every other setup path returned 409 and there was no way out.
-  * **The crew inbox has no wired inbound path.** `/api/crew/inbound` is a
-    Twilio SMS webhook, but numbers are bought from **Retell**, so they are not
-    in FieldQuo's Twilio account and Twilio will never post a text about them.
-    Nothing in the codebase configures an incoming number's SMS URL. Until that
-    is resolved the switch opens a door with no road to it. (It is also purely
-    inbound — enabling it sends nobody anything, which the screen now says.)
-  * A real call end to end, once `RETELL_API_KEY` and `RETELL_WEBHOOK_SECRET`
-    are in Vercel. Everything below the provider boundary has been exercised
-    with signed fixtures; nothing has yet spoken to Retell.
-  * ~~Monthly number rental is stored on the row and not yet billed.~~ **Done.**
-    The rental now debits the prepaid balance: the first month is reserved
-    BEFORE the number is bought (`lib/voice/spendGate.js`), and
-    `/api/cron/voice-rent` takes each month after against
-    `VoicePhoneNumber.rentPaidThroughAt`. Unpaid means a warning, a 7-day grace
-    period in which the number keeps working, then release — never a silent
-    disappearance. Every path that costs FieldQuo money goes through the one
-    gate; `npm run check:voice-spend` fails if a second one appears.
-  * Concurrency is NOT gated. The one Retell account has a shared
-    simultaneous-call ceiling (`/get-concurrency`), so one tenant's busy Monday
-    can make another's phone stop answering. Same class as the spend gate, but a
-    capacity limit rather than a money one — see the header of `spendGate.js`
-    for where it would go.
-  * SMS is not metered at all. Twilio bills FieldQuo per message for appointment
-    reminders, visit notifications and the crew inbox, and nothing charges for
-    it. Same shape as the rental leak was; it needs a price per message first,
-    which is a product decision.
-  * There is still no way for a contractor to RELEASE a LIVE number. Only the
-    rent-expiry path releases anything. The screen no longer leaves this
-    unanswered — a forwarded setup says "dial `##002#`", a bought one says to
-    get in touch and that releasing is permanent — but the self-serve control
-    needs a product decision first: releasing is an irreversible provider DELETE
-    and nobody has said what happens to the month already paid.
+
+- **A port request reaches no one.** It writes a `VoicePhoneNumber` row and an
+  `ActivityLog` entry — both inside the company's own account. The platform
+  console reads `PlatformAuditLog`, a different table, and no email is sent.
+  So "a human has to action it" is currently "a human would have to already
+  know". It needs an ops queue or a notification before porting is offered as
+  a real option. A contractor can now at least _cancel_ a request (DELETE on
+  `/api/settings/voice/number`, porting rows only — no provider call, no
+  money), which was the immediate problem: a port row matched the duplicate
+  guard, so every other setup path returned 409 and there was no way out.
+- **The crew inbox has no wired inbound path.** `/api/crew/inbound` is a
+  Twilio SMS webhook, but numbers are bought from **Retell**, so they are not
+  in FieldQuo's Twilio account and Twilio will never post a text about them.
+  Nothing in the codebase configures an incoming number's SMS URL. Until that
+  is resolved the switch opens a door with no road to it. (It is also purely
+  inbound — enabling it sends nobody anything, which the screen now says.)
+- A real call end to end, once `RETELL_API_KEY` and `RETELL_WEBHOOK_SECRET`
+  are in Vercel. Everything below the provider boundary has been exercised
+  with signed fixtures; nothing has yet spoken to Retell.
+- ~~Monthly number rental is stored on the row and not yet billed.~~ **Done.**
+  The rental now debits the prepaid balance: the first month is reserved
+  BEFORE the number is bought (`lib/voice/spendGate.js`), and
+  `/api/cron/voice-rent` takes each month after against
+  `VoicePhoneNumber.rentPaidThroughAt`. Unpaid means a warning, a 7-day grace
+  period in which the number keeps working, then release — never a silent
+  disappearance. Every path that costs FieldQuo money goes through the one
+  gate; `npm run check:voice-spend` fails if a second one appears.
+- Concurrency is NOT gated. The one Retell account has a shared
+  simultaneous-call ceiling (`/get-concurrency`), so one tenant's busy Monday
+  can make another's phone stop answering. Same class as the spend gate, but a
+  capacity limit rather than a money one — see the header of `spendGate.js`
+  for where it would go.
+- SMS is not metered at all. Twilio bills FieldQuo per message for appointment
+  reminders, visit notifications and the crew inbox, and nothing charges for
+  it. Same shape as the rental leak was; it needs a price per message first,
+  which is a product decision.
+- There is still no way for a contractor to RELEASE a LIVE number. Only the
+  rent-expiry path releases anything. The screen no longer leaves this
+  unanswered — a forwarded setup says "dial `##002#`", a bought one says to
+  get in touch and that releasing is permanent — but the self-serve control
+  needs a product decision first: releasing is an irreversible provider DELETE
+  and nobody has said what happens to the month already paid.
 
 **What it should do:** answer inbound calls, capture the caller's details,
 create a `Client` or `LeadRequest`, book a visit against real availability,
@@ -310,6 +311,7 @@ endpoint with a tampered POST.
   so a picker offering six languages can't imply an interface that isn't there.
   `npm run check:translations` reports coverage both ways and fails on a key the
   code references but the catalogue doesn't define.
+
 - `app/(marketing)` is **partly** extracted, not untouched as this line used to
   claim: the shared components (header, hero, FAQ, footer, pricing card) all use
   `t()` and are complete in six languages. The marketing PAGES — pricing, about,
@@ -318,6 +320,28 @@ endpoint with a tampered POST.
   "up from 31% last month". Either compute the prior period or change the copy.
 - The gallery block ships empty by design (no stock photos). Consider pulling
   job photos from completed jobs as suggestions — the data is there.
+- **Affirm's own "from $X/mo" messaging on the quote page — a product decision,
+  not a bug.** A figure quoted by the party who will honour it beats one we
+  compute, so this would be strictly better than the contractor-stated estimate
+  now on `/q/[token]`. It is not wired, and wiring it is not free. Stripe's
+  Payment Method Messaging Element runs in the BROWSER: it needs `@stripe/stripe-js`
+  as a dependency, a `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (the deployment has
+  only `STRIPE_SECRET_KEY` and two webhook secrets — see VERCEL.md), and a
+  third-party script loading on a public page a stranger opens in a driveway on
+  a bad connection. Two harder problems sit behind that. Affirm has to be
+  ACTIVATED on the contractor's connected account, which `lib/stripe.js` already
+  documents it cannot verify from code — hence the try-with-Affirm/fall-back-to-card
+  dance at checkout — so the element would render nothing for an unknown share of
+  companies, and a financing block that is present for one contractor and absent
+  for another with the same settings is the dead-control failure wearing a
+  vendor's logo. And at quote time there is no PaymentIntent and no Stripe
+  object at all: the amount would have to be handed to Stripe's client SDK from
+  the page, on a surface built so the browser never carries authoritative money.
+  **Where Affirm's own terms already reach the homeowner today:** Stripe Checkout,
+  at invoice payment, when `offerFinancing` is on and the amount is inside
+  Affirm's ~$50–$30,000 band. That is why the quote-page wording defers the real
+  rate, payment and approval to the provider rather than pretending to settle
+  them.
 
 ---
 
@@ -334,7 +358,7 @@ and the time clock. So a company can learn "this job took 40 hours" and can
 free-form JSON, which is the closest thing to a task taxonomy we have.
 
 This is the **longest-lead, lowest-visibility** item in the whole roadmap: the
-data has to be captured against a structured task taxonomy *before* it
+data has to be captured against a structured task taxonomy _before_ it
 accumulates, or a year of actuals is worthless. It should be done before the
 labour seeds, not after. The catalogue keys in `app/data/*Catalog.js` are the
 natural taxonomy — join to those rather than inventing a second one.
@@ -345,10 +369,10 @@ partners → **ship no seed at all** and require the contractor to enter their o
 hour before a task is usable. All three are honest; the third also bootstraps 7a.
 
 **7c. Let actuals displace the seeds.** `contractor_factor` starts at 1.0 and
-shrinks toward the tenant's observed ratio as *n* grows, pooled at task-*family*
+shrinks toward the tenant's observed ratio as _n_ grows, pooled at task-_family_
 level so it's useful after 20 jobs rather than 2,000. **Show provenance in the
-UI** — *Seeded — industry default* vs *Your average over 14 jobs* vs *Your
-average, 3 jobs — low confidence*. Absence of a contractor's data is not a
+UI** — _Seeded — industry default_ vs _Your average over 14 jobs_ vs _Your
+average, 3 jobs — low confidence_. Absence of a contractor's data is not a
 statement about their speed. **Never cross tenants** (non-negotiable #8).
 
 **Owner action, gates 7b: contact Craftsman Book Company** (ben@costbook.com).
@@ -368,6 +392,89 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **The quote email carries the quote, and a section that is on but empty can
+  no longer be sent.**
+
+  `lib/email/quoteEmail.js`, `lib/email/quoteSections.js`,
+  `lib/quotes/emailSections.js`, `app/api/quotes/[id]/send/route.js`,
+  `app/api/quotes/[id]/email-sections/route.js`,
+  `app/api/settings/quote-email/route.js`,
+  `app/app/settings/quote-email/page.js`,
+  `scripts/check-quote-email-sections.mjs`.
+
+  The quote email was a greeting, a total and a button, on the argument that
+  "the link is the point". That argument is preserved in the file header
+  because it is not wrong — it lost to what contractors coming from their own
+  hand-built systems were already sending. It now carries the scope breakdown
+  per service, what's included, the process steps with their published
+  timelines, and "what could change this price" where the trade declares one —
+  all from `lib/documents/serviceContent.js`, none of it newly written copy.
+  The approve button keeps primacy by ORDER: directly under the total, above
+  every word of detail, and repeated once at the end.
+
+  Two sections are optional and per-quote: references (past clients who agreed
+  to take a call) and before/after photo pairs, defaulted from company
+  settings with a three-state per-quote override — `null` means "follow the
+  company default", so switching it on later reaches the drafts already in the
+  pipeline.
+
+  **The rule worth knowing before touching any send path:** a section that is
+  included and empty is never sent, and never silently dropped either. It is
+  enforced twice — `POST /api/quotes/[id]/send` answers 409 with the blocked
+  sections and both ways out (fill it, or take it off this quote), and
+  `buildQuoteEmail` throws `QuoteEmailSectionsIncomplete` so a send path
+  written next month fails loudly instead of posting a heading over a blank
+  space. `assertSectionFieldsLoaded` catches the subtler version: a Prisma
+  select that forgot the columns, where `Boolean(undefined)` would have turned
+  the section off for every quote that route sends.
+
+  A financing block has a marked seam in `quoteEmail.js` (`FINANCING_SEAM`)
+  and renders nothing — a marker, deliberately not a flag for a feature that
+  does not exist yet.
+
+- **Roofing, siding and insulation materials have real prices, and reading
+  them moved six packaging constants.**
+
+  `app/data/tradePriceBooks.js`, `lib/costing/tradeMaterials.js`,
+  `scripts/check-trade-labour.mjs`.
+
+  Home Depot Canada, Gatineau store, read 25 August 2026. Every figure names
+  its SKU and its coverage in the comment above it, the same way the paving
+  block cites Greely Sand and Manotick Gardens. Retail, not a contractor
+  account — stated so, so a company can see how far under it they buy.
+
+  1. **Reading real products corrected six constants that were invented.**
+     Starter strip is 120 linear feet a bundle (GAF Pro-Start), not 100. Hip
+     and ridge is 25 (GAF Seal-A-Ridge), not 20. House wrap is a 900 sqft
+     Tyvek roll, not the 9' x 150' = 1,350 sqft roll nobody sells here — that
+     one had been under-ordering wrap by a third. Vinyl J-channel is 12.5 ft,
+     not 12; aluminum fascia is 10 ft and now has its own constant instead of
+     borrowing the trim one. Step flashing is not sold in a "box of 100" at
+     all — it is a piece at a time, and the count follows the shingle exposure.
+     Blown-insulation bag coverage was 400 and 300 square-foot-inches against
+     692 and 195 printed on the actual bags.
+  2. **Waste is a QUANTITY factor, on the rate card, never in the price.**
+     `roofing_service.wastePct` is 0.1, applied to squares and linear feet
+     before the packaging round-up. Folding it into the dollar figures would
+     make the sourcing list and the cost panel disagree about how many bundles
+     to buy, and the yard loads the truck from the list. Counted things —
+     vents, boots, skylights, deck sheets — are deliberately not wasted.
+  3. **Packaging is per-material where the product says so.** Metal panel is
+     4.3 to a square and low-slope membrane is 1, not 3; stone veneer is a
+     49 sqft box and a SmartSide panel is 32, not the 200 sqft vinyl default.
+     Ordering 3 bundles a square of standing-seam would have bought a third
+     more roof than exists.
+  4. **What is still null, and why, is written down at each line.** Standing
+     seam and fibre cement are not stocked; aluminum siding's whole category
+     holds one starter strip; roof-grade cedar is not sold (only wall grade,
+     so the COVERAGE is set and the price is not); chimney flashing is bent
+     from coil on site and has no part number; spray-foam sets and air-sealing
+     cases are pack sizes Home Depot does not sell.
+  5. **One number looks like a bug and is not.** AttiCat at $93.20 a bag makes
+     a 1,200 sqft attic cost more in material than the book sells it for. That
+     is true at retail and false for anyone with an insulation supplier, and
+     the comment says so rather than letting the next reader "fix" it.
 
 - **`check:settings-access` passes again, and it was hiding a real gap.**
 
@@ -543,10 +650,12 @@ they set the pattern.
      Gardens lists $45.00 independently. Delivery is carried per LOAD, not
      smeared per yard — the fixed-cost lesson, arriving in the material this
      time.
-  2. **Roofing, siding and insulation unit costs ship NULL.** No supplier
-     pricing was read, so a line has a quantity and no money, is flagged
-     `unpriced`, and the panel says "N materials have no price set, so this is
-     an understatement and the real margin is lower". Costing shingles at zero
+  2. **Roofing, siding and insulation unit costs shipped NULL.** Superseded —
+     they were read off Home Depot Canada on 25 Aug 2026; see the newest entry
+     in Recently completed. The MECHANISM is unchanged and still matters: a
+     line with no price has a quantity and no money, is flagged `unpriced`, and
+     the panel says "N materials have no price set, so this is an
+     understatement and the real margin is lower". Costing shingles at zero
      would put the biggest input in a roofing job into the margin as free.
   3. **The bill returns NO labour.** These trades already answer "how long"
      through `tradeLabourHours`, which the quote page adds separately. Returning
@@ -757,7 +866,7 @@ they set the pattern.
   `middleware.js`). It only fires when there is genuinely no active Member row,
   so a member whose company is merely broken is never invited to create a second
   one. **Resume**: /signup separates "signed in with a company" (adding a
-  business) from "signed in without one" (abandoned signup) by the *status* of
+  business) from "signed in without one" (abandoned signup) by the _status_ of
   `/api/settings/business-info` — 401 specifically, never any other failure —
   and starts at the right step with copy that doesn't promise an account they
   already have. The in-progress form lives in `sessionStorage` (per tab, dies
@@ -783,7 +892,7 @@ they set the pattern.
   list pages named in the check script's `GOVERNED` array.
 
   The bug: `/app/clients` on a 401 rendered "0 clients total.", a red
-  "Couldn't load clients." *and* "No clients yet / Add your first client", all
+  "Couldn't load clients." _and_ "No clients yet / Add your first client", all
   at once. Two of those three are false — the app was refused, it does not know
   the count — and the empty panel is the one people believe. The realistic harm
   is a contractor with a full client list starting to re-type it.
@@ -848,24 +957,24 @@ they set the pattern.
 - **Three small settings jobs: share a referral by text, changelog posts, and a
   back link that tells the truth.**
 
-  *Refer & Earn* now hands the invite to the user's own messaging app.
+  _Refer & Earn_ now hands the invite to the user's own messaging app.
   `lib/share/messagingLinks.js` is the only place that knows `sms:` needs `&`
   on iOS and `?` on Android, and it is the only UA sniff in the flow — whether
   the button appears at all is a media query (`hover: none` + `pointer:
-  coarse`), read through `useMessagingCapability()` so there is no
+coarse`), read through `useMessagingCapability()` so there is no
   setState-in-effect flicker. On a desktop the Text button is absent rather
   than dead; WhatsApp stays, because `wa.me` genuinely works there. The body is
   URL-encoded (an unencoded referral URL truncates the message at its first
   `&`) and now comes from the message catalogue instead of a hardcoded English
   string. `npm run check:share` runs the maths.
 
-  *Product Updates* entries can carry an optional `slug` + `post` and render at
+  _Product Updates_ entries can carry an optional `slug` + `post` and render at
   `/app/settings/product-updates/<slug>`. Still a data file, not a model — see
   the header of `lib/data/productUpdates.js`. The "Read the full update" link
   renders from `hasPost()`, so an entry can't advertise a post nobody wrote;
   `npm run check:updates` enforces the pairing, slug uniqueness and ordering.
 
-  *Drill-down back bar* (`app/components/settings/SettingsDrillDown.js`,
+  _Drill-down back bar_ (`app/components/settings/SettingsDrillDown.js`,
   mounted by the settings layout). Settings pages are siblings, not a tree, so
   a fixed parent link would lie on every visit that started from the sidebar.
   The bar needs both a claim from the link that was clicked AND a matching
@@ -974,7 +1083,7 @@ they set the pattern.
 
   **Left:** `lib/apiMember.js` (`memberOrRefusal`) exists because an uncaught
   throw from `getCurrentMember` becomes a Next 500 — which means the billing
-  gate's carefully chosen 402 has *never* reached a browser on the ~145 routes
+  gate's carefully chosen 402 has _never_ reached a browser on the ~145 routes
   that still call `getCurrentMember` directly. Only the 22 feature-gated routes
   were converted, because the registry keeps those honest. The rest is a
   mechanical follow-up.
@@ -983,8 +1092,8 @@ they set the pattern.
   `npm run check:instant-exits`). Every estimator assumed `config.materials` was
   an array of objects and `config.tiers` was iterable, and threw when neither
   held — a saved `materials: [null]` was a `TypeError`, i.e. a 500 on a page a
-  stranger loads in a driveway. `sanitiseInstantConfig` had made the *public
-  routes* safe by normalising at the boundary, but the assumption itself still
+  stranger loads in a driveway. `sanitiseInstantConfig` had made the _public
+  routes_ safe by normalising at the boundary, but the assumption itself still
   lived in the estimators, so the guarantee only held for callers who knew the
   boundary helper existed. One `configList()` inside the module now backs every
   list read, and the exits check runs the hostile configs a second time straight
@@ -1002,8 +1111,8 @@ they set the pattern.
     sub-linear in floor area (`sqft^0.59`) — every published guide applies a flat
     multiplier and over-buys ~35% of the cable at 3,000 sq ft.
   - **It returns a range and refuses to return a number.** Five required intake
-    facts, `codeJurisdiction` among them with **no default**; missing *or
-    invalid* gives `typical: null` plus a `needsIntake` list, so no UI can render
+    facts, `codeJurisdiction` among them with **no default**; missing _or
+    invalid_ gives `typical: null` plus a `needsIntake` list, so no UI can render
     a single price from square footage alone. Copy this gate for any estimator
     where the unknowns swing the answer more than the knowns.
   - **Jurisdiction is a first-class input.** CEC 26-712's split-receptacle rule
@@ -1194,6 +1303,21 @@ they set the pattern.
   company has financing enabled, the financing block moves up under the figure
   — position only, never a new claim, and provably nothing at all when
   financing is off. Budget and photos are now both required to submit.
+- **Monthly instalment estimate on the client's quote**
+  (`lib/financing/monthlyEstimate.js`, `/q/[token]`,
+  `npm run check:financing-estimate`) — the owner wanted the "$X/month" figure
+  the old cabinet site showed. `lib/estimate/financing.js` had refused to
+  compute one, correctly: at a hardcoded 15% APR it is a term the CONTRACTOR is
+  held to that nobody at the contractor agreed. The objection is about *whose*
+  terms they are, so the company now types its own APR and term into the
+  financing card on `/app/settings/instant-quotes`, and only then does a monthly
+  figure appear — labelled an estimate on their stated terms, with the real ones
+  left to the provider at application. **There is no default APR and no default
+  term**; a company that states neither shows no number, forever. The maths is
+  pure and executed against hostile input by the check (0% APR divides rather
+  than dividing by zero; a sub-cent instalment shows nothing rather than
+  "$0.00"). Not yet decided: whether to add Stripe.js + a publishable key so the
+  quote page can render Affirm's OWN "from $X/mo" messaging — see below.
 - **Client portal knows whether it can take a card**
   (`lib/payments/offlinePaymentNote.js`) — both portal surfaces rendered
   "Pay $X" regardless of Stripe status and 400'd on tap. The flag is derived
@@ -1423,7 +1547,7 @@ they set the pattern.
   page roots went from a fixed `p-6` to `p-4 sm:p-6`. Verified in a browser at
   375px and 1280px.
 
-- **Payroll + leave/PTO (HR foundation)** — FieldQuo *calculates and records*
+- **Payroll + leave/PTO (HR foundation)** — FieldQuo _calculates and records_
   pay; the company pays through its own bank or provider. Nothing here moves
   money and no button claims to.
   - `lib/payroll/computePayRun.js` — pure engine: overtime split per period,
@@ -1448,11 +1572,11 @@ they set the pattern.
     twice).
   - **Approved leave removes the day from booking** (`computeAvailability`), so
     a homeowner can't book someone who's away. A half day blocks the whole day:
-    the request doesn't record *which* half, and guessing costs a missed
+    the request doesn't record _which_ half, and guessing costs a missed
     appointment.
   - **Two real bugs found and fixed by back-testing, worth knowing about:**
     (a) accrual pro-rated everyone as a new hire from `Worker.createdAt`, which
-    for a backfilled row is *today* — so a five-year employee got ~4% of their
+    for a backfilled row is _today_ — so a five-year employee got ~4% of their
     holiday. There is now a real `Worker.hiredOn`, nullable, and no hire date
     means the FULL allotment rather than a guessed fraction.
     (b) mid-year pro-rating grew week by week, so nobody's entitlement was
@@ -1502,7 +1626,7 @@ they set the pattern.
 - **Embeddable widgets** — `/embed/<slug>/<book|quote|reviews>` with iframe
   height reporting, for the majority of contractors who already have a website
   and won't adopt the site builder. The reviews widget renders approved
-  testimonials only, in the company's brand, and renders *nothing* when there
+  testimonials only, in the company's brand, and renders _nothing_ when there
   are none — it posts a height of 0 so the frame collapses rather than leaving
   an empty box on a customer's homepage. All three snippets come from one
   builder, `lib/embed/snippet.js`, exercised by `npm run check:embed-snippet`
@@ -1520,7 +1644,7 @@ they set the pattern.
 - **Branded document theme** — every colour derived from one brand hex,
   contrast measured at 4.5:1 across hostile inputs.
 - **AI quote review + upsell add-ons** — completeness checks plus the company's
-  *own* accepted/declined history, never cross-tenant. Repricing is
+  _own_ accepted/declined history, never cross-tenant. Repricing is
   server-side; the browser sends IDs only.
 - **Quote builder rebuilt** into nine components (1,500 → 723 lines).
 - **Platform health checks** — `/api/platform/email-health` and
@@ -1587,16 +1711,16 @@ them.
 
 ### Scope — the files that change
 
-| File | Change |
-|---|---|
-| `middleware.js` | Locale detection + rewrite, placed as above. Prefix-less URLs redirect to the negotiated locale; `/en` is canonical for English (do not serve the same page at both `/` and `/en`). |
-| `app/(marketing)/**` | Move under `app/(marketing)/[lang]/`. Every `page.js` gains `params.lang` (a Promise — Next 16). |
-| `app/providers/LanguageProvider.js` | The URL becomes the source of truth; `localStorage` demotes to a preference used only to pick the redirect target on a prefix-less first visit. |
-| `app/components/marketing/LanguageSwitcher.js` | Switching language becomes a `router.push` to the same page under a different prefix, not a state change. |
-| `app/components/marketing/MarketingHeader.js`, `MarketingFooter.js`, `FeaturesIndustries.js`, `NotFoundContent.js`, `ResourcesTeaser.js` | Every hardcoded `href` needs the active prefix. Worth one `useLocalePath()` helper rather than 40 call sites — the copy is the one that rots. |
-| `lib/marketing/metadata.js` | `alternates.languages` (hreflang) for all six, plus `x-default`; `openGraph.locale`; canonical per locale. The helper deliberately omits `og:locale` today for exactly this reason — see its comment. |
-| `app/(marketing)/industries/[slug]/page.js` | `generateStaticParams` becomes the cross product of 6 locales × 12 trades = 72 pages. Same for `/product/[slug]`. |
-| `app/sitemap.js` (new) | Does not exist yet. Needed, or the locale pages are only discoverable by crawl. |
+| File                                                                                                                                     | Change                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `middleware.js`                                                                                                                          | Locale detection + rewrite, placed as above. Prefix-less URLs redirect to the negotiated locale; `/en` is canonical for English (do not serve the same page at both `/` and `/en`).                   |
+| `app/(marketing)/**`                                                                                                                     | Move under `app/(marketing)/[lang]/`. Every `page.js` gains `params.lang` (a Promise — Next 16).                                                                                                      |
+| `app/providers/LanguageProvider.js`                                                                                                      | The URL becomes the source of truth; `localStorage` demotes to a preference used only to pick the redirect target on a prefix-less first visit.                                                       |
+| `app/components/marketing/LanguageSwitcher.js`                                                                                           | Switching language becomes a `router.push` to the same page under a different prefix, not a state change.                                                                                             |
+| `app/components/marketing/MarketingHeader.js`, `MarketingFooter.js`, `FeaturesIndustries.js`, `NotFoundContent.js`, `ResourcesTeaser.js` | Every hardcoded `href` needs the active prefix. Worth one `useLocalePath()` helper rather than 40 call sites — the copy is the one that rots.                                                         |
+| `lib/marketing/metadata.js`                                                                                                              | `alternates.languages` (hreflang) for all six, plus `x-default`; `openGraph.locale`; canonical per locale. The helper deliberately omits `og:locale` today for exactly this reason — see its comment. |
+| `app/(marketing)/industries/[slug]/page.js`                                                                                              | `generateStaticParams` becomes the cross product of 6 locales × 12 trades = 72 pages. Same for `/product/[slug]`.                                                                                     |
+| `app/sitemap.js` (new)                                                                                                                   | Does not exist yet. Needed, or the locale pages are only discoverable by crawl.                                                                                                                       |
 
 ### Things that will bite
 
@@ -1641,11 +1765,11 @@ Access is not self-serve. Per
 [Prerequisites](https://developers.google.com/my-business/content/prereqs) you
 must submit the **"Application for Basic API Access"** on the [GBP API contact
 form](https://support.google.com/business/contact/api_default), from an email
-that is an owner/manager on a Google Business Profile that has been *verified
-and active for 60+ days*, with a website, quoting your Cloud project number.
+that is an owner/manager on a Google Business Profile that has been _verified
+and active for 60+ days_, with a website, quoting your Cloud project number.
 [Quota limits](https://developers.google.com/my-business/content/limits) states
-it plainly: *"If your quota limit for the Google Business Profile API is 0, you
-have not yet been granted access."* Approved projects get 300 QPM. Reported
+it plainly: _"If your quota limit for the Google Business Profile API is 0, you
+have not yet been granted access."_ Approved projects get 300 QPM. Reported
 turnaround runs from days to several weeks.
 
 There is no sandbox, no test mode, and no partial capability. **Before
@@ -1655,18 +1779,18 @@ that appears to work and doesn't — the exact thing AGENTS.md forbids.
 **2. Even approved, the policies forbid what "import my reviews" means.**
 
 [Business Profile API Policies](https://developers.google.com/my-business/content/policies):
-*"You cannot pre-fetch, cache, index, or store any content provided through the
+_"You cannot pre-fetch, cache, index, or store any content provided through the
 Business Profile APIs ("Content") for use outside of your Business Profile
-project except for limited amounts of Content."* The permitted exception is
-narrow — storage *"only to improve the performance of your project"*, and it
-*"must be stored temporarily for no more than 30 calendar days"*, *"must be
-stored securely"*, and *"cannot be manipulated or aggregated in any way"*.
+project except for limited amounts of Content."_ The permitted exception is
+narrow — storage _"only to improve the performance of your project"_, and it
+_"must be stored temporarily for no more than 30 calendar days"_, _"must be
+stored securely"_, and _"cannot be manipulated or aggregated in any way"_.
 Attribution is mandatory and must not be altered.
 
 A `Testimonial` row is permanent, editable, reorderable and re-worded by the
 contractor. That is storage beyond 30 days, and it is manipulation. **Google
 review content cannot become a FieldQuo testimonial.** The compliant shape is a
-different feature: a *cache*, refreshed on a schedule inside the 30-day
+different feature: a _cache_, refreshed on a schedule inside the 30-day
 window, rendered with Google attribution, showing exactly what Google returned,
 and disappearing when Google stops returning it (which is also how an edited or
 deleted review gets honoured — there is no deletion webhook, so re-fetching is
@@ -1683,7 +1807,7 @@ of the above binds it.
   It is sensitive, so the consent screen needs Google's [sensitive scope
   verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)
   — justification plus a demo video, and a published branding status first —
-  before anyone outside the test-user list can consent. That is a *second*
+  before anyone outside the test-user list can consent. That is a _second_
   review queue, independent of the API access application, and both must clear.
 - **Multi-tenant:** one Cloud project is correct and sufficient. Access is
   granted at project level, and the merchant either adds the partner as a
@@ -1697,10 +1821,10 @@ of the above binds it.
   average usage is already above 50% of the current limit and smooth rather
   than spiky.
 - **Replies are possible**, not just reads:
-  `accounts.locations.reviews.updateReply`. But the policies require that *"If
+  `accounts.locations.reviews.updateReply`. But the policies require that _"If
   you respond to reviews on behalf of your end-client, you must receive their
-  authorization first"* and forbid triggering replies *"without the user's
-  prior specific and express consent"* — so no AI auto-reply without an
+  authorization first"_ and forbid triggering replies _"without the user's
+  prior specific and express consent"_ — so no AI auto-reply without an
   explicit per-reply confirmation.
 
 ### If and when access is granted — the shape to build

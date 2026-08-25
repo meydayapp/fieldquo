@@ -887,6 +887,15 @@ export default function NewQuotePage() {
       if (!sendRes.ok) {
         const data = await sendRes.json().catch(() => null);
         setSaving("");
+        // An optional email section is switched on with nothing in it. That is
+        // not a failure to report, it is a decision to make, and the detail
+        // page has the dialog that offers both ways out — so hand it the flag
+        // rather than a sentence. A red banner here would be a dead end: the
+        // two actions that unblock it are not things a banner can offer.
+        if (sendRes.status === 409 && data?.code === "email_sections_empty") {
+          router.push(`/app/quotes/${quote.id}?sendBlocked=quote`);
+          return;
+        }
         // Land them on the quote regardless — it exists and their work is
         // saved. The reason is carried through so the detail page can say why
         // it's still a draft instead of leaving them to guess.

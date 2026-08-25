@@ -19,6 +19,8 @@ import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { usableSections } from "@/lib/documents/templateKind";
+import { financingOffer } from "@/lib/estimate/financing";
+import { financingTerms } from "@/lib/financing/monthlyEstimate";
 
 // First hop of x-forwarded-for is the client on Vercel. Best-effort — an audit
 // record with a null IP is still a valid signature, just weaker evidence.
@@ -68,6 +70,10 @@ async function loadQuote(token) {
           // the page still needs it to land somewhere sensible for a client
           // who never set a language on an older quote with none frozen.
           defaultLanguage: true,
+          // Stripped back out in present() — see the destructure there. It is
+          // selected because the financing block is built from it server-side,
+          // not because a stranger should receive the raw setting.
+          financing: true,
         },
       },
       scopeGroups: {
@@ -136,7 +142,41 @@ function priceWithAddOns(quote, selectedIds) {
   return { chosen, extras: round(extras), subtotal, tax, total };
 }
 
+// What the client-facing page is told about financing, or null.
+//
+// Two separate things, deliberately kept apart:
+//
+//   offer  — mode/note/url, the company's own words and (maybe) a hand-off link.
+//            financingOffer has never had a number in its shape and still doesn't.
+//   terms  — the APR and term the COMPANY typed into its own settings, or null.
+//            Null is the normal case, and null means the page shows no monthly
+//            figure at all. There is no default rate and no default term
+//            anywhere in the stack to fall back on.
+//
+// The terms travel rather than a computed payment because the total moves as
+// the client ticks extras, and an instalment that stayed frozen at the
+// pre-extras figure would be a wrong number on the one line they'll act on. The
+// page recomputes with the same pure module the check script exercises. Nothing
+// numeric is ever sent back — see priceWithAddOns.
+function financingBlock(quote) {
+  const raw = quote.company?.financing;
+  const offer = financingOffer(raw, {
+    language: resolveClientLanguage({
+      document: quote,
+      client: quote.client,
+      company: quote.company,
+    }),
+  });
+  if (!offer) return null;
+  return { ...offer, terms: financingTerms(raw) };
+}
+
 function present(quote) {
+  // financing is company-level configuration, not something a stranger with a
+  // link should receive verbatim; `company` below is returned wholesale, so it
+  // is peeled off here and re-published only in the shape financingBlock allows.
+  const { financing: _financing, ...companyPublic } = quote.company || {};
+
   return {
     quoteNumber: quote.quoteNumber,
     status: quote.status,
@@ -174,7 +214,8 @@ function present(quote) {
       selected: a.selected,
     })),
     client: { name: quote.client?.name || "" },
-    company: quote.company,
+    company: companyPublic,
+    financing: financingBlock(quote),
     scopeGroups: quote.scopeGroups.map((g) => {
       // Resolved server-side rather than sent as a category key for the page
       // to look up. The client bundle then carries no copy of the trade

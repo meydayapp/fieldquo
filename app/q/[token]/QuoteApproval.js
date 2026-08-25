@@ -10,10 +10,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, Loader2, Building2, Plus } from "lucide-react";
-import { readableForeground, accessiblePair } from "@/lib/brand/colour";
+import {
+  readableForeground,
+  accessiblePair,
+  ensureContrast,
+} from "@/lib/brand/colour";
 import SignaturePad from "@/app/components/SignaturePad";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
@@ -52,6 +57,19 @@ export default function QuoteApproval({ token }) {
   // the loaded quote view, so the optional chain is safe.
   const fmt = documentFormatters(language, quote?.company?.currency);
   const money = fmt.money;
+  // Built against fmt.locale, not hand-concatenated with "%": French writes
+  // "9,9 %" and the space and comma are both part of being readable to the
+  // person deciding. Falls back to the bare number if Intl refuses the locale.
+  const percent = (pct) => {
+    try {
+      return new Intl.NumberFormat(fmt.locale, {
+        style: "percent",
+        maximumFractionDigits: 2,
+      }).format(Number(pct) / 100);
+    } catch {
+      return `${pct}%`;
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +182,30 @@ export default function QuoteApproval({ token }) {
     };
   }, [quote, picked, settledTotal]);
 
+  /**
+   * The monthly instalment shown under the total, or null.
+   *
+   * Recomputed in the page for the same reason the total is: it has to move the
+   * instant an extra is ticked, and an instalment frozen at the pre-extras
+   * figure would be a wrong number sitting directly under a right one.
+   *
+   * `monthlyPayment` is the same pure function the check script exercises, and
+   * it is reached only through `quote.financing.terms` — which the server sends
+   * as null unless the COMPANY typed both a rate and a term. There is no default
+   * APR and no default term anywhere behind this, so "no terms" renders no
+   * figure rather than a plausible-looking guess.
+   */
+  const instalment = useMemo(() => {
+    const terms = quote?.financing?.terms;
+    if (!terms) return null;
+    const monthly = monthlyPayment({
+      principal: pricing.total,
+      aprPct: terms.aprPct,
+      termMonths: terms.termMonths,
+    });
+    return monthly === null ? null : { monthly, ...terms };
+  }, [quote, pricing.total]);
+
   if (loading) {
     return (
       <Shell>
@@ -195,6 +237,10 @@ export default function QuoteApproval({ token }) {
   // otherwise get white numerals on a yellow bubble — invisible, on the one
   // element whose whole job is being countable.
   const accentOn = readableForeground(accent);
+  // The financing panel's heading sits on a 5%-alpha accent wash over white.
+  // #f2f2f2 is the darkest that wash can composite to (a pure-black accent), so
+  // measuring against it guarantees the real pairing is at least this readable.
+  const financingInk = ensureContrast(accent, "#f2f2f2", 4.5);
   const expired =
     quote.validUntil && new Date(quote.validUntil) < new Date() && !decided;
 
@@ -651,6 +697,78 @@ export default function QuoteApproval({ token }) {
               {money(pricing.total)}
             </span>
           </div>
+
+          {/* ── Financing ──────────────────────────────────────────────────
+              Directly under the total, because "can I afford this" is the
+              question the total just provoked.
+
+              The monthly figure appears ONLY when the company stated its own
+              APR and term; otherwise this is the company's own "ask us"
+              sentence and nothing numeric. FieldQuo has no default rate to
+              fall back on, deliberately — see lib/financing/monthlyEstimate.js.
+
+              And where a real lender quotes its own terms, that wins: the
+              provider link goes to them, and at Stripe Checkout Affirm renders
+              its own figure. This panel is the contractor's illustration
+              before any of that, and says so. */}
+          {quote.financing && (
+            <div
+              className="rounded-xl border px-4 py-3.5"
+              style={{
+                borderColor: `${accent}33`,
+                backgroundColor: `${accent}0d`,
+              }}
+            >
+              <p
+                className="text-[10px] font-bold uppercase tracking-wider"
+                // Measured against the darkest this 5%-alpha wash can composite
+                // to (#f2f2f2, the black-accent case), so the real background is
+                // never darker than what was checked. A contractor whose brand
+                // is pale yellow otherwise gets a heading nobody can read.
+                style={{ color: financingInk }}
+              >
+                {/* "Pay monthly" is a promise the heading can only make when
+                    there IS a monthly figure under it. With no stated terms the
+                    panel is just "financing exists, ask us", and it says that. */}
+                {instalment ? copy.financingHeading : copy.financingAvailable}
+              </p>
+
+              {quote.financing.note && (
+                <p className="text-sm text-[#2d2520]/80 mt-1.5 leading-relaxed">
+                  {quote.financing.note}
+                </p>
+              )}
+
+              {instalment && (
+                <div className="mt-2.5">
+                  <p className="text-xl font-bold text-[#2d2520] tabular-nums leading-tight">
+                    {copy.financingMonthly(money(instalment.monthly))}
+                  </p>
+                  <p className="text-xs text-[#2d2520]/70 mt-0.5">
+                    {copy.financingTermsLine(
+                      instalment.termMonths,
+                      percent(instalment.aprPct),
+                    )}
+                  </p>
+                  <p className="text-xs text-[#2d2520]/60 mt-2 leading-relaxed">
+                    {copy.financingEstimateNote(c.name)}
+                  </p>
+                </div>
+              )}
+
+              {quote.financing.url && (
+                <a
+                  href={quote.financing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block mt-3 px-4 py-2 rounded-full text-xs font-semibold"
+                  style={{ backgroundColor: accent, color: accentOn }}
+                >
+                  {copy.financingCta}
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="px-6 sm:px-8 py-6 bg-[#faf8f4] border-t border-black/5">

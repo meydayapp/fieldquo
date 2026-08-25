@@ -49,11 +49,14 @@ import {
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
 import { reportResponseError } from "@/lib/clientErrors";
+import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
+import EmailSectionsPanel from "./EmailSectionsPanel";
+import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
 import { formatAddress } from "@/lib/format/address";
 import {
@@ -113,6 +116,12 @@ export default function QuoteDetailPage() {
   const [error, setError] = useState("");
   const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
   const [justSent, setJustSent] = useState("");
+  // The send refused because an optional email section is switched on with
+  // nothing in it. Held as state rather than flattened into `error`, because
+  // the 409 carries the two ways out and a red banner cannot offer a button.
+  // See lib/quotes/emailSections.js for why the server refuses rather than
+  // dropping the section.
+  const [blockedSections, setBlockedSections] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,10 +158,27 @@ export default function QuoteDetailPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const sendError = params.get("sendError");
-    if (!sendError) return;
-    setError(sendError);
+    const sendBlocked = params.get("sendBlocked");
+    if (!sendError && !sendBlocked) return;
+    if (sendError) setError(sendError);
+    // The builder's "Save & Send" hit the empty-section gate. Re-read the
+    // sections rather than smuggling the 409 payload through the URL: it is
+    // one request, and it means the dialog opens on the CURRENT state — if
+    // somebody filled the list in another tab while this navigated, there is
+    // nothing left to block and the dialog says so instead of arguing with a
+    // stale copy.
+    if (sendBlocked) {
+      fetchJson(`/api/quotes/${id}/email-sections`)
+        .then((data) =>
+          setBlockedSections({
+            kind: sendBlocked === "follow_up" ? "follow_up" : "quote",
+            blocked: data.blockedDetail || [],
+          }),
+        )
+        .catch((err) => setError(err.message));
+    }
     window.history.replaceState({}, "", window.location.pathname);
-  }, []);
+  }, [id]);
 
   /**
    * Actually emails the client.
@@ -192,8 +218,8 @@ export default function QuoteDetailPage() {
     setPendingSend({ kind, to });
   }
 
-  async function doSend() {
-    const { kind, to } = pendingSend || {};
+  async function doSend(kindOverride) {
+    const kind = kindOverride || pendingSend?.kind;
     if (!kind) return;
     setPendingSend(null);
 
@@ -206,6 +232,13 @@ export default function QuoteDetailPage() {
         body: JSON.stringify({ kind }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 409 && data?.code === "email_sections_empty") {
+        // Not an error state: nothing is wrong with the request, the quote
+        // just isn't ready. The kind is kept alongside so Retry sends the same
+        // thing — a follow-up must not come back as a fresh quote.
+        setBlockedSections({ kind, blocked: data.blocked || [] });
+        return;
+      }
       if (!res.ok)
         throw new Error(data?.error || t("app.quoteDetail.sendError"));
 
@@ -490,6 +523,30 @@ export default function QuoteDetailPage() {
           </Link>
         </div>
       )}
+
+      <EmailSectionsBlockedModal
+        isOpen={Boolean(blockedSections)}
+        quoteId={id}
+        blocked={blockedSections?.blocked || []}
+        sending={Boolean(sending)}
+        onClose={() => setBlockedSections(null)}
+        onCleared={(stillBlocked) =>
+          setBlockedSections((b) => (b ? { ...b, blocked: stillBlocked } : b))
+        }
+        onRetry={() => {
+          const kind = blockedSections?.kind;
+          setBlockedSections(null);
+          doSend(kind);
+        }}
+      />
+
+      {/* What this quote's email will carry beyond the quote itself. Editable
+          while the client can still act on it; frozen once they have decided,
+          because the email has already been read by then. */}
+      <EmailSectionsPanel
+        quoteId={id}
+        editable={["draft", "sent"].includes(quote.status)}
+      />
 
       {/* Sub-side of a cross-company import: shows if another company pulled
           this quote into their project, with an honest pending/confirmed state.
