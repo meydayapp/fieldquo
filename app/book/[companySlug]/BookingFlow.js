@@ -26,6 +26,7 @@ import {
 import { ensureContrast } from "@/lib/brand/colour";
 import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
+import { navigateTop } from "@/lib/embed/handoff";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
@@ -140,6 +141,10 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [confirmed, setConfirmed] = useState(null);
+  // A paid visit that is waiting on Stripe: { url, feeCents, startTime }. Held
+  // in state rather than being a pure redirect because the redirect can be
+  // refused — see the hand-off screen below.
+  const [payment, setPayment] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,10 +291,24 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
       }
       // Paid visit: the server held the slot and returned a Stripe checkout.
       // Hand off to it — the booking confirms on the webhook once paid, and the
-      // client returns to ?booked=1. Stay "submitting" through the redirect so
-      // the button can't be double-tapped.
+      // client returns to ?booked=1.
+      //
+      // navigateTop, not window.location: this flow usually runs inside an
+      // iframe on the company's own website, and Stripe Checkout inside an
+      // iframe renders a loading skeleton forever. Navigating the frame is
+      // therefore the one thing that must not happen — the whole tab moves.
+      //
+      // A framed page is only allowed to move the tab while the visitor's click
+      // is still fresh, and the browser refuses silently when it isn't. So the
+      // hand-off screen is rendered either way: unseen when the tab is already
+      // leaving, and the way through when it wasn't allowed to.
       if (data?.requiresPayment && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+        setPayment({
+          url: data.checkoutUrl,
+          feeCents: Number(data.feeCents) || 0,
+          startTime: chosen,
+        });
+        navigateTop(data.checkoutUrl);
         return;
       }
       setConfirmed({ startTime: chosen, ...data });
@@ -345,6 +364,59 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
           <p className="font-semibold" style={{ color: theme.ink }}>{loadError}</p>
           <p className="text-sm mt-1" style={{ color: theme.inkMuted }}>
             Double-check the link, or get in touch with the company directly.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ── Paid visit: the hand-off to Stripe ───────────────────────────────────
+  //
+  // Reached in one of two ways. Either the tab is already on its way to
+  // Stripe, and this renders for the fraction of a second before it leaves —
+  // or the browser refused to let a framed page move the tab, and this screen
+  // is the only thing between the visitor and the payment page. A spinner here
+  // would be the second case rendered as a hang.
+  //
+  // target="_top" for the same reason the automatic hand-off exists: the
+  // checkout page cannot be shown inside the embed. On the standalone booking
+  // page _top is simply this tab.
+  if (payment) {
+    return (
+      <Shell theme={theme}>
+        <Header company={company} theme={theme} solid={solid} />
+        <div className="text-center py-6">
+          <h2 className="text-lg font-bold" style={{ color: theme.ink }}>
+            One more step
+          </h2>
+          {payment.startTime && (
+            <p className="text-sm mt-2" style={{ color: theme.ink }}>
+              {new Date(payment.startTime).toLocaleString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+            </p>
+          )}
+          <p className="text-sm mt-1" style={{ color: theme.inkMuted }}>
+            {payment.feeCents > 0
+              ? `Pay the ${moneyFromCents(payment.feeCents, company.currency)} visit fee to confirm this time.`
+              : "Complete the payment to confirm this time."}
+          </p>
+          <a
+            href={payment.url}
+            target="_top"
+            rel="noopener"
+            className="mt-5 w-full inline-flex items-center justify-center gap-2 min-h-12 rounded-full text-sm font-bold"
+            style={{ backgroundColor: solid.bg, color: solid.fg }}
+          >
+            Continue to secure payment
+            <ChevronRight size={16} />
+          </a>
+          <p className="text-xs mt-3" style={{ color: theme.inkMuted }}>
+            Payment is handled by Stripe. Your time is held for 30 minutes.
           </p>
         </div>
       </Shell>
