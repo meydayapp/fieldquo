@@ -2833,6 +2833,31 @@ model Shift {
   published Boolean  @default(false)
   createdAt DateTime @default(now())
 
+  /// Set when a manager scheduled this OUTSIDE what the worker said they were
+  /// available for, and chose to go ahead.
+  ///
+  /// ── Why this is a column and not a confirm dialog ────────────────────────
+  ///
+  /// A confirmation that lives only in the manager's browser is theatre: they
+  /// click OK, feel informed, and the worker still finds out on the morning.
+  /// Recorded here, the shift can say so in the rota, on the worker's own
+  /// screen when it is published, and afterwards if anyone disagrees about what
+  /// was agreed.
+  ///
+  /// Null means the shift fitted, which is the ordinary case. A timestamp
+  /// rather than a boolean for the same reason Job.archivedAt is one — "when
+  /// was this decided" is worth knowing and costs nothing.
+  ///
+  /// APPROVED LEAVE IS NOT OVERRIDABLE and never sets this. Availability is a
+  /// statement about preference and emergencies are real; leave is a decision
+  /// the company already made and honoured, and the way to change it is to
+  /// amend the leave — which involves the person whose day off it is.
+  availabilityOverrideAt   DateTime?
+  availabilityOverrideById String?
+  /// Optional. The fact is what matters and an emergency should not be gated on
+  /// typing, but a reason makes the record worth reading later.
+  availabilityOverrideNote String?
+
   @@index([companyId, start])
   @@index([workerId, start])
 }

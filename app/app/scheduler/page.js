@@ -302,6 +302,19 @@ export default function SchedulerPage() {
                                 .join(" · ")}
                             </div>
                           )}
+                          {/* The worker sees this on their OWN shift. That is
+                              the point of recording it rather than confirming
+                              it in a dialog: they were scheduled outside what
+                              they said they were available for, and they should
+                              learn it here, not on the morning. */}
+                          {s.availabilityOverrideAt && (
+                            <div className="text-xs text-amber-700 dark:text-amber-400">
+                              Outside stated availability
+                              {s.availabilityOverrideNote
+                                ? ` — ${s.availabilityOverrideNote}`
+                                : ""}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {!s.published && (
@@ -363,11 +376,14 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
   // Sent to the global toast instead, it would vanish while the manager was
   // still looking at the wrong times with no idea which number to change.
   const [refusal, setRefusal] = useState(null);
+  // A reason for going ahead anyway. Optional — an emergency should not be
+  // gated on typing — but offered, because the record is worth reading later.
+  const [overrideNote, setOverrideNote] = useState("");
 
-  async function save() {
+  async function save(override = false) {
     if (!workerId || end <= start) return;
     setSaving(true);
-    setRefusal(null);
+    if (!override) setRefusal(null);
     try {
       const res = await fetch("/api/shifts", {
         method: "POST",
@@ -377,6 +393,9 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
           start: new Date(`${date}T${start}`).toISOString(),
           end: new Date(`${date}T${end}`).toISOString(),
           note: note.trim() || undefined,
+          override: override || undefined,
+          overrideNote:
+            override && overrideNote.trim() ? overrideNote.trim() : undefined,
         }),
       });
       if (!res.ok) {
@@ -384,7 +403,13 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
         // approved leave. It has reasons worth reading, unlike a 500.
         const body = await res.json().catch(() => null);
         if (res.status === 409 && body?.blocks?.length) {
-          setRefusal(body.blocks);
+          // canOverride false is approved leave — a decision the company
+          // already made and honoured. There is no "anyway" button for it, and
+          // offering one would be offering to break a promise.
+          setRefusal({
+            reasons: body.blocks,
+            canOverride: Boolean(body.canOverride),
+          });
           return;
         }
         return reportResponseError(
@@ -421,13 +446,49 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
         </div>
         <div className="space-y-3">
           {refusal && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-              {refusal.map((r) => (
+            <div
+              className={`rounded-lg border px-3 py-2 text-xs ${
+                refusal.canOverride
+                  ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                  : "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
+              }`}
+            >
+              {refusal.reasons.map((r) => (
                 <p key={r}>{r}</p>
               ))}
-              <p className="mt-1 opacity-80">
-                Change the time, or update what they&apos;re available for.
-              </p>
+
+              {refusal.canOverride ? (
+                <>
+                  <p className="mt-1.5 font-medium">
+                    Check with them before you go ahead — they won&apos;t have
+                    agreed to this yet.
+                  </p>
+                  <input
+                    value={overrideNote}
+                    onChange={(e) => setOverrideNote(e.target.value)}
+                    placeholder="Why? (optional — goes on the shift)"
+                    className="mt-1.5 w-full rounded border border-amber-300 bg-background px-2 py-1 text-xs dark:border-amber-800"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => save(true)}
+                    disabled={saving}
+                    className="mt-1.5 rounded bg-amber-700 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-800 disabled:opacity-50"
+                  >
+                    Schedule anyway
+                  </button>
+                  <p className="mt-1 opacity-80">
+                    It will be marked on the shift, and they&apos;ll see that
+                    when it&apos;s published.
+                  </p>
+                </>
+              ) : (
+                // Approved leave. No override, and the way out is named rather
+                // than left for someone to hunt for.
+                <p className="mt-1.5 opacity-90">
+                  Change the date, or amend their time off first.
+                </p>
+              )}
             </div>
           )}
           <label className="block">

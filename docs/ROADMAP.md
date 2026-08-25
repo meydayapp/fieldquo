@@ -428,6 +428,35 @@ they set the pattern.
      list is done. Seventeen rows on /app/tasks for one job would bury the four
      things actually waiting on a person.
 
+- **The availability override: recorded on the shift, not confirmed in a
+  dialog.**
+
+  `Shift.availabilityOverrideAt/ById/Note`, `lib/scheduling/shiftFit.js`,
+  `app/api/shifts/*`, `app/app/scheduler/page.js`.
+
+  The hard block shipped a commit earlier was too strict, as suspected. The
+  line is now drawn between two things that feel alike and are not:
+
+  - **Availability** is a statement about preference, and emergencies are real.
+    It refuses, says `canOverride: true`, and the manager may go ahead.
+  - **Approved leave** was asked for and GRANTED. A company that can OK its way
+    past a holiday it agreed has not agreed anything. No override exists, and
+    the message names the way out — amend the leave, which involves the person
+    whose day off it is.
+
+  A hard block beside a soft one stays hard: an overridable refusal never drags
+  a granted holiday through with it. Asserted.
+
+  **The override is a column, not a dialog.** A confirmation that lives only in
+  the manager's browser is theatre — they click OK, feel informed, and the
+  worker still finds out on the morning. Recorded, it shows in the rota and on
+  the worker's own screen when the shift is published. Moving a shift back
+  inside availability CLEARS the mark: a stale warning is a warning people learn
+  to ignore.
+
+  The reason is optional. The fact is what matters and an emergency should not
+  be gated on typing.
+
 - **Scheduling and payroll: a pay period exists, and availability finally
   means something.**
 

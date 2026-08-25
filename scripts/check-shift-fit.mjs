@@ -15,6 +15,7 @@
 // Turn that last one into a block and the tool refuses the overtime week,
 // which is the week people actually need it for.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { shiftFit, workersMissingHours } from "@/lib/scheduling/shiftFit";
 
 let pass = 0;
@@ -31,8 +32,18 @@ function check(name, fn) {
 const TZ = "America/Toronto";
 const weekdays = [1, 2, 3, 4, 5];
 // Jonny: available 06:00–20:00 weekdays, normally works 08:00–16:00 weekdays.
-const AVAIL = weekdays.map((d) => ({ dayOfWeek: d, startTime: "06:00", endTime: "20:00", timezone: TZ }));
-const HOURS = weekdays.map((d) => ({ dayOfWeek: d, startTime: "08:00", endTime: "16:00", timezone: TZ }));
+const AVAIL = weekdays.map((d) => ({
+  dayOfWeek: d,
+  startTime: "06:00",
+  endTime: "20:00",
+  timezone: TZ,
+}));
+const HOURS = weekdays.map((d) => ({
+  dayOfWeek: d,
+  startTime: "08:00",
+  endTime: "16:00",
+  timezone: TZ,
+}));
 
 // 2026-08-31 is a Monday; -04:00 is Toronto in August.
 const at = (day, from, to) => ({
@@ -40,7 +51,13 @@ const at = (day, from, to) => ({
   end: new Date(`${day}T${to}:00-04:00`),
 });
 const fit = (cfg, over = {}) =>
-  shiftFit({ ...cfg, availability: AVAIL, workingHours: HOURS, timezone: TZ, ...over });
+  shiftFit({
+    ...cfg,
+    availability: AVAIL,
+    workingHours: HOURS,
+    timezone: TZ,
+    ...over,
+  });
 
 check("a normal day passes clean", () => {
   const r = fit(at("2026-08-31", "08", "16"));
@@ -58,29 +75,65 @@ check("an early start inside availability is ALLOWED, with a warning", () => {
   assert.match(r.warnings[0], /usual/i);
 });
 
-check("outside declared availability is refused", () => {
+check("outside declared availability is refused, and CAN be overridden", () => {
   const r = fit(at("2026-08-31", "05", "13"));
   assert.equal(r.ok, false);
-  assert.ok(r.blocks.some((b) => /available/i.test(b)));
+  assert.equal(r.canOverride, true);
+  assert.deepEqual(r.blocks, [], "availability is not a hard block");
+  assert.ok(r.overridable.some((b) => /available/i.test(b)));
 });
 
-check("a day they never declared is refused", () => {
+check("a day they never declared is refused, and CAN be overridden", () => {
   const r = fit(at("2026-08-29", "08", "16")); // Saturday
   assert.equal(r.ok, false);
-  assert.ok(r.blocks.some((b) => /Saturday/.test(b)));
+  assert.equal(r.canOverride, true);
+  assert.ok(r.overridable.some((b) => /Saturday/.test(b)));
 });
 
-check("approved leave refuses; a pending request does not", () => {
-  const window = { startDate: new Date("2026-08-31"), endDate: new Date("2026-09-01") };
-  const approved = fit(at("2026-08-31", "08", "16"), {
-    leave: [{ ...window, status: "approved" }],
-  });
-  assert.equal(approved.ok, false);
-  assert.ok(approved.blocks.some((b) => /time off/i.test(b)));
+check("approved leave can NEVER be overridden", () => {
+  // The line that matters. Availability is a statement about preference and an
+  // emergency is a real reason; leave is a decision the company already made
+  // and honoured. A company that can OK its way past a holiday it granted has
+  // not granted anything.
+  const leave = [
+    {
+      status: "approved",
+      startDate: new Date("2026-08-31"),
+      endDate: new Date("2026-09-01"),
+    },
+  ];
+  const r = fit(at("2026-08-31", "08", "16"), { leave });
+  assert.equal(r.ok, false);
+  assert.equal(
+    r.canOverride,
+    false,
+    "there must be no anyway button for leave",
+  );
+  assert.ok(r.blocks.length > 0);
+
+  // And leave still wins when the shift ALSO falls outside availability —
+  // an overridable refusal must never drag a hard one through with it.
+  const both = fit(at("2026-08-31", "05", "13"), { leave });
+  assert.equal(
+    both.canOverride,
+    false,
+    "a hard block beside a soft one stays hard",
+  );
+  assert.ok(both.blocks.length > 0);
+  assert.ok(both.overridable.length > 0, "and both reasons are still reported");
+});
+
+check("a pending leave request does not refuse at all", () => {
+  const window = {
+    startDate: new Date("2026-08-31"),
+    endDate: new Date("2026-09-01"),
+  };
   // A request nobody has answered must not block the rota — the person looking
   // at it may be the one about to approve or refuse it.
   for (const status of ["pending", "rejected", "cancelled"]) {
-    const r = fit(at("2026-08-31", "08", "16"), { leave: [{ ...window, status }] });
+    const r = fit(at("2026-08-31", "08", "16"), {
+      leave: [{ ...window, status }],
+    });
     assert.equal(r.ok, true, status);
   }
 });
@@ -96,8 +149,16 @@ check("silence is not a refusal", () => {
 });
 
 check("working hours alone never block, whatever the hour", () => {
-  for (const [from, to] of [["03", "05"], ["20", "23"], ["00", "02"]]) {
-    const r = shiftFit({ ...at("2026-08-31", from, to), workingHours: HOURS, timezone: TZ });
+  for (const [from, to] of [
+    ["03", "05"],
+    ["20", "23"],
+    ["00", "02"],
+  ]) {
+    const r = shiftFit({
+      ...at("2026-08-31", from, to),
+      workingHours: HOURS,
+      timezone: TZ,
+    });
     assert.equal(r.ok, true, `${from}–${to}`);
     assert.ok(r.warnings.length > 0, `${from}–${to} should still warn`);
   }
@@ -111,7 +172,12 @@ check("a shift ending exactly on the boundary fits", () => {
 });
 
 check("a shift crossing midnight is checked on BOTH days", () => {
-  const nights = [5, 6].map((d) => ({ dayOfWeek: d, startTime: "22:00", endTime: "06:00", timezone: TZ }));
+  const nights = [5, 6].map((d) => ({
+    dayOfWeek: d,
+    startTime: "22:00",
+    endTime: "06:00",
+    timezone: TZ,
+  }));
   // Friday 22:00 → Saturday 06:00, against a Friday-and-Saturday night window.
   const ok = shiftFit({
     start: new Date("2026-08-28T22:00:00-04:00"),
@@ -119,7 +185,7 @@ check("a shift crossing midnight is checked on BOTH days", () => {
     availability: nights,
     timezone: TZ,
   });
-  assert.equal(ok.ok, true, ok.blocks.join(" "));
+  assert.equal(ok.ok, true, [...ok.blocks, ...ok.overridable].join(" "));
   // The same hours with only weekday availability must be refused, not slip
   // through because the START looked fine.
   const bad = shiftFit({
@@ -155,28 +221,76 @@ check("hostile input never throws and never silently allows", () => {
     const r = shiftFit({ start: v, end: v, availability: AVAIL, timezone: TZ });
     assert.equal(r.ok, false, String(v));
     assert.ok(r.blocks.length > 0, String(v));
+    // A malformed shift is not something to offer an "anyway" button for.
+    assert.equal(r.canOverride, false, String(v));
   }
   // Junk rows are skipped, not crashed on, and not treated as a window.
-  const junk = [null, {}, { dayOfWeek: 1, startTime: "25:00", endTime: "99:99" }, { dayOfWeek: "x" }];
-  const r = shiftFit({ ...at("2026-08-31", "08", "16"), availability: junk, timezone: TZ });
+  const junk = [
+    null,
+    {},
+    { dayOfWeek: 1, startTime: "25:00", endTime: "99:99" },
+    { dayOfWeek: "x" },
+  ];
+  const r = shiftFit({
+    ...at("2026-08-31", "08", "16"),
+    availability: junk,
+    timezone: TZ,
+  });
   assert.equal(r.ok, false, "no usable window is not a free pass");
-  const r2 = shiftFit({ ...at("2026-08-31", "08", "16"), workingHours: junk, timezone: TZ });
+  assert.equal(r.canOverride, true, "but it is the overridable kind");
+  const r2 = shiftFit({
+    ...at("2026-08-31", "08", "16"),
+    workingHours: junk,
+    timezone: TZ,
+  });
   assert.equal(r2.ok, true, "junk working hours still never block");
 });
 
-check("the missing-hours banner counts only people who could have hours", () => {
-  const workers = [
-    { id: "a", name: "Jonny", userId: "u1" },
-    { id: "b", name: "Sam", userId: "u2" },
-    { id: "c", name: "Sub with no login", userId: null },
-  ];
-  const missing = workersMissingHours(workers, { u1: [{ userId: "u1" }] });
-  assert.deepEqual(missing.map((w) => w.name), ["Sam"]);
-  // A worker with no login cannot HAVE working hours, so counting them would
-  // make the banner permanent and therefore invisible.
-  assert.ok(!missing.some((w) => w.userId === null));
-  assert.deepEqual(workersMissingHours(null, null), []);
-  assert.deepEqual(workersMissingHours([], {}), []);
+check(
+  "the missing-hours banner counts only people who could have hours",
+  () => {
+    const workers = [
+      { id: "a", name: "Jonny", userId: "u1" },
+      { id: "b", name: "Sam", userId: "u2" },
+      { id: "c", name: "Sub with no login", userId: null },
+    ];
+    const missing = workersMissingHours(workers, { u1: [{ userId: "u1" }] });
+    assert.deepEqual(
+      missing.map((w) => w.name),
+      ["Sam"],
+    );
+    // A worker with no login cannot HAVE working hours, so counting them would
+    // make the banner permanent and therefore invisible.
+    assert.ok(!missing.some((w) => w.userId === null));
+    assert.deepEqual(workersMissingHours(null, null), []);
+    assert.deepEqual(workersMissingHours([], {}), []);
+  },
+);
+
+/* ── Both routes must treat the two tiers the same way ─────────────────── */
+
+check("neither shift route offers an override for approved leave", () => {
+  // A grep, because the alternative needs a request, a session and a database.
+  // The failure this guards is somebody "simplifying" the two refusals back
+  // into one — which would put an "anyway" button on a granted holiday.
+  for (const path of [
+    "../app/api/shifts/route.js",
+    "../app/api/shifts/[id]/route.js",
+  ]) {
+    const src = readFileSync(new URL(path, import.meta.url), "utf8");
+    // The hard refusal reads fit.blocks and says canOverride: false.
+    assert.match(src, /fit\.blocks\.length > 0/, path);
+    assert.match(src, /canOverride: false/, path);
+    // The soft one reads fit.overridable and requires an explicit opt-in.
+    assert.match(src, /fit\.overridable\.length > 0/, path);
+    assert.match(src, /body\.override !== true/, path);
+    // And going ahead is RECORDED, not just confirmed.
+    assert.match(src, /availabilityOverrideAt/, path);
+    // The old single-tier check must be gone: `if (!fit.ok)` would refuse an
+    // availability clash with an empty message, because those reasons no
+    // longer live in `blocks`.
+    assert.ok(!/if \(!fit\.ok\)/.test(src), `${path} still branches on fit.ok`);
+  }
 });
 
 if (fails.length) {

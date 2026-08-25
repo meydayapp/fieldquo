@@ -75,16 +75,48 @@ export async function PATCH(request, { params }) {
     });
     if (worker) {
       const fit = await assessShiftFit(worker, start, end, member.companyId);
-      if (!fit.ok) {
+
+      // Same two tiers as creating one, and for the same reason: approved
+      // leave was granted and is not a manager's to OK past; availability is a
+      // statement about preference and an emergency is a real reason.
+      if (fit.blocks.length > 0) {
         return NextResponse.json(
           {
             error: `${worker.name} can't be scheduled then. ${fit.blocks.join(" ")}`,
             blocks: fit.blocks,
-            warnings: fit.warnings,
+            canOverride: false,
           },
           { status: 409 },
         );
       }
+      const overriding = fit.overridable.length > 0;
+      if (overriding && body.override !== true) {
+        return NextResponse.json(
+          {
+            error: `${worker.name} said they aren't available then.`,
+            blocks: fit.overridable,
+            canOverride: true,
+          },
+          { status: 409 },
+        );
+      }
+      if (overriding) {
+        data.availabilityOverrideAt = new Date();
+        data.availabilityOverrideById = member.userId;
+        data.availabilityOverrideNote =
+          typeof body.overrideNote === "string" && body.overrideNote.trim()
+            ? body.overrideNote.trim().slice(0, 300)
+            : null;
+      } else {
+        // Moved back INSIDE what they said they were available for, so the
+        // mark comes off. Leaving it would tell the worker they had been
+        // overridden on a shift that now fits — a stale warning is a warning
+        // people learn to ignore.
+        data.availabilityOverrideAt = null;
+        data.availabilityOverrideById = null;
+        data.availabilityOverrideNote = null;
+      }
+
       const shift = await db.shift.update({
         where: { id },
         data,
@@ -95,9 +127,16 @@ export async function PATCH(request, { params }) {
           end: true,
           note: true,
           published: true,
+          availabilityOverrideAt: true,
+          availabilityOverrideNote: true,
         },
       });
-      return NextResponse.json({ ok: true, shift, warnings: fit.warnings });
+      return NextResponse.json({
+        ok: true,
+        shift,
+        warnings: [...(overriding ? fit.overridable : []), ...fit.warnings],
+        overrode: overriding,
+      });
     }
   }
 

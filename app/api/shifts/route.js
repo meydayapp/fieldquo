@@ -133,9 +133,8 @@ export async function POST(request) {
     );
   }
 
-  const { workerId, start, end, jobId, note } = await request
-    .json()
-    .catch(() => ({}));
+  const body = await request.json().catch(() => ({}));
+  const { workerId, start, end, jobId, note } = body;
   const s = start && new Date(start);
   const e = end && new Date(end);
   if (!workerId || !s || !e || isNaN(s) || isNaN(e)) {
@@ -172,12 +171,31 @@ export async function POST(request) {
   // start is the case a rota tool exists for, and refusing it would be a rota
   // tool nobody uses.
   const fit = await assessShiftFit(worker, s, e, member.companyId);
-  if (!fit.ok) {
+
+  // Approved leave is never overridable. A company that can OK its way past a
+  // holiday it already granted has not granted anything, and the way to change
+  // one is to amend the leave — which involves the person whose day off it is.
+  if (fit.blocks.length > 0) {
     return NextResponse.json(
       {
         error: `${worker.name} can't be scheduled then. ${fit.blocks.join(" ")}`,
         blocks: fit.blocks,
-        warnings: fit.warnings,
+        canOverride: false,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Availability is a statement about preference, and emergencies are real —
+  // so this refuses and says it CAN be overridden, rather than pretending a
+  // manager never has a legitimate reason. The client re-sends override: true.
+  const overriding = fit.overridable.length > 0;
+  if (overriding && body.override !== true) {
+    return NextResponse.json(
+      {
+        error: `${worker.name} said they aren't available then.`,
+        blocks: fit.overridable,
+        canOverride: true,
       },
       { status: 409 },
     );
@@ -191,6 +209,19 @@ export async function POST(request) {
       end: e,
       jobId: jobId || null,
       note: note?.slice(0, 300) || null,
+      // Recorded on the shift, not merely confirmed in a dialog. A
+      // confirmation that lives only in the manager's browser is theatre: they
+      // click OK, feel informed, and the worker still finds out on the morning.
+      ...(overriding && {
+        availabilityOverrideAt: new Date(),
+        availabilityOverrideById: member.userId,
+        // Optional. The FACT is what matters and an emergency should not be
+        // gated on typing, but a reason makes the record worth reading later.
+        availabilityOverrideNote:
+          typeof body.overrideNote === "string" && body.overrideNote.trim()
+            ? body.overrideNote.trim().slice(0, 300)
+            : null,
+      }),
     },
     select: {
       id: true,
@@ -199,6 +230,8 @@ export async function POST(request) {
       end: true,
       note: true,
       published: true,
+      availabilityOverrideAt: true,
+      availabilityOverrideNote: true,
     },
   });
   // Warnings ride back with the created shift rather than blocking it: the
@@ -207,7 +240,10 @@ export async function POST(request) {
   return NextResponse.json({
     ok: true,
     shift,
-    warnings: fit.warnings,
+    // The override echoes back as a warning too, so the screen does not go
+    // quiet as if nothing unusual had just been decided.
+    warnings: [...(overriding ? fit.overridable : []), ...fit.warnings],
+    overrode: overriding,
     notes: fit.notes,
   });
 }
