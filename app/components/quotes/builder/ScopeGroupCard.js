@@ -82,14 +82,20 @@ export default function ScopeGroupCard({
               {money(subtotal)}
             </span>
           )}
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-muted-foreground hover:text-red-600 p-1 -mr-1"
-            aria-label={`Remove ${group.label}`}
-          >
-            <Trash2 size={16} />
-          </button>
+          {/* No handler, no button. An imported subcontractor cost and a quote
+              the client has already decided are both groups this screen may not
+              drop — rendering a bin that refuses is worse than not rendering
+              one. */}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-muted-foreground hover:text-red-600 p-1 -mr-1"
+              aria-label={`Remove ${group.label}`}
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 

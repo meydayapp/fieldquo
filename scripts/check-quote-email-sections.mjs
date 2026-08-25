@@ -571,7 +571,7 @@ const page = read("app/app/quotes/[id]/page.js");
 ok("the quote page opens the dialog on the 409 instead of a red banner",
   page.includes('data?.code === "email_sections_empty"'));
 ok("…and the builder's Save & Send hands it over rather than dead-ending",
-  read("app/app/quotes/new/page.js").includes("sendBlocked=quote"));
+  read("app/components/quotes/builder/QuoteBuilder.js").includes("sendBlocked=quote"));
 
 const en = APP_MESSAGES.en || {};
 const fr = APP_MESSAGES.fr || {};

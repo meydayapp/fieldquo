@@ -26,6 +26,7 @@
 // makes it honest, and a sticky bar has nowhere to put a sentence.
 "use client";
 
+import Link from "next/link";
 import { Loader2, Save, Send, Sparkles } from "lucide-react";
 import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
@@ -43,6 +44,12 @@ export default function QuoteTotalsBar({
   onDiscountChange,
   tax,
   taxRate,
+  // Editable only where editing it means something. On a NEW quote the rate is
+  // resolved from the company's tax setup and the client's address, so a box
+  // here would fight the resolver; on an existing quote the stored rate is
+  // whatever was charged at the time, and correcting a wrong one is a real job
+  // the editor has always offered.
+  onTaxRateChange = null,
   // Why THIS rate. Empty unless the company opted into per-client tax and a
   // client is selected. A tax figure that changes on its own with no
   // explanation is worse than one the user picked, however correct it is.
@@ -52,6 +59,10 @@ export default function QuoteTotalsBar({
   onTaxToggle,
   validUntil,
   onValidUntilChange,
+  // Is the date in the box the 30-day suggestion, or one already on the quote?
+  // The hint claimed "starts at 30 days from today" either way, which on an
+  // existing quote is a sentence describing something that did not happen.
+  validUntilDefaulted = true,
   // The company's billing currency. Hardcoded to CAD here until now, so a
   // company billing in USD watched the builder count in dollars the document
   // would not use.
@@ -60,9 +71,20 @@ export default function QuoteTotalsBar({
   disabled,
   readiness,
   readinessItems,
+  // What the always-present save says. "Save as draft" when there is no quote
+  // yet; "Save changes" when there is. Two labels because the short one is not
+  // the long one with a word hidden — French builds neither by truncation.
+  primaryLabel,
+  primaryLabelShort,
   onSaveDraft,
-  onSaveAndSend,
-  onSaveAndReview,
+  // Both optional. A null handler renders NO button rather than a disabled or
+  // inert one: sending is not offered on a quote the client already decided,
+  // and "Save & review" is a create-only shortcut to a panel that is already on
+  // screen once the quote exists.
+  onSaveAndSend = null,
+  onSaveAndReview = null,
+  // Where "Cancel" goes back to, when there is somewhere to go back to.
+  cancelHref = null,
 }) {
   const { t } = useTranslation();
   const money = (n) => formatAppMoney(n, currency, "en");
@@ -89,9 +111,11 @@ export default function QuoteTotalsBar({
             className="w-full sm:w-auto border border-border rounded-lg px-3 py-2 text-sm"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            {validUntil
-              ? t("app.quoteNew.validUntilHint")
-              : t("app.quoteNew.validUntilCleared")}
+            {!validUntil
+              ? t("app.quoteNew.validUntilCleared")
+              : validUntilDefaulted
+                ? t("app.quoteNew.validUntilHint")
+                : t("app.quoteNew.validUntilStored")}
           </p>
         </div>
 
@@ -102,14 +126,43 @@ export default function QuoteTotalsBar({
           currency={currency}
         />
 
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={taxEnabled}
-            onChange={(e) => onTaxToggle(e.target.checked)}
-          />
-          {t("app.quoteNew.applyTax", { rate: taxRate })}
-        </label>
+        {onTaxRateChange ? (
+          <div>
+            <label
+              htmlFor="quote-tax-rate"
+              className="block text-sm font-medium text-foreground mb-1"
+            >
+              {t("app.quoteEdit.taxRate")}
+            </label>
+            <input
+              id="quote-tax-rate"
+              type="number"
+              min="0"
+              step="0.001"
+              value={taxRate}
+              disabled={!taxEnabled}
+              onChange={(e) => onTaxRateChange(e.target.value)}
+              className="w-full sm:w-40 border border-border rounded-lg px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground"
+            />
+            <label className="flex items-center gap-2 mt-2 text-sm">
+              <input
+                type="checkbox"
+                checked={taxEnabled}
+                onChange={(e) => onTaxToggle(e.target.checked)}
+              />
+              {t("app.quoteEdit.chargeTax")}
+            </label>
+          </div>
+        ) : (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={taxEnabled}
+              onChange={(e) => onTaxToggle(e.target.checked)}
+            />
+            {t("app.quoteNew.applyTax", { rate: taxRate })}
+          </label>
+        )}
 
         {taxNote && (
           <p className="text-xs text-muted-foreground -mt-2">{taxNote}</p>
@@ -154,9 +207,14 @@ export default function QuoteTotalsBar({
             items={readinessItems || []}
             t={t}
           />
-          <p className="text-xs text-muted-foreground">
-            {t("app.quoteNew.saveAndReviewHint")}
-          </p>
+          {/* Only alongside the button it explains. On the edit route the
+              review panel is on the page already, so this sentence would be
+              describing a button that isn't there. */}
+          {onSaveAndReview && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.quoteNew.saveAndReviewHint")}
+            </p>
+          )}
         </div>
       )}
 
@@ -200,23 +258,34 @@ export default function QuoteTotalsBar({
               that it saves a draft first moves to the card above, where there
               is room for a sentence — the honest part is kept, just not
               wedged into a bar that cannot hold it. */}
-          <button
-            type="button"
-            onClick={onSaveAndReview}
-            disabled={saving || disabled}
-            title={t("app.quoteNew.saveAndReview")}
-            aria-label={t("app.quoteNew.saveAndReview")}
-            className="border border-border px-3 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
-          >
-            {saving === "review" ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Sparkles size={14} className="text-brand-accent-text" />
-            )}
-            <span className="whitespace-nowrap hidden sm:inline">
-              {t("app.quoteNew.reviewShort")}
-            </span>
-          </button>
+          {cancelHref && (
+            <Link
+              href={cancelHref}
+              className="border border-border text-foreground px-3 sm:px-5 py-2.5 rounded-full text-sm font-semibold inline-flex items-center"
+            >
+              {t("app.action.cancel")}
+            </Link>
+          )}
+
+          {onSaveAndReview && (
+            <button
+              type="button"
+              onClick={onSaveAndReview}
+              disabled={saving || disabled}
+              title={t("app.quoteNew.saveAndReview")}
+              aria-label={t("app.quoteNew.saveAndReview")}
+              className="border border-border px-3 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
+            >
+              {saving === "review" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Sparkles size={14} className="text-brand-accent-text" />
+              )}
+              <span className="whitespace-nowrap hidden sm:inline">
+                {t("app.quoteNew.reviewShort")}
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -234,31 +303,33 @@ export default function QuoteTotalsBar({
                 is "Enregistrer le brouillon" / "Brouillon", which cannot be
                 built by hiding a prefix. */}
             <span className="whitespace-nowrap sm:hidden">
-              {t("app.quoteNew.saveAsDraftShort")}
+              {primaryLabelShort || t("app.quoteNew.saveAsDraftShort")}
             </span>
             <span className="whitespace-nowrap hidden sm:inline">
-              {t("app.quoteNew.saveAsDraft")}
+              {primaryLabel || t("app.quoteNew.saveAsDraft")}
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={onSaveAndSend}
-            disabled={saving || disabled}
-            className="bg-inverted text-inverted-foreground px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
-          >
-            {saving === "sent" ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Send size={14} />
-            )}
-            {/* The label must never truncate — it is the primary action and
-                "Save & se…" reads as a broken build. The totals block on the
-                left is min-w-0 and gives way instead. */}
-            <span className="whitespace-nowrap">
-              {t("app.quoteNew.saveAndSend")}
-            </span>
-          </button>
+          {onSaveAndSend && (
+            <button
+              type="button"
+              onClick={onSaveAndSend}
+              disabled={saving || disabled}
+              className="bg-inverted text-inverted-foreground px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
+            >
+              {saving === "sent" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
+              {/* The label must never truncate — it is the primary action and
+                  "Save & se…" reads as a broken build. The totals block on the
+                  left is min-w-0 and gives way instead. */}
+              <span className="whitespace-nowrap">
+                {t("app.quoteNew.saveAndSend")}
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </>

@@ -110,12 +110,17 @@ console.log("\nSending asks first, with a real modal");
 // window.confirm was the first attempt and QA reported no confirmation at all
 // — an automated browser auto-accepts native dialogs, so it was invisible to
 // both the tester and, arguably, to a distracted human.
-for (const f of ["../app/app/quotes/[id]/page.js", "../app/app/quotes/new/page.js"]) {
+for (const f of [
+  "../app/app/quotes/[id]/page.js",
+  // The builder, not the route: /app/quotes/new and /app/quotes/[id]/edit are
+  // both thin wrappers around this one component now.
+  "../app/components/quotes/builder/QuoteBuilder.js",
+]) {
   t(`${f.split("/").pop()} does not CALL window.confirm`, !callsWindowConfirm(f));
   t(`${f.split("/").pop()} renders SendConfirmModal`, /<SendConfirmModal/.test(read(f)));
 }
 t("the builder confirms via a parameter, not racing state",
-  /confirmed = false/.test(read("../app/app/quotes/new/page.js")));
+  /confirmed = false/.test(read("../app/components/quotes/builder/QuoteBuilder.js")));
 
 console.log(fail ? `\n${fail} FAILED\n` : "\nALL PASS — one money format, one address, and send asks first\n");
 process.exit(fail ? 1 : 0);

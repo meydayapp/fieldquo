@@ -393,6 +393,47 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **One quote builder, two routes. The edit page is the builder now.**
+
+  `app/components/quotes/builder/QuoteBuilder.js` (new),
+  `lib/quotes/builderPayload.js` (new), `lib/pricing/takeoffTrades.js` (new),
+  `app/app/quotes/new/page.js` and `app/app/quotes/[id]/edit/page.js` (both now
+  ~10-line wrappers), `app/components/quotes/builder/QuoteTotalsBar.js`,
+  `ClientPicker.js`, `ScopeGroupCard.js`, `TradeTakeoff.js`,
+  `lib/costing/quoteCosting.js`, `app/api/quotes/route.js`,
+  `scripts/check-quote-builder.mjs` (new), `scripts/check-takeoff-render.jsx`,
+  `scripts/stub-next-navigation.js` (new).
+
+  `/app/quotes/new` (1,277 lines) and `/app/quotes/[id]/edit` (504) were two
+  independent implementations of the same screen — failure class 4 in AGENTS.md,
+  at the highest-traffic screen in the product. They had already drifted into
+  charging tax on different bases, and the cost/margin panel, the 30-day expiry
+  default, the readiness panel and the discount entry modes had all landed on
+  one and never reached the other.
+
+  Both routes now render `QuoteBuilder`, with `mode="create" | "edit"`. The
+  differences that are real live as branches on that prop: a create picks the
+  client and the language and POSTs; an edit has both settled, carries the AI
+  review panel (which can only read a SAVED quote), and must not reprice stored
+  line items.
+
+  **The `persisted` flag is the load-bearing part.** Takeoffs and unit pricing
+  are DERIVED on screen and FLATTENED into stored line items at save, so a sent
+  quote keeps its prices when the rate card moves. A group loaded back from the
+  database has already been through that, so deriving again would prepend every
+  derived line a second time and double the group's total. `persisted` turns
+  derivation off for stored groups and leaves it on for ones added in the
+  session — `scripts/check-quote-builder.mjs` proves flattening is a fixed point
+  by round-tripping a takeoff and a unit-priced group three times.
+
+  Also fixed on the way: `shapeSavedQuoteCosting` was dropping the four inputs
+  every cost editor seeds from (`addedLabourHours`, `addedMaterialCost`,
+  `labourRate`, `overheadPct`) plus crew `id`/`hoursExplicit`, so reopening a
+  costed quote showed blanks and saving wrote the blanks back. And saving an
+  ACCEPTED quote from the edit page always 400'd, because it sent scopeGroups
+  the API refuses once a quote is decided; the lines are now read-only there and
+  the rest of the form still saves.
+
 - **A scope group now says what the work IS, and says it differently for the
   job that was actually sold.**
 

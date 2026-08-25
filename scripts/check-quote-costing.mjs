@@ -511,6 +511,26 @@ const CONTRACT = [
   "blendedRate",
   "groups",
 ];
+// ── The saved path carries the INPUTS back as well ─────────────────────────
+//
+// The contract above is the ANSWER — hours, costs, margin — and it is shared
+// with the recompute, which has no inputs to report. But every editor that
+// reopens a costed quote (QuoteCostEditor on the quote page, the cost panel in
+// the shared quote builder) has to seed itself from what the estimator TYPED,
+// and those four numbers were not in the response at all. They read as blank
+// and the next save wrote the blanks back, silently zeroing the extra hours,
+// the extra materials and the fallback rate.
+//
+// So they are on the saved shape and deliberately NOT on the recomputed one: a
+// recompute has no inputs, and inventing zeroes would claim somebody said
+// something they never said.
+const SAVED_INPUTS = [
+  "addedLabourHours",
+  "addedMaterialCost",
+  "labourRate",
+  "overheadPct",
+  "note",
+];
 for (const [label, shape] of [
   ["saved", readBack],
   ["recomputed", recomputed],
@@ -519,7 +539,7 @@ for (const [label, shape] of [
   t(
     `${label}: exactly the contract's keys, no more`,
     keys,
-    [...CONTRACT].sort(),
+    [...CONTRACT, ...(label === "saved" ? SAVED_INPUTS : [])].sort(),
   );
   t(`${label}: saved is a boolean`, typeof shape.saved, "boolean");
   t(
@@ -577,7 +597,18 @@ for (const [label, shape] of [
     t(
       `${label}: a crew row is complete`,
       Object.keys(c).sort(),
-      ["cost", "hourlyRate", "hours", "name"].sort(),
+      [
+        "cost",
+        "hourlyRate",
+        "hours",
+        "name",
+        // Saved only, and for the same reason as SAVED_INPUTS: an editor has to
+        // know which hours were PINNED by a person and which are a resolved
+        // even share. Without hoursExplicit, reopening the panel freezes "split
+        // the pool evenly" into hard numbers the next save cannot undo — and
+        // without the id it cannot tell which worker a row was.
+        ...(label === "saved" ? ["hoursExplicit", "id"] : []),
+      ].sort(),
     );
   }
 }

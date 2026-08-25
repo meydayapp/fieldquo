@@ -34,6 +34,7 @@ import {
 } from "./fields";
 import PaverDesigner from "./PaverDesigner";
 import LabourPanel from "./LabourPanel";
+import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
 import { paverLabour, paverCrewDays } from "@/lib/pricing/paverLabour";
 import {
@@ -2497,9 +2498,15 @@ const TAKEOFFS = {
   snow_removal: SnowRemovalTakeoff,
 };
 
-export function hasTakeoff(categoryKey) {
-  return Boolean(TAKEOFFS[categoryKey]);
-}
+// The keys of the map above, so a check can assert they match TAKEOFF_TRADES.
+// A form here with no list entry renders a takeoff whose lines never price; a
+// list entry with no form prices lines the estimator cannot fill in.
+export const TAKEOFF_COMPONENT_KEYS = Object.keys(TAKEOFFS);
+
+// Re-exported rather than reimplemented. The list moved to lib so the pricing
+// code — which a plain-node check executes — can ask the question without
+// importing a React component. Existing callers keep importing it from here.
+export { hasTakeoff };
 
 export default function TradeTakeoff({
   categoryKey,

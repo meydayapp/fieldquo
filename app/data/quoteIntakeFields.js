@@ -951,7 +951,8 @@ export const INTAKE_FIELDS = {
   ],
   // Home inspection has a structured takeoff (TradeTakeoff.js), and the quote
   // builder shows the takeoff INSTEAD of these fields — see the
-  // `!hasTakeoff(...)` guard in app/app/quotes/new/page.js. So this entry
+  // `!hasTakeoff(...)` guard in
+  // app/components/quotes/builder/QuoteBuilder.js. So this entry
   // exists for the PUBLIC self-quote form, which has no takeoff and shows the
   // first three number/select fields. Those three are ordered deliberately:
   // square footage is the only thing that moves the price, and the other two

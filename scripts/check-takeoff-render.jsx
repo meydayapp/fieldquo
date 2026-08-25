@@ -16,7 +16,13 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import TradeTakeoff, {
   hasTakeoff,
+  TAKEOFF_COMPONENT_KEYS,
 } from "../app/components/quotes/builder/TradeTakeoff.js";
+import { TAKEOFF_TRADES } from "../lib/pricing/takeoffTrades.js";
+import {
+  QuoteBuilderForm,
+  initialStateFromQuote,
+} from "../app/components/quotes/builder/QuoteBuilder.js";
 import {
   getPriceBook,
   TRADE_PRICE_BOOKS,
@@ -101,6 +107,222 @@ for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
       fails.push(`${key} (${label}): ${err.message}`);
     }
   }
+}
+
+// ── The quote builder, in BOTH modes ───────────────────────────────────────
+//
+// /app/quotes/new and /app/quotes/[id]/edit are the same component now. That is
+// only worth anything if the component survives what the edit route actually
+// hands it: rows written by older versions, Json columns holding strings and
+// nulls, a quote with no client, a decided quote whose lines are locked.
+//
+// Rendered through QuoteBuilderForm rather than the default export on purpose.
+// The default export FETCHES, and renderToStaticMarkup runs no effects, so it
+// would render its loading skeleton at every one of these and prove nothing —
+// the same trap the job-materials gate below documents. The form takes its data
+// as props precisely so this check can be real.
+const BOOTSTRAP = {
+  clients: [{ id: "c1", name: "Alice", email: "a@example.com" }],
+  categories: [
+    { id: "cat1", key: "stairs", label: "Stairs", enabled: true, unit: "flat", defaultRate: 0 },
+    { id: "cat2", key: "cabinet_refinishing", label: "Cabinets", enabled: true },
+  ],
+  products: [{ id: "p1", name: "Rush fee", unitPrice: 200, unit: "flat", categories: [] }],
+  workers: [{ id: "w1", name: "Sam", hourlyRate: 32 }],
+  recipeOverrides: {},
+  companyLanguage: "en",
+  companyCurrency: "CAD",
+  defaultProcessNotes: "We start within two weeks.",
+  taxConfig: { taxRate: 13, autoApplyLocalTax: false, taxRates: [] },
+  overheadPerJob: 240,
+  overheadSource: { monthlyFixedCosts: 4800, jobsPerMonth: 20 },
+};
+
+const STORED_QUOTE = {
+  id: "q1",
+  quoteNumber: "Q-2026-0007",
+  status: "draft",
+  client: { id: "c1", name: "Alice", email: "a@example.com", address: "1 Main St" },
+  language: "fr",
+  subtotal: 4970,
+  discount: 500,
+  tax: 581.1,
+  total: 5051.1,
+  taxEnabled: true,
+  validUntil: "2026-09-30T00:00:00.000Z",
+  notes: "Side door only.",
+  processNotes: "50% on approval.",
+  clientPhotos: [],
+  company: { currency: "CAD" },
+  importedGroupIds: ["g2"],
+  scopeGroups: [
+    {
+      id: "g1",
+      categoryId: "cat1",
+      category: { key: "stairs", label: "Stairs" },
+      label: "Main staircase",
+      takeoff: createTradeConfig("stairs"),
+      lineItems: [
+        { description: "Treads", quantity: 13, rate: 260, amount: 3380 },
+        // No rate at all — written by the old amount-only editor.
+        { description: "Labour", quantity: 1, amount: 1470 },
+      ],
+      subtotal: 4850,
+    },
+    {
+      id: "g2",
+      categoryId: "cat1",
+      category: { key: "stairs", label: "Stairs" },
+      label: "Subcontracted railing",
+      lineItems: [{ description: "Railing", quantity: 1, amount: 120 }],
+      subtotal: 120,
+    },
+  ],
+};
+
+const BUILDER_CASES = [
+  ["create, nothing entered", "create", null, initialStateFromQuote(null)],
+  [
+    "create, no bootstrap at all",
+    "create",
+    null,
+    initialStateFromQuote(null),
+    {},
+  ],
+  ["edit, a normal draft", "edit", "q1", initialStateFromQuote(STORED_QUOTE)],
+  [
+    "edit, an accepted quote (lines locked)",
+    "edit",
+    "q1",
+    initialStateFromQuote({ ...STORED_QUOTE, status: "accepted" }),
+  ],
+  [
+    "edit, a declined quote",
+    "edit",
+    "q1",
+    initialStateFromQuote({ ...STORED_QUOTE, status: "declined" }),
+  ],
+  [
+    "edit, no client on the row",
+    "edit",
+    "q1",
+    initialStateFromQuote({ ...STORED_QUOTE, client: null }),
+  ],
+  [
+    "edit, no scope groups",
+    "edit",
+    "q1",
+    initialStateFromQuote({ ...STORED_QUOTE, scopeGroups: [], status: "accepted" }),
+  ],
+  [
+    "edit, junk in every Json column",
+    "edit",
+    "q1",
+    initialStateFromQuote({
+      ...STORED_QUOTE,
+      clientPhotos: "nope",
+      scopeGroups: [
+        { id: "g9", categoryId: null, category: null, lineItems: "nope", takeoff: 42 },
+        { id: "g8", categoryId: "cat1", category: { key: "unicorn" }, lineItems: [null, {}] },
+      ],
+    }),
+  ],
+  [
+    "edit, absent everything",
+    "edit",
+    "q1",
+    initialStateFromQuote({ id: "q1", scopeGroups: null }),
+  ],
+  [
+    "edit, a costed quote seeding the panel",
+    "edit",
+    "q1",
+    {
+      ...initialStateFromQuote(STORED_QUOTE),
+      costingLoaded: true,
+      costing: {
+        saved: true,
+        crew: [
+          { id: "w1", name: "Sam", hourlyRate: 32, hours: 12, cost: 384, hoursExplicit: true },
+          { id: null, name: "Casual", hourlyRate: 0, hours: 6, cost: 0, hoursExplicit: false },
+        ],
+        addedLabourHours: 4,
+        addedMaterialCost: 250,
+        labourRate: 35,
+        overheadPct: 12,
+      },
+    },
+  ],
+];
+
+for (const [label, mode, id, initial, bootstrapOverride] of BUILDER_CASES) {
+  try {
+    const html = renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role="owner" permissions={{}}>
+          <QuoteBuilderForm
+            mode={mode}
+            quoteId={id}
+            bootstrap={bootstrapOverride ?? BOOTSTRAP}
+            initial={initial}
+          />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+    if (!html || html.length < 200)
+      throw new Error(`rendered ${html.length} chars`);
+    // The one thing a money screen must never print.
+    if (/NaN|\$NaN|undefined<\/span>/.test(html))
+      throw new Error("NaN or undefined reached the screen");
+    pass += 1;
+  } catch (err) {
+    fails.push(`quote builder (${label}): ${err.message}`);
+  }
+}
+
+// A viewer with job costing switched off must not be offered a cost panel that
+// the server will drop on the floor. Asserted against the same expression the
+// component evaluates, because the render above cannot see a hidden branch.
+try {
+  const withCosting = (role, permissions) =>
+    renderToStaticMarkup(
+      <LanguageProvider initialLanguage="en">
+        <PermissionProvider role={role} permissions={permissions}>
+          <QuoteBuilderForm
+            mode="edit"
+            quoteId="q1"
+            bootstrap={BOOTSTRAP}
+            initial={initialStateFromQuote(STORED_QUOTE)}
+          />
+        </PermissionProvider>
+      </LanguageProvider>,
+    );
+  const shows = (html) => /Cost &amp; margin/.test(html);
+
+  // Both directions. A gate asserted only in the negative passes just as well
+  // when the panel never renders for anyone — which would be its own bug, since
+  // getting the cost panel onto this route is half the point of the refactor.
+  if (!shows(withCosting("owner", {})))
+    throw new Error("the cost panel is missing for someone who may see it");
+  if (shows(withCosting("employee", { jobCosting: false })))
+    throw new Error("the cost panel rendered for someone without job costing");
+  pass += 1;
+} catch (err) {
+  fails.push(`quote builder cost gate: ${err.message}`);
+}
+
+// The takeoff FORMS and the takeoff LIST are in different files now — the list
+// moved to lib so the pricing code can ask without importing React. A key in
+// one and not the other is a takeoff whose lines never price, or a price with
+// no form to enter it.
+try {
+  const listed = [...TAKEOFF_TRADES].sort().join(",");
+  const built = [...TAKEOFF_COMPONENT_KEYS].sort().join(",");
+  if (listed !== built)
+    throw new Error(`list=[${listed}] forms=[${built}]`);
+  pass += 1;
+} catch (err) {
+  fails.push(`takeoff list vs forms: ${err.message}`);
 }
 
 // The quote-wording editor, OPENED — a collapsed panel renders fine over

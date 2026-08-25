@@ -102,6 +102,11 @@ export async function POST(request) {
     // nothing, so the "Apply tax" checkbox never survived a save.
     taxEnabled,
     notes,
+    // What happens next, per quote. The company's default is still what the box
+    // OPENS with — see the copy below — but the builder now lets it be edited
+    // before the first save instead of only afterwards on the edit route, which
+    // is where the two screens had drifted apart.
+    processNotes,
     validUntil,
     language,
     // Photos of the job. Previously only ever set by lead intake, so a quote
@@ -178,7 +183,15 @@ export async function POST(request) {
       // in March must keep saying what it said in March even after the terms
       // change — reading the live company record would silently rewrite the
       // history of every document ever sent.
-      processNotes: company?.defaultProcessNotes || null,
+      //
+      // The request wins when it says something, so an estimator who tailored
+      // the wording on the builder keeps their version. Silence still means the
+      // company default: an API client that has never heard of this field must
+      // not end up creating quotes with no terms on them.
+      processNotes:
+        processNotes !== undefined
+          ? processNotes || null
+          : company?.defaultProcessNotes || null,
       validUntil: validUntil ? new Date(validUntil) : null,
       language: language || "en",
       // Same boundary the public self-quote intake uses — the browser sends

@@ -18,6 +18,7 @@
 import { Plus, Search, X } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const inputClass = "w-full border border-border rounded px-3 py-2 text-sm";
 
@@ -36,7 +37,13 @@ export default function ClientPicker({
   onCreateClient,
   creating,
   error,
+  // Once a quote exists its client is settled: PATCH /api/quotes/[id] takes no
+  // clientId, so a "Change" button here would be a control that appears to work
+  // and doesn't. The client is still SHOWN, because who the quote is for is
+  // information the screen should keep carrying.
+  locked = false,
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <div
@@ -55,14 +62,23 @@ export default function ClientPicker({
                 {selectedClient.email || selectedClient.phone}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-sm text-muted-foreground underline shrink-0 ml-3"
-            >
-              Change
-            </button>
+            {!locked && (
+              <button
+                type="button"
+                onClick={onClear}
+                className="text-sm text-muted-foreground underline shrink-0 ml-3"
+              >
+                Change
+              </button>
+            )}
           </div>
+        ) : locked ? (
+          // A locked picker with nothing selected is a quote whose client row
+          // has gone. Say so rather than offering a search that cannot attach
+          // one — this route has no way to set a client.
+          <p className="text-sm text-muted-foreground">
+            {t("app.quoteEdit.noClientOnRecord")}
+          </p>
         ) : (
           <div>
             <div className="relative mb-2">

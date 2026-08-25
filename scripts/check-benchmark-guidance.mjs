@@ -244,10 +244,15 @@ ok("shows the no-number cases too, because a stated gap is information",
 
 section("Boundary — guidance is internal and never persisted");
 
-const page = readFileSync("app/app/quotes/new/page.js", "utf8");
+// The builder is ONE component now, shared by /app/quotes/new and
+// /app/quotes/[id]/edit — the routes are wrappers. Reading a route file here
+// would find nothing and pass for the wrong reason.
+const page =
+  readFileSync("app/components/quotes/builder/QuoteBuilder.js", "utf8") +
+  readFileSync("lib/quotes/builderPayload.js", "utf8");
 ok(
   "the builder strips catalogKey before POSTing the quote",
-  /lineItems:\s*lineItems\.map\(\(\{\s*catalogKey,\s*\.\.\.item\s*\}\)\s*=>\s*item\)/.test(page),
+  /\{\s*catalogKey,\s*\.\.\.item\s*\}\)\s*=>\s*\(?\{/.test(page),
   "the editor-only handle would otherwise be saved onto the document",
 );
 ok(
