@@ -962,6 +962,9 @@ model Company {
   /// contractor pastes the URL, without a setup step they'd have to be told
   /// about first.
   linkPage LinkPage?
+
+  /// Recurring work sold as a package — see the ServicePlan model.
+  servicePlans ServicePlan[]
 }
 
 /// Configuration for the bio-link page at /l/<slug> — the single link an
@@ -1309,6 +1312,7 @@ model Client {
   appointments  Appointment[]
   tasks         Task[]
   pamphletStops PamphletStop[]
+  servicePlans  ServicePlan[]
 }
 
 enum ClientType {
@@ -1745,6 +1749,12 @@ model Invoice {
   jobId String?
   job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
 
+  /// Set when this invoice was raised by a service plan's schedule rather than
+  /// by a person. Optional on both sides: the overwhelming majority of invoices
+  /// have no plan behind them, and a plan's occurrence keeps its invoice even
+  /// if the plan is deleted.
+  servicePlanOccurrence ServicePlanOccurrence?
+
   @@index([companyId, jobId])
 }
 
@@ -1979,6 +1989,17 @@ model QuoteScopeGroup {
   // lineItems stays the source of truth for what is BILLED — a document must
   // not re-derive its own prices from a rate card that has since changed.
   takeoff    Json?
+
+  // The intake answers behind a unit-priced group — 32 doors, 3 drawer fronts,
+  // thermofoil. Kept for the same reason as `takeoff`, and for one more: the
+  // cost estimate is DERIVED from these (materialRecipes.js turns doors into
+  // gallons of primer and minutes of spraying). Without them stored, a cabinet
+  // quote could be re-priced but never re-costed, so the Cost & Margin panel a
+  // user filled in while quoting read back as "this quote was never costed".
+  //
+  // Not client-facing and not the source of truth for what is BILLED — the
+  // flattened lineItems are.
+  intakeValues Json?
   subtotal   Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder  Int             @default(0)
 }
@@ -4553,4 +4574,254 @@ model JobPhoto {
 
   @@index([companyId, featured])
   @@index([jobId, stage])
+}
+
+// ============================================================
+// SERVICE PLANS — recurring work, sold as a package, billed on a cadence
+// ============================================================
+
+/// A block of recurring work a contractor sold to one client: spring + fall
+/// gutter cleaning, a quarterly maintenance visit, weekly lawn care.
+///
+/// ── Why this is not a Stripe Subscription ───────────────────────────────────
+///
+/// Stripe Billing can bill on an interval, and lib/platform/stripeBilling.js
+/// already uses it — for FieldQuo charging its own tenants. Reaching for it
+/// here was considered and rejected on four counts, and the reasons are worth
+/// keeping because the shortcut is tempting:
+///
+///   1. White-label. A Stripe Subscription bills through Stripe's own invoice
+///      and receipt, on the PLATFORM account. The homeowner would receive a
+///      document from FieldQuo. The whole product promise is that they don't.
+///   2. "Twice a year, starting in April" is not a Stripe interval. Seasonal
+///      work is the case the owner actually asked for.
+///   3. A package discount ("10% off the total") would become a Coupon object
+///      to keep in sync with a figure we already hold.
+///   4. Two different subscription object graphs on one platform account is
+///      exactly the mixing lib/platform/stripeBilling.js warns against.
+///
+/// So the SCHEDULE lives here and the money moves through the same primitive
+/// the existing pay link already uses: a destination charge on the platform,
+/// transferred to the connected account (see lib/stripe.js). The only thing
+/// added is that the PaymentIntent is confirmed off-session against a payment
+/// method the client authorised in advance.
+///
+/// The consequence is the property that matters most: there is no Stripe object
+/// that can charge anybody on its own. Nothing bills unless
+/// lib/servicePlans/run.js decides an occurrence is due, and it refuses a plan
+/// that is not `active`. Cancelling cannot leave a live subscription behind,
+/// because there was never one to leave.
+///
+/// ── Money terms are frozen at creation ──────────────────────────────────────
+///
+/// amountPerOccurrence, discountPct, frequency and the length are immutable
+/// once the row exists. Not laziness: the client's authorisation names those
+/// figures, and Stripe's own rules for off-session charging require the terms
+/// they agreed to cover the charge. Editing the amount under a live mandate is
+/// the chargeback. To change the deal, cancel and sell a new plan.
+model ServicePlan {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client  @relation(fields: [clientId], references: [id])
+
+  /// What the contractor calls this package on the client's invoice.
+  name String
+
+  /// The service being sold, FROZEN as text at creation rather than joined.
+  ///
+  /// Deliberately a copy, for the same reason Invoice.lineItems is a copy of
+  /// the quote's: a company renaming a trade next year must not rewrite what a
+  /// homeowner agreed to buy. `categoryId` is kept alongside for provenance and
+  /// is intentionally NOT a relation — it answers "which service was this
+  /// picked from", never "what is it called now".
+  serviceName String
+  categoryId  String?
+
+  /// active · cancelled · completed. A plain String, matching Job.status'
+  /// neighbours in this schema; the closed set is enforced in
+  /// lib/servicePlans/schedule.js, which is the only thing that reads it.
+  status String @default("active")
+
+  /// weekly · monthly · quarterly · semiannual · annual.
+  /// The closed set is PLAN_FREQUENCIES in lib/servicePlans/schedule.js.
+  frequency String
+
+  /// The date of the FIRST occurrence. Every later date is computed from this
+  /// anchor, never from the previous one — see the schedule module for why
+  /// iterating drifts a "31st of the month" plan backwards over a year.
+  startDate DateTime
+
+  /// count · until · open — how the series ends.
+  ///   count → occurrenceCount is the number of visits sold
+  ///   until → endDate is the last day an occurrence may fall on
+  ///   open  → runs until somebody cancels it
+  endMode         String
+  occurrenceCount Int?
+  endDate         DateTime?
+
+  /// What one occurrence costs BEFORE the package discount and before tax, in
+  /// the company's own currency. Decimal, like every other money column here.
+  amountPerOccurrence Decimal @db.Decimal(12, 2)
+
+  /// The package discount, as a percentage off the total — "Spring & Fall,
+  /// 10% off". Applied identically to every occurrence rather than deducted
+  /// from the term total, which is the only way each invoice can add up on its
+  /// own; see lib/servicePlans/pricing.js.
+  discountPct Decimal @default(0) @db.Decimal(6, 3)
+
+  /// Tax rate applied to each occurrence's invoice, as a percentage. Null
+  /// means the contractor stated there is no tax on this plan — NOT that we
+  /// should guess one. An absent rate is a statement, not a gap to fill.
+  taxRatePct Decimal? @db.Decimal(6, 3)
+
+  /// invoice · automatic — how each occurrence is collected.
+  ///
+  /// `invoice` is the default and works on its own with no stored card: each
+  /// occurrence raises an invoice and emails the existing pay link.
+  ///
+  /// `automatic` is a REQUEST, not a capability. It only ever charges when a
+  /// ServicePlanAuthorisation row exists and is unrevoked. Without one the run
+  /// falls back to the pay link and says so on the plan — it never silently
+  /// collects nothing.
+  collectionMode String @default("invoice")
+
+  /// The language the plan's client-facing wording was written in, fixed at
+  /// creation like Quote.language. Automatic collection is only offered when
+  /// this is a language we hold reviewed authorisation wording for — see
+  /// AUTHORISATION_LANGUAGES in lib/servicePlans/consent.js.
+  language String @default("en")
+
+  /// Unguessable token for the client's authorisation page at /plan/<token>.
+  /// Only minted when the contractor asks for a payment method, so a plan that
+  /// never needed one has no public surface at all.
+  authToken String? @unique
+
+  cancelledAt  DateTime?
+  cancelledById String?
+  completedAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+
+  occurrences   ServicePlanOccurrence[]
+  authorisation ServicePlanAuthorisation?
+
+  @@index([companyId, status])
+  @@index([clientId])
+}
+
+/// One dated instance of a plan: the visit that is due, the invoice it raised,
+/// and what happened when we tried to collect for it.
+///
+/// Rows are created LAZILY, one per run, only once the date has arrived — see
+/// lib/servicePlans/run.js. Materialising the whole series up front would mean
+/// a plan back-dated by mistake fires a burst of real invoices at real clients
+/// the moment it is saved.
+model ServicePlanOccurrence {
+  id     String      @id @default(cuid())
+  planId String
+  plan   ServicePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  /// 0-based position in the series. Unique per plan, which is what makes the
+  /// generator idempotent: a cron that runs twice cannot bill twice.
+  seq     Int
+  dueDate DateTime
+
+  /// pending · invoiced · charging · paid · failed
+  ///
+  /// `charging` exists because pre-authorized debit is a delayed-notification
+  /// method: the PaymentIntent sits in `processing` for days. Collapsing it
+  /// into `paid` would mark an invoice settled on money that has not moved.
+  status String @default("pending")
+
+  /// The figures as billed, frozen. The plan's columns can't be edited, but
+  /// freezing here still matters: it is what the invoice and the charge agree
+  /// on, and it is what a dispute is read against.
+  subtotal Decimal @default(0) @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  tax      Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @default(0) @db.Decimal(12, 2)
+
+  /// The invoice this occurrence raised. SetNull, never Cascade: an invoice is
+  /// a financial record and outranks its link to the schedule that produced it.
+  invoiceId String?  @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  stripePaymentIntentId String?   @unique
+  chargeAttemptedAt     DateTime?
+  /// Why the last automatic attempt failed, in Stripe's own words. Shown to the
+  /// contractor, never to the client.
+  chargeFailureCode     String?
+  chargeFailureMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, seq])
+  @@index([planId, status])
+}
+
+/// The client's standing permission to be charged for one plan, and the
+/// evidence that they gave it.
+///
+/// ── Why a separate row, and why its absence is the point ────────────────────
+///
+/// Same structural reasoning as InvoiceCosting: a plan is returned to screens
+/// and, at /plan/<token>, to a stranger's browser. Stripe customer and payment
+/// method ids must not ride along on that payload by accident, and a column on
+/// ServicePlan would. More importantly, "is there a mandate" then has exactly
+/// one answer — does this row exist and is revokedAt null — instead of a set of
+/// nullable columns that can disagree with each other.
+///
+/// Stripe's own compliance guidance for off-session charging requires the terms
+/// the customer agreed to be RECORDED, not merely displayed. termsText is that
+/// record: the exact wording rendered on the page they ticked, snapshotted, so
+/// improving the wording later cannot rewrite what an existing client agreed to.
+model ServicePlanAuthorisation {
+  id     String      @id @default(cuid())
+  planId String      @unique
+  plan   ServicePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  /// A Stripe Customer on the PLATFORM account, holding the client's payment
+  /// method. Deliberately NOT tagged with a `companyId` metadata key — see
+  /// lib/servicePlans/stripeMandate.js. getOrCreateStripeCustomer in
+  /// lib/platform/stripeBilling.js searches customers by exactly that key, and
+  /// a collision would hand a tenant's own subscription a homeowner's card.
+  stripeCustomerId      String
+  stripeSetupIntentId   String
+  stripePaymentMethodId String
+  /// Stripe's multi-use Mandate, when the method generates one (pre-authorized
+  /// debit always does; cards usually don't). Passed back on every off-session
+  /// charge so the debit is made under the mandate the client accepted.
+  stripeMandateId       String?
+
+  /// card · acss_debit. Pinned onto the PaymentIntent so an off-session charge
+  /// cannot wander onto a method the client never authorised.
+  paymentMethodType  String
+  paymentMethodBrand String?
+  paymentMethodLast4 String?
+
+  /// ── The consent record ──────────────────────────────────────────────────
+  /// acceptedAt is stamped when the CLIENT ticked the box on /plan/<token>,
+  /// before Stripe is ever opened — so a client who abandoned the card form
+  /// leaves an accepted-terms row with no payment method, which reads
+  /// correctly as "agreed, never finished" rather than as authority to charge.
+  acceptedAt   DateTime
+  acceptedIp   String?
+  acceptedAgent String?
+  /// The full terms as rendered, verbatim, plus the language they were in.
+  termsText    String
+  termsLanguage String
+
+  /// Set when the plan is cancelled or the contractor removes the method. A
+  /// revoked row is never charged, and the payment method is detached at Stripe
+  /// as well — two independent stops, deliberately.
+  revokedAt     DateTime?
+  revokedReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -73,6 +73,7 @@ import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
   MARGIN_TARGET_PCT,
   FALLBACK_OVERHEAD_PCT,
+  FALLBACK_LABOUR_RATE,
 } from "@/lib/costing/quoteCosting";
 import { isUnitPriced } from "@/app/data/cabinetPricing";
 import { getIntakeFields } from "@/app/data/quoteIntakeFields";
@@ -130,7 +131,10 @@ function groupFromStored(g, importedIds, fallbackLabel) {
     label: g.label || g.category?.label || fallbackLabel,
     isTiered: false,
     selectedTier: null,
-    intakeValues: {},
+    // Restored, not blanked. These drive the cost estimate, so a stored group
+    // that came back with `{}` showed a costed quote as uncosted the moment it
+    // was reopened.
+    intakeValues: g.intakeValues || {},
     // Carried through untouched so a save doesn't blank the structured form
     // behind a stair or countertop group. Not rendered as an editor: editing
     // it would have to reprice, and repricing a sent quote is the thing the
@@ -138,6 +142,20 @@ function groupFromStored(g, importedIds, fallbackLabel) {
     takeoff: g.takeoff ?? null,
     lineItems: lineItemsFromStored(g.lineItems),
   };
+}
+
+/**
+ * How many units a saved group actually bills for.
+ *
+ * Read off the stored base line rather than the intake, because the intake is
+ * exactly what is missing on the groups this is shown for. Used only as
+ * context beside the cost-only intake boxes — never to fill them in.
+ */
+export function billedUnitsOf(group) {
+  const lines = Array.isArray(group?.lineItems) ? group.lineItems : [];
+  const base = lines.find((l) => l && l.unit === "unit" && l.meta);
+  const n = Number(base?.quantity);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 /**
@@ -526,7 +544,7 @@ export function QuoteBuilderForm({
   // understates margin on every quote. Overridden per quote, and superseded
   // entirely when a worker with an hourlyRate is assigned.
   const [fallbackRate, setFallbackRate] = useState(
-    seededCosting?.labourRate ?? 35,
+    seededCosting?.labourRate ?? FALLBACK_LABOUR_RATE,
   );
   const [overheadPct, setOverheadPct] = useState(
     seededCosting?.overheadPct ?? FALLBACK_OVERHEAD_PCT,
@@ -1411,6 +1429,44 @@ export function QuoteBuilderForm({
                 {t("app.quoteEdit.takeoffFrozen")}
               </p>
             )}
+
+            {/* A saved unit-priced group's PRICE is frozen for the same reason
+                its takeoff is. Its COST is not, and the two are different
+                questions. Doors, drawer fronts and the door material feed the
+                material recipe and nothing else — scopeGroupPayload and
+                groupSubtotal both return early on `persisted`, so a number
+                typed here cannot reach the client's copy of the quote.
+                Without it, every quote written before intake answers were
+                stored is permanently uncostable. */}
+            {group.persisted &&
+              isUnitPriced(group.categoryKey) &&
+              !locked &&
+              mayCost && (
+                <div className="space-y-2 rounded-md border border-dashed p-3">
+                  <p className="text-xs text-muted-foreground">
+                    {t("app.quoteEdit.intakeCostOnly")}
+                  </p>
+                  {/* The billed unit count, as a reminder rather than a
+                      prefill. 35 units is not 35 doors — the recipe costs a
+                      door at 12 sqft and 45 minutes and a drawer front at 3
+                      and 20, and splitting the total for the user would be
+                      inventing the answer the boxes are asking for. */}
+                  {billedUnitsOf(group) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("app.quoteEdit.intakeBilledUnits", {
+                        count: billedUnitsOf(group),
+                      })}
+                    </p>
+                  )}
+                  <IntakeFields
+                    fields={getGroupFields(group)}
+                    values={group.intakeValues || {}}
+                    onChange={(key, value) =>
+                      updateIntakeValue(group.tempId, key, value)
+                    }
+                  />
+                </div>
+              )}
 
             {locked ? (
               <div className="space-y-1.5">

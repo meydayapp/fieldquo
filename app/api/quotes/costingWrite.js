@@ -72,6 +72,10 @@ export async function resolveCostingGroups(companyId, groups) {
     categoryKey: keyById.get(g.categoryId) || null,
     label: g.label || null,
     takeoff: g.takeoff ?? null,
+    // Read from the group, never from the request. A browser asserting "40
+    // doors" against a quote billed for 12 would write a margin the quote's own
+    // scope does not support.
+    intakeValues: g.intakeValues ?? null,
     rateOverrides: ratesById.get(g.categoryId) ?? null,
   }));
 }

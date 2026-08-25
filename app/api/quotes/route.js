@@ -210,6 +210,9 @@ export async function POST(request) {
             // one. Stored so the form can be reopened; lineItems above stays
             // what is billed.
             takeoff: g.takeoff ?? null,
+            // What the recipe-based cost estimate is derived from. See the
+            // QuoteScopeGroup model.
+            intakeValues: g.intakeValues ?? null,
             subtotal: g.subtotal || 0,
             sortOrder: i,
           })),

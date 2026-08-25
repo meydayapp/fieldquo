@@ -83,7 +83,13 @@ export default function CostPanel({
                   ? t("app.invoiceCost.estimatedAt", {
                       date: formatDate(lifecycleCosting.estimatedAt),
                     })
-                  : null
+                  : // No date because nobody saved a cost panel on the quote —
+                    // this was worked out from its own scope against today's
+                    // price book. A real figure, but not a record of one, and
+                    // the difference matters when it sits next to an actual.
+                    lifecycleCosting?.estimatedBasis === "derived"
+                    ? t("app.invoiceCost.estimatedDerived")
+                    : null
             }
           />
           <Figure

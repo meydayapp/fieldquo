@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import { normaliseMediaList } from "@/lib/media/validate";
@@ -92,12 +93,20 @@ export async function POST(request) {
     );
   }
 
-  const lastInvoice = await db.invoice.findFirst({
-    where: { companyId: member.companyId },
-    orderBy: { createdAt: "desc" },
-    select: { invoiceNumber: true },
+  // An invoice raised against a quote takes that quote's number so the pair
+  // reconciles at a glance; one raised on its own has nothing to borrow and
+  // continues the sequence. lib/invoices/invoiceNumber.js has both rules and
+  // the reason the old "last invoice by createdAt" lookup could repeat one.
+  const sourceQuote = quoteId
+    ? await db.quote.findFirst({
+        where: { id: quoteId, companyId: member.companyId },
+        select: { quoteNumber: true },
+      })
+    : null;
+  const nextNumber = await allocateInvoiceNumber(db, {
+    companyId: member.companyId,
+    quoteNumber: sourceQuote?.quoteNumber || null,
   });
-  const nextNumber = getNextInvoiceNumber(lastInvoice?.invoiceNumber);
 
   // Costed against subtotal MINUS discount — the pre-tax money the crew's time
   // and materials actually have to come out of. Tax is the government's, not
@@ -155,16 +164,4 @@ export async function POST(request) {
   // create path needs it back, and the fewer places a whole invoice row
   // carries cost data, the fewer places it can be forwarded to a client.
   return NextResponse.json(invoice, { status: 201 });
-}
-
-// Server is the source of truth for sequential numbers — never generate this client-side.
-function getNextInvoiceNumber(lastNumber) {
-  const year = new Date().getFullYear();
-  if (!lastNumber) return `INV-${year}-0001`;
-
-  const match = lastNumber.match(/(\d+)$/);
-  const nextSeq = match
-    ? String(Number(match[1]) + 1).padStart(4, "0")
-    : "0001";
-  return `INV-${year}-${nextSeq}`;
 }

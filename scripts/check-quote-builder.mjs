@@ -473,9 +473,16 @@ const canonical = scopeGroupPayload(
   null,
 );
 const keys = Object.keys(canonical).sort();
-eq("the wire shape is id / categoryId / label / lineItems / subtotal", keys, [
+// `intakeValues` joined this list deliberately, and the exact-key form is why
+// it had to be argued for rather than slipped in: doors, drawer fronts and the
+// door material are what the material recipe derives a COST from, and with no
+// column to keep them in, a cabinet quote could be re-priced but never
+// re-costed. It is internal — the client's document is built from lineItems —
+// and QuoteScopeGroup.intakeValues says so.
+eq("the wire shape is id / categoryId / label / intakeValues / lineItems / subtotal", keys, [
   "categoryId",
   "id",
+  "intakeValues",
   "label",
   "lineItems",
   "subtotal",

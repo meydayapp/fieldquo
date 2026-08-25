@@ -102,7 +102,17 @@ export async function PATCH(request, { params }) {
       // when the request is only changing a number on the totals bar.
       costing: { select: { id: true } },
       scopeGroups: {
-        select: { id: true, categoryId: true, label: true, takeoff: true },
+        select: {
+          id: true,
+          categoryId: true,
+          label: true,
+          takeoff: true,
+          // Read because a status-only PATCH rebuilds the cost row from these
+          // groups (see `scopeGroups ?? existing.scopeGroups` below). Omitted,
+          // accepting a quote re-costed it from no intake and wrote zeroes over
+          // the figures it was priced at.
+          intakeValues: true,
+        },
         orderBy: { sortOrder: "asc" },
       },
     },

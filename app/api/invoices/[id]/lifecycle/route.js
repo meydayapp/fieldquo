@@ -24,6 +24,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
 import {
@@ -162,12 +163,16 @@ export async function GET(request, { params }) {
   // shows a zero, because a zero reads as "this job cost nothing".
   if (!hasToggle(full, "jobCosting")) return NextResponse.json(body);
 
-  const quoteCosting = invoice.quoteId
-    ? await db.quoteCosting.findUnique({
-        where: { quoteId: invoice.quoteId },
-        select: { totalCost: true, updatedAt: true },
-      })
-    : null;
+  // The saved QuoteCosting row when there is one, and otherwise the same
+  // derivation the quote's own cost panel shows. Reading the row alone meant an
+  // invoice printed "this quote was never costed" for a quote whose cost the
+  // quote page was displaying in full a click away — the estimator had priced
+  // the job from the door counts and simply never opened the crew panel, which
+  // is not the same as never costing it.
+  const quotedCost = await quotedCostFor({
+    companyId: member.companyId,
+    quoteId: invoice.quoteId,
+  });
 
   // Revenue is subtotal minus discount — the pre-tax money the work has to come
   // out of. Tax is the government's and a discount given away is not income;
@@ -217,14 +222,19 @@ export async function GET(request, { params }) {
     // Recomputing would answer "what would this cost at today's rates", which
     // moves on an invoice nobody has touched — the exact reason QuoteCosting
     // stores it. Null when the quote was never costed, and the page says so.
-    estimatedCost: num(quoteCosting?.totalCost),
-    estimatedAt: quoteCosting?.updatedAt || null,
+    estimatedCost: quotedCost ? quotedCost.totalCost : null,
+    // Null on a derivation: it has no moment it was recorded, and stamping it
+    // "now" would tell a March quote it was estimated seconds ago.
+    estimatedAt: quotedCost?.at || null,
+    // "saved" or "derived", so the panel can mark a figure worked out just now
+    // from today's price book rather than passing it off as a record.
+    estimatedBasis: quotedCost?.source || null,
     revenue,
     actual,
     // Null actualCost when there is no job: "we have not measured this" is not
     // "this cost nothing", and compareJobCost refuses to invent the difference.
     comparison: compareJobCost({
-      estimatedCost: num(quoteCosting?.totalCost),
+      estimatedCost: quotedCost ? quotedCost.totalCost : null,
       actualCost: actual ? actual.total : null,
       revenue,
     }),

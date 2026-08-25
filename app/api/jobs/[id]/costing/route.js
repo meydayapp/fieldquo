@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
@@ -32,14 +33,10 @@ export async function GET(request, { params }) {
     where: { id: _params.id, companyId: member.companyId },
     select: {
       id: true,
-      // costing is QuoteCosting — the estimate as it was when the quote was
-      // saved, not as it would be recomputed today. See the note below.
-      quote: {
-        select: {
-          total: true,
-          costing: { select: { totalCost: true, updatedAt: true } },
-        },
-      },
+      // `id` so quotedCostFor can be asked about it; `total` is the revenue
+      // the variance is measured against. The cost itself is no longer read
+      // here — see the note below.
+      quote: { select: { id: true, total: true } },
       // Returned so the panel formats in the company's billing currency. The
       // job endpoint doesn't load the company, and defaulting to CAD in the
       // component is exactly the bug that put "$2100.00" on client documents.
@@ -84,10 +81,17 @@ export async function GET(request, { params }) {
   // behind the job at all. compareJobCost returns null for variance in that
   // case rather than a fake 0%, and the panel says nothing rather than
   // reporting a job as on budget when no budget was ever set.
-  const estimatedCost =
-    job.quote?.costing?.totalCost == null
-      ? null
-      : Number(job.quote.costing.totalCost);
+  //
+  // And null is not the same as "no row". A quote costed from its door counts
+  // and never opened in the crew panel has no QuoteCosting row and a perfectly
+  // real cost; reading the row alone reported those jobs as having no budget.
+  // quotedCostFor is the same saved-then-derived rule the quote page and the
+  // invoice use, so the three cannot disagree about one quote.
+  const quotedCost = await quotedCostFor({
+    companyId: member.companyId,
+    quoteId: job.quote?.id || null,
+  });
+  const estimatedCost = quotedCost ? quotedCost.totalCost : null;
 
   const comparison = compareJobCost({
     estimatedCost,

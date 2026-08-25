@@ -31,19 +31,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
+import { shapeSavedQuoteCosting } from "@/lib/costing/quoteCosting";
 import {
-  quoteCostSummary,
-  shapeSavedQuoteCosting,
-  shapeEstimate,
-  costBasisMissing,
-  MARGIN_TARGET_PCT,
-  FALLBACK_OVERHEAD_PCT,
-} from "@/lib/costing/quoteCosting";
-import {
-  resolveCostingGroups,
-  recipeOverridesFor,
-} from "@/app/api/quotes/costingWrite";
-import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
+  deriveQuoteCosting,
+  QUOTE_COST_SELECT,
+} from "@/lib/costing/quoteCostEstimate";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -67,106 +59,25 @@ export async function GET(request, { params }) {
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
-    select: {
-      id: true,
-      subtotal: true,
-      discount: true,
-      costing: true,
-      scopeGroups: {
-        select: { id: true, categoryId: true, label: true, takeoff: true },
-        orderBy: { sortOrder: "asc" },
-      },
-    },
+    select: { ...QUOTE_COST_SELECT, costing: true },
   });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // ── Saved wins, always, and nothing is recomputed ────────────────────────
   //
   // Not even partially. Recomputing one field — the overhead, say, because the
-  // company's capacity figure has improved since — would put a figure on
-  // screen that changes while nobody touches the quote, sitting next to
-  // figures that don't. The row's existence is the flag: once a quote has been
-  // costed, today's rate card stops having an opinion about it.
+  // company's capacity figure has improved since — would put a figure on screen
+  // that changes while nobody touches the quote, sitting next to figures that
+  // don't. The row's existence is the flag: once a quote has been costed,
+  // today's rate card stops having an opinion about it.
   if (quote.costing) {
     return NextResponse.json(shapeSavedQuoteCosting(quote.costing));
   }
 
-  const price = (Number(quote.subtotal) || 0) - (Number(quote.discount) || 0);
-
-  const [groups, recipeOverridesByCategory] = await Promise.all([
-    resolveCostingGroups(member.companyId, quote.scopeGroups),
-    recipeOverridesFor(member.companyId),
-  ]);
-
-  let overheadPerJob = null;
-  try {
-    const min = await calculateMinimumPrice({ companyId: member.companyId });
-    if (!min?.error && Number.isFinite(Number(min?.costPerJob))) {
-      overheadPerJob = Number(min.costPerJob);
-    }
-  } catch {
-    // Unknown overhead is absent, not zero. The percentage fallback stands in
-    // and `overheadBasis` says which one ran.
-  }
-
-  const estimate = quoteCostSummary({
-    scopeGroups: groups,
-    // No crew and no rate. Nothing recorded who was going to do this job, and
-    // the company's current workers are not an answer to that question — the
-    // ones on the payroll today are not necessarily the ones this quote
-    // assumed. So the labour hours come back with no money against them and
-    // `costIncomplete` is true, which is the truthful version of "we don't
-    // know". Inventing a crew would produce a margin nobody ever quoted.
-    crew: [],
-    labourRate: 0,
-    addedLabourHours: 0,
-    addedMaterialCost: 0,
-    overheadPct: FALLBACK_OVERHEAD_PCT,
-    overheadPerJob,
-    price,
-    marginTargetPct: MARGIN_TARGET_PCT,
-    recipeOverridesByCategory,
-  });
-
-  const shaped = shapeEstimate(estimate, { saved: false });
-
-  // ── A margin computed from overhead alone is not a margin ────────────────
-  //
-  // Q-2026-0006 rendered "54.52% margin" against LABOUR $0.00 / 0 hrs and
-  // MATERIALS $0.00 on a $6,650 cabinet quote. Nothing was wrong with the
-  // arithmetic — $6,650 minus $3,024 of overhead really is 54.52%. What was
-  // wrong is that it presented a subtraction with the two biggest terms
-  // missing as if it were an answer, in green.
-  //
-  // Cabinet refinishing and exterior painting are priced from INTAKE ANSWERS
-  // (doors, drawers, species) through app/data/materialRecipes.js, and
-  // QuoteScopeGroup has never had a column to keep them in. A trade takeoff is
-  // stored; intake answers are not. So for those trades a recompute has
-  // literally nothing to work from, and it cannot be made to by trying harder.
-  //
-  // Absence of a cost is not a cost of zero. When a recompute produces neither
-  // hours nor materials for a quote that plainly has work in it, the honest
-  // answer is no margin at all — not a flattering one. `marginPct: null`
-  // renders as "—", and `costBasisMissing` tells the panel what to say instead
-  // of leaving somebody to wonder why the badge is blank.
-  if (costBasisMissing({ ...shaped, price })) {
-    const trades = [
-      ...new Set(groups.map((g) => g.categoryKey).filter(Boolean)),
-    ];
-    return NextResponse.json({
-      ...shaped,
-      marginPct: null,
-      profit: null,
-      signal: "none",
-      costIncomplete: true,
-      costBasisMissing: true,
-      // Named, because "we can't work it out" invites "why not", and the
-      // answer is actionable: cost it on the quote and it is kept from now on.
-      costBasisReason:
-        "This quote was saved before costing was kept, and its trades are priced from intake answers that were never stored — so there is nothing left to work the cost out from. Open it in the editor, fill in the cost panel and save, and it will be recorded from then on.",
-      costBasisTrades: trades,
-    });
-  }
-
-  return NextResponse.json(shaped);
+  // Shared with the invoice lifecycle and the job cost view, which used to read
+  // QuoteCosting.totalCost and print "never costed" whenever it was null — so
+  // the same quote showed a full breakdown here and nothing at all there.
+  return NextResponse.json(
+    await deriveQuoteCosting({ companyId: member.companyId, quote }),
+  );
 }
