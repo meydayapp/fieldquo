@@ -60,7 +60,8 @@ import { formatAddress } from "@/lib/format/address";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
-  accepted: "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
+  accepted:
+    "bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300",
   declined: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300",
 };
 
@@ -75,10 +76,6 @@ const STATUS_STYLES = {
 
 export default function QuoteDetailPage() {
   const { t, language } = useTranslation();
-  // The company's billing currency, the reader's language. All eight money
-  // renders below go through this — they used to go through a private
-  // toFixed(2) helper that printed $2100.00 on the page a client opens.
-  const money = moneyFormatter(quote?.company?.currency, language);
   const { formatDate } = useCompanyPreferences();
   // The document's own furniture — "Quote", "Prepared for" — from the same
   // catalogue the PDF and the approval page use, in the STAFF's language here.
@@ -90,6 +87,16 @@ export default function QuoteDetailPage() {
   const { id } = useParams();
 
   const [quote, setQuote] = useState(null);
+  // The company's billing currency, the reader's language. All eight money
+  // renders below go through this — they used to go through a private
+  // toFixed(2) helper that printed $2100.00 on the page a client opens.
+  //
+  // MUST stay below the useState above. It read `quote` eleven lines before
+  // that line declared it, which is a temporal dead zone: the whole page threw
+  // "Cannot access 'A' before initialization" and rendered nothing at all. The
+  // `?.` reads as a guard and is not one — optional chaining protects against
+  // null, not against touching a `const` binding that does not exist yet.
+  const money = moneyFormatter(quote?.company?.currency, language);
   // Letterhead: logo, name, phone. GET /api/quotes/[id] doesn't return the
   // company, and widening a shared API response for one screen's decoration is
   // the wrong trade — this is the same endpoint the layout already reads for
@@ -168,7 +175,12 @@ export default function QuoteDetailPage() {
     // answers.
     const to = quote?.client?.email;
     if (!to) {
-      setError(t("app.quoteDetail.noEmail", "This client has no email address, so there's nowhere to send it. Add one on the client first."));
+      setError(
+        t(
+          "app.quoteDetail.noEmail",
+          "This client has no email address, so there's nowhere to send it. Add one on the client first.",
+        ),
+      );
       return;
     }
     // A rendered modal, not window.confirm — see SendConfirmModal for why.
@@ -190,7 +202,8 @@ export default function QuoteDetailPage() {
         body: JSON.stringify({ kind }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || t("app.quoteDetail.sendError"));
+      if (!res.ok)
+        throw new Error(data?.error || t("app.quoteDetail.sendError"));
 
       // Merge rather than refetch: the response carries exactly the fields
       // that changed, and a refetch would blank the page for a moment on the
@@ -319,7 +332,9 @@ export default function QuoteDetailPage() {
               ) : (
                 <Send size={14} />
               )}
-              {quote.sentAt ? t("app.quoteDetail.sendAgain") : t("app.action.send")}
+              {quote.sentAt
+                ? t("app.quoteDetail.sendAgain")
+                : t("app.action.send")}
             </button>
           )}
           {quote.status === "sent" && quote.sentAt && (
@@ -435,7 +450,9 @@ export default function QuoteDetailPage() {
             <TrailRow
               label={
                 quote.followUpCount > 1
-                  ? t("app.quoteDetail.followedUpN", { count: quote.followUpCount })
+                  ? t("app.quoteDetail.followedUpN", {
+                      count: quote.followUpCount,
+                    })
                   : t("app.quoteDetail.followedUp")
               }
               at={quote.followUpSentAt}
@@ -446,7 +463,11 @@ export default function QuoteDetailPage() {
           {["accepted", "declined"].includes(quote.status) &&
             quote.clientDesignAt && (
               <TrailRow
-                label={quote.status === "accepted" ? t("app.status.approved") : t("app.status.declined")}
+                label={
+                  quote.status === "accepted"
+                    ? t("app.status.approved")
+                    : t("app.status.declined")
+                }
                 at={quote.clientDesignAt}
                 tone={quote.status === "accepted" ? "positive" : "muted"}
               />
@@ -584,7 +605,9 @@ export default function QuoteDetailPage() {
               </p>
             )}
             {quote.client?.phone && (
-              <p className="text-sm text-muted-foreground">{quote.client.phone}</p>
+              <p className="text-sm text-muted-foreground">
+                {quote.client.phone}
+              </p>
             )}
             {clientAddress && (
               <p className="text-sm text-muted-foreground">{clientAddress}</p>
@@ -711,7 +734,10 @@ export default function QuoteDetailPage() {
           <Block title={t("app.quoteDetail.clientMedia")}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {quote.clientPhotos.map((m, i) => (
-                <ClientMediaTile key={(typeof m === "string" ? m : m?.url) + i} media={m} />
+                <ClientMediaTile
+                  key={(typeof m === "string" ? m : m?.url) + i}
+                  media={m}
+                />
               ))}
             </div>
           </Block>
@@ -722,7 +748,10 @@ export default function QuoteDetailPage() {
               the PDF out: a totals block spanning the full width reads as
               another table, kept to a column it reads as a summary. */}
           <div className="sm:w-3/5 sm:ml-auto space-y-1 text-sm">
-            <Row label={t("app.quoteDetail.subtotal")} value={money(quote.subtotal)} />
+            <Row
+              label={t("app.quoteDetail.subtotal")}
+              value={money(quote.subtotal)}
+            />
             {/* Only when there is one — a "Discount $0.00" line invites the
                 question of why nothing was discounted. */}
             {Number(quote.discount) > 0 && (
@@ -800,7 +829,9 @@ function Fact({ label, value }) {
   return (
     <div>
       <dt className="inline text-muted-foreground">{label} </dt>
-      <dd className="inline text-foreground font-medium tabular-nums">{value}</dd>
+      <dd className="inline text-foreground font-medium tabular-nums">
+        {value}
+      </dd>
     </div>
   );
 }
