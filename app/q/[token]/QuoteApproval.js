@@ -377,6 +377,17 @@ export default function QuoteApproval({ token }) {
                 </div>
 
                 <div className="px-4 py-3">
+                  {/* The scope paragraph, above the prices — the same place
+                      the PDF puts it, so the page and the attachment stay one
+                      document. /80 rather than the /70 the bullets use: this
+                      is the sentence the whole card depends on, and it clears
+                      4.5:1 composited over white where /70 does not. */}
+                  {g.description && (
+                    <p className="mb-3 border-b border-black/5 pb-3 text-xs leading-relaxed text-[#2d2520]/80">
+                      {g.description}
+                    </p>
+                  )}
+
                   <div className="space-y-1.5">
                     {g.lineItems.map((li, j) => (
                       <div

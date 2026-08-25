@@ -103,7 +103,7 @@
     "check:rbac-side-doors": "node --import ./scripts/alias-loader.mjs scripts/check-rbac-sideDoors.mjs",
     "check:tax-id": "node --import ./scripts/alias-loader.mjs scripts/check-tax-id.mjs",
     "check:bio-link": "node --import ./scripts/alias-loader.mjs scripts/check-bio-link.mjs",
-    "check:takeoff-render": "npx esbuild scripts/check-takeoff-render.jsx --bundle --platform=node --format=cjs --jsx=automatic --loader:.js=jsx --alias:@=. --log-level=error --outfile=.takeoff-render.cjs && node .takeoff-render.cjs; rm -f .takeoff-render.cjs",
+    "check:takeoff-render": "npx esbuild scripts/check-takeoff-render.jsx --bundle --platform=node --format=cjs --jsx=automatic --loader:.js=jsx --alias:@=. --log-level=error --outfile=.takeoff-render.cjs && node .takeoff-render.cjs; code=$?; rm -f .takeoff-render.cjs; exit $code",
     "check:trade-labour": "node --import ./scripts/alias-loader.mjs scripts/check-trade-labour.mjs",
     "seed:categories": "node scripts/seed-categories.mjs",
     "check:pay-cycle": "node --import ./scripts/alias-loader.mjs scripts/check-pay-cycle.mjs",

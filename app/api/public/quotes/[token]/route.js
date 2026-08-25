@@ -221,14 +221,24 @@ function present(quote) {
       // to look up. The client bundle then carries no copy of the trade
       // content at all — it's several kilobytes of prose that a stranger's
       // phone has no reason to download sixty trades of.
+      // g.takeoff is read HERE and never returned. It picks which scope
+      // paragraph this trade prints — a refacing job in thermofoil is not the
+      // sanded-and-sprayed job painted MDF is — and it must not travel any
+      // further: a countertop takeoff carries the supplier's cost and the
+      // company's markup, which is precisely what this endpoint exists to keep
+      // away from a stranger's browser.
       const content = resolveServiceContent(
         g.category?.key,
         g.companySettings || null,
+        g.takeoff,
       );
       return {
         label: g.label || g.category?.label || "Scope",
         subtotal: num(g.subtotal),
         accent: content.accent,
+        // "" for a trade that declares none, so the page renders no paragraph
+        // rather than an empty block above the prices.
+        description: content.description,
         included: content.included,
         // Empty for every trade that has none, so the page renders nothing
         // rather than a heading over a blank panel.

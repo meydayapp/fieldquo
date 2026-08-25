@@ -393,6 +393,80 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A scope group now says what the work IS, and says it differently for the
+  job that was actually sold.**
+
+  `lib/documents/serviceContent.js`, `lib/documentSections/ScopeGroupsSection.js`,
+  `lib/email/quoteSections.js`, `app/api/public/quotes/[token]/route.js`,
+  `app/q/[token]/QuoteApproval.js`, `app/api/quotes/[id]/document/route.js`,
+  `app/app/settings/services/QuoteWording.js`,
+  `CompanyServiceCategory.scopeDescription` (new column).
+
+  A quote line read "Cabinet Refinishing" over a column of amounts, which the
+  AI reviewer correctly flags as a line the client cannot judge. Every trade
+  with a price book now carries a `description` — one paragraph, printed above
+  the prices, naming the work and its boundary — resolved through the same
+  `resolveServiceContent` as `included`/`steps`, overridable per company.
+
+  Two things worth copying from it:
+
+  1. **`variantOn` / `variants`.** The paragraph resolves against
+     `QuoteScopeGroup.takeoff`, so a refacing quote in thermofoil describes a
+     factory-finished skin and one in painted MDF describes a sprayed door.
+     An unset or unrecognised choice falls back to the trade paragraph — a
+     guess here is a scope of work the contractor gets held to, not a typo.
+     The takeoff is read server-side and never returned; on some trades it
+     carries supplier cost and markup.
+  2. **[Placeholders] are withheld, not printed.** Structure and specifics
+     ported from TrueFinish's own cabinet packages, with the brand, the coat
+     count and the warranty term left as `[square brackets]` reusing
+     `unfilledPlaceholders()`. Unlike `defaultProcessNotes` — text a human
+     pasted and can see — these defaults reach every quote unread, so an
+     unfinished line is dropped from the document and reported in
+     Settings > Services instead. The bracketed bullets are ADDITIVE: nothing
+     that printed before stopped printing.
+
+  Guarded in `scripts/check-trade-labour.mjs`: every price-book trade has a
+  paragraph, trades without one render nothing, no default asserts a warranty,
+  price or duration outside a bracket, and nothing printable contains a bracket.
+
+- **The quote builder can now state the terms it always had columns for.**
+
+  `app/app/quotes/new/page.js`, `app/components/quotes/builder/QuoteTotalsBar.js`,
+  `app/components/quotes/DiscountField.js` (new), `lib/quotes/totals.js` (new),
+  `lib/quotes/validUntil.js` (new), `app/app/quotes/[id]/edit/page.js`,
+  `app/components/quotes/SuggestAddOns.js`, `scripts/check-quote-totals.mjs` (new).
+
+  `Quote.validUntil`, `Quote.discount` and `Quote.taxEnabled` all existed, and
+  `POST /api/quotes` already accepted the first two — the builder simply never
+  sent them. Read-but-never-written, the mirror image of the failure class
+  AGENTS.md lists first, and it had a visible symptom: `quoteReview`'s
+  `no_expiry` check fired on **every quote in the product**, because nothing
+  could set an expiry. A check that always fires tells nobody anything.
+
+  Four things worth knowing:
+
+  1. **The 30-day expiry default is a suggestion, not padded data.** The rule
+     against inventing absent data is about values the user never sees and
+     cannot disagree with. This one renders into a visible, editable, clearable
+     date field before anything is saved, and clearing it genuinely saves null
+     — at which point the review flags it, correctly. The reasoning is written
+     out at the top of `lib/quotes/validUntil.js`.
+  2. **Discount is an amount; percent is an entry mode.** The column is one
+     Decimal and `TotalsSection` prints `-$500.00`, so a percentage is
+     converted at entry and never stored. Storing it would need a second column
+     and a rule about which wins.
+  3. **`lib/quotes/totals.js` is now the only place the maths lives.** The
+     builder taxed the gross subtotal (it had no discount at all), while the
+     edit page and both API routes cost against subtotal − discount. Shipping a
+     discount without unifying that would have produced two different totals for
+     one quote depending on which screen saved it last.
+  4. **"Save & review" says it saves.** `lib/ai/quoteReview.js` loads the quote
+     from the database by id, so there is no reviewing an unsaved builder. The
+     button creates the draft and lands on the edit page with `?review=1`, which
+     runs the review once and strips the flag — a refresh must not re-spend
+     tokens, which is the same reason that route splits GET from POST.
+
 - **The invoice detail page is the document, plus the project around it.**
 
   `app/app/invoices/[id]/page.js`, `LifecycleBanners.js` (new), `JobPanel.js`

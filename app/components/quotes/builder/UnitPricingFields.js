@@ -44,7 +44,7 @@ const WOOD_SPECIES = [
 const ADD_ONS = [
   {
     key: "handleHoles",
-    label: "New handle holes (drilling)",
+    label: "New handle holes drilled in the doors",
     needsDrawers: false,
     hint: (a) => `$${Number(a.handleHolesPerDoor) || 0} per door`,
   },

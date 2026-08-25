@@ -76,6 +76,11 @@ export async function GET(request, { params }) {
               label: true,
               sortOrder: true,
               subtotal: true,
+              // Read only to pick the scope paragraph for the job that was
+              // actually sold — a refacing group in thermofoil describes a
+              // different job from one in painted MDF. Never returned: some
+              // takeoffs carry supplier cost and markup.
+              takeoff: true,
               category: { select: { key: true, label: true } },
             },
           },
@@ -101,7 +106,11 @@ export async function GET(request, { params }) {
   const contentByGroupId = new Map(
     scopeGroups.map((g) => [
       g.id,
-      resolveServiceContent(g.category?.key || null, g.companySettings || null),
+      resolveServiceContent(
+        g.category?.key || null,
+        g.companySettings || null,
+        g.takeoff,
+      ),
     ]),
   );
 
@@ -128,6 +137,11 @@ export async function GET(request, { params }) {
       subtotal: g.subtotal,
       lineItems: g.lineItems,
       accent: content?.accent || null,
+      // The same paragraph the quote printed above the prices. An invoice
+      // mirrors the quote rather than summarising it — the client reading the
+      // bill should find the scope they agreed to, in the words they agreed to
+      // it in. "" for a trade that declares none.
+      description: content?.description || "",
       included: content?.included || [],
       // Empty for every trade that declares none, so the page renders nothing
       // rather than a heading over a blank panel.
@@ -150,7 +164,7 @@ export async function GET(request, { params }) {
     // True when nothing could be placed against a trade — the page states it
     // rather than showing a document with silently missing halves.
     hasTradeContent: groups.some(
-      (g) => g.included.length > 0 || g.mayChange.length > 0,
+      (g) => g.description || g.included.length > 0 || g.mayChange.length > 0,
     ),
     quote: invoice.quote
       ? { id: invoice.quote.id, quoteNumber: invoice.quote.quoteNumber }

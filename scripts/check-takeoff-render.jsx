@@ -23,6 +23,7 @@ import {
 } from "../app/data/tradePriceBooks.js";
 import { createTradeConfig } from "../lib/pricing/tradeScope.js";
 import QuoteWording from "../app/app/settings/services/QuoteWording.js";
+import { LanguageProvider } from "../app/providers/LanguageProvider.js";
 import PayCycleCard from "../app/components/settings/PayCycleCard.js";
 import JobMaterials from "../app/components/jobs/JobMaterials.js";
 import { PermissionProvider } from "../app/providers/PermissionProvider.js";
@@ -138,11 +139,46 @@ const WORDING_CASES = [
       contentOverrides: {},
     },
   ],
+  // The trade whose defaults ship [placeholders]: the panel must show the
+  // draft (brackets and all) and the banner naming what is withheld, or a
+  // company can never fill one in.
+  [
+    "placeholders to fill in",
+    {
+      content: resolveServiceContent("cabinet_refinishing", null),
+      contentOverrides: {},
+    },
+  ],
+  // The trade whose paragraph varies with the takeoff. `variesWith` drives a
+  // different hint, and a non-string in that slot must not take the panel out.
+  [
+    "a trade whose scope varies",
+    {
+      content: resolveServiceContent("cabinet_refacing", null),
+      contentOverrides: {},
+    },
+  ],
+  [
+    "a customised scope paragraph",
+    {
+      content: resolveServiceContent("cabinet_refacing", null),
+      contentOverrides: { scopeDescription: "We do it our way." },
+    },
+  ],
+  [
+    "junk in the scope column",
+    {
+      content: { draft: { description: 42, included: "no", steps: null } },
+      contentOverrides: { scopeDescription: 7 },
+    },
+  ],
 ];
 for (const [label, category] of WORDING_CASES) {
   try {
     const html = renderToStaticMarkup(
-      <QuoteWording category={category} onChange={() => {}} defaultOpen />,
+      <LanguageProvider initialLanguage="en">
+        <QuoteWording category={category} onChange={() => {}} defaultOpen />
+      </LanguageProvider>,
     );
     if (!html || html.length < 40)
       throw new Error(`rendered ${html.length} chars`);
@@ -322,14 +358,27 @@ try {
 // key that did not carry an id would let the first job's task block every
 // other job's forever.
 try {
-  const src = fs.readFileSync("lib/tasks/autoCreate.js", "utf8");
+  // Comments stripped first. autoCreate.js documents its own key format in a
+  // doc comment — "rather than the string `invoice_sent:${id}` written out" —
+  // and scanning raw source counted that prose as a second real key, reporting
+  // a collision that does not exist. A checker that reads comments as code
+  // fails on good documentation.
+  const src = fs
+    .readFileSync("lib/tasks/autoCreate.js", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^[ \t]*\/\/.*$/gm, "");
   const keys = [...src.matchAll(/`(\w+):\$\{([^}]+)\}`/g)].map((m) => ({
     prefix: m[1],
     id: m[2],
   }));
   if (keys.length < 4) throw new Error(`only found ${keys.length} source keys`);
   for (const k of keys) {
-    if (!/\.id\b/.test(k.id))
+    // Asserts the key carries a per-record IDENTIFIER, not the shape of the
+    // expression producing it. `.id`, a bare `id`, or a camelCase `invoiceId`
+    // all satisfy it — the last one has no word boundary before "Id", which is
+    // why the naive \bid\b fails a refactor it should welcome. A check that
+    // breaks on better code teaches people to delete the check.
+    if (!/(\.id\b|\bid\b|Id\b)/.test(k.id))
       throw new Error(`${k.prefix} is not keyed to a record id (${k.id})`);
   }
   const prefixes = keys.map((k) => k.prefix);

@@ -742,7 +742,9 @@ export default function InvoiceDetailPage() {
           <Block title={t("app.invoiceDoc.whatThisSays")}>
             <div className="space-y-4">
               {doc.groups
-                .filter((g) => g.included?.length || g.mayChange?.length)
+                .filter(
+                  (g) => g.description || g.included?.length || g.mayChange?.length,
+                )
                 .map((g) => (
                   <div
                     key={g.id}
@@ -752,6 +754,15 @@ export default function InvoiceDetailPage() {
                     <p className="text-sm font-medium text-foreground">
                       {g.label}
                     </p>
+                    {/* The scope paragraph, first — the same order the quote
+                        and the PDF print it in. No heading: the group's own
+                        label is the heading, and this is the sentence under
+                        it. */}
+                    {g.description && (
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                        {g.description}
+                      </p>
+                    )}
                     {g.included?.length > 0 && (
                       <>
                         <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

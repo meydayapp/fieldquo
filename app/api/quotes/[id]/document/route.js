@@ -50,6 +50,11 @@ export async function GET(request, { params }) {
           categoryId: true,
           subtotal: true,
           label: true,
+          // Read only to pick the scope paragraph for what was actually sold.
+          // Not returned: on some trades it holds supplier cost and markup, and
+          // this response is rendered on a page an estimator without costing
+          // permission can open.
+          takeoff: true,
           category: { select: { key: true, label: true } },
         },
       },
@@ -70,6 +75,7 @@ export async function GET(request, { params }) {
     const content = resolveServiceContent(
       g.category?.key,
       g.companySettings || null,
+      g.takeoff,
     );
     return {
       id: g.id,
@@ -77,6 +83,11 @@ export async function GET(request, { params }) {
       label: g.label || g.category?.label || "Scope",
       subtotal: num(g.subtotal),
       accent: content.accent,
+      // The scope paragraph the client's copy prints above the prices, resolved
+      // against this group's takeoff so staff see the variant that was actually
+      // sold rather than the trade's generic one. "" when the trade declares
+      // none — render nothing, not a heading over a blank.
+      description: content.description,
       included: content.included,
       // Empty for every trade that declares none, so the page renders nothing
       // rather than a heading over a blank panel.

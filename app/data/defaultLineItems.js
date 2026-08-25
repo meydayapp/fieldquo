@@ -50,7 +50,7 @@ export const DEFAULT_LINE_ITEMS = {
   ],
 
   cabinet_refinishing: [
-    { description: "New handle holes (drilling)", unit: EACH },
+    { description: "New handle holes drilled in the doors", unit: EACH },
     { description: "Soft-close hinges — supply & install", unit: EACH },
     { description: "Two-tone finish (second colour)", unit: FLAT },
     { description: "Cabinet interior painting", unit: FLAT },

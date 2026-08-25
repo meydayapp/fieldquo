@@ -44,6 +44,7 @@ import {
   getPriceBook,
   PRICE_BOOK_FIELDS,
   PRICE_BOOK_GROUPS,
+  TRADE_PRICE_BOOKS,
   readField,
 } from "@/app/data/tradePriceBooks";
 import {
@@ -1588,6 +1589,213 @@ check("a trade with nothing to say says nothing", () => {
   assert.deepEqual(c.mayChange, []);
   assert.deepEqual(c.glossary, []);
   assert.ok(c.included.length > 0, "the existing content still resolves");
+});
+
+/* ── The scope paragraph ───────────────────────────────────────────────── */
+
+// Claims a DEFAULT must not make on a contractor's behalf. Bracketed text is
+// stripped first: "[warranty period] warranty" is an offer to the company, not
+// an assertion to the client, and resolveServiceContent withholds it from the
+// document until somebody fills it in. What is banned is the same claim stated
+// as fact — a term, a percentage, a price or a duration with a real number on
+// it.
+const CLAIM_PATTERNS = [
+  [/warrant|guarantee/i, "a warranty"],
+  [/\$|\bper cent\b|%/i, "a price or a percentage"],
+  [/\b\d+(\.\d+)?\s*(-|–|\s)?\s*(year|month|week|day|hour|hr|minute)s?\b/i, "a duration"],
+  [/\blifetime\b/i, "a lifetime claim"],
+];
+
+const stripPlaceholders = (text) => String(text ?? "").replace(/\[[^\]\n]{1,80}\]/g, " ");
+
+function claimIn(text) {
+  const bare = stripPlaceholders(text);
+  for (const [re, what] of CLAIM_PATTERNS) if (re.test(bare)) return what;
+  return null;
+}
+
+check("every trade with a price book states what the work IS", () => {
+  for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
+    const c = resolveServiceContent(key, null);
+    assert.ok(
+      typeof c.description === "string" && c.description.length > 60,
+      `${key} has a price book but no scope paragraph`,
+    );
+  }
+});
+
+check("a trade with nothing to say prints nothing, not a heading", () => {
+  // The same rule mayChange and glossary already follow. GENERIC supplies an
+  // included list to every trade, which is exactly why it must NOT supply a
+  // paragraph — a sentence true of roofing and dog walking says nothing.
+  for (const key of ["plumbing", "lawn_mowing", "nonexistent_trade", null]) {
+    assert.equal(resolveServiceContent(key, null).description, "");
+  }
+});
+
+check("no default paragraph puts a warranty, a price or a clock in anyone's mouth", () => {
+  for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
+    const text = resolveServiceContent(key, null).description;
+    const claim = claimIn(text);
+    assert.equal(claim, null, `${key} asserts ${claim}`);
+  }
+  // Every variant too — a paragraph swapped in by a takeoff is still a default.
+  for (const material of ["thermofoil", "painted_mdf", "red_oak", "white_oak"]) {
+    const text = resolveServiceContent("cabinet_refacing", null, {
+      doorMaterial: material,
+    }).description;
+    const claim = claimIn(text);
+    assert.equal(claim, null, `${material} asserts ${claim}`);
+  }
+});
+
+check("nothing printable still has a bracket in it", () => {
+  // The company-facing offers ship as [placeholders]; the client must never see
+  // one. Unlike Company.defaultProcessNotes — text a human pasted and can read
+  // on screen — these defaults reach every quote whether or not anyone has
+  // opened the settings screen.
+  for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
+    const c = resolveServiceContent(key, null);
+    const printed = [
+      c.description,
+      ...c.included,
+      ...c.steps.flatMap((s) => [s.title, s.body, s.timeline]),
+      ...c.mayChange.flatMap((m) => [m.title, m.body]),
+      ...c.glossary.flatMap((g) => [g.term, g.body]),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    assert.ok(!/\[[^\]\n]{1,80}\]/.test(printed), `${key} prints a bracket`);
+  }
+});
+
+check("a withheld line is still editable, and is reported", () => {
+  const c = resolveServiceContent("cabinet_refinishing", null);
+  // Ported from TrueFinish: their primer, topcoat, warranty and workflow lines,
+  // with the brand, the count and the term left to whoever stands behind them.
+  assert.ok(c.unfilled.length >= 4, "nothing reported as unfilled");
+  assert.ok(
+    c.draft.included.length > c.included.length,
+    "the draft must keep what the document drops",
+  );
+  assert.ok(
+    c.draft.included.some((l) => /primer/i.test(l) && /\[/.test(l)),
+    "the primer prompt is gone from the draft too",
+  );
+  // Additive, not a replacement: every generic bullet that printed before the
+  // placeholders arrived still prints.
+  assert.ok(
+    c.included.some((l) => /Primer applied to block staining/.test(l)),
+    "a placeholder bullet displaced a working one",
+  );
+  // Filling one in publishes it, and stops reporting it.
+  const filled = resolveServiceContent("cabinet_refinishing", {
+    includedItems: ["3 coats of shellac primer", "Warranty: [your term]"],
+  });
+  assert.deepEqual(filled.included, ["3 coats of shellac primer"]);
+  assert.deepEqual(filled.unfilled, ["[your term]"]);
+});
+
+check("the refacing paragraph follows the door that was actually sold", () => {
+  const book = getPriceBook("cabinet_refacing");
+  const trade = resolveServiceContent("cabinet_refacing", null).description;
+
+  const byMaterial = {};
+  for (const key of Object.keys(book.doorMaterials)) {
+    byMaterial[key] = resolveServiceContent("cabinet_refacing", null, {
+      doorMaterial: key,
+    }).description;
+    assert.ok(
+      byMaterial[key] && byMaterial[key] !== trade,
+      `${key} falls back to the generic paragraph`,
+    );
+  }
+  // Every door in the book has one. A material added to the price book with no
+  // paragraph behind it would silently describe the wrong job.
+  assert.equal(new Set(Object.values(byMaterial)).size, Object.keys(book.doorMaterials).length);
+
+  // The one that matters. A thermofoil door is a heat-formed skin finished at
+  // the factory; describing sanding, priming or spraying it on site is a scope
+  // of work the contractor would be held to.
+  assert.ok(
+    !/\bsand(ed|ing)?\b|\bprimed?\b|\bspray(ed|ing)?\b/i.test(
+      byMaterial.thermofoil.replace(/nothing is [^.]+\./i, ""),
+    ),
+    "the thermofoil paragraph describes a painted process",
+  );
+  assert.ok(/factory/i.test(byMaterial.thermofoil));
+  assert.ok(/grain/i.test(byMaterial.white_oak));
+});
+
+check("an absent, unknown or hostile choice falls back rather than guessing", () => {
+  const trade = resolveServiceContent("cabinet_refacing", null).description;
+  for (const takeoff of [
+    null,
+    undefined,
+    {},
+    { doorMaterial: "" },
+    { doorMaterial: "walnut_veneer" },
+    { doorMaterial: "__proto__" },
+    { doorMaterial: "constructor" },
+    { doorMaterial: 42 },
+    "nope",
+  ]) {
+    assert.equal(
+      resolveServiceContent("cabinet_refacing", null, takeoff).description,
+      trade,
+      `takeoff ${JSON.stringify(takeoff)} did not fall back`,
+    );
+  }
+  // Refinishing buys no doors, so a doorMaterial on its takeoff means nothing
+  // and must change nothing.
+  assert.equal(
+    resolveServiceContent("cabinet_refinishing", null, {
+      doorMaterial: "thermofoil",
+    }).description,
+    resolveServiceContent("cabinet_refinishing", null).description,
+  );
+});
+
+check("a company's own paragraph wins, and blanking it inherits again", () => {
+  const own = "We only do shaker doors, and we only do them in white.";
+  assert.equal(
+    resolveServiceContent("cabinet_refacing", { scopeDescription: own }, {
+      doorMaterial: "thermofoil",
+    }).description,
+    own,
+  );
+  for (const blank of [null, undefined, "", "   ", 42, {}]) {
+    assert.equal(
+      resolveServiceContent("roofing_service", { scopeDescription: blank })
+        .description,
+      resolveServiceContent("roofing_service", null).description,
+      `${JSON.stringify(blank)} did not fall back to the default`,
+    );
+  }
+  // A company that writes its own brackets is held to the same rule as we are.
+  const unfinished = resolveServiceContent("roofing_service", {
+    scopeDescription: "We reroof it. Warranty: [your term].",
+  });
+  assert.equal(unfinished.description, "");
+  assert.deepEqual(unfinished.unfilled, ["[your term]"]);
+});
+
+check("cabinets carry their own workflow, and refacing is not refinishing", () => {
+  const refinish = resolveServiceContent("cabinet_refinishing", null).steps;
+  const reface = resolveServiceContent("cabinet_refacing", null).steps;
+  assert.ok(refinish.length >= 6 && reface.length >= 6);
+  assert.notDeepEqual(
+    refinish.map((s) => s.title),
+    reface.map((s) => s.title),
+  );
+  // TrueFinish's two steps that the generic set never had.
+  assert.ok(refinish.some((s) => /contain|protect/i.test(s.body)));
+  assert.ok(refinish.some((s) => /label/i.test(s.body)));
+  // Numbering is contiguous after the placeholder filter, not 1, 2, 4.
+  assert.deepEqual(
+    reface.map((s) => s.num),
+    reface.map((_, i) => i + 1),
+  );
 });
 
 check("the glossary follows the money, and survives an empty quote", () => {
