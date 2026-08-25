@@ -34,8 +34,10 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 export default function QuoteTotalsBar({
   subtotal,
   // Post-discount, pre-tax — what the tax is actually charged on, and the
-  // figure the margin panel calls "quote price".
-  taxableBase,
+  // figure the margin panel calls "quote price". Defaults to the subtotal so a
+  // caller that doesn't pass it renders "no discount" rather than "everything
+  // discounted".
+  taxableBase = subtotal,
   discount,
   onDiscountChange,
   tax,
@@ -117,12 +119,13 @@ export default function QuoteTotalsBar({
           </div>
           {/* Only when there is one. A "-$0.00" line on the screen the quote
               is built from trains people to ignore the row that matters. */}
-          {Number(discount) > 0 && (
+          {subtotal - taxableBase > 0 && (
             <div className="flex justify-between text-muted-foreground">
               <span>{t("app.quoteEdit.discount")}</span>
-              <span className="tabular-nums">
-                -{money(Math.min(Number(discount), Math.max(subtotal, 0)))}
-              </span>
+              {/* Derived from the base rather than re-reading the input box:
+                  quoteTotals already capped it, and a second copy of the cap
+                  here is a second chance to get it wrong. */}
+              <span className="tabular-nums">-{money(subtotal - taxableBase)}</span>
             </div>
           )}
           <div className="flex justify-between text-muted-foreground">
