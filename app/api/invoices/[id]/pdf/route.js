@@ -83,7 +83,12 @@ export async function POST(request, { params }) {
   try {
     uploaded = await uploadBuffer(pdfBuffer, {
       folder: `fieldquo/${member.companyId}/invoices`,
-      publicId: invoice.invoiceNumber,
+      // An invoice already versions itself — editing a sent one writes a new
+      // row with version + 1 rather than mutating history — so the version IS
+      // the document identity here, and no hash is needed. Keyed on the number
+      // alone, revising an invoice overwrote the copy of the one the client had
+      // already been sent.
+      publicId: `${invoice.invoiceNumber}-v${invoice.version ?? 1}`,
       resourceType: "raw",
     });
     await db.invoice.update({

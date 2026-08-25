@@ -17,6 +17,8 @@
 //   3. There must be a fixed component, so a per-square rate cannot be the
 //      whole answer at either end of the size range.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { hashQuote } from "@/lib/documents/signatureAudit";
 import {
   roofLabour,
   roofCrewDays,
@@ -914,6 +916,85 @@ check(
     assert.ok(!off.some((i) => /vapour barrier/i.test(i.description)));
   },
 );
+
+/* ── The archived PDF is keyed to the document, not to the quote ───────── */
+
+check("the same document re-downloaded keeps ONE archived copy", () => {
+  const q = {
+    quoteNumber: "Q-1042",
+    companyId: "c",
+    clientId: "cl",
+    total: "5000",
+    lineItems: [{ description: "Roof", amount: 5000 }],
+  };
+  const key = (x) => `${x.quoteNumber}-${hashQuote(x).slice(0, 12)}`;
+  // Display churn must not mint a new file — that is the storage bloat the
+  // hash's excluded-fields list exists to prevent.
+  assert.equal(
+    key(q),
+    key({ ...q, updatedAt: new Date("2020-01-01"), pdfUrl: "x" }),
+  );
+});
+
+check(
+  "a revised quote does NOT overwrite what the client already received",
+  () => {
+    const q = {
+      quoteNumber: "Q-1042",
+      companyId: "c",
+      clientId: "cl",
+      total: "5000",
+      lineItems: [{ description: "Roof", amount: 5000 }],
+    };
+    const key = (x) => `${x.quoteNumber}-${hashQuote(x).slice(0, 12)}`;
+    // Every part of the deal must move the key. This is the whole point: an
+    // archive that overwrites is evidence that deletes itself.
+    for (const revised of [
+      { ...q, total: "5400" },
+      { ...q, lineItems: [{ description: "Roof", amount: 5400 }] },
+      { ...q, discount: "100" },
+      {
+        ...q,
+        scopeGroups: [{ categoryId: "x", subtotal: "1", lineItems: [] }],
+      },
+    ]) {
+      assert.notEqual(
+        key(revised),
+        key(q),
+        JSON.stringify(revised).slice(0, 60),
+      );
+    }
+  },
+);
+
+check("the PDF routes actually use those keys", () => {
+  // A grep, because the alternative is asserting against a route that needs a
+  // request, a session and a database. The failure this guards is somebody
+  // "simplifying" the key back to the quote number.
+  const quotePdf = readFileSync(
+    new URL("../app/api/quotes/[id]/pdf/route.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    quotePdf,
+    /publicId: `\$\{quote\.quoteNumber\}-\$\{hashQuote\(quote\)/,
+  );
+  const invoicePdf = readFileSync(
+    new URL("../app/api/invoices/[id]/pdf/route.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    invoicePdf,
+    /publicId: `\$\{invoice\.invoiceNumber\}-v\$\{invoice\.version/,
+  );
+  // And neither may let the archive take down the download again.
+  for (const [name, src] of [
+    ["quote", quotePdf],
+    ["invoice", invoicePdf],
+  ]) {
+    assert.match(src, /try \{[\s\S]*uploadBuffer[\s\S]*\} catch/, name);
+  }
+});
 
 /* ── The rate card must not point at fields that do not exist ──────────── */
 

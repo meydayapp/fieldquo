@@ -10,6 +10,7 @@ import { usableSections } from "@/lib/documents/templateKind";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
+import { hashQuote } from "@/lib/documents/signatureAudit";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -81,9 +82,28 @@ export async function POST(request, { params }) {
   // effort, logged when it fails, never in the way of the document.
   let uploaded = null;
   try {
+    // ── Keyed to the DOCUMENT, not to the quote ──────────────────────────────
+    //
+    // This used to key on quoteNumber alone, which means Cloudinary overwrites.
+    // That is fine for storage — five downloads of the same quote were always one
+    // file, not five — and fatal for the only reason to keep an archive at all.
+    // Revise a quote, download it again, and the copy of what the client actually
+    // received is silently replaced by what they did not. A destructive operation
+    // wearing the clothes of a cosmetic one.
+    //
+    // hashQuote() already exists for the signature audit: a sha256 of what was
+    // AGREED — totals, line items, scope groups, selected add-ons — deliberately
+    // ignoring display churn like updatedAt. Keying on it gives both halves at
+    // once:
+    //
+    //   same document downloaded ten times  → same key, one file, no bloat
+    //   document changed at all             → new key, the old copy survives
+    //
+    // And it lines up with the evidence trail: QuoteSignature.documentHash names
+    // exactly which archived file the client put their name to.
     uploaded = await uploadBuffer(pdfBuffer, {
       folder: `fieldquo/${member.companyId}/quotes`,
-      publicId: quote.quoteNumber,
+      publicId: `${quote.quoteNumber}-${hashQuote(quote).slice(0, 12)}`,
       resourceType: "raw",
     });
     await db.quote.update({
