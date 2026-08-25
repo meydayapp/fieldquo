@@ -70,6 +70,7 @@ export async function GET(request) {
       contentOverrides: {
         includedItems: setting?.includedItems ?? null,
         processSteps: setting?.processSteps ?? null,
+        scopeDescription: setting?.scopeDescription ?? null,
       },
     };
   });
@@ -137,7 +138,7 @@ export async function POST(request) {
 
 // PATCH — bulk upsert company's category settings
 // body: { categories: [{ categoryId, enabled, defaultRate, unit, rates,
-//                        includedItems, processSteps }] }
+//                        includedItems, processSteps, scopeDescription }] }
 //
 // `pricingModel` (flat | per_unit | hourly) is deliberately NOT accepted any
 // more. It was written on every save and read by nothing: no quote, PDF,
@@ -206,6 +207,9 @@ export async function PATCH(request) {
           ...(c.processSteps !== undefined && {
             processSteps: sanitiseSteps(c.processSteps),
           }),
+          ...(c.scopeDescription !== undefined && {
+            scopeDescription: sanitiseDescription(c.scopeDescription),
+          }),
         },
         create: {
           companyId: member.companyId,
@@ -221,6 +225,9 @@ export async function PATCH(request) {
           }),
           ...(c.processSteps !== undefined && {
             processSteps: sanitiseSteps(c.processSteps),
+          }),
+          ...(c.scopeDescription !== undefined && {
+            scopeDescription: sanitiseDescription(c.scopeDescription),
           }),
         },
       }),
@@ -278,6 +285,22 @@ function sanitiseSteps(steps) {
     if (out.length >= MAX_ITEMS) break;
   }
   return out.length ? out : null;
+}
+
+/**
+ * A company's scope paragraph for a trade.
+ *
+ * One string, not a list, and an empty one stores NULL so the trade goes back
+ * to inheriting the default — including the per-choice variants a stored
+ * paragraph cannot express. Same rule as sanitiseIncluded: blank un-customises,
+ * it does not blank the document.
+ *
+ * The cap is four times a bullet's, because this is a paragraph and a hard trim
+ * mid-sentence on a client-facing document is worse than a long one.
+ */
+function sanitiseDescription(value) {
+  if (typeof value !== "string") return null;
+  return value.trim().slice(0, MAX_LEN * 4) || null;
 }
 
 /**

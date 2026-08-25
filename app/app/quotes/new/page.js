@@ -52,6 +52,8 @@ import SendConfirmModal from "@/app/components/SendConfirmModal";
 import QuoteTotalsBar from "@/app/components/quotes/builder/QuoteTotalsBar";
 import ClientPicker from "@/app/components/quotes/builder/ClientPicker";
 import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { quoteTotals } from "@/lib/quotes/totals";
+import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function NewQuotePage() {
@@ -104,6 +106,18 @@ export default function NewQuotePage() {
   const [clientPhotos, setClientPhotos] = useState([]);
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
+  // A flat amount off, pre-tax — the shape of the `discount` column and of
+  // every discount the invoice side already stores. Kept as a string so a
+  // half-typed "1" on the way to "150" stays what was typed.
+  const [discount, setDiscount] = useState("");
+  // Opens at today + 30 days. A lazy initialiser rather than an effect: the
+  // field must never render empty and then jump, because a date box that
+  // fills itself in a frame later reads as the page overwriting the user.
+  //
+  // Editable and clearable — clearing it saves null and the quote genuinely
+  // never expires. lib/quotes/validUntil.js has the argument for why a visible
+  // suggestion is not the "padding absent data" AGENTS.md forbids.
+  const [validUntil, setValidUntil] = useState(() => defaultValidUntil());
   // The company's tax setup, kept raw so the rate can be re-resolved when the
   // selected client changes. See lib/tax/resolveTaxRate.js — it only ever
   // picks between rates the company created themselves.
@@ -648,8 +662,17 @@ export default function NewQuotePage() {
         : 0),
     0,
   );
-  const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  // Worked out in lib/quotes/totals.js, which the edit page and the invoice
+  // editor use too. Tax is charged on subtotal MINUS discount — billing tax on
+  // money the client was never charged is the bug this shares a helper to
+  // prevent — and the discount is capped at the subtotal so an extra zero
+  // cannot produce a negative total.
+  const {
+    discount: appliedDiscount,
+    taxableBase,
+    tax,
+    total,
+  } = quoteTotals({ subtotal, discount, taxRate, taxEnabled });
 
   // Internal cost/margin estimate — only for scope groups whose category has a
   // recipe (cabinet refinishing in Phase 1). Uses the selected worker's
@@ -685,7 +708,11 @@ export default function NewQuotePage() {
     // the estimator standing on the site is allowed to know better.
     manualLabourHours: takeoffLabourHours + (Number(manualLabourHours) || 0),
     manualMaterialCost: Number(manualMaterialCost) || 0,
-    price: subtotal,
+    // Post-discount. The server costs the saved row against subtotal − discount
+    // (see app/api/quotes/route.js), so passing the gross subtotal here would
+    // show a margin on screen that the saved QuoteCosting row disagreed with —
+    // and money given away is not revenue.
+    price: taxableBase,
     // The company's real overhead for one job when we know their capacity;
     // the percentage only stands in until they've told us.
     overheadPerJob: overheadPerJob,
@@ -856,10 +883,16 @@ export default function NewQuotePage() {
           };
         }),
         subtotal,
+        // The CLAMPED figure quoteTotals worked with, not the raw box. If
+        // someone typed 50000 off a 4850 quote, the screen already showed
+        // 4850 off and a total of 0; saving the 50000 would put a number on
+        // the document that contradicts the total beside it.
+        discount: appliedDiscount,
         tax,
         taxEnabled,
         total,
         notes,
+        validUntil: validUntil || null,
         clientPhotos,
         // ── The cost estimate, saved with the quote ─────────────────────
         //
@@ -935,6 +968,23 @@ export default function NewQuotePage() {
         );
         return;
       }
+    }
+
+    // "Save & review" lands on the EDIT page, not the detail page, and with a
+    // flag that runs the review on arrival.
+    //
+    // The review reads the saved quote out of the database (lib/ai/quoteReview
+    // loads it by id), so there is no reviewing an unsaved builder — which is
+    // exactly why the button says "Save & review" and the line under it says
+    // it creates a draft. A button labelled "Review" that quietly created a
+    // record would be the surprise.
+    //
+    // The edit page rather than the detail page because that is where the
+    // advice can be acted on: the wording, the expiry and the extras panel are
+    // all editable there, and the review's own component already lives on it.
+    if (status === "review") {
+      router.push(`/app/quotes/${quote.id}/edit?review=1`);
+      return;
     }
 
     // Deliberately still "saving" here: the router push is about to unmount
@@ -1100,7 +1150,10 @@ export default function NewQuotePage() {
         </ScopeGroupCard>
       ))}
 
-      {/* Internal cost & margin. Never client-facing — see the component. */}
+      {/* Internal cost & margin. Never client-facing — see the component.
+          `subtotal` here is the POST-discount figure: the row it feeds is
+          labelled "Quote price (pre-tax)", and once there is a discount the
+          pre-tax price is what is left after it. */}
       <CostMarginPanel
         currency={companyCurrency}
         estimate={estimate}
@@ -1114,7 +1167,7 @@ export default function NewQuotePage() {
         manualMaterialCost={manualMaterialCost}
         onManualMaterialCostChange={setManualMaterialCost}
         overheadSource={overheadSource}
-        subtotal={subtotal}
+        subtotal={taxableBase}
         totalGroupCount={scopeGroups.length}
         marginTarget={MARGIN_TARGET}
       />
@@ -1152,15 +1205,22 @@ export default function NewQuotePage() {
       <QuoteTotalsBar
         taxNote={taxNote}
         subtotal={subtotal}
+        taxableBase={taxableBase}
+        discount={discount}
+        onDiscountChange={setDiscount}
         tax={tax}
         taxRate={taxRate}
         total={total}
         taxEnabled={taxEnabled}
         onTaxToggle={setTaxEnabled}
+        validUntil={validUntil}
+        onValidUntilChange={setValidUntil}
+        currency={companyCurrency}
         saving={saving}
         disabled={!selectedClient || scopeGroups.length === 0}
         onSaveDraft={() => handleSave("draft")}
         onSaveAndSend={() => handleSave("sent")}
+        onSaveAndReview={() => handleSave("review")}
       />
 
       <SendConfirmModal

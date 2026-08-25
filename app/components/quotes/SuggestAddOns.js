@@ -14,7 +14,7 @@
 // needing to know the shape.
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles,
   Loader2,
@@ -49,11 +49,19 @@ const SEVERITY = {
  * @param onProcessNotes  called when the user accepts the suggested
  *                  what-happens-next text, so the parent can put it in its
  *                  own form state
+ * @param autoReview  run the review once, on arrival, without a second click.
+ *                  Set only when the user has ALREADY pressed a review button
+ *                  somewhere else — the builder's "Save & review", which saves
+ *                  a draft and lands here because the review reads the saved
+ *                  quote. It is not a "review on open" setting: the whole
+ *                  reason POST and GET are split on that route is that
+ *                  reopening a quote must not spend tokens.
  */
 export default function SuggestAddOns({
   quoteId,
   readOnly = false,
   onProcessNotes,
+  autoReview = false,
 }) {
   const [addOns, setAddOns] = useState([]);
   const [review, setReview] = useState(null);
@@ -88,6 +96,19 @@ export default function SuggestAddOns({
   useEffect(() => {
     load();
   }, [load]);
+
+  // The one place a review runs without a click on THIS screen — and only
+  // because there was a click on the previous one. Waits for the initial load
+  // so the panel isn't fetching the stored review and generating a new one at
+  // the same time, and the ref makes it once-per-mount: React's development
+  // double-invoke would otherwise buy two.
+  const autoRan = useRef(false);
+  useEffect(() => {
+    if (!autoReview || loading || readOnly || !quoteId) return;
+    if (autoRan.current) return;
+    autoRan.current = true;
+    runReview();
+  }, [autoReview, loading, readOnly, quoteId]);
 
   async function runReview() {
     setError("");

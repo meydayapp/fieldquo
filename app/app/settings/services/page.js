@@ -133,6 +133,9 @@ export default function ServiceSettingsPage() {
             ...(c.contentOverrides?.processSteps !== undefined && {
               processSteps: c.contentOverrides.processSteps,
             }),
+            ...(c.contentOverrides?.scopeDescription !== undefined && {
+              scopeDescription: c.contentOverrides.scopeDescription,
+            }),
           })),
         }),
       });

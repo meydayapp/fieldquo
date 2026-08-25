@@ -18,7 +18,9 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2, Plus, Loader2, AlertCircle } from "lucide-react";
 import SuggestAddOns from "@/app/components/quotes/SuggestAddOns";
+import DiscountField from "@/app/components/quotes/DiscountField";
 import MediaUploader from "@/app/components/MediaUploader";
+import { quoteTotals } from "@/lib/quotes/totals";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (n) => (Number.isFinite(Number(n)) ? Number(n) : 0);
@@ -41,6 +43,19 @@ export default function EditQuotePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Arrived here from the builder's "Save & review". Read from the URL once
+  // and then stripped, so a refresh doesn't spend tokens on a second review
+  // nobody asked for — the click that authorised the first one is long gone.
+  //
+  // Read off window rather than useSearchParams() on purpose: that hook forces
+  // this page into a Suspense boundary at build time for one boolean.
+  const [autoReview, setAutoReview] = useState(false);
+
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has("review")) return;
+    setAutoReview(true);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,14 +105,18 @@ export default function EditQuotePage() {
     };
   }, [id]);
 
+  // Same helper the builder uses, so the two screens cannot end up with
+  // different opinions about what a discounted, taxed quote comes to. It also
+  // returns the CLAMPED discount, which is what gets saved.
   const totals = useMemo(() => {
     const groupSubtotals = groups.map((g) =>
       g.lineItems.reduce((sum, li) => sum + money(li.amount), 0),
     );
     const subtotal = groupSubtotals.reduce((a, b) => a + b, 0);
-    const base = Math.max(0, subtotal - money(discount));
-    const tax = taxEnabled ? base * (money(taxRate) / 100) : 0;
-    return { groupSubtotals, subtotal, tax, total: base + tax };
+    return {
+      groupSubtotals,
+      ...quoteTotals({ subtotal, discount, taxRate, taxEnabled }),
+    };
   }, [groups, discount, taxRate, taxEnabled]);
 
   function updateItem(gi, li, field, value) {
@@ -152,7 +171,8 @@ export default function EditQuotePage() {
           notes,
           clientPhotos,
           processNotes,
-          discount: money(discount),
+          // The clamped figure, not the raw box — see the builder's note.
+          discount: totals.discount,
           subtotal: totals.subtotal,
           tax: totals.tax,
           total: totals.total,
@@ -375,19 +395,12 @@ export default function EditQuotePage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              {t("app.quoteEdit.discount")}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={discount}
-              onChange={(e) => setDiscount(e.target.value)}
-              className="w-full border border-border rounded-lg px-3 py-2 text-sm"
-            />
-          </div>
+          <DiscountField
+            value={discount}
+            onChange={setDiscount}
+            subtotal={totals.subtotal}
+            currency={quote.company?.currency}
+          />
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
               {t("app.quoteEdit.taxRate")}
@@ -425,8 +438,8 @@ export default function EditQuotePage() {
 
         <div className="pt-4 border-t border-border space-y-1 text-sm">
           <Row label={t("app.quoteEdit.subtotal")} value={totals.subtotal} />
-          {money(discount) > 0 && (
-            <Row label={t("app.quoteEdit.discount")} value={-money(discount)} />
+          {totals.discount > 0 && (
+            <Row label={t("app.quoteEdit.discount")} value={-totals.discount} />
           )}
           <Row label={t("app.quoteEdit.tax")} value={totals.tax} />
           <div className="flex justify-between font-semibold text-foreground text-base pt-1">
@@ -458,6 +471,7 @@ export default function EditQuotePage() {
         quoteId={id}
         readOnly={["accepted", "declined"].includes(quote.status)}
         onProcessNotes={setProcessNotes}
+        autoReview={autoReview}
       />
 
       <div className="flex gap-3">

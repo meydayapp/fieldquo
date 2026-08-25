@@ -1946,6 +1946,16 @@ model CompanyServiceCategory {
   includedItems Json? // string[] — the "what's included" list
   processSteps  Json? // { title, body }[] — numbered at render time
 
+  // The scope paragraph printed above the prices on this trade's scope card:
+  // what the work IS, and what it stops at. Text, not Json, because it is one
+  // paragraph rather than a list.
+  //
+  // Set here it applies to the whole trade, which loses the per-choice variants
+  // the defaults carry (a refacing quote's paragraph changes with the door
+  // material picked on the takeoff — see lib/documents/serviceContent.js). That
+  // is the company's call to make, and the same trade-off includedItems has.
+  scopeDescription String?
+
   @@unique([companyId, categoryId])
 }
 

@@ -55,6 +55,7 @@ import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { documentLabels } from "@/lib/i18n/documentLabels";
 import ImportedByPanel from "./ImportedByPanel";
+import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import EmailSectionsPanel from "./EmailSectionsPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
@@ -99,6 +100,8 @@ export default function QuoteDetailPage() {
   const [docContent, setDocContent] = useState(null);
   // What it COSTS — internal, permission-gated, never on a client surface.
   const [costing, setCosting] = useState(null);
+  // Whether the inline cost editor is open.
+  const [costEditorOpen, setCostEditorOpen] = useState(false);
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -965,12 +968,18 @@ export default function QuoteDetailPage() {
                   )}
                 </p>
                 <p className="mt-1 text-xs">{costing.costBasisReason}</p>
-                <Link
-                  href={`/app/quotes/${id}/edit`}
-                  className="mt-2 inline-block text-xs font-medium underline"
+                {/* This used to link to the editor. The editor has never had
+                    a cost panel — the panel lives in the BUILDER and there is
+                    no way back to it once a quote is saved. So the remedy sent
+                    people to a page that could not perform it: a dead end
+                    dressed as a fix, which is worse than no button. */}
+                <button
+                  type="button"
+                  onClick={() => setCostEditorOpen(true)}
+                  className="mt-2 text-xs font-medium underline"
                 >
                   {t("app.quoteDetail.costItNow", "Cost it now")}
-                </Link>
+                </button>
               </div>
             ) : (
               <>
@@ -1153,6 +1162,38 @@ export default function QuoteDetailPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {costEditorOpen && (
+              <div className="mt-3">
+                <QuoteCostEditor
+                  quoteId={id}
+                  existing={costing.saved ? costing : null}
+                  t={t}
+                  onSaved={async () => {
+                    setCostEditorOpen(false);
+                    // Re-read rather than patching state from the response:
+                    // the server re-derives every figure, so its answer is the
+                    // only one worth showing.
+                    const r = await fetch(`/api/quotes/${id}/costing`);
+                    if (r.ok) setCosting(await r.json());
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Offered on a costed quote too — a rate changes, somebody joins
+                the crew, and re-costing should not mean rebuilding the quote. */}
+            {!costEditorOpen && !costing.costBasisMissing && (
+              <button
+                type="button"
+                onClick={() => setCostEditorOpen(true)}
+                className="mt-3 text-xs font-medium text-muted-foreground underline hover:text-foreground"
+              >
+                {costing.saved
+                  ? t("app.quoteDetail.editCosting", "Change the costing")
+                  : t("app.quoteDetail.costItNow", "Cost it now")}
+              </button>
             )}
           </Block>
         )}
