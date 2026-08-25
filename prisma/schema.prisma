@@ -1394,6 +1394,10 @@ model Quote {
   // ── Optional extras the client can add at approval time ────────────────
   addOns QuoteAddOn[]
 
+  // What this quote was estimated to cost when it was priced. A separate row,
+  // never a column — see model QuoteCosting for why that is structural here.
+  costing QuoteCosting?
+
   // What the client ACTUALLY approved, including any add-ons they ticked.
   // Deliberately separate from `total`: total is what the company quoted, and
   // overwriting it would destroy the record of what was originally offered.
@@ -1928,6 +1932,147 @@ model QuoteScopeGroup {
   takeoff    Json?
   subtotal   Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder  Int             @default(0)
+}
+
+/// What one quote was ESTIMATED to cost, frozen at the moment it was quoted:
+/// who was expected on the job and at what rate, the bill of materials, this
+/// job's share of overhead, and the margin those produced. Internal only.
+///
+/// ── Why this is a table and not a Json column on Quote ──────────────────────
+///
+/// The quote is the most widely-spread row in this codebase. Two paths hand it
+/// onwards without naming its fields:
+///
+///   app/api/public/quotes/[token]/route.js  builds the homeowner's approval
+///     page from the quote row. It is credential-free by design — the share
+///     token IS the authentication — and its own header already warns that a
+///     spread of the quote row is what it must never become.
+///   app/api/quotes/[id]/pdf/route.js  does exactly that spread today:
+///     `data: { ...quote, client, scopeGroups }`, straight into the document
+///     the client downloads.
+///
+/// A `costing Json?` column on Quote would ride along on both. It would render
+/// nowhere and still be sitting in the payload the homeowner's browser
+/// received — which is how a stranger comparing three contractors reads one of
+/// them's labour rates, crew wages and target margin. And the leak would be
+/// worse here than on an invoice: an invoice goes to somebody who has already
+/// signed, while a quote goes to somebody still deciding, sometimes to three
+/// people bidding the same job.
+///
+/// A row nothing joins cannot leak by forgetting. That is a stronger guarantee
+/// than a rule about stripping a key from every future query, and the two
+/// routes above are proof the rule would eventually be forgotten.
+///
+/// ── Why the derived figures are stored and not recomputed ──────────────────
+///
+/// Recomputing on read answers "what would this cost today", not "what did we
+/// think it would cost when we quoted it". The price book, the crew's wages
+/// and the company's overhead per job all move. A margin that changes when
+/// nobody touched the quote is worse than a stale one, and it is useless for
+/// the only question worth asking later: did we price this job right?
+///
+/// GET /api/quotes/[id]/costing will still recompute when this row is absent —
+/// for the quotes raised before this table existed — and says so with
+/// `saved: false` rather than passing today's arithmetic off as the estimate.
+///
+/// No companyId of its own: every read reaches this through a Quote already
+/// scoped to the member's company, and a second copy of the tenant key is a
+/// second thing that can disagree.
+model QuoteCosting {
+  id      String @id @default(cuid())
+  quoteId String @unique
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  // ── The estimator's inputs ────────────────────────────────────────────────
+
+  /// [{ id, name, rate, hours }] — who is expected on this job.
+  ///
+  /// `hours` is a SHARE of a predicted pool here, not a fact off a timesheet
+  /// the way it is on an invoice: null means "take an even share of whatever
+  /// the takeoffs predict", a number means somebody overrode that. Name and
+  /// rate are COPIES, frozen at save — a raise next year must not rewrite what
+  /// last spring's quote was priced against.
+  crew Json?
+
+  /// Hours and materials the estimator added ON TOP of what the takeoffs
+  /// predicted, because the person standing in the driveway is allowed to know
+  /// better than a price book. Stored separately from the totals below so a
+  /// later reader can tell a prediction from a judgement.
+  addedLabourHours  Decimal @default(0) @db.Decimal(10, 2)
+  addedMaterialCost Decimal @default(0) @db.Decimal(12, 2)
+
+  /// The single fallback cost-rate, used only when no crew was named. Kept
+  /// because it is an input the estimator chose; with a crew, the blended rate
+  /// below supersedes it entirely.
+  labourRate Decimal @default(0) @db.Decimal(10, 2)
+
+  /// Overhead as a percentage of price. Consulted only when the company has no
+  /// real cost-per-job figure — `overheadBasis` records which one actually ran.
+  overheadPct Decimal @default(0) @db.Decimal(6, 3)
+
+  note String?
+
+  // ── Computed SERVER-side at save, never accepted from the browser ─────────
+  //
+  // Same discipline as add-on repricing: the request carries crew names, rates
+  // and hours, and the server runs estimateQuoteCost over the quote's own
+  // scope groups to work out every figure below. A tampered or merely stale
+  // browser cannot write a margin its own numbers don't support.
+
+  labourHours   Decimal @default(0) @db.Decimal(10, 2)
+  labourCost    Decimal @default(0) @db.Decimal(12, 2)
+  materialTotal Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Bill-of-materials lines that had a quantity and no supplier price. Stored
+  /// with the figures because a material total built over eleven unpriced
+  /// shingle bundles is an understatement by an unknown amount, and a reader
+  /// six months later needs to know that as much as the estimator did.
+  unpricedMaterials Int @default(0)
+
+  overhead      Decimal @default(0) @db.Decimal(12, 2)
+  /// "per_job" (the company's real overhead) or "pct_of_price" (the fallback).
+  /// Which one ran changes what the number means, so it travels with it.
+  overheadBasis String  @default("pct_of_price")
+
+  totalCost Decimal @default(0) @db.Decimal(12, 2)
+
+  /// The pre-tax price this cost was measured against, frozen. The quote's own
+  /// subtotal moves when it is edited; the margin below was computed against
+  /// this one, and the two must not silently drift apart.
+  price  Decimal @default(0) @db.Decimal(12, 2)
+  profit Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Null, not zero, when there was no price to have a margin against. A quote
+  /// priced at nothing has no margin — reporting 0% would say it broke even.
+  marginPct       Decimal? @db.Decimal(9, 3)
+  marginTargetPct Decimal  @default(30) @db.Decimal(6, 3)
+
+  /// "green" | "amber" | "red" | "none" — the vocabulary CostMarginPanel
+  /// renders. Stored rather than re-derived so the badge cannot change colour
+  /// because the target moved in Settings after the quote was sent.
+  signal String @default("none")
+
+  /// True when labour hours were costed at no rate at all, or somebody on the
+  /// crew had none. The figure isn't wrong so much as unfinished, and a reader
+  /// has to be able to tell which.
+  costIncomplete Boolean @default(false)
+
+  /// What one hour of this crew cost, on average. Null with no crew.
+  blendedRate Decimal? @db.Decimal(12, 2)
+
+  /// The per-scope-group breakdown — labour hours, material total, and the
+  /// bill of materials line by line.
+  ///
+  /// Frozen alongside the totals rather than rebuilt on read for the same
+  /// reason as everything else here: rebuilding needs today's price book, and
+  /// the itemised half must not disagree with the totals it is supposed to
+  /// explain. It is also the only surviving record of the takeoff's material
+  /// PRICES — QuoteScopeGroup.takeoff keeps the quantities, and the rates that
+  /// priced them live in a settings row that will be edited.
+  groups Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================

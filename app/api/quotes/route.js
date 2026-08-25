@@ -14,6 +14,11 @@ import {
   permissionErrorResponse,
   redactQuotes,
 } from "@/lib/permissions/enforce";
+import {
+  buildQuoteCostingRow,
+  shouldWriteQuoteCosting,
+  mayCost,
+} from "./costingWrite";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -55,8 +60,13 @@ export async function POST(request) {
   // member configured as "Quotes: view only" could still create quotes —
   // PERMISSIONS.employee includes "quote:create". The grid said no; the API
   // said yes.
+  //
+  // Hoisted out of the try because the costing block below needs the same
+  // member to answer a different question, and loading it twice would be two
+  // round trips to learn one thing.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "quotes", "view_create_edit", "create quotes");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -97,6 +107,10 @@ export async function POST(request) {
     // Photos of the job. Previously only ever set by lead intake, so a quote
     // typed up by staff had no way to carry the pictures the estimator took.
     clientPhotos,
+    // The internal cost estimate — crew, their share of the predicted hours,
+    // the estimator's own additions. Never part of the document a client sees;
+    // see the QuoteCosting model for why it is a separate row.
+    costing,
   } = body;
 
   if (!clientId || total === undefined) {
@@ -118,6 +132,22 @@ export async function POST(request) {
     }),
   ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
+
+  // Costed against the pre-tax subtotal minus any discount — the money the
+  // work has to come out of. Tax is the government's, not the job's.
+  //
+  // `undefined` means the request said nothing about costing. On a create that
+  // simply means no row; the distinction matters on the PATCH, where it means
+  // "leave the existing one alone".
+  const costingRow =
+    costing !== undefined && mayCost(full)
+      ? await buildQuoteCostingRow({
+          companyId: member.companyId,
+          costing,
+          price: (Number(subtotal) || 0) - (Number(discount) || 0),
+          scopeGroups,
+        })
+      : null;
 
   const quote = await db.quote.create({
     data: {
@@ -172,6 +202,16 @@ export async function POST(request) {
           })),
         },
       }),
+      // Only when the estimator said something. A row of zeroes would put a
+      // "costed at 0% margin" card on a quote nobody costed. A brand-new quote
+      // has no existing row, which is what makes an empty panel mean nothing
+      // here and a deletion on the PATCH — see shouldWriteQuoteCosting.
+      ...(shouldWriteQuoteCosting({
+        costingSent: costing !== undefined,
+        may: mayCost(full),
+        hasExistingRow: false,
+        row: costingRow,
+      }) && { costing: { create: costingRow } }),
     },
     include: { client: true, scopeGroups: true },
   });

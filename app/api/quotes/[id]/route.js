@@ -20,6 +20,11 @@ import {
   onQuoteAccepted,
   onQuoteDeclined,
 } from "@/lib/quotes/quoteLifecycle";
+import {
+  buildQuoteCostingRow,
+  shouldWriteQuoteCosting,
+  mayCost,
+} from "../costingWrite";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -91,6 +96,16 @@ export async function PATCH(request, { params }) {
 
   const existing = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
+    include: {
+      // Whether a cost row already exists decides what an EMPTY costing block
+      // means, and the stored groups are what a costing re-price runs over
+      // when the request is only changing a number on the totals bar.
+      costing: { select: { id: true } },
+      scopeGroups: {
+        select: { id: true, categoryId: true, label: true, takeoff: true },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -116,6 +131,9 @@ export async function PATCH(request, { params }) {
     validUntil,
     scopeGroups,
     clientPhotos,
+    // The internal cost estimate. See the note below on why `undefined` and an
+    // empty object have to mean different things here.
+    costing,
   } = body;
 
   // Line-item edits are only valid while the quote is open. Editing scope groups
@@ -152,6 +170,40 @@ export async function PATCH(request, { params }) {
     }),
   };
 
+  // ── What happens to the cost estimate ────────────────────────────────────
+  //
+  // `undefined` means the request said NOTHING about costing, which is not the
+  // same as sending an empty one. Most PATCHes to this route are a status
+  // change — accept, decline, send — and every one of them would otherwise
+  // wipe the crew, the hours and the margin the quote was priced at. The
+  // invoice route documents the same trap; it is worse here, because
+  // "accepted" is precisely the moment the estimate becomes worth keeping.
+  //
+  // An empty block over an EXISTING row is different: that is somebody
+  // clearing the panel, and refusing it would be a Save button that doesn't.
+  //
+  // Costed against the pre-tax subtotal minus discount, falling back to what
+  // the quote already carries so a re-save of the panel alone doesn't reprice
+  // it against 0.
+  const costingRow =
+    costing !== undefined && mayCost(full)
+      ? await buildQuoteCostingRow({
+          companyId: member.companyId,
+          costing,
+          price:
+            (subtotal !== undefined
+              ? Number(subtotal) || 0
+              : Number(existing.subtotal) || 0) -
+            (discount !== undefined
+              ? Number(discount) || 0
+              : Number(existing.discount) || 0),
+          // The groups being saved, or the ones already stored when this PATCH
+          // isn't touching them. Either way the estimate runs over the scope
+          // that will exist after this request, never over a stale one.
+          scopeGroups: scopeGroups ?? existing.scopeGroups,
+        })
+      : null;
+
   // Scope groups are reconciled by id rather than wiped and recreated: an editor
   // save used to regenerate every group id, which silently orphaned a
   // QuoteImport's targetLineId (breaking its Remove control). Preserving ids
@@ -160,7 +212,26 @@ export async function PATCH(request, { params }) {
   // dangling "imported" state on the sub's side. One transaction so a partial
   // write can't leave groups and imports disagreeing.
   const updated = await db.$transaction(async (tx) => {
-    await tx.quote.update({ where: { id }, data: scalarData });
+    await tx.quote.update({
+      where: { id },
+      data: {
+        ...scalarData,
+        // Upsert: the panel is often filled in long after the quote was first
+        // saved, so there is frequently no row to update yet.
+        //
+        // shouldWriteQuoteCosting holds the three-case rule, including the one
+        // that matters most here — a PATCH that said nothing about costing
+        // leaves the existing row exactly where it was.
+        ...(shouldWriteQuoteCosting({
+          costingSent: costing !== undefined,
+          may: mayCost(full),
+          hasExistingRow: Boolean(existing.costing),
+          row: costingRow,
+        }) && {
+          costing: { upsert: { create: costingRow, update: costingRow } },
+        }),
+      },
+    });
     if (scopeGroups) {
       await reconcileScopeGroups(tx, id, scopeGroups);
       await reconcileImportsForQuote(tx, id);

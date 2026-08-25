@@ -393,6 +393,48 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A quote now remembers what it was costed at.**
+
+  `prisma/schema.prisma` (`QuoteCosting`), `lib/costing/quoteCosting.js` (new),
+  `app/api/quotes/costingWrite.js` (new), `app/api/quotes/[id]/costing/route.js`
+  (new), `app/api/quotes/route.js`, `app/api/quotes/[id]/route.js`,
+  `app/app/quotes/new/page.js`, `scripts/check-quote-costing.mjs` (new).
+
+  The builder computed labour hours, materials, overhead, the crew and the
+  margin, showed all of it, and threw every number away on save. Reopening a
+  quote could not answer what margin it was priced at or how many hours it
+  assumed — and `app/api/jobs/[id]/costing/route.js` returns `estimatedCost:
+  null` for exactly that reason, in a comment that names the fix as "snapshot
+  the estimate when the quote is saved, server-side". This is that snapshot.
+
+  Follows `InvoiceCosting` deliberately, including the reason it is a SEPARATE
+  table: `app/api/quotes/[id]/pdf/route.js` spreads `...quote` into the
+  document, and the public token route builds a credential-free page from the
+  same row. A `costing Json?` column would ride along on both.
+
+  Three things worth reading before touching it:
+
+  1. **`costing: undefined` is silence, not an instruction.** Most PATCHes to
+     a quote are a status change, and every one of them would otherwise wipe
+     the row. `shouldWriteQuoteCosting` holds the three-case rule; both routes
+     ask it rather than each spelling the condition out.
+  2. **The browser sends inputs only.** Crew names, rates, hours, and the
+     estimator's own added hours/materials. Takeoff hours, the bill of
+     materials and every total are re-derived server-side from the quote's own
+     scope groups, so a stale or tampered client cannot write a margin its
+     numbers don't support.
+  3. **The crew is stored PRICED.** Storing it as typed — the invoice's
+     behaviour — read back as three people on zero hours costing nothing under
+     a labour cost of $2,897.93, because on a quote `hours: null` means "an
+     even share of the predicted pool". The resolved share is frozen with the
+     money; `hoursExplicit` keeps the intent for the editor.
+
+  `GET /api/quotes/[id]/costing` returns `saved: false` when nothing was
+  stored, having recomputed from `QuoteScopeGroup.takeoff` against TODAY's rate
+  card — a different number from the one quoted, and the flag is how the UI
+  says so. **Still open:** the job's cost comparison still passes
+  `estimatedCost: null`; it can now read this row instead.
+
 - **The quote email carries the quote, and a section that is on but empty can
   no longer be sent.**
 

@@ -6,6 +6,10 @@ import MediaUploader from "@/app/components/MediaUploader";
 import { useRouter } from "next/navigation";
 import { estimateQuoteCost } from "@/lib/costing/estimateJobCost";
 import {
+  MARGIN_TARGET_PCT,
+  FALLBACK_OVERHEAD_PCT,
+} from "@/lib/costing/quoteCosting";
+import {
   isUnitPriced,
   COMPLEXITY_LEVELS,
   COMPLEXITY_REASONS,
@@ -124,7 +128,7 @@ export default function NewQuotePage() {
   // contractor's own figure. Overridden per quote, and superseded entirely
   // when a worker with an hourlyRate is assigned.
   const [fallbackRate, setFallbackRate] = useState(35);
-  const [overheadPct, setOverheadPct] = useState(10);
+  const [overheadPct, setOverheadPct] = useState(FALLBACK_OVERHEAD_PCT);
   // The estimator's own read on this job, on top of whatever a recipe worked
   // out. Kept as strings so an empty box stays empty instead of snapping to 0.
   // An aerial tile of the client's address, for the trades that measure off
@@ -144,7 +148,9 @@ export default function NewQuotePage() {
   // Resolved (defaults + saved company overrides) recipe per categoryKey —
   // see Settings > Material Costs / app/api/settings/material-recipes.
   const [recipeOverrides, setRecipeOverrides] = useState({});
-  const MARGIN_TARGET = 30;
+  // Shared with the server so the badge, the row it saves and the endpoint
+  // that reads it back cannot each hold a different opinion of "on target".
+  const MARGIN_TARGET = MARGIN_TARGET_PCT;
 
   // Which cabinet groups have their complexity-reasons panel expanded.
   const [reasonsOpen, setReasonsOpen] = useState({});
@@ -855,6 +861,29 @@ export default function NewQuotePage() {
         total,
         notes,
         clientPhotos,
+        // ── The cost estimate, saved with the quote ─────────────────────
+        //
+        // Everything in this panel used to be computed on screen and thrown
+        // away on save, so reopening a quote could not answer what margin it
+        // was priced at or how many hours it assumed. It is written to a
+        // separate QuoteCosting row that no client-facing route joins.
+        //
+        // INPUTS ONLY. No money is sent: the server re-derives the takeoff
+        // hours, the bill of materials and every total from the quote's own
+        // scope groups against the company's price book. `addedLabourHours`
+        // and `addedMaterialCost` are the estimator's own additions on top of
+        // that, which is the one thing the server cannot know.
+        //
+        // Sent on every save, including when the panel was never opened —
+        // isEmptyQuoteCosting on the server decides whether that counts as a
+        // statement, so an untouched panel does not write a row of zeroes.
+        costing: {
+          crew,
+          addedLabourHours: Number(manualLabourHours) || 0,
+          addedMaterialCost: Number(manualMaterialCost) || 0,
+          labourRate: Number(fallbackRate) || 0,
+          overheadPct: Number(overheadPct) || 0,
+        },
         // Always created as a draft. Only a confirmed send promotes it,
         // in app/api/quotes/[id]/send.
         status: "draft",
