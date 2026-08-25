@@ -2621,6 +2621,30 @@ const en = {
   "app.setQuoteEmail.addPhoto": "Add a photo",
   "app.setQuoteEmail.emptyWarning": "This is switched on with nothing in it. Until you add something or switch it off, quotes can't be sent.",
 
+
+  // Quote detail page — the document sections and the internal cost panel.
+  // One key per line, and NOT prettier-formatted: this file is greped for
+  // `"key": "value"` on a single line, and running prettier over it rewrites
+  // six thousand lines and breaks those checks.
+  "app.quoteDetail.whatTheClientReads": "What this quote says",
+  "app.quoteDetail.whatsIncluded": "What's included",
+  "app.quoteDetail.whatCouldChange": "What could change this price",
+  "app.quoteDetail.howTheWorkRuns": "How the work runs",
+  "app.quoteDetail.notesOnThisQuote": "Written on this quote",
+  "app.quoteDetail.notesFromCompany": "Your company default — edit the quote to change it for this job only",
+  "app.quoteDetail.paymentTerms": "Payment terms",
+  "app.quoteDetail.costAndMargin": "Cost & margin",
+  "app.quoteDetail.labour": "Labour",
+  "app.quoteDetail.materials": "Materials",
+  "app.quoteDetail.overhead": "Overhead",
+  "app.quoteDetail.thisJobsShare": "this job's share",
+  "app.quoteDetail.estimated": "estimated",
+  "app.quoteDetail.totalCost": "Total cost",
+  "app.quoteDetail.target": "target",
+  "app.quoteDetail.crew": "Crew",
+  "app.quoteDetail.unnamed": "Unnamed",
+  "app.quoteDetail.billOfMaterials": "Materials this job needs",
+  "app.quoteDetail.noPriceSet": "no price set",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -5138,6 +5162,30 @@ const fr = {
   "app.setQuoteEmail.addPhoto": "Ajouter une photo",
   "app.setQuoteEmail.emptyWarning": "Cette section est activée et vide. Tant qu'elle le reste, aucune soumission ne peut être envoyée.",
 
+
+  // Quote detail page — the document sections and the internal cost panel.
+  // One key per line, and NOT prettier-formatted: this file is greped for
+  // `"key": "value"` on a single line, and running prettier over it rewrites
+  // six thousand lines and breaks those checks.
+  "app.quoteDetail.whatTheClientReads": "Ce que dit cette soumission",
+  "app.quoteDetail.whatsIncluded": "Ce qui est inclus",
+  "app.quoteDetail.whatCouldChange": "Ce qui pourrait modifier ce prix",
+  "app.quoteDetail.howTheWorkRuns": "Comment se déroulent les travaux",
+  "app.quoteDetail.notesOnThisQuote": "Rédigé sur cette soumission",
+  "app.quoteDetail.notesFromCompany": "Votre texte par défaut — modifiez la soumission pour l'ajuster à ce chantier seulement",
+  "app.quoteDetail.paymentTerms": "Modalités de paiement",
+  "app.quoteDetail.costAndMargin": "Coût et marge",
+  "app.quoteDetail.labour": "Main-d'œuvre",
+  "app.quoteDetail.materials": "Matériaux",
+  "app.quoteDetail.overhead": "Frais généraux",
+  "app.quoteDetail.thisJobsShare": "part de ce chantier",
+  "app.quoteDetail.estimated": "estimé",
+  "app.quoteDetail.totalCost": "Coût total",
+  "app.quoteDetail.target": "cible",
+  "app.quoteDetail.crew": "Équipe",
+  "app.quoteDetail.unnamed": "Sans nom",
+  "app.quoteDetail.billOfMaterials": "Matériaux nécessaires",
+  "app.quoteDetail.noPriceSet": "aucun prix défini",
 };
 
 

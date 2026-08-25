@@ -94,6 +94,11 @@ export default function QuoteDetailPage() {
   const { id } = useParams();
 
   const [quote, setQuote] = useState(null);
+  // What the quote SAYS — per-trade prose, resolved the same way the client's
+  // copy resolves it, so the two documents cannot drift.
+  const [docContent, setDocContent] = useState(null);
+  // What it COSTS — internal, permission-gated, never on a client surface.
+  const [costing, setCosting] = useState(null);
   // The company's billing currency, the reader's language. All eight money
   // renders below go through this — they used to go through a private
   // toFixed(2) helper that printed $2100.00 on the page a client opens.
@@ -148,6 +153,31 @@ export default function QuoteDetailPage() {
       .then(setQuote)
       .catch(() => setQuote(null))
       .finally(() => setLoading(false));
+
+    // ── The two things this page used to be missing ────────────────────────
+    //
+    // The client's copy of a quote carries what's included, what could change
+    // the price, the process with its timelines and the payment schedule. This
+    // page carried none of it — so the person who WROTE the quote saw a bare
+    // list of amounts while the homeowner read a document. They are the one
+    // who has to defend every sentence on it.
+    //
+    // Both are separate endpoints rather than a wider GET: this response is
+    // already spread into the PDF route and the editor, and neither needs
+    // several kilobytes of trade prose or a costing block.
+    fetch(`/api/quotes/${id}/document`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setDocContent)
+      // Silent: the document reads correctly without the prose, and an error
+      // banner about missing boilerplate above a perfectly good quote is noise.
+      .catch(() => setDocContent(null));
+
+    fetch(`/api/quotes/${id}/costing`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setCosting)
+      // A 403 here is NORMAL — job costing is a permission, and somebody
+      // without it should see the quote and not the margin.
+      .catch(() => setCosting(null));
   }, [id]);
 
   // Carried over from the builder when "Save & Send" saved the quote but the
@@ -757,6 +787,349 @@ export default function QuoteDetailPage() {
               </div>
             ))}
           </section>
+        )}
+
+        {/* ── What the client is actually reading ────────────────────────
+            Everything below mirrors the document at /q/<token>, resolved
+            through the same helpers so the two cannot drift. It used to live
+            only on the client's copy, which meant the estimator defending a
+            quote on the phone could not see the sentences they were being
+            asked about. */}
+        {docContent?.groups?.some(
+          (g) => g.included?.length || g.mayChange?.length,
+        ) && (
+          <Block
+            title={t(
+              "app.quoteDetail.whatTheClientReads",
+              "What this quote says",
+            )}
+          >
+            <div className="space-y-4">
+              {docContent.groups
+                .filter((g) => g.included?.length || g.mayChange?.length)
+                .map((g) => (
+                  <div
+                    key={g.id}
+                    className="border-l-2 pl-3"
+                    style={{ borderColor: g.accent }}
+                  >
+                    <p className="text-sm font-medium text-foreground">
+                      {g.label}
+                    </p>
+                    {g.included?.length > 0 && (
+                      <>
+                        <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t(
+                            "app.quoteDetail.whatsIncluded",
+                            "What's included",
+                          )}
+                        </p>
+                        <ul className="mt-0.5 space-y-0.5">
+                          {g.included.map((line) => (
+                            <li
+                              key={line}
+                              className="flex gap-1.5 text-sm text-muted-foreground"
+                            >
+                              <span aria-hidden="true">·</span>
+                              {line}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {g.mayChange?.length > 0 && (
+                      <>
+                        <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t(
+                            "app.quoteDetail.whatCouldChange",
+                            "What could change this price",
+                          )}
+                        </p>
+                        <dl className="mt-0.5 space-y-1">
+                          {g.mayChange.map((e) => (
+                            <div key={e.title}>
+                              <dt className="text-sm font-medium text-foreground">
+                                {e.title}
+                              </dt>
+                              <dd className="text-sm text-muted-foreground">
+                                {e.body}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </Block>
+        )}
+
+        {docContent?.processSteps?.length > 0 && (
+          <Block
+            title={t("app.quoteDetail.howTheWorkRuns", "How the work runs")}
+          >
+            <ol className="space-y-2.5">
+              {docContent.processSteps.map((step) => (
+                <li key={step.num} className="flex gap-3">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold text-foreground">
+                    {step.num}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {step.title}
+                      {/* The duration the client was quoted. Absent for a
+                          trade whose content states none — printing a guess
+                          here would be printing a commitment. */}
+                      {step.timeline && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {step.timeline}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            {docContent.processNotes && (
+              <div className="mt-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+                <p className="whitespace-pre-wrap text-sm text-foreground">
+                  {docContent.processNotes}
+                </p>
+                {/* Whose words these are. A company default silently printing
+                    as if it were written for this job is how a contractor
+                    discovers boilerplate on a signed document. */}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {docContent.processNotesSource === "quote"
+                    ? t(
+                        "app.quoteDetail.notesOnThisQuote",
+                        "Written on this quote",
+                      )
+                    : t(
+                        "app.quoteDetail.notesFromCompany",
+                        "Your company default — edit the quote to change it for this job only",
+                      )}
+                </p>
+              </div>
+            )}
+          </Block>
+        )}
+
+        {docContent?.paymentTerms && (
+          <Block title={t("app.quoteDetail.paymentTerms", "Payment terms")}>
+            {docContent.paymentSchedule?.length > 0 ? (
+              <ol className="space-y-1">
+                {docContent.paymentSchedule.map((stage, i) => (
+                  <li
+                    key={i}
+                    className="flex justify-between gap-3 text-sm text-foreground"
+                  >
+                    <span>{stage.label}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {stage.percent != null
+                        ? `${stage.percent}%`
+                        : stage.amount != null
+                          ? money(stage.amount)
+                          : ""}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="whitespace-pre-wrap text-sm text-foreground">
+                {docContent.paymentTerms}
+              </p>
+            )}
+          </Block>
+        )}
+
+        {/* ── What it costs YOU ──────────────────────────────────────────
+            Internal. Never on the PDF, never in the email, never on /q/.
+            Permission-gated server-side too — /api/quotes/[id]/costing
+            answers 403 without job-costing access rather than a body of
+            zeroes, because zeroes read as a job that cost nothing. */}
+        {costing && (
+          <Block title={t("app.quoteDetail.costAndMargin", "Cost & margin")}>
+            {!costing.saved && (
+              // The difference between "what we quoted at" and "what it would
+              // cost today" is the whole reason QuoteCosting exists. A page
+              // that showed the second while implying the first would be
+              // quietly rewriting history every time the rate card moved.
+              <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                Nothing was costed when this quote was saved, so these figures
+                are worked out from today&apos;s rates — not what it was priced
+                at. Nobody recorded who was doing the work either, so the hours
+                carry no money.
+              </p>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                [
+                  t("app.quoteDetail.labour", "Labour"),
+                  `${costing.labourHours} hrs`,
+                  money(costing.labourCost),
+                ],
+                [
+                  t("app.quoteDetail.materials", "Materials"),
+                  null,
+                  money(costing.materialTotal),
+                ],
+                [
+                  t("app.quoteDetail.overhead", "Overhead"),
+                  costing.overheadBasis === "per_job"
+                    ? t("app.quoteDetail.thisJobsShare", "this job's share")
+                    : t("app.quoteDetail.estimated", "estimated"),
+                  money(costing.overhead),
+                ],
+                [
+                  t("app.quoteDetail.totalCost", "Total cost"),
+                  null,
+                  money(costing.estimatedCost),
+                ],
+              ].map(([label, sub, value]) => (
+                <div
+                  key={label}
+                  className="rounded-lg border border-border px-3 py-2"
+                >
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {label}
+                  </div>
+                  <div className="text-sm font-bold tabular-nums text-foreground">
+                    {value}
+                  </div>
+                  {sub && (
+                    <div className="text-[11px] text-muted-foreground">
+                      {sub}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3">
+              <span className="text-sm text-muted-foreground">
+                {money(costing.price)} − {money(costing.estimatedCost)} ={" "}
+                <strong className="text-foreground">
+                  {money(costing.profit)}
+                </strong>
+              </span>
+              <span
+                className={`text-sm font-bold tabular-nums ${
+                  costing.signal === "red"
+                    ? "text-red-600 dark:text-red-400"
+                    : costing.signal === "amber"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-emerald-600 dark:text-emerald-400"
+                }`}
+              >
+                {costing.marginPct == null
+                  ? "—"
+                  : `${costing.marginPct}% margin`}
+                <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                  {t("app.quoteDetail.target", "target")}{" "}
+                  {costing.marginTargetPct}%
+                </span>
+              </span>
+            </div>
+
+            {/* Amber on a healthy-looking margin needs explaining, or it reads
+                as a broken badge. */}
+            {costing.costIncomplete && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                Some of the work has no cost against it, so the real margin is
+                lower than this.
+              </p>
+            )}
+            {costing.unpricedMaterials > 0 && (
+              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                {costing.unpricedMaterials} material
+                {costing.unpricedMaterials === 1 ? " has" : "s have"} no price
+                set.
+              </p>
+            )}
+
+            {costing.crew?.length > 0 && (
+              <div className="mt-3 border-t border-border pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("app.quoteDetail.crew", "Crew")}
+                  {costing.blendedRate != null && (
+                    <span className="ml-2 font-normal normal-case">
+                      {money(costing.blendedRate)}/hr blended
+                    </span>
+                  )}
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {costing.crew.map((m, i) => (
+                    <li
+                      key={`${m.name}${i}`}
+                      className="flex justify-between gap-3 text-sm"
+                    >
+                      <span className="text-muted-foreground">
+                        {m.name || t("app.quoteDetail.unnamed", "Unnamed")}
+                        <span className="ml-2 text-xs">
+                          {m.hours} hrs
+                          {m.hourlyRate != null
+                            ? ` × ${money(m.hourlyRate)}`
+                            : ""}
+                        </span>
+                      </span>
+                      <span className="tabular-nums text-foreground">
+                        {money(m.cost)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {costing.groups?.some((g) => g.materials?.length) && (
+              <div className="mt-3 border-t border-border pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t(
+                    "app.quoteDetail.billOfMaterials",
+                    "Materials this job needs",
+                  )}
+                </p>
+                {costing.groups
+                  .filter((g) => g.materials?.length)
+                  .map((g, gi) => (
+                    <div key={gi} className="mt-1.5">
+                      <p className="text-xs font-medium text-foreground">
+                        {g.label}
+                      </p>
+                      <ul className="mt-0.5 space-y-0.5">
+                        {g.materials.map((m, i) => (
+                          <li
+                            key={`${m.name}${i}`}
+                            className="flex justify-between gap-3 text-xs"
+                          >
+                            <span className="text-muted-foreground">
+                              {m.name} — {m.qty} {m.unit}
+                            </span>
+                            {/* Not $0.00. Nobody has priced it, and a zero
+                                would read as free. */}
+                            {m.unpriced ? (
+                              <span className="shrink-0 text-amber-700 dark:text-amber-400">
+                                {t(
+                                  "app.quoteDetail.noPriceSet",
+                                  "no price set",
+                                )}
+                              </span>
+                            ) : (
+                              <span className="shrink-0 tabular-nums text-foreground">
+                                {money(m.cost)}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </Block>
         )}
 
         {quote.addOns?.length > 0 && (
