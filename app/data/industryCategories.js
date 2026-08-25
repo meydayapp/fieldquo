@@ -27,6 +27,7 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "stairs",
   ],
   cleaning: [
+    "gutter_services",
     "residential_cleaning",
     "deep_cleaning",
     "commercial_cleaning",
@@ -35,6 +36,10 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "window_cleaning",
   ],
   "construction-contracting": [
+    // Gutters come off on a re-roof and go back on at the end, so a general
+    // contractor quoting a reno needs the trade in their own list rather than
+    // behind "show other trades".
+    "gutter_services",
     // Insulation belongs to more than the roofing trade. A garden suite or a
     // basement finish is framing, insulation and drywall in sequence — the
     // three the construction process steps describe — so a general contractor
@@ -87,6 +92,7 @@ export const INDUSTRY_CATEGORY_KEYS = {
   electrical: ["electrical"],
   hvac: ["hvac_install", "hvac_repair"],
   handyman: [
+    "gutter_services",
     "handyman",
     "installation_services",
     "property_maintenance",
@@ -113,7 +119,15 @@ export const INDUSTRY_CATEGORY_KEYS = {
     "pressure_washing_driveway",
     "driveway_sealing",
   ],
-  roofing: ["roofing_service", "siding", "insulation", "restoration"],
+  roofing: [
+    "roofing_service",
+    "siding",
+    // Gutters hang off the roof and are sold by the same crews — and by
+    // handymen and window cleaners, which is why it appears in three presets.
+    "gutter_services",
+    "insulation",
+    "restoration",
+  ],
   "tree-care": ["tree_care_service"],
 };
 

@@ -185,17 +185,23 @@ const CATEGORIES = [
   { key: "roofing_service", label: "Roofing", icon: "Home", sortOrder: 41 },
   { key: "siding", label: "Siding", icon: "Home", sortOrder: 42 },
   {
+    key: "gutter_services",
+    label: "Gutters & Eavestroughs",
+    icon: "Home",
+    sortOrder: 43,
+  },
+  {
     key: "insulation",
     label: "Insulation",
     icon: "Layers",
-    sortOrder: 43,
+    sortOrder: 44,
   },
-  { key: "restoration", label: "Restoration", icon: "Home", sortOrder: 44 },
+  { key: "restoration", label: "Restoration", icon: "Home", sortOrder: 45 },
   {
     key: "chimney_sweep",
     label: "Chimney Sweep",
     icon: "Flame",
-    sortOrder: 45,
+    sortOrder: 46,
   },
 
   // ── Outdoor / Landscaping ──
@@ -203,41 +209,41 @@ const CATEGORIES = [
     key: "landscaping_design",
     label: "Landscaping",
     icon: "Trees",
-    sortOrder: 46,
+    sortOrder: 47,
   },
-  { key: "lawn_care", label: "Lawn Care", icon: "Sprout", sortOrder: 47 },
-  { key: "lawn_mowing", label: "Lawn Mowing", icon: "Sprout", sortOrder: 48 },
+  { key: "lawn_care", label: "Lawn Care", icon: "Sprout", sortOrder: 48 },
+  { key: "lawn_mowing", label: "Lawn Mowing", icon: "Sprout", sortOrder: 49 },
   {
     key: "irrigation",
     label: "Irrigation Services",
     icon: "Droplet",
-    sortOrder: 49,
+    sortOrder: 50,
   },
   {
     key: "tree_care_service",
     label: "Tree Care",
     icon: "Trees",
-    sortOrder: 50,
+    sortOrder: 51,
   },
   {
     key: "snow_removal",
     label: "Snow Removal",
     icon: "Snowflake",
-    sortOrder: 51,
+    sortOrder: 52,
   },
-  { key: "pest_control", label: "Pest Control", icon: "Bug", sortOrder: 52 },
+  { key: "pest_control", label: "Pest Control", icon: "Bug", sortOrder: 53 },
   {
     key: "pool_spa",
     label: "Pool & Spa Services",
     icon: "Waves",
-    sortOrder: 53,
+    sortOrder: 54,
   },
-  { key: "junk_removal", label: "Junk Removal", icon: "Trash2", sortOrder: 54 },
+  { key: "junk_removal", label: "Junk Removal", icon: "Trash2", sortOrder: 55 },
   {
     key: "property_maintenance",
     label: "Property Maintenance",
     icon: "Wrench",
-    sortOrder: 55,
+    sortOrder: 56,
   },
 
   // ── Pressure Washing / Auto ──
@@ -245,28 +251,28 @@ const CATEGORIES = [
     key: "pressure_washing_house",
     label: "House Pressure Washing",
     icon: "Droplet",
-    sortOrder: 56,
+    sortOrder: 57,
   },
   {
     key: "pressure_washing_driveway",
     label: "Driveway/Walkway Washing",
     icon: "Droplet",
-    sortOrder: 57,
+    sortOrder: 58,
   },
   {
     key: "auto_detailing",
     label: "Auto Detailing",
     icon: "Car",
-    sortOrder: 58,
+    sortOrder: 59,
   },
 
   // ── Pet services ──
-  { key: "dog_walking", label: "Dog Walking", icon: "PawPrint", sortOrder: 59 },
+  { key: "dog_walking", label: "Dog Walking", icon: "PawPrint", sortOrder: 60 },
   {
     key: "pooper_scooper",
     label: "Pooper Scooper Service",
     icon: "PawPrint",
-    sortOrder: 60,
+    sortOrder: 61,
   },
 
   // ── Installation / misc ──
@@ -274,7 +280,7 @@ const CATEGORIES = [
     key: "installation_services",
     label: "Installation Services",
     icon: "Package",
-    sortOrder: 61,
+    sortOrder: 62,
   },
 
   // ── Coatings / concrete (added for the instant estimator) ──
@@ -282,9 +288,9 @@ const CATEGORIES = [
     key: "epoxy",
     label: "Epoxy & Concrete Coatings",
     icon: "Square",
-    sortOrder: 62,
+    sortOrder: 63,
   },
-  { key: "parging", label: "Parging", icon: "Square", sortOrder: 63 },
+  { key: "parging", label: "Parging", icon: "Square", sortOrder: 64 },
 
   // Sealcoating is maintenance, not paving: it recoats a driveway that is
   // already there, is priced per square foot of surface rather than by depth
@@ -295,7 +301,7 @@ const CATEGORIES = [
     key: "driveway_sealing",
     label: "Driveway Sealing",
     icon: "Square",
-    sortOrder: 64,
+    sortOrder: 65,
   },
 
   // Home inspection is not a trade that BUILDS anything, which is why it fits
@@ -313,7 +319,7 @@ const CATEGORIES = [
     key: "home_inspection",
     label: "Home Inspection",
     icon: "Home",
-    sortOrder: 65,
+    sortOrder: 66,
   },
 ];
 
