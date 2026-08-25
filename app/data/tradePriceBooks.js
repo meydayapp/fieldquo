@@ -1378,6 +1378,162 @@ export const TRADE_PRICE_BOOKS = {
     },
   },
 
+  // ── Gutters and eavestroughs ──────────────────────────────────────────
+  //
+  // Ottawa / Ontario 2026, CAD. Researched by the owner from contractors' OWN
+  // published rates rather than from cost-guide articles, and the structure
+  // below follows the distinctions those sources actually make.
+  //
+  // ── Why NEW and REPLACEMENT are two rates, not one rate plus a removal ──
+  //
+  // Only Eavestroughs (London ON) publishes $10-$15/ft for 5" and $20-$25 for
+  // 6", and states explicitly that removal AND disposal of the old gutters is
+  // INCLUDED at that number. HomeStars Ottawa reports $5-$15/ft across the
+  // market; Can-Mar Aluminum (Ontario) publishes $9-$16/ft for 5" and $18-$22
+  // for 6". Against a new-construction 5" rate of $8-$12/ft, the ~$2-$3/ft gap
+  // IS the removal, and contractors bundle it rather than itemising it. So a
+  // replacement is one line at a higher rate, which is how the client will see
+  // it quoted by everyone else they ask.
+  //
+  // Where a source gives ONE undifferentiated rate — 6" and copper — there is
+  // no bundled replacement figure to ship, so `replacementPricePerFt` is null
+  // and the builder prices those as the install rate PLUS the published
+  // removal-only rate. That reconstructs the bundle from two read numbers
+  // instead of inventing a third, and the removal appears on its own line so
+  // nobody has to wonder whether it was in there.
+  //
+  // ── The two minimums are per WORK TYPE, and never stack ─────────────────
+  //
+  // A cleaning minimum and a repair minimum are two different published rules
+  // for two different jobs, not a floor and a second floor on the same one.
+  // buildGutters applies exactly one, chosen by the work type, and emits it as
+  // its own line — see lib/pricing/tradeScope.js.
+  gutter_services: {
+    label: "Gutters & Eavestroughs",
+
+    // Keyed map, not an array — mergeDeep replaces arrays wholesale, so a
+    // company editing one profile's rate on the rate card would silently
+    // discard the other two. Same reasoning as the garage door catalogue.
+    materials: {
+      alum_5: {
+        label: '5" seamless aluminium',
+        // $8-$12/ft new (market range); $10-$15/ft replacement (Only
+        // Eavestroughs, London ON, removal and disposal stated as included).
+        // Can-Mar's $9-$16 spans both and corroborates the pair.
+        pricePerFt: 10,
+        replacementPricePerFt: 12,
+      },
+      alum_6: {
+        label: '6" seamless aluminium',
+        // Can-Mar $18-$22, Only Eavestroughs $20-$25. Both quote ONE rate for
+        // the profile without splitting new from replacement, so there is no
+        // bundled figure to ship and the null below is the honest answer.
+        pricePerFt: 20,
+        replacementPricePerFt: null,
+      },
+      copper: {
+        label: "Copper",
+        // $25-$45/ft, the widest band in the research because copper is priced
+        // off the metal and the fabricator, not off a published rate card.
+        // The single most useful number here to overwrite with a real quote.
+        pricePerFt: 35,
+        replacementPricePerFt: null,
+      },
+    },
+    defaultMaterial: "alum_5",
+
+    // Taking a run down and disposing of it with nothing going back up. Also
+    // what reconstructs the replacement bundle for the two profiles above that
+    // have no bundled rate — see the header.
+    removalPerFt: 2.5,
+
+    // ── Cleaning ────────────────────────────────────────────────────────
+    //
+    // These are published Ottawa figures by STOREY, not one rate multiplied by
+    // an invented height factor: $1.00-$1.25 at one storey, $1.25-$1.75 at
+    // two, $1.75-$2.50 at three. The height is already inside them, which is
+    // why heightSurcharge below must never touch a cleaning line.
+    //
+    // Sanity check against the same company's published whole-house ranges —
+    // small 1-storey $120-150, medium 2-storey $180-250, large 3-storey
+    // $300-395: a 150 ft two-storey lands at $225, mid-band.
+    cleaning: {
+      perFt: { one: 1.1, two: 1.5, three_plus: 2.0 },
+      // A real published rule — "$100-$150 minimum applies to all gutter
+      // cleaning jobs" — shipped at the top of the stated band, which is also
+      // where the small-home whole-house range ends. It is a floor on the
+      // JOB, not on the per-foot line, and the quote shows the top-up.
+      minimumCharge: 150,
+    },
+
+    // ── Guards ──────────────────────────────────────────────────────────
+    // Basic screen $8/ft, micro-mesh $15/ft, premium branded $25/ft and up.
+    // True Vision (Ottawa) advertises $15/ft, which lands exactly on the
+    // micro-mesh figure — the strongest number in this book after the 5"
+    // aluminium pair.
+    guards: {
+      screen: { label: "Basic screen", pricePerFt: 8 },
+      micro_mesh: { label: "Micro-mesh", pricePerFt: 15 },
+      premium: { label: "Premium branded system", pricePerFt: 25 },
+    },
+
+    downspouts: {
+      // $100-$300 typical, up to $400 where the run is long or the routing is
+      // awkward. $200 is the middle of the ordinary band, not of the extreme.
+      installEach: 200,
+      // $20-$40. Flushed through and watched, which is the only way to know a
+      // clear trough is actually draining.
+      flushEach: 30,
+    },
+
+    repairs: {
+      // $10-$50 per section for a reseal or a refasten done ALONGSIDE other
+      // work — the midpoint, because the source states a band and no mode.
+      perSectionPrice: 25,
+      // A repair visit on its own is $150-$400 typical with $150 the stated
+      // minimum. Applied only when the work type IS repair: the same sections
+      // added to a cleaning job are the cheap add-on above, which is exactly
+      // what the source distinguishes.
+      minimumPerJob: 150,
+    },
+
+    extras: {
+      // $25-$30/ft, midpoint of a stated band.
+      heatCablePerFt: 27.5,
+      // The source states a $100-$150 MINIMUM for this, not a rate, and no
+      // per-foot figure exists anywhere in the research. 125 is the middle of
+      // that stated minimum and behaves as a small-house price; a large house
+      // is more and the estimator overrides on the line. Flagged because it is
+      // the one figure here that is a floor wearing a price's clothes.
+      soffitFasciaRinsePrice: 125,
+    },
+
+    // ── Height, on INSTALL work only ────────────────────────────────────
+    //
+    // 1 storey 1.00x, 2 storey 1.15-1.25x, 3 storey 1.35-1.50x. Stored as the
+    // surcharge rather than the multiplier (0.20 == 1.20x) for the same reason
+    // siding does: it comes out as a line the client can see instead of
+    // silently inflating every rate above it.
+    //
+    // Applied to the install-side subtotal ONLY. The cleaning rates above are
+    // published per storey and already contain the height; charging both would
+    // bill a three-storey clean for the ladders twice.
+    heightSurcharge: { one: 0, two: 0.2, three_plus: 0.425 },
+
+    // Deliberately no `labourHoursPerSqft` — and none per linear foot either.
+    // This trade is not priced by area, and no production rate for gutter work
+    // was researched: the owner named it as the next research step rather than
+    // something to fill in. tradeLabourHours() returns 0 for a book that states
+    // none, which is the honest answer; a guessed rate would feed the margin
+    // panel and the schedule with fiction and would look sourced sitting
+    // beside the figures above. Same call as home_inspection, for the same
+    // reason.
+    //
+    // No `materialCosts` either. Every price above is what the work SELLS for;
+    // no coil, guard or downspout supplier was read, so there is no cost side
+    // to this book yet and lib/costing/tradeMaterials.js has no builder for it.
+  },
+
   insulation: {
     label: "Insulation",
 
@@ -1764,6 +1920,13 @@ export const PRICE_BOOK_GROUPS = {
   sidingAccess: "Access",
   sidingLabour: "How long it takes — internal, never shown to a client",
   pavingLabour: "How long it takes — internal, never shown to a client",
+  gutterMaterials: "Eavestrough — supplied and installed, per linear foot",
+  gutterCleaning: "Cleaning — per linear foot, by storey",
+  gutterGuards: "Gutter guard — supplied and fitted",
+  gutterDownspouts: "Downspouts",
+  gutterRepairs: "Repairs",
+  gutterExtras: "Add-ons",
+  gutterAccess: "Access — install work only, never cleaning",
   insulationMaterials: "Insulation — installed",
   insulationExtras: "Air sealing, baffles and removal",
   insulationLabour: "How long it takes — internal, never shown to a client",
@@ -2871,6 +3034,130 @@ export const PRICE_BOOK_FIELDS = {
       suffix: "$ / square",
       step: 1,
       group: "sidingMaterialCost",
+    },
+  ],
+
+  gutter_services: [
+    // Both rates per profile, side by side, because the pair IS the pricing
+    // model: the gap between them is the removal, and a company that edits one
+    // and not the other has quietly decided a replacement is free to strip.
+    ...Object.entries(TRADE_PRICE_BOOKS.gutter_services.materials).flatMap(
+      ([id, m]) => [
+        {
+          path: `materials.${id}.pricePerFt`,
+          label: `${m.label} — new`,
+          suffix: "$ / linear ft",
+          step: 0.5,
+          group: "gutterMaterials",
+        },
+        {
+          path: `materials.${id}.replacementPricePerFt`,
+          label: `${m.label} — replacement, removal included`,
+          suffix: "$ / linear ft",
+          step: 0.5,
+          group: "gutterMaterials",
+        },
+      ],
+    ),
+    {
+      path: "removalPerFt",
+      label: "Remove and dispose, no new gutter",
+      suffix: "$ / linear ft",
+      step: 0.25,
+      group: "gutterMaterials",
+    },
+    {
+      path: "cleaning.perFt.one",
+      label: "Cleaning — one storey",
+      suffix: "$ / linear ft",
+      step: 0.05,
+      group: "gutterCleaning",
+    },
+    {
+      path: "cleaning.perFt.two",
+      label: "Cleaning — two storeys",
+      suffix: "$ / linear ft",
+      step: 0.05,
+      group: "gutterCleaning",
+    },
+    {
+      path: "cleaning.perFt.three_plus",
+      label: "Cleaning — three or more storeys",
+      suffix: "$ / linear ft",
+      step: 0.05,
+      group: "gutterCleaning",
+    },
+    {
+      path: "cleaning.minimumCharge",
+      label: "Minimum charge on a cleaning job",
+      suffix: "$ flat",
+      step: 10,
+      group: "gutterCleaning",
+    },
+    ...Object.entries(TRADE_PRICE_BOOKS.gutter_services.guards).map(
+      ([id, g]) => ({
+        path: `guards.${id}.pricePerFt`,
+        label: g.label,
+        suffix: "$ / linear ft",
+        step: 1,
+        group: "gutterGuards",
+      }),
+    ),
+    {
+      path: "downspouts.installEach",
+      label: "Supply and install a downspout",
+      suffix: "$ each",
+      step: 10,
+      group: "gutterDownspouts",
+    },
+    {
+      path: "downspouts.flushEach",
+      label: "Flush and flow test",
+      suffix: "$ each",
+      step: 5,
+      group: "gutterDownspouts",
+    },
+    {
+      path: "repairs.perSectionPrice",
+      label: "Reseal or refasten a section",
+      suffix: "$ / section",
+      step: 5,
+      group: "gutterRepairs",
+    },
+    {
+      path: "repairs.minimumPerJob",
+      label: "Minimum charge on a repair-only visit",
+      suffix: "$ flat",
+      step: 10,
+      group: "gutterRepairs",
+    },
+    {
+      path: "extras.heatCablePerFt",
+      label: "Heated de-icing cable",
+      suffix: "$ / linear ft",
+      step: 0.5,
+      group: "gutterExtras",
+    },
+    {
+      path: "extras.soffitFasciaRinsePrice",
+      label: "Soffit and fascia rinse",
+      suffix: "$ flat",
+      step: 5,
+      group: "gutterExtras",
+    },
+    {
+      path: "heightSurcharge.two",
+      label: "Two storeys",
+      suffix: "x install subtotal",
+      step: 0.05,
+      group: "gutterAccess",
+    },
+    {
+      path: "heightSurcharge.three_plus",
+      label: "Three or more storeys",
+      suffix: "x install subtotal",
+      step: 0.05,
+      group: "gutterAccess",
     },
   ],
 

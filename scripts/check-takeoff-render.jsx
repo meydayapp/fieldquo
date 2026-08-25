@@ -77,6 +77,21 @@ const FILLED = {
     fasciaFt: 120,
     soffitSqft: 260,
   },
+  // A replacement rather than the default clean, because that branch is the
+  // one carrying the profile picker, the bundled-vs-separate removal wording
+  // and the access surcharge — none of which the blank cleaning form renders.
+  gutter_services: {
+    workType: "replacement",
+    gutterFt: 200,
+    storeys: "two",
+    materialKey: "alum_6",
+    guard: "micro_mesh",
+    guardFt: 120,
+    downspoutsInstalled: 4,
+    repairSections: 2,
+    heatCableFt: 40,
+    soffitFasciaRinse: true,
+  },
 };
 
 for (const key of Object.keys(TRADE_PRICE_BOOKS)) {

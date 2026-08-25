@@ -21,6 +21,9 @@ import {
   newStairSection,
   newFloorSection,
   newPaintRoom,
+  gutterLines,
+  GUTTER_WORK_TYPES,
+  GUTTER_STOREY_LABELS,
 } from "@/lib/pricing/tradeScope";
 import { Plus, Trash2 } from "lucide-react";
 import {
@@ -2230,6 +2233,364 @@ function SidingTakeoff({ takeoff, book, onChange }) {
   );
 }
 
+/* ── Gutters and eavestroughs ──────────────────────────────────────────── */
+
+// Order is the order an estimator meets these jobs, not alphabetical: most
+// gutter calls are a clean, and the two that put new metal on the house sit
+// together because they share every field below the picker.
+const GUTTER_WORK_ORDER = [
+  "cleaning",
+  "install",
+  "replacement",
+  "repair",
+  "guard_only",
+];
+
+const GUTTER_WORK_HINTS = {
+  cleaning: "Clear the runs, flush the downspouts, seal what needs it",
+  install: "New eavestrough where there was none",
+  replacement: "The old run off and away, new run up in its place",
+  repair: "Reseal, refasten or re-pitch what is already there",
+  guard_only: "Guard fitted over runs that are already clear",
+};
+
+/**
+ * The gutter takeoff.
+ *
+ * The work type is asked ONCE, at the top, and everything below follows from
+ * it — a cleaning form and a replacement form share a footage box and almost
+ * nothing else, and one form carrying every field of both is how a cleaning
+ * quote ends up with a downspout install nobody sold.
+ *
+ * The priced lines at the bottom come from the real builder rather than being
+ * re-multiplied here. Two of them are rules: the access surcharge sees only
+ * the install half of the job (the cleaning rates are published per storey and
+ * already contain the height), and exactly one of the two minimums applies.
+ */
+function GutterTakeoff({ takeoff, book, onChange }) {
+  const set = (patch) => onChange({ ...takeoff, ...patch });
+
+  // Own-property lookups, not truthiness: these arrive from stored JSON, and
+  // GUTTER_WORK_TYPES["__proto__"] is truthy on any plain object — which would
+  // put Object.prototype through React as a label.
+  const own = (map, key) =>
+    map && Object.prototype.hasOwnProperty.call(map, key);
+  const workType = own(GUTTER_WORK_TYPES, takeoff.workType)
+    ? takeoff.workType
+    : "cleaning";
+  const storeys = own(GUTTER_STOREY_LABELS, takeoff.storeys)
+    ? takeoff.storeys
+    : "one";
+  const ft = num(takeoff.gutterFt);
+
+  const isClean = workType === "cleaning";
+  const isRun = workType === "install" || workType === "replacement";
+
+  const materials = book?.materials || {};
+  const materialKey = own(materials, takeoff.materialKey)
+    ? takeoff.materialKey
+    : book?.defaultMaterial || "";
+  const material = own(materials, materialKey) ? materials[materialKey] : null;
+  const bundled = num(material?.replacementPricePerFt);
+  const useBundled = workType === "replacement" && bundled > 0;
+
+  const guards = book?.guards || {};
+  const guardKey = own(guards, takeoff.guard) ? takeoff.guard : "";
+  const guard = guardKey ? guards[guardKey] : null;
+  const guardFt = num(takeoff.guardFt);
+
+  const cleanRate = own(book?.cleaning?.perFt, storeys)
+    ? num(book.cleaning.perFt[storeys])
+    : 0;
+  const heightPct = own(book?.heightSurcharge, storeys)
+    ? num(book.heightSurcharge[storeys])
+    : 0;
+
+  // The quote's own lines, not a second implementation of them.
+  const lines = gutterLines({ ...takeoff, workType, storeys }, book);
+  const total = lines.reduce((sum, l) => sum + num(l.amount), 0);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-muted-foreground">
+          What is this job?
+        </label>
+        <div className="mt-1 grid gap-2 sm:grid-cols-3">
+          {GUTTER_WORK_ORDER.map((key) => {
+            const active = workType === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => set({ workType: key })}
+                className={`rounded-lg border px-3 py-2 text-left transition ${
+                  active
+                    ? "border-foreground/60 bg-foreground/5 ring-1 ring-foreground/30"
+                    : "border-border hover:border-foreground/30"
+                }`}
+              >
+                <span className="block text-sm font-medium">
+                  {GUTTER_WORK_TYPES[key]}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {GUTTER_WORK_HINTS[key]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label={
+            workType === "guard_only"
+              ? "Run on the house (linear ft)"
+              : "Gutter run (linear ft)"
+          }
+        >
+          <Num
+            value={takeoff.gutterFt}
+            step={5}
+            onChange={(v) => set({ gutterFt: v })}
+            suffix="ft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {workType === "guard_only"
+              ? "Recorded for the file — the guard is priced on its own footage below"
+              : workType === "repair"
+                ? "Recorded for the file — a repair is priced by the section below"
+                : "Measured along the fascia, not around the roof"}
+          </p>
+        </Field>
+        <Field label="Storeys">
+          <select
+            value={storeys}
+            onChange={(e) => set({ storeys: e.target.value })}
+            className={inputClass}
+          >
+            <option value="one">One storey</option>
+            <option value="two">Two storeys</option>
+            <option value="three_plus">Three or more</option>
+          </select>
+          {/* Says which lines the storey moves and which it doesn't. The
+              cleaning rate is published per storey and the access surcharge is
+              published for install work, so on a job carrying both — a clean
+              with a guard sold on it — the same storey does two different
+              things and the screen has to say so. A hint that promised a
+              surcharge on a repair-only visit would be describing a line that
+              never appears. */}
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {isClean && cleanRate > 0
+              ? `Cleaning is $${money(cleanRate)}/ft at this height — access is already inside that rate${
+                  heightPct > 0
+                    ? `. Guard, downspout and cable lines are install work and carry +${Math.round(heightPct * 100)}% separately`
+                    : ""
+                }`
+              : isClean
+                ? "No cleaning rate is set for this height"
+                : heightPct > 0
+                  ? `+${Math.round(heightPct * 100)}% on install lines — gutter, guard, downspouts and cable. Cleaning and repair lines are never surcharged`
+                  : "Ladders — no access surcharge"}
+          </p>
+        </Field>
+      </div>
+
+      {isRun && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Profile">
+            <select
+              value={materialKey}
+              onChange={(e) => set({ materialKey: e.target.value })}
+              className={inputClass}
+            >
+              {Object.entries(materials).map(([key, m]) => {
+                const rate =
+                  workType === "replacement" && num(m.replacementPricePerFt) > 0
+                    ? num(m.replacementPricePerFt)
+                    : num(m.pricePerFt);
+                return (
+                  <option key={key} value={key}>
+                    {m.label} — ${money(rate)}/ft
+                  </option>
+                );
+              })}
+            </select>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {workType !== "replacement"
+                ? "Supplied and installed, hung to a fall"
+                : useBundled
+                  ? "Replacement rate — taking the old run down and away is inside it"
+                  : `This profile has no separate replacement rate, so removal is charged on its own line at $${money(book?.removalPerFt)}/ft`}
+            </p>
+          </Field>
+          {workType === "install" && (
+            <Field label="Existing gutters">
+              <OptionRow
+                checked={takeoff.removeExisting}
+                onToggle={(v) => set({ removeExisting: v })}
+                label="Take down and dispose of what is up there"
+                hint={`$${money(book?.removalPerFt)}/ft — tick only if something is coming down that the new run does not replace`}
+                amount={
+                  takeoff.removeExisting ? ft * num(book?.removalPerFt) : 0
+                }
+              />
+            </Field>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Gutter guard">
+          <select
+            value={guardKey}
+            onChange={(e) => set({ guard: e.target.value })}
+            className={inputClass}
+          >
+            <option value="">No guard</option>
+            {Object.entries(guards).map(([key, g]) => (
+              <option key={key} value={key}>
+                {g.label} — ${money(g.pricePerFt)}/ft
+              </option>
+            ))}
+          </select>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            A guard has to go on a clear gutter
+          </p>
+        </Field>
+        <Field label="Guard run (linear ft)">
+          <Num
+            value={takeoff.guardFt}
+            step={5}
+            onChange={(v) => set({ guardFt: v })}
+            suffix="ft"
+            disabled={!guard}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            {guard && guardFt > 0
+              ? `$${money(guardFt * num(guard.pricePerFt))} — guard is install work, so the access surcharge applies to it`
+              : ft > 0
+                ? `The run above is ${ft} ft; guard only the elevations being sold`
+                : "Guarded footage, which is rarely the whole house"}
+          </p>
+        </Field>
+      </div>
+
+      {/* Counts, not checkboxes. A tick box that turns itself back off because
+          the run above is still blank is a control that appears to work and
+          doesn't — these are all quantities, so they are asked for as
+          quantities. */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Field label="Downspouts installed">
+          <Num
+            value={takeoff.downspoutsInstalled}
+            onChange={(v) => set({ downspoutsInstalled: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.downspouts?.installEach)} each
+          </p>
+        </Field>
+        <Field label="Downspouts flushed">
+          <Num
+            value={takeoff.downspoutsFlushed}
+            onChange={(v) => set({ downspoutsFlushed: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.downspouts?.flushEach)} each — flow tested
+          </p>
+        </Field>
+        <Field label="Sections resealed or refastened">
+          <Num
+            value={takeoff.repairSections}
+            onChange={(v) => set({ repairSections: v })}
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.repairs?.perSectionPrice)} per section
+            {workType === "repair"
+              ? " — this is what a repair visit is priced by"
+              : ""}
+          </p>
+        </Field>
+        <Field label="Heated de-icing cable">
+          <Num
+            value={takeoff.heatCableFt}
+            step={5}
+            onChange={(v) => set({ heatCableFt: v })}
+            suffix="ft"
+          />
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            ${money(book?.extras?.heatCablePerFt)}/ft, supplied and installed
+          </p>
+        </Field>
+      </div>
+
+      <div>
+        <OptionRow
+          checked={takeoff.soffitFasciaRinse}
+          onToggle={(v) => set({ soffitFasciaRinse: v })}
+          label="Soffit and fascia rinse"
+          hint={`$${money(book?.extras?.soffitFasciaRinsePrice)} flat — the published figure is a MINIMUM, not a rate, so a large house is more`}
+          amount={
+            takeoff.soffitFasciaRinse
+              ? num(book?.extras?.soffitFasciaRinsePrice)
+              : 0
+          }
+        />
+      </div>
+
+      {/* The quote's own lines. Rendered from the builder so the access
+          surcharge and the minimum top-up cannot say one thing here and
+          another on the document. */}
+      <div className="rounded border border-border">
+        <div className="border-b border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
+          What this prices to
+        </div>
+        {lines.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-muted-foreground">
+            Nothing priced yet — enter the run, or a count below it.
+          </p>
+        ) : (
+          <>
+            {lines.map((l, i) => (
+              <div
+                key={`${l.description}-${i}`}
+                className="flex items-baseline justify-between gap-2 border-b border-border px-3 py-1.5 text-sm last:border-0"
+              >
+                <span className="min-w-0">
+                  {l.description}
+                  {l.unit !== "flat" && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {l.quantity} {l.unit} × ${money(l.rate)}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 font-medium tabular-nums">
+                  ${money(l.amount)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-sm font-medium">
+              <span>Scope total</span>
+              <span className="tabular-nums">${money(total)}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <Field label="Scope notes">
+        <textarea
+          value={takeoff.notes || ""}
+          onChange={(e) => set({ notes: e.target.value })}
+          rows={2}
+          className={inputClass}
+          placeholder="Access, where the water has to go, anything the crew needs to know"
+        />
+      </Field>
+    </div>
+  );
+}
+
 /* ── Insulation ────────────────────────────────────────────────────────── */
 
 /**
@@ -2494,6 +2855,7 @@ const TAKEOFFS = {
   paving: PavingTakeoff,
   roofing_service: RoofingTakeoff,
   siding: SidingTakeoff,
+  gutter_services: GutterTakeoff,
   insulation: InsulationTakeoff,
   snow_removal: SnowRemovalTakeoff,
 };

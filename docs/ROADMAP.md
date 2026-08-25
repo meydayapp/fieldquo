@@ -393,6 +393,53 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Gutters stop being a hand-typed line.**
+
+  `app/data/tradePriceBooks.js` (`gutter_services` book, `PRICE_BOOK_FIELDS`,
+  seven new `PRICE_BOOK_GROUPS`), `lib/pricing/tradeScope.js` (`buildGutters`,
+  `gutterLines`, `GUTTER_WORK_TYPES`, `GUTTER_STOREY_LABELS`, the takeoff
+  config), `lib/pricing/takeoffTrades.js`,
+  `app/components/quotes/builder/TradeTakeoff.js` (`GutterTakeoff`),
+  `lib/documents/serviceContent.js`, `scripts/check-takeoff-render.jsx`.
+
+  `gutter_services` had scope wording and nothing else — no book, no takeoff,
+  no builder. Ottawa/Ontario 2026 rates from contractors' own published pages.
+  Three things worth reading before pricing the next trade this way:
+
+  1. **The work type is asked once and everything follows.** Cleaning, new
+     installation, replacement, repair, guard-only. A single form carrying
+     every field of all five is how a cleaning quote grows a downspout install
+     nobody sold.
+  2. **Two published rules that must never meet.** Cleaning is priced per
+     linear foot BY STOREY ($1.10 / $1.50 / $2.00 — the access is inside the
+     rate); the height factor (1.20x / 1.425x) is published for INSTALL work,
+     where the rate is flat. `buildGutters` sorts its lines into buckets and
+     the surcharge sees only the install one, so a guard sold on a cleaning
+     visit is surcharged and the cleaning on that same visit is not.
+  3. **New and replacement are two rates, not one rate plus a removal**, because
+     that is how the sources quote it — the ~$2–$3/ft gap IS the removal, and
+     Only Eavestroughs states removal and disposal are included. The two
+     profiles with no bundled replacement figure (6", copper) reconstruct it
+     from the install rate plus the published removal-only rate rather than
+     inventing a third number, and the removal appears on its own line.
+
+  Both minimums — $150 on a cleaning visit, $150 on a repair visit — are floors
+  on the JOB, exactly one applies, and the top-up is its own line item that
+  says what it is.
+
+  **Left unpriced, deliberately:** labour hours. No production rate for gutter
+  work exists in the research, so the book states none and `tradeLabourHours`
+  returns 0 — the owner named this as the next research step. Also no
+  `materialCosts`: no coil, guard or downspout supplier was read, so the trade
+  has no cost side and no `tradeMaterials` builder.
+
+  **Needs the owner:** `serviceContent.steps` for this trade is the owner's
+  five-step CLEANING process, and `steps` do not vary with the takeoff the way
+  `description` now does (`variantOn: "workType"`). A replacement quote
+  therefore prints a scope paragraph about replacement over process steps about
+  clearing and flushing. Fixing it means either a second process for install
+  work or extending `variants` to carry steps — a product decision, not a typo.
+
 - **One quote builder, two routes. The edit page is the builder now.**
 
   `app/components/quotes/builder/QuoteBuilder.js` (new),
