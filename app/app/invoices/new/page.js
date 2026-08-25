@@ -9,20 +9,15 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
+import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
 
 export default function NewInvoicePage() {
   // The company's billing currency, read off whatever this page already
   // loaded. Null falls back to the schema default inside the formatter — the
   // point is that it is no longer a hardcoded "$" with no grouping.
   const [currency, setCurrency] = useState(null);
-  useEffect(() => {
-    fetch("/api/settings/business-info")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.currency && setCurrency(d.currency))
-      .catch(() => {});
-  }, []);
 
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get("clientId");
@@ -39,6 +34,15 @@ export default function NewInvoicePage() {
   const [dueDate, setDueDate] = useState("");
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
+  // Set the moment a human edits the box. The resolver seeds the rate and then
+  // stops writing to it — without this, picking a client after typing a rate
+  // threw the typed rate away, and the US branch of lib/tax/jurisdictions.js
+  // ("county and city taxes are not included, enter the rate for this address")
+  // had no field to be acted on.
+  const [taxRateTouched, setTaxRateTouched] = useState(false);
+  const [taxConfig, setTaxConfig] = useState(null);
+  const [taxNote, setTaxNote] = useState("");
+  const [taxCaution, setTaxCaution] = useState("");
   // Internal crew / hours / materials, never part of the document. Null until
   // InvoiceCostSection has loaded — and null again if it can't be shown, so a
   // save from a user without the jobCosting toggle posts no `costing` key at
@@ -62,7 +66,25 @@ export default function NewInvoicePage() {
           const match = list.find((c) => c.id === preselectedClientId);
           if (match) setSelectedClient(match);
         }
-        setTaxRate(Number(businessInfo?.taxRate || 0));
+        setCurrency(businessInfo?.currency || null);
+        // The same shape the quote builder hands the resolver, so an invoice
+        // and the quote it bills cannot disagree about the rate. This page used
+        // to read businessInfo.taxRate flat and bypass the resolver entirely,
+        // which is how an Ontario client got 13% on the quote and the company
+        // default on the invoice.
+        setTaxConfig({
+          taxRate: Number(businessInfo?.taxRate || 0),
+          autoApplyLocalTax: Boolean(businessInfo?.autoApplyLocalTax),
+          taxRates: Array.isArray(businessInfo?.taxRates)
+            ? businessInfo.taxRates
+            : [],
+          // The company's OWN country. For B2C services VAT is charged where
+          // the supplier is — see lib/tax/jurisdictions.js.
+          country: businessInfo?.country || null,
+          // Three-state, and `?? null` rather than `|| false`: an unanswered
+          // VAT question must not arrive here as "not registered".
+          vatRegistered: businessInfo?.vatRegistered ?? null,
+        });
       } catch (err) {
         setError(err.message);
       } finally {
@@ -70,6 +92,27 @@ export default function NewInvoicePage() {
       }
     })();
   }, [preselectedClientId]);
+
+  useEffect(() => {
+    if (!taxConfig) return;
+    const result = resolveTaxRate({
+      company: taxConfig,
+      taxRates: taxConfig.taxRates,
+      client: selectedClient,
+      // This page has no scope, so there is nothing to say whether the work is
+      // the kind an EU reduced construction rate applies to. Left unanswered
+      // rather than assumed — the resolver returns unknown and the company's
+      // own default stands, which is the safe direction to be wrong in.
+      lang: language,
+    });
+    if (!taxRateTouched) setTaxRate(result.rate);
+    const note =
+      taxConfig.autoApplyLocalTax && selectedClient
+        ? explainTaxSource(result, selectedClient, language)
+        : null;
+    setTaxNote(note ? t(note.key, note.params) : "");
+    setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
+  }, [taxConfig, selectedClient, taxRateTouched, language, t]);
 
   const filteredClients = clients.filter((c) =>
     c.name?.toLowerCase().includes(clientSearch.toLowerCase()),
@@ -395,18 +438,51 @@ export default function NewInvoicePage() {
           />
           {t("app.invoiceNew.applyTax", { rate: taxRate })}
         </label>
+        {taxEnabled && (
+          <div className="mb-3 space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {t("app.invoiceNew.taxRateLabel")}
+              </span>
+              <input
+                type="number"
+                step="0.001"
+                min="0"
+                value={taxRate}
+                onChange={(e) => {
+                  setTaxRate(Number(e.target.value) || 0);
+                  setTaxRateTouched(true);
+                }}
+                className="w-24 rounded-md border border-input bg-background px-2 py-1 text-sm"
+              />
+              <span className="text-muted-foreground">%</span>
+            </label>
+            {taxNote && (
+              <p className="text-xs text-muted-foreground">{taxNote}</p>
+            )}
+            {/* The jurisdiction's own caveat, where there is one: PST on real
+                property in BC/MB, "state base only" in the US. Qualifies the
+                number rather than explaining where it came from, so it is its
+                own line and its own colour. */}
+            {taxCaution && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                {taxCaution}
+              </p>
+            )}
+          </div>
+        )}
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceNew.subtotal")}</span>
-            <span>{formatAppMoney(subtotal, currency, "en")}</span>
+            <span>{formatAppMoney(subtotal, currency, language)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>{t("app.invoiceNew.tax")}</span>
-            <span>{formatAppMoney(tax, currency, "en")}</span>
+            <span>{formatAppMoney(tax, currency, language)}</span>
           </div>
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>{t("app.invoiceNew.total")}</span>
-            <span>{formatAppMoney(total, currency, "en")}</span>
+            <span>{formatAppMoney(total, currency, language)}</span>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/permissions/enforce";
 
 // Expects rows already parsed client-side (Papa Parse) into
-// [{ name, email, phone, address, city, province }, ...]
+// [{ name, email, phone, address, city, province, country }, ...]
 export async function POST(request) {
   const member = await getCurrentMember(request);
   if (!member)
@@ -45,6 +46,11 @@ export async function POST(request) {
       address: r.address || null,
       city: r.city || null,
       province: r.province || null,
+      // Whatever the CSV said, normalised, or null. An import is the one place
+      // a country arrives as free text from a spreadsheet, so "Canada" and
+      // "CAN" land as null rather than as a value the tax lookup would later
+      // report as an unsupported country.
+      country: normaliseCountry(r.country),
     })),
   });
 

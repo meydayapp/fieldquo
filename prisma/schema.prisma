@@ -725,6 +725,30 @@ model Company {
   taxRegistrationDismissedAt DateTime?
   autoApplyLocalTax Boolean @default(true)
 
+  /// Is this company registered for VAT? THREE states, and the nullability is
+  /// the point:
+  ///
+  ///   true  — registered; the country's VAT rate applies to its invoices.
+  ///   false — below the national registration threshold, so it charges no VAT.
+  ///           A real, stated 0%.
+  ///   null  — never asked. NOT the same as false.
+  ///
+  /// lib/tax/jurisdictions.js will not return a European rate on `null`,
+  /// because both alternatives are wrong for a contractor who simply hasn't
+  /// answered: assume registered and a sole trader under the threshold sends a
+  /// homeowner a 21% line they must not charge; assume unregistered and a
+  /// registered company under-collects and pays the difference themselves.
+  /// So null resolves to "unknown" and the company's own default rate applies.
+  ///
+  /// Not derived from `taxIdNumber` being filled in, though it is tempting.
+  /// An empty tax-ID box means the contractor hasn't typed it yet at least as
+  /// often as it means they have no number — reading absence as an answer is
+  /// how a field ends up asserting something nobody said.
+  ///
+  /// Only asked of companies in a VAT country; a Canadian or US company never
+  /// sees the question and keeps null forever, which costs them nothing.
+  vatRegistered Boolean?
+
   /// Offer clients pay-over-time financing (Affirm) at invoice checkout, on top
   /// of paying by card. Off by default: it's the company's call, it only works
   /// where their Stripe account has Affirm activated (US/CA), and it only shows
@@ -1294,6 +1318,20 @@ model Client {
   address     String?
   city        String?
   province    String?
+  /// ISO-3166 alpha-2, and the reason lib/tax/jurisdictions.js can answer at
+  /// all. Without it "ON" is two letters, not Ontario — it could be a province,
+  /// a foreign region, or a typo, and picking Canada because most tenants are
+  /// Canadian would put a 13% rate on a quote for someone who owes something
+  /// else entirely.
+  ///
+  /// Null on every row that predates this column, and deliberately NOT
+  /// backfilled. Stamping "CA" across the existing table would turn a guess
+  /// into stored data and make it un-auditable a week later; instead a null
+  /// country resolves to "unknown" and the company's own default rate applies,
+  /// which is exactly what those clients get today. It fills in as clients are
+  /// edited — the address autocomplete has always returned country and simply
+  /// had nowhere to put it.
+  country     String?
   notes       String?
   // Language this client is written to in. Drives quote/invoice PDFs, emails
   // and the client portal. Null falls back to Company.defaultLanguage.

@@ -327,6 +327,12 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             taxRates: Array.isArray(businessInfo?.taxRates)
               ? businessInfo.taxRates
               : [],
+            // The company's OWN country, not the client's. For B2C services
+            // VAT is charged where the supplier is — see lib/tax/jurisdictions.js.
+            country: businessInfo?.country || null,
+            // Three-state, and `?? null` rather than `|| false`: an
+            // unanswered VAT question must not arrive here as "not registered".
+            vatRegistered: businessInfo?.vatRegistered ?? null,
           },
           overheadPerJob: Number.isFinite(Number(overheadData?.costPerJob))
             ? Number(overheadData.costPerJob)
@@ -443,7 +449,7 @@ export function QuoteBuilderForm({
   bootstrap,
   initial,
 }) {
-  const { t } = useTranslation();
+  const { t, language: lang } = useTranslation();
   const router = useRouter();
   const caller = usePermissions();
   const isEdit = mode === "edit";
@@ -531,6 +537,25 @@ export function QuoteBuilderForm({
     start.taxRate ?? num(boot.taxConfig?.taxRate),
   );
   const [taxNote, setTaxNote] = useState("");
+  // A caveat about the resolved rate, distinct from the note explaining where
+  // it came from. Empty most of the time.
+  const [taxCaution, setTaxCaution] = useState("");
+  // Has the estimator edited the rate by hand on this quote? Once true, the
+  // resolver stops writing to the box. See the effect below.
+  const [taxRateTouched, setTaxRateTouched] = useState(false);
+  // Whether this job is renovation of a dwelling, which is what qualifies for
+  // the EU reduced VAT rate. Null = the standard rate.
+  //
+  // It is a QUESTION and not an inference. Every reduced rate in
+  // lib/tax/jurisdictions.js carries conditions FieldQuo cannot check from a
+  // quote — how old the dwelling is, what share of the contract is materials,
+  // whether the property sits in a designated area — so the contractor
+  // answers and the conditions are printed next to the choice.
+  const [vatWorkType, setVatWorkType] = useState(null);
+  // What the resolver found: components, the US state base, the EU rates.
+  // Null until a client is picked.
+  const [taxDetail, setTaxDetail] = useState(null);
+  const [taxSchemeNote, setTaxSchemeNote] = useState("");
   const [validUntil, setValidUntil] = useState(start.validUntil ?? "");
 
   // ── Cost & margin (internal, never client-facing) ────────────────────────
@@ -599,20 +624,46 @@ export function QuoteBuilderForm({
   // the user picked.
   useEffect(() => {
     if (isEdit) return;
+    // A rate the estimator typed by hand is a decision, and this effect
+    // re-runs every time the client changes. Without this guard, picking a
+    // client after overriding the rate silently threw the override away — the
+    // exact "must not override a rate a contractor deliberately typed" case.
+    // The note still updates, so they can see what the resolver WOULD have
+    // chosen and put it back if they want it.
     const config = boot.taxConfig;
     if (!config) return;
     const result = resolveTaxRate({
       company: config,
       taxRates: config.taxRates,
       client: selectedClient,
+      workType: vatWorkType,
+      // The builder's own language, not the quote's: this note is read by the
+      // estimator on screen and never appears on the document the client
+      // receives, so it follows the person looking at it.
+      lang,
     });
-    setTaxRate(result.rate);
-    setTaxNote(
-      config.autoApplyLocalTax && selectedClient
-        ? explainTaxSource(result, selectedClient) || ""
-        : "",
+    if (!taxRateTouched) setTaxRate(result.rate);
+    setTaxDetail(result.detail);
+    // A national relief scheme that is NOT a rate cut — Sweden's ROT credit,
+    // Iceland's labour-VAT refund. Shown so the null reduced rate beside it
+    // doesn't read as something we forgot to fill in.
+    setTaxSchemeNote(
+      result.detail?.schemeNoteKey ? t(result.detail.schemeNoteKey) : "",
     );
-  }, [isEdit, boot.taxConfig, selectedClient]);
+
+    const note =
+      config.autoApplyLocalTax && selectedClient
+        ? explainTaxSource(result, selectedClient, lang)
+        : null;
+    // explainTaxSource returns a key plus params, never a sentence — it used
+    // to hand back hardcoded English that went straight onto a French screen.
+    setTaxNote(note ? t(note.key, note.params) : "");
+    // The jurisdiction's own caveat, where there is one: PST on real property
+    // in BC/MB, "state base only" in the US, "you told us you're not VAT
+    // registered". Separate from the note because it qualifies the number
+    // rather than explaining where it came from.
+    setTaxCaution(result.cautionKey ? t(result.cautionKey) : "");
+  }, [isEdit, boot.taxConfig, selectedClient, taxRateTouched, vatWorkType, lang, t]);
 
   // ── Scope group helpers ──────────────────────────────────────────────────
 
@@ -1581,16 +1632,49 @@ export function QuoteBuilderForm({
           Array.isArray(g.lineItems) ? g.lineItems : [],
         )}
         taxNote={taxNote}
+        taxCaution={taxCaution}
+        taxSchemeNote={taxSchemeNote}
+        // Only where a reduced construction rate actually exists for the
+        // company's country. Most member states have none, and offering a
+        // choice between the standard rate and nothing would be a control that
+        // does nothing.
+        taxVat={
+          taxDetail?.reducedRate != null
+            ? {
+                standardRate: taxDetail.standardRate,
+                reducedRate: taxDetail.reducedRate,
+                workType: vatWorkType,
+                conditionText: taxDetail.reducedConditionKey
+                  ? t(taxDetail.reducedConditionKey)
+                  : "",
+                onChange: (v) => {
+                  setVatWorkType(v);
+                  // Choosing here IS choosing a rate, so it re-arms the
+                  // resolver — otherwise picking "renovation" after nudging
+                  // the box would change nothing and look broken.
+                  setTaxRateTouched(false);
+                },
+              }
+            : null
+        }
         subtotal={subtotal}
         taxableBase={taxableBase}
         discount={discount}
         onDiscountChange={setDiscount}
         tax={tax}
         taxRate={taxRate}
-        // Only where it can actually be applied. On an existing quote the rate
-        // is whatever was charged when it was written, and it is editable
-        // because correcting a wrong rate is a real job.
-        onTaxRateChange={isEdit ? setTaxRate : null}
+        // Editable on a CREATE too, which it was not before. The resolver
+        // used to own the box outright, so a new quote had no way to enter a
+        // rate — which made the US branch of lib/tax/jurisdictions.js a dead
+        // end: it says "county and city taxes are not included, enter the rate
+        // for this address" and there was no field to enter it in. The
+        // `taxRateTouched` guard is what makes both possible at once — the
+        // resolver seeds the box, and stops writing to it the moment a human
+        // does.
+        onTaxRateChange={(v) => {
+          setTaxRate(v);
+          if (!isEdit) setTaxRateTouched(true);
+        }}
         total={total}
         taxEnabled={taxEnabled}
         onTaxToggle={setTaxEnabled}

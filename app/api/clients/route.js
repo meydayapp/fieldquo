@@ -12,6 +12,7 @@ import {
   redactClients,
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
+import { normaliseCountry } from "@/lib/tax/jurisdictions";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -76,6 +77,7 @@ export async function POST(request) {
     address,
     city,
     province,
+    country,
     notes,
     language,
   } = body;
@@ -97,6 +99,12 @@ export async function POST(request) {
         address: address || null,
         city: city || null,
         province: province || null,
+        // Stored only when it is a real two-letter code. A half-typed "Ca" or
+        // a stray "Canada" is dropped rather than saved, because the tax
+        // lookup keys on this and a value it cannot parse would read as a
+        // country we simply don't support — a different, more alarming
+        // message than the "not set yet" the contractor actually needs.
+        country: normaliseCountry(country),
         notes: notes || null,
         // Null means "use the company default". Storing the company's own
         // language explicitly would freeze this client's documents to it,

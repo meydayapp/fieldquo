@@ -200,12 +200,22 @@ export async function PUT(request, { params }) {
         const [company, taxRates, client] = await Promise.all([
           tx.company.findUnique({
             where: { id: member.companyId },
-            select: { autoApplyLocalTax: true, taxRate: true },
+            // country and vatRegistered feed lib/tax/jurisdictions.js. Without
+            // them this path resolved to the flat company default while the
+            // quote builder — same resolver, fuller select — resolved to the
+            // province's published rate, so the same client got two different
+            // rates depending on which screen priced the job first.
+            select: {
+              autoApplyLocalTax: true,
+              taxRate: true,
+              country: true,
+              vatRegistered: true,
+            },
           }),
           tx.taxRate.findMany({ where: { companyId: member.companyId } }),
           tx.client.findUnique({
             where: { id: quote.clientId },
-            select: { province: true, name: true },
+            select: { province: true, name: true, country: true },
           }),
         ]);
         effectiveRate =

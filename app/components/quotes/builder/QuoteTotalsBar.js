@@ -32,6 +32,7 @@ import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { numberLocaleFor } from "@/app/i18n/numberLocale";
 
 export default function QuoteTotalsBar({
   subtotal,
@@ -44,16 +45,31 @@ export default function QuoteTotalsBar({
   onDiscountChange,
   tax,
   taxRate,
-  // Editable only where editing it means something. On a NEW quote the rate is
-  // resolved from the company's tax setup and the client's address, so a box
-  // here would fight the resolver; on an existing quote the stored rate is
-  // whatever was charged at the time, and correcting a wrong one is a real job
-  // the editor has always offered.
+  // Editable wherever a caller passes a handler, which is now both create and
+  // edit. It used to be edit-only on the grounds that a box would "fight the
+  // resolver" on a new quote — true until QuoteBuilder learned to stop
+  // re-resolving once the estimator types (see `taxRateTouched` there). It
+  // also has to be editable on a create for the US case to work at all: the
+  // resolver deliberately declines to put a state rate in the box and tells
+  // the contractor to enter the address's real rate.
   onTaxRateChange = null,
   // Why THIS rate. Empty unless the company opted into per-client tax and a
   // client is selected. A tax figure that changes on its own with no
   // explanation is worse than one the user picked, however correct it is.
   taxNote = "",
+  // A caveat about the rate itself rather than its provenance — PST on real
+  // property in BC/MB, "this is a state base, not the rate" in the US, "you
+  // told us you aren't VAT registered". Styled louder than taxNote because it
+  // is the sentence that stops a wrong number going out.
+  taxCaution = "",
+  // A national relief scheme that isn't a reduced rate (Sweden's ROT credit,
+  // Iceland's refund). Informational, so it sits with the note rather than the
+  // caution.
+  taxSchemeNote = "",
+  // { standardRate, reducedRate, workType, conditionText, onChange } when the
+  // company's country operates a reduced VAT rate for renovation work. Null
+  // everywhere else, including Canada and the US.
+  taxVat = null,
   total,
   taxEnabled,
   onTaxToggle,
@@ -86,7 +102,10 @@ export default function QuoteTotalsBar({
   // Where "Cancel" goes back to, when there is somewhere to go back to.
   cancelHref = null,
 }) {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  // Same reason as explainTaxSource: 9,5 % not 9.5 % on a French screen.
+  const pct = (n) =>
+    Number(n).toLocaleString(numberLocaleFor(language), { maximumFractionDigits: 3 });
   const money = (n) => formatAppMoney(n, currency, "en");
 
   return (
@@ -164,8 +183,57 @@ export default function QuoteTotalsBar({
           </label>
         )}
 
+        {/* ── Standard or reduced VAT ──────────────────────────────────
+            A question rather than a guess: the reduced rate's conditions
+            (dwelling age, materials share, designated area) are not knowable
+            from a quote, so they are printed beside the option and the
+            contractor — who can check them — decides. */}
+        {taxVat && (
+          <div className="space-y-1.5">
+            <p className="text-sm font-medium text-foreground">
+              {t("app.tax.vatChoice.title")}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="quote-vat-worktype"
+                checked={taxVat.workType !== "renovation"}
+                onChange={() => taxVat.onChange(null)}
+              />
+              {t("app.tax.vatChoice.standard", { rate: pct(taxVat.standardRate) })}
+            </label>
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                className="mt-1"
+                name="quote-vat-worktype"
+                checked={taxVat.workType === "renovation"}
+                onChange={() => taxVat.onChange("renovation")}
+              />
+              <span>
+                {t("app.tax.vatChoice.reduced", { rate: pct(taxVat.reducedRate) })}
+                {taxVat.conditionText && (
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    {taxVat.conditionText}
+                  </span>
+                )}
+              </span>
+            </label>
+          </div>
+        )}
+
         {taxNote && (
           <p className="text-xs text-muted-foreground -mt-2">{taxNote}</p>
+        )}
+
+        {taxSchemeNote && (
+          <p className="text-xs text-muted-foreground -mt-1">{taxSchemeNote}</p>
+        )}
+
+        {taxCaution && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-2.5 py-2 -mt-1">
+            {taxCaution}
+          </p>
         )}
 
         <div className="space-y-1 text-sm">

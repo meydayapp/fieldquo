@@ -35,6 +35,7 @@ export default function ImportClientsPage() {
           address: row.address || row.Address || "",
           city: row.city || row.City || "",
           province: row.province || row.Province || row.State || "",
+          country: row.country || row.Country || "",
         }));
         setRows(normalized);
       },

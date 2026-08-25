@@ -89,6 +89,10 @@ export async function GET(request) {
       taxIdNumber: true,
       taxRegistrationDismissedAt: true,
       autoApplyLocalTax: true,
+      // Three-state; see the schema comment. Null must survive the round trip
+      // to the settings form, because "not answered" is what the control has
+      // to be able to show.
+      vatRegistered: true,
       taxRates: {
         select: { id: true, name: true, rate: true, isDefault: true },
         orderBy: { createdAt: "asc" },
@@ -215,6 +219,7 @@ export async function PATCH(request) {
     taxIdNumber,
     taxRegistrationDismissed,
     autoApplyLocalTax,
+    vatRegistered,
     currency,
     servesAbroad,
     timezone,
@@ -356,6 +361,14 @@ export async function PATCH(request) {
         : taxRegistrationDismissed !== undefined && {
             taxRegistrationDismissedAt: taxRegistrationDismissed ? new Date() : null,
           }),
+      // Only true and false are written; anything else (including the string
+      // "" the radio group sends for "not answered") stores null. That is what
+      // keeps the third state reachable — a company that answered and then
+      // changed its mind can get back to "we haven't said", and the tax lookup
+      // goes back to refusing rather than asserting.
+      ...(vatRegistered !== undefined && {
+        vatRegistered: vatRegistered === true || vatRegistered === false ? vatRegistered : null,
+      }),
       ...(autoApplyLocalTax !== undefined && { autoApplyLocalTax }),
       ...(timezone !== undefined && { timezone }),
       ...(dateFormat !== undefined && { dateFormat }),

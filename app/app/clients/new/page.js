@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import LanguagePicker from "@/app/components/LanguagePicker";
+import CountrySelect from "@/app/components/CountrySelect";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -25,6 +26,10 @@ export default function NewClientPage() {
     address: "",
     city: "",
     province: "",
+    // Empty = not set, which is a real answer the tax lookup understands. The
+    // company's own country is deliberately NOT used as a seed — see
+    // CountrySelect.
+    country: "",
     notes: "",
     // Null = follow the company default. See LanguagePicker for why this
     // isn't pre-filled with the company's current language.
@@ -195,12 +200,16 @@ export default function NewClientPage() {
           <AddressAutocomplete
             value={form.address}
             onChange={(v) => set("address", v)}
-            onPlaceSelected={({ address, city, province }) =>
+            onPlaceSelected={({ address, city, province, country }) =>
               setForm((prev) => ({
                 ...prev,
                 address,
                 city: city || prev.city,
                 province: province || prev.province,
+                // Google returns short_name here, which is already the
+                // ISO alpha-2 the tax lookup wants. It always did; there was
+                // simply nowhere to put it until Client.country existed.
+                country: country || prev.country,
               }))
             }
             placeholder={t("app.clientNew.addressPlaceholder")}
@@ -235,6 +244,16 @@ export default function NewClientPage() {
             />
           </div>
         </div>
+
+        {/* The province above is only half an address as far as tax goes:
+            "ON" could be Ontario or a typo for anywhere. This is what lets
+            lib/tax/jurisdictions.js return a rate instead of a shrug. */}
+        <CountrySelect
+          id="client-country"
+          value={form.country}
+          onChange={(v) => set("country", v)}
+          className={inputClass}
+        />
 
         <LanguagePicker
           value={form.language}

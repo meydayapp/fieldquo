@@ -17,6 +17,7 @@ import {
   currencyMeta,
 } from "@/lib/currency";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
+import { isVatJurisdiction } from "@/lib/tax/jurisdictions";
 import { reportResponseError } from "@/lib/clientErrors";
 import {
   contractTemplateList,
@@ -517,6 +518,12 @@ export default function CompanySettingsPage() {
           taxIdNumber: data?.taxIdNumber || "",
           taxRegistrationDismissed: Boolean(data?.taxRegistrationDismissedAt),
           autoApplyLocalTax: data?.autoApplyLocalTax ?? true,
+          // NOT `?? false`. Three states — see the schema comment on
+          // Company.vatRegistered. Collapsing null into false here would make
+          // the form claim the company had said it is under the registration
+          // threshold, and the very next save would write that claim to the
+          // database as though someone had answered.
+          vatRegistered: data?.vatRegistered ?? null,
           timezone: data?.timezone || "America/Toronto",
           dateFormat: data?.dateFormat || "MM/DD/YYYY",
           weekStartsOn: data?.weekStartsOn ?? 0,
@@ -558,6 +565,11 @@ export default function CompanySettingsPage() {
   // jurisdiction can't drift apart. Null-safe: an unknown or not-yet-loaded
   // country gets the generic profile, which asserts nothing about anybody's law.
   const taxReg = taxRegistrationFor(form?.country);
+
+  // Does this company operate under VAT? Same live read of the form as
+  // `taxReg` above, so changing the country shows or hides the VAT question in
+  // the same keystroke that relabels the tax-number field.
+  const isVatCountry = isVatJurisdiction(form?.country);
 
   function handlePlaceSelected({
     address,
@@ -1210,6 +1222,42 @@ export default function CompanySettingsPage() {
             </form>
           )}
         </div>
+
+        {/* ── VAT registration ──────────────────────────────────────────
+            Only for companies in a VAT country: a Canadian or US contractor
+            has no use for the question and would just be another box to
+            wonder about. It gates the European rates in
+            lib/tax/jurisdictions.js — see the schema comment for why the
+            unanswered state has to stay reachable. */}
+        {isVatCountry && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">
+              {t("app.setCompany.vatRegisteredTitle")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("app.setCompany.vatRegisteredHint")}
+            </p>
+            {[
+              [true, "app.setCompany.vatRegisteredYes"],
+              [false, "app.setCompany.vatRegisteredNo"],
+              [null, "app.setCompany.vatRegisteredUnset"],
+            ].map(([value, key]) => (
+              <label
+                key={String(value)}
+                className="flex items-start gap-2.5 text-sm text-foreground"
+              >
+                <input
+                  type="radio"
+                  className="mt-0.5"
+                  name="vat-registered"
+                  checked={form.vatRegistered === value}
+                  onChange={() => set("vatRegistered", value)}
+                />
+                <span>{t(key)}</span>
+              </label>
+            ))}
+          </div>
+        )}
 
         <label className="flex items-start gap-2.5 text-sm text-foreground">
           <input
