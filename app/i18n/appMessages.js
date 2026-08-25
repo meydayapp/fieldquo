@@ -2818,6 +2818,13 @@ const en = {
   "app.quoteDetail.extraMaterials": "Extra materials $",
   "app.quoteDetail.saveCosting": "Save the costing",
   "app.state.saving": "Saving…",
+  "app.quoteNew.readinessClear": "Nothing obvious missing",
+  "app.quoteNew.readinessMinor": "Worth a look",
+  "app.quoteNew.reviewShort": "Review",
+  "app.quoteNew.readinessCount": countedNoun("en", {
+    one: "thing worth fixing",
+    other: "things worth fixing",
+  }),
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -5513,6 +5520,13 @@ const fr = {
   "app.quoteDetail.extraMaterials": "Matériaux supplémentaires $",
   "app.quoteDetail.saveCosting": "Enregistrer le coût",
   "app.state.saving": "Enregistrement…",
+  "app.quoteNew.readinessClear": "Rien d'évident ne manque",
+  "app.quoteNew.readinessMinor": "À vérifier",
+  "app.quoteNew.reviewShort": "Réviser",
+  "app.quoteNew.readinessCount": countedNoun("fr", {
+    one: "élément à corriger",
+    other: "éléments à corriger",
+  }),
 };
 
 

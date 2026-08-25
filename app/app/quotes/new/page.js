@@ -102,6 +102,8 @@ export default function NewQuotePage() {
   // group only offers the ones relevant to it.
   const [products, setProducts] = useState([]);
   const [scopeGroups, setScopeGroups] = useState([]);
+  // The company's default what-happens-next, copied onto the quote at save.
+  const [defaultProcessNotes, setDefaultProcessNotes] = useState("");
   const [notes, setNotes] = useState("");
   const [clientPhotos, setClientPhotos] = useState([]);
   const [taxEnabled, setTaxEnabled] = useState(true);
@@ -247,6 +249,12 @@ export default function NewQuotePage() {
             : [],
         });
         setCompanyLanguage(businessInfo?.defaultLanguage || "en");
+        // What a saved quote WILL carry: app/api/quotes/route.js copies the
+        // company's default into Quote.processNotes at creation. The live
+        // readiness panel has to know that, or it warns "nothing about what
+        // happens next" on every draft of a company that has already written
+        // it — and a warning that is wrong is a warning people stop reading.
+        setDefaultProcessNotes(businessInfo?.defaultProcessNotes || "");
         // The billing currency, so every money render in the builder matches
         // the document the client will receive. businessInfo was already being
         // fetched here — the currency was simply never read out of it, which
@@ -1203,6 +1211,21 @@ export default function NewQuotePage() {
       </div>
 
       <QuoteTotalsBar
+        // What is still missing, worked out here rather than by the model.
+        // Same checks lib/ai/quoteReview.js runs — they were never AI work,
+        // just null checks that happened to live behind an API call.
+        readiness={{
+          validUntil,
+          processNotes: defaultProcessNotes,
+          clientPhotos,
+          discount,
+          subtotal,
+          scopeGroups,
+          client: selectedClient,
+        }}
+        readinessItems={scopeGroups.flatMap((g) =>
+          Array.isArray(g.lineItems) ? g.lineItems : [],
+        )}
         taxNote={taxNote}
         subtotal={subtotal}
         taxableBase={taxableBase}

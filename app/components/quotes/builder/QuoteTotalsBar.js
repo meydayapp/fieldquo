@@ -27,6 +27,7 @@
 "use client";
 
 import { Loader2, Save, Send, Sparkles } from "lucide-react";
+import QuoteReadiness from "./QuoteReadiness";
 import DiscountField from "@/app/components/quotes/DiscountField";
 import { formatAppMoney } from "@/lib/format/money";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -57,6 +58,8 @@ export default function QuoteTotalsBar({
   currency,
   saving,
   disabled,
+  readiness,
+  readinessItems,
   onSaveDraft,
   onSaveAndSend,
   onSaveAndReview,
@@ -125,7 +128,9 @@ export default function QuoteTotalsBar({
               {/* Derived from the base rather than re-reading the input box:
                   quoteTotals already capped it, and a second copy of the cap
                   here is a second chance to get it wrong. */}
-              <span className="tabular-nums">-{money(subtotal - taxableBase)}</span>
+              <span className="tabular-nums">
+                -{money(subtotal - taxableBase)}
+              </span>
             </div>
           )}
           <div className="flex justify-between text-muted-foreground">
@@ -137,26 +142,23 @@ export default function QuoteTotalsBar({
             <span className="tabular-nums">{money(total)}</span>
           </div>
         </div>
+      </div>
 
-        <div className="pt-4 border-t border-border">
-          <button
-            type="button"
-            onClick={onSaveAndReview}
-            disabled={saving || disabled}
-            className="w-full sm:w-auto justify-center border border-border px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
-          >
-            {saving === "review" ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Sparkles size={14} className="text-brand-accent-text" />
-            )}
-            {t("app.quoteNew.saveAndReview")}
-          </button>
-          <p className="text-xs text-muted-foreground mt-2">
+      {/* What is still missing, live and free. The sentence explaining that
+          Review saves a draft first lives here too — the sticky bar has room
+          for a button and not for a sentence. */}
+      {readiness && (
+        <div className="pt-4 border-t border-border space-y-2">
+          <QuoteReadiness
+            draft={readiness}
+            items={readinessItems || []}
+            t={t}
+          />
+          <p className="text-xs text-muted-foreground">
             {t("app.quoteNew.saveAndReviewHint")}
           </p>
         </div>
-      </div>
+      )}
 
       {/* left-60 clears the desktop sidebar; full width below that breakpoint
           where the sidebar collapses. */}
@@ -170,7 +172,10 @@ export default function QuoteTotalsBar({
           "Save & se…" with the "?" bubble over it, at 1366px and at 1600px.
           Reserving the space is more robust than moving the launcher, which is
           global and knows nothing about this bar. */}
-      <div data-tour="totals" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40">
+      <div
+        data-tour="totals"
+        className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40"
+      >
         <div className="min-w-0">
           <div className="text-[11px] text-muted-foreground leading-none">
             {taxEnabled
@@ -183,6 +188,36 @@ export default function QuoteTotalsBar({
         </div>
 
         <div className="flex gap-2 shrink-0">
+          {/* ── Review sits WITH the other actions ──────────────────────────
+              It shipped at the bottom of the totals card, on the argument that
+              a third button does not fit at 375px. The owner could not find
+              it — they looked where the save buttons are, which is where a
+              person looks for something to do to a quote. A feature nobody can
+              find is not shipped, so the argument lost.
+
+              It fits because it is an ICON ONLY below sm, where the two save
+              buttons already collapse to short labels. The sentence explaining
+              that it saves a draft first moves to the card above, where there
+              is room for a sentence — the honest part is kept, just not
+              wedged into a bar that cannot hold it. */}
+          <button
+            type="button"
+            onClick={onSaveAndReview}
+            disabled={saving || disabled}
+            title={t("app.quoteNew.saveAndReview")}
+            aria-label={t("app.quoteNew.saveAndReview")}
+            className="border border-border px-3 sm:px-5 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-1.5"
+          >
+            {saving === "review" ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} className="text-brand-accent-text" />
+            )}
+            <span className="whitespace-nowrap hidden sm:inline">
+              {t("app.quoteNew.reviewShort")}
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={onSaveDraft}
