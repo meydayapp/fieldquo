@@ -2645,6 +2645,8 @@ const en = {
   "app.quoteDetail.unnamed": "Unnamed",
   "app.quoteDetail.billOfMaterials": "Materials this job needs",
   "app.quoteDetail.noPriceSet": "no price set",
+  "app.quoteDetail.noCostBasis": "This quote's cost can't be worked out",
+  "app.quoteDetail.costItNow": "Cost it now",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -5186,6 +5188,8 @@ const fr = {
   "app.quoteDetail.unnamed": "Sans nom",
   "app.quoteDetail.billOfMaterials": "Matériaux nécessaires",
   "app.quoteDetail.noPriceSet": "aucun prix défini",
+  "app.quoteDetail.noCostBasis": "Le coût de cette soumission ne peut pas être établi",
+  "app.quoteDetail.costItNow": "Établir le coût maintenant",
 };
 
 

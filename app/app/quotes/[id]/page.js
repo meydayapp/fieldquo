@@ -951,183 +951,206 @@ export default function QuoteDetailPage() {
             zeroes, because zeroes read as a job that cost nothing. */}
         {costing && (
           <Block title={t("app.quoteDetail.costAndMargin", "Cost & margin")}>
-            {!costing.saved && (
-              // The difference between "what we quoted at" and "what it would
-              // cost today" is the whole reason QuoteCosting exists. A page
-              // that showed the second while implying the first would be
-              // quietly rewriting history every time the rate card moved.
-              <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                Nothing was costed when this quote was saved, so these figures
-                are worked out from today&apos;s rates — not what it was priced
-                at. Nobody recorded who was doing the work either, so the hours
-                carry no money.
-              </p>
-            )}
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                [
-                  t("app.quoteDetail.labour", "Labour"),
-                  `${costing.labourHours} hrs`,
-                  money(costing.labourCost),
-                ],
-                [
-                  t("app.quoteDetail.materials", "Materials"),
-                  null,
-                  money(costing.materialTotal),
-                ],
-                [
-                  t("app.quoteDetail.overhead", "Overhead"),
-                  costing.overheadBasis === "per_job"
-                    ? t("app.quoteDetail.thisJobsShare", "this job's share")
-                    : t("app.quoteDetail.estimated", "estimated"),
-                  money(costing.overhead),
-                ],
-                [
-                  t("app.quoteDetail.totalCost", "Total cost"),
-                  null,
-                  money(costing.estimatedCost),
-                ],
-              ].map(([label, sub, value]) => (
-                <div
-                  key={label}
-                  className="rounded-lg border border-border px-3 py-2"
-                >
-                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {label}
-                  </div>
-                  <div className="text-sm font-bold tabular-nums text-foreground">
-                    {value}
-                  </div>
-                  {sub && (
-                    <div className="text-[11px] text-muted-foreground">
-                      {sub}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3">
-              <span className="text-sm text-muted-foreground">
-                {money(costing.price)} − {money(costing.estimatedCost)} ={" "}
-                <strong className="text-foreground">
-                  {money(costing.profit)}
-                </strong>
-              </span>
-              <span
-                className={`text-sm font-bold tabular-nums ${
-                  costing.signal === "red"
-                    ? "text-red-600 dark:text-red-400"
-                    : costing.signal === "amber"
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                {costing.marginPct == null
-                  ? "—"
-                  : `${costing.marginPct}% margin`}
-                <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
-                  {t("app.quoteDetail.target", "target")}{" "}
-                  {costing.marginTargetPct}%
-                </span>
-              </span>
-            </div>
-
-            {/* Amber on a healthy-looking margin needs explaining, or it reads
-                as a broken badge. */}
-            {costing.costIncomplete && (
-              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                Some of the work has no cost against it, so the real margin is
-                lower than this.
-              </p>
-            )}
-            {costing.unpricedMaterials > 0 && (
-              <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                {costing.unpricedMaterials} material
-                {costing.unpricedMaterials === 1 ? " has" : "s have"} no price
-                set.
-              </p>
-            )}
-
-            {costing.crew?.length > 0 && (
-              <div className="mt-3 border-t border-border pt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t("app.quoteDetail.crew", "Crew")}
-                  {costing.blendedRate != null && (
-                    <span className="ml-2 font-normal normal-case">
-                      {money(costing.blendedRate)}/hr blended
-                    </span>
-                  )}
-                </p>
-                <ul className="mt-1 space-y-0.5">
-                  {costing.crew.map((m, i) => (
-                    <li
-                      key={`${m.name}${i}`}
-                      className="flex justify-between gap-3 text-sm"
-                    >
-                      <span className="text-muted-foreground">
-                        {m.name || t("app.quoteDetail.unnamed", "Unnamed")}
-                        <span className="ml-2 text-xs">
-                          {m.hours} hrs
-                          {m.hourlyRate != null
-                            ? ` × ${money(m.hourlyRate)}`
-                            : ""}
-                        </span>
-                      </span>
-                      <span className="tabular-nums text-foreground">
-                        {money(m.cost)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {costing.groups?.some((g) => g.materials?.length) && (
-              <div className="mt-3 border-t border-border pt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {/* Nothing left to work the cost out from. Shown INSTEAD of the
+                figures, not above them — four boxes reading $0.00 beside a
+                margin is the claim we are refusing to make. */}
+            {costing.costBasisMissing ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <p className="font-medium">
                   {t(
-                    "app.quoteDetail.billOfMaterials",
-                    "Materials this job needs",
+                    "app.quoteDetail.noCostBasis",
+                    "This quote's cost can't be worked out",
                   )}
                 </p>
-                {costing.groups
-                  .filter((g) => g.materials?.length)
-                  .map((g, gi) => (
-                    <div key={gi} className="mt-1.5">
-                      <p className="text-xs font-medium text-foreground">
-                        {g.label}
-                      </p>
-                      <ul className="mt-0.5 space-y-0.5">
-                        {g.materials.map((m, i) => (
-                          <li
-                            key={`${m.name}${i}`}
-                            className="flex justify-between gap-3 text-xs"
-                          >
-                            <span className="text-muted-foreground">
-                              {m.name} — {m.qty} {m.unit}
-                            </span>
-                            {/* Not $0.00. Nobody has priced it, and a zero
-                                would read as free. */}
-                            {m.unpriced ? (
-                              <span className="shrink-0 text-amber-700 dark:text-amber-400">
-                                {t(
-                                  "app.quoteDetail.noPriceSet",
-                                  "no price set",
-                                )}
-                              </span>
-                            ) : (
-                              <span className="shrink-0 tabular-nums text-foreground">
-                                {money(m.cost)}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+                <p className="mt-1 text-xs">{costing.costBasisReason}</p>
+                <Link
+                  href={`/app/quotes/${id}/edit`}
+                  className="mt-2 inline-block text-xs font-medium underline"
+                >
+                  {t("app.quoteDetail.costItNow", "Cost it now")}
+                </Link>
+              </div>
+            ) : (
+              <>
+                {!costing.saved && (
+                  // The difference between "what we quoted at" and "what it would
+                  // cost today" is the whole reason QuoteCosting exists. A page
+                  // that showed the second while implying the first would be
+                  // quietly rewriting history every time the rate card moved.
+                  <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    Nothing was costed when this quote was saved, so these
+                    figures are worked out from today&apos;s rates — not what it
+                    was priced at. Nobody recorded who was doing the work
+                    either, so the hours carry no money.
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    [
+                      t("app.quoteDetail.labour", "Labour"),
+                      `${costing.labourHours} hrs`,
+                      money(costing.labourCost),
+                    ],
+                    [
+                      t("app.quoteDetail.materials", "Materials"),
+                      null,
+                      money(costing.materialTotal),
+                    ],
+                    [
+                      t("app.quoteDetail.overhead", "Overhead"),
+                      costing.overheadBasis === "per_job"
+                        ? t("app.quoteDetail.thisJobsShare", "this job's share")
+                        : t("app.quoteDetail.estimated", "estimated"),
+                      money(costing.overhead),
+                    ],
+                    [
+                      t("app.quoteDetail.totalCost", "Total cost"),
+                      null,
+                      money(costing.estimatedCost),
+                    ],
+                  ].map(([label, sub, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-border px-3 py-2"
+                    >
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </div>
+                      <div className="text-sm font-bold tabular-nums text-foreground">
+                        {value}
+                      </div>
+                      {sub && (
+                        <div className="text-[11px] text-muted-foreground">
+                          {sub}
+                        </div>
+                      )}
                     </div>
                   ))}
-              </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3">
+                  <span className="text-sm text-muted-foreground">
+                    {money(costing.price)} − {money(costing.estimatedCost)} ={" "}
+                    <strong className="text-foreground">
+                      {money(costing.profit)}
+                    </strong>
+                  </span>
+                  <span
+                    className={`text-sm font-bold tabular-nums ${
+                      costing.signal === "red"
+                        ? "text-red-600 dark:text-red-400"
+                        : costing.signal === "amber"
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                    }`}
+                  >
+                    {costing.marginPct == null
+                      ? "—"
+                      : `${costing.marginPct}% margin`}
+                    <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                      {t("app.quoteDetail.target", "target")}{" "}
+                      {costing.marginTargetPct}%
+                    </span>
+                  </span>
+                </div>
+
+                {/* Amber on a healthy-looking margin needs explaining, or it reads
+                as a broken badge. */}
+                {costing.costIncomplete && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    Some of the work has no cost against it, so the real margin
+                    is lower than this.
+                  </p>
+                )}
+                {costing.unpricedMaterials > 0 && (
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                    {costing.unpricedMaterials} material
+                    {costing.unpricedMaterials === 1 ? " has" : "s have"} no
+                    price set.
+                  </p>
+                )}
+
+                {costing.crew?.length > 0 && (
+                  <div className="mt-3 border-t border-border pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t("app.quoteDetail.crew", "Crew")}
+                      {costing.blendedRate != null && (
+                        <span className="ml-2 font-normal normal-case">
+                          {money(costing.blendedRate)}/hr blended
+                        </span>
+                      )}
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {costing.crew.map((m, i) => (
+                        <li
+                          key={`${m.name}${i}`}
+                          className="flex justify-between gap-3 text-sm"
+                        >
+                          <span className="text-muted-foreground">
+                            {m.name || t("app.quoteDetail.unnamed", "Unnamed")}
+                            <span className="ml-2 text-xs">
+                              {m.hours} hrs
+                              {m.hourlyRate != null
+                                ? ` × ${money(m.hourlyRate)}`
+                                : ""}
+                            </span>
+                          </span>
+                          <span className="tabular-nums text-foreground">
+                            {money(m.cost)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {costing.groups?.some((g) => g.materials?.length) && (
+                  <div className="mt-3 border-t border-border pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t(
+                        "app.quoteDetail.billOfMaterials",
+                        "Materials this job needs",
+                      )}
+                    </p>
+                    {costing.groups
+                      .filter((g) => g.materials?.length)
+                      .map((g, gi) => (
+                        <div key={gi} className="mt-1.5">
+                          <p className="text-xs font-medium text-foreground">
+                            {g.label}
+                          </p>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {g.materials.map((m, i) => (
+                              <li
+                                key={`${m.name}${i}`}
+                                className="flex justify-between gap-3 text-xs"
+                              >
+                                <span className="text-muted-foreground">
+                                  {m.name} — {m.qty} {m.unit}
+                                </span>
+                                {/* Not $0.00. Nobody has priced it, and a zero
+                                would read as free. */}
+                                {m.unpriced ? (
+                                  <span className="shrink-0 text-amber-700 dark:text-amber-400">
+                                    {t(
+                                      "app.quoteDetail.noPriceSet",
+                                      "no price set",
+                                    )}
+                                  </span>
+                                ) : (
+                                  <span className="shrink-0 tabular-nums text-foreground">
+                                    {money(m.cost)}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
             )}
           </Block>
         )}

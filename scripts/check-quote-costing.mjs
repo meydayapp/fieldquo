@@ -20,6 +20,7 @@
 //
 // Run: node --import ./scripts/alias-loader.mjs scripts/check-quote-costing.mjs
 
+import { costBasisMissing } from "@/lib/costing/quoteCosting";
 import {
   normaliseQuoteCosting,
   quoteCostSummary,
@@ -50,25 +51,50 @@ const t = (name, got, want = true) => {
 // without a database.
 
 console.log("\nA request that says nothing leaves an existing row alone");
-const filled = { crew: [{ name: "Ana", rate: 30, hours: null }], addedLabourHours: 0, addedMaterialCost: 0, note: "" };
+const filled = {
+  crew: [{ name: "Ana", rate: 30, hours: null }],
+  addedLabourHours: 0,
+  addedMaterialCost: 0,
+  note: "",
+};
 t(
   "status-only PATCH over an existing row: no write",
-  shouldWriteQuoteCosting({ costingSent: false, may: true, hasExistingRow: true, row: null }),
+  shouldWriteQuoteCosting({
+    costingSent: false,
+    may: true,
+    hasExistingRow: true,
+    row: null,
+  }),
   false,
 );
 t(
   "...even if a row happened to be built anyway",
-  shouldWriteQuoteCosting({ costingSent: false, may: true, hasExistingRow: true, row: filled }),
+  shouldWriteQuoteCosting({
+    costingSent: false,
+    may: true,
+    hasExistingRow: true,
+    row: filled,
+  }),
   false,
 );
 t(
   "status-only PATCH on a quote with no row: still no write",
-  shouldWriteQuoteCosting({ costingSent: false, may: true, hasExistingRow: false, row: null }),
+  shouldWriteQuoteCosting({
+    costingSent: false,
+    may: true,
+    hasExistingRow: false,
+    row: null,
+  }),
   false,
 );
 t(
   "a request that DOES send a filled panel writes",
-  shouldWriteQuoteCosting({ costingSent: true, may: true, hasExistingRow: false, row: filled }),
+  shouldWriteQuoteCosting({
+    costingSent: true,
+    may: true,
+    hasExistingRow: false,
+    row: filled,
+  }),
   true,
 );
 
@@ -78,12 +104,22 @@ t("empty is recognised as empty", isEmptyQuoteCosting(empty), true);
 t("a crew makes it non-empty", isEmptyQuoteCosting(filled), false);
 t(
   "empty over an EXISTING row is a deletion the user asked for",
-  shouldWriteQuoteCosting({ costingSent: true, may: true, hasExistingRow: true, row: empty }),
+  shouldWriteQuoteCosting({
+    costingSent: true,
+    may: true,
+    hasExistingRow: true,
+    row: empty,
+  }),
   true,
 );
 t(
   "empty with NO row writes nothing — a 0% margin card on an uncosted quote",
-  shouldWriteQuoteCosting({ costingSent: true, may: true, hasExistingRow: false, row: empty }),
+  shouldWriteQuoteCosting({
+    costingSent: true,
+    may: true,
+    hasExistingRow: false,
+    row: empty,
+  }),
   false,
 );
 t(
@@ -95,7 +131,12 @@ t(
 console.log("\nWithout the job-costing toggle, nothing is written at all");
 t(
   "a member who may not cost cannot post one alongside a line-item edit",
-  shouldWriteQuoteCosting({ costingSent: true, may: false, hasExistingRow: true, row: filled }),
+  shouldWriteQuoteCosting({
+    costingSent: true,
+    may: false,
+    hasExistingRow: true,
+    row: filled,
+  }),
   false,
 );
 
@@ -134,8 +175,22 @@ const savedRow = {
       labourHours: 41.2,
       materialTotal: 2880.25,
       materials: [
-        { name: "Pavers", qty: 640, unit: "sqft", unitCost: 4.5, cost: 2880, unpriced: false },
-        { name: "Polymeric sand", qty: 5, unit: "bag", unitCost: null, cost: 0, unpriced: true },
+        {
+          name: "Pavers",
+          qty: 640,
+          unit: "sqft",
+          unitCost: 4.5,
+          cost: 2880,
+          unpriced: false,
+        },
+        {
+          name: "Polymeric sand",
+          qty: 5,
+          unit: "bag",
+          unitCost: null,
+          cost: 0,
+          unpriced: true,
+        },
       ],
     },
   ],
@@ -148,9 +203,17 @@ t("material total verbatim", readBack.materialTotal, 2880.25);
 t("unpriced count verbatim", readBack.unpricedMaterials, 3);
 t("overhead verbatim", readBack.overhead, 412.4);
 t("overhead basis verbatim", readBack.overheadBasis, "per_job");
-t("estimated cost is the stored total, not a fresh sum", readBack.estimatedCost, 7854.32);
+t(
+  "estimated cost is the stored total, not a fresh sum",
+  readBack.estimatedCost,
+  7854.32,
+);
 t("price verbatim", readBack.price, 12000);
-t("profit verbatim — NOT price minus cost recomputed", readBack.profit, 4145.68);
+t(
+  "profit verbatim — NOT price minus cost recomputed",
+  readBack.profit,
+  4145.68,
+);
 t("margin verbatim", readBack.marginPct, 34.55);
 t("target verbatim", readBack.marginTargetPct, 30);
 t("signal verbatim", readBack.signal, "green");
@@ -158,12 +221,22 @@ t("blended rate verbatim", readBack.blendedRate, 28.25);
 t("crew rate is exposed as hourlyRate", readBack.crew[0].hourlyRate, 25);
 t("crew hours verbatim", readBack.crew[1].hours, 53.67);
 t("group hours verbatim", readBack.groups[0].labourHours, 41.2);
-t("an unpriced material keeps a NULL unit cost, not 0", readBack.groups[0].materials[1].unitCost, null);
+t(
+  "an unpriced material keeps a NULL unit cost, not 0",
+  readBack.groups[0].materials[1].unitCost,
+  null,
+);
 t("...and stays flagged", readBack.groups[0].materials[1].unpriced, true);
 
 // The point of the whole table: today's rate card must not touch it.
 const wouldRecompute = quoteCostSummary({
-  scopeGroups: [{ tempId: "g0", categoryKey: "paving", takeoff: { patioSqft: 640, baseDepthIn: 12 } }],
+  scopeGroups: [
+    {
+      tempId: "g0",
+      categoryKey: "paving",
+      takeoff: { patioSqft: 640, baseDepthIn: 12 },
+    },
+  ],
   price: 12000,
 });
 t(
@@ -188,7 +261,11 @@ console.log("\nThe crew rows add up to the labour cost above them");
 // don't add up to its total is a panel nobody trusts twice.
 const priced = quoteCostSummary({
   scopeGroups: [
-    { tempId: "sg1", categoryKey: "paving", takeoff: { drivewaySqft: 640, baseDepthIn: 18 } },
+    {
+      tempId: "sg1",
+      categoryKey: "paving",
+      takeoff: { drivewaySqft: 640, baseDepthIn: 18 },
+    },
   ],
   crew: [
     { id: "w1", name: "Ana", rate: 25, hours: null },
@@ -202,15 +279,28 @@ const asStored = shapeSavedQuoteCosting({
   ...priced,
   totalCost: priced.estimatedCost,
   // The mapping app/api/quotes/costingWrite.js performs before writing.
-  crew: priced.crew.map((m) => ({ name: m.name, rate: m.rate, hours: m.hours, cost: m.cost })),
+  crew: priced.crew.map((m) => ({
+    name: m.name,
+    rate: m.rate,
+    hours: m.hours,
+    cost: m.cost,
+  })),
 });
-const crewCost = Math.round(asStored.crew.reduce((s, m) => s + m.cost, 0) * 100) / 100;
-const crewHours = Math.round(asStored.crew.reduce((s, m) => s + m.hours, 0) * 100) / 100;
-t("nobody is stored on zero hours when they share the pool",
-  asStored.crew.every((m) => m.hours > 0), true);
+const crewCost =
+  Math.round(asStored.crew.reduce((s, m) => s + m.cost, 0) * 100) / 100;
+const crewHours =
+  Math.round(asStored.crew.reduce((s, m) => s + m.hours, 0) * 100) / 100;
+t(
+  "nobody is stored on zero hours when they share the pool",
+  asStored.crew.every((m) => m.hours > 0),
+  true,
+);
 t("the crew's costs sum to the labour cost", crewCost, asStored.labourCost);
-t("the crew's hours account for the labour hours (to the cent)",
-  Math.abs(crewHours - asStored.labourHours) <= 0.03, true);
+t(
+  "the crew's hours account for the labour hours (to the cent)",
+  Math.abs(crewHours - asStored.labourHours) <= 0.03,
+  true,
+);
 t("a blended rate is derived, not demanded", asStored.blendedRate > 0, true);
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -244,12 +334,18 @@ t(
   recomputed.labourCost,
   0,
 );
-t("...and that is reported as unfinished, not as a bargain", recomputed.costIncomplete, true);
+t(
+  "...and that is reported as unfinished, not as a bargain",
+  recomputed.costIncomplete,
+  true,
+);
 t("an unfinished cost is never green", recomputed.signal !== "green", true);
 t("the price it was measured against travels with it", recomputed.price, 12000);
 
 console.log("\nA quote with no scope at all recomputes to nothing, honestly");
-const bare = shapeEstimate(quoteCostSummary({ scopeGroups: [], price: 0 }), { saved: false });
+const bare = shapeEstimate(quoteCostSummary({ scopeGroups: [], price: 0 }), {
+  saved: false,
+});
 t("no cost", bare.estimatedCost, 0);
 t("no margin against no price", bare.marginPct, null);
 t("no signal to give", bare.signal, "none");
@@ -269,15 +365,54 @@ const hostile = [
   ["a string where a group should be", { scopeGroups: ["nope"], price: 100 }],
   ["null entries", { scopeGroups: [null, undefined], price: 100 }],
   ["no categoryKey", { scopeGroups: [{ takeoff: { sqft: 100 } }], price: 100 }],
-  ["an unknown trade", { scopeGroups: [{ categoryKey: "not_a_trade", takeoff: { sqft: 10 } }], price: 100 }],
-  ["a takeoff that is a string", { scopeGroups: [{ categoryKey: "paving", takeoff: "640" }], price: 100 }],
-  ["a takeoff that is an array", { scopeGroups: [{ categoryKey: "paving", takeoff: [1, 2] }], price: 100 }],
-  ["NaN quantities", { scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: NaN } }], price: 100 }],
-  ["1e400 quantities", { scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: 1e400 } }], price: 100 }],
-  ["1e308 — finite until something multiplies it", { scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: 1e308 } }], price: 100 }],
-  ["a negative area", { scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: -500 } }], price: 100 }],
+  [
+    "an unknown trade",
+    {
+      scopeGroups: [{ categoryKey: "not_a_trade", takeoff: { sqft: 10 } }],
+      price: 100,
+    },
+  ],
+  [
+    "a takeoff that is a string",
+    { scopeGroups: [{ categoryKey: "paving", takeoff: "640" }], price: 100 },
+  ],
+  [
+    "a takeoff that is an array",
+    { scopeGroups: [{ categoryKey: "paving", takeoff: [1, 2] }], price: 100 },
+  ],
+  [
+    "NaN quantities",
+    {
+      scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: NaN } }],
+      price: 100,
+    },
+  ],
+  [
+    "1e400 quantities",
+    {
+      scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: 1e400 } }],
+      price: 100,
+    },
+  ],
+  [
+    "1e308 — finite until something multiplies it",
+    {
+      scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: 1e308 } }],
+      price: 100,
+    },
+  ],
+  [
+    "a negative area",
+    {
+      scopeGroups: [{ categoryKey: "paving", takeoff: { patioSqft: -500 } }],
+      price: 100,
+    },
+  ],
   ["a crew that is not an array", { scopeGroups: [], crew: "Ana", price: 100 }],
-  ["crew rows that are junk", { scopeGroups: [], crew: [null, 7, { name: {} }], price: 100 }],
+  [
+    "crew rows that are junk",
+    { scopeGroups: [], crew: [null, 7, { name: {} }], price: 100 },
+  ],
   ["a negative price", { scopeGroups: [], price: -5000 }],
   ["no arguments at all", undefined],
 ];
@@ -304,11 +439,20 @@ for (const [label, args] of hostile) {
 }
 
 console.log("\nThe write boundary refuses absurd figures rather than clamping");
-t("no block at all is silence, not an empty one", normaliseQuoteCosting(undefined), null);
+t(
+  "no block at all is silence, not an empty one",
+  normaliseQuoteCosting(undefined),
+  null,
+);
 t("a string is not a costing block", normaliseQuoteCosting("crew"), null);
 const dirty = normaliseQuoteCosting({
   crew: [
-    { id: "x".repeat(200), name: "  Ana  ".padEnd(400, "!"), rate: "1e400", hours: "" },
+    {
+      id: "x".repeat(200),
+      name: "  Ana  ".padEnd(400, "!"),
+      rate: "1e400",
+      hours: "",
+    },
     { name: "Bo", rate: -50, hours: 8 },
     null,
     "nope",
@@ -323,12 +467,20 @@ t("junk crew entries are dropped", dirty.crew.length, 2);
 t("the id is length-capped", dirty.crew[0].id.length, 64);
 t("the name is trimmed and capped", dirty.crew[0].name.length, 120);
 t("1e400 is refused, not clamped to the column ceiling", dirty.crew[0].rate, 0);
-t("a blank hours field stays null — an even share, not zero", dirty.crew[0].hours, null);
+t(
+  "a blank hours field stays null — an even share, not zero",
+  dirty.crew[0].hours,
+  null,
+);
 t("a negative rate is refused", dirty.crew[1].rate, 0);
 t("explicit hours survive", dirty.crew[1].hours, 8);
 t("1e400 added hours refused", dirty.addedLabourHours, 0);
 t("a non-numeric material cost is 0", dirty.addedMaterialCost, 0);
-t("an absurd overhead percentage is capped at the absurdity line", dirty.overheadPct, 1000);
+t(
+  "an absurd overhead percentage is capped at the absurdity line",
+  dirty.overheadPct,
+  1000,
+);
 t("the note is capped", dirty.note.length, 500);
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -341,17 +493,46 @@ t("the note is capped", dirty.note.length, 500);
 
 console.log("\nThe contract shape, on both paths");
 const CONTRACT = [
-  "saved", "labourHours", "labourCost", "materialTotal", "unpricedMaterials",
-  "overhead", "overheadBasis", "estimatedCost", "price", "profit", "marginPct",
-  "marginTargetPct", "signal", "costIncomplete", "crew", "blendedRate", "groups",
+  "saved",
+  "labourHours",
+  "labourCost",
+  "materialTotal",
+  "unpricedMaterials",
+  "overhead",
+  "overheadBasis",
+  "estimatedCost",
+  "price",
+  "profit",
+  "marginPct",
+  "marginTargetPct",
+  "signal",
+  "costIncomplete",
+  "crew",
+  "blendedRate",
+  "groups",
 ];
-for (const [label, shape] of [["saved", readBack], ["recomputed", recomputed]]) {
+for (const [label, shape] of [
+  ["saved", readBack],
+  ["recomputed", recomputed],
+]) {
   const keys = Object.keys(shape).sort();
-  t(`${label}: exactly the contract's keys, no more`, keys, [...CONTRACT].sort());
+  t(
+    `${label}: exactly the contract's keys, no more`,
+    keys,
+    [...CONTRACT].sort(),
+  );
   t(`${label}: saved is a boolean`, typeof shape.saved, "boolean");
-  t(`${label}: overheadBasis is a string`, typeof shape.overheadBasis, "string");
+  t(
+    `${label}: overheadBasis is a string`,
+    typeof shape.overheadBasis,
+    "string",
+  );
   t(`${label}: signal is a string`, typeof shape.signal, "string");
-  t(`${label}: costIncomplete is a boolean`, typeof shape.costIncomplete, "boolean");
+  t(
+    `${label}: costIncomplete is a boolean`,
+    typeof shape.costIncomplete,
+    "boolean",
+  );
   t(`${label}: crew is an array`, Array.isArray(shape.crew), true);
   t(`${label}: groups is an array`, Array.isArray(shape.groups), true);
   t(
@@ -359,29 +540,95 @@ for (const [label, shape] of [["saved", readBack], ["recomputed", recomputed]]) 
     shape.blendedRate === null || typeof shape.blendedRate === "number",
     true,
   );
-  for (const k of ["labourHours", "labourCost", "materialTotal", "unpricedMaterials",
-                   "overhead", "estimatedCost", "price", "profit", "marginTargetPct"]) {
+  for (const k of [
+    "labourHours",
+    "labourCost",
+    "materialTotal",
+    "unpricedMaterials",
+    "overhead",
+    "estimatedCost",
+    "price",
+    "profit",
+    "marginTargetPct",
+  ]) {
     t(`${label}: ${k} is a finite number`, Number.isFinite(shape[k]), true);
   }
   for (const g of shape.groups) {
-    t(`${label}: a group has the four keys plus its materials`, Object.keys(g).sort(),
-      ["categoryKey", "labourHours", "materialTotal", "materials", "label"].sort());
+    t(
+      `${label}: a group has the four keys plus its materials`,
+      Object.keys(g).sort(),
+      [
+        "categoryKey",
+        "labourHours",
+        "materialTotal",
+        "materials",
+        "label",
+      ].sort(),
+    );
     for (const m of g.materials) {
-      t(`${label}: a material row is complete`, Object.keys(m).sort(),
-        ["cost", "name", "qty", "unit", "unitCost", "unpriced"].sort());
+      t(
+        `${label}: a material row is complete`,
+        Object.keys(m).sort(),
+        ["cost", "name", "qty", "unit", "unitCost", "unpriced"].sort(),
+      );
     }
   }
   for (const c of shape.crew) {
-    t(`${label}: a crew row is complete`, Object.keys(c).sort(),
-      ["cost", "hourlyRate", "hours", "name"].sort());
+    t(
+      `${label}: a crew row is complete`,
+      Object.keys(c).sort(),
+      ["cost", "hourlyRate", "hours", "name"].sort(),
+    );
   }
 }
 
-console.log(
-  "\nThe signal vocabulary is the panel's, not a second one",
-);
+console.log("\nThe signal vocabulary is the panel's, not a second one");
 for (const s of [readBack.signal, recomputed.signal, bare.signal]) {
-  t(`"${s}" is one of green/amber/red/none`, ["green", "amber", "red", "none"].includes(s), true);
+  t(
+    `"${s}" is one of green/amber/red/none`,
+    ["green", "amber", "red", "none"].includes(s),
+    true,
+  );
+}
+
+console.log("\nA margin is refused when nothing supports it");
+{
+  // Q-2026-0006 rendered "54.52% margin" against LABOUR $0.00 / 0 hrs and
+  // MATERIALS $0.00 on a $6,650 cabinet quote. The arithmetic was right and it
+  // was still a lie: a subtraction missing its two biggest terms, presented as
+  // an answer, in green.
+  t(
+    "the real Q-2026-0006 shape refuses a margin",
+    costBasisMissing({ labourHours: 0, materialTotal: 0, price: 6650 }),
+  );
+  t(
+    "recovering labour is enough to state one",
+    costBasisMissing({ labourHours: 102.28, materialTotal: 0, price: 6650 }),
+    false,
+  );
+  t(
+    "recovering materials is enough to state one",
+    costBasisMissing({ labourHours: 0, materialTotal: 2575.29, price: 6650 }),
+    false,
+  );
+  // A quote priced at nothing genuinely has no margin to refuse — the banner
+  // would be answering a question nobody asked.
+  t(
+    "a quote priced at zero is not a missing basis",
+    costBasisMissing({ labourHours: 0, materialTotal: 0, price: 0 }),
+    false,
+  );
+  for (const bad of [null, undefined, NaN, Infinity, "x", {}, []]) {
+    t(
+      `hostile hours ${JSON.stringify(bad)} still refuses`,
+      costBasisMissing({ labourHours: bad, materialTotal: bad, price: 6650 }),
+    );
+    t(
+      `hostile price ${JSON.stringify(bad)} refuses nothing`,
+      costBasisMissing({ labourHours: 0, materialTotal: 0, price: bad }),
+      false,
+    );
+  }
 }
 
 console.log(
