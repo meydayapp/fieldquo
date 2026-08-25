@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/voice-rent",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/service-plans",
+      "schedule": "0 6 * * *"
     }
   ]
 }

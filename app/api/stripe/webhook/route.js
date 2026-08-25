@@ -5,76 +5,25 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { finalizeBooking } from "@/lib/booking/finalizeBooking";
-import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
+import { recordStripePayment } from "@/lib/invoices/recordStripePayment";
+import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
+import { recordAuthorisationFromSession } from "@/lib/servicePlans/authorisation";
 
-// Record an invoice payment from a completed/settled checkout session and
-// recompute the balance from ALL payments. Shared by the synchronous (card) path
-// and the asynchronous settlement path (Affirm et al.), so the two can't drift.
+// Record an invoice payment from a completed/settled checkout session.
 //
-// Idempotent: Stripe can deliver the same event twice, and an async method fires
-// BOTH `checkout.session.completed` (unpaid) and later
-// `checkout.session.async_payment_succeeded` for one session — we must create at
-// most one Payment row per payment intent.
-//
-// The read-then-create below is a fast path, NOT the guarantee. Two deliveries
-// arriving together both pass the read and both insert, and the invoice ends up
-// showing twice the money that actually arrived. The real guard is the unique
-// index on Payment.stripePaymentIntentId; the P2002 catch is us losing that race
-// gracefully. Don't remove one believing the other covers it.
+// The write itself — and the balance recompute, and the idempotency guarantee —
+// now live in lib/invoices/recordStripePayment.js, because service plans pay the
+// same invoices through a different Stripe object (an off-session PaymentIntent
+// with no Checkout Session at all). Two copies of "how an invoice becomes paid"
+// is how the two come to disagree about the balance.
 async function recordInvoicePayment(session) {
   const invoiceId = session.metadata?.invoiceId;
   if (!invoiceId) return;
-
-  const already = await db.payment.findFirst({
-    where: { invoiceId, stripePaymentIntentId: session.payment_intent },
-    select: { id: true },
+  await recordStripePayment(db, {
+    invoiceId,
+    paymentIntentId: session.payment_intent,
+    amountCents: session.amount_total || 0,
   });
-  if (already) return;
-
-  try {
-    await db.payment.create({
-      data: {
-        invoiceId,
-        amount: (session.amount_total || 0) / 100,
-        method: "stripe",
-        stripePaymentIntentId: session.payment_intent,
-      },
-    });
-  } catch (err) {
-    // P2002 = unique violation: the concurrent delivery won. It is recording
-    // the same payment and will recompute the same balance, so returning here
-    // is correct — retrying would only re-run identical work. Anything else is
-    // a real failure and must propagate, so Stripe retries the delivery.
-    if (err?.code !== "P2002") throw err;
-    return;
-  }
-
-  // Recompute from ALL payments — never assume this one charge paid in full. A
-  // client can pay a deposit through Stripe; the balance is the source of truth.
-  const inv = await db.invoice.findUnique({
-    where: { id: invoiceId },
-    include: { payments: true },
-  });
-  if (!inv) return;
-  const totalPaid = inv.payments.reduce((s, p) => s + Number(p.amount), 0);
-  const amountDue = Math.max(0, Number(inv.total) - totalPaid);
-  const isPaid = amountDue <= 0.005;
-  await db.invoice.update({
-    where: { id: invoiceId },
-    data: {
-      amountPaid: totalPaid,
-      amountDue,
-      status: isPaid ? "paid" : inv.status,
-      paidDate: isPaid ? new Date() : inv.paidDate,
-      stripePaymentIntentId: session.payment_intent,
-      paidVia: "stripe",
-    },
-  });
-
-  // Paid in full → close the chase task the send route raised. Same rule as the
-  // manual payment path: only on isPaid, because a Stripe deposit leaves the
-  // rest of the balance to chase.
-  if (isPaid) await resolveInvoiceChaseTask(invoiceId);
 }
 
 // Handles Connect events (company payment setup + invoice payments) — a SEPARATE
@@ -112,7 +61,22 @@ export async function POST(request) {
 
     case "checkout.session.completed": {
       const session = event.data.object;
-      const { invoiceId, bookingId } = session.metadata || {};
+      const { invoiceId, bookingId, servicePlanId } = session.metadata || {};
+
+      // ── A service plan authorisation ─────────────────────────────────────
+      //
+      // Setup mode: NO money moved. The client has just saved a payment method
+      // with a mandate. There is no separate "setup completed" event type —
+      // Checkout reports every finished session here, and `mode` is what tells
+      // them apart, so this branch must come before anything that assumes a
+      // payment.
+      //
+      // The return redirect calls the same helper, so whichever gets there
+      // first wins and the other is a no-op (the row is keyed on planId).
+      if (session.mode === "setup" && servicePlanId) {
+        await recordAuthorisationFromSession(servicePlanId, session.id);
+        break;
+      }
 
       // A paid booking VISIT FEE cleared: turn the held slot into a real
       // appointment, record the fee, confirm, and finalise (email/consent/
@@ -202,6 +166,27 @@ export async function POST(request) {
     // The delayed payment failed (e.g. Affirm declined after redirect). Nothing
     // to record — the invoice stays unpaid, which is already its state.
     case "checkout.session.async_payment_failed": {
+      break;
+    }
+
+    // ── Service plan occurrences settling ─────────────────────────────────
+    //
+    // Pre-authorized debit is a delayed-notification method: the off-session
+    // PaymentIntent sits in `processing` for days, so the run engine cannot know
+    // the outcome when it creates it. These two events are the fast path.
+    //
+    // They are deliberately NOT the only path. Whether an endpoint is subscribed
+    // to payment_intent.* is a Stripe dashboard setting we cannot verify from
+    // code, and an invoice that stays unpaid because a checkbox was never ticked
+    // is the silent-money-bug this codebase keeps being swept for. The cron
+    // reconciles every `charging` occurrence against Stripe on each run
+    // (settlePendingCharges), so this only makes it faster.
+    case "payment_intent.succeeded":
+    case "payment_intent.payment_failed": {
+      const intent = event.data.object;
+      if (intent.metadata?.servicePlanOccurrenceId) {
+        await settleOccurrenceFromIntent(intent);
+      }
       break;
     }
   }

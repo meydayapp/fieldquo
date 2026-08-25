@@ -25,6 +25,7 @@ import {
   BadgeCheck,
   Clock,
   CalendarClock,
+  CalendarSync,
   Wallet,
   Gift,
   Sparkles,
@@ -99,6 +100,9 @@ const NAV_GROUPS = [
       { key: "app.nav.estimateReviews", href: "/app/estimate-reviews", icon: BadgeCheck, tour: "nav-estimate-reviews" },
       { key: "app.nav.jobs", href: "/app/jobs", icon: Briefcase },
       { key: "app.nav.invoices", href: "/app/invoices", icon: Receipt },
+      // Recurring work sold as a package. Sits after Invoices because that is
+      // what it produces — a plan is a standing instruction to raise one.
+      { key: "app.nav.plans", href: "/app/plans", icon: CalendarSync },
       { key: "app.nav.calendar", href: "/app/appointments", icon: Calendar },
       // /app/tasks existed, worked, and was reachable from NOTHING — no nav
       // entry and no link from any page. 380 lines of working to-do list that

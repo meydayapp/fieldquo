@@ -393,6 +393,54 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Service plans — recurring work sold as a package, billed on a cadence.**
+
+  `prisma/schema.prisma` (`ServicePlan`, `ServicePlanOccurrence`,
+  `ServicePlanAuthorisation`), `lib/servicePlans/*` (schedule, pricing, consent,
+  validate, summary, authorisation, stripeMandate, run),
+  `lib/invoices/recordStripePayment.js`, `lib/email/servicePlanEmail.js`,
+  `app/api/service-plans/**`, `app/api/plan/[token]`,
+  `app/api/cron/service-plans`, `app/app/plans/**`, `app/plan/[token]`,
+  `scripts/check-service-plans.mjs`.
+
+  Two tiers, and the difference is consent. **Invoice per occurrence** is the
+  default and stands alone: each due date raises a real invoice and emails the
+  existing pay link, with no stored card and no mandate. **Automatic charge**
+  sits on top and only ever fires against a `ServicePlanAuthorisation` the
+  CLIENT created — they read the terms on `/plan/<token>`, tick a box, and are
+  handed to a Stripe-hosted `mode: "setup"` session. Every tier-2 failure
+  (declined, `authentication_required`, revoked, never finished) falls back to
+  tier 1 and says why on the plan screen.
+
+  **No Stripe Subscription exists.** The money moves through the same
+  destination charge the pay link already uses — platform PaymentIntent,
+  `transfer_data.destination` to the connected account — confirmed
+  `off_session: true`. Reasons in the `ServicePlan` model comment: Stripe's own
+  invoice would break white-label, "spring and fall" is not a Stripe interval, a
+  package discount would become a Coupon, and a second subscription graph on the
+  platform account is the mixing `lib/platform/stripeBilling.js` warns against.
+  The payoff is that cancelling cannot leave a live biller behind, because there
+  was never one to leave.
+
+  Money terms are frozen at creation (`PATCH` accepts only the name, out loud)
+  because the client's authorisation names those exact figures. Occurrences are
+  generated lazily, at most one per plan per run, and never for a date before the
+  plan existed — a mistyped start date costs one invoice, not three hundred.
+
+  **Left for the owner:**
+
+  - Authorisation wording exists in **English and French only**
+    (`AUTHORISATION_LANGUAGES`). A client in another language is refused the
+    automatic tier rather than shown a machine-drafted payment authorisation.
+    Adding a language means a fluent review of `lib/servicePlans/consent.js` and
+    the `PAGE` table in `app/plan/[token]/page.js`.
+  - `payment_intent.succeeded` / `payment_intent.payment_failed` should be added
+    to the Connect webhook endpoint in the Stripe dashboard. Not required —
+    `settlePendingCharges` reconciles every `charging` occurrence on each cron
+    run — but it makes a pre-authorized debit settle in seconds rather than a day.
+  - Pre-authorized debit (`acss_debit`) must be enabled on the platform Stripe
+    account before a CAD company can offer it; card works either way.
+
 - **Gutters stop being a hand-typed line.**
 
   `app/data/tradePriceBooks.js` (`gutter_services` book, `PRICE_BOOK_FIELDS`,
