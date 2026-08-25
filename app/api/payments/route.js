@@ -11,6 +11,7 @@ import {
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 import { formatAppMoney } from "@/lib/format/money";
+import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -155,6 +156,12 @@ export async function POST(request) {
       paidDate: isPaid ? new Date() : invoice.paidDate,
     },
   });
+
+  // Settled → the "follow up payment" reminder the send route raised has been
+  // answered. Only on isPaid: a deposit is not a reason to stop chasing the
+  // rest, and closing it early would take the invoice off the to-do list while
+  // most of the money was still outstanding.
+  if (isPaid) await resolveInvoiceChaseTask(invoiceId);
 
   await recordActivity(member, {
     action: "payment.recorded",

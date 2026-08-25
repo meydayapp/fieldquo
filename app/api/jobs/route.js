@@ -10,7 +10,7 @@ import {
   requireLevel,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { materializeImportedCosts } from "@/lib/quotes/importQuote";
+import { createJob } from "@/lib/jobs/createJob";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -61,53 +61,20 @@ export async function POST(request) {
   const body = await request.json();
   const { clientId, quoteId, title, recurring, recurrenceRule } = body;
 
-  if (!clientId || !title) {
-    return NextResponse.json(
-      { error: "clientId and title are required" },
-      { status: 400 },
-    );
-  }
-
-  // A quoteId from the request body must belong to THIS company. Without this,
-  // a caller could attach another company's quote — and materializeImportedCosts
-  // below would then inject expenses into that company's ledger and consume its
-  // imports. Scope it to the caller's company or reject.
-  if (quoteId) {
-    const ownsQuote = await db.quote.findFirst({
-      where: { id: quoteId, companyId: member.companyId },
-      select: { id: true },
-    });
-    if (!ownsQuote)
-      return NextResponse.json({ error: "Quote not found" }, { status: 404 });
-  }
-
-  const job = await db.job.create({
-    data: {
-      companyId: member.companyId,
-      clientId,
-      quoteId: quoteId || null,
-      title,
-      recurring: !!recurring,
-      recurrenceRule: recurrenceRule || null,
-    },
-    include: { client: true },
+  // The validation, the cross-tenant quote check and the imported-cost
+  // materialisation moved to lib/jobs/createJob.js when the invoice detail page
+  // became a second place a job can be raised from. One copy, so the two cannot
+  // start disagreeing about what a new job needs.
+  const { job, error, status } = await createJob(db, {
+    companyId: member.companyId,
+    createdByUserId: member.userId,
+    clientId,
+    quoteId,
+    title,
+    recurring,
+    recurrenceRule,
   });
-
-  // If this job was created from a quote that imported subcontractor costs,
-  // materialise them as job expenses so they reach job costing. Best-effort and
-  // idempotent (skips imports already materialised) — see materializeImportedCosts.
-  if (quoteId) {
-    try {
-      await materializeImportedCosts(db, {
-        quoteId,
-        jobId: job.id,
-        companyId: member.companyId,
-        createdById: member.userId,
-      });
-    } catch (err) {
-      console.error("[jobs POST] materialise imported costs:", err?.message);
-    }
-  }
+  if (error) return NextResponse.json({ error }, { status });
 
   return NextResponse.json(job, { status: 201 });
 }

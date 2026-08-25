@@ -926,12 +926,14 @@ export default function QuoteDetailPage() {
                     className="flex justify-between gap-3 text-sm text-foreground"
                   >
                     <span>{stage.label}</span>
+                    {/* `pct` is already a formatted string ("50%") — see
+                        parsePaymentSchedule. This read `stage.percent` and
+                        `stage.amount`, neither of which that function has ever
+                        returned, so the column rendered empty on every quote
+                        with a parseable schedule. Caught by the invoice page
+                        landing beside it with the right field name. */}
                     <span className="tabular-nums text-muted-foreground">
-                      {stage.percent != null
-                        ? `${stage.percent}%`
-                        : stage.amount != null
-                          ? money(stage.amount)
-                          : ""}
+                      {stage.pct}
                     </span>
                   </li>
                 ))}

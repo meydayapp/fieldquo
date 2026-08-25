@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { finalizeBooking } from "@/lib/booking/finalizeBooking";
+import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 
 // Record an invoice payment from a completed/settled checkout session and
 // recompute the balance from ALL payments. Shared by the synchronous (card) path
@@ -69,6 +70,11 @@ async function recordInvoicePayment(session) {
       paidVia: "stripe",
     },
   });
+
+  // Paid in full → close the chase task the send route raised. Same rule as the
+  // manual payment path: only on isPaid, because a Stripe deposit leaves the
+  // rest of the balance to chase.
+  if (isPaid) await resolveInvoiceChaseTask(invoiceId);
 }
 
 // Handles Connect events (company payment setup + invoice payments) — a SEPARATE

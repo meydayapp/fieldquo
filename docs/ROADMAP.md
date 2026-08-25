@@ -393,6 +393,51 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The invoice detail page is the document, plus the project around it.**
+
+  `app/app/invoices/[id]/page.js`, `LifecycleBanners.js` (new), `JobPanel.js`
+  (new), `CostPanel.js` (new), `app/api/invoices/[id]/document/route.js` (new),
+  `app/api/invoices/[id]/lifecycle/route.js` (new), `lib/invoices/lifecycle.js`
+  (new), `lib/invoices/jobLink.js` (new), `lib/invoices/documentGroups.js`
+  (new), `lib/jobs/createJob.js` (new), `scripts/check-invoice-banners.mjs`
+  (new), `prisma/schema.prisma` (`Invoice.notes`, `Invoice.jobId`).
+
+  The owner: "the invoice [id] page is too simplistic, it doesn't have the same
+  sections and information as when you create a new quote — it should be
+  identical but for invoices." It was: a flat list of line items and a totals
+  block, against a client copy carrying scope by trade, what's included, what
+  could change the price, the process with timelines, and payment terms.
+
+  Four things worth knowing before touching it:
+
+  1. **`Invoice.notes` did not exist and three callers wrote it.** POST
+     `/api/invoices`, PATCH `/api/invoices/[id]` and the editor's Notes
+     textarea all sent it; Prisma rejects an unknown argument before building
+     the query, so creating an invoice from `/app/invoices/new` threw. The
+     column is now declared and the detail page renders it.
+  2. **An invoice has no scope groups and should not grow any.**
+     `lib/invoices/documentGroups.js` recovers the grouping from the
+     `"<label>: <item>"` prefixes `createInvoiceFromQuote` already writes,
+     matching a prefix only when it EXACTLY equals one of the quote's group
+     labels. A `split(": ")` would invent groups out of ordinary descriptions.
+  3. **Banner selection is pure and gated by a check script.** A banner is a
+     claim in the contractor's voice; "overdue by 12 days" over a paid invoice,
+     beside a Chase button, is the failure that matters. Every condition reads
+     a real column and `scripts/check-invoice-banners.mjs` drives it through
+     paid / part-paid / stale-draft / superseded / no-job.
+  4. **`Invoice.jobId` is an override, not a replacement.**
+     `lib/invoices/jobLink.js` is the only rule: the explicit link first, the
+     quote's job as the fallback. `/api/invoices/costing` now asks it too, so a
+     manually-raised invoice can seed its crew from timesheets once somebody
+     links the job.
+
+  Also closed here: the `invoice_sent:<id>` chase task stayed open forever
+  because none of the three paths that mark an invoice paid knew it existed —
+  a manual payment, a Stripe settlement, and a visit-fee credit all call
+  `resolveInvoiceChaseTask` now. And `app/api/jobs/[id]/costing/route.js` reads
+  `quote.costing.totalCost` instead of passing `estimatedCost: null`, which was
+  the "still open" item left by the entry below.
+
 - **A quote now remembers what it was costed at.**
 
   `prisma/schema.prisma` (`QuoteCosting`), `lib/costing/quoteCosting.js` (new),
@@ -432,8 +477,8 @@ they set the pattern.
   `GET /api/quotes/[id]/costing` returns `saved: false` when nothing was
   stored, having recomputed from `QuoteScopeGroup.takeoff` against TODAY's rate
   card — a different number from the one quoted, and the flag is how the UI
-  says so. **Still open:** the job's cost comparison still passes
-  `estimatedCost: null`; it can now read this row instead.
+  says so. **Done:** the job's cost comparison reads this row — see the invoice
+  detail entry above.
 
 - **The quote email carries the quote, and a section that is on but empty can
   no longer be sent.**

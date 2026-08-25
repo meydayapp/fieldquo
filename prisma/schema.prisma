@@ -1675,6 +1675,19 @@ model Invoice {
   endDate      DateTime?
   pdfUrl       String?
 
+  // What the office wrote on this invoice — the same block Quote.notes carries,
+  // printed on the document and in the client's copy.
+  //
+  // ── This column was missing and three write paths sent it anyway ──────────
+  //
+  // POST /api/invoices, PATCH /api/invoices/[id] and the invoice editor's
+  // "Notes" textarea all passed `notes`, and Prisma rejects an unknown argument
+  // before the query is ever built. So creating an invoice from /app/invoices/new
+  // threw, and the detail page rendered `invoice.notes` — permanently undefined.
+  // A field written by three callers and declared by none is the schema half of
+  // the "control that appears to work and doesn't" rule.
+  notes        String?
+
   // Same shape as Quote.clientPhotos — [{ url, kind: "photo"|"video", publicId }].
   // Was String[], which nothing ever read or wrote, and which could not hold a
   // quote's photos without flattening away whether each one is a photo or a
@@ -1707,6 +1720,32 @@ model Invoice {
   // What the job cost the company. A separate row, never a column here — see
   // InvoiceCosting for why that distinction is load-bearing.
   costing InvoiceCosting?
+
+  // ── The job this invoice bills for ────────────────────────────────────────
+  //
+  // Until now the only path from an invoice to the work was
+  // invoice → quote → job, matching on Quote.id. That covers the ordinary
+  // pipeline and covers nothing else: an invoice raised by hand — a callout, a
+  // warranty return, a deposit taken before anything was quoted — had no way to
+  // reach the job at all, so its timesheets, its visits and its real cost were
+  // invisible on the document that bills for them.
+  //
+  // Nullable and NOT a replacement for the quote path: see
+  // lib/invoices/jobLink.js, which is the single place that decides. An
+  // explicit link wins; the quote is the fallback; neither means "no job", which
+  // the page states rather than papering over.
+  //
+  // Many invoices to one job on purpose. Progress billing raises a deposit
+  // invoice and a final one against the same work, and modelling it the other
+  // way round would force one of them to lie.
+  //
+  // SetNull rather than Cascade: deleting a job must never delete an invoice.
+  // Jobs already refuse deletion while they carry approved hours; an invoice is
+  // a financial record and outranks the link to it.
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, jobId])
 }
 
 /// What one invoice's job actually cost: who worked it, for how many hours, at
@@ -2347,6 +2386,10 @@ model Job {
 
   /// What has to be bought before the crew leaves the yard.
   materials JobMaterial[]
+
+  /// The invoices raised against this job. Plural: progress billing raises a
+  /// deposit and a final invoice for the same work. See Invoice.jobId.
+  invoices Invoice[]
 }
 
 /// One line of a job's sourcing list: what to buy, how much, and whether it has

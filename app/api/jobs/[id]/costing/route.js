@@ -32,7 +32,14 @@ export async function GET(request, { params }) {
     where: { id: _params.id, companyId: member.companyId },
     select: {
       id: true,
-      quote: { select: { total: true } },
+      // costing is QuoteCosting — the estimate as it was when the quote was
+      // saved, not as it would be recomputed today. See the note below.
+      quote: {
+        select: {
+          total: true,
+          costing: { select: { totalCost: true, updatedAt: true } },
+        },
+      },
       // Returned so the panel formats in the company's billing currency. The
       // job endpoint doesn't load the company, and defaulting to CAD in the
       // component is exactly the bug that put "$2100.00" on client documents.
@@ -59,27 +66,31 @@ export async function GET(request, { params }) {
 
   const actual = actualJobCost(expenses, timeEntries);
 
-  // ── Why estimatedCost is null rather than computed ─────────────────────
+  // ── The estimate IS stored now ───────────────────────────────────────────
   //
-  // The quote's cost estimate is not stored. The quote screen recomputes it on
-  // every render from the company's CURRENT price book, labour rate and
-  // overhead. Recomputing it here would therefore not answer "what did we
-  // think this would cost" — it would answer "what would we think today",
-  // against rates that may have changed since. A variance measured that way
-  // moves when nobody touched the job, which is worse than no variance.
+  // This used to pass `estimatedCost: null` with a long comment explaining that
+  // the quote's estimate lived only in the browser, was recomputed on every
+  // render from the company's CURRENT price book, and that comparing against it
+  // would answer "what would we think today" rather than "what did we think
+  // then" — a variance that moves when nobody touched the job.
   //
-  // Doing it properly means snapshotting the estimate when the quote is saved,
-  // and that has to happen SERVER-side: non-negotiable #5 says the browser
-  // never sends money amounts, so the client's figure cannot simply be posted.
-  // That is a real piece of work and a decision about when the snapshot is
-  // taken; it is not smuggled in here.
+  // That reasoning was right and the premise has changed: QuoteCosting is the
+  // server-side snapshot it asked for, written when the quote is saved and
+  // computed from the quote's own scope groups rather than accepted from the
+  // browser. So the variance is now a real one, measured against the figures
+  // the estimator actually committed to.
   //
-  // So this endpoint answers the question it can answer completely — what the
-  // job actually cost, and what it made against the price the client agreed.
-  // estimatedCost stays null, and compareJobCost returns null for variance
-  // rather than a fake 0%.
+  // Still null when the quote was never costed, or when there is no quote
+  // behind the job at all. compareJobCost returns null for variance in that
+  // case rather than a fake 0%, and the panel says nothing rather than
+  // reporting a job as on budget when no budget was ever set.
+  const estimatedCost =
+    job.quote?.costing?.totalCost == null
+      ? null
+      : Number(job.quote.costing.totalCost);
+
   const comparison = compareJobCost({
-    estimatedCost: null,
+    estimatedCost,
     actualCost: actual.total,
     revenue: job.quote?.total == null ? null : Number(job.quote.total),
   });
@@ -87,6 +98,10 @@ export async function GET(request, { params }) {
   return NextResponse.json({
     actual,
     comparison,
+    // When the estimate was taken. A variance against a figure snapshotted
+    // eight months ago is still a fair comparison, but the reader deserves to
+    // know that is what they are looking at.
+    estimatedAt: job.quote?.costing?.updatedAt || null,
     currency: job.company?.currency || "CAD",
   });
 }

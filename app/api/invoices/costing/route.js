@@ -31,6 +31,7 @@ import {
   redactPayList,
 } from "@/lib/permissions/enforce";
 import { crewFromTimeEntries } from "@/lib/costing/actualJobCost";
+import { resolveInvoiceJob } from "@/lib/invoices/jobLink";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 
 export async function GET(request) {
@@ -102,7 +103,8 @@ export async function GET(request) {
 
   const invoice = await db.invoice.findFirst({
     where: { id: invoiceId, companyId: member.companyId },
-    select: { id: true, quoteId: true, costing: true },
+    // jobId joins the explicit link resolveInvoiceJob needs below.
+    select: { id: true, quoteId: true, jobId: true, costing: true },
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -139,17 +141,16 @@ export async function GET(request) {
     });
   }
 
-  // Nothing saved yet — offer the timesheets. The path to them is
-  // invoice → quote → job, which is the only link an invoice has to the work
-  // that was done. A manually-raised invoice with no quote behind it has no
-  // job and therefore nothing to seed from, and starts blank rather than
+  // Nothing saved yet — offer the timesheets. The path to them used to be
+  // written out here as invoice → quote → job and nowhere else, which meant a
+  // manually-raised invoice could never seed from anything even after somebody
+  // linked its job by hand. resolveInvoiceJob is now the single rule (explicit
+  // link first, the quote's job as the fallback), shared with the lifecycle
+  // route so the two screens agree about which job this invoice bills for.
+  //
+  // Still null for an invoice with neither, and it starts blank rather than
   // inventing a crew.
-  if (!invoice.quoteId) return NextResponse.json(base);
-
-  const job = await db.job.findFirst({
-    where: { quoteId: invoice.quoteId, companyId: member.companyId },
-    select: { id: true },
-  });
+  const job = await resolveInvoiceJob(db, invoice, member.companyId);
   if (!job) return NextResponse.json(base);
 
   const timeEntries = await db.timeEntry.findMany({

@@ -727,7 +727,13 @@ const en = {
   "app.invoiceDetail.visitCreditRemove": "Remove credit",
   "app.invoiceDetail.visitCreditLabel": "Visit fee credit",
   "app.invoiceDetail.visitCreditError": "Couldn't update the visit fee credit.",
-  "app.invoiceDetail.amountPlaceholder": "Amount (up to ${amount})",
+  // The currency symbol is NOT in this string. It used to be, and the value
+  // passed in has been a formatted "$2,100.00" since the money formatter landed
+  // — so the placeholder read "Amount (up to $$2,100.00)". Six languages had
+  // their own copy of the same doubled symbol, and two of them put it on the
+  // wrong side of the number for their locale anyway; the formatter already
+  // knows where it goes.
+  "app.invoiceDetail.amountPlaceholder": "Amount (up to {amount})",
   "app.invoiceDetail.cash": "Cash",
   "app.invoiceDetail.eTransfer": "E-Transfer",
   "app.invoiceDetail.cheque": "Cheque",
@@ -735,6 +741,126 @@ const en = {
   "app.invoiceDetail.record": "Record",
   "app.invoiceDetail.deleteTitle": "Delete Invoice",
   "app.invoiceDetail.deleteMessage": "This invoice and its payment records will be permanently removed.",
+
+  // ── Invoice lifecycle banners (app/app/invoices/[id]/LifecycleBanners.js) ─
+  //
+  // Every one of these is chosen by lib/invoices/lifecycle.js from real
+  // columns and checked by scripts/check-invoice-banners.mjs. Wording matters
+  // more here than almost anywhere in the app: these sentences are what a
+  // contractor reads just before deciding to email a client about money.
+  "app.invoiceLifecycle.superseded":
+    "This is version {version}. Version {latest} replaced it — that is the one your client has.",
+  "app.invoiceLifecycle.actionOpenLatest": "Open the current version",
+  "app.invoiceLifecycle.paid": "Paid in full — {amount} received.",
+  "app.invoiceLifecycle.paidOn": "Paid in full — {amount} received on {date}.",
+  "app.invoiceLifecycle.overdue": "Overdue by {days}. {amount} still owing.",
+  "app.invoiceLifecycle.partiallyPaid":
+    "{paid} of {total} received. {due} still owing.",
+  "app.invoiceLifecycle.unsent": "This invoice has not been sent to the client yet.",
+  "app.invoiceLifecycle.noClientEmail":
+    "{name} has no email address on file, so this invoice cannot be sent or chased.",
+  "app.invoiceLifecycle.thisClient": "This client",
+  "app.invoiceLifecycle.chaseDue":
+    "You set a reminder to follow this up on {date}, and {amount} is still owing.",
+  "app.invoiceLifecycle.noJob":
+    "No job is linked to this invoice, so it has no visits, hours or costs behind it.",
+  "app.invoiceLifecycle.jobUnscheduled": "{title} has no visit booked.",
+  "app.invoiceLifecycle.visitUnassigned":
+    "The visit on {date} has nobody assigned to it.",
+  "app.invoiceLifecycle.actionSend": "Send it",
+  "app.invoiceLifecycle.actionChase": "Chase payment",
+  "app.invoiceLifecycle.actionCreateJob": "Create the job",
+  "app.invoiceLifecycle.actionScheduleVisit": "Book a visit",
+  "app.invoiceLifecycle.actionAssignVisit": "Assign it",
+  "app.invoiceLifecycle.actionAddClientEmail": "Add an email address",
+
+  // ── The invoice document (app/app/invoices/[id]/page.js) ─────────────────
+  // Only the STAFF framing lives here. The document's own furniture —
+  // "Invoice", "Prepared for", "Balance due" — comes from
+  // lib/i18n/documentLabels.js, which is already translated six ways because
+  // the PDF and the portal print it.
+  "app.invoiceDoc.whatThisSays": "What this invoice says",
+  "app.invoiceDoc.paymentTerms": "Payment terms",
+  "app.invoiceDoc.glossary": "Terms explained",
+  "app.invoiceDoc.fromQuote": "From quote",
+  "app.invoiceDoc.notesOnQuote": "Written on the quote this invoice came from",
+  "app.invoiceDoc.notesFromCompany":
+    "Your company default — this invoice's quote did not set its own",
+  "app.invoiceDetail.downloadPdf": "Download PDF",
+
+  // ── Chasing payment ──────────────────────────────────────────────────────
+  "app.invoiceChase.title": "Chase this payment",
+  "app.invoiceChase.hint":
+    "Emails {name} a link to pay the {amount} still owing, in their language, from your address.",
+  "app.invoiceChase.notePlaceholder":
+    "Anything to add? For example: we agreed you would settle after the final visit.",
+  "app.invoiceChase.send": "Send the reminder",
+
+  // ── The job behind the invoice (JobPanel.js) ─────────────────────────────
+  "app.invoiceJob.title": "The job",
+  "app.invoiceJob.openJob": "Open the job",
+  "app.invoiceJob.none":
+    "No job is linked to this invoice yet, so there are no visits, hours or costs against it.",
+  "app.invoiceJob.jobTitle": "Job title",
+  "app.invoiceJob.jobTitlePlaceholder": "The address, or what the work is",
+  "app.invoiceJob.defaultTitle": "{name} — {number}",
+  "app.invoiceJob.createJob": "Create the job",
+  "app.invoiceJob.linkExisting": "Link an existing job",
+  "app.invoiceJob.loadingJobs": "Loading this client's jobs…",
+  "app.invoiceJob.noOtherJobs": "{name} has no other jobs to link to.",
+  "app.invoiceJob.chooseJob": "Choose a job…",
+  "app.invoiceJob.link": "Link it",
+  "app.invoiceJob.unlink": "Unlink",
+  "app.invoiceJob.linkError": "Couldn't link the job.",
+  "app.invoiceJob.visitError": "Couldn't book the visit.",
+  "app.invoiceJob.linkedDirectly": "Linked to this invoice.",
+  "app.invoiceJob.linkedViaQuote": "Found through the quote this invoice came from.",
+  "app.invoiceJob.visits": "Visits",
+  "app.invoiceJob.noVisits": "Nothing booked yet.",
+  "app.invoiceJob.unassigned": "Nobody assigned",
+  "app.invoiceJob.when": "When",
+  "app.invoiceJob.who": "Who is going",
+  "app.invoiceJob.bookVisit": "Book a visit",
+  "app.invoiceJob.moreOptions": "Checklists and crew notes",
+  "app.invoiceJob.hoursOnThisJob": "Hours logged on this job",
+  "app.invoiceJob.rateHidden": "rate hidden",
+  "app.invoiceJob.noRate": "no rate on file",
+  "app.invoiceJob.payPeriods": "Pay periods these hours fall in",
+  "app.invoiceJob.payPeriodsNote":
+    "A pay run covers a period, not one job, so this says when the hours were paid rather than how much of the run was this job.",
+  "app.invoiceJob.hoursNotPaid":
+    "{hours} on this job fall outside every pay run — they have not been through payroll yet.",
+  "app.payRunStatus.draft": "Draft",
+  "app.payRunStatus.approved": "Approved",
+  "app.payRunStatus.paid": "Paid",
+  "app.payRunStatus.cancelled": "Cancelled",
+
+  // ── Cost and margin (CostPanel.js) ───────────────────────────────────────
+  "app.invoiceCost.title": "Cost & margin",
+  "app.invoiceCost.internal": "(internal — never shown to the client)",
+  "app.invoiceCost.editHours": "Edit hours & crew",
+  "app.invoiceCost.estimated": "Quoted cost",
+  "app.invoiceCost.estimatedAt": "as costed on {date}",
+  "app.invoiceCost.noEstimate": "this quote was never costed",
+  "app.invoiceCost.actual": "Actual cost",
+  "app.invoiceCost.noJobLinked": "no job linked, so nothing measured",
+  "app.invoiceCost.incomplete": "incomplete — see below",
+  "app.invoiceCost.variance": "Variance",
+  "app.invoiceCost.noVariance": "needs both an estimate and a job",
+  "app.invoiceCost.approvedHours": "Approved labour — {hours}",
+  "app.invoiceCost.jobExpenses": "Expenses tagged to the job",
+  "app.invoiceCost.pendingHours":
+    "{hours} are still awaiting approval and are not counted above.",
+  "app.invoiceCost.unratedHours":
+    "{hours} were worked by someone with no rate on file, so they cost nothing above.",
+  "app.invoiceCost.labour": "Labour",
+  "app.invoiceCost.materials": "Materials",
+  "app.invoiceCost.overhead": "Overhead",
+  "app.invoiceCost.costedTotal": "Costed on this invoice",
+  "app.invoiceCost.profit": "Profit",
+  "app.invoiceCost.crewMember": "Crew member",
+  "app.invoiceCost.notCosted":
+    "Nobody has costed this invoice. Add the crew and hours to see the margin on it.",
   "app.invoiceEdit.loadError": "Couldn't load this invoice.",
   "app.invoiceEdit.reasonRequired": "Give a reason for the change — it goes in the version history.",
   "app.invoiceEdit.saveError": "Couldn't save changes.",
@@ -3304,7 +3430,7 @@ const fr = {
   "app.invoiceDetail.visitCreditRemove": "Retirer le crédit",
   "app.invoiceDetail.visitCreditLabel": "Crédit de frais de visite",
   "app.invoiceDetail.visitCreditError": "Impossible de mettre à jour le crédit de frais de visite.",
-  "app.invoiceDetail.amountPlaceholder": "Montant (jusqu'à {amount} $)",
+  "app.invoiceDetail.amountPlaceholder": "Montant (jusqu'à {amount})",
   "app.invoiceDetail.cash": "Comptant",
   "app.invoiceDetail.eTransfer": "Virement Interac",
   "app.invoiceDetail.cheque": "Chèque",
@@ -3312,6 +3438,113 @@ const fr = {
   "app.invoiceDetail.record": "Enregistrer",
   "app.invoiceDetail.deleteTitle": "Supprimer la facture",
   "app.invoiceDetail.deleteMessage": "Cette facture et ses enregistrements de paiement seront supprimés définitivement.",
+
+  // ── Bandeaux de cycle de vie de la facture ───────────────────────────────
+  "app.invoiceLifecycle.superseded":
+    "Ceci est la version {version}. La version {latest} l'a remplacée — c'est celle que votre client possède.",
+  "app.invoiceLifecycle.actionOpenLatest": "Ouvrir la version actuelle",
+  "app.invoiceLifecycle.paid": "Payée en totalité — {amount} reçus.",
+  "app.invoiceLifecycle.paidOn": "Payée en totalité — {amount} reçus le {date}.",
+  "app.invoiceLifecycle.overdue": "En retard de {days}. {amount} restent dus.",
+  "app.invoiceLifecycle.partiallyPaid":
+    "{paid} reçus sur {total}. {due} restent dus.",
+  "app.invoiceLifecycle.unsent": "Cette facture n'a pas encore été envoyée au client.",
+  "app.invoiceLifecycle.noClientEmail":
+    "{name} n'a aucune adresse courriel au dossier : cette facture ne peut être ni envoyée ni relancée.",
+  "app.invoiceLifecycle.thisClient": "Ce client",
+  "app.invoiceLifecycle.chaseDue":
+    "Vous aviez prévu une relance le {date}, et {amount} restent dus.",
+  "app.invoiceLifecycle.noJob":
+    "Aucun travail n'est lié à cette facture : elle n'a donc ni visites, ni heures, ni coûts derrière elle.",
+  "app.invoiceLifecycle.jobUnscheduled": "{title} n'a aucune visite planifiée.",
+  "app.invoiceLifecycle.visitUnassigned":
+    "La visite du {date} n'est assignée à personne.",
+  "app.invoiceLifecycle.actionSend": "L'envoyer",
+  "app.invoiceLifecycle.actionChase": "Relancer le paiement",
+  "app.invoiceLifecycle.actionCreateJob": "Créer le travail",
+  "app.invoiceLifecycle.actionScheduleVisit": "Planifier une visite",
+  "app.invoiceLifecycle.actionAssignVisit": "L'assigner",
+  "app.invoiceLifecycle.actionAddClientEmail": "Ajouter une adresse courriel",
+
+  "app.invoiceDoc.whatThisSays": "Ce que dit cette facture",
+  "app.invoiceDoc.paymentTerms": "Modalités de paiement",
+  "app.invoiceDoc.glossary": "Termes expliqués",
+  "app.invoiceDoc.fromQuote": "Issue du devis",
+  "app.invoiceDoc.notesOnQuote": "Rédigé sur le devis à l'origine de cette facture",
+  "app.invoiceDoc.notesFromCompany":
+    "Texte par défaut de votre entreprise — le devis de cette facture n'en avait pas.",
+  "app.invoiceDetail.downloadPdf": "Télécharger le PDF",
+
+  "app.invoiceChase.title": "Relancer ce paiement",
+  "app.invoiceChase.hint":
+    "Envoie à {name} un lien pour payer les {amount} encore dus, dans sa langue, depuis votre adresse.",
+  "app.invoiceChase.notePlaceholder":
+    "Quelque chose à ajouter ? Par exemple : nous avions convenu d'un règlement après la dernière visite.",
+  "app.invoiceChase.send": "Envoyer le rappel",
+
+  "app.invoiceJob.title": "Le travail",
+  "app.invoiceJob.openJob": "Ouvrir le travail",
+  "app.invoiceJob.none":
+    "Aucun travail n'est encore lié à cette facture : elle n'a donc ni visites, ni heures, ni coûts.",
+  "app.invoiceJob.jobTitle": "Titre du travail",
+  "app.invoiceJob.jobTitlePlaceholder": "L'adresse, ou la nature des travaux",
+  "app.invoiceJob.defaultTitle": "{name} — {number}",
+  "app.invoiceJob.createJob": "Créer le travail",
+  "app.invoiceJob.linkExisting": "Lier un travail existant",
+  "app.invoiceJob.loadingJobs": "Chargement des travaux de ce client…",
+  "app.invoiceJob.noOtherJobs": "{name} n'a aucun autre travail à lier.",
+  "app.invoiceJob.chooseJob": "Choisir un travail…",
+  "app.invoiceJob.link": "Le lier",
+  "app.invoiceJob.unlink": "Délier",
+  "app.invoiceJob.linkError": "Impossible de lier le travail.",
+  "app.invoiceJob.visitError": "Impossible de planifier la visite.",
+  "app.invoiceJob.linkedDirectly": "Lié à cette facture.",
+  "app.invoiceJob.linkedViaQuote": "Trouvé via le devis à l'origine de cette facture.",
+  "app.invoiceJob.visits": "Visites",
+  "app.invoiceJob.noVisits": "Rien de planifié pour l'instant.",
+  "app.invoiceJob.unassigned": "Personne d'assigné",
+  "app.invoiceJob.when": "Quand",
+  "app.invoiceJob.who": "Qui s'y rend",
+  "app.invoiceJob.bookVisit": "Planifier une visite",
+  "app.invoiceJob.moreOptions": "Listes de contrôle et notes pour l'équipe",
+  "app.invoiceJob.hoursOnThisJob": "Heures inscrites sur ce travail",
+  "app.invoiceJob.rateHidden": "taux masqué",
+  "app.invoiceJob.noRate": "aucun taux au dossier",
+  "app.invoiceJob.payPeriods": "Périodes de paie couvrant ces heures",
+  "app.invoiceJob.payPeriodsNote":
+    "Une paie couvre une période, pas un travail : ceci indique quand les heures ont été payées, pas quelle part de la paie revient à ce travail.",
+  "app.invoiceJob.hoursNotPaid":
+    "{hours} sur ce travail ne relèvent d'aucune période de paie — elles ne sont pas encore passées à la paie.",
+  "app.payRunStatus.draft": "Brouillon",
+  "app.payRunStatus.approved": "Approuvée",
+  "app.payRunStatus.paid": "Payée",
+  "app.payRunStatus.cancelled": "Annulée",
+
+  "app.invoiceCost.title": "Coût et marge",
+  "app.invoiceCost.internal": "(interne — jamais montré au client)",
+  "app.invoiceCost.editHours": "Modifier les heures et l'équipe",
+  "app.invoiceCost.estimated": "Coût estimé",
+  "app.invoiceCost.estimatedAt": "estimé le {date}",
+  "app.invoiceCost.noEstimate": "ce devis n'a jamais été chiffré",
+  "app.invoiceCost.actual": "Coût réel",
+  "app.invoiceCost.noJobLinked": "aucun travail lié, donc rien de mesuré",
+  "app.invoiceCost.incomplete": "incomplet — voir ci-dessous",
+  "app.invoiceCost.variance": "Écart",
+  "app.invoiceCost.noVariance": "exige une estimation et un travail lié",
+  "app.invoiceCost.approvedHours": "Main-d'œuvre approuvée — {hours}",
+  "app.invoiceCost.jobExpenses": "Dépenses rattachées au travail",
+  "app.invoiceCost.pendingHours":
+    "{hours} attendent toujours une approbation et ne sont pas comptées ci-dessus.",
+  "app.invoiceCost.unratedHours":
+    "{hours} ont été travaillées par quelqu'un sans taux au dossier : elles ne coûtent donc rien ci-dessus.",
+  "app.invoiceCost.labour": "Main-d'œuvre",
+  "app.invoiceCost.materials": "Matériaux",
+  "app.invoiceCost.overhead": "Frais généraux",
+  "app.invoiceCost.costedTotal": "Chiffré sur cette facture",
+  "app.invoiceCost.profit": "Profit",
+  "app.invoiceCost.crewMember": "Membre de l'équipe",
+  "app.invoiceCost.notCosted":
+    "Personne n'a chiffré cette facture. Ajoutez l'équipe et les heures pour voir la marge.",
   "app.invoiceEdit.loadError": "Impossible de charger cette facture.",
   "app.invoiceEdit.reasonRequired": "Indiquez une raison pour la modification — elle est consignée dans l'historique des versions.",
   "app.invoiceEdit.saveError": "Impossible d'enregistrer les modifications.",
@@ -5776,7 +6009,7 @@ const es = {
   "app.invoiceDetail.visitCreditRemove": "Quitar crédito",
   "app.invoiceDetail.visitCreditLabel": "Crédito por tarifa de visita",
   "app.invoiceDetail.visitCreditError": "No se pudo actualizar el crédito por tarifa de visita.",
-  "app.invoiceDetail.amountPlaceholder": "Monto (hasta ${amount})",
+  "app.invoiceDetail.amountPlaceholder": "Monto (hasta {amount})",
   "app.invoiceDetail.cash": "Efectivo",
   "app.invoiceDetail.eTransfer": "Transferencia electrónica",
   "app.invoiceDetail.cheque": "Cheque",
@@ -8139,7 +8372,7 @@ const uk = {
   "app.invoiceDetail.visitCreditRemove": "Прибрати кредит",
   "app.invoiceDetail.visitCreditLabel": "Кредит за плату за візит",
   "app.invoiceDetail.visitCreditError": "Не вдалося оновити кредит за плату за візит.",
-  "app.invoiceDetail.amountPlaceholder": "Сума (до ${amount})",
+  "app.invoiceDetail.amountPlaceholder": "Сума (до {amount})",
   "app.invoiceDetail.cash": "Готівка",
   "app.invoiceDetail.eTransfer": "Електронний переказ",
   "app.invoiceDetail.cheque": "Чек",
@@ -10485,7 +10718,7 @@ const pa = {
   "app.invoiceDetail.visitCreditRemove": "ਕ੍ਰੈਡਿਟ ਹਟਾਓ",
   "app.invoiceDetail.visitCreditLabel": "ਵਿਜ਼ਿਟ ਫੀਸ ਕ੍ਰੈਡਿਟ",
   "app.invoiceDetail.visitCreditError": "ਵਿਜ਼ਿਟ ਫੀਸ ਕ੍ਰੈਡਿਟ ਅਪਡੇਟ ਨਹੀਂ ਹੋ ਸਕਿਆ।",
-  "app.invoiceDetail.amountPlaceholder": "ਰਕਮ (${amount} ਤੱਕ)",
+  "app.invoiceDetail.amountPlaceholder": "ਰਕਮ ({amount} ਤੱਕ)",
   "app.invoiceDetail.cash": "ਨਕਦ",
   "app.invoiceDetail.eTransfer": "ਈ-ਟ੍ਰਾਂਸਫਰ",
   "app.invoiceDetail.cheque": "ਚੈੱਕ",
@@ -12836,7 +13069,7 @@ const tl = {
   "app.invoiceDetail.visitCreditRemove": "Alisin ang kredito",
   "app.invoiceDetail.visitCreditLabel": "Kredito sa bayad sa pagbisita",
   "app.invoiceDetail.visitCreditError": "Hindi na-update ang kredito sa bayad sa pagbisita.",
-  "app.invoiceDetail.amountPlaceholder": "Halaga (hanggang ${amount})",
+  "app.invoiceDetail.amountPlaceholder": "Halaga (hanggang {amount})",
   "app.invoiceDetail.cash": "Cash",
   "app.invoiceDetail.eTransfer": "E-Transfer",
   "app.invoiceDetail.cheque": "Tseke",

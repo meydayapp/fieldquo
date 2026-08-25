@@ -10,6 +10,7 @@ import {
   requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 
 // Credit a paid booking/visit fee (the client already paid it at booking time,
 // via Stripe Connect) onto an invoice — the John-the-Plumber model, where the
@@ -91,6 +92,13 @@ async function recomputeInvoice(invoiceId) {
       paidDate: isPaid ? inv.paidDate || new Date() : null,
     },
   });
+
+  // A credit that clears the balance settles the invoice as completely as cash
+  // does, so it closes the chase task the same way. Removing a credit is NOT
+  // the mirror image: this reopens nothing, because a task somebody already
+  // ticked off is their judgement and a recompute should not overrule it — the
+  // banner on the invoice will say the balance is owed again either way.
+  if (isPaid) await resolveInvoiceChaseTask(invoiceId);
 }
 
 export async function GET(request, { params }) {
