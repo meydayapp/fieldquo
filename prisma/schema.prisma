@@ -1035,6 +1035,7 @@ model User {
   eventTypes            EventType[]
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
   jobMaterialsPurchased JobMaterial[]          @relation("JobMaterialPurchaser")
+  shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
   pamphletStopsAssigned PamphletStop[]         @relation("PamphletStopAssignee")
@@ -2854,6 +2855,7 @@ model Shift {
   /// amend the leave — which involves the person whose day off it is.
   availabilityOverrideAt   DateTime?
   availabilityOverrideById String?
+  availabilityOverrideBy   User?     @relation("ShiftAvailabilityOverride", fields: [availabilityOverrideById], references: [id])
   /// Optional. The fact is what matters and an emergency should not be gated on
   /// typing, but a reason makes the record worth reading later.
   availabilityOverrideNote String?

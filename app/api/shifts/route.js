@@ -38,6 +38,13 @@ export async function GET(request) {
           end: true,
           note: true,
           published: true,
+          availabilityOverrideAt: true,
+          availabilityOverrideNote: true,
+          // Who decided to go ahead. Stored and read by nothing until now,
+          // which made it the write-only column this codebase gets swept for.
+          // It is the useful half of the record: "somebody overrode this" is a
+          // shrug; "Sarah overrode this on the 3rd" is a conversation.
+          availabilityOverrideBy: { select: { name: true } },
           worker: { select: { name: true } },
           job: { select: { id: true, title: true } },
         },
@@ -101,6 +108,13 @@ export async function GET(request) {
       end: true,
       note: true,
       published: true,
+      // The worker sees the override on their OWN shift. That is the entire
+      // point of recording it rather than confirming it in a dialog: they were
+      // scheduled outside what they said they were available for, and they
+      // should learn it here, not on the morning.
+      availabilityOverrideAt: true,
+      availabilityOverrideNote: true,
+      availabilityOverrideBy: { select: { name: true } },
       job: { select: { id: true, title: true } },
     },
   });

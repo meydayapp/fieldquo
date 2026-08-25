@@ -428,6 +428,30 @@ they set the pattern.
      list is done. Seventeen rows on /app/tasks for one job would bury the four
      things actually waiting on a person.
 
+- **Audit after "so everything fixed?" — three gaps, one of them money.**
+
+  `lib/payroll/runGuards.js` (new), `app/api/payroll/runs/*`,
+  `app/api/shifts/route.js`, `Shift.availabilityOverrideBy`.
+
+  1. **Nothing stopped two pay runs covering the same fortnight.** No overlap
+     check existed anywhere, so approving both halves of a duplicated period
+     paid everybody twice and nothing said a word. Reported at preview where it
+     is free to fix; REFUSED at approval, which is the step after which people
+     actually get paid. Correction runs are real, so a draft overlap is a
+     warning and only approved/paid runs block.
+  2. **The run route ignored the pay cycle entirely.** The form defaulted to the
+     right period and the server accepted any dates, which makes a client-side
+     default cosmetic. Off-cycle periods are now named, with the period the
+     dates should have been.
+  3. **`availabilityOverrideById` was written and never read** — and worse, the
+     override fields were selected for the MANAGER's query and not the worker's,
+     which quietly turned the record back into the dialog it replaced. Both
+     queries carry it now, and a check asserts both do.
+
+  Periods that merely touch are not overlaps — one ending the 30th and the next
+  starting the 31st is how periods tile, and counting that would flag every run
+  forever.
+
 - **The availability override: recorded on the shift, not confirmed in a
   dialog.**
 

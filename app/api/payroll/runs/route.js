@@ -11,6 +11,11 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import {
+  cycleMatch,
+  overlappingRuns,
+  describeRunGuards,
+} from "@/lib/payroll/runGuards";
 import { getCurrentMember } from "@/lib/currentMember";
 import {
   loadEnforceableMember,
@@ -46,7 +51,10 @@ export async function GET(request) {
 
   if (!access.canViewAll) {
     return NextResponse.json(
-      { error: "You can only see your own payslips. Ask an owner for payroll access." },
+      {
+        error:
+          "You can only see your own payslips. Ask an owner for payroll access.",
+      },
       { status: 403 },
     );
   }
@@ -93,15 +101,60 @@ export async function POST(request) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const { periodStart, periodEnd, region, frequency, otThresholdWeekly, adjustmentsByWorker, commit } = body || {};
+  const {
+    periodStart,
+    periodEnd,
+    region,
+    frequency,
+    otThresholdWeekly,
+    adjustmentsByWorker,
+    commit,
+  } = body || {};
 
   if (!periodStart || !periodEnd) {
-    return NextResponse.json({ error: "Give a period start and end." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Give a period start and end." },
+      { status: 400 },
+    );
   }
   const start = new Date(periodStart);
   const end = new Date(periodEnd);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return NextResponse.json({ error: "That period doesn't make sense — check the dates." }, { status: 400 });
+
+  // ── Two questions this route never asked ─────────────────────────────────
+  //
+  // Does the period match what the company actually agreed, and has anyone
+  // already been paid for these days? The screen used to offer "the last
+  // fourteen days ending today" and nothing checked either — so periods drifted
+  // silently, and a second run over the same fortnight would pay everybody
+  // twice without a word.
+  //
+  // Reported here, refused only at approval. Correction runs are real, and a
+  // payroll tool that refuses them is a payroll tool with a spreadsheet next
+  // to it. See lib/payroll/runGuards.js.
+  const [companyRow, existingRuns] = await Promise.all([
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { payCycle: true },
+    }),
+    db.payRun.findMany({
+      where: { companyId: member.companyId },
+      select: { id: true, periodStart: true, periodEnd: true, status: true },
+    }),
+  ]);
+  const guards = {
+    cycle: cycleMatch(start, end, companyRow?.payCycle),
+    overlaps: overlappingRuns(existingRuns, start, end),
+  };
+  guards.messages = describeRunGuards(guards);
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    end < start
+  ) {
+    return NextResponse.json(
+      { error: "That period doesn't make sense — check the dates." },
+      { status: 400 },
+    );
   }
 
   const computed = await buildPayRun({
@@ -117,7 +170,7 @@ export async function POST(request) {
   // Preview: compute and return, save nothing. The company sees the numbers
   // before anything is committed.
   if (!commit) {
-    return NextResponse.json({ preview: true, ...computed });
+    return NextResponse.json({ preview: true, ...computed, guards });
   }
 
   // Refuse to commit a run containing a line a human must look at first.
@@ -171,5 +224,5 @@ export async function POST(request) {
     metadata: { grossTotal: computed.grossTotal, netTotal: computed.netTotal },
   });
 
-  return NextResponse.json({ ...run, ...computed }, { status: 201 });
+  return NextResponse.json({ ...run, ...computed, guards }, { status: 201 });
 }

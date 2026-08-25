@@ -293,6 +293,25 @@ check("neither shift route offers an override for approved leave", () => {
   }
 });
 
+check("both shift queries return the override, not just the manager's", () => {
+  // The whole design is that the WORKER sees it. A select that carries the
+  // override for the manager and forgets it for the worker turns the record
+  // back into the dialog it replaced — and nothing else would notice, because
+  // the field would simply be undefined.
+  const src = readFileSync(
+    new URL("../app/api/shifts/route.js", import.meta.url),
+    "utf8",
+  );
+  const selects = src.split("select: {").length - 1;
+  assert.ok(selects >= 3, `expected at least 3 selects, found ${selects}`);
+  const carried = (src.match(/availabilityOverrideAt: true/g) || []).length;
+  assert.ok(carried >= 2, `only ${carried} query selects the override`);
+  const byName = (
+    src.match(/availabilityOverrideBy: \{ select: \{ name: true \} \}/g) || []
+  ).length;
+  assert.ok(byName >= 2, `only ${byName} query selects who overrode it`);
+});
+
 if (fails.length) {
   console.error(`✗ ${fails.length} failed, ${pass} passed`);
   for (const f of fails) console.error("  - " + f);

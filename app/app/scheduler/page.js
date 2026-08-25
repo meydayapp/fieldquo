@@ -310,6 +310,9 @@ export default function SchedulerPage() {
                           {s.availabilityOverrideAt && (
                             <div className="text-xs text-amber-700 dark:text-amber-400">
                               Outside stated availability
+                              {s.availabilityOverrideBy?.name
+                                ? ` · ${s.availabilityOverrideBy.name}`
+                                : ""}
                               {s.availabilityOverrideNote
                                 ? ` — ${s.availabilityOverrideNote}`
                                 : ""}

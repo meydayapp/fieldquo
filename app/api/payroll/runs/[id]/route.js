@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { overlappingRuns, describeRunGuards } from "@/lib/payroll/runGuards";
 import { getCurrentMember } from "@/lib/currentMember";
 import {
   loadEnforceableMember,
@@ -27,7 +28,10 @@ async function payrollAccess(member) {
   }
   const full = await loadEnforceableMember(db, member.id);
   const canRun = hasLevel(full, "payroll", "run_payroll");
-  return { canRun, canViewAll: canRun || hasLevel(full, "payroll", "view_all") };
+  return {
+    canRun,
+    canViewAll: canRun || hasLevel(full, "payroll", "view_all"),
+  };
 }
 
 export async function GET(request, { params }) {
@@ -44,7 +48,10 @@ export async function GET(request, { params }) {
     return NextResponse.json(body, { status });
   }
   if (!access.canViewAll) {
-    return NextResponse.json({ error: "You can only see your own payslips." }, { status: 403 });
+    return NextResponse.json(
+      { error: "You can only see your own payslips." },
+      { status: 403 },
+    );
   }
 
   const run = await db.payRun.findFirst({
@@ -78,7 +85,13 @@ export async function PATCH(request, { params }) {
 
   const run = await db.payRun.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true, status: true, periodStart: true, periodEnd: true, netTotal: true },
+    select: {
+      id: true,
+      status: true,
+      periodStart: true,
+      periodEnd: true,
+      netTotal: true,
+    },
   });
   if (!run) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -92,9 +105,47 @@ export async function PATCH(request, { params }) {
         { status: 409 },
       );
     }
+
+    // ── The last free moment ─────────────────────────────────────────────
+    //
+    // A draft is a working document and an overlap in one is worth reporting
+    // and no more — correction runs are real. Approval is the step after which
+    // people get paid, so a period somebody has ALREADY been paid for stops
+    // here. Approving both halves of a duplicated fortnight is not an error
+    // anyone notices until the bank does.
+    //
+    // Only paid and approved runs count. Another draft over the same days is
+    // still just a working document.
+    const others = await db.payRun.findMany({
+      where: {
+        companyId: member.companyId,
+        id: { not: id },
+        status: { in: ["approved", "paid"] },
+      },
+      select: { id: true, periodStart: true, periodEnd: true, status: true },
+    });
+    const clash = overlappingRuns(others, run.periodStart, run.periodEnd);
+    if (clash.length > 0) {
+      return NextResponse.json(
+        {
+          error: describeRunGuards({ overlaps: clash }).join(" "),
+          overlaps: clash.map((r) => ({
+            id: r.id,
+            status: r.status,
+            periodStart: r.periodStart,
+            periodEnd: r.periodEnd,
+          })),
+        },
+        { status: 409 },
+      );
+    }
     await db.payRun.update({
       where: { id },
-      data: { status: "approved", approvedById: member.userId, approvedAt: new Date() },
+      data: {
+        status: "approved",
+        approvedById: member.userId,
+        approvedAt: new Date(),
+      },
     });
     await recordActivity(member, {
       action: "payroll.run_approved",
@@ -134,7 +185,9 @@ export async function PATCH(request, { params }) {
   if (action === "cancel") {
     if (run.status === "paid") {
       return NextResponse.json(
-        { error: "This run is already recorded as paid and can't be cancelled." },
+        {
+          error: "This run is already recorded as paid and can't be cancelled.",
+        },
         { status: 409 },
       );
     }
