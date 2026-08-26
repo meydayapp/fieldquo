@@ -30,6 +30,8 @@
 // It's the right answer for almost every established contractor, and it's the
 // one they won't pick unless it's first and explained. See lib/voice/numbers.js.
 
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -57,7 +59,16 @@ import {
   overallKey,
 } from "@/lib/voice/readinessCopy";
 
-const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
+// ── Which dollars ─────────────────────────────────────────────────────────
+//
+// A bare `$` on a page whose every figure is collected in USD, shown to a
+// company whose every other invoice is CAD. A contractor read "$30.00",
+// pressed buy, and Stripe charged thirty US dollars — around forty Canadian
+// ones. formatAppMoney exists for exactly this: it was written when
+// "$2100.00" reached a client document having silently defaulted to CAD, and
+// this page was not using it.
+const money = (c) =>
+  formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
 function Card({ title, hint, children, step, dataTour }) {
   return (
