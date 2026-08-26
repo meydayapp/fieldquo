@@ -21,6 +21,7 @@ import { greetingNamesAnotherBusiness } from "@/lib/voice/prompt";
 import { diagnoseAndHeal } from "@/lib/voice/diagnose";
 import { getAppOrigin } from "@/lib/appUrl";
 import { activeNumber, heldNumber, publicNumberFor, formatNumber, NUMBER_SOURCES, forwardingCodes } from "@/lib/voice/numbers";
+import { defaultAreaCode, numberChoiceAvailable } from "@/lib/voice/numberSearch";
 import {
   balanceFor,
   minutesFor,
@@ -39,6 +40,13 @@ import {
   rentStatus,
   RENT_GRACE_DAYS,
 } from "@/lib/voice/spendGate";
+// Crew texting draws on the same prepaid balance this screen sells, so its
+// rate card is read from the same constants the crew webhook debits with.
+import {
+  CREW_SMS_CENTS,
+  CREW_MMS_CENTS,
+  SMS_SEGMENT_CHARS,
+} from "@/lib/crew/messaging";
 
 /**
  * @param read  true only on GET. Non-negotiable #3: the platform console views
@@ -87,6 +95,10 @@ export async function GET(request) {
         // language its spoken trade names come out in. Both feed the "what it
         // asks for" note the settings screen prints — see quoteTopicsForCompany.
         email: true, defaultLanguage: true,
+        // Where they are, for the number picker. `phone` is the only one of
+        // these that STATES an area code; city and province narrow a search
+        // without naming one. See lib/voice/numberSearch.js.
+        phone: true, city: true, province: true, country: true,
       },
     }),
     db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
@@ -253,6 +265,18 @@ export async function GET(request) {
       minutes: minutesFor(cents, type),
       low: isLowBalance(cents),
       centsPerMinute: ratePerMinute(type),
+      // The crew inbox spends this same balance and writes into this same
+      // ledger, so the rate has to be legible from here. It was stated only on
+      // the crew-inbox setup panel; the statement below has been showing
+      // "Crew photo received" lines all along, priced from a card the reader
+      // had never seen.
+      crew: {
+        smsCents: CREW_SMS_CENTS,
+        mmsCents: CREW_MMS_CENTS,
+        // The unit, not decoration: Twilio bills SMS per segment and so do we,
+        // so "2¢ a text" is only true up to here.
+        smsSegmentChars: SMS_SEGMENT_CHARS,
+      },
       entries: entries.map((e) => ({
         cents: e.cents,
         kind: e.kind,
@@ -280,6 +304,31 @@ export async function GET(request) {
       graceDays: RENT_GRACE_DAYS,
     },
     sources: NUMBER_SOURCES,
+    // ── Whether a number can be CHOSEN, and where the box should open ──────
+    //
+    // `canChoose` decides whether the picker renders at all. False means there
+    // are no Twilio credentials on this deployment, so there is no inventory to
+    // search — and the only remaining lever, Retell's `area_code`, is
+    // documented US-only and therefore inert for the Canadian companies this
+    // product mostly serves. The screen then says "we'll get you the closest we
+    // can" instead of offering a choice nothing can honour.
+    //
+    // `defaultAreaCode` is null whenever the company has no phone number on
+    // file, and the box opens EMPTY. Deliberate: a plausible-looking default
+    // here is not a cosmetic error, it is a number that gets bought and printed
+    // on a van, and Quebec alone runs eight area codes that no province-level
+    // guess could choose between. `from` travels so the screen can say where
+    // the three digits came from rather than presenting them as a fact of
+    // nature.
+    numberChoice: {
+      canChoose: numberChoiceAvailable(),
+      ...defaultAreaCode(company),
+      // The city and province the fallback search would use when there is no
+      // area code — shown so "numbers near Gatineau" is legible as a search we
+      // ran, not a place we decided they were.
+      locality: company?.city || null,
+      region: company?.province || null,
+    },
     // Whether the two call switches can be turned on, and — when they can't —
     // the sentence to print underneath them. See above.
     readiness,

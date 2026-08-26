@@ -25,6 +25,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { buyNumber, voiceConfigured, RetellError } from "@/lib/voice/retell";
 import { toE164, isSharedTestNumber, isTollFreeNumber, heldNumber } from "@/lib/voice/numbers";
+import { isStillAvailable } from "@/lib/voice/numberSearch";
 import { recordError } from "@/lib/platform/errorLog";
 import { monthlyCentsFor, NUMBER_TYPES, grantFreeTrial } from "@/lib/voice/credits";
 import { reserveSpend, refundReservation, RENT_PERIOD_DAYS } from "@/lib/voice/spendGate";
@@ -194,6 +195,57 @@ export async function POST(request) {
     );
   }
 
+  // ── The number they actually picked ──────────────────────────────────────
+  //
+  // Only for a LOCAL line. Toll-free numbers come out of the 800/833 pools,
+  // have no area to be in, and are not what the picker searches — the picker
+  // lists `availablePhoneNumbers(...).local`, so a toll-free order carrying a
+  // chosen number would be a local number bought at the toll-free price.
+  //
+  // Absent, everything below behaves exactly as it did: Retell picks. That is
+  // the honest fallback for a deployment with no Twilio credentials, where
+  // there is no inventory to choose from and Retell's own `area_code` hint is
+  // documented US-only — inert for the Canadian companies this product mostly
+  // serves. Better to say "we'll get you the closest we can" than to render a
+  // picker whose choice nothing can honour.
+  const chosenE164 = tollFree ? null : toE164(body.phoneNumber);
+
+  // Checked BEFORE the reservation, not after. Everything below this line
+  // moves money: reserveSpend takes a month's rental up front, and a number
+  // sold to somebody else in the seconds since the picker rendered would
+  // otherwise surface as a provider error on the far side of a
+  // reserve-then-refund round trip. Here it costs nothing and can say what
+  // actually happened.
+  //
+  // `null` means Twilio could not answer — an outage, a revoked key. Distinct
+  // from `false`, and deliberately allowed through: refusing every purchase
+  // because a SEARCH is down would take the feature offline over a check that
+  // is an optimisation. Retell is the one that has to succeed, and if the
+  // number really is gone it refuses and the money comes back.
+  // Read once, here, and reused for the purchase below. The country decides
+  // which national inventory is searched AND which one is bought from, and
+  // reading it twice is how those two come to disagree.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { country: true },
+  });
+  const country = company?.country || "CA";
+
+  if (chosenE164) {
+    const stillFree = await isStillAvailable(chosenE164, { country });
+    if (stillFree === false) {
+      return NextResponse.json(
+        {
+          errorKey: "app.setVoice.pick.taken",
+          errorParams: { number: chosenE164 },
+          error: `${chosenE164} was taken while you were choosing. Nothing has been charged — search again and pick another.`,
+          taken: chosenE164,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   // ── The gate. Nothing above this line has cost anything ─────────────────
   //
   // Reserved before the provider is touched, not after: "buy, then charge"
@@ -232,16 +284,10 @@ export async function POST(request) {
   // it. Buying first and attaching later leaves a live number with no agent —
   // for however long that window is, a caller gets silence.
   const provisioned = await provisionAgent(member.companyId, getAppOrigin(request));
-  const [agent, company] = await Promise.all([
-    db.voiceAgent.findUnique({
-      where: { companyId: member.companyId },
-      select: { providerAgentId: true },
-    }),
-    db.company.findUnique({
-      where: { id: member.companyId },
-      select: { country: true },
-    }),
-  ]);
+  const agent = await db.voiceAgent.findUnique({
+    where: { companyId: member.companyId },
+    select: { providerAgentId: true },
+  });
 
   // Whether the number made it into our database. The refund below keys on
   // this, not on "something threw": once the row exists the company HAS the
@@ -255,7 +301,18 @@ export async function POST(request) {
       // pools and have no area to be in — sending one alongside toll_free asks
       // the provider for two contradictory things, and whichever it honours,
       // one of them is a surprise on the invoice.
-      areaCode: tollFree ? undefined : body.areaCode,
+      // ── The number they chose, when they chose one ────────────────────
+      //
+      // `phoneNumber` supersedes `areaCode` inside buyNumber, and the two are
+      // never sent together — see lib/voice/retell.js. The area code is still
+      // forwarded for the no-picker path, and it is worth being clear-eyed
+      // about what it does there: Retell documents `area_code` as "Currently
+      // only supports US area code", so on a Canadian order it is inert. That
+      // is precisely why the picker exists, and why the screen offers no
+      // area-code box when it cannot search — a preference the provider throws
+      // away is a dead control.
+      phoneNumber: chosenE164 || undefined,
+      areaCode: tollFree || chosenE164 ? undefined : body.areaCode,
       // The type the company is being charged for. Sent because it wasn't:
       // toll-free was billed at $9/month and a 5¢/minute surcharge while the
       // request asked for nothing in particular, so Retell returned a local
@@ -264,7 +321,7 @@ export async function POST(request) {
       // Their own country, not the provider's US default. `area_code` is
       // documented US-only, so a Quebec 819 against a US default is not the
       // number it looks like.
-      country: company?.country || "CA",
+      country,
       agentId: agent?.providerAgentId || undefined,
       nickname: `FieldQuo ${member.companyId.slice(-6)}`,
     });
@@ -277,6 +334,29 @@ export async function POST(request) {
     // is worse than the feature not existing.
     if (isSharedTestNumber(e164)) {
       throw new RetellError("That number is reserved for testing.");
+    }
+
+    // ── Showed one number, bought another ────────────────────────────────
+    //
+    // Should not happen: naming `phone_number` asks for exactly one number, and
+    // a provider that cannot supply it should refuse rather than substitute.
+    // But "should refuse" is an assumption about somebody else's code, and the
+    // cost of it being wrong is the exact failure this feature was built to
+    // remove — a contractor who picked 819 and prints 437 on a van.
+    //
+    // NOT released. Releasing is irreversible (the number goes back to the pool
+    // and cannot be got again), it is the one destructive provider call in the
+    // system, and nothing else in this codebase performs it without a human
+    // deciding. So the number is kept and the swap is made LOUD instead: logged
+    // for us, and returned to the browser so the screen can say "you picked X,
+    // you were given Y" in the same breath as it announces success. Silence
+    // here is what turns a provider quirk into a wrong number on a van.
+    if (chosenE164 && e164 !== chosenE164) {
+      await recordError({
+        area: "voice-number",
+        message: `Asked the provider for ${chosenE164} and it returned ${e164}`,
+        companyId: member.companyId,
+      }).catch(() => {});
     }
 
     // ── Bill for what arrived, not for what was asked for ─────────────────
@@ -384,6 +464,11 @@ export async function POST(request) {
       publicNumber: row.publicNumber,
       agentReady: provisioned.ok,
       chargedCents: row.monthlyCents,
+      // Only ever set when the two genuinely differ, so the screen can print an
+      // extra sentence without having to compare anything itself. Null on the
+      // normal path — including when no number was chosen at all — because
+      // "you asked for nothing and got a number" is not a substitution.
+      requestedE164: chosenE164 && chosenE164 !== e164 ? chosenE164 : null,
     });
   } catch (err) {
     // The money came off before the provider was called, so a failure here has
