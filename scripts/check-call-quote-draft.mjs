@@ -43,6 +43,7 @@ import {
   ESTIMATE_BLOCKED,
 } from "@/lib/estimate/callEstimate";
 import { measureForTrade } from "@/lib/estimate/instantQuoteServer";
+import { toolDefinitions } from "@/lib/voice/tools";
 import { APP_MESSAGES } from "../app/i18n/appMessages.js";
 
 let fail = 0;
@@ -727,13 +728,43 @@ section("Structure");
     /TOOL_NAMES = \["save-caller", "availability", "book"\]/.test(tools),
     "",
   );
-  ok(
-    "and none of them prices anything",
-    !/price|quote|discount/i.test(
-      tools.split("export function toolDefinitions")[1].split("export const TOOL_NAMES")[0],
-    ),
-    "a pricing tool appeared on the phone agent",
-  );
+  // Asserted on the tools themselves rather than on the prose around them. The
+  // grep version tripped the day a transfer_call tool was added whose
+  // DESCRIPTION says to put the caller through when they ask for a price —
+  // which is the opposite of a pricing tool, and exactly the behaviour we want.
+  // What actually matters is that every tool the agent can call over HTTP
+  // resolves to a served endpoint, because TOOL_NAMES is the real gate: a
+  // pricing tool would need a route, and there isn't one.
+  {
+    const served = ["save-caller", "availability", "book"];
+    const built = toolDefinitions("https://example.test", {
+      canBook: true,
+      transferTo: "+16135550123",
+    });
+    const httpTools = built.filter((t) => t.type === "custom");
+    ok(
+      "every HTTP tool resolves to a served endpoint",
+      httpTools.every((t) => served.includes(String(t.url).split("/").pop())),
+      httpTools.map((t) => t.url).join(", "),
+    );
+    ok(
+      "no tool takes a price, an amount or a discount as an argument",
+      !httpTools.some((t) =>
+        Object.keys(t.parameters?.properties || {}).some((k) =>
+          /price|amount|cost|total|discount|deposit/i.test(k),
+        ),
+      ),
+      "a money argument appeared on a phone tool",
+    );
+    // The only non-HTTP tool the provider may run on our behalf.
+    ok(
+      "the only provider-run tool is a transfer",
+      built
+        .filter((t) => t.type !== "custom")
+        .every((t) => t.type === "transfer_call"),
+      built.filter((t) => t.type !== "custom").map((t) => t.type).join(", "),
+    );
+  }
 
   // The builder is the only thing that prices a drafted call, and it prices it
   // as a NEW group. A stored group is frozen — landing the draft as a Quote row
