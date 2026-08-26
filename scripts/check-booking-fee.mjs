@@ -425,6 +425,35 @@ console.log("\nEvery new string is translated");
   }
 }
 
+// ── Payouts are not the question ─────────────────────────────────────────
+//
+// A connected account in verification still takes cards; Stripe holds the money
+// until the review clears. If settlement ever started asking whether the
+// CONTRACTOR can be paid out, a client would be charged, get no receipt, and
+// the visit would never reach the calendar — over a document the contractor
+// owes Stripe. Asserted on the source because the tempting "improvement" is one
+// line and reads sensible.
+{
+  // Comments STRIPPED before testing. The naive grep failed the moment the file
+  // explained in prose why it must not do this — the same trap that made
+  // check-call-quote-draft reject a transfer tool whose description said "when
+  // they ask for a price". Assert on code, never on the words around it.
+  const codeOf = (f) =>
+    fs
+      .readFileSync(path.join(ROOT, f), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+  const forbidden = /payouts_enabled|payoutsEnabled|charges_enabled|chargesEnabled/;
+  for (const f of [
+    "lib/stripe/settleCheckoutSession.js",
+    "lib/booking/settleBookingFee.js",
+    "lib/booking/reconcileBookingFee.js",
+  ]) {
+    ok(`${f.split("/").pop()} never gates on payout or charge status`,
+       !forbidden.test(codeOf(f)));
+  }
+}
+
 console.log(`\n${checks - failures}/${checks} checks passed`);
 if (failures) {
   console.error(`${failures} FAILED`);

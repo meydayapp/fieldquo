@@ -187,6 +187,16 @@ function PaymentsPageScreen() {
   // about money on the strength of a status call that hasn't returned.
   const payoutsBlocked = status?.connected === true && status?.payoutsEnabled === false;
 
+  // Submitted and waiting on Stripe, versus waiting on the contractor. The
+  // onboarding block above already draws this line and says why: prompting
+  // someone to "provide more information" while Stripe reviews what they just
+  // sent is how the same document gets uploaded four times. The payout banner
+  // was making exactly that mistake — it told a contractor whose account had
+  // gone INTO review to go and finish what Stripe asks for, when the answer is
+  // that there is nothing to do and it clears in a day or three.
+  const payoutsUnderReview =
+    payoutsBlocked && requirements.length === 0 && status?.pendingVerification;
+
   const notStarted = !hasAccount;
   const inProgress = hasAccount && !chargesEnabled && !awaitingReview;
   const active = chargesEnabled;
@@ -241,16 +251,20 @@ function PaymentsPageScreen() {
               {payoutsBlocked && (
                 <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                   <p className="font-semibold">
-                    {t("app.setPayments.payoutsHeld")}
+                    {payoutsUnderReview
+                      ? t("app.setPayments.payoutsReviewing")
+                      : t("app.setPayments.payoutsHeld")}
                   </p>
                   <p className="mt-0.5">
-                    {t("app.setPayments.payoutsHeldDesc")}
+                    {payoutsUnderReview
+                      ? t("app.setPayments.payoutsReviewingDesc")
+                      : t("app.setPayments.payoutsHeldDesc")}
                   </p>
                   {/* Stripe's own machine reason, humanised the same way the
                       requirement keys above it are. More specific than anything
                       we could infer, and absent rather than guessed at when
                       Stripe gives none. */}
-                  {status?.disabledReason && (
+                  {!payoutsUnderReview && status?.disabledReason && (
                     <p className="mt-1 font-mono text-xs">{status.disabledReason}</p>
                   )}
                 </div>
