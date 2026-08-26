@@ -24,6 +24,7 @@ import {
   buildQuoteCostingRow,
   shouldWriteQuoteCosting,
   mayCost,
+  requireCost,
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 
@@ -185,6 +186,17 @@ export async function PATCH(request, { params }) {
       clientPhotos: normaliseMediaList(clientPhotos),
     }),
   };
+
+  try {
+    // A costing block from someone without the toggle used to be dropped right
+    // below and the save answered 200 — the panel's contents gone, nothing
+    // said. See requireCost: silence stays silence, an actual block is
+    // refused.
+    if (costing !== undefined) requireCost(full);
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   // ── What happens to the cost estimate ────────────────────────────────────
   //

@@ -34,6 +34,13 @@ import {
   computeInstantEstimate,
 } from "@/lib/estimate/instantEstimate";
 import { publicEstimate, gatedMessage, visibilityFor } from "@/lib/estimate/visibility";
+import {
+  instantRateFields,
+  groupRateFields,
+  rateFieldPatch,
+  readRate,
+} from "@/lib/estimate/instantRateFields";
+import { PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
 
 const ROOT = join(import.meta.dirname, "..");
 const FLOW = join(ROOT, "app/instant-quote/[companySlug]/InstantQuoteFlow.js");
@@ -388,6 +395,186 @@ direct("lawn_mowing", { tiers: savedTiers, rangeBandPct: 0.12 }, { areaSqft: 400
 ok("pricing a lawn doesn't reorder the company's saved bands", savedTiers[0].maxSqft === 10000, savedTiers);
 ok("unknown trade -> a verdict, not a crash", instantQuoteReadiness("banana", {}).ok === false);
 ok("materialRateKey is shared, not re-derived", materialRateKey("roofing") === "ratePerSquare" && materialRateKey("stair") === "ratePerTread" && materialRateKey("flooring") === "ratePerSqft");
+
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ── A rate the owner is charged by must be a rate the owner can SEE ─────────
+//
+// The screen decided which unit-price boxes to draw with two string
+// comparisons against "cabinet_refacing". Cabinet refinishing was wired months
+// later — priced per door out of its own book, `hasMaterials: false` because it
+// recoats the doors already there — and matched neither. It enabled, it priced,
+// and the owner could never see or change the $150 a door it quoted. Edit the
+// price book in Settings › Rates to $175 and the instant quote stays at $150
+// for ever, invisibly. That is the drift the seed comment warns about.
+//
+// So: the block is derived from declarations, and these assertions are about
+// what the derivation must and must NOT produce.
+console.log("\nThe unit-rate editors are declared, not hardcoded per trade");
+
+const refinishFields = instantRateFields("cabinet_refinishing", INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing);
+const refaceFields = instantRateFields("cabinet_refacing", INSTANT_ESTIMATE_DEFAULTS.cabinet_refacing);
+const paths = (fields) => fields.map((f) => f.path);
+
+ok("cabinet_refinishing gets a per-door editor", paths(refinishFields).includes("perDoor"), paths(refinishFields));
+ok("cabinet_refacing still gets one too", paths(refaceFields).includes("perDoor"), paths(refaceFields));
+ok("...and refacing keeps per-drawer and the box veneer it always had",
+  ["perDoor", "perDrawer", "perBoxLinearFt"].every((p) => paths(refaceFields).includes(p)), paths(refaceFields));
+
+// perBoxLinearFt is refacing's veneer on exposed cabinet-box sides.
+// estimateCabinetRefinishing ignores the key entirely — a box that saves and is
+// never read is the dead control this codebase is swept for.
+ok("refinishing gets NO per-box-linear-ft box", !paths(refinishFields).includes("perBoxLinearFt"), paths(refinishFields));
+
+// The other direction: refacing's book carries the add-on and complexity rates
+// refinishing prices off, but estimateCabinetRefacing reads neither.
+ok("...and refacing gets no add-on boxes its estimator never reads",
+  !paths(refaceFields).some((p) => p.startsWith("addOns.") || p.startsWith("complexityUpchargePerUnit.")), paths(refaceFields));
+
+ok("refinishing gets both complexity uplifts",
+  ["complexityUpchargePerUnit.moderate", "complexityUpchargePerUnit.high"].every((p) => paths(refinishFields).includes(p)));
+ok("...and all seven upgrade rates", paths(refinishFields).filter((p) => p.startsWith("addOns.")).length === 7, paths(refinishFields));
+
+// Every rate the estimator can charge for has a box. The reverse of the dead
+// control: a live rate with no editor is the bug this whole section is about.
+const seedRefinish = INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing;
+const wantedPaths = [
+  ...Object.keys(seedRefinish.addOns).map((k) => `addOns.${k}`),
+  // `standard` is zero by definition, so the book declares no field for it.
+  ...Object.keys(seedRefinish.complexityUpchargePerUnit)
+    .filter((k) => k !== "standard")
+    .map((k) => `complexityUpchargePerUnit.${k}`),
+];
+ok("every refinishing rate the estimator prices off has an editor",
+  wantedPaths.every((p) => paths(refinishFields).includes(p)),
+  wantedPaths.filter((p) => !paths(refinishFields).includes(p)));
+
+// Supplier cost per square foot, average door area, freight. Margin figures —
+// this screen edits what a HOMEOWNER is quoted, and they are filtered on the
+// server so they never reach the browser at all.
+const internalPaths = new Set(
+  Object.values(PRICE_BOOK_FIELDS).flat().filter((f) => f.internal).map((f) => f.path),
+);
+ok("some internal fields exist to be excluded (else this proves nothing)", internalPaths.size > 0, internalPaths.size);
+for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
+  const leaked = paths(instantRateFields(trade, INSTANT_ESTIMATE_DEFAULTS[trade])).filter((p) => internalPaths.has(p));
+  if (leaked.length) { fail++; console.log(`  ✗ ${trade} leaks internal cost fields to the pricing screen: ${leaked}`); }
+}
+ok("no internal:true field reaches the settings screen for any trade", true);
+
+// Trades that price off a materials list or a tier table have their own
+// editors; they must not sprout a second, contradictory set from the book.
+for (const trade of Object.keys(INSTANT_ESTIMATE_TRADES)) {
+  if (trade.startsWith("cabinet_")) continue;
+  const got = paths(instantRateFields(trade, INSTANT_ESTIMATE_DEFAULTS[trade]));
+  if (got.length) { fail++; console.log(`  ✗ ${trade} grew unit-rate boxes it doesn't price off: ${got}`); }
+}
+ok("no other trade grew a unit-rate block", true);
+
+ok("the add-ons are grouped, not eleven undifferentiated boxes",
+  groupRateFields(refinishFields).map((b) => b.key).join("|") === "|complexityUpchargePerUnit|addOns",
+  groupRateFields(refinishFields).map((b) => b.key));
+ok("...and every field carries a readable unit", refinishFields.every((f) => typeof f.suffix === "string" && f.suffix.length > 0), refinishFields.map((f) => f.suffix));
+ok("...with the book's leading $ dropped, since the input already prefixes one", refinishFields.every((f) => !f.suffix.startsWith("$")), refinishFields.map((f) => f.suffix));
+ok("...and a label", refinishFields.every((f) => typeof f.label === "string" && f.label.length > 0));
+
+// ── Absent is absent, not zero ──────────────────────────────────────────────
+console.log("\n  — an unset rate reads as absent, never as a confident zero —");
+ok("a config that has never been saved yields undefined, not 0", readRate({}, "perDoor") === undefined);
+ok("...and so does a half-filled one", readRate({ addOns: {} }, "addOns.softCloseHingesPerDoor") === undefined);
+ok("...while a real rate comes back intact", readRate({ addOns: { twoToneFlat: 600 } }, "addOns.twoToneFlat") === 600);
+ok("a saved row missing a rate still gets the box", paths(instantRateFields("cabinet_refinishing", INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing)).includes("perDrawer"));
+
+// ── The stored JSON is hostile ──────────────────────────────────────────────
+console.log("\n  — a crafted __proto__ path resolves to nothing and writes nothing —");
+ok("__proto__ doesn't resolve", readRate({}, "__proto__") === undefined);
+ok("__proto__.x doesn't resolve", readRate({}, "__proto__.polluted") === undefined);
+ok("constructor doesn't resolve", readRate({}, "constructor") === undefined);
+ok("constructor.prototype doesn't resolve", readRate({}, "constructor.prototype.polluted") === undefined);
+ok("toString doesn't resolve", readRate({}, "toString") === undefined);
+ok("a null config is a verdict, not a throw", readRate(null, "perDoor") === undefined && readRate(undefined, "a.b") === undefined);
+ok("an array in the path doesn't resolve by name", readRate({ materials: [{ key: "a" }] }, "materials.key") === undefined);
+
+ok("rateFieldPatch refuses a __proto__ path outright", rateFieldPatch({}, "__proto__.polluted", 1) === null);
+ok("...and a constructor.prototype path", rateFieldPatch({}, "constructor.prototype.polluted", 1) === null);
+rateFieldPatch({}, "__proto__.polluted", 1);
+rateFieldPatch({}, "a.__proto__.polluted", 1);
+ok("...and nothing it refused reached Object.prototype", {}.polluted === undefined);
+
+// ── The shallow-merge trap ──────────────────────────────────────────────────
+//
+// The form merges with `{ ...config, ...next }`. Posting
+// `{ addOns: { handleHolesPerDoor: 12 } }` would silently delete the other six
+// upgrade rates the company had set — a destructive operation labelled as
+// editing one box.
+console.log("\n  — editing one nested rate doesn't blow away its siblings —");
+const savedCfg = {
+  perDoor: 150,
+  addOns: { handleHolesPerDoor: 12, softCloseHingesPerDoor: 35, twoToneFlat: 600 },
+  complexityUpchargePerUnit: { standard: 0, moderate: 20, high: 40 },
+};
+const merged = { ...savedCfg, ...rateFieldPatch(savedCfg, "addOns.softCloseHingesPerDoor", 44) };
+ok("the edited rate changed", merged.addOns.softCloseHingesPerDoor === 44, merged.addOns);
+ok("...and both siblings survived", merged.addOns.handleHolesPerDoor === 12 && merged.addOns.twoToneFlat === 600, merged.addOns);
+ok("...and the neighbouring branch is untouched", merged.complexityUpchargePerUnit.moderate === 20);
+ok("...and the top-level rate is untouched", merged.perDoor === 150);
+ok("the company's stored object was not mutated in place", savedCfg.addOns.softCloseHingesPerDoor === 35, savedCfg.addOns);
+const cleared = { ...savedCfg, ...rateFieldPatch(savedCfg, "addOns.twoToneFlat", "") };
+ok("clearing a box stores the empty string, not a silent 0", cleared.addOns.twoToneFlat === "" && cleared.addOns.handleHolesPerDoor === 12);
+const grown = { ...{ perDoor: 150 }, ...rateFieldPatch({ perDoor: 150 }, "addOns.twoTonePerUnit", 15) };
+ok("a branch that doesn't exist yet is created rather than thrown on", grown.addOns.twoTonePerUnit === 15 && grown.perDoor === 150, grown);
+
+// ── The box actually moves the price ────────────────────────────────────────
+//
+// Everything above is about which controls render. This is the rule that
+// matters: the control must do the thing.
+console.log("\n  — and the edited rate is the rate a homeowner is quoted —");
+const before = computeInstantEstimate({
+  trade: "cabinet_refinishing",
+  measurements: { doorCount: 20, drawerCount: 6 },
+  config: INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing,
+});
+const raised = { ...INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing, ...rateFieldPatch(INSTANT_ESTIMATE_DEFAULTS.cabinet_refinishing, "perDoor", 175) };
+const after = computeInstantEstimate({
+  trade: "cabinet_refinishing",
+  measurements: { doorCount: 20, drawerCount: 6 },
+  config: raised,
+});
+ok("raising per door through the form raises the estimate", after.point > before.point, { before: before.point, after: after.point });
+ok("...by exactly 20 doors × $25", after.point - before.point === 500, after.point - before.point);
+const withHinges = { ...raised, ...rateFieldPatch(raised, "addOns.softCloseHingesPerDoor", 50) };
+const hinged = computeInstantEstimate({
+  trade: "cabinet_refinishing",
+  measurements: { doorCount: 20, drawerCount: 6, addOns: ["softCloseHinges"] },
+  config: withHinges,
+});
+ok("...and the upgrade rate the owner typed is what the upgrade costs", hinged.point - after.point === 1000, hinged.point - after.point);
+
+// ── The screen no longer decides by trade NAME ──────────────────────────────
+console.log("\n  — nothing on the screen is keyed on a trade's name any more —");
+// Comments stripped first: the block that replaced the string comparison
+// quotes the old condition to explain itself, and that history is worth
+// keeping. What must be gone is the comparison as CODE.
+const settingsPageCode = settingsPageSrc
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .replace(/^\s*\/\/.*$/gm, "");
+ok("the settings screen holds no cabinet trade-name comparison",
+  !/[!=]==\s*"cabinet_\w+"/.test(settingsPageCode) && !/"cabinet_\w+"\s*[!=]==/.test(settingsPageCode),
+  settingsPageCode.match(/.{0,40}cabinet_\w+.{0,40}/g));
+ok("...it renders whatever fields the route declares", /trade\.rateFields/.test(settingsPageSrc));
+ok("...and gates the materials editor on hasMaterialRates", /trade\.hasMaterialRates/.test(settingsPageSrc));
+ok("...reading nested rates through the own-property helper", /readRate\(config, field\.path\)/.test(settingsPageSrc));
+ok("the route derives the fields rather than the browser", /instantRateFields\(trade, seed\)/.test(settingsSrc));
+
+// hasMaterialRates must show the materials editor to EXACTLY the trades the old
+// `hasMaterials && trade !== "cabinet_refacing"` did — this was a refactor of
+// how the question is asked, never of the answer.
+for (const [trade, spec] of Object.entries(INSTANT_ESTIMATE_TRADES)) {
+  const wasShown = spec.hasMaterials && trade !== "cabinet_refacing";
+  const isShown = Array.isArray(INSTANT_ESTIMATE_DEFAULTS[trade]?.materials);
+  if (wasShown !== isShown) { fail++; console.log(`  ✗ ${trade}: materials editor visibility changed (was ${wasShown}, now ${isShown})`); }
+}
+ok("the declarative rule shows the materials editor to exactly the old set", true);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : "FAILURES"} — ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

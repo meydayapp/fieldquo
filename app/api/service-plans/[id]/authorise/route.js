@@ -164,9 +164,16 @@ export async function DELETE(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // The POST above asks for the `payments` toggle and this asked only for the
+  // invoices level, so someone who could not SET UP a mandate could still tear
+  // one down — and the plan silently drops to invoice collection, so the next
+  // month simply doesn't get taken. A gate on the create and not the destroy
+  // is the half-fix this codebase keeps finding; both halves are the same
+  // authority over the client's stored card.
   try {
     const full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "remove a stored payment method");
+    requireToggle(full, "payments", "remove a stored payment method");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });

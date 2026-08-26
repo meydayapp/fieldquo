@@ -18,6 +18,7 @@ import {
   buildQuoteCostingRow,
   shouldWriteQuoteCosting,
   mayCost,
+  requireCost,
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 
@@ -141,6 +142,17 @@ export async function POST(request) {
     }),
   ]);
   const quoteNumber = getNextQuoteNumber(lastQuote?.quoteNumber);
+
+  try {
+    // A costing block from someone without the toggle used to be dropped right
+    // below and the save answered 200 — the panel's contents gone, nothing
+    // said. See requireCost: silence stays silence, an actual block is
+    // refused.
+    if (costing !== undefined) requireCost(full);
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   // Costed against the pre-tax subtotal minus any discount — the money the
   // work has to come out of. Tax is the government's, not the job's.

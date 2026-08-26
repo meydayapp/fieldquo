@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { isInternalPath } from "@/lib/appUrl";
 
 // Only ever an internal path. Guards against `?next=//evil.com`, `?next=/\evil.com`
@@ -17,6 +18,7 @@ function safeNext(raw) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -84,9 +86,20 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-foreground">
-              Password
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">
+                Password
+              </label>
+              {/* The only route into the reset flow. Without a link here the
+                  three pages behind it are reachable only by typing the URL,
+                  which is the same as not shipping them. */}
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-muted-foreground underline"
+              >
+                {t("app.auth.forgotLink")}
+              </Link>
+            </div>
             <input
               required
               type="password"

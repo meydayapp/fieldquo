@@ -202,7 +202,16 @@ export default function JobMaterials({ jobId }) {
                         </span>
                       </span>
                       <span className="shrink-0 text-xs tabular-nums">
-                        {bought && m.actualCost != null ? (
+                        {/* Costs stripped by the server for a member without
+                            the jobCosting toggle. Deliberately NOT the "no
+                            price set" branch below: that one is a prompt to go
+                            and fill the price in, and telling a crew member to
+                            price a line they are not allowed to see is the
+                            absence-vs-restriction confusion in its most
+                            actively misleading form. */}
+                        {m.costHidden ? (
+                          <span className="text-muted-foreground">—</span>
+                        ) : bought && m.actualCost != null ? (
                           <span className="text-foreground">
                             {money(m.actualCost)}
                           </span>
@@ -229,6 +238,12 @@ export default function JobMaterials({ jobId }) {
                         than before it. Skipping it still ticks the line. */}
                     {open && !bought && (
                       <div className="mt-2 flex flex-wrap items-end gap-2">
+                        {/* PATCH refuses a posted actualCost without the
+                            jobCosting toggle (403, not a silent drop), so
+                            rendering the box would be a field that throws away
+                            what you typed. Ticking the line still works, which
+                            is the part of this that is crew work. */}
+                        {!m.costHidden && (
                         <label className="text-xs text-muted-foreground">
                           What it cost
                           <input
@@ -246,6 +261,7 @@ export default function JobMaterials({ jobId }) {
                             className={`${inputClass} mt-0.5 w-36`}
                           />
                         </label>
+                        )}
                         <label className="text-xs text-muted-foreground">
                           Supplier
                           <input

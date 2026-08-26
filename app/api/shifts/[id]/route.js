@@ -168,15 +168,24 @@ export async function DELETE(request, { params }) {
   // Manager whose schedule was narrowed to their own still edited and
   // published everyone's week.
   //
-  // edit_all is the level whose own label is "Edit everyone's schedule" — the
-  // same one the appointments routes ask about, because a shift and a visit
-  // are the same question wearing different words.
+  // ── …and DELETING asks the level above that ─────────────────────────────
+  //
+  // This handler was a copy of the PATCH gate, so it stopped at edit_all — the
+  // level whose own label is "Edit everyone's schedule". The Dispatcher preset
+  // is exactly edit_all and the Manager preset is edit_delete_all, so deleting
+  // a shift was the one schedule verb where the two tiers came out identical,
+  // and the dial the Manage Team editor offers withheld nothing.
+  //
+  // DELETE /api/appointments/[id] already asks for edit_delete_all, and its
+  // comment says why: a deleted slot takes the agreed time with it and leaves
+  // nothing behind to say it existed. A shift and a visit are the same
+  // question wearing different words, so they get the same answer.
   const full = await loadEnforceableMember(db, member.id);
-  if (!hasLevel(full, "schedule", "edit_all")) {
+  if (!hasLevel(full, "schedule", "edit_delete_all")) {
     return NextResponse.json(
       {
         error:
-          "You can only change your own schedule. Ask whoever runs the rota to change this.",
+          "Only someone who can delete from everyone's schedule can remove a shift. Ask whoever runs the rota.",
       },
       { status: 403 },
     );

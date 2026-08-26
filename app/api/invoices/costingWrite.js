@@ -100,3 +100,28 @@ export function isEmptyCosting(row) {
 export function mayCost(member) {
   return hasToggle(member, "jobCosting");
 }
+
+/**
+ * Refuse a costing block the caller may not write.
+ *
+ * mayCost alone made the four write routes DROP the block and answer 200: the
+ * quote or invoice saved, the crew and hours vanished, and the response said
+ * everything was fine. That is the dead-control shape from the other side — a
+ * request that appears to work and doesn't — and it is worse than a refusal
+ * because the silence is indistinguishable from success.
+ *
+ * Only called when `costing` was actually present in the body. Silence stays
+ * silence: a status-only PATCH from a Dispatcher must not start failing
+ * because they lack a toggle for a panel they never opened.
+ *
+ * Throws the same 403-shaped error requireToggle throws, so the routes catch
+ * it through permissionErrorResponse like every other permission failure.
+ */
+export function requireCost(member) {
+  if (mayCost(member)) return;
+  const err = new Error(
+    "You don't have access to job costing, so the cost panel wasn't saved.",
+  );
+  err.status = 403;
+  throw err;
+}

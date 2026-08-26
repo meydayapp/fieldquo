@@ -26,6 +26,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { getCurrentMember } from "@/lib/currentMember";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
 // Stripe's requirement keys are machine names — "company.verification.document"
 // means nothing to a contractor. Only the ones that actually come up for
@@ -64,6 +65,29 @@ export async function GET(request) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // The read half of the same door. This returns the live Stripe account id
+  // and the outstanding verification requirements — "a director or owner:
+  // identity document", the company's own onboarding state — to anyone with a
+  // session, while the only page that asks for it (/app/settings/payments) is
+  // hidden behind the `billing` capability. A gate on the writes and an open
+  // read is how three of these routes looked before this sweep.
+  //
+  // Not narrowed further than its one caller: this is the same set the
+  // settings row is already drawn for, so nobody who could see this loses it.
+  // Support reads it too — non-negotiable #3 is "view everything, edit
+  // nothing", and "why can't this company take payments" is close to the most
+  // common thing a support session is opened to answer. Refusing the one
+  // diagnostic that holds the answer makes the console worse at its job while
+  // protecting nothing: middleware already rejects every non-read method under
+  // an impersonation cookie, so this cannot become a write.
+  //
+  // On the READ only. connect, disconnect, refresh and login-link keep the
+  // plain billing gate — a support session must never be able to sever a
+  // company's payment processing or walk into their Stripe dashboard.
+  if (!member.impersonation && !isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
+  }
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },

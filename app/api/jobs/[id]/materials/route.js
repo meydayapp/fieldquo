@@ -12,7 +12,9 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  hasToggle,
 } from "@/lib/permissions/enforce";
+import { requireCost } from "@/app/api/invoices/costingWrite";
 import {
   regenerateSourcingList,
   recordMaterialPrice,
@@ -42,13 +44,51 @@ function shape(m) {
   };
 }
 
-async function listFor(jobId) {
+// ── What the sourcing list is, and what it is not ─────────────────────────
+//
+// The list itself is crew work: what to buy, how many, and ticking it off. It
+// is deliberately readable at jobs-level, because a painter standing in a trade
+// counter needs it and hiding it would remove their job.
+//
+// The two COST columns are not that. `estUnitCost` is what the price book says
+// a thing costs the company and `actualCost` is what they actually paid — the
+// inputs to "did this job make money", which is exactly what the jobCosting
+// toggle exists to withhold. GET /api/jobs/[id]/costing has answered 403 to
+// anyone without it since it was written; this route served the same figures,
+// line by line, with no check of any kind on the read at all.
+//
+// So the rows are shaped, not refused, and the removal is declared — a null
+// cost already means "nobody has priced this line" here (sourcingProgress
+// counts them as `unpriced`), so blanking would have been a lie the panel
+// actively reports on.
+function stripCosts(shaped) {
+  return shaped.map((m) => {
+    const out = { ...m };
+    delete out.estUnitCost;
+    delete out.actualCost;
+    out.costHidden = true;
+    return out;
+  });
+}
+
+async function listFor(jobId, member) {
   const materials = await db.jobMaterial.findMany({
     where: { jobId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   const shaped = materials.map(shape);
-  return { materials: shaped, progress: sourcingProgress(shaped) };
+
+  // Progress is computed from the PRICED rows and then trimmed, so the counts
+  // a cost-hidden caller sees (how many lines, how many bought) stay true.
+  // Only the two money totals go.
+  const progress = sourcingProgress(shaped);
+  if (hasToggle(member, "jobCosting")) return { materials: shaped, progress };
+
+  const { estimatedTotal, actualTotal, ...countsOnly } = progress;
+  return {
+    materials: stripCosts(shaped),
+    progress: { ...countsOnly, costHidden: true },
+  };
 }
 
 /** The job must belong to the caller's company. Checked on every verb. */
@@ -66,7 +106,8 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!(await ownJob(id, member.companyId)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(await listFor(id));
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(await listFor(id, full));
 }
 
 // Rebuild from the quote, or add one line by hand.
@@ -76,8 +117,10 @@ export async function POST(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Hoisted: the response is shaped with the same member the gate used.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "jobs", "view_create_edit", "change a job's materials");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -97,7 +140,7 @@ export async function POST(request, { params }) {
         { status: 400 },
       );
     await taskForJobMaterials(id);
-    return NextResponse.json({ ...(await listFor(id)), ...result });
+    return NextResponse.json({ ...(await listFor(id, full)), ...result });
   }
 
   const name = String(body.name || "")
@@ -105,6 +148,19 @@ export async function POST(request, { params }) {
     .slice(0, 200);
   if (!name)
     return NextResponse.json({ error: "A name is required" }, { status: 400 });
+
+  // A posted cost from someone who may not see costs is refused, not dropped.
+  // Dropping it would answer 201 with the line created and its price silently
+  // missing — the same "saved, and quietly didn't" shape requireCost was
+  // written for on the quote and invoice panels. Silence stays silence: adding
+  // "gas for the compactor" with no price is ordinary crew work and still
+  // works without the toggle.
+  try {
+    if (body.estUnitCost != null) requireCost(full);
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
 
   const last = await db.jobMaterial.findFirst({
     where: { jobId: id },
@@ -129,7 +185,7 @@ export async function POST(request, { params }) {
     },
   });
   await taskForJobMaterials(id);
-  return NextResponse.json(await listFor(id), { status: 201 });
+  return NextResponse.json(await listFor(id, full), { status: 201 });
 }
 
 // Tick one line, or untick it.
@@ -139,8 +195,9 @@ export async function PATCH(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "jobs", "view_create_edit", "change a job's materials");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -159,6 +216,20 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const purchased = body.purchased !== false;
+
+  // Same rule as POST, and it matters more here: `actualCost` on the tick
+  // transition is written into the COMPANY's price history by
+  // recordMaterialPrice below, so a silently-dropped receipt would also
+  // silently fail to teach the price book — a control that appears to work
+  // twice over. Ticking a line off with no price still works without the
+  // toggle, which is what a crew member actually does.
+  try {
+    if (body.actualCost != null) requireCost(full);
+  } catch (err) {
+    const { body: errBody, status } = permissionErrorResponse(err);
+    return NextResponse.json(errBody, { status });
+  }
+
   const actualCost = body.actualCost == null ? null : num(body.actualCost);
 
   const updated = await db.jobMaterial.update({
@@ -195,7 +266,7 @@ export async function PATCH(request, { params }) {
   }
 
   await taskForJobMaterials(id);
-  return NextResponse.json(await listFor(id));
+  return NextResponse.json(await listFor(id, full));
 }
 
 export async function DELETE(request, { params }) {
@@ -204,8 +275,9 @@ export async function DELETE(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "jobs", "view_create_edit", "change a job's materials");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -221,5 +293,5 @@ export async function DELETE(request, { params }) {
 
   await db.jobMaterial.delete({ where: { id: line.id } });
   await taskForJobMaterials(id);
-  return NextResponse.json(await listFor(id));
+  return NextResponse.json(await listFor(id, full));
 }

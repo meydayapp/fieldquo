@@ -5,7 +5,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission } from "@/lib/permissions";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import {
+  loadEnforceableMember,
+  hasLevel,
+  redactClient,
+} from "@/lib/permissions/enforce";
 import { ownScheduleFilter } from "@/lib/schedule/teamScope";
 import {
   VISIT_INCLUDE,
@@ -105,8 +109,27 @@ export async function GET(request) {
     orderBy: { startTime: "asc" },
   });
 
+  // ── The calendar is the widest door onto the client list ────────────────
+  //
+  // `include: { client: true }` above is the whole Client row, and this feed is
+  // the one endpoint every employee's app hits on load. So an employee confined
+  // to clientsProperties "name_address_only" received every customer's email,
+  // phone, private notes and portalToken here — the same exposure that was
+  // closed on GET /api/clients and then again on the client DETAIL route, still
+  // standing open on the busiest route of the three.
+  //
+  // /api/appointments/[id] has redacted since that sweep. This is its sibling,
+  // and the sibling is always the one that gets missed.
+  //
+  // The visit and booking entries need nothing: VISIT_INCLUDE already narrows
+  // to { id, name, address } (which is exactly what name_address_only allows),
+  // and a booking's client is synthesised from the booking's own columns.
   return NextResponse.json([
-    ...appointments.map((a) => ({ ...a, kind: "appointment" })),
+    ...appointments.map((a) => ({
+      ...a,
+      kind: "appointment",
+      client: redactClient(full, a.client),
+    })),
     ...visits.map(toCalendarEntry).filter(Boolean),
     ...bookings.map(bookingToCalendarEntry).filter(Boolean),
   ].sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)));
@@ -125,6 +148,11 @@ export async function POST(request) {
       { status: err.status || 403 },
     );
   }
+
+  // Hoisted: the create-a-client branch below needs the grid, and so does the
+  // response, which carries the whole Client row back. Loading it twice would
+  // be two round trips to learn one thing.
+  const full = await loadEnforceableMember(db, member.id);
 
   const body = await request.json();
   const {
@@ -241,7 +269,6 @@ export async function POST(request) {
     // The same level is required here as on the front door. Booking an
     // appointment for an EXISTING client is untouched; only conjuring a new
     // client record needs the permission that creating one needs.
-    const full = await loadEnforceableMember(db, member.id);
     if (!hasLevel(full, "clientsProperties", "full_edit")) {
       return NextResponse.json(
         {
@@ -278,5 +305,12 @@ export async function POST(request) {
     include: { client: true, assignedTo: { select: { id: true, name: true } } },
   });
 
-  return NextResponse.json(appointment, { status: 201 });
+  // Redacted like the list and like /api/appointments/[id]. Booking an
+  // appointment against an existing client is allowed at name_address_only —
+  // reading that client's phone number back out of the 201 is not, and "you
+  // created it so you may see it" is not true here: the client already existed.
+  return NextResponse.json(
+    { ...appointment, client: redactClient(full, appointment.client) },
+    { status: 201 },
+  );
 }

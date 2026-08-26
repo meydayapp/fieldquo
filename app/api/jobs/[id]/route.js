@@ -8,6 +8,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  redactClient,
 } from "@/lib/permissions/enforce";
 import {
   taskForCompletedJob,
@@ -35,7 +36,19 @@ export async function GET(request, { params }) {
   });
 
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(job);
+
+  // ── The job is a crew member's door onto the client record ──────────────
+  //
+  // Jobs are `view_only` for both Worker presets and the job page is where a
+  // painter spends their day, so this is the client detail they actually
+  // reach — and `include: { client: true }` handed over email, phone, private
+  // notes and portalToken to someone the owner had set to name and address.
+  //
+  // GET /api/jobs (the list) selects { id, name } and was never exposed. The
+  // detail route is the one that had no `select` at all, which is the same
+  // shape as the /api/clients leak this redactor was written for.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json({ ...job, client: redactClient(full, job.client) });
 }
 
 export async function PATCH(request, { params }) {
@@ -44,8 +57,12 @@ export async function PATCH(request, { params }) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Hoisted out of the try because the response below is redacted with it too —
+  // re-querying the member for that would be a second round trip to learn
+  // something already known. Same shape as PATCH /api/quotes/[id].
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "jobs", "view_create_edit", "edit jobs");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -132,7 +149,13 @@ export async function PATCH(request, { params }) {
     });
   }
 
-  return NextResponse.json(updated);
+  // Same redaction as the GET above. An unredacted PATCH reply hands back
+  // every field the GET just hid — renaming a job would have restored the
+  // client's phone number to the browser.
+  return NextResponse.json({
+    ...updated,
+    client: redactClient(full, updated.client),
+  });
 }
 
 export async function DELETE(request, { params }) {

@@ -19,6 +19,7 @@ import {
   INSTANT_ESTIMATE_DEFAULTS,
   INSTANT_ESTIMATE_TRADES,
 } from "@/lib/estimate/instantEstimate";
+import { instantRateFields } from "@/lib/estimate/instantRateFields";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import {
@@ -58,7 +59,8 @@ export async function GET(request) {
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
     const row = byTrade.get(trade);
-    const config = row?.config ?? INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
+    const seed = INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
+    const config = row?.config ?? seed ?? null;
     // Which of the company's own services this estimator prices. Plural: one
     // `painting` estimator serves interior and exterior painting both.
     const categoryKeys = categoryKeysForInstantTrade(trade);
@@ -66,7 +68,23 @@ export async function GET(request) {
       trade,
       label: tradeLabel(trade),
       measure: spec.measure, // roof_address | lawn_polygon | manual_area | manual_units
-      hasMaterials: spec.hasMaterials,
+      // ── Two different questions the screen used to answer by trade NAME ───
+      //
+      // `spec.hasMaterials` says the public form asks the homeowner to pick a
+      // material. It does NOT say the company edits a list of material sell
+      // rates: refacing declares it and prices off a per-door rate times a
+      // material multiplier, with no `materials[]` rows to iterate. The screen
+      // encoded that gap as `trade !== "cabinet_refacing"`, which is a fact
+      // about one trade written where a rule belongs. The seed already carries
+      // the answer, and reproduces today's set exactly — so this replaces
+      // `hasMaterials` in the payload rather than joining it. Sending both would
+      // leave a field nothing on the screen reads.
+      hasMaterialRates: Array.isArray(seed?.materials),
+      // The unit rates this trade prices off, resolved from its price book and
+      // its seed — see lib/estimate/instantRateFields.js. Filtered HERE rather
+      // than in the browser so a supplier cost flagged `internal` never leaves
+      // the server for a screen that edits client-facing prices.
+      rateFields: instantRateFields(trade, seed),
       enabled: row?.enabled ?? false,
       // Is this one of their trades? Drives the grouping on the settings
       // screen — their own services first, everything else behind a

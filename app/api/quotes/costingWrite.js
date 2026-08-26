@@ -34,7 +34,7 @@ import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 // The SAME gate the invoice cost panel uses, imported rather than reimplemented.
 // "Same permission" written twice is two permissions that agree until one of
 // them is edited.
-export { mayCost } from "@/app/api/invoices/costingWrite";
+export { mayCost, requireCost } from "@/app/api/invoices/costingWrite";
 
 /**
  * Resolve what the estimator needs about each scope group.

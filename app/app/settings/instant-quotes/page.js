@@ -24,6 +24,11 @@ import {
   normaliseBudgetThresholds,
   DEFAULT_BUDGET_THRESHOLDS,
 } from "@/lib/estimate/budgetBands";
+import {
+  groupRateFields,
+  rateFieldPatch,
+  readRate,
+} from "@/lib/estimate/instantRateFields";
 
 // How each trade measures — copy shown to the owner so they know what the
 // homeowner will be asked for.
@@ -103,6 +108,95 @@ function PercentMap({ title, map, onChange }) {
   );
 }
 
+// ── The unit rates a trade prices by ────────────────────────────────────────
+//
+// Declared by the trade, not by this file: `fields` arrives from the settings
+// route, which resolves it out of the trade's price book and its estimator seed
+// (lib/estimate/instantRateFields.js). This block used to be three hand-typed
+// boxes behind `trade.trade === "cabinet_refacing"`, which is why cabinet
+// refinishing — wired later, priced per door, no materials — had no editor at
+// all and quoted $150 a door that nobody could see.
+//
+// ── Where the labels come from ──────────────────────────────────────────────
+//
+// The book's own words, with the catalogue allowed to override them: the key is
+// derived from the field's path, and cabinetFields()' English label is the
+// FALLBACK. No parallel list of rate names was written.
+//
+// That keeps both halves honest. "Per door", "Per drawer" and "Per box linear
+// ft" were already translated into all six languages under exactly those key
+// names, so refacing loses nothing — and the eight refinishing rates that have
+// no key ("Soft-close hinges", "Three-colour base") render the book's label
+// rather than a missing string. A twelfth rate added to the book tomorrow shows
+// up here named correctly with no edit to this file and no dead key; translate
+// it later by adding `app.setInstantQuotes.<path>` and nothing here changes.
+//
+// A hand-kept translated copy of the eleven names was the alternative, and it
+// is the copy that rots: a stale rate NAME beside a live rate VALUE is worse
+// than an English one. The group headings below are this screen's own chrome,
+// not the book's, so those are ordinary translated strings.
+//
+// The key is built by concatenation, so check-translations' literal scan can't
+// see it. Naming the three that exist here is what keeps them off that script's
+// "defined but not referenced" list and out of a future prune:
+// "app.setInstantQuotes.perDoor", "app.setInstantQuotes.perDrawer",
+// "app.setInstantQuotes.perBoxLinearFt".
+function UnitRates({ fields, config, onPatch, t }) {
+  const blocks = groupRateFields(fields);
+  if (blocks.length === 0) return null;
+
+  // A Map, not an object literal: the group key is a config path segment, and
+  // groupTitles["__proto__"] on a literal returns Object.prototype — a truthy
+  // "title" React then tries to render.
+  const groupTitles = new Map([
+    [
+      "complexityUpchargePerUnit",
+      t(
+        "app.setInstantQuotes.rateGroup.complexity",
+        "Complexity uplift (dollars per face, on top of the rate)",
+      ),
+    ],
+    [
+      "addOns",
+      t(
+        "app.setInstantQuotes.rateGroup.addOns",
+        "Upgrades (charged only when the homeowner asks for them)",
+      ),
+    ],
+  ]);
+
+  return (
+    <div className="space-y-4">
+      {blocks.map((block) => (
+        <div key={block.key || "_base"}>
+          {block.key && (
+            <div className="text-sm font-medium text-foreground mb-2">
+              {groupTitles.get(block.key) || block.key}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-4">
+            {block.fields.map((field) => (
+              <NumField
+                key={field.path}
+                label={t(`app.setInstantQuotes.${field.path}`, field.label)}
+                prefix="$"
+                suffix={field.suffix}
+                step={String(field.step)}
+                // Absent stays absent. readRate returns undefined for a rate the
+                // company has never set, and NumField renders that as an empty
+                // box — never a confident 0, which on "Per door" would quote a
+                // free kitchen.
+                value={readRate(config, field.path)}
+                onChange={(v) => onPatch(field.path, v)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TradeCard({ trade, canEdit, onSaved }) {
   const { t } = useTranslation();
   const [enabled, setEnabled] = useState(trade.enabled);
@@ -129,6 +223,19 @@ function TradeCard({ trade, canEdit, onSaved }) {
 
   function patch(next) {
     setConfig((c) => ({ ...c, ...next }));
+  }
+
+  // One dotted rate — "addOns.softCloseHingesPerDoor" — through the shallow
+  // merge above. rateFieldPatch rebuilds the whole `addOns` branch, because
+  // patching `{ addOns: { softCloseHingesPerDoor: 35 } }` would take the other
+  // six upgrade rates with it. It reads off the CURRENT state rather than the
+  // captured `config` so two edits in the same tick don't clobber each other,
+  // and returns null for a prototype-poisoning path, which writes nothing.
+  function patchRate(path, value) {
+    setConfig((c) => {
+      const next = rateFieldPatch(c, path, value);
+      return next ? { ...c, ...next } : c;
+    });
   }
 
   async function save() {
@@ -432,8 +539,14 @@ function TradeCard({ trade, canEdit, onSaved }) {
           </p>
         </div>
 
-        {/* Material sell rates */}
-        {trade.hasMaterials && trade.trade !== "cabinet_refacing" && (
+        {/* Material sell rates.
+            Keyed on whether the trade HAS a material rate list, not on
+            `hasMaterials && trade !== "cabinet_refacing"`. hasMaterials means
+            the homeowner is asked to pick one; refacing does ask, and then
+            prices off a per-door rate times a multiplier with no rows to edit.
+            The route derives hasMaterialRates from the seed, and it resolves to
+            exactly the same set of trades this exclusion produced. */}
+        {trade.hasMaterialRates && (
           <div>
             <div className="text-sm font-medium text-foreground mb-2">
               {t(
@@ -514,32 +627,13 @@ function TradeCard({ trade, canEdit, onSaved }) {
           </div>
         )}
 
-        {/* Cabinet refacing unit prices */}
-        {trade.trade === "cabinet_refacing" && (
-          <div className="flex flex-wrap gap-4">
-            <NumField
-              label={t("app.setInstantQuotes.perDoor", "Per door")}
-              prefix="$"
-              value={config.perDoor}
-              onChange={(v) => patch({ perDoor: v })}
-            />
-            <NumField
-              label={t("app.setInstantQuotes.perDrawer", "Per drawer")}
-              prefix="$"
-              value={config.perDrawer}
-              onChange={(v) => patch({ perDrawer: v })}
-            />
-            <NumField
-              label={t(
-                "app.setInstantQuotes.perBoxLinearFt",
-                "Per box linear ft",
-              )}
-              prefix="$"
-              value={config.perBoxLinearFt}
-              onChange={(v) => patch({ perBoxLinearFt: v })}
-            />
-          </div>
-        )}
+        {/* Unit rates — per door, per drawer, complexity, upgrades. */}
+        <UnitRates
+          fields={trade.rateFields}
+          config={config}
+          onPatch={patchRate}
+          t={t}
+        />
 
         {/* Lawn size tiers */}
         {trade.trade === "lawn_mowing" && (

@@ -13,7 +13,12 @@ import {
   redactQuote,
 } from "@/lib/permissions/enforce";
 import { normaliseMediaList } from "@/lib/media/validate";
-import { buildCostingRow, mayCost, isEmptyCosting } from "../costingWrite";
+import {
+  buildCostingRow,
+  mayCost,
+  requireCost,
+  isEmptyCosting,
+} from "../costingWrite";
 
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
@@ -105,6 +110,17 @@ export async function PATCH(request, { params }) {
   const costingPrice =
     (subtotal !== undefined ? Number(subtotal) || 0 : Number(existing.subtotal) || 0) -
     (discount !== undefined ? Number(discount) || 0 : Number(existing.discount) || 0);
+  try {
+    // A costing block from someone without the toggle used to be dropped right
+    // below and the save answered 200 — the panel's contents gone, nothing
+    // said. See requireCost: silence stays silence, an actual block is
+    // refused.
+    if (costing !== undefined) requireCost(full);
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   // `undefined` means the request said nothing about costing, which is not the
   // same as sending an empty one — a status-only PATCH must leave the crew and
   // hours exactly where they were.

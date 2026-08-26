@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { createConnectOnboardingLink } from "@/lib/stripe";
+import { isPayrollAdmin } from "@/lib/permissions/settingsAccess";
 import { getAppOrigin } from "@/lib/appUrl";
 
 // Generates a Stripe Express onboarding link for a CONTRACTOR worker (not the
@@ -17,6 +18,30 @@ export async function POST(request, { params }) {
   const member = await getCurrentMember(request);
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ── This mints a link to somebody's BANK DETAILS ─────────────────────────
+  //
+  // The only screen that calls this is /app/settings/team/workers, which is
+  // isPayrollAdmin-gated — but the endpoint asked for nothing beyond a
+  // session. Any member could POST a colleague's worker id and receive a
+  // Stripe Express onboarding URL for the account that colleague gets PAID
+  // through, then enter their own bank account into it. Same shape as the
+  // company Connect login-link that was tightened for the same reason, one
+  // level down: the individual's payouts rather than the company's.
+  //
+  // isPayrollAdmin, not user:manage — supervisors hold "may run a crew", and
+  // running a crew is not authority over where their wages land. This is
+  // deliberately the same predicate the Workers page already asks, so the
+  // button and the route cannot disagree.
+  if (!isPayrollAdmin(member.role)) {
+    return NextResponse.json(
+      {
+        error:
+          "Only an owner or admin can set up a contractor's payout account.",
+      },
+      { status: 403 },
+    );
+  }
 
   const worker = await db.worker.findFirst({
     where: { id: _params.id, companyId: member.companyId },

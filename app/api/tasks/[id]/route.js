@@ -96,6 +96,35 @@ export async function DELETE(request, { params }) {
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // ── The PATCH beside this was gated and this was not ───────────────────
+  //
+  // Editing a to-do grew the ownership rule above; deleting it kept the
+  // original "any session, any row in the company" and is the more
+  // destructive of the two — a renamed task is still on the list, a deleted
+  // one is gone with no trace that it was ever assigned. So a Worker who
+  // could not rename a colleague's to-do could remove it outright.
+  //
+  // Deliberately the SAME predicate as PATCH rather than a stricter one:
+  // ticking something off your own list and clearing it off your own list are
+  // the same act, and requiring task:create to delete your own would make the
+  // list read-only for the people who work from it. Claimable-if-unassigned
+  // does NOT carry over — claiming an orphan task is assigning it to
+  // yourself, which is not a reason to be able to destroy it.
+  const mine =
+    !!member.userId &&
+    (existing.assignedToId === member.userId ||
+      existing.createdById === member.userId);
+  if (!mine && !can(member.role, "task:create")) {
+    return NextResponse.json(
+      {
+        error:
+          "You can only delete to-dos assigned to you. Ask an owner or admin " +
+          "to remove this one.",
+      },
+      { status: 403 },
+    );
+  }
+
   await db.task.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true });
 }

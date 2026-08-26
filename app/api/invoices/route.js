@@ -12,8 +12,15 @@ import {
   requireLevel,
   requireToggle,
   permissionErrorResponse,
+  redactInvoice,
+  redactInvoices,
 } from "@/lib/permissions/enforce";
-import { buildCostingRow, mayCost, isEmptyCosting } from "./costingWrite";
+import {
+  buildCostingRow,
+  mayCost,
+  requireCost,
+  isEmptyCosting,
+} from "./costingWrite";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -42,7 +49,17 @@ export async function GET(request) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(invoices);
+  // Shaped before it leaves, by the same entry point the detail route uses.
+  // Two things travelled on this list that the grid has an opinion about and
+  // nothing was checking: the nested client's email (hidden on GET /api/clients
+  // since the first redaction sweep) and every money column — total, balance,
+  // and the whole Payment rows, which reconstruct the balance on their own.
+  //
+  // `invoices: view_only` is a real grant, so this is a redaction rather than a
+  // 403: a crew member may see that invoice 1042 for the Tremblay job is
+  // overdue without seeing what it is for.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(redactInvoices(full, invoices));
 }
 
 // Creates a fresh invoice, typically from an accepted Quote — NOT how new versions of
@@ -108,6 +125,17 @@ export async function POST(request) {
     quoteNumber: sourceQuote?.quoteNumber || null,
   });
 
+  try {
+    // A costing block from someone without the toggle used to be dropped right
+    // below and the save answered 200 — the panel's contents gone, nothing
+    // said. See requireCost: silence stays silence, an actual block is
+    // refused.
+    if (costing !== undefined) requireCost(full);
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   // Costed against subtotal MINUS discount — the pre-tax money the crew's time
   // and materials actually have to come out of. Tax is the government's, not
   // the company's, and a discount given away is not revenue either; counting
@@ -163,5 +191,11 @@ export async function POST(request) {
   // `costing` is deliberately NOT included in the response. Nothing on the
   // create path needs it back, and the fewer places a whole invoice row
   // carries cost data, the fewer places it can be forwarded to a client.
-  return NextResponse.json(invoice, { status: 201 });
+  //
+  // The client IS included and is redacted: creating an invoice needs
+  // invoices/view_create_edit, which says nothing about clientsProperties, so
+  // the two dials are independent and someone at name_address_only can reach
+  // here. Reading the record back out of your own save is the same shape as
+  // the bug already fixed on PATCH /api/quotes/[id].
+  return NextResponse.json(redactInvoice(full, invoice), { status: 201 });
 }

@@ -183,6 +183,23 @@ check can assert that a real call lands a Quote row with
 `estimateSource: "phone_call"`, the hinges in the total and a scope group under
 the right category — rather than reading the code and hoping.
 
+**...and the owner can now see the rates it quotes from.** Settings › Instant
+Quotes drew its unit-price boxes behind two string comparisons against
+`"cabinet_refacing"`, so refinishing — wired later, `hasMaterials: false`
+because it recoats the doors already there — matched neither and got no editor
+at all: enable it, and it quoted $150 a door that nothing on the screen showed.
+The block is now derived, in `lib/estimate/instantRateFields.js`, from two
+declarations the trade already makes — `PRICE_BOOK_FIELDS` for the name, unit
+and step, and `INSTANT_ESTIMATE_DEFAULTS` for which of those the estimator
+actually prices off. The intersection is what keeps it honest in both
+directions: refacing's supplier costs are flagged `internal` and are filtered on
+the server so they never reach a screen that edits client-facing prices, and
+refacing gets none of the add-on boxes its estimator never reads. `perDoor`
+edits through a deep, own-property patch, because the form's shallow merge would
+otherwise take the six sibling add-on rates with it. The materials editor's
+`trade !== "cabinet_refacing"` became `hasMaterialRates`, derived from the same
+seed and resolving to exactly the same set of trades.
+
 **The receptionist knows how THIS company's visits work.**
 `lib/voice/visitPath.js` derives, from the company's own `EventType` rows, which
 of four things should happen when a caller asks for someone to come out: book it

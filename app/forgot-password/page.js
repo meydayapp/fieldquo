@@ -19,21 +19,21 @@
 // only way to leak it is from HERE — by "improving" the copy into something
 // more helpful. Don't. The helpfulness is worth less than the customer list.
 //
-// The one residual channel is a failing mail send: sendResetPassword only runs
-// for an address that exists, so if it throws, the 500 comes back only for
-// real accounts. That is why the catch below renders ONE generic sentence that
-// never mentions the address, and why lib/auth.js's sendResetPassword should
-// swallow its own transport errors rather than let them reach the endpoint.
+// The one channel that would survive all of that is a failing mail send:
+// sendResetPassword runs only for an address that exists, so an exception
+// escaping it would 500 for real accounts and 200 for everyone else. It can't,
+// because lib/auth.js wraps the send in a try/catch that records the fault and
+// returns normally. That is load-bearing, not tidiness — and the generic
+// one-sentence error below is the second half of the same guarantee.
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
-// authClient rather than a named import: this file's methods are proxied
-// straight onto the endpoint paths, so `requestPasswordReset` resolves to
-// POST /api/auth/request-password-reset without lib/auth-client.js needing to
-// re-export anything. `forgetPassword` is NOT the name in better-auth 1.6 —
-// there is no /forget-password endpoint, so calling it would 404 silently.
-import { authClient } from "@/lib/auth-client";
+// requestPasswordReset, not forgetPassword: both are exported from
+// lib/auth-client.js and they are the same function, but the real endpoint in
+// Better Auth 1.6 is POST /request-password-reset, so this is the name that
+// matches what actually travels.
+import { requestPasswordReset } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -60,14 +60,19 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     setError("");
 
-    // redirectTo is where the link in the email eventually lands. Better Auth
-    // sends them to /api/auth/reset-password/:token first, which checks the
-    // token still exists and forwards to this path with ?token= (valid) or
-    // ?error=INVALID_TOKEN (expired, already used, or fabricated). Both shapes
-    // are handled on /reset-password.
-    const { error: sendError } = await authClient.requestPasswordReset({
+    // No `redirectTo` on purpose. lib/auth.js owns where the emailed link
+    // lands (RESET_PAGE) and rewrites the URL Better Auth built. Passing one
+    // from here would win over that and quietly pin the landing page to a
+    // literal in this file — so the day RESET_PAGE moves, every OTHER entry
+    // point would follow it and this one would keep sending people to a route
+    // that no longer exists.
+    //
+    // The link goes to /api/auth/reset-password/:token first either way, which
+    // checks the token is still alive and forwards to the page with ?token=
+    // (valid) or ?error=… (expired, used, or fabricated). Both are handled
+    // there.
+    const { error: sendError } = await requestPasswordReset({
       email: email.trim(),
-      redirectTo: "/reset-password",
     });
 
     setSubmitting(false);

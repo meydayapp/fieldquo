@@ -1164,6 +1164,11 @@ model User {
   email         String   @unique
   emailVerified Boolean  @default(false)
   image         String?
+  // Better Auth's two-factor plugin owns this flag and is the only thing that
+  // writes it — it is `input: false` in the plugin's schema, so it can't be set
+  // through a signup or a profile update. False for everyone until they enable
+  // 2FA themselves; see the plugin block in lib/auth.js for why it is opt-in.
+  twoFactorEnabled Boolean @default(false)
   // Interface language for this person. Null means "follow the company
   // default" — a crew member who never opens settings inherits whatever the
   // company set, and changing the company default moves them with it.
@@ -1203,6 +1208,7 @@ model User {
   leadNotes             LeadNote[]             @relation("LeadNoteAuthor")
   funnelsCreated        Funnel[]               @relation("FunnelCreatedBy")
   devices               AccountDevice[]
+  twoFactors            TwoFactor[]
 }
 
 // One row per (user, company) — this is YOUR RBAC join, separate from Better Auth's OrgMember
@@ -1296,6 +1302,44 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+// One row per user who has turned on two-factor authentication. Absence of a
+// row is the "off" state — User.twoFactorEnabled mirrors it for the session
+// object, but this table is where the secret actually lives.
+//
+// Shape dictated by better-auth/plugins/two-factor (schema.mjs); the field
+// names are the plugin's, not ours, and renaming one silently breaks it.
+// Deliberately NOT carrying createdAt/updatedAt: the plugin declares neither,
+// so nothing would ever write them and a support question they look like they
+// could answer ("when did this get switched on?") would get an answer that
+// isn't true.
+model TwoFactor {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The TOTP shared secret and the one-time backup codes, both encrypted by
+  // the plugin with BETTER_AUTH_SECRET before they get here. Marked
+  // `returned: false` in the plugin schema, so neither ever reaches a client.
+  secret      String
+  backupCodes String
+
+  // False only in the window between scanning the QR code and typing the first
+  // correct code. Enrolment that is started and abandoned therefore cannot lock
+  // anyone out of their own account.
+  verified Boolean @default(true)
+
+  // Brute-force ceiling on a six-digit code, enforced by the plugin's
+  // accountLockout across every challenge and factor: ten consecutive failures
+  // locks the account for fifteen minutes, and one success resets the count.
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
+  // Both indexed because the plugin looks a row up by each: by userId at
+  // sign-in, and by secret when verifying.
+  @@index([userId])
+  @@index([secret])
 }
 
 // ── Seat-sharing guard ─────────────────────────────────────────────────────

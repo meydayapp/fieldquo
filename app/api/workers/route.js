@@ -52,6 +52,26 @@ export async function POST(request) {
   const body = await request.json();
   const { name, email, type, hourlyRate, userId } = body;
 
+  // ── Creating a rate is setting a rate ────────────────────────────────────
+  //
+  // PATCH on the sibling route refuses hourlyRate without payroll:view_all,
+  // and /api/team/quick-add clamps the Worker row's rate the same way. This
+  // handler took it straight off the body behind "user:manage" — which
+  // SUPERVISORS hold — so the door PATCH closed stood open one verb along: a
+  // Manager could create the Worker record for a colleague who had none and
+  // set their pay on the way in, or add an off-roster "worker" at any rate at
+  // all and have it flow into a pay run.
+  //
+  // Refused rather than silently dropped, for the same reason PATCH refuses:
+  // nobody should type a number, get a 201, and believe it saved.
+  const full = await loadEnforceableMember(db, member.id);
+  if (hourlyRate !== undefined && hourlyRate !== null && !canSeeAllPay(full)) {
+    return NextResponse.json(
+      { error: "You don't have access to pay rates. Ask an owner or admin." },
+      { status: 403 },
+    );
+  }
+
   if (!name || !type) {
     return NextResponse.json(
       { error: "name and type are required" },

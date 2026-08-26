@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
 // Deliberately a LOCAL unlink only — clears FieldQuo's reference to the
 // Stripe Express account so invoices stop offering online payment, but does
@@ -22,13 +22,13 @@ export async function POST(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can disconnect Stripe" },
-      { status: 403 },
-    );
+  // Severing the company's payment processing is not a crew-running decision.
+  // This asked for "user:manage" — held by supervisors — while telling the
+  // refused caller "Only owners/admins can disconnect Stripe", so a Manager
+  // could stop every invoice in the company from being payable online with one
+  // POST. Same gate as connecting, because they are the same authority.
+  if (!isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
   await db.company.update({

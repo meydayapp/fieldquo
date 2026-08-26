@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
 
@@ -13,13 +13,21 @@ export async function POST(request) {
   if (!member)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can connect Stripe" },
-      { status: 403 },
-    );
+  // ── The message was right and the check was not ─────────────────────────
+  //
+  // This said "Only owners/admins can connect Stripe" while asking for
+  // "user:manage", which SUPERVISORS hold — so a Dispatcher or Manager could
+  // start Stripe onboarding for the company and put their own bank account on
+  // the far end of every client payment. The settings sidebar hides
+  // "app.settings.payments" behind the `billing` capability, so the row was
+  // gone and the endpoint was live: the exact split AGENTS.md calls a dead
+  // gate rather than a hidden button.
+  //
+  // isBillingAdmin is what login-link already uses, and what the error string
+  // here has claimed all along. See lib/billing/billingAdmin.js on why
+  // "may manage people" must not carry authority over the company's money.
+  if (!isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
   const company = await db.company.findUnique({

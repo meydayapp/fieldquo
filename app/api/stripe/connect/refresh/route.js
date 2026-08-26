@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
-import { requirePermission } from "@/lib/permissions";
+import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
 
@@ -21,8 +21,9 @@ import { getAppOrigin } from "@/lib/appUrl";
 // servers never fetch refresh_url: Stripe redirects the CONTRACTOR'S BROWSER to
 // it, a top-level GET navigation that carries the Better Auth session cookie
 // (SameSite=Lax). The person bouncing through here is the same logged-in owner
-// who started onboarding a moment ago. Same `user:manage` gate as the POST that
-// minted the first link — resuming onboarding is the same act as starting it.
+// who started onboarding a moment ago. Same billing-admin gate as the POST
+// that minted the first link — resuming onboarding is the same act as starting
+// it.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get("companyId");
@@ -50,13 +51,12 @@ export async function GET(request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can connect Stripe" },
-      { status: 403 },
-    );
+  // Resuming onboarding is the same act as starting it, so it carries the same
+  // gate — which is now isBillingAdmin on both. The comment above already said
+  // "the same logged-in owner who started onboarding"; the check said
+  // "user:manage", which supervisors hold.
+  if (!isBillingAdmin(member.role)) {
+    return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
   const company = await db.company.findUnique({ where: { id: companyId } });
