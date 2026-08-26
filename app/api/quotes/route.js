@@ -19,6 +19,7 @@ import {
   shouldWriteQuoteCosting,
   mayCost,
 } from "./costingWrite";
+import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -231,6 +232,22 @@ export async function POST(request) {
     },
     include: { client: true, scopeGroups: true },
   });
+
+  // Optional areas and substrates on a takeoff become tickable extras. Derived
+  // server-side from the stored takeoff and this company's rate card — see
+  // lib/quotes/takeoffAddOns.js. Best-effort: the quote is committed, and a
+  // failure to write the offers must not report the save as failed.
+  if (scopeGroups?.length) {
+    try {
+      await syncTakeoffAddOns({
+        companyId: member.companyId,
+        quoteId: quote.id,
+        scopeGroups,
+      });
+    } catch (err) {
+      console.error("[quotes POST] takeoff add-ons:", err?.message);
+    }
+  }
 
   await recordActivity(member, {
     action: "quote.created",

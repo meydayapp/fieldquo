@@ -460,18 +460,26 @@ export default function SuggestAddOns({
           </p>
         ) : (
           <div className="mt-3 space-y-3">
-            {addOns.map((a, i) => (
+            {addOns.map((a, i) => {
+              // An extra the takeoff owns. It is regenerated from the scope
+              // group every time the quote is saved, so the fields are shown
+              // and not offered: accepting an edit here and discarding it on
+              // the next save is exactly the control-that-doesn't-work this
+              // codebase gets swept for. Change the room, not this row.
+              const fromTakeoff = a.source === "takeoff";
+              const locked = readOnly || fromTakeoff;
+              return (
               <div
-                key={i}
+                key={a.id || i}
                 className="border border-border rounded-lg p-3 space-y-2"
               >
                 <div className="flex gap-2">
                   <input
                     value={a.description}
                     onChange={(e) => update(i, { description: e.target.value })}
-                    disabled={readOnly}
+                    disabled={locked}
                     placeholder="Gutter guards"
-                    className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                    className="flex-1 min-w-0 border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
                   />
                   <div className="relative w-28 shrink-0">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -480,13 +488,13 @@ export default function SuggestAddOns({
                     <input
                       value={a.amount}
                       onChange={(e) => update(i, { amount: e.target.value })}
-                      disabled={readOnly}
+                      disabled={locked}
                       inputMode="decimal"
                       placeholder="0.00"
-                      className="w-full border border-border rounded-lg pl-6 pr-3 py-2 text-sm bg-card tabular-nums"
+                      className="w-full border border-border rounded-lg pl-6 pr-3 py-2 text-sm bg-card tabular-nums disabled:opacity-70"
                     />
                   </div>
-                  {!readOnly && (
+                  {!locked && (
                     <button
                       type="button"
                       onClick={() => remove(i)}
@@ -501,9 +509,9 @@ export default function SuggestAddOns({
                 <input
                   value={a.detail || ""}
                   onChange={(e) => update(i, { detail: e.target.value })}
-                  disabled={readOnly}
+                  disabled={locked}
                   placeholder="Why it's worth having — one line"
-                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card disabled:opacity-70"
                 />
 
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -511,10 +519,17 @@ export default function SuggestAddOns({
                     type="checkbox"
                     checked={a.taxable !== false}
                     onChange={(e) => update(i, { taxable: e.target.checked })}
-                    disabled={readOnly}
+                    disabled={locked}
                   />
                   Taxable
                 </label>
+
+                {fromTakeoff && (
+                  <p className="text-xs text-muted-foreground">
+                    Marked optional in the takeoff. Edit it there — this row is
+                    rebuilt from the scope every time the quote is saved.
+                  </p>
+                )}
 
                 {a.selected && (
                   <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
@@ -522,7 +537,8 @@ export default function SuggestAddOns({
                   </p>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {!readOnly && (
               <div className="flex items-center gap-3">

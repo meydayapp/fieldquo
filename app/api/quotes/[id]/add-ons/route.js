@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission } from "@/lib/permissions";
+import { TAKEOFF_ADD_ON_SOURCE } from "@/lib/quotes/takeoffAddOns";
 
 const money = (v) => {
   const n = Number(v);
@@ -79,7 +80,14 @@ export async function PUT(request, { params }) {
   const body = await request.json().catch(() => ({}));
   const incoming = Array.isArray(body?.addOns) ? body.addOns : [];
 
+  // Rows a takeoff owns are not editable here. They are derived from the scope
+  // group's own takeoff every time the quote is saved (see
+  // lib/quotes/takeoffAddOns.js), so an edit accepted here would be silently
+  // overwritten by the next save — which is worse than refusing it. They are
+  // dropped from the incoming list and excluded from the delete below, so this
+  // handler replaces exactly the rows it is allowed to own.
   const rows = incoming
+    .filter((a) => a?.source !== TAKEOFF_ADD_ON_SOURCE)
     .filter((a) => String(a?.description || "").trim())
     .slice(0, 8) // more than a handful of extras is a second quote, not an upsell
     .map((a, i) => ({
@@ -88,7 +96,10 @@ export async function PUT(request, { params }) {
       detail: a.detail ? String(a.detail).trim().slice(0, 400) : null,
       amount: money(a.amount),
       taxable: a.taxable !== false,
-      sortOrder: i,
+      // Offset past the takeoff-derived rows, which number themselves from 0.
+      // Without this the two sets interleave arbitrarily on `orderBy sortOrder`
+      // and the client's list reshuffles every time the quote is re-saved.
+      sortOrder: 100 + i,
       source: ["manual", "history", "ai"].includes(a.source)
         ? a.source
         : "manual",
@@ -112,7 +123,9 @@ export async function PUT(request, { params }) {
   // Wholesale replace in a transaction, so a failure halfway can't leave the
   // quote showing no extras at all.
   await db.$transaction([
-    db.quoteAddOn.deleteMany({ where: { quoteId: _params.id } }),
+    db.quoteAddOn.deleteMany({
+      where: { quoteId: _params.id, source: { not: TAKEOFF_ADD_ON_SOURCE } },
+    }),
     ...(rows.length ? [db.quoteAddOn.createMany({ data: rows })] : []),
   ]);
 

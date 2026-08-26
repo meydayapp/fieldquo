@@ -26,6 +26,7 @@
 import { ROOF_LABOUR_DEFAULTS } from "@/lib/pricing/roofLabour";
 import { PAVER_LABOUR_DEFAULTS } from "@/lib/pricing/paverLabour";
 import { INSULATION_LABOUR_DEFAULTS } from "@/lib/pricing/insulation";
+import { PAINT_TAKEOFF_DEFAULTS } from "@/lib/pricing/paintTakeoff";
 
 /* ── Shared vocabulary ─────────────────────────────────────────────────── */
 
@@ -317,6 +318,24 @@ export const TRADE_PRICE_BOOKS = {
       popcornRemovalPricePerSqft: 3.5,
       furnitureMovingPrice: 250,
     },
+    // The area/substrate estimate — rooms measured L x W x H, substrates priced
+    // from production rates and coverage. Shared with exterior_painting below:
+    // one set of numbers, two books, because an estimator quoting a house does
+    // not stop at the front door and neither should the substrate catalogue.
+    // The engine and the provenance for every rate are in
+    // lib/pricing/paintTakeoff.js.
+    takeoff: PAINT_TAKEOFF_DEFAULTS,
+
+    // LEGACY, and kept working deliberately: every quote already written
+    // against the complexity grid above still prices from it. A stored takeoff
+    // with no `model` key takes this path; a new one carries
+    // model: "area_substrate" and takes the one above. See buildInteriorPaint.
+    //
+    // Note the shape. This is an ARRAY, and getPriceBook's mergeDeep REPLACES
+    // arrays wholesale, so a company that overrides one room type here silently
+    // discards the other twelve. `takeoff.areaTypes` is a keyed map for exactly
+    // that reason and carries no defaultSqft, which this does — a room type is
+    // a name, not a measurement.
     roomTypes: [
       { value: "living_room", label: "Living Room", defaultSqft: 300 },
       { value: "dining_room", label: "Dining Room", defaultSqft: 180 },
@@ -403,6 +422,16 @@ export const TRADE_PRICE_BOOKS = {
       pressureWashingPrice: 350,
       primePricePerSqft: 0.5,
     },
+
+    // The same area/substrate estimate the interior book carries, deliberately
+    // the same object: the substrate catalogue spans both surfaces (his own
+    // exterior job priced soffit, siding and a garage door off it), and two
+    // copies would drift the moment one of them gained a rate.
+    //
+    // Overrides stay per-company AND per-category, because getPriceBook merges
+    // CompanyServiceCategory.rates for one category key at a time — so a
+    // company editing its exterior soffit rate does not move its interior book.
+    takeoff: PAINT_TAKEOFF_DEFAULTS,
   },
 
   // ── Garage doors (supply and install) ─────────────────────────────────

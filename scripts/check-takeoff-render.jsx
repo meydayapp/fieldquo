@@ -47,6 +47,56 @@ const fails = [];
 // takeoff that only works once somebody has typed into it is a takeoff that is
 // broken the moment it appears on screen.
 const FILLED = {
+  // The owner's own den, the job every rate in lib/pricing/paintTakeoff.js was
+  // recovered from. Rendered with data in it, not just blank: this form has
+  // more moving parts than any other takeoff (derived geometry, per-substrate
+  // products, gallons, optional flags) and none of them were exercised while
+  // painting only ever rendered empty.
+  interior_painting: {
+    model: "area_substrate",
+    areas: [
+      {
+        areaType: "den",
+        label: "Den",
+        surface: "interior",
+        measurement: "area",
+        lengthFt: 10,
+        widthFt: 13,
+        heightFt: 9,
+        prepHours: 0,
+        optional: false,
+        roundGallonsUp: null,
+        crewNote: "Ladder for the stairwell side",
+        clientNote: "",
+        substrates: [
+          { key: "ceiling", label: "Ceiling", coats: 2, quantity: null, driver: "ceilingSqft", productKey: "ceiling_flat" },
+          { key: "walls", label: "Walls", coats: 2, quantity: null, driver: "wallSqft", productKey: "wall_interior", showFormula: true },
+          { key: "baseboard", label: "Baseboard", coats: 2, quantity: null, driver: "linearFt", productKey: "trim_enamel" },
+          { key: "door", label: "Doors", coats: 2, quantity: 3, productKey: "trim_enamel" },
+          { key: "crown_moulding", label: "Crown", coats: 2, quantity: 46, optional: true },
+          { key: "wall_two_storey", label: "Stairwell", coats: 2, quantity: 120, noProduct: true },
+        ],
+      },
+    ],
+  },
+  exterior_painting: {
+    model: "area_substrate",
+    areas: [
+      {
+        areaType: "exterior",
+        label: "Exterior",
+        surface: "exterior",
+        measurement: "surface",
+        surfaceSqft: 2340,
+        linearFt: 260,
+        substrates: [
+          { key: "siding_trim", label: "Siding & trim", coats: 1, quantity: null, driver: "wallSqft" },
+          { key: "soffit_fascia", label: "Soffit & fascia", coats: 2, quantity: 260 },
+          { key: "garage_door", label: "Garage door", coats: 2, quantity: 1 },
+        ],
+      },
+    ],
+  },
   roofing_service: {
     areaSqft: 2400,
     pitchRise: 8,
@@ -106,14 +156,20 @@ for (const key of Object.keys(TRADE_PRICE_BOOKS)) {
   ];
   for (const [label, takeoff] of cases) {
     try {
+      // Inside a LanguageProvider, because that is where these forms run.
+      // The painting takeoff calls useTranslation(), and useLanguageContext
+      // THROWS outside a provider rather than falling back — so a bare render
+      // here would fail a form that is perfectly healthy in the app.
       const html = renderToStaticMarkup(
-        <TradeTakeoff
-          categoryKey={key}
-          takeoff={takeoff}
-          book={book}
-          onChange={() => {}}
-          siteAddress="204 Avro Cir, Ottawa"
-        />,
+        <LanguageProvider initialLanguage="en">
+          <TradeTakeoff
+            categoryKey={key}
+            takeoff={takeoff}
+            book={book}
+            onChange={() => {}}
+            siteAddress="204 Avro Cir, Ottawa"
+          />
+        </LanguageProvider>,
       );
       if (!html || html.length < 40)
         throw new Error(`rendered ${html.length} chars`);

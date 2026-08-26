@@ -36,6 +36,7 @@ import {
   asList,
 } from "./fields";
 import PaverDesigner from "./PaverDesigner";
+import PaintAreas from "./PaintAreas";
 import LabourPanel from "./LabourPanel";
 import { hasTakeoff } from "@/lib/pricing/takeoffTrades";
 import { pitchBand, roofLabour, roofCrewDays } from "@/lib/pricing/roofLabour";
@@ -815,6 +816,15 @@ function PaintRoom({ room, index, book, canRemove, onChange, onRemove }) {
 }
 
 function InteriorPaintTakeoff({ takeoff, book, onChange }) {
+  // The discriminator. A takeoff written before the area/substrate model landed
+  // has no `model` key and keeps the complexity-grid form below, so reopening
+  // an existing quote shows the form it was written in — reprice-on-open would
+  // change a number a client may already be holding.
+  if (takeoff?.model === "area_substrate")
+    return (
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} />
+    );
+
   const rooms = asList(takeoff.rooms);
   const g = book?.global || {};
   const setRoom = (i, room) =>
@@ -884,6 +894,12 @@ function InteriorPaintTakeoff({ takeoff, book, onChange }) {
 /* ── Exterior painting ─────────────────────────────────────────────────── */
 
 function ExteriorPaintTakeoff({ takeoff, book, onChange }) {
+  // Same discriminator, same reason, as InteriorPaintTakeoff above.
+  if (takeoff?.model === "area_substrate")
+    return (
+      <PaintAreas takeoff={takeoff} book={book?.takeoff} onChange={onChange} />
+    );
+
   const level = takeoff.complexityLevel || "standard";
   const c = book?.complexity?.[level] || {};
   const picks = asList(takeoff.items);

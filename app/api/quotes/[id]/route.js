@@ -25,6 +25,7 @@ import {
   shouldWriteQuoteCosting,
   mayCost,
 } from "../costingWrite";
+import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -251,6 +252,25 @@ export async function PATCH(request, { params }) {
       include: { client: true, scopeGroups: { include: { category: true } } },
     });
   });
+
+  // The takeoff's optional scope, rewritten to match what was just saved. A
+  // takeoff-sourced add-on is a VIEW of the takeoff, so editing the room has to
+  // move the offer — otherwise the client ticks a price for work the scope no
+  // longer describes. Manual and AI extras are untouched; see
+  // lib/quotes/takeoffAddOns.js. Outside the transaction and best-effort, on
+  // the same contract as the post-decision hooks below: the scope has
+  // committed, and a hiccup here must not report the save as failed.
+  if (scopeGroups) {
+    try {
+      await syncTakeoffAddOns({
+        companyId: member.companyId,
+        quoteId: id,
+        scopeGroups,
+      });
+    } catch (err) {
+      console.error("[quotes PATCH] takeoff add-ons:", err?.message);
+    }
+  }
 
   // A decision recorded in the back office has to set the same things in motion
   // as the identical decision clicked by the client on the public link — a job
