@@ -19,6 +19,15 @@
 // metadata against this company before adding a cent. Same pattern as the
 // subscription reconcile, and for the same reason: the browser saying "it
 // worked" is not evidence that it did.
+//
+// ── And this GET is no longer the only way credit arrives ──────────────────
+//
+// It used to be, which made a closed tab or a dropped connection between Stripe
+// and the redirect into a charge with no credit and no error. The
+// `checkout.session.completed` webhook now settles the same payment through
+// lib/stripe/settleCheckoutSession.js. Both call creditVoiceTopup(), which is
+// where the once-only guarantee lives — keep the settlement there rather than
+// growing a second copy here, because the copy is the one that rots.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -26,10 +35,10 @@ import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
-import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { getOrCreateStripeCustomer } from "@/lib/platform/stripeBilling";
-import { addCredit, normaliseTopup, minutesFor, balanceFor } from "@/lib/voice/credits";
+import { normaliseTopup, minutesFor, balanceFor } from "@/lib/voice/credits";
+import { creditVoiceTopup } from "@/lib/voice/topup";
 import { syncNumberAttachment } from "@/lib/voice/provision";
 import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { activeNumber } from "@/lib/voice/numbers";
@@ -82,8 +91,12 @@ export async function POST(request) {
         quantity: 1,
       },
     ],
-    // Checked on the way back, so a stranger visiting the success URL can't
-    // credit somebody else's account.
+    // Load-bearing twice over. `companyId` is checked on the way back, so a
+    // stranger visiting the success URL can't credit somebody else's account —
+    // and `kind` is what lib/stripe/settleCheckoutSession.js dispatches the
+    // webhook on. Metadata is written here and travels with the session, which
+    // is the only thing about a Stripe event that doesn't depend on which
+    // endpoint it happens to land at.
     metadata: { companyId: member.companyId, kind: "voice_topup", cents: String(cents) },
     success_url: `${origin}/app/settings/voice?topup={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/app/settings/voice`,
@@ -102,45 +115,35 @@ export async function GET(request) {
   const session = await stripe.checkout.sessions.retrieve(sessionId);
 
   // Belongs to THIS company. Without this, anyone who saw a session id could
-  // credit their own account with someone else's payment.
+  // credit their own account with someone else's payment. The webhook path has
+  // no equivalent check and needs none: it is handed the session by Stripe with
+  // a verified signature, rather than a session id by a browser.
   if (session?.metadata?.companyId !== member.companyId) {
     return NextResponse.json({ error: "That payment isn't for this account." }, { status: 403 });
   }
-  if (session.payment_status !== "paid") {
-    return NextResponse.json({ credited: false, reason: session.payment_status });
-  }
 
-  const cents = normaliseTopup(session.metadata.cents) || session.amount_total;
+  // ── One settlement, two doors ────────────────────────────────────────────
+  //
+  // This return-redirect used to hold its own copy of the crediting logic, and
+  // it was the ONLY path: close the tab after paying on a phone, lose signal
+  // between Stripe and the redirect, or have this one fetch fail, and the
+  // charge was real and the ledger never moved. Nothing ever asked again, and
+  // the client swallowed the failure in a bare catch. Both production top-ups
+  // were credited here, by luck of the browser coming back.
+  //
+  // creditVoiceTopup is now the single settlement and the webhook calls it too,
+  // so either door works and neither can credit twice.
+  const result = await creditVoiceTopup(session, { member });
 
-  // Idempotent on the session id — this endpoint is hit on every page load
-  // carrying ?topup=, including a refresh, and crediting twice for one payment
-  // is the kind of generosity that's impossible to explain afterwards.
-  await addCredit({
-    companyId: member.companyId,
-    cents,
-    kind: "topup",
-    stripeRef: session.id,
-    note: `Top-up $${(cents / 100).toFixed(2)}`,
-  });
-
-  await recordActivity(member, {
-    action: "voice.credit_added",
-    entityType: "settings",
-    summary: `Added $${(cents / 100).toFixed(2)} of phone credit`,
-    metadata: { cents, stripeRef: session.id },
-  });
-
-  // Back in credit — put the agent back on the number if the contractor still
-  // has the receptionist switched on. Without this, an account that ran dry
-  // stayed silent after paying, which reads as "the top-up didn't work".
+  // The side effects stay HERE rather than moving into the settlement, because
+  // they are about this company's phone rather than about the money: a paid
+  // balance is worth nothing until the number is answering again and the
+  // call-length ceiling has been lifted to match it. Re-attaching without the
+  // ceiling leaves someone who just bought $50 of credit still capped at the
+  // one minute their empty balance bought — the phone answers and hangs up
+  // mid-sentence, which is worse than not answering.
   await syncNumberAttachment(member.companyId).catch(() => {});
-
-  // And lift the call-length ceiling to match the new balance. Re-attaching
-  // without this leaves a contractor who just bought $50 of credit still capped
-  // at the one minute their empty balance bought — the phone answers and hangs
-  // up mid-sentence, which is a worse outcome than not answering at all.
   await pushCallCeiling(member.companyId).catch(() => {});
 
-  const balance = await balanceFor(member.companyId);
-  return NextResponse.json({ credited: true, cents, balance });
+  return NextResponse.json({ ...result, balance: await balanceFor(member.companyId) });
 }

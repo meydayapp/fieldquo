@@ -783,6 +783,56 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **One definition of what a trade is — `lib/trades/catalog.js`.**
+
+  A cabinet-refinishing and painting company opened three settings screens and
+  got three different answers about what it sells. Services listed his seven
+  trades. Instant Quotes offered him roofing, parging, lawn mowing and junk
+  removal, and did not offer cabinet refinishing. Products filed every add-on
+  under Cabinet Refacing, including the handles a refinishing job sells.
+
+  Nothing was corrupt: seventeen lists each answered part of "what is a trade",
+  in two key spaces that did not agree (`roofing_service` is `roofing` to the
+  estimator, `stairs` is `stair`, one `painting` estimator serves interior and
+  exterior both). The instant-quote screen rendered every estimator FieldQuo has
+  ever wired, flat, with no relationship to the trades a company had enabled —
+  so he read it as a setup checklist and worked down it. Six rate cards saved in
+  twenty seconds, roofing among them. Nothing seeded it and nothing defaulted
+  it; being shown the card is what made filling it in look like the job.
+
+  `lib/trades/catalog.js` now declares the two facts that had no home — a
+  trade's industry and its instant estimator — for all 68 catalogue rows, and
+  imports nothing so `node prisma/seed.js` can read it. Both seeders,
+  `app/data/industryCategories.js`, `scripts/seed-categories.mjs` and
+  `lib/estimate/instantQuoteServer.js` all read it. `lib/trades/definition.js`
+  joins it to the price book, the takeoff, the intake fields and the tickable
+  add-ons; the Services screen renders a slice of that instead of importing four
+  lists. Facts that already had one home stayed there — a second copy of
+  `TAKEOFF_TRADES` would lose the guard that check already has.
+
+  **Nothing switches a tenant's row.** The Instant Quotes screen puts his own
+  trades first, everything else behind a disclosure, and names the
+  disagreements — "you give homeowners an instant quote for Roofing, which isn't
+  one of your services" — with a link to the screen that settles it. A migration
+  that turned roofing off on his behalf would be a destructive operation
+  labelled as tidying.
+
+  Two real bugs fell out. `stair` mapped to a category key that has never
+  existed, so every instant stair estimate filed a draft with no scope group.
+  And `seedStandardAddOns` skipped any product whose name the company already
+  had — skipping meant doing *nothing*, so "add standard items" on Refinishing
+  reported success and left the hinges linked to Refacing only. It links now;
+  `Product.categories` was always many-to-many.
+
+  Open, and a product decision rather than a data one: twelve trades belong to
+  no industry preset, three of them (`junk_removal`, `epoxy`, `parging`) with a
+  wired estimator — offered to every company on one screen and surfaced by no
+  industry on the other. And an instant *painting* estimate still files under no
+  category, because interior and exterior painting are two categories with one
+  estimator and picking one would file every exterior job under Interior
+  Painting. `npm run check:trade-catalog` prints both lists and fails if either
+  grows.
+
 - **A call draft reads the whole catalogue, and "you don't offer that" is
   earned.**
 

@@ -1,0 +1,188 @@
+// app/forgot-password/page.js
+//
+// "I can't get into my own business." That is the state of mind this page
+// meets, so it says one thing, asks for one thing, and never argues.
+//
+// ── The rule that shapes every branch below ────────────────────────────────
+//
+// THE ANSWER IS THE SAME WHETHER OR NOT THE ADDRESS HAS AN ACCOUNT.
+//
+// "If that address has an account, we've sent a link." Never "no account
+// found", never "that email isn't registered", never a different-looking
+// error for a miss. The moment the two cases render differently, this form
+// stops being a password reset and becomes a lookup tool: type a competitor's
+// address, read the response, learn whether that contractor runs on FieldQuo.
+// Do that a few thousand times and you have our customer list.
+//
+// Better Auth already returns the same 200 for both cases (it even burns the
+// same time on a dummy verification lookup to keep the timing flat), so the
+// only way to leak it is from HERE — by "improving" the copy into something
+// more helpful. Don't. The helpfulness is worth less than the customer list.
+//
+// The one residual channel is a failing mail send: sendResetPassword only runs
+// for an address that exists, so if it throws, the 500 comes back only for
+// real accounts. That is why the catch below renders ONE generic sentence that
+// never mentions the address, and why lib/auth.js's sendResetPassword should
+// swallow its own transport errors rather than let them reach the endpoint.
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+// authClient rather than a named import: this file's methods are proxied
+// straight onto the endpoint paths, so `requestPasswordReset` resolves to
+// POST /api/auth/request-password-reset without lib/auth-client.js needing to
+// re-export anything. `forgetPassword` is NOT the name in better-auth 1.6 —
+// there is no /forget-password endpoint, so calling it would 404 silently.
+import { authClient } from "@/lib/auth-client";
+import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+const inputClass =
+  "w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm";
+
+export default function ForgotPasswordPage() {
+  const { t } = useTranslation();
+
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function send(e) {
+    e?.preventDefault();
+    // Belt and braces with `disabled` on the button: a keyboard Enter, a
+    // double-tap on a phone, or a slow connection can all fire this twice, and
+    // two reset links in the inbox means the first one is already dead when
+    // they click it.
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError("");
+
+    // redirectTo is where the link in the email eventually lands. Better Auth
+    // sends them to /api/auth/reset-password/:token first, which checks the
+    // token still exists and forwards to this path with ?token= (valid) or
+    // ?error=INVALID_TOKEN (expired, already used, or fabricated). Both shapes
+    // are handled on /reset-password.
+    const { error: sendError } = await authClient.requestPasswordReset({
+      email: email.trim(),
+      redirectTo: "/reset-password",
+    });
+
+    setSubmitting(false);
+
+    if (sendError) {
+      // Deliberately one sentence for every failure mode, with no mention of
+      // the address. See the header.
+      setError(t("app.auth.sendFailed"));
+      return;
+    }
+
+    setResent(sent);
+    setSent(true);
+  }
+
+  return (
+    <>
+      <MarketingHeader />
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted px-4 py-12">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              {sent ? t("app.auth.forgot.sentTitle") : t("app.auth.forgot.title")}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              {sent
+                ? t("app.auth.forgot.sentBody")
+                : t("app.auth.forgot.subtitle")}
+            </p>
+          </div>
+
+          {sent ? (
+            <div className="bg-card border border-border rounded-xl p-6 space-y-4">
+              {error && (
+                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+                  {error}
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                {resent
+                  ? t("app.auth.forgot.resentHint")
+                  : t("app.auth.forgot.sentHint")}
+              </p>
+
+              <button
+                type="button"
+                onClick={send}
+                disabled={submitting}
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {submitting
+                  ? t("app.auth.forgot.submitting")
+                  : t("app.auth.forgot.resend")}
+              </button>
+
+              {/* The commonest reason nothing arrives is a typo in the address,
+                  and we can't tell them that — so give them the door back to
+                  the field instead of a diagnosis we're not allowed to make. */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSent(false);
+                  setResent(false);
+                  setError("");
+                }}
+                className="w-full text-sm text-muted-foreground"
+              >
+                {t("app.auth.forgot.different")}
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={send}
+              className="bg-card border border-border rounded-xl p-6 space-y-4"
+            >
+              {error && (
+                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  {t("app.auth.emailLabel")}
+                </label>
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              >
+                {submitting
+                  ? t("app.auth.forgot.submitting")
+                  : t("app.auth.forgot.submit")}
+              </button>
+            </form>
+          )}
+
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            <Link href="/login" className="font-medium text-foreground underline">
+              {t("app.auth.backToSignIn")}
+            </Link>
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}

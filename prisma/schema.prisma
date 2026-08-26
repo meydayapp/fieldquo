@@ -4635,9 +4635,15 @@ model VoiceCreditEntry {
   ///   "number_setup:<token>"           — the up-front month, paired with a
   ///                                      "refund:<token>" if the purchase then
   ///                                      fails at the provider.
+  ///   "voice_topup:<paymentIntentId>"  — one paid top-up, once, however many
+  ///                                      of the two settlement paths reach it.
+  ///                                      The success-URL redirect and the
+  ///                                      checkout.session.completed webhook
+  ///                                      both credit, in either order.
   ///
-  /// Nullable, and null is unconstrained in Postgres, so the millions of call
-  /// and top-up rows that key on callId/stripeRef are unaffected.
+  /// Nullable, and null is unconstrained in Postgres, so the call rows that key
+  /// on callId — and the top-up rows written before this ref existed, which key
+  /// on stripeRef alone — are unaffected.
   ref String?
 
   note      String?

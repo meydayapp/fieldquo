@@ -274,11 +274,48 @@ export default function VoiceSettingsPage() {
     (async () => {
       // Confirm a top-up against STRIPE before showing a balance — the success
       // URL is just a URL, and anyone can visit it.
+      //
+      // ── And SAY what happened ─────────────────────────────────────────────
+      //
+      // This used to be a bare `.catch(() => {})`. The balance shown was always
+      // the server's, so the screen never claimed credit that wasn't there — but
+      // a confirm that failed said nothing at all, and somebody who had just
+      // been charged came back to a balance that hadn't moved and no
+      // explanation. Silence after taking money reads as "it didn't work", and
+      // the next thing that happens is a second top-up or a support email.
+      //
+      // Now that checkout.session.completed settles the same payment, an
+      // unconfirmed top-up genuinely does land on its own, so the honest message
+      // is "give it a moment" rather than an error.
       if (topup) {
-        await fetch(`/api/settings/voice/topup?session_id=${encodeURIComponent(topup)}`).catch(
-          () => {},
-        );
+        let confirmed = null;
+        try {
+          const res = await fetch(
+            `/api/settings/voice/topup?session_id=${encodeURIComponent(topup)}`,
+          );
+          confirmed = res.ok ? await res.json().catch(() => null) : null;
+        } catch {
+          confirmed = null;
+        }
         window.history.replaceState({}, "", window.location.pathname);
+        setNotice(
+          confirmed?.credited
+            ? {
+                tone: "ok",
+                text: t(
+                  "app.setVoice.topupCredited",
+                  "Payment received — {amount} of phone credit added.",
+                  { amount: money(confirmed.cents) },
+                ),
+              }
+            : {
+                tone: "info",
+                text: t(
+                  "app.setVoice.topupPending",
+                  "We couldn't confirm that payment just yet. Nothing is lost — if it went through, the credit lands on its own within a minute or two. Refresh to check.",
+                ),
+              },
+        );
       }
       const d = await load();
       setLoading(false);
@@ -286,7 +323,7 @@ export default function VoiceSettingsPage() {
       // provider round-trip and must never hold up the first paint.
       if (d?.number && d.number.status !== "porting") runDiagnosis();
     })();
-  }, [load, runDiagnosis]);
+  }, [load, runDiagnosis, t]);
 
   async function save(patch) {
     setBusy(true);

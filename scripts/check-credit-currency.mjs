@@ -63,15 +63,29 @@ ok("and no longer builds a bare dollar sign by hand",
 const cc = readFileSync(join(ROOT, "lib/voice/creditCurrency.js"), "utf8");
 ok("the constant's own file imports nothing", !/^import /m.test(cc));
 
-// Only one path may put real money into the ledger.
-const purchases = execLines("grep -rn 'addCredit(' app lib --include=*.js")
-  .filter((l) => !l.includes("lib/voice/credits.js"));
-ok("credit is added from exactly two places (a purchase and a refund)",
-   purchases.length === 2, purchases.join(" | "));
-ok("one of them is the top-up checkout",
-   purchases.some((l) => l.includes("voice/topup")));
+// ── Only one path may put real money into the ledger ─────────────────────
+//
+// Asserted on the IMPORT rather than the call. lib/voice/topup.js takes
+// `deps.addCredit || addCredit` so its check can execute the settlement against
+// an injected ledger — a better design than a direct call, and one a grep for
+// `addCredit(` cannot see. The invariant is which modules may credit at all,
+// not how they spell the invocation.
+const crediters = execLines("grep -rln 'addCredit' app lib")
+  .filter((f) => !f.endsWith("lib/voice/credits.js"));
+ok("exactly two modules may add credit", crediters.length === 2, crediters.join(" | "));
+ok("one is the top-up settlement — the single place money buys credit",
+   crediters.some((f) => f.endsWith("lib/voice/topup.js")), crediters.join(" | "));
 ok("the other is the reservation refund, not a second purchase",
-   purchases.some((l) => l.includes("spendGate")));
+   crediters.some((f) => f.endsWith("lib/voice/spendGate.js")));
+// And that settlement is reached from BOTH doors, so a browser that never comes
+// back from Stripe is not the only thing standing between a charge and a
+// credit — which is exactly what it used to be.
+{
+  const dispatcher = readFileSync(join(ROOT, "lib/stripe/settleCheckoutSession.js"), "utf8");
+  ok("the webhook settles a top-up too", /voice_topup/.test(dispatcher));
+  const route = readFileSync(join(ROOT, "app/api/settings/voice/topup/route.js"), "utf8");
+  ok("and the return redirect uses the same settlement", /creditVoiceTopup/.test(route));
+}
 
 function execLines(cmd) {
   return execSync(cmd, { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);

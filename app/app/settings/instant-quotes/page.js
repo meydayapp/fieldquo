@@ -207,6 +207,23 @@ function TradeCard({ trade, canEdit, onSaved }) {
               </span>
             )}
           </h3>
+          {/* The estimator's name and the catalogue's name are not the same
+              word — this card is "Stairs & Railings" and the service to switch
+              on is "Stairs" — so a contractor who does sell it is told which
+              row to go and tick rather than left to guess. Only on a card
+              that's off and unsold; naming it on one he's already using would
+              be nagging. */}
+          {!trade.enabled &&
+            !trade.offeredAsService &&
+            trade.serviceLabels?.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {t(
+                  "app.setInstantQuotes.addServiceFirst",
+                  "Sell this? Switch on {service} under Services first.",
+                  { service: trade.serviceLabels.join(" / ") },
+                )}
+              </p>
+            )}
           <p className="text-xs text-muted-foreground mt-1 max-w-md">
             {t(
               `app.setInstantQuotes.measure.${trade.measure}`,

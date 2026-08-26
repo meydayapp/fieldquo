@@ -62,9 +62,10 @@ import { INDUSTRIES } from "@/app/data/industries";
 import { TRADE_PRICE_BOOKS, PRICE_BOOK_FIELDS } from "@/app/data/tradePriceBooks";
 import { TAKEOFF_TRADES } from "@/lib/pricing/takeoffTrades";
 import { INTAKE_FIELDS } from "@/app/data/quoteIntakeFields";
-import { STANDARD_ADDONS } from "@/app/data/standardAddOns";
 import { TIERED_PACKAGES } from "@/app/data/tieredPackages";
 import { ADD_ON_FLAGS } from "@/lib/pricing/offerings";
+import { STANDARD_ADDONS as ADDONS_BY_CATEGORY } from "@/app/data/standardAddOns";
+import { planStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import {
   INSTANT_ESTIMATE_TRADES,
   INSTANT_ESTIMATE_DEFAULTS,
@@ -183,7 +184,7 @@ const CATEGORY_KEYED = {
   PRICE_BOOK_FIELDS: Object.keys(PRICE_BOOK_FIELDS),
   TAKEOFF_TRADES,
   INTAKE_FIELDS: Object.keys(INTAKE_FIELDS),
-  STANDARD_ADDONS: Object.keys(STANDARD_ADDONS),
+  STANDARD_ADDONS: Object.keys(ADDONS_BY_CATEGORY),
   TIERED_PACKAGES: Object.keys(TIERED_PACKAGES),
   ADD_ON_FLAGS: Object.keys(ADD_ON_FLAGS),
   CATEGORY_TO_TRADE: callQuotableCategoryKeys(),
@@ -424,6 +425,102 @@ ok("every label is non-empty and every sortOrder is a number",
 
 ok("categoryLabel falls back to the key rather than rendering 'undefined'",
   categoryLabel("nope") === "nope" && categoryLabel("roofing_service") === "Roofing");
+
+
+/* ══ 7b. One product, more than one trade ══════════════════════════════════ */
+//
+// His Products list, read from the database on 26/08/2026: thirteen rows, every
+// one filed under Cabinet Refacing. Five of them — hinges, slides, handles,
+// glass inserts — are ALSO the standard add-ons for Cabinet Refinishing, the
+// trade the company is named for, and his refinishing quotes could not offer
+// any of them.
+//
+// Product.categories has always been many-to-many. The seeder just never used
+// it: a name it already had was skipped, and skipping meant doing nothing, so
+// pressing "add standard items" on Refinishing reported "already has its
+// standard items" and moved five products' worth of nothing.
+
+section("A product can serve more than one trade");
+
+const REFACING_ID = "cat_refacing";
+const REFINISHING_ID = "cat_refinishing";
+// His thirteen rows, names verbatim, every one linked to refacing only.
+const HIS_PRODUCTS = [
+  "Sink / Undermount Cutout", "Waterfall Edge", "Countertop Removal & Disposal",
+  "New Painted MDF Doors", "Thermofoil / Vinyl-Wrapped Doors", "Soft-Close Hinges",
+  "Soft-Close Drawer Slides", "New Handles — supply & install", "Crown Moulding",
+  "Glass Inserts", "Under-Cabinet LED Lighting", "Pull-Out Shelf",
+  "Cabinet Box Skinning — veneer/laminate",
+].map((name, i) => ({ id: `p${i}`, name, categoryIds: [REFACING_ID] }));
+
+const plan = planStandardAddOns({
+  addons: ADDONS_BY_CATEGORY.cabinet_refinishing,
+  existing: HIS_PRODUCTS,
+  categoryId: REFINISHING_ID,
+});
+
+ok("pressing 'add standard items' on Refinishing links what he already owns",
+  plan.toLink.map((p) => p.name).sort().join(" | ") ===
+    ["Glass Inserts", "New Handles — supply & install", "Soft-Close Drawer Slides", "Soft-Close Hinges"].join(" | "),
+  plan.toLink.map((p) => p.name));
+
+ok("…and creates only the one he genuinely doesn't have",
+  plan.toCreate.map((a) => a.name).join(" | ") === "Two-Tone Finish",
+  plan.toCreate.map((a) => a.name));
+
+ok("nothing is duplicated — five names, five decisions, no second row",
+  plan.toCreate.length + plan.toLink.length + plan.alreadyLinked.length ===
+    ADDONS_BY_CATEGORY.cabinet_refinishing.length);
+
+// Idempotence: running it a second time must move nothing. The first pass is
+// what made the shared rows serve both trades; a second pass that "linked 4"
+// again would be a button reporting work it did not do.
+const after = HIS_PRODUCTS.map((p) =>
+  plan.toLink.some((l) => l.id === p.id)
+    ? { ...p, categoryIds: [...p.categoryIds, REFINISHING_ID] }
+    : p,
+).concat(plan.toCreate.map((a, i) => ({ id: `n${i}`, name: a.name, categoryIds: [REFINISHING_ID] })));
+
+const second = planStandardAddOns({
+  addons: ADDONS_BY_CATEGORY.cabinet_refinishing,
+  existing: after,
+  categoryId: REFINISHING_ID,
+});
+ok("running it again creates nothing and links nothing",
+  second.toCreate.length === 0 && second.toLink.length === 0,
+  { create: second.toCreate.map((a) => a.name), link: second.toLink.map((p) => p.name) });
+
+// And the trade it was already seeded for stays a no-op, so the button on
+// Refacing keeps saying "already has its standard items" — truthfully.
+const refacingAgain = planStandardAddOns({
+  addons: ADDONS_BY_CATEGORY.cabinet_refacing,
+  existing: HIS_PRODUCTS,
+  categoryId: REFACING_ID,
+});
+ok("the trade already seeded stays a genuine no-op",
+  refacingAgain.toCreate.length === 0 && refacingAgain.toLink.length === 0,
+  refacingAgain.toCreate.map((a) => a.name));
+
+// A product the company DELETED on purpose must not come back as a link — it
+// has no name to match, so it is created only if the company asks for the whole
+// starter set again. Same rule as before this change.
+const withoutHinges = HIS_PRODUCTS.filter((p) => p.name !== "Soft-Close Hinges");
+const deleted = planStandardAddOns({
+  addons: ADDONS_BY_CATEGORY.cabinet_refinishing,
+  existing: withoutHinges,
+  categoryId: REFINISHING_ID,
+});
+ok("a deleted product is re-created, never silently re-linked",
+  deleted.toCreate.some((a) => a.name === "Soft-Close Hinges") &&
+    !deleted.toLink.some((p) => p.name === "Soft-Close Hinges"));
+
+ok("a trade with no starter set plans nothing",
+  planStandardAddOns({ addons: [], existing: HIS_PRODUCTS, categoryId: REFINISHING_ID })
+    .toCreate.length === 0);
+
+ok("hostile input plans nothing rather than throwing",
+  planStandardAddOns({}).toCreate.length === 0 &&
+    planStandardAddOns({ addons: null, existing: [null, {}], categoryId: null }).toLink.length === 0);
 
 /* ══ 8. Gaps, reported rather than invented ════════════════════════════════ */
 //
