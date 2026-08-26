@@ -8,7 +8,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import { requireCostBasisWrite } from "@/lib/permissions/costBasis";
 import { recordActivity } from "@/lib/activity/log";
 
 export async function DELETE(request, { params }) {
@@ -17,13 +21,12 @@ export async function DELETE(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage fixed costs" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "fixedCosts");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   // isOverhead + recurring in the WHERE, not just companyId. /api/expenses/[id]

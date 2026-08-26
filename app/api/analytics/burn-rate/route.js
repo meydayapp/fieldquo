@@ -6,9 +6,9 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { calculateBurnRate } from "@/lib/analytics/burnRate";
 import {
   loadEnforceableMember,
-  requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { requireCostBasisRead } from "@/lib/permissions/costBasis";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -22,9 +22,15 @@ export async function GET(request) {
   // totals. sibling pricing-benchmark/route.js has carried this gate all
   // along, which is what makes the omission here an oversight rather than a
   // decision.
+  //
+  // showPricing alone was still short. Burn rate is the recurring overhead,
+  // the overhead salaries and the debt payments added together — the same
+  // three lists Settings > Overhead itemises, which QA read as a Dispatcher
+  // with jobCosting:false. Refusing the itemised page and serving the total
+  // through a sibling endpoint is not refusing it.
   const full = await loadEnforceableMember(db, member.id);
   try {
-    requireToggle(full, "showPricing", "see this");
+    requireCostBasisRead(full, "burnRate");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });

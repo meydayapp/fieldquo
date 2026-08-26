@@ -1133,6 +1133,47 @@ they set the pattern.
   level, since `PATCH /api/leads/[id]` consults no grid. `lib/permissions.js`
   records this at the top.
 
+- **The cost basis was outside the `jobCosting` toggle —
+  `lib/permissions/costBasis.js`, `scripts/check-cost-basis.mjs`.**
+
+  `jobCosting` was enforced on the three costing panels (quote, job, invoice)
+  and nowhere else. A live QA pass as a Dispatcher — `showPricing: true`,
+  `jobCosting: false` — read COST PER JOB $2,886, a 20% target margin, $12,495
+  of monthly fixed costs, the itemised rent rows and a $25,000 truck loan, from
+  six endpoints that all gated on `user:manage`, which a supervisor holds.
+  `/api/settings/material-recipes` had no read check of any kind.
+  `/api/analytics/burn-rate` was found by the sweep rather than by QA: nothing
+  fetches it, and it serves the same three lists summed.
+
+  Worse: the read gate and the write gate disagreed. `GET /api/salaries`
+  refused him on the payroll ladder and `POST /api/salaries` accepted a row
+  behind `user:manage` — create and delete on an endpoint whose reads are
+  refused, on records that move the price floor of every quote written
+  afterwards.
+
+  One rule for all six now, read and write, with `write(member) ⇒ read(member)`
+  asserted rather than assumed. Nothing was relaxed: each resource keeps its
+  existing authority check and `jobCosting` is added on top, so a Manager keeps
+  everything a Manager had and owner/admin bypass the grid as everywhere else.
+  The intent recorded in `settingsAccess.js` — Overhead as `user:manage` — was
+  about which sidebar row to draw, chosen because the settings layout carried a
+  role and no grid; that file names passing the grid in as the proper fix, and
+  `SETTINGS_ROW_REQUIREMENTS` now does it by borrowing the `PermissionProvider`
+  one layout up.
+
+  The AI leak is closed at the tool layer, not in the prompt: `getCashFlow`
+  aggregates every expense row in the company, which
+  `GET /api/expenses/summary` refuses on `expenses: view_record_edit_all` — so
+  the tool is no longer handed to anyone that endpoint would refuse. The
+  copilot answered "Total expenses (3mo) $9,120.50 / Net cash flow $624.50" to
+  a Dispatcher whose own expenses totalled $125.50.
+
+  `check:cost-basis` **executes the route handlers** against fixture members at
+  every preset rather than grepping for gate expressions — the only assertion
+  that can tell a wrong gate from a missing one, which is what the salaries
+  read/write split was. 511 assertions, and mutation-proven: deleting the gate
+  from `/api/debt` puts the Dispatcher back at 200 and 201.
+
 - **One definition of what a trade is — `lib/trades/catalog.js`.**
 
   A cabinet-refinishing and painting company opened three settings screens and

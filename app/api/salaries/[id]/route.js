@@ -4,8 +4,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
 import { validateSalary } from "@/lib/overhead/salaryInput";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import { requireCostBasisWrite } from "@/lib/permissions/costBasis";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -13,13 +17,12 @@ export async function PATCH(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage salary records" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "salaries");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const existing = await db.salary.findFirst({
@@ -77,13 +80,12 @@ export async function DELETE(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage salary records" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "salaries");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const existing = await db.salary.findFirst({

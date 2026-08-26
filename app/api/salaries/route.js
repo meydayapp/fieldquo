@@ -4,9 +4,15 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
 import { validateSalary } from "@/lib/overhead/salaryInput";
-import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import {
+  requireCostBasisRead,
+  requireCostBasisWrite,
+} from "@/lib/permissions/costBasis";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
@@ -17,12 +23,18 @@ export async function GET(request) {
   // read every wage in the company including the owner's draw, while POST and
   // PATCH on the same file require user:manage. Mutations gated, reads open is
   // the shape most of these gaps take.
+  //
+  // The read was then closed on payroll:view_all and the WRITES were left on
+  // user:manage, which is a wider set — so a Dispatcher refused this list
+  // could still POST a row into it and DELETE it again. Both halves are one
+  // rule now (lib/permissions/costBasis.js), and the write is the stricter of
+  // the two, never the looser.
   const full = await loadEnforceableMember(db, member.id);
-  if (!hasLevel(full, "payroll", "view_all")) {
-    return NextResponse.json(
-      { error: "You don't have access to salaries. Ask an owner or admin." },
-      { status: 403 },
-    );
+  try {
+    requireCostBasisRead(full, "salaries");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const salaries = await db.salary.findMany({
@@ -38,13 +50,12 @@ export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage salary records" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "salaries");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const body = await request.json();

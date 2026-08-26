@@ -9,9 +9,9 @@ import {
 } from "@/lib/analytics/minimumPrice";
 import {
   loadEnforceableMember,
-  requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { requireCostBasisRead } from "@/lib/permissions/costBasis";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -25,9 +25,15 @@ export async function GET(request) {
   // totals. sibling pricing-benchmark/route.js has carried this gate all
   // along, which is what makes the omission here an oversight rather than a
   // decision.
+  //
+  // showPricing alone was still the wrong line, and QA proved it: a Dispatcher
+  // holds showPricing and NOT jobCosting, and read costPerJob, targetMargin
+  // and the overhead/salaries/debt breakdown out of this response. A price
+  // FLOOR is a cost, not a price. The gate is now both toggles, declared once
+  // in lib/permissions/costBasis.js beside the three screens it sums up.
   const full = await loadEnforceableMember(db, member.id);
   try {
-    requireToggle(full, "showPricing", "see this");
+    requireCostBasisRead(full, "minimumPrice");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });

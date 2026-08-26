@@ -22,6 +22,9 @@ import {
 } from "@/app/data/materialRecipes";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasToggle } from "@/lib/permissions/enforce";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const CATEGORY_META = {
   cabinet_refinishing: {
@@ -66,7 +69,24 @@ function setPath(obj, path, value) {
   return next;
 }
 
+/**
+ * The same gate Overhead carries, for the same reason.
+ *
+ * This screen's own subtitle says these numbers "drive the internal Cost /
+ * Margin estimate on every quote — what you actually pay for materials and
+ * labour, separate from the price you charge the client". That is the cost
+ * basis in the page's own words, and jobCosting is the toggle that says
+ * whether someone sees it.
+ */
 export default function MaterialCostsPage() {
+  const caller = usePermissions();
+  if (caller && !hasToggle(caller, "jobCosting")) {
+    return <NoAccessPanel capability="jobCosting" />;
+  }
+  return <MaterialCostsEditor />;
+}
+
+function MaterialCostsEditor() {
   const { t } = useTranslation();
   const [recipes, setRecipes] = useState(null);
   const [drafts, setDrafts] = useState({});

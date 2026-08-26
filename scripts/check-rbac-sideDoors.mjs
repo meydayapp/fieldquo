@@ -76,8 +76,12 @@ for (const [label, r] of openReads) {
   const s = read(r);
   const get = s.slice(s.indexOf("export async function GET"));
   const body = get.slice(0, get.indexOf("\n}\n") + 3);
+  // requireCostBasisRead joined the list when the overhead trio moved onto the
+  // shared rule in lib/permissions/costBasis.js. Named here rather than
+  // loosened to "anything that throws", because the whole value of this
+  // assertion is that it enumerates what a gate looks like in this codebase.
   t(`GET /${label} checks authority`,
-    /requirePermission|requireLevel|hasLevel|isPayrollAdmin|isBillingAdmin/.test(body));
+    /requirePermission|requireLevel|hasLevel|requireCostBasisRead|isPayrollAdmin|isBillingAdmin/.test(body));
 }
 
 console.log("\nloadEnforceableMember is called with (db, memberId) everywhere");

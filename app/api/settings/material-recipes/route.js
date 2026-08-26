@@ -9,7 +9,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import {
+  requireCostBasisRead,
+  requireCostBasisWrite,
+} from "@/lib/permissions/costBasis";
 import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
 
 // GET → { cabinet_refinishing: { ...resolvedRecipe, _hasOverrides }, ... }
@@ -18,6 +25,28 @@ import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The GET had no check of any kind, on a payload the settings screen above
+  // it describes as "what you actually pay for materials and labour, separate
+  // from the price you charge the client". That is the cost basis, so it is
+  // gated like the rest of it — read on the same rule as the write, because
+  // there is no half of a per-gallon cost worth serving.
+  //
+  // Impersonation is carved out of the READ only, the way
+  // /api/settings/cabinet-rates does it: non-negotiable #3 is that the
+  // platform console views everything and edits nothing, and a support
+  // session's role is "viewer", which holds no permission at all. PUT and
+  // DELETE below do not consult member.impersonation, so a write cannot
+  // acquire the carve-out by someone editing one place.
+  if (!member.impersonation) {
+    const full = await loadEnforceableMember(db, member.id);
+    try {
+      requireCostBasisRead(full, "materialRecipes");
+    } catch (err) {
+      const { body, status } = permissionErrorResponse(err);
+      return NextResponse.json(body, { status });
+    }
+  }
 
   const saved = await db.materialRecipeSetting.findMany({
     where: { companyId: member.companyId },
@@ -44,13 +73,12 @@ export async function PUT(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can edit material costs" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "materialRecipes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const { categoryKey, overrides } = await request.json();
@@ -80,13 +108,12 @@ export async function DELETE(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can edit material costs" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "materialRecipes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const categoryKey = new URL(request.url).searchParams.get("categoryKey");

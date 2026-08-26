@@ -70,6 +70,7 @@ import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { filterNavGroups } from "@/lib/features/nav";
 import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterSettingsGroups } from "@/lib/permissions/settingsAccess";
 
 const GROUPS = [
@@ -187,13 +188,21 @@ export default function SettingsSidebar() {
   //
   // An owner holds every capability, so this is a no-op on the owner's screen.
   const access = useSettingsAccess();
+  // The granular grid, from the provider app/app/layout.js mounts one layout
+  // up — the same object AdminSidebar filters the main rail with. Two rows are
+  // decided by a per-member toggle rather than by a role (Overhead and
+  // Material Costs, on jobCosting), and SettingsAccessProvider deliberately
+  // carries only a role; borrowing the grid from the layout above costs
+  // nothing and stops the two menus answering the same question differently.
+  const caller = usePermissions();
   const groups = useMemo(
     () =>
       filterSettingsGroups(
         filterNavGroups(GROUPS, featureFlags),
         access.resolved ? { role: access.role, impersonation: access.impersonation } : null,
+        caller,
       ),
-    [featureFlags, access.resolved, access.role, access.impersonation],
+    [featureFlags, access.resolved, access.role, access.impersonation, caller],
   );
   // The "you are here" label on the mobile bar reads from this too — otherwise a
   // hidden feature would name itself at the top of the screen the moment someone

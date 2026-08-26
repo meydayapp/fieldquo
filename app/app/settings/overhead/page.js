@@ -24,6 +24,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { SALARY_FREQUENCIES } from "@/lib/overhead/salaryInput";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasToggle } from "@/lib/permissions/enforce";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 const FIXED_COST_FREQUENCIES = ["weekly", "monthly", "yearly"];
 
@@ -31,7 +34,30 @@ function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+/**
+ * Job costing decides whether this screen exists for you.
+ *
+ * A separate component rather than an early return inside the editor, because
+ * an early return still runs the hooks above it — the five fetches in
+ * OverheadEditor's effect would fire, collect five 403s, and render a page
+ * assembled from refusals. This way the editor never mounts.
+ *
+ * QA read COST PER JOB $2,886, a 20% target margin and $12,495 of monthly
+ * fixed costs from this page as a Dispatcher with jobCosting:false. The five
+ * endpoints behind it now refuse the same person (lib/permissions/costBasis.js);
+ * this is the half that stops the browser asking.
+ */
 export default function OverheadPage() {
+  const caller = usePermissions();
+  // Null means no provider resolved the grid. Same convention as everywhere
+  // else in the app: show it, and let the server refuse.
+  if (caller && !hasToggle(caller, "jobCosting")) {
+    return <NoAccessPanel capability="jobCosting" />;
+  }
+  return <OverheadEditor />;
+}
+
+function OverheadEditor() {
   const { t } = useTranslation();
   const [salaries, setSalaries] = useState([]);
   const [fixedCosts, setFixedCosts] = useState([]);

@@ -30,7 +30,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import {
+  requireCostBasisRead,
+  requireCostBasisWrite,
+} from "@/lib/permissions/costBasis";
 import { recordActivity } from "@/lib/activity/log";
 
 // The frequencies that can be converted to a month. `one_time` is excluded on
@@ -45,11 +52,16 @@ export async function GET(request) {
   if (response) return response;
 
   // The company's fixed monthly costs — rent, insurance, vehicle payments. The
-  // write path is gated; the read was not.
+  // write path is gated; the read was not. Then the read was gated on
+  // `user:manage`, which a Dispatcher holds — so the itemised overhead behind
+  // the margin was still readable with jobCosting:false. Both halves now go
+  // through one rule; see lib/permissions/costBasis.js.
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json({ error: "Only an owner or admin can see the company's overhead." }, { status: 403 });
+    requireCostBasisRead(full, "fixedCosts");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const rows = await db.expense.findMany({
@@ -65,15 +77,16 @@ export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Same gate as the salaries and debts on the same screen, and deliberately
+  // the same rule as the GET above: these three numbers add up to the
+  // company's price floor, so being able to add one while being refused the
+  // list is a way to move every future quote's floor unseen.
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    // Same gate as the salaries and debts on the same screen. These three
-    // numbers add up to the company's price floor.
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage fixed costs" },
-      { status: 403 },
-    );
+    requireCostBasisWrite(full, "fixedCosts");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const body = await request.json().catch(() => ({}));

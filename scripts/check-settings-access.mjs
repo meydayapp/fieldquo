@@ -169,8 +169,15 @@ const SERVER_ENFORCEMENT = [
   ["app/api/settings/email-domain/route.js", 'requirePermission(member.role, "user:manage")', "sending domain"],
   ["app/api/settings/website/route.js", 'requirePermission(member.role, "user:manage")', "website builder"],
   ["app/api/settings/voice/route.js", 'requirePermission(member.role, "user:manage")', "AI receptionist"],
-  ["app/api/overhead/fixed-costs/route.js", 'requirePermission(member.role, "user:manage")', "overhead (fixed costs)"],
-  ["app/api/debt/route.js", 'requirePermission(member.role, "user:manage")', "overhead (debt)"],
+  // These three moved off a bare requirePermission onto the shared cost-basis
+  // rule when QA found a Dispatcher reading cost per job and target margin
+  // through them. The expression asserted here is the new gate, because the
+  // point of this list is "the row is hidden AND the route refuses", not which
+  // helper does the refusing. scripts/check-cost-basis.mjs is what asserts WHO
+  // it refuses, by executing the handlers.
+  ["app/api/overhead/fixed-costs/route.js", 'requireCostBasisRead(full, "fixedCosts")', "overhead (fixed costs)"],
+  ["app/api/debt/route.js", 'requireCostBasisRead(full, "debt")', "overhead (debt)"],
+  ["app/api/settings/material-recipes/route.js", 'requireCostBasisRead(full, "materialRecipes")', "material costs"],
   ["app/api/settings/leave-policies/route.js", "isLeaveAdmin(member.role)", "leave policies"],
   ["app/api/settings/document-templates/route.js", 'requirePermission(member.role, "user:manage")', "email + PDF templates (writes)"],
   ["app/api/settings/follow-up-rules/route.js", 'requirePermission(member.role, "user:manage")', "follow-up rules (writes)"],
@@ -305,6 +312,7 @@ function functionBody(src, name) {
 const REFUSAL_PATTERNS = [
   /requirePermission\s*\(/,
   /requireToggle\s*\(/,
+  /requireCostBasis(Read|Write)\s*\(/,
   /requireLevel\s*\(/,
   /requireCatalogueWrite\s*\(/,
   /isBillingAdmin\s*\(/,

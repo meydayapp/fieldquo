@@ -4,7 +4,14 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import {
+  loadEnforceableMember,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
+import {
+  requireCostBasisRead,
+  requireCostBasisWrite,
+} from "@/lib/permissions/costBasis";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -13,10 +20,17 @@ export async function GET(request) {
   // Company debt — the POST on this same file is commented "owner/admin-only,
   // financial data" and the GET had nothing. Mutations gated, reads open is
   // the shape most of these gaps take.
+  //
+  // `user:manage` closed the read to an employee and left it open to a
+  // Dispatcher, who read principal 25000 / monthlyPayment 1000 with
+  // jobCosting:false. The debt payment is a third of the cost-per-job figure
+  // above it, so it is cost basis; both halves share one rule now.
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return NextResponse.json({ error: "Only an owner or admin can see the company's debt." }, { status: 403 });
+    requireCostBasisRead(full, "debt");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const debts = await db.debt.findMany({
@@ -31,13 +45,15 @@ export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // The same rule as the GET, deliberately: creating a debt row raises the
+  // company's price floor, and QA created and deleted one from an account that
+  // is now refused the list.
+  const full = await loadEnforceableMember(db, member.id);
   try {
-    requirePermission(member.role, "user:manage"); // owner/admin-only, financial data
+    requireCostBasisWrite(full, "debt");
   } catch (err) {
-    return NextResponse.json(
-      { error: "Only owners/admins can manage debt records" },
-      { status: 403 },
-    );
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
   }
 
   const body = await request.json();
