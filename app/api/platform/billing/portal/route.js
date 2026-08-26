@@ -7,6 +7,7 @@ import { getCurrentMember } from "@/lib/currentMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingPortalSession } from "@/lib/platform/stripeBilling";
 import { getAppOrigin } from "@/lib/appUrl";
+import { recordError, errorDetail } from "@/lib/platform/errorLog";
 
 // Company-facing (getCurrentMember, same pattern as the checkout route) —
 // opens Stripe's hosted billing portal so they can update their card, see
@@ -40,8 +41,27 @@ export async function POST(request) {
   // "the string did not match the expected pattern".
   const baseUrl = getAppOrigin(request);
 
-  const url = await createBillingPortalSession({
-    stripeCustomerId: subscription.stripeCustomerId,
+  // ── Stripe's own failures have to reach the person who can act on them ──
+  //
+  // This call had no catch at all, so a throw became an unhandled 500, Next
+  // returned an HTML error page, the client's res.json() failed, and the banner
+  // fell back to "Could not open billing portal" — which names no cause and
+  // suggests no action. The two causes below are both ordinary, both
+  // recoverable, and neither is guessable from that sentence:
+  //
+  //   * The customer portal has never been SAVED in the current Stripe mode.
+  //     Test and live hold separate portal configurations, so switching a
+  //     deployment to test keys breaks this button while everything else keeps
+  //     working — which reads as "it used to work and now it doesn't".
+  //   * The customer belongs to the OTHER mode. A cus_… created with live keys
+  //     does not exist to a test key, and vice versa.
+  //
+  // Both are configuration, not code, so the message has to say which one it is
+  // or nobody can fix it.
+  let url;
+  try {
+    url = await createBillingPortalSession({
+      stripeCustomerId: subscription.stripeCustomerId,
     // ?reconcile=1 makes the billing page pull the live state from Stripe the
     // moment they come back, rather than waiting for a webhook.
     //
@@ -50,8 +70,39 @@ export async function POST(request) {
     // app come back NOW. If the billing webhook is delayed — or, as today, not
     // registered at all — waiting for it means they pay and stay locked, which
     // is the single worst outcome of the grace period.
-    returnUrl: `${baseUrl}/app/settings/account-billing?reconcile=1`,
-  });
+      returnUrl: `${baseUrl}/app/settings/account-billing?reconcile=1`,
+    });
+  } catch (err) {
+    const raw = String(err?.message || "");
+    const noConfig = /configuration/i.test(raw) && /portal|default/i.test(raw);
+    const noCustomer = err?.code === "resource_missing" || /No such customer/i.test(raw);
+
+    await recordError({
+      area: "billing",
+      code: noConfig
+        ? "portal_not_configured"
+        : noCustomer
+          ? "portal_customer_wrong_mode"
+          : "portal_failed",
+      companyId: member.companyId,
+      message: `Billing portal refused for ${subscription.stripeCustomerId}: ${raw}`,
+      detail: errorDetail(err, { customerId: subscription.stripeCustomerId }),
+    });
+
+    // 502, not 500: the failure is at Stripe, and the distinction is what tells
+    // whoever reads the log whether to look at our code or at the dashboard.
+    return NextResponse.json(
+      {
+        error: noConfig
+          ? "Stripe hasn't got a customer portal set up for this mode yet. Save the portal settings in the Stripe dashboard — test and live keep separate configurations — and this will work straight away."
+          : noCustomer
+            ? "This company's Stripe customer doesn't exist under the keys this deployment is using. That usually means the customer was created in live mode and the app is running on test keys, or the other way round."
+            : "Stripe wouldn't open the billing portal just now. Nothing has changed on your plan.",
+        reason: noConfig ? "not_configured" : noCustomer ? "wrong_mode" : "stripe_error",
+      },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ url });
 }
