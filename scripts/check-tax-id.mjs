@@ -176,7 +176,24 @@ t("the dismiss endpoint exists", /export async function POST/.test(ROUTE));
 t("...and re-checks the jurisdiction server-side",
   /taxRegistrationFor\(company\.country\)\.dismissible/.test(ROUTE));
 t("...and writes the column", /taxRegistrationDismissedAt/.test(ROUTE));
-t("...behind a permission check", /requirePermission\(member\.role/.test(ROUTE));
+// Asserts the PROPERTY, not one spelling of it. This grepped for
+// `requirePermission` and so failed the day the gate got STRICTER — the route
+// moved off `user:manage` (which supervisors hold) onto the "owner-admin"
+// capability, because dismissing "this company has no tax number" is a
+// statement about its legal registration, not a rostering decision. A check
+// that fails on a better gate trains people to edit the check.
+t(
+  "...behind a permission check",
+  /requirePermission\(member\.role|holdsCapability\(member\.role/.test(ROUTE),
+);
+// The refusal has to be true, since it is the only thing the reader gets. It
+// said "Only owners and admins" for months while checking a permission
+// supervisors hold.
+t(
+  "...whose refusal names the set it actually enforces",
+  !/"owner-admin"/.test(ROUTE) ||
+    /Only owners and admins can change setup steps/.test(ROUTE),
+);
 t("the column exists in the schema",
   /taxRegistrationDismissedAt\s+DateTime\?/.test(read("../prisma/schema.prisma")));
 
