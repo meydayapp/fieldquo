@@ -51,6 +51,8 @@ import {
   FileText,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -93,6 +95,17 @@ export default function InvoiceDetailPage() {
 
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // The same question DELETE /api/invoices/[id] asks, asked of the same grid —
+  // requireLevel(full, "invoices", "view_create_edit_delete"). The trash icon
+  // was offered to everyone, and a Dispatcher capped at view_create_edit got
+  // the real "permanently removed" dialog for an invoice they cannot delete.
+  const caller = usePermissions();
+  const canDeleteInvoice = hasLevel(
+    caller,
+    "invoices",
+    "view_create_edit_delete",
+  );
   const [showPayment, setShowPayment] = useState(false);
   const [showChase, setShowChase] = useState(false);
   const [chaseNote, setChaseNote] = useState("");
@@ -330,14 +343,27 @@ export default function InvoiceDetailPage() {
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      router.push("/app/invoices");
-    } else {
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/app/invoices");
+        return;
+      }
       // The modal no longer closes itself on confirm, so close it here —
       // otherwise the error lands behind an open dialog.
       setShowDelete(false);
-      await reportResponseError(res);
+      // Into the page's own banner as well as the toast. Toast-only read as
+      // "the dialog closed and nothing happened", which is indistinguishable
+      // from a successful delete to the person who pressed the button.
+      await reportResponseError(
+        res,
+        setError,
+        t("app.invoiceDetail.deleteError"),
+      );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -489,13 +515,18 @@ export default function InvoiceDetailPage() {
                 <Download size={16} />
               )}
             </button>
-            <button
-              onClick={() => setShowDelete(true)}
-              className="border border-border text-muted-foreground p-2 rounded-full"
-              aria-label={t("app.invoiceDetail.deleteTitle")}
-            >
-              <Trash2 size={16} />
-            </button>
+            {/* Hidden rather than disabled, matching Jobs: a greyed trash
+                icon still asserts that deleting an invoice is something this
+                screen does. */}
+            {canDeleteInvoice && (
+              <button
+                onClick={() => setShowDelete(true)}
+                className="border border-border text-muted-foreground p-2 rounded-full"
+                aria-label={t("app.invoiceDetail.deleteTitle")}
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -895,7 +926,7 @@ export default function InvoiceDetailPage() {
           <div className="px-5 sm:px-7 py-5 border-t border-border">
             <p className="sm:w-3/5 sm:ml-auto text-sm text-muted-foreground">
               {t(
-                "app.invoiceDetail.pricingHidden",
+                "app.access.pricingHidden",
                 "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
               )}
             </p>
@@ -1208,6 +1239,7 @@ export default function InvoiceDetailPage() {
         title={t("app.invoiceDetail.deleteTitle")}
         message={t("app.invoiceDetail.deleteMessage")}
         itemName={invoice.invoiceNumber}
+        busy={deleting}
       />
     </div>
   );

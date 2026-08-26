@@ -37,6 +37,32 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // ── "Record" is not "edit", and the ladder says so in its own labels ─────
+  //
+  // timeTracking's three levels are "View and record their own", "View,
+  // record, and edit their own", "View, record, and edit everyone's" — so
+  // EDIT is the second rung, and it was never asked for. The check above only
+  // separated own from everyone's, which meant view_record_own — the Worker
+  // (limited) preset — could PATCH its own row: QA changed an entry's hours
+  // from 0.01 to 1 and got a 200.
+  //
+  // The distinction that has to survive: workerFullView is view_record_edit_own
+  // and MUST keep editing its own entries. This is the rung between them, not a
+  // narrowing of both.
+  //
+  // Recording still works — POST /api/time-entries opens a shift and POST
+  // /api/time-clock closes it, and neither passes through here. This route is
+  // the timesheet EDITOR, which is exactly what the level withholds.
+  if (!hasLevel(full, "timeTracking", "view_record_edit_own")) {
+    return NextResponse.json(
+      {
+        error:
+          "Your access level for Time Tracking & Timesheets lets you record time, not edit it. Ask a supervisor to change this entry.",
+      },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json();
   const { clockOut, status } = body;
 
@@ -49,6 +75,38 @@ export async function PATCH(request, { params }) {
   ) {
     return NextResponse.json(
       { error: "Only a supervisor or admin can approve time entries" },
+      { status: 403 },
+    );
+  }
+
+  // ── An approved timesheet is closed ─────────────────────────────────────
+  //
+  // The gate above stops a worker CALLING an entry approved. It never stopped
+  // them editing one that already was, and `status: "pending"` slipped through
+  // it entirely — the condition excludes "pending" so that clocking out can
+  // leave an entry pending, which also let a worker un-approve their own. QA
+  // did exactly that: hours rewritten 0.01 → 1 and the entry flipped back from
+  // approved to pending, on a row a supervisor had already signed off.
+  //
+  // Approved hours are what a pay run multiplies by an hourly rate. Reopening
+  // one after approval either changes what somebody is paid or, if the run has
+  // already gone out, makes the timesheet disagree with the payslip — and the
+  // person who approved it is never asked. So the same set that may approve is
+  // the set that may reopen; everyone else gets a sentence naming who to ask.
+  //
+  // Deliberately NOT keyed on the timeTracking level: view_record_edit_all is
+  // a Dispatcher's grant over other people's hours, and undoing an approval is
+  // an authority question rather than a scope one. It matches the gate
+  // directly above so the two cannot drift.
+  if (
+    existing.status === "approved" &&
+    !["owner", "admin", "supervisor"].includes(member.role)
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "This timesheet has already been approved and can't be changed. Ask a supervisor or admin to reopen it.",
+      },
       { status: 403 },
     );
   }
@@ -141,11 +199,37 @@ export async function DELETE(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Two gates, because they answer different questions and the second one was
+  // missing.
+  //
+  //   user:manage           — may you administer other people at all
+  //   timeTracking level    — may you touch other people's hours
+  //
+  // Only the first existed, and supervisors hold it, so a Dispatcher whose
+  // Time Tracking dial read "their own" could delete anybody's entry — while
+  // the refusal sentence claimed "only owners/admins", which was never true of
+  // this route either. The grid is the control an owner actually has over
+  // hours; it now governs the destructive end of it, and the level's own label
+  // says so (lib/permissions.js).
   try {
     requirePermission(member.role, "user:manage");
   } catch {
     return NextResponse.json(
-      { error: "Only owners/admins can delete time entries" },
+      {
+        error:
+          "You don't have permission to delete time entries. Ask an owner or admin.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const full = await loadEnforceableMember(db, member.id);
+  if (!hasLevel(full, "timeTracking", "view_record_edit_all")) {
+    return NextResponse.json(
+      {
+        error:
+          "Your access level for Time Tracking & Timesheets doesn't allow you to delete time entries.",
+      },
       { status: 403 },
     );
   }

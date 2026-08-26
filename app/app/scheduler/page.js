@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 
 function startOfWeek(d) {
   const x = new Date(d);
@@ -76,6 +78,13 @@ export default function SchedulerPage() {
   }, [load]);
 
   const isManager = data?.manager;
+  // `manager` comes from the API and means user:manage — "may run a crew".
+  // DELETE /api/shifts/[id] asks a narrower question: schedule at
+  // edit_delete_all, the level above the one the Dispatcher preset grants. So
+  // a Dispatcher drafted and published a week and was also shown a ✕ that
+  // could only 403. Same grid, same level, asked here too.
+  const caller = usePermissions();
+  const canDeleteShift = hasLevel(caller, "schedule", "edit_delete_all");
   const shiftsByDay = useMemo(() => {
     const map = {};
     for (const s of data?.shifts || []) {
@@ -325,7 +334,7 @@ export default function SchedulerPage() {
                               {t("app.scheduler.draft")}
                             </span>
                           )}
-                          {isManager && (
+                          {isManager && canDeleteShift && (
                             <button
                               onClick={() => removeShift(s.id)}
                               className="text-muted-foreground hover:text-red-600"

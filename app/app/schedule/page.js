@@ -11,7 +11,7 @@ import { Loader2, CalendarDays, Clock } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
+import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function initials(name) {
@@ -105,7 +105,18 @@ export default function TeamSchedulePage() {
                 </span>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{m.name}</p>
-                  <p className="text-xs text-muted-foreground">{ROLE_LABEL[m.role] || m.role}</p>
+                  {/* The TIER, not the person's access level. Two presets
+                      share `supervisor`, so this word cannot distinguish a
+                      Dispatcher from a Manager — and this payload deliberately
+                      carries no permission grid (it is a schedule, not a
+                      roster of access), so the tooltip is what makes the word
+                      honest rather than a substitution. */}
+                  <p
+                    className="text-xs text-muted-foreground"
+                    title={tierNote(m.role)}
+                  >
+                    {ROLE_LABEL[m.role] || m.role}
+                  </p>
                 </div>
                 <div className="ml-auto flex items-center gap-3">
                   {!m.hasAvailability && (

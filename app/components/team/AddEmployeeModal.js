@@ -241,14 +241,16 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
                 ))}
               </select>
               <p className="text-xs text-muted-foreground mt-1">
-                {/* Which TIER this preset creates. Two presets can share one
-                    tier (Dispatcher and Manager are both Managers), and Manage
-                    Team lists people by tier — so without this line the owner
-                    picks "Manager" here and later finds a different word on the
-                    team page, which is exactly how a role change came to look
-                    like an escalation. */}
+                {/* The access level FIRST, then the tier it sits in. It used
+                    to name the tier only — "Joins as Manager." for a
+                    Dispatcher — matching a Manage Team badge that made the
+                    same substitution. Both now lead with the level the owner
+                    actually picked, and carry the tier as the secondary fact
+                    it is: two levels share one tier, so the tier can never
+                    identify a person. */}
                 <span className="font-medium text-foreground">
-                  Joins as {ROLE_LABELS[PRESET_TO_ROLE[form.preset]] || "Worker"}.
+                  Joins as {PERMISSION_PRESETS[form.preset]?.label || "Worker"} (
+                  {ROLE_LABELS[PRESET_TO_ROLE[form.preset]] || "Worker"} tier).
                 </span>{" "}
                 {PERMISSION_PRESETS[form.preset]?.description}{" "}
                 <Link

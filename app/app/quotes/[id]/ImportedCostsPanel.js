@@ -13,6 +13,8 @@ import { useEffect, useState } from "react";
 import { Layers, Trash2, Loader2, Clock, CheckCircle2, MinusCircle, Pencil } from "lucide-react";
 import { formatMoney } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 
 const STATUS = {
   pending: { key: "app.quoteImports.pending", Icon: Clock, cls: "text-amber-600 dark:text-amber-400" },
@@ -24,6 +26,13 @@ const MARKUP_PRESETS = [0, 10, 20, 30];
 
 export default function ImportedCostsPanel({ quoteId, currency, editable, onTotalChange }) {
   const { t } = useTranslation();
+  // `editable` is about the QUOTE's lifecycle — once decided, its costs are a
+  // record. It says nothing about whether this person may change them, and it
+  // was the only thing standing in front of the trash icon. Both routes behind
+  // these two buttons require quotes:view_create_edit, so a view-only member
+  // was offered a delete that 403s.
+  const caller = usePermissions();
+  const canEditQuote = hasLevel(caller, "quotes", "view_create_edit");
   const [rows, setRows] = useState(null);
   const [removing, setRemoving] = useState("");
   const [error, setError] = useState("");
@@ -150,7 +159,7 @@ export default function ImportedCostsPanel({ quoteId, currency, editable, onTota
                     <Icon size={13} />
                     {t(s.key)}
                   </span>
-                  {editable && !isEditing && (
+                  {editable && canEditQuote && !isEditing && (
                     <>
                       <button
                         type="button"

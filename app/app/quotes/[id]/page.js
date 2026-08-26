@@ -48,6 +48,8 @@ import {
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -120,8 +122,19 @@ export default function QuoteDetailPage() {
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  // The same question DELETE /api/quotes/[id] asks, asked of the same grid —
+  // requireLevel(full, "quotes", "view_create_edit_delete"). This screen used
+  // to offer the trash icon to everyone: a Dispatcher capped at
+  // view_create_edit got the full "permanently removed" dialog, pressed
+  // Delete, and the 403 closed the dialog with nothing on screen, so the quote
+  // looked deleted. usePermissions() returns null until the layout resolves it
+  // and hasLevel(null, …) is false, so the button arrives a beat late rather
+  // than flashing and vanishing.
+  const caller = usePermissions();
+  const canDeleteQuote = hasLevel(caller, "quotes", "view_create_edit_delete");
   const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
   const [justSent, setJustSent] = useState("");
   // The send refused because an optional email section is switched on with
@@ -323,17 +336,26 @@ export default function QuoteDetailPage() {
   }
 
   async function handleDelete() {
-    const res = await fetch(`/api/quotes/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      router.push("/app/quotes");
-    } else {
-      // Was silent: a failed request did nothing visible at all.
-      //
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/quotes/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/app/quotes");
+        return;
+      }
       // The modal no longer closes itself on confirm (it used to, before the
       // request had even finished), so close it here — otherwise the error
       // lands behind an open dialog.
       setShowDelete(false);
-      await reportResponseError(res);
+      // setError as well as the toast. It was toast-only, and QA read the
+      // outcome as "the dialog closed and nothing happened" — which is what a
+      // missed toast looks like, and the page has had an inline banner all
+      // along. The server's own sentence is used verbatim: it distinguishes
+      // the 403 from the 409 about an invoice already raised.
+      await reportResponseError(res, setError, t("app.quoteDetail.deleteError"));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -455,12 +477,18 @@ export default function QuoteDetailPage() {
           >
             <Pencil size={14} /> {t("app.action.edit")}
           </Link>
-          <button
-            onClick={() => setShowDelete(true)}
-            className="border border-border text-muted-foreground p-2 rounded-full"
-          >
-            <Trash2 size={16} />
-          </button>
+          {/* Hidden, not disabled — same as Jobs. A greyed trash icon still
+              says "somebody could delete this quote here", which is a question
+              the owner asks their team about, not a fact about this screen. */}
+          {canDeleteQuote && (
+            <button
+              onClick={() => setShowDelete(true)}
+              aria-label={t("app.quoteDetail.deleteTitle")}
+              className="border border-border text-muted-foreground p-2 rounded-full"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1276,7 +1304,7 @@ export default function QuoteDetailPage() {
           <div className="px-5 sm:px-7 py-5 border-t border-border">
             <p className="sm:w-3/5 sm:ml-auto text-sm text-muted-foreground">
               {t(
-                "app.quoteDetail.pricingHidden",
+                "app.access.pricingHidden",
                 "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
               )}
             </p>
@@ -1341,6 +1369,7 @@ export default function QuoteDetailPage() {
         title={t("app.quoteDetail.deleteTitle")}
         message={t("app.quoteDetail.deleteMessage")}
         itemName={quote.quoteNumber}
+        busy={deleting}
       />
     </div>
   );

@@ -36,7 +36,7 @@ import {
   PERMISSION_TOGGLES,
   PRESET_TO_ROLE,
 } from "@/lib/permissions";
-import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
+import { ROLE_LABELS, tierNote } from "@/lib/permissions/roleManagement";
 import {
   emptyPermissionValues,
   presetForValues,
@@ -121,12 +121,19 @@ export default function AccessEditor({
                   >
                     <div className="font-medium text-foreground flex items-baseline justify-between gap-2">
                       <span>{preset.label}</span>
-                      {/* The tier this preset produces — the same word Manage
-                          Team shows for the person afterwards. Two presets can
-                          share one tier, and without this the screens look
-                          like they disagree. */}
-                      <span className="text-[11px] font-normal text-muted-foreground shrink-0">
-                        {ROLE_LABELS[PRESET_TO_ROLE[key]] || "Worker"}
+                      {/* The tier this preset produces. Two presets share one
+                          tier, so this word alone never identifies a person —
+                          it used to be printed bare here AND as Manage Team's
+                          badge, which is how a Dispatcher read as a Manager.
+                          Labelled as a tier now, with the sharing spelled out
+                          on hover and in the line under the grid. */}
+                      <span
+                        className="text-[11px] font-normal text-muted-foreground shrink-0"
+                        title={tierNote(PRESET_TO_ROLE[key])}
+                      >
+                        {t("app.setTeamNew.tierChip", "{tier} tier", {
+                          tier: ROLE_LABELS[PRESET_TO_ROLE[key]] || "Worker",
+                        })}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
@@ -157,6 +164,16 @@ export default function AccessEditor({
                   </div>
                 </button>
               </div>
+              {/* The two vocabularies, said out loud. The product has four
+                  ROLES (the enum the API gates on) and five access levels, and
+                  they are not 1:1 — until this line, no screen mentioned that
+                  the tier chips above repeat. */}
+              <p className="text-xs text-muted-foreground mt-2">
+                {t(
+                  "app.setTeamNew.tierExplain",
+                  "Access levels are grouped into permission tiers, and two levels can share one — so the tier on its own doesn't tell you which level someone has. Hover a tier to see which levels share it.",
+                )}
+              </p>
             </div>
           )}
 

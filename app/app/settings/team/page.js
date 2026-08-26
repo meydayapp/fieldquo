@@ -13,11 +13,13 @@ import AccessEditor, {
   emptyPermissionValues,
   presetForValues,
 } from "@/app/components/team/AccessEditor";
+import { describeAccess } from "@/lib/permissions/accessPresets";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   ROLE_LABELS,
   ROLE_RANK,
   canRevokeAccess,
+  tierNote,
 } from "@/lib/permissions/roleManagement";
 
 // Both of these were private copies of the maps in lib/permissions/roleManagement.js.
@@ -166,13 +168,33 @@ export default function TeamOverviewPage() {
         label:
           current === ADMIN
             ? ROLE_LABELS.admin
-            : PERMISSION_PRESETS[current]?.label ||
-              ROLE_LABELS[member.role] ||
-              member.role,
+            : PERMISSION_PRESETS[current]?.label || accessBadge(member).label,
         disabled: true,
       });
     }
     return out;
+  }
+
+  /**
+   * What to print on a row this viewer can't edit.
+   *
+   * It used to be `ROLE_LABELS[member.role]`, which cannot answer the question
+   * — two presets share the `supervisor` tier, so every Dispatcher read
+   * "Manager" and an owner had no way to tell one from the other. The dropdown
+   * one cell over already reverse-matched the grid and got it right; this now
+   * asks describeAccess(), the single answer both use.
+   *
+   * The tooltip carries the TIER as well, because the tier is the thing that
+   * gates API routes and it is not 1:1 with what the presets offer. Nothing on
+   * this screen used to say either half of that.
+   */
+  function accessBadge(member) {
+    const a = describeAccess(member);
+    return {
+      label:
+        a.kind === "custom" ? t("app.setTeam.customBadge", "Custom") : a.label,
+      tier: a.role ? tierNote(a.role) : null,
+    };
   }
 
   /** Which choice describes this member as they stand. */
@@ -436,17 +458,22 @@ export default function TeamOverviewPage() {
 
               {/* Read-only badge when this member is at or above the viewer's
                   rank — including their own row. Showing a dropdown that then
-                  403s is worse than showing none. */}
+                  403s is worse than showing none.
+                  The label comes from the same grid the dropdown reads, not
+                  from the role enum — see accessBadge above. */}
               {!canEdit(m) ? (
                 <span
                   className="text-xs bg-muted px-2.5 py-1 rounded-full w-fit"
-                  title={
+                  title={[
                     m.role === "owner"
                       ? t("app.setTeam.ownerChangeHint")
-                      : t("app.setTeam.roleBelowHint")
-                  }
+                      : t("app.setTeam.roleBelowHint"),
+                    accessBadge(m).tier,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 >
-                  {ROLE_LABELS[m.role] || m.role}
+                  {accessBadge(m).label}
                 </span>
               ) : (
                 /* ── One control, offering exactly what New User offers ─────
@@ -524,8 +551,16 @@ export default function TeamOverviewPage() {
                   <Mail size={11} /> {t("app.setTeam.invited")}
                 </span>
                 {p.role && (
-                  <span className="text-xs text-muted-foreground">
-                    {ROLE_LABELS[p.role] || p.role}
+                  <span
+                    className="text-xs text-muted-foreground"
+                    title={tierNote(p.role)}
+                  >
+                    {/* Same derivation as an accepted member. A caller without
+                        user:view gets no grid in this payload (the invite form
+                        captures pay rate and permissions, and neither is
+                        theirs to read), so for them this falls back to the
+                        tier — which the tooltip then names as a tier. */}
+                    {accessBadge(p).label}
                   </span>
                 )}
               </span>

@@ -9,6 +9,9 @@ import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvide
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { hasLevel } from "@/lib/permissions/enforce";
+import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 
 // A blank manual-entry form. `date` defaults to today so the common case
 // (logging hours after the fact) is one worker-pick and two times away.
@@ -28,6 +31,16 @@ function TimesheetsPageScreen() {
   const [form, setForm] = useState(blankForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
+  // The entry the ✕ is asking about, and whether its request is in flight.
+  // The ✕ used to fire DELETE on the first click, with no confirmation, on
+  // rows that feed a pay run — the one destructive control in the product
+  // that asked nothing before acting.
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  // Same level DELETE /api/time-entries/[id] requires, and the same level the
+  // Time Tracking ladder now names as including delete.
+  const caller = usePermissions();
+  const canDeleteEntry = hasLevel(caller, "timeTracking", "view_record_edit_all");
 
   useEffect(() => {
     // Both lists load in parallel; the form's worker picker needs the roster,
@@ -82,12 +95,21 @@ function TimesheetsPageScreen() {
     }
   }
 
-  async function remove(id) {
-    const res = await fetch(`/api/time-entries/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setEntries((prev) => prev.filter((e) => e.id !== id));
-    } else {
-      await reportResponseError(res);
+  async function remove(entry) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/time-entries/${entry.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+        setConfirmDelete(null);
+      } else {
+        // Left open on a refusal, so the message is attached to the attempt.
+        await reportResponseError(res);
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -344,9 +366,14 @@ function TimesheetsPageScreen() {
                     )}
                 </span>
               )}
-              {e.status !== "approved" && (
+              {/* Approved entries have no ✕ at all — the route refuses them
+                  (they may already sit in a payout), so offering the control
+                  would be offering a 400. And the ✕ is now gated on the same
+                  Time Tracking level the route requires, instead of on nothing
+                  at all. */}
+              {e.status !== "approved" && canDeleteEntry && (
                 <button
-                  onClick={() => remove(e.id)}
+                  onClick={() => setConfirmDelete(e)}
                   className="text-xs text-muted-foreground hover:text-destructive"
                   aria-label={t("app.timesheets.delete")}
                   title={t("app.timesheets.delete")}
@@ -358,6 +385,25 @@ function TimesheetsPageScreen() {
           </div>
         ))}
       </div>
+
+      <DeleteConfirmModal
+        isOpen={Boolean(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => remove(confirmDelete)}
+        title={t("app.timesheets.deleteTitle", "Delete this time entry?")}
+        message={t(
+          "app.timesheets.deleteMessage",
+          "The hours are removed for good. If they have already been approved elsewhere or paid, deleting them changes what this person is owed.",
+        )}
+        itemName={
+          confirmDelete
+            ? `${confirmDelete.worker?.name || ""} — ${
+                confirmDelete.hours ?? "?"
+              }h`
+            : undefined
+        }
+        busy={deleting}
+      />
     </div>
   );
 }

@@ -500,6 +500,29 @@ export default function PayrollPage() {
                     . Approve their timesheets to pay these.
                   </p>
                 )}
+                {/* ── Hours nobody but the worker signed off ──────────────
+                    The other direction from the line above: these hours ARE in
+                    the totals, approved by the person who worked them. The
+                    Timesheets screen has always marked this, and the marker
+                    died there — the run treated every "approved" the same, so
+                    the one screen where hours become money never mentioned it.
+                    Whether self-approval should be permitted at all is the
+                    owner's call, not this page's; being visible before the run
+                    goes out is the minimum either way. */}
+                {preview.meta?.selfApprovedTime?.length > 0 && (
+                  <p className="text-xs flex items-start gap-1.5 text-amber-700 dark:text-amber-400 mb-2">
+                    <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                    {t(
+                      "app.payroll.selfApprovedIncluded",
+                      "Included, and approved by the person who worked them: {list}. Nobody else has checked these hours.",
+                      {
+                        list: preview.meta.selfApprovedTime
+                          .map((e) => `${e.name} (${e.hours}h)`)
+                          .join(", "),
+                      },
+                    )}
+                  </p>
+                )}
                 {/* Paid leave is IN these numbers — say so, or a leave week
                     looks like someone was paid for hours they didn't work. */}
                 {preview.meta?.paidLeave?.length > 0 && (

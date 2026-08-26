@@ -90,6 +90,18 @@ export default function LifecycleBanners({
  */
 function sentence({ banner, t, money, formatDate }) {
   const d = banner.data || {};
+  // ── The amount-free variants ────────────────────────────────────────────
+  //
+  // The server strips the figure out of a banner's data for a member without
+  // showPricing (stripBannerMoney, lib/invoices/lifecycle.js) and marks the
+  // banner `pricingHidden`. Without a second sentence per banner, money(undefined)
+  // renders "$0.00" and this component would announce "Paid in full — $0.00
+  // received" over an invoice that was settled for $7,645 — a false statement
+  // where a withheld one belongs.
+  //
+  // Read off the flag rather than off `d.paid === undefined`, so a genuinely
+  // absent figure and a withheld one cannot be confused for one another.
+  const hidden = banner.pricingHidden === true;
   switch (banner.id) {
     case "superseded":
       return t("app.invoiceLifecycle.superseded", {
@@ -100,6 +112,12 @@ function sentence({ banner, t, money, formatDate }) {
       // The date is only added when there is one. An invoice marked paid by an
       // older code path may have no paidDate, and "Paid in full on Invalid
       // Date" is worse than "Paid in full".
+      if (hidden)
+        return d.paidDate
+          ? t("app.invoiceLifecycle.paidOnNoAmount", {
+              date: formatDate(d.paidDate),
+            })
+          : t("app.invoiceLifecycle.paidNoAmount");
       return d.paidDate
         ? t("app.invoiceLifecycle.paidOn", {
             amount: money(d.paid),
@@ -107,14 +125,19 @@ function sentence({ banner, t, money, formatDate }) {
           })
         : t("app.invoiceLifecycle.paid", { amount: money(d.paid) });
     case "overdue":
+      // Declined by the catalogue's own plural rules — see countedNoun in
+      // lib/i18n/plurals.js. "Overdue by 1 days" is the kind of detail that
+      // makes software look unfinished on the one screen about money.
+      if (hidden)
+        return t("app.invoiceLifecycle.overdueNoAmount", {
+          days: t("app.duration.days", { value: d.days }),
+        });
       return t("app.invoiceLifecycle.overdue", {
-        // Declined by the catalogue's own plural rules — see countedNoun in
-        // lib/i18n/plurals.js. "Overdue by 1 days" is the kind of detail that
-        // makes software look unfinished on the one screen about money.
         days: t("app.duration.days", { value: d.days }),
         amount: money(d.due),
       });
     case "partiallyPaid":
+      if (hidden) return t("app.invoiceLifecycle.partiallyPaidNoAmount");
       return t("app.invoiceLifecycle.partiallyPaid", {
         paid: money(d.paid),
         total: money(d.total),
@@ -127,6 +150,10 @@ function sentence({ banner, t, money, formatDate }) {
         name: d.clientName || t("app.invoiceLifecycle.thisClient"),
       });
     case "chaseDue":
+      if (hidden)
+        return t("app.invoiceLifecycle.chaseDueNoAmount", {
+          date: formatDate(d.dueDate),
+        });
       return t("app.invoiceLifecycle.chaseDue", {
         date: formatDate(d.dueDate),
         amount: money(d.due),
