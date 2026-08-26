@@ -25,8 +25,24 @@ import { checkReadiness } from "@/lib/voice/readiness";
 import { getAppOrigin } from "@/lib/appUrl";
 
 export async function GET(request) {
+  // ── The refusal has to be turned into a Response ─────────────────────────
+  //
+  // memberOrRefusalPlain returns a plain `{ error, status }` object, not a
+  // NextResponse — it exists for the HELPER functions that shape their own
+  // reply, which is every other caller of it. Returning it straight out of a
+  // route handler gives Next something it cannot serialise, so this endpoint
+  // answered 500 to an unauthenticated request instead of 401, and would have
+  // answered 500 to a permission refusal too.
+  //
+  // Caught by curling production rather than by any check: an auth failure that
+  // 500s looks exactly like a broken endpoint, which on THIS endpoint is the
+  // worst possible confusion — it is the screen someone opens when they already
+  // suspect their phone is broken.
   const { member, refusal } = await memberOrRefusalPlain(request);
-  if (refusal) return refusal;
+  if (refusal) {
+    const { status, ...body } = refusal;
+    return NextResponse.json(body, { status: status || 401 });
+  }
 
   // Deliberately readable by an impersonating support session — non-negotiable
   // #3: the platform console views everything and edits nothing, and this is

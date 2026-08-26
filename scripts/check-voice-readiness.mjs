@@ -43,8 +43,14 @@ import {
   SIGNATURE_REASONS,
   SIGNATURE_REASON_TEXT,
 } from "../lib/voice/webhookSignature.js";
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { greetingNamesAnotherBusiness, buildAgentPrompt } from "../lib/voice/prompt.js";
 import { usableNotes } from "../lib/voice/knowledge.js";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 let fail = 0;
 const ok = (name, cond, extra = "") => {
@@ -614,6 +620,48 @@ ok(
   "and it still cannot override the price rule",
   live.indexOf("NEVER give a price") < live.indexOf("we don't do commercial work."),
 );
+
+// ── A refusal must be a Response, not a shape ────────────────────────────
+//
+// /api/settings/voice/readiness answered HTTP 500 to an unauthenticated request
+// in production, where every sibling endpoint answered 401. The cause:
+// memberOrRefusalPlain returns a plain `{ error, status }` object — it exists
+// for the HELPER functions that shape their own reply — and the handler did
+// `if (refusal) return refusal`, handing Next something it cannot serialise.
+//
+// A 500 on an auth failure looks exactly like a broken endpoint, which on this
+// endpoint is the worst confusion available: it is the screen someone opens
+// when they already suspect their phone is broken. Curling production found it;
+// no check would have.
+//
+// So: any file that calls memberOrRefusalPlain INSIDE an exported route handler
+// must wrap the refusal. Files that only use it inside their own helpers are
+// fine — that is what it is for.
+{
+  const files = execSync(
+    "grep -rl memberOrRefusalPlain app/api || true",
+    { cwd: ROOT, encoding: "utf8" },
+  ).split("\n").filter(Boolean);
+  ok("some route files use the plain refusal helper", files.length > 0, String(files.length));
+
+  for (const f of files) {
+    const src = readFileSync(join(ROOT, f), "utf8");
+    // Walk each exported handler body and look for a bare `return refusal`.
+    const bad = [];
+    const re = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE)\s*\([^)]*\)\s*\{/g;
+    let m;
+    while ((m = re.exec(src))) {
+      // Body = from the brace to the next top-level export, or end of file.
+      const start = m.index + m[0].length;
+      const next = src.indexOf("\nexport ", start);
+      const body = src.slice(start, next === -1 ? src.length : next);
+      if (/\bmemberOrRefusalPlain\s*\(/.test(body) && /\breturn\s+refusal\s*;/.test(body)) {
+        bad.push(m[1]);
+      }
+    }
+    ok(`${f} wraps its refusal in a Response`, bad.length === 0, bad.join(", "));
+  }
+}
 
 console.log(fail ? `\n${fail} failed` : "\nall good");
 process.exit(fail ? 1 : 0);
