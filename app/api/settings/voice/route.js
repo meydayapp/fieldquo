@@ -15,7 +15,7 @@ import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured } from "@/lib/voice/retell";
-import { provisionAgent } from "@/lib/voice/provision";
+import { provisionAgent, attachmentFailed } from "@/lib/voice/provision";
 import { quoteTopicsForCompany, photoDestination } from "@/lib/voice/quoteQuestions";
 import { greetingNamesAnotherBusiness } from "@/lib/voice/prompt";
 import { diagnoseAndHeal } from "@/lib/voice/diagnose";
@@ -33,7 +33,16 @@ import {
   FREE_TRIAL_MINUTES,
   recentEntries,
   trialGranted,
+  AUTO_TOPUP_THRESHOLDS,
+  AUTO_TOPUP_MAX_PER_DAY,
 } from "@/lib/voice/credits";
+import { autoTopupFor, publicAutoTopup } from "@/lib/voice/autoTopup";
+import { quoteCallbackReport, REPORT_DAYS } from "@/lib/voice/quoteCallbackReport";
+import {
+  QUOTE_CALL_SCOPES,
+  QUOTE_CALL_SCOPE_VALUES,
+  normaliseQuoteCallScope,
+} from "@/lib/voice/quoteCallScope";
 import {
   spendVerdict,
   checkSpend,
@@ -74,7 +83,7 @@ export async function GET(request) {
   const { member, error, status } = await requireAdmin(request, { read: true });
   if (error) return NextResponse.json({ error }, { status });
 
-  const [agent, number, cents, entries, company, queuedCalls, trialUsed] = await Promise.all([
+  const [agent, number, cents, entries, company, queuedCalls, trialUsed, autoTopup, callbackReport] = await Promise.all([
     db.voiceAgent.findUnique({ where: { companyId: member.companyId } }),
     // heldNumber, not activeNumber. The screen has to show a row stuck on the
     // old `provisioning` default: that number was bought, it exists at the
@@ -90,7 +99,8 @@ export async function GET(request) {
       // Big painter Inc's receptionist answered "Thank you for calling Federal
       // Test" to every caller, and nothing in the app could notice.
       select: {
-        name: true, outboundCallsEnabled: true, crewInboxEnabled: true,
+        name: true, outboundCallsEnabled: true, outboundQuoteCallScope: true,
+        crewInboxEnabled: true,
         // Where the receptionist tells a caller to email photos, and the
         // language its spoken trade names come out in. Both feed the "what it
         // asks for" note the settings screen prints — see quoteTopicsForCompany.
@@ -103,6 +113,11 @@ export async function GET(request) {
     }),
     db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
     trialGranted(member.companyId),
+    autoTopupFor(member.companyId),
+    // Why the queue is empty. "No calls waiting" beside a switch that reads
+    // "It's calling clients" is accurate and unactionable — see the header of
+    // lib/voice/quoteCallbackReport.js.
+    quoteCallbackReport(member.companyId),
   ]);
 
   // What a quote for this company's instantly-priced trades needs, in its own
@@ -284,6 +299,28 @@ export async function GET(request) {
         at: e.createdAt,
       })),
     },
+    // ── Automatic top-ups ────────────────────────────────────────────────
+    //
+    // `config` is null until somebody has been through the terms — and null
+    // here means "never set up", which is a different screen from "set up and
+    // switched off". Conflating the two is how a contractor ends up looking at
+    // an off switch for a card they never saved.
+    //
+    // The thresholds and the daily cap travel because the page has to STATE
+    // them in the terms it shows, and it cannot import them: they live in
+    // lib/voice/credits.js, which imports Prisma, and a client component
+    // importing that drags the database driver into the browser bundle. Same
+    // trap creditCurrency.js carries a warning about.
+    autoTopup: {
+      config: publicAutoTopup(autoTopup),
+      thresholds: AUTO_TOPUP_THRESHOLDS,
+      maxPerDay: AUTO_TOPUP_MAX_PER_DAY,
+      // Which language the payment terms can actually be stated in for this
+      // company. Only English and French have been read by a human, and a
+      // machine-translated payment authorisation is not one anybody has
+      // vouched for — see lib/voice/autoTopupConsent.js.
+      language: company?.defaultLanguage || "en",
+    },
     pricing: {
       topups: TOPUP_OPTIONS,
       // Each type carries its own affordability verdict, priced HERE from our
@@ -338,6 +375,15 @@ export async function GET(request) {
     outbound: {
       enabled: Boolean(company?.outboundCallsEnabled),
       queued: queuedCalls,
+      // Normalised here rather than in the browser, so a column written before
+      // this setting existed reads as the default it behaves as — the card must
+      // show the option the gate is actually applying.
+      scope: normaliseQuoteCallScope(company?.outboundQuoteCallScope),
+      options: QUOTE_CALL_SCOPE_VALUES,
+      // Codes and counts only. The sentences live in lib/voice/quoteCallScope.js
+      // and are translated on the page, so this route stays language-free.
+      report: callbackReport,
+      windowDays: REPORT_DAYS,
     },
     // ── What the receptionist will actually ask a caller for ──────────────
     //
@@ -457,6 +503,36 @@ export async function PUT(request) {
     });
   }
 
+  // ── WHICH quotes get the call ───────────────────────────────────────────
+  //
+  // No number/credit floor of its own: this narrows or widens a switch that
+  // already carries one, and refusing to record a preference because the
+  // balance is low would lose a decision the owner made deliberately.
+  //
+  // Validated against the list rather than trimmed and stored: an unrecognised
+  // string in this column would normalise back to the default at read time, so
+  // saving one would show the owner a choice that isn't being applied — a dead
+  // control with extra steps.
+  if (typeof body.outboundQuoteCallScope === "string") {
+    if (!QUOTE_CALL_SCOPE_VALUES.includes(body.outboundQuoteCallScope)) {
+      return NextResponse.json({ error: "That isn't one of the callback options." }, { status: 400 });
+    }
+    await db.company.update({
+      where: { id: member.companyId },
+      data: { outboundQuoteCallScope: body.outboundQuoteCallScope },
+    });
+    await recordActivity(member, {
+      action: "voice.outbound.scope",
+      entityType: "settings",
+      summary:
+        body.outboundQuoteCallScope === QUOTE_CALL_SCOPES.ALL
+          ? "Quote callbacks now cover every quote sent"
+          : body.outboundQuoteCallScope === QUOTE_CALL_SCOPES.OFF
+            ? "Turned off quote callbacks (other outbound calls unchanged)"
+            : "Quote callbacks limited to instant estimates",
+    });
+  }
+
   // ── Crew inbox — crew text photos/updates in, they file to the job ──────
   //
   // Inbound only, and gated on a LIVE number. /api/crew/inbound resolves the
@@ -516,12 +592,27 @@ export async function PUT(request) {
     });
   }
 
+  // ── A failed attach or detach is a failed save of THIS field ─────────────
+  //
+  // provisionAgent returns ok:true once the agent itself is pushed, and the
+  // attach/detach that follows is what actually makes the phone answer or stop.
+  // Reporting `live: true` off the agent push alone meant "turn the
+  // receptionist off" could report success while the number kept answering and
+  // kept billing — the exact dead control this codebase keeps deleting, on the
+  // one switch whose entire purpose is "stop answering".
+  const attachBroke = attachmentFailed(pushed.attachment);
+  const live = pushed.ok && !attachBroke;
+
   return NextResponse.json({
     ok: true,
     enabled: agent.enabled,
     // Surfaced rather than swallowed. "Saved, but the phone hasn't picked it up
     // yet" is a state the company needs to know about.
-    live: pushed.ok,
-    liveError: pushed.ok ? null : pushed.reason,
+    live,
+    liveError: live ? null : attachBroke ? pushed.attachment.reason : pushed.reason,
+    // Which half failed, so the screen can say "it's still answering" rather
+    // than the generic "the wording didn't reach the phone". They are different
+    // problems and only one of them costs money.
+    attachmentFailed: attachBroke,
   });
 }

@@ -444,7 +444,7 @@ console.log("\nthe cut-off, at the provider");
     "shouldAnswer needs BOTH the switch and the credit",
     /const shouldAnswer\s*=\s*Boolean\(agent\?\.enabled\)\s*&&\s*allowed/.test(prov),
   );
-  ok("and a false verdict attaches NULL — a number with no agent rings out", /const want\s*=\s*shouldAnswer\s*\?\s*providerAgentId\s*:\s*null/.test(prov));
+  ok("and a false verdict attaches NULL — a number with no agent does not answer", /const want\s*=\s*shouldAnswer\s*\?\s*providerAgentId\s*:\s*null/.test(prov));
   ok("the detach is read back rather than trusted", prov.includes("boundAgentId(live) !== want"));
 
   // Top up. The balance is a SUM, so credit restores the verdict with no extra

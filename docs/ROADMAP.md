@@ -248,6 +248,44 @@ including the finding that evidence-matching alone does NOT stop injection when
 the injection is in the caller's own words, which is why `looksLikeInstruction`
 exists. **Still needs a live `RETELL_API_KEY` to actually run against Retell.**
 
+**A number can now be GIVEN BACK, and we can see what we still pay for.** The
+owner asked whether a released number stays ours because we bought it. It does
+not: `releaseNumber()` is `DELETE /delete-phone-number`, the number goes back to
+the carrier's pool and cannot be recovered — and until it is called, Retell bills
+FieldQuo every month, for ever. Nothing except the rent cron past its grace
+period ever called it, so a contractor with an unwanted number was stuck with it
+and FieldQuo paid for it.
+
+- `lib/voice/numberRelease.js` — the one release path, shared by the rent cron
+  and the contractor's own button. **The row only moves to `released` after the
+  provider has been read back and answered 404.** A 200 on the DELETE is not
+  evidence; a refused, unverifiable or still-present number leaves the row
+  exactly as it was, because a row that says released while Retell keeps billing
+  is invisible *and* expensive. `planRelease` is pure and holds the two
+  confirmations: the E.164 typed back, plus a second yes when it is the
+  company's last working line (the ROUTE counts the lines — the settings screen
+  sees one row and could not tell).
+- `POST /api/settings/voice/number/release` (`user:manage`, 403 otherwise) and
+  the Release control on `/app/settings/voice`, which names the number, says it
+  cannot be recovered, and says the remainder of the paid month is not refunded.
+- `/platform/voice-numbers` (superadmin, read-only, `lib/voice/numberAudit.js` +
+  `listAllNumbers`) — every number Retell bills this account for against every
+  row we hold. The column that matters is **numbers nobody holds**, and the
+  worst kind is `marked_released`: a row we called released without telling the
+  provider. The other direction (`orphans`) is a company holding a row Retell
+  does not have — an `active` one is still being charged rent for a number that
+  does not exist. It edits nothing (AGENTS.md #3).
+- Two database-only "release" paths were audited and left alone with the
+  reasoning written down: the `ghost` repair (reachable only after Retell itself
+  404s, so there is nothing to delete) and port-cancel (Retell has no porting
+  endpoint, so no provider object exists) — the latter now refuses a porting row
+  carrying a `providerId`, so the reasoning is checked rather than trusted.
+- `npm run check:number-release` executes it: a refused release leaves the row
+  untouched, a confirmed one marks it released, the sole-line guard fires, a
+  released row is never billed again, and a number the provider has dropped is
+  reported as orphaned rather than silently ignored. **Still unverified against
+  the real provider — there is no `RETELL_API_KEY` in local `.env`.**
+
 **FieldQuo's OWN phone agent is a separate agent, and it is now buildable.**
 `/platform/sales-agent` (superadmin) is the whole surface. It is not the tenant
 receptionist and must never converge with it — a contractor's receptionist that
@@ -799,6 +837,52 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Automatic voice credit top-up, and the "rings out" claim that was never
+  checked — `lib/voice/autoTopup.js`, `lib/voice/autoTopupConsent.js`,
+  `app/api/settings/voice/auto-topup/`, `scripts/check-voice-auto-topup.mjs`.**
+
+  A contractor can now save a card and have FieldQuo buy more phone credit on
+  its own when the balance falls below $5, $10 or $20. It is the first thing in
+  the product that charges a customer's card without them being there, so the
+  discipline is `lib/servicePlans/**` pointed the other way: the terms are
+  rendered on screen, the box is ticked, and the exact wording, the timestamp,
+  the IP, the member and the amount authorised are snapshotted BEFORE Stripe is
+  opened. A card saved with no consent row is not a mandate and cannot be
+  charged.
+
+  Platform Billing, never Connect — same customer as their subscription, no
+  `transfer_data`, no application fee. Cards only: a Canadian pre-authorized
+  debit settles in five business days, and a top-up that lands next week is a
+  phone that stopped answering on Tuesday.
+
+  Six caps, because a card charged in a loop is the worst outcome available:
+  one charge in flight (a compare-and-set `updateMany`, not a read-then-write);
+  a Stripe idempotency key built from the claim token, which an attempt whose
+  outcome we never learned KEEPS so the retry replays rather than re-charges; a
+  fifteen-minute gap; three a day; a frozen daily money ceiling; and a decline
+  that switches the feature off, emails, and never retries. `check:voice-auto-topup`
+  executes all of it against an in-memory ledger and a Stripe stub — 99
+  assertions, no live API call.
+
+  Settlement is shared with the manual top-up (`lib/voice/topup.js`), keyed on
+  the payment intent, so the two cannot credit one payment between them.
+
+  Two things found on the way. `provisionAgent` dropped the result of
+  `syncNumberAttachment`, so the settings PUT answered `live: true` after a
+  DETACH that failed at the provider — "turn the receptionist off" could report
+  success while the number kept answering and kept billing. And three files
+  asserted "a number with no agent rings out", which nobody had ever checked:
+  Retell does not document it, its vocabulary for a call it will not take is
+  "disconnect", and its SIP edge is known to answer with 486 — a busy tone — at
+  least sometimes. `fallback_number` is documented for exhausted concurrency
+  ONLY and is not the lever it looks like. The claims are gone and the screen
+  now warns that a caller may get a busy signal. **Open product decision:**
+  whether to spend a minute of FieldQuo's own talk time answering an
+  out-of-credit or switched-off number with a message. `inbound_webhook_url` is
+  the documented lever — it applies "whether or not the number has an inbound
+  agent set" — but it costs money per call for exactly the companies that have
+  none. See `attachAgent` in `lib/voice/retell.js`.
 
 - **A contractor could not name their own Stripe account —
   `lib/stripe/connectAccount.js`, `scripts/check-stripe-identity.mjs`.**

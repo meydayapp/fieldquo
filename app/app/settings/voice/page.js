@@ -32,6 +32,12 @@
 
 import { formatAppMoney } from "@/lib/format/money";
 import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
+// The SAME builder that writes the snapshot into the database when the box is
+// ticked. Importable here only because it has no server imports at all —
+// lib/voice/credits.js, where the thresholds live, reaches Prisma, so the
+// threshold list and the daily cap travel on the settings GET instead. Same
+// trap creditCurrency.js carries a warning about.
+import { buildAutoTopupTerms } from "@/lib/voice/autoTopupConsent";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
@@ -48,6 +54,16 @@ import { usableNotes } from "@/lib/voice/knowledge";
 // lib/voice/numbers.js, which imports the database). The answer to that one
 // travels as a boolean on the settings GET instead.
 import { DIAGNOSIS_TONE, DIAGNOSIS_TEXT, SIDE_TEXT, diagnosisKey, sideKey } from "@/lib/voice/diagnosisCopy";
+// Same split, same reason: lib/voice/triggers.js reaches Prisma, so the gate's
+// refusal codes and the scope table live in a file with no imports at all.
+import {
+  scopeLabelKey,
+  scopeHintKey,
+  SCOPE_LABEL_TEXT,
+  SCOPE_HINT_TEXT,
+  callbackReasonKey,
+  CALLBACK_REASON_TEXT,
+} from "@/lib/voice/quoteCallScope";
 import {
   READINESS_LINKS,
   LINK_LABEL,
@@ -120,6 +136,26 @@ export default function VoiceSettingsPage() {
   const [chain, setChain] = useState(null);
   const [chainBusy, setChainBusy] = useState(false);
   const [chainFixed, setChainFixed] = useState(false);
+
+  // ── Automatic top-up ────────────────────────────────────────────────────
+  //
+  // The two choices are held here UNCOMMITTED until the box is ticked, because
+  // changing either one changes the sentence the person is being asked to agree
+  // to. A control that saved on change would let somebody read one set of terms
+  // and have another set recorded.
+  //
+  // Both are null until chosen. Not $10 and not $30 — absence of a choice is
+  // not a choice, and pre-selecting an amount on a form that authorises a card
+  // charge is how "I never picked that" happens.
+  const [autoThreshold, setAutoThreshold] = useState(null);
+  const [autoAmount, setAutoAmount] = useState(null);
+  const [autoAccepted, setAutoAccepted] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(false);
+  // Whether the failure was the ATTACH rather than the wording push. Different
+  // problems: one leaves an old greeting live, the other leaves the phone
+  // answering after somebody switched it off, and only the second costs money.
+  const [attachWarning, setAttachWarning] = useState(false);
 
   /**
    * A failed request whose message the API sent as a KEY.
@@ -317,6 +353,51 @@ export default function VoiceSettingsPage() {
               },
         );
       }
+
+      // ── Back from saving a card for automatic top-ups ────────────────────
+      //
+      // Same shape as the top-up confirm above and for the same reason: the
+      // success URL is just a URL, so the card is only recorded after the
+      // server has asked Stripe whether that setup session really completed and
+      // whether it belongs to this company.
+      //
+      // A failure here is genuinely recoverable without anybody doing anything
+      // — checkout.session.completed settles the identical session — so the
+      // message says "give it a moment" rather than presenting it as an error.
+      // What it must never do is claim the card is saved when it isn't: the
+      // whole value of this feature is a contractor trusting their phone cannot
+      // run out.
+      const autoSetup = params.get("autotopup");
+      if (autoSetup) {
+        let armed = null;
+        try {
+          const res = await fetch(
+            `/api/settings/voice/auto-topup?session_id=${encodeURIComponent(autoSetup)}`,
+          );
+          armed = res.ok ? await res.json().catch(() => null) : null;
+        } catch {
+          armed = null;
+        }
+        window.history.replaceState({}, "", window.location.pathname);
+        setNotice(
+          armed?.ok
+            ? {
+                tone: "ok",
+                text: t(
+                  "app.setVoice.auto.armed",
+                  "Automatic top-up is on. We'll charge the card on file when your balance runs low.",
+                ),
+              }
+            : {
+                tone: "info",
+                text: t(
+                  "app.setVoice.auto.pending",
+                  "We couldn't confirm that card just yet. Nothing has been charged. If it saved, automatic top-up switches itself on within a minute or two — refresh to check.",
+                ),
+              },
+        );
+      }
+
       const d = await load();
       setLoading(false);
       // After the page has something to show, not before — the diagnosis is a
@@ -342,6 +423,11 @@ export default function VoiceSettingsPage() {
       // to be visible. "Saved" over a greeting the caller will never hear is
       // the kind of quiet lie that costs a company a week of wrong calls.
       setLiveWarning(d.live === false && d.liveError !== "not_configured");
+      // A failed ATTACH is not a failed greeting push, and it must not be
+      // reported as one. "The wording didn't reach the phone" is a cosmetic
+      // problem; "we couldn't stop it answering" is a phone that is still
+      // taking calls and still spending credit after somebody switched it off.
+      setAttachWarning(Boolean(d.attachmentFailed));
       await load();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -426,6 +512,65 @@ export default function VoiceSettingsPage() {
     }
   }
 
+  /**
+   * Give a bought number back — the one irreversible thing on this page.
+   *
+   * The provider DELETEs it, the number returns to the carrier's pool, and
+   * anything printed on a van stops ringing. So the route wants the E.164 typed
+   * back, and a second acknowledgement when it is the company's last working
+   * line. Nothing here decides any of that: the refusals come from the route, so
+   * a UI that lost track of which row it was showing gets a refusal rather than
+   * destroying the wrong number.
+   */
+  async function releaseNumberNow({ confirm, acknowledgeSoleNumber }) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/settings/voice/number/release", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm, acknowledgeSoleNumber }),
+      });
+      if (!res.ok) {
+        const refusal = await res.clone().json().catch(() => ({}));
+        // ── The sole-number refusal is a STEP, not an error ─────────────────
+        //
+        // The page cannot know whether this is their last working line — the
+        // settings GET returns one row, so from here every number looks like
+        // the only one. The route counts them and refuses; the component then
+        // shows the second acknowledgement. Ticking a box that says "this may
+        // be my only line" before anyone has checked would be the page
+        // asserting something it has not been told.
+        if (refusal?.reason === "sole_number") {
+          return { ok: false, soleNumber: true };
+        }
+        await reportVoiceError(res, t("app.setVoice.release.failed", "We couldn't release that number just now. Nothing has changed."));
+        // Reloaded even on a refusal: the row may have moved for some other
+        // reason, and leaving the screen on a stale number is how somebody
+        // types the wrong one into the next confirmation.
+        await load();
+        return { ok: false };
+      }
+      const result = await res.json().catch(() => ({}));
+      await load();
+      setNotice({
+        tone: "ok",
+        text: result.alreadyGone
+          ? t("app.setVoice.release.doneGhost", "That number never existed at the phone provider, so there was nothing to give back — we've cleared it off your account and you can set one up again.")
+          : t("app.setVoice.release.done", "{number} has been released. It's gone for good and the monthly rental has stopped.", { number: confirm }),
+      });
+      return { ok: true };
+    } catch (err) {
+      showError(
+        t("app.setVoice.release.failed", "We couldn't release that number just now. Nothing has changed.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+      return { ok: false };
+    } finally {
+      setBusy(false);
+    }
+  }
+
   /** Withdraw a port request nobody has actioned yet. Costs nothing, undoes cleanly. */
   async function cancelPort() {
     setBusy(true);
@@ -505,6 +650,98 @@ export default function VoiceSettingsPage() {
       window.location.href = checkoutUrl;
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Agree to automatic top-ups, then go and save a card.
+   *
+   * The amounts are NOT posted as money. The two ids the server accepts come
+   * from closed lists it holds itself, and it rejects anything else outright —
+   * so the figure in the terms and the figure that gets charged are the same
+   * figure, decided in one place.
+   */
+  async function startAutoTopup() {
+    setAutoBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/auto-topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thresholdCents: autoThreshold,
+          amountCents: autoAmount,
+          acceptTerms: autoAccepted,
+        }),
+      });
+      if (!res.ok) {
+        await reportVoiceError(
+          res,
+          t("app.setVoice.auto.error", "Couldn't set up automatic top-ups."),
+        );
+        return;
+      }
+      const result = await res.json().catch(() => ({}));
+      // A card already on file needs no second trip through Stripe — the server
+      // says so, and the honest thing is to say what happened rather than
+      // bouncing them somewhere and back.
+      if (result.setupUrl) {
+        window.location.href = result.setupUrl;
+        return;
+      }
+      setAutoOpen(false);
+      setAutoAccepted(false);
+      setNotice({
+        tone: "ok",
+        text: t(
+          "app.setVoice.auto.armed",
+          "Automatic top-up is on. We'll charge the card on file when your balance runs low.",
+        ),
+      });
+      await load();
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  /** The plain on/off, for a company that already has a card saved. */
+  async function setAutoTopupEnabled(enabled) {
+    setAutoBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/auto-topup", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) {
+        await reportVoiceError(
+          res,
+          t("app.setVoice.auto.error", "Couldn't set up automatic top-ups."),
+        );
+        return;
+      }
+      await load();
+    } finally {
+      setAutoBusy(false);
+    }
+  }
+
+  /** Forget the card entirely — the row AND the payment method at Stripe. */
+  async function removeAutoTopupCard() {
+    setAutoBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/auto-topup", { method: "DELETE" });
+      if (!res.ok) {
+        await reportVoiceError(
+          res,
+          t("app.setVoice.auto.error", "Couldn't set up automatic top-ups."),
+        );
+        return;
+      }
+      setAutoOpen(false);
+      setAutoAccepted(false);
+      await load();
+    } finally {
+      setAutoBusy(false);
     }
   }
 
@@ -736,6 +973,35 @@ export default function VoiceSettingsPage() {
               },
             )}
           </p>
+        )}
+
+        {/* ── Automatic top-up ─────────────────────────────────────────────
+            Directly under the buy buttons, because it is the same decision
+            made once instead of every time. Rendered only when the deployment
+            actually has a payment provider — a card form that cannot save a
+            card is the dead control this file's header is about. */}
+        {configured && data.autoTopup && (
+          <AutoTopupPanel
+            t={t}
+            money={money}
+            currency={CREDIT_CURRENCY}
+            info={data.autoTopup}
+            centsPerMinute={credit.centsPerMinute}
+            topups={pricing.topups}
+            companyName={data.companyName}
+            open={autoOpen}
+            setOpen={setAutoOpen}
+            threshold={autoThreshold}
+            setThreshold={setAutoThreshold}
+            amount={autoAmount}
+            setAmount={setAutoAmount}
+            accepted={autoAccepted}
+            setAccepted={setAutoAccepted}
+            busy={autoBusy}
+            onStart={startAutoTopup}
+            onToggle={setAutoTopupEnabled}
+            onRemoveCard={removeAutoTopupCard}
+          />
         )}
 
         {credit.entries.length > 0 && (
@@ -989,30 +1255,40 @@ export default function VoiceSettingsPage() {
             )}
 
             {/* ── "How do I undo this?" — asked before it's needed ───────────
-                Two different answers, and only one of them is self-serve. A
-                forwarded setup is genuinely reversible from their own handset in
-                a few seconds, which is most of why it's the recommended option.
-                A number we bought is not: releasing it means deleting it at the
-                provider, it can't be got back, and there is no control for it
-                yet. Saying so is the honest version — an absent answer reads as
-                "trapped", and a fake button would be worse than both. */}
-            {number.status === "active" && (
-              <p className="text-xs text-muted-foreground">
-                {number.source === "forwarded"
-                  ? "To stop: dial ##002# from your own phone and calls stop reaching the receptionist immediately — your number is unchanged. To stop paying for the forwarding number as well, "
-                  : "Releasing a number is permanent — it goes back to the pool and can't be recovered — so it isn't a button on this page. To give this one up, "}
-                {/* Same fix as the banner above: the sentence used to end on
-                    "get in touch" with nothing to touch. */}
-                <a
-                  href={supportMailto({
-                    subject: `Release my receptionist number — ${number.display}`,
-                  })}
-                  className="underline underline-offset-2 hover:text-foreground"
-                >
-                  {t("app.setVoice.emailUsShort", "email us")}
-                </a>
-                .
-              </p>
+                Two different answers, and they are genuinely different actions.
+                A forwarded setup is reversible from their own handset in a few
+                seconds, which is most of why it's the recommended option — but
+                that only stops calls arriving; the rented line underneath is
+                still ours and still billed. Giving the LINE back is the release
+                below, and it is permanent.
+
+                This used to say releasing "isn't a button on this page" and
+                point at an email address. It was honest at the time, and it left
+                a contractor renting a number they didn't want for ever — Retell
+                bills FieldQuo every month a number exists, and only
+                delete-phone-number stops it. */}
+            {number.status !== "porting" && (
+              <ReleaseNumber
+                e164={number.e164}
+                // ── The number being GIVEN UP, not the one they give out ─────
+                //
+                // For a forwarded setup `display` is THEIR own number, which is
+                // not the one this releases and is not going anywhere.
+                // `forwardsToDisplay` is the line we rent them. Naming the wrong
+                // one in a destructive confirmation is the whole failure class.
+                display={
+                  number.source === "forwarded"
+                    ? number.forwardsToDisplay || number.e164
+                    : number.display
+                }
+                ownNumber={number.source === "forwarded" ? number.display : null}
+                forwarded={number.source === "forwarded"}
+                monthlyCents={rent?.monthlyCents ?? number.monthlyCents}
+                money={money}
+                busy={busy}
+                t={t}
+                onRelease={releaseNumberNow}
+              />
             )}
           </div>
         ) : (
@@ -1440,6 +1716,44 @@ export default function VoiceSettingsPage() {
           {agent?.enabled ? t("app.setVoice.answerOn", "It's answering — turn off") : t("app.setVoice.answerOff", "Start answering calls")}
         </button>
         <BlockedReason show={!agent?.enabled && !canEnable} message={readyMessage} />
+
+        {/* ── What a caller gets when this is off ─────────────────────────
+            Turning it off detaches the agent at the provider, and Retell does
+            not document what a caller then hears. Its own vocabulary for a
+            call it will not take is "disconnect", never "ring", and its SIP
+            edge is known to answer with 486 — a busy tone — in at least some
+            cases. Busy means "they're on another call, try again in a minute".
+            It does not mean "we're closed".
+
+            Three comments in this repository asserted "the number rings out"
+            and none of them had been checked. So this says what is actually
+            known: it stops answering, and we cannot promise which of the two a
+            caller gets. Somebody with this number on a van needs that before
+            they switch it off, not after. See attachAgent in
+            lib/voice/retell.js for the sources and for the one measurement
+            that would settle it. */}
+        {agent?.enabled && (
+          <p className="text-xs text-muted-foreground mt-3">
+            {t(
+              "app.setVoice.answerOffWarning",
+              "When you turn this off the number stops answering — and we can't promise a caller hears ringing rather than a busy tone. If this number is on your van, forward it somewhere before you switch it off.",
+            )}
+          </p>
+        )}
+
+        {/* Not the generic "we couldn't update the wording" warning. This one
+            means the phone did not do what the button said, and the difference
+            matters: an old greeting is cosmetic, a receptionist still answering
+            after you switched it off is still spending your credit. */}
+        {attachWarning && (
+          <p className="mt-3 inline-flex items-start gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+            {t(
+              "app.setVoice.attachWarning",
+              "Saved here, but the provider didn't accept the change — the number may still be doing what it was doing before. Try again in a moment, and use the end-to-end check below if it keeps happening.",
+            )}
+          </p>
+        )}
       </Card>
 
       {/* ── 5. Outbound ─────────────────────────────────────────────────────
@@ -1471,12 +1785,28 @@ export default function VoiceSettingsPage() {
         <BlockedReason show={!data?.outbound?.enabled && !canEnable} message={readyMessage} />
 
         {data?.outbound?.enabled && (
-          <p className="text-xs text-muted-foreground mt-3">
-            {data.outbound.queued > 0
-              ? t("app.setVoice.outboundQueued", "{count} call{plural} waiting to go out.", { count: data.outbound.queued, plural: data.outbound.queued === 1 ? "" : "s" })
-              : t("app.setVoice.outboundNone", "No calls waiting. The next approved quote will queue one.")}{" "}
-            {t("app.setVoice.outboundStopNote", "A client who asks to stop being called is taken off immediately and for good.")}
-          </p>
+          <>
+            <QuoteCallScope
+              scope={data.outbound.scope}
+              options={data.outbound.options}
+              busy={busy}
+              onPick={(scope) => save({ outboundQuoteCallScope: scope })}
+              t={t}
+            />
+
+            <p className="text-xs text-muted-foreground mt-4">
+              {data.outbound.queued > 0
+                ? t("app.setVoice.outboundQueued", "{count} call{plural} waiting to go out.", { count: data.outbound.queued, plural: data.outbound.queued === 1 ? "" : "s" })
+                : t("app.setVoice.outboundNone", "No calls waiting.")}{" "}
+              {t("app.setVoice.outboundStopNote", "A client who asks to stop being called is taken off immediately and for good.")}
+            </p>
+
+            <CallbackReport
+              report={data.outbound.report}
+              windowDays={data.outbound.windowDays}
+              t={t}
+            />
+          </>
         )}
       </Card>
 
@@ -1710,6 +2040,165 @@ function ReadinessPanel({ chain, busy, fixed, t, number, onRun, onFix }) {
 // an empty banner — and a check script cannot import a client component full of
 // JSX to assert them. See the note at the top of that file.
 
+/**
+ * Giving the rented line back. The only irreversible control on this screen.
+ *
+ * ── Why it is three steps and not a button ─────────────────────────────────
+ *
+ * Releasing calls delete-phone-number at Retell. The number goes back to the
+ * carrier's pool, someone else can buy it, and it cannot be recovered — so a
+ * van, a lawn sign, a Google listing and three years of invoices stop working.
+ * That is not a thing to put one click away, and it is not a thing to describe
+ * as "remove" either.
+ *
+ * So: collapsed by default, the consequence stated in those words, the number
+ * NAMED and typed back, and — when it is the last working line — a second
+ * acknowledgement. The route decides all of that again server-side; this is the
+ * same decision rendered, not a substitute for it.
+ *
+ * The typed confirmation is compared loosely here (digits only) so a contractor
+ * who types the pretty form on a phone keyboard is not defeated by punctuation.
+ * The E.164 is what gets POSTed, and the route compares that exactly.
+ */
+function ReleaseNumber({ e164, display, ownNumber, forwarded, monthlyCents, money, busy, t, onRelease }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [ack, setAck] = useState(false);
+  // Set only after the ROUTE has told us this is their last working line. The
+  // page has no way to know — the settings GET returns one row, so from here
+  // every number looks like the only one.
+  const [soleWarning, setSoleWarning] = useState(false);
+
+  const digits = (s) => String(s || "").replace(/[^\d]/g, "");
+  const matches = Boolean(e164) && digits(typed) === digits(e164);
+
+  function reset() {
+    setOpen(false);
+    setTyped("");
+    setAck(false);
+    setSoleWarning(false);
+  }
+
+  if (!e164) return null;
+
+  if (!open) {
+    return (
+      <div className="pt-1">
+        <p className="text-xs text-muted-foreground">
+          {forwarded
+            ? t("app.setVoice.release.introForwarded", "To stop calls reaching the receptionist right now, dial ##002# from your own phone — your number is unchanged and nothing is lost. To stop paying for the line we rent you as well, you have to give that line back:")
+            : t("app.setVoice.release.intro", "Done with this number? You can give it back — but it is permanent, so read what it says first.")}
+        </p>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mt-1.5 text-xs font-medium text-red-700 dark:text-red-400 underline underline-offset-2"
+        >
+          {t("app.setVoice.release.open", "Release {number}", { number: display })}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4 space-y-3">
+      <div className="flex gap-2">
+        <AlertTriangle size={17} className="text-red-600 shrink-0 mt-0.5" />
+        <div className="text-sm text-red-900 dark:text-red-200 space-y-1.5">
+          <p className="font-semibold">
+            {t("app.setVoice.release.title", "Release {number} for good?", { number: display })}
+          </p>
+          {/* The consequence in the terms it actually happens in. "Remove" and
+              "disconnect" both suggest something reversible; this is neither. */}
+          <p>
+            {t("app.setVoice.release.warning", "{number} is deleted at the phone company and goes back into the pool for anyone to buy. It cannot be recovered, not by us and not by you. Anything printed on a van, a sign, a business card or a Google listing with that number on it stops working the moment you press this.", { number: display })}
+          </p>
+          {forwarded && ownNumber && (
+            <p>
+              {t("app.setVoice.release.forwardedNote", "Your own number, {number}, is not touched — but the forwarding you set points at the line being released, so dial ##002# from your phone afterwards or your missed calls will go nowhere.", { number: ownNumber })}
+            </p>
+          )}
+          {/* Said rather than left to be discovered on a statement. Rent is
+              taken 30 days in advance and nothing here refunds the remainder;
+              pretending otherwise, or staying quiet, would both be worse. */}
+          <p>
+            {t("app.setVoice.release.money", "The {amount} monthly rental stops. Whatever is left of the month you have already paid for is not refunded.", { amount: money(monthlyCents) })}
+          </p>
+          {soleWarning && (
+            <p className="font-semibold">
+              {t("app.setVoice.release.soleNumber", "This is the only working number on your account. Releasing it takes your receptionist line away for good — confirm again if that's really what you want.")}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="release-confirm" className="block text-xs font-medium text-red-900 dark:text-red-200">
+          {t("app.setVoice.release.typeIt", "Type {number} to confirm you mean this number.", { number: display })}
+        </label>
+        <input
+          id="release-confirm"
+          type="tel"
+          inputMode="tel"
+          autoComplete="off"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={display}
+          className="mt-1 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums text-foreground"
+        />
+      </div>
+
+      {/* ── The last working line ────────────────────────────────────────────
+          Shown only once the ROUTE has refused with `sole_number`. It counts
+          the company's active rows; this screen sees one row and could not tell
+          the difference. A box ticked before anyone checked would be the page
+          asserting a fact it had not been told — and it would neuter the guard,
+          since the route would then always receive a yes. */}
+      {soleWarning && (
+        <label className="flex items-start gap-2 text-xs text-red-900 dark:text-red-200">
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            {t("app.setVoice.release.ack", "I understand this may be my only working line, and that my receptionist will have no number to answer on until I set up a new one.")}
+          </span>
+        </label>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy || !matches || (soleWarning && !ack)}
+          onClick={async () => {
+            const res = await onRelease({ confirm: e164, acknowledgeSoleNumber: ack });
+            if (res?.ok) reset();
+            // Refused because it is their last line. Not an error: the second
+            // confirmation appears and the same button becomes the second yes.
+            else if (res?.soleNumber) setSoleWarning(true);
+          }}
+          className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold disabled:opacity-50"
+        >
+          {busy
+            ? t("app.setVoice.release.releasing", "Releasing…")
+            : soleWarning
+              ? t("app.setVoice.release.confirmSoleCta", "Yes — release my only line")
+              : t("app.setVoice.release.confirmCta", "Release it permanently")}
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          className="px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground"
+        >
+          {t("app.setVoice.release.keep", "Keep my number")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function NumberDiagnosis({ diag, busy, t, display, onRepair, onRecheck }) {
   if (!diag?.verdict) return null;
   const tone = DIAGNOSIS_TONE[diag.verdict];
@@ -1877,6 +2366,128 @@ function BlockedReason({ show, message }) {
       <AlertTriangle size={13} className="shrink-0 mt-0.5" />
       {message}
     </p>
+  );
+}
+
+/**
+ * Which quotes the assistant is allowed to ring about.
+ *
+ * A choice rather than a constant because the old hard rule — instant estimates
+ * only — was right for the company it was written for and wrong for an owner
+ * who writes every quote himself and wants a closer. The DEFAULT is still that
+ * old rule: see lib/voice/quoteCallScope.js on why widening it underneath
+ * somebody who never asked is the thing to avoid.
+ *
+ * `options` comes from the server rather than being listed here, so a scope the
+ * route would refuse to save can't be rendered as a button.
+ */
+function QuoteCallScope({ scope, options, busy, onPick, t }) {
+  if (!Array.isArray(options) || !options.length) return null;
+  return (
+    <div className="mt-5">
+      <p className="text-xs font-semibold text-foreground">
+        {t("app.setVoice.scopeTitle", "Which quotes get a call")}
+      </p>
+      <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        {options.map((value) => {
+          const active = value === scope;
+          return (
+            <button
+              key={value}
+              type="button"
+              disabled={busy || active}
+              aria-pressed={active}
+              onClick={() => onPick(value)}
+              className={`text-left rounded-lg border p-3 transition-colors disabled:opacity-100 ${
+                active
+                  ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                  : "border-border bg-card hover:border-foreground/30 disabled:opacity-50"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                {active && <Check size={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />}
+                {t(scopeLabelKey(value), SCOPE_LABEL_TEXT[scopeLabelKey(value)] || value)}
+              </span>
+              <span className="block text-xs text-muted-foreground mt-1">
+                {t(scopeHintKey(value), SCOPE_HINT_TEXT[scopeHintKey(value)] || "")}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The quotes that were NOT called, and why.
+ *
+ * ── Why this card exists at all ───────────────────────────────────────────
+ *
+ * "No calls waiting" under a switch that reads "It's calling clients" is a true
+ * sentence nobody can act on. An owner turned the feature on, sent a quote, got
+ * no call, and had no way to find out that the gate only ever covered instant
+ * estimates. The button worked and the screen was still lying by omission.
+ *
+ * Every reason here is a code the server's own gate returned — not a second
+ * description of the rule written for the screen, which would be the copy that
+ * rots. See lib/voice/quoteCallbackReport.js.
+ */
+function CallbackReport({ report, windowDays, t }) {
+  if (!report || !report.considered) return null;
+
+  const reason = (code) =>
+    t(callbackReasonKey(code), CALLBACK_REASON_TEXT[callbackReasonKey(code)] || code);
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-muted/40 p-3">
+      {report.called > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {t("app.setVoice.outboundCalled", "{count} quote{plural} already called in the last {days} days.", {
+            count: report.called,
+            plural: report.called === 1 ? "" : "s",
+            days: windowDays,
+          })}
+        </p>
+      )}
+
+      {report.headline && (
+        <p className="text-xs text-foreground flex items-start gap-1.5">
+          <Info size={13} className="shrink-0 mt-0.5 text-muted-foreground" />
+          <span>
+            {t(
+              "app.setVoice.outboundWhyNone",
+              "{count} quote{plural} sent in the last {days} days weren't called. Most common reason: {reason}",
+              {
+                count: report.headline.count,
+                plural: report.headline.count === 1 ? "" : "s",
+                days: windowDays,
+                reason: reason(report.headline.reason),
+              },
+            )}
+          </span>
+        </p>
+      )}
+
+      {report.refusals?.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {report.refusals.map((r, i) => (
+            <li key={`${r.quoteNumber || i}`} className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">
+                {[r.quoteNumber, r.clientName].filter(Boolean).join(" · ")}
+              </span>
+              {" — "}
+              {reason(r.reason)}
+            </li>
+          ))}
+          {report.moreRefusals > 0 && (
+            <li className="text-xs text-muted-foreground">
+              {t("app.setVoice.outboundMore", "…and {count} more.", { count: report.moreRefusals })}
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -2118,6 +2729,301 @@ function NumberInput({ onSubmit, disabled, placeholder, cta }) {
         <Plus size={14} className="inline mr-1" />
         {cta}
       </button>
+    </div>
+  );
+}
+
+/**
+ * Automatic top-up: the choices, the terms, and the switch.
+ *
+ * ── Three states, and they are not the same state ──────────────────────────
+ *
+ *   never set up  — no row. Offer it.
+ *   set up, on    — say what will happen and offer the off switch.
+ *   set up, off   — say WHY it is off. A contractor who switched it off
+ *                   themselves and a contractor whose card was declined both
+ *                   see `enabled: false`, and showing them the same sentence
+ *                   would hide the one thing the second one urgently needs to
+ *                   know.
+ *
+ * ── Why the terms are rendered from the shared builder ─────────────────────
+ *
+ * buildAutoTopupTerms is the same function that writes the snapshot into the
+ * database when the box is ticked. Retyping the wording here would let the
+ * screen and the record drift, and the record is the entire point of keeping
+ * one — a signed statement that does not match what was on the screen is worse
+ * than no statement at all.
+ */
+function AutoTopupPanel({
+  t, money, currency, info, centsPerMinute, topups, companyName,
+  open, setOpen, threshold, setThreshold, amount, setAmount,
+  accepted, setAccepted, busy, onStart, onToggle, onRemoveCard,
+}) {
+  const config = info.config;
+  const armed = Boolean(config?.enabled);
+  const hasCard = Boolean(config?.hasCard);
+
+  // Only shown once BOTH have been chosen. A half-filled authorisation is not
+  // something to display terms for — the sentence would name an amount nobody
+  // has picked yet.
+  const terms =
+    threshold && amount
+      ? buildAutoTopupTerms({
+          thresholdCents: threshold,
+          amountCents: amount,
+          maxPerDay: info.maxPerDay,
+          dailyCents: amount * info.maxPerDay,
+          currency,
+          companyName: companyName || "",
+          language: info.language,
+        })
+      : null;
+
+  // The wording is only held in English and French. Anyone else is shown it in
+  // English and told so, rather than being handed a machine translation of a
+  // payment authorisation that nobody fluent has read.
+  const termsInEnglishOnly =
+    terms && info.language && info.language !== terms.language;
+
+  if (armed) {
+    return (
+      <div className="mt-4 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-3">
+        <p className="text-sm font-medium text-foreground">
+          {t("app.setVoice.auto.onTitle", "Automatic top-up is on")}
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t(
+            "app.setVoice.auto.onBody",
+            "When your balance drops below {threshold}, we charge the {brand} ending {last4} {amount} and add the credit straight away. At most {max} times a day.",
+            {
+              threshold: money(config.thresholdCents),
+              amount: money(config.amountCents),
+              brand: config.cardBrand || t("app.setVoice.auto.card", "card"),
+              last4: config.cardLast4 || "····",
+              max: config.maxPerDay,
+            },
+          )}
+        </p>
+        {config.acceptedAt && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {t("app.setVoice.auto.agreedOn", "Agreed {date}", {
+              date: new Date(config.acceptedAt).toLocaleDateString(),
+            })}
+            {config.acceptedByName ? ` · ${config.acceptedByName}` : ""}
+          </p>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onToggle(false)}
+            className="px-4 py-2 rounded-full border border-border text-foreground text-sm hover:bg-muted disabled:opacity-50"
+          >
+            {t("app.setVoice.auto.turnOff", "Turn off automatic top-up")}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRemoveCard}
+            className="px-4 py-2 rounded-full border border-border text-muted-foreground text-sm hover:bg-muted disabled:opacity-50"
+          >
+            {t("app.setVoice.auto.removeCard", "Remove the saved card")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Off, and it matters which kind of off ────────────────────────────────
+  const stopped = config && !config.enabled && config.disabledReason;
+  const declined = stopped === "declined";
+  const unreachable = stopped === "stripe_unreachable";
+
+  return (
+    <div className="mt-4 rounded-lg border border-border p-3">
+      {declined || unreachable ? (
+        <>
+          <p className="inline-flex items-start gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+            {declined
+              ? t("app.setVoice.auto.declinedTitle", "We switched automatic top-up off — your card was declined")
+              : t("app.setVoice.auto.unreachableTitle", "We switched automatic top-up off — we couldn't reach the payment provider")}
+          </p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {declined
+              ? t(
+                  "app.setVoice.auto.declinedBody",
+                  "Nothing was charged, and we have not tried again — retrying a declined card is how a card gets blocked. Sort the card out with your bank, then switch this back on.",
+                )
+              : t(
+                  "app.setVoice.auto.unreachableBody",
+                  "Nothing was charged. We stopped rather than keep firing at a fault we can't see. Switch it back on and we'll try again next time your balance runs low.",
+                )}
+          </p>
+          {config.lastFailureMessage && (
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {t("app.setVoice.auto.reasonGiven", "Reason given:")} {config.lastFailureMessage}
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="text-sm font-medium text-foreground">
+          {t("app.setVoice.auto.offTitle", "Top up automatically")}
+        </p>
+      )}
+
+      <p className="text-sm text-muted-foreground mt-1">
+        {t(
+          "app.setVoice.auto.offBody",
+          "Save a card and we'll buy more credit on our own when the balance runs low, so the receptionist never stops answering mid-week. Off unless you turn it on.",
+        )}
+      </p>
+
+      {/* A card is already saved, so switching back on needs no trip to
+          Stripe — unless the amounts were changed since the terms were agreed,
+          in which case the server refuses and the sentence below says why
+          rather than leaving a button that fails. */}
+      {hasCard && (
+        <>
+          <button
+            type="button"
+            disabled={busy || !config.consentCurrent}
+            onClick={() => onToggle(true)}
+            className="mt-3 px-4 py-2 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+          >
+            {t("app.setVoice.auto.turnBackOn", "Turn it back on")}
+          </button>
+          {!config.consentCurrent && (
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {t(
+                "app.setVoice.auto.reAgree",
+                "The amounts have changed since you agreed. Read the terms and tick the box again to switch it back on.",
+              )}
+            </p>
+          )}
+        </>
+      )}
+
+      {!open ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setOpen(true)}
+          className={`mt-3 ${hasCard ? "ml-2 " : ""}px-4 py-2 rounded-full border border-border text-foreground text-sm hover:bg-muted disabled:opacity-50`}
+        >
+          {hasCard
+            ? t("app.setVoice.auto.change", "Change the amounts")
+            : t("app.setVoice.auto.setUp", "Set up automatic top-up")}
+        </button>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t("app.setVoice.auto.whenLabel", "Top up when the balance drops below")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {info.thresholds.map((option) => (
+                <button
+                  key={option.cents}
+                  type="button"
+                  onClick={() => { setThreshold(option.cents); setAccepted(false); }}
+                  className={`px-4 py-2 rounded-full border text-sm ${
+                    threshold === option.cents
+                      ? "border-inverted bg-inverted text-inverted-foreground font-semibold"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {option.label}
+                  <span className="opacity-70">
+                    {" "}· {Math.floor(option.cents / centsPerMinute)} min
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {t("app.setVoice.auto.buyLabel", "and buy this much each time")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {topups.map((option) => (
+                <button
+                  key={option.cents}
+                  type="button"
+                  onClick={() => { setAmount(option.cents); setAccepted(false); }}
+                  className={`px-4 py-2 rounded-full border text-sm ${
+                    amount === option.cents
+                      ? "border-inverted bg-inverted text-inverted-foreground font-semibold"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {option.label}
+                  <span className="opacity-70">
+                    {" "}· {Math.floor(option.cents / centsPerMinute)} min
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* The terms. Not a link, not a modal, not collapsed — somebody is
+              about to authorise a charge to their card without being present,
+              and the four things Stripe requires us to state are the four
+              things below. A person who has to click to see them is a person
+              who did not read them. */}
+          {terms && (
+            <div className="rounded-lg border border-border bg-muted/40 p-3">
+              <p className="text-sm font-semibold text-foreground">{terms.title}</p>
+              <p className="text-xs text-muted-foreground mt-1">{terms.intro}</p>
+              <ul className="mt-2 space-y-1.5 list-disc pl-4">
+                {terms.bullets.map((line, i) => (
+                  <li key={i} className="text-xs text-muted-foreground">{line}</li>
+                ))}
+              </ul>
+              {termsInEnglishOnly && (
+                <p className="text-xs text-muted-foreground mt-2 italic">
+                  {t(
+                    "app.setVoice.auto.englishOnly",
+                    "These payment terms are only held in English and French, so they are shown in English. Nothing here is machine-translated.",
+                  )}
+                </p>
+              )}
+              <label className="mt-3 flex items-start gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                  className="mt-1"
+                />
+                <span>{terms.consentLabel}</span>
+              </label>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || !threshold || !amount || !accepted}
+              onClick={onStart}
+              className="px-5 py-2.5 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
+            >
+              {busy ? <Loader2 size={15} className="inline mr-1.5 animate-spin" /> : null}
+              {hasCard
+                ? t("app.setVoice.auto.confirm", "Save these settings")
+                : t("app.setVoice.auto.continue", "Continue to save a card")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => { setOpen(false); setAccepted(false); }}
+              className="px-4 py-2 rounded-full border border-border text-muted-foreground text-sm hover:bg-muted disabled:opacity-50"
+            >
+              {t("app.action.cancel", "Cancel")}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

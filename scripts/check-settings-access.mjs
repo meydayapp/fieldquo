@@ -489,6 +489,12 @@ console.log("\n…and every row it is shown actually opens for it\n");
 // which are the whole screen.
 const IMPERSONATION_STILL_REFUSED = [
   "app/api/settings/voice/topup/route.js", // the credit balance panel only
+  // Costs the console NOTHING. Its GET is not a read at all — it settles a
+  // Stripe setup session and arms automatic card charging, which is precisely
+  // the thing a read-only support session must never be able to do. Everything
+  // the console needs to SEE about automatic top-up already travels on
+  // /api/settings/voice, whose read does admit an impersonation session.
+  "app/api/settings/voice/auto-topup/route.js",
   "app/api/settings/leave-policies/route.js",
   "app/api/debt/route.js",
   "app/api/salaries/route.js", // gated on the payroll grid, which "viewer" fails

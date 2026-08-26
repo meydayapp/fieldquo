@@ -38,6 +38,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toE164 } from "@/lib/voice/numbers";
 import { chargeCall, canTakeCall } from "@/lib/voice/credits";
+import { maybeAutoTopup } from "@/lib/voice/autoTopup";
 import { providerCostPatch } from "@/lib/voice/providerCost";
 import { syncNumberAttachment } from "@/lib/voice/provision";
 import { pushCallCeiling } from "@/lib/voice/callCeiling";
@@ -215,6 +216,21 @@ export async function POST(request) {
           numberType: number.numberType,
         });
       }
+
+      // ── Buy more, BEFORE deciding whether to stop answering ──────────────
+      //
+      // The order is the whole point. Auto top-up exists so that the balance
+      // running out never becomes a phone that stops ringing, and checking the
+      // balance first would detach the agent and only then put the money back —
+      // leaving the contractor's number silent for however long it took the
+      // re-attach to land, on the one account that had paid to prevent exactly
+      // that.
+      //
+      // Does nothing unless the company switched it on, agreed to the terms and
+      // saved a card, and every runaway guard says yes. Never throws: this call
+      // has already happened and has already been billed, and a payment problem
+      // must not turn that into a 500 and a Retell retry.
+      await maybeAutoTopup(number.companyId);
 
       // ── The balance moved, so both enforcement points have to follow ──────
       //

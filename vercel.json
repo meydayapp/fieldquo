@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/voice-reconcile",
       "schedule": "35 * * * *"
+    },
+    {
+      "path": "/api/cron/voice-auto-topup",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

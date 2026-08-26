@@ -254,7 +254,8 @@ export default function PlatformSalesAgentPage() {
             <span className="font-medium text-foreground">Answer calls</span>
             <span className="block text-muted-foreground">
               Attaches the agent to {readiness.numberDisplay || "the number"} at
-              the provider. Unticking detaches it, so the line rings out.
+              the provider. Unticking detaches it, and the line stops answering
+              — callers may get a busy tone rather than ringing.
             </span>
           </span>
         </label>

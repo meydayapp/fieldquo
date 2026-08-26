@@ -1015,6 +1015,20 @@ model Company {
   /// makes deliberately, not a default they discover.
   outboundCallsEnabled Boolean @default(false)
 
+  /// WHICH quotes the callback above applies to:
+  /// `instant_estimates` | `all_quotes` | `off`. See lib/voice/quoteCallScope.js.
+  ///
+  /// The default is the behaviour that already shipped, not the most useful
+  /// one. This trigger was written for instant estimates only, and a company
+  /// that switched outbound calls on under that rule must not find the
+  /// assistant ringing every customer they hand-wrote a quote for because a
+  /// release widened the scope underneath them.
+  ///
+  /// `off` is NOT outboundCallsEnabled = false: that switch also governs
+  /// appointment reminders and new-enquiry follow-ups, and this turns off the
+  /// quote closer alone — the one call that reads a price back.
+  outboundQuoteCallScope String @default("instant_estimates")
+
   /// The crew-messaging inbox: crew text photos/updates to a number and the
   /// assistant files them to the right job. Off by default. See lib/crew/.
   ///

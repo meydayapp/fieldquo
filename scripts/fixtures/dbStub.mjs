@@ -22,6 +22,13 @@ export const rows = {
   serviceCategory: [],
   client: [],
   quote: [],
+  // The outbound-call queue and the consent ledger. Added so the quote-callback
+  // checks can execute enqueueOutbound itself rather than assert about it — the
+  // "one call per quote, ever" rule is a property of a de-dupe QUERY, and there
+  // is no way to read that property off the source with any confidence.
+  voiceCallTask: [],
+  callConsent: [],
+  company: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -32,6 +39,9 @@ export function resetDbStub() {
   rows.serviceCategory = [];
   rows.client = [];
   rows.quote = [];
+  rows.voiceCallTask = [];
+  rows.callConsent = [];
+  rows.company = [];
   writes.length = 0;
 }
 
@@ -86,6 +96,9 @@ export const db = new Proxy(
     serviceCategory: model("serviceCategory"),
     client: model("client"),
     quote: model("quote"),
+    voiceCallTask: model("voiceCallTask"),
+    callConsent: model("callConsent"),
+    company: model("company"),
   },
   {
     get(target, prop) {
