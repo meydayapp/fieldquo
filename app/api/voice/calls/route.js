@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { formatNumber } from "@/lib/voice/numbers";
 import { costForSeconds } from "@/lib/voice/credits";
+import { isAiConfigured } from "@/lib/ai/provider";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -42,9 +43,34 @@ export async function GET(request) {
       reviewedAt: true,
       leadId: true,
       bookingId: true,
+      // Whether a quote can be drafted from this call at all, and whether one
+      // already has been. Never the transcript itself — the list would carry a
+      // hundred call recordings to render a button.
+      transcript: true,
+      quoteDraftAt: true,
       number: { select: { numberType: true } },
     },
   });
+
+  // The visits those calls booked, so the badge on the row can say WHEN and
+  // link to it. It used to be a green pill with no time, no name and no href:
+  // the contractor was told a visit existed and given no way to find it.
+  //
+  // `VoiceCall.bookingId` is a plain column rather than a relation, so this is
+  // a second query. Scoped through the event type's company, because a booking
+  // has no companyId of its own and the id on the call is only as trustworthy
+  // as the row it came from.
+  const bookingIds = calls.map((c) => c.bookingId).filter(Boolean);
+  const bookings = bookingIds.length
+    ? await db.booking.findMany({
+        where: {
+          id: { in: bookingIds },
+          eventType: { companyId: member.companyId },
+        },
+        select: { id: true, startTime: true, status: true, appointmentId: true },
+      })
+    : [];
+  const bookingById = new Map(bookings.map((b) => [b.id, b]));
 
   const pending = await db.voiceCall.count({
     where: { companyId: member.companyId, needsReview: true, reviewedAt: null },
@@ -52,6 +78,11 @@ export async function GET(request) {
 
   return NextResponse.json({
     pending,
+    // Whether the "draft a quote from this call" button can do anything.
+    // OPENAI_API_KEY is Sensitive in Vercel and absent in local dev, so this is
+    // genuinely false some of the time — and a button that is always going to
+    // fail should not be on the screen at all.
+    aiAvailable: isAiConfigured(),
     calls: calls.map((c) => ({
       id: c.id,
       direction: c.direction,
@@ -70,6 +101,19 @@ export async function GET(request) {
       needsReview: c.needsReview && !c.reviewedAt,
       leadId: c.leadId,
       bookingId: c.bookingId,
+      // Null when the call carries a booking id we can't resolve inside this
+      // company. Absent rather than padded — the badge then says a visit was
+      // booked without inventing a time for it.
+      booking: c.bookingId
+        ? (() => {
+            const b = bookingById.get(c.bookingId);
+            return b
+              ? { at: b.startTime, status: b.status, onCalendar: Boolean(b.appointmentId) }
+              : null;
+          })()
+        : null,
+      hasTranscript: Boolean(c.transcript),
+      quoteDraftedAt: c.quoteDraftAt,
     })),
   });
 }

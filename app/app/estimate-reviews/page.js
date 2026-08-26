@@ -22,6 +22,11 @@ const SOURCE_LABEL = {
   google_solar: "Measured from satellite",
   lawn_polygon: "Lawn traced on map",
   manual: "Homeowner-entered",
+  // Read off a recorded call by FieldQuo AI, in the back office, after the fact.
+  // The receptionist that took the call never quoted anything — see
+  // lib/ai/callQuoteDraft.js. Worth its own label because the reviewer's first
+  // question about an unexpected draft is where it came from.
+  phone_call: "Taken from a phone call",
 };
 
 export default function EstimateReviewsPage() {

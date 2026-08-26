@@ -29,6 +29,7 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import CallQuoteDraft from "./CallQuoteDraft";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
@@ -85,6 +86,10 @@ export default function ReceptionistPage() {
   }
 
   const calls = data?.calls || [];
+  // Whether the deployment can call a model at all. `data` is null on a failed
+  // load, and `?? false` rather than `?? true` on purpose: offering a button we
+  // don't know works is the failure this codebase keeps being swept for.
+  const aiAvailable = data?.aiAvailable ?? false;
   const flagged = calls.filter((c) => c.needsReview);
   const rest = calls.filter((c) => !c.needsReview);
 
@@ -155,6 +160,7 @@ export default function ReceptionistPage() {
                 busy={busy === c.id}
                 onSeen={() => markSeen(c.id)}
                 formatDateTime={formatDateTime}
+                aiAvailable={aiAvailable}
               />
             ))}
           </div>
@@ -168,7 +174,12 @@ export default function ReceptionistPage() {
           )}
           <div className="space-y-2">
             {rest.map((c) => (
-              <CallRow key={c.id} call={c} formatDateTime={formatDateTime} />
+              <CallRow
+                key={c.id}
+                call={c}
+                formatDateTime={formatDateTime}
+                aiAvailable={aiAvailable}
+              />
             ))}
           </div>
         </section>
@@ -179,7 +190,7 @@ export default function ReceptionistPage() {
   );
 }
 
-function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
+function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
   const { t } = useTranslation();
   return (
     <div
@@ -224,10 +235,23 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             <UserPlus size={13} /> {t("app.receptionist.savedAsLead")}
           </Link>
         )}
+        {/* The visit, WHEN it is, and a way to reach it. This was a green pill
+            with no time, no name and no href — the contractor was told a visit
+            had been booked and given nothing to find it with. It now goes to
+            the calendar, where the appointment created alongside the booking
+            actually appears (see lib/voice/availability.js). */}
         {call.bookingId && (
-          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
-            <CalendarCheck size={13} /> {t("app.receptionist.bookedVisit")}
-          </span>
+          <Link
+            href="/app/appointments"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:brightness-95"
+          >
+            <CalendarCheck size={13} />
+            {call.booking?.at
+              ? t("app.receptionist.bookedVisitAt", {
+                  when: formatDateTime(call.booking.at),
+                })
+              : t("app.receptionist.bookedVisit")}
+          </Link>
         )}
         {call.recordingUrl && (
           <a
@@ -239,6 +263,11 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime }) {
             <Play size={13} /> {t("app.receptionist.listen")}
           </a>
         )}
+
+        {/* Reading the call as quote scope. Deliberately here and not on the
+            phone: the receptionist may never say a price, and this happens
+            afterwards, in front of a person who sets one. */}
+        <CallQuoteDraft call={call} aiAvailable={aiAvailable} />
 
         {urgent && (
           <button

@@ -76,11 +76,9 @@ import {
   FALLBACK_LABOUR_RATE,
 } from "@/lib/costing/quoteCosting";
 import { isUnitPriced } from "@/app/data/cabinetPricing";
-import { getIntakeFields } from "@/app/data/quoteIntakeFields";
-import { isTieredPackageCategory } from "@/app/data/tieredPackages";
+import { fieldsForCategory } from "@/app/data/quoteIntakeFields";
 import { getPriceBook } from "@/app/data/tradePriceBooks";
 import {
-  createTradeConfig,
   estimateCabinetDoorCost,
   tradeLabourHours,
 } from "@/lib/pricing/tradeScope";
@@ -92,6 +90,7 @@ import {
   scopeGroupPayload as buildScopeGroupPayload,
   lineItemsFromStored,
   applyLineItemEdit,
+  newScopeGroup,
 } from "@/lib/quotes/builderPayload";
 import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
@@ -99,6 +98,16 @@ import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { LANGUAGES } from "@/app/i18n/languages";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+
+/**
+ * This company's saved edits to a trade's price book.
+ *
+ * Module-level because the loader needs it before the form mounts (the
+ * phone-call prefill builds its groups there) and the form needs it after.
+ */
+const rateOverridesIn = (categories, categoryId) =>
+  (Array.isArray(categories) ? categories : []).find((c) => c.id === categoryId)
+    ?.rateOverrides ?? null;
 
 /** Statuses whose line items the API still accepts. See PATCH /api/quotes/[id]. */
 const OPEN_STATUSES = ["draft", "sent"];
@@ -353,11 +362,98 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
     };
   }, []);
 
+  // ── Create: empty, or prefilled from a phone call ─────────────────────────
+  //
+  // `?fromCall=<voiceCallId>` opens the builder holding the scope FieldQuo AI
+  // read off a finished call. It is a prefill and not a saved draft on purpose:
+  // a stored scope group is `persisted`, and a persisted group is frozen — no
+  // takeoff, no unit pricing, no derivation from the price book, because a sent
+  // quote must keep the prices it was written with. Landing an AI draft as a
+  // Quote row would therefore land it as scope the estimator can never price
+  // from the rate card, only retype. Coming in this way, it goes through
+  // exactly the code path a typed quote does, and nothing exists in the
+  // database until a human presses Save.
+  //
+  // Prices are absent by construction: the draft carries categories and intake
+  // answers, and every number on screen is computed here from the company's own
+  // price book — same as if the estimator had picked the tiles themselves.
   useEffect(() => {
-    if (mode !== "edit") {
+    if (mode === "edit") return;
+    // Needs the category list to turn a category KEY from the draft into the
+    // company's own row (id, rate card, custom fields).
+    if (!bootstrap) return;
+
+    // Read from the URL rather than useSearchParams: this component is shared
+    // by two routes, and a hook that forces a Suspense boundary on both of them
+    // to support one optional query parameter is the wrong trade.
+    const callId =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("fromCall");
+
+    if (!callId) {
       setInitial(initialStateFromQuote(null));
       return;
     }
+
+    let cancelled = false;
+    (async () => {
+      const base = initialStateFromQuote(null);
+      try {
+        const res = await fetch(`/api/voice/calls/${callId}/draft-quote`);
+        // A prefill that fails is still a working builder. It must never be an
+        // error screen — the estimator came here to write a quote.
+        if (!res.ok) throw new Error("no draft");
+        const data = await res.json();
+        if (cancelled) return;
+
+        const draft = data?.draft;
+        const cats = Array.isArray(bootstrap.categories)
+          ? bootstrap.categories
+          : [];
+        const groups = (Array.isArray(draft?.groups) ? draft.groups : [])
+          .map((g) => {
+            // Second gate, client-side. The server already refused a category
+            // this company doesn't sell; this refuses one it has since turned
+            // off, so a stale draft can't add a service that is no longer on
+            // the tiles.
+            const category = cats.find((c) => c.key === g.categoryKey && c.enabled);
+            if (!category) return null;
+            return newScopeGroup(
+              category,
+              category.label,
+              rateOverridesIn(cats, category.id),
+              {
+                tempId: crypto.randomUUID(),
+                // Only what the caller actually said. Absent stays absent —
+                // the boxes the call didn't answer open empty, and the
+                // receptionist screen says which ones those were.
+                intakeValues:
+                  g.intakeValues && typeof g.intakeValues === "object"
+                    ? g.intakeValues
+                    : {},
+              },
+            );
+          })
+          .filter(Boolean);
+
+        const client =
+          (draft?.clientId &&
+            (bootstrap.clients || []).find((c) => c.id === draft.clientId)) ||
+          null;
+
+        setInitial({ ...base, groups, client });
+      } catch {
+        if (!cancelled) setInitial(base);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, bootstrap]);
+
+  useEffect(() => {
+    if (mode !== "edit") return;
     if (!quoteId) return;
     let cancelled = false;
     (async () => {
@@ -683,85 +779,28 @@ export function QuoteBuilderForm({
   // (group.customFields); system categories keep using the static
   // quoteIntakeFields.js lookup. Same field shape either way.
   function getGroupFields(group) {
-    if (Array.isArray(group.customFields) && group.customFields.length > 0) {
-      return group.customFields;
-    }
-    return getIntakeFields(group.categoryKey);
+    return fieldsForCategory({
+      key: group.categoryKey,
+      customFields: group.customFields,
+    });
   }
 
   // This company's saved edits to the trade's price book. The categories
   // endpoint returns the sparse patch alongside the resolved book, so the
   // builder prices from exactly what Settings shows.
   function rateOverridesFor(categoryId) {
-    return categories.find((c) => c.id === categoryId)?.rateOverrides ?? null;
+    return rateOverridesIn(categories, categoryId);
   }
 
+  // The shape itself lives in lib/quotes/builderPayload.js, because the phone-
+  // call prefill below needs exactly the same one and a second copy of "what a
+  // new group looks like" is the duplication that rots.
   function addScopeGroup(category, label) {
-    const isTiered = isTieredPackageCategory(category.key);
-    const unitPriced = isUnitPriced(category.key);
-
     setScopeGroups((prev) => [
       ...prev,
-      {
+      newScopeGroup(category, label, rateOverridesFor(category.id), {
         tempId: crypto.randomUUID(),
-        id: null,
-        persisted: false,
-        imported: false,
-        categoryId: category.id,
-        categoryKey: category.key,
-        // Custom quote types carry their fields on the category record itself
-        // (ServiceCategory.customFields) rather than in the static
-        // quoteIntakeFields.js map — system categories leave this null.
-        customFields: category.customFields || null,
-        label, // "Waterlines", "Gas", etc. — set once, at creation
-        isTiered,
-        selectedTier: null,
-        intakeValues: {},
-        // Client-facing unit pricing for door/drawer trades. Base rate seeds
-        // from the trade's rate card, not `defaultRate` — that is null for
-        // every trade that HAS a rate card, so a cabinet group used to open at
-        // $0/unit with the book's $150 per door sitting there unreachable.
-        ...(unitPriced
-          ? {
-              baseUnitPrice:
-                Number(
-                  getPriceBook(category.key, rateOverridesFor(category.id))
-                    ?.perDoor,
-                ) || Number(category.defaultRate || 0),
-              complexityLevel: "standard",
-              complexityUpcharge: 0,
-              complexityReasons: [],
-              color: "",
-              sheen: "",
-              doorStyle: "",
-            }
-          : {}),
-        // Trades quoted by counting things (stairs, countertop) carry a
-        // structured takeoff. Their line items are DERIVED from it, so the
-        // generic "add a line" table only holds genuine extras.
-        ...(hasTakeoff(category.key)
-          ? {
-              takeoff: createTradeConfig(
-                category.key,
-                rateOverridesFor(category.id),
-              ),
-            }
-          : {}),
-        // Unit-priced groups start with NO line items — the base scope is the
-        // unit pricing; line items only hold add-ons (hinges, glass, etc.).
-        lineItems:
-          isTiered || unitPriced
-            ? []
-            : [
-                {
-                  description: label,
-                  quantity: 1,
-                  unit: category.unit || "flat",
-                  rate: Number(category.defaultRate || 0),
-                  amount: Number(category.defaultRate || 0),
-                },
-              ],
-      },
+      }),
     ]);
   }
 

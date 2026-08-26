@@ -4376,6 +4376,23 @@ model VoiceCall {
   needsReview Boolean @default(false)
   reviewedAt  DateTime?
 
+  /// The internal AI's reading of this call as QUOTE SCOPE — never a quote, and
+  /// never a price. See lib/ai/callQuoteDraft.js.
+  ///
+  /// The phone agent itself is forbidden from ever saying a number
+  /// (lib/voice/prompt.js, absolute rule 1) and that stays true: this is
+  /// produced afterwards, in the back office, on a button a person pressed, and
+  /// it lands as a PREFILL for the quote builder rather than as a Quote row.
+  /// Nothing here reaches a client until a human has priced it and saved.
+  ///
+  /// Shape: { generatedAt, model, groups: [{ categoryId, categoryKey,
+  /// intakeValues, missing, evidence }], unmatched, clientId }. Every value
+  /// carries the transcript line it came from — a scope group nobody can trace
+  /// back to what the caller actually said is one the contractor cannot check.
+  /// Null is the normal case: most calls are wrong numbers.
+  quoteDraft   Json?
+  quoteDraftAt DateTime?
+
   createdAt DateTime @default(now())
 
   @@index([companyId, createdAt])

@@ -263,6 +263,12 @@ async function book(ctx, args) {
 
   return NextResponse.json({
     booked: true,
-    say: `Done — you're booked in for ${result.label}. You'll get a confirmation shortly.`,
+    // Only promises the letter when one was actually sent. A caller who never
+    // gave an email was being told a confirmation was coming, waited for it,
+    // and had no way to reach the visit — bookSlot reports which happened
+    // rather than leaving the agent to assume the good case.
+    say: result.confirmationSent
+      ? `Done — you're booked in for ${result.label}. You'll get a confirmation shortly.`
+      : `Done — you're booked in for ${result.label}. I've put it in the calendar; if you'd like it in writing, give me an email address.`,
   });
 }

@@ -1,0 +1,259 @@
+"use client";
+
+// app/app/receptionist/CallQuoteDraft.js
+//
+// What FieldQuo AI read off one phone call, and where it went.
+//
+// ── Two honest outcomes, and no third ──────────────────────────────────────
+//
+// PRICED. The caller gave everything the trade's instant-quote form needs, so
+// the call went through the same path a homeowner's web form does and landed a
+// draft in the review queue at /app/estimate-reviews. This panel links to it.
+// It never shows the figure itself — the review screen does, next to the
+// approve button, which is where a number people can act on belongs.
+//
+// NOT PRICED. Something was missing, so nothing was computed and nothing was
+// created. The panel names the questions the call left open and offers the
+// ordinary quote builder with what WAS heard already filled in.
+//
+// ── Why every line is quoted back ──────────────────────────────────────────
+//
+// A contractor who cannot tell what the AI made up will not trust it twice. So
+// nothing here is asserted: every service and every measurement is shown beside
+// the caller's own words, taken verbatim from the recording, and a value that
+// could not be traced back to something the caller said never reached this
+// screen at all (lib/ai/callQuoteDraft.js drops it).
+//
+// ── And what it did NOT hear is on the screen too ──────────────────────────
+//
+// The list of questions the call left unanswered is not a gap in the panel, it
+// is the most useful thing in it: "they didn't say how many doors" is what the
+// estimator has to ring back about. Padding those with a plausible average
+// would multiply a guess by a rate and turn it into a price somebody sends.
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Sparkles, Loader2, Quote, CircleHelp, Ban } from "lucide-react";
+import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
+
+export default function CallQuoteDraft({ call, aiAvailable }) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const [draft, setDraft] = useState(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // No words, nothing to read. Offered as an explanation rather than a disabled
+  // button nobody can account for.
+  if (!call.hasTranscript) return null;
+
+  async function load(generate) {
+    setBusy(true);
+    setReason("");
+    try {
+      const res = await fetch(`/api/voice/calls/${call.id}/draft-quote`, {
+        method: generate ? "POST" : "GET",
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        // A named reason ("this company has no services switched on") is worth
+        // more than a red banner, so those are rendered as an explanation and
+        // only genuine failures go through reportResponseError.
+        if (data?.reason) {
+          setReason(data.reason);
+          setOpen(true);
+          return;
+        }
+        await reportResponseError(res, t("app.callDraft.error"));
+        return;
+      }
+
+      if (!data?.draft) {
+        setReason(data?.reason || "nothing_quotable");
+        setOpen(true);
+        return;
+      }
+      setDraft(data.draft);
+      setOpen(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={busy || !aiAvailable}
+        onClick={() => load(!call.quoteDraftedAt)}
+        title={aiAvailable ? undefined : t("app.callDraft.aiOff")}
+        className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          <Sparkles size={13} />
+        )}
+        {call.quoteDraftedAt
+          ? t("app.callDraft.seeDraft")
+          : t("app.callDraft.draftIt")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="w-full mt-2 rounded-lg border border-border bg-muted/40 p-3 space-y-3">
+      <div className="flex items-baseline gap-2">
+        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <Sparkles size={13} /> {t("app.callDraft.title")}
+        </p>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+        >
+          {t("app.callDraft.hide")}
+        </button>
+      </div>
+
+      {reason ? (
+        <p className="text-xs text-muted-foreground">
+          {t(`app.callDraft.reason.${reason}`)}
+        </p>
+      ) : null}
+
+      {(draft?.groups || []).map((g) => (
+        <div key={g.categoryKey} className="rounded-md border border-border bg-card p-3">
+          <p className="text-sm font-semibold text-foreground">{g.label}</p>
+
+          {g.evidence?.scope && (
+            <p className="mt-1 text-xs text-muted-foreground flex gap-1.5">
+              <Quote size={12} className="mt-0.5 shrink-0" />
+              <span className="italic">“{g.evidence.scope}”</span>
+            </p>
+          )}
+
+          {Object.keys(g.intakeValues || {}).length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {Object.entries(g.intakeValues).map(([key, value]) => (
+                <li key={key} className="text-xs text-foreground">
+                  <span className="font-medium">
+                    {g.fieldLabels?.[key] || key}
+                  </span>
+                  : {String(value)}
+                  {g.evidence?.[key] && (
+                    <span className="text-muted-foreground italic">
+                      {" "}
+                      — “{g.evidence[key]}”
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* The unanswered questions, said out loud. Absence of a statement is
+              not a statement — see the header. */}
+          {(g.missing || []).length > 0 && (
+            <p className="mt-2 text-xs text-amber-700 dark:text-amber-400 flex gap-1.5">
+              <CircleHelp size={12} className="mt-0.5 shrink-0" />
+              <span>
+                {t("app.callDraft.notTold", {
+                  fields: g.missing
+                    .map((k) => g.fieldLabels?.[k] || k)
+                    .join(", "),
+                })}
+              </span>
+            </p>
+          )}
+        </div>
+      ))}
+
+      {/* Priced, and waiting for somebody to approve it. This is the whole
+          point: the call went through the SAME instant-quote path a homeowner's
+          web form does, so the figure is the company's own configured pricing
+          and it is sitting in the existing review queue rather than in a new
+          place nobody checks. */}
+      {draft?.estimate?.quoteId && (
+        <div className="rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-3">
+          <p className="text-xs text-emerald-800 dark:text-emerald-300">
+            {t("app.callDraft.estimateReady", {
+              number: draft.estimate.quoteNumber,
+            })}
+          </p>
+          <Link
+            href="/app/estimate-reviews"
+            className="mt-2 inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-inverted text-inverted-foreground font-semibold"
+          >
+            {t("app.callDraft.openReview")}
+          </Link>
+        </div>
+      )}
+
+      {/* And when it could not be priced, the questions the call left open —
+          named, never filled in with something plausible. */}
+      {(draft?.blocked || []).map((b) => (
+        <p
+          key={b.categoryKey}
+          className="text-xs text-muted-foreground flex gap-1.5"
+        >
+          <CircleHelp size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {b.missing?.length
+              ? t("app.callDraft.blocked.missing", {
+                  fields: b.missing
+                    .map(
+                      (k) =>
+                        draft.groups?.find((g) => g.categoryKey === b.categoryKey)
+                          ?.fieldLabels?.[k] || k,
+                    )
+                    .join(", "),
+                })
+              : t(`app.callDraft.blocked.${b.reason}`)}
+          </span>
+        </p>
+      ))}
+
+      {(draft?.unmatched || []).length > 0 && (
+        <p className="text-xs text-muted-foreground flex gap-1.5">
+          <Ban size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {t("app.callDraft.notOffered", {
+              items: draft.unmatched.join(", "),
+            })}
+          </span>
+        </p>
+      )}
+
+      {draft?.groups?.length > 0 && (
+        <>
+          <p className="text-[11px] text-muted-foreground">
+            {t("app.callDraft.noPrices")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => router.push(`/app/quotes/new?fromCall=${call.id}`)}
+              className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-full bg-inverted text-inverted-foreground font-semibold"
+            >
+              {t("app.callDraft.openBuilder")}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => load(true)}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              {busy && <Loader2 size={13} className="animate-spin" />}
+              {t("app.callDraft.readAgain")}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1057,6 +1057,23 @@ export function getIntakeFields(categoryKey) {
   return INTAKE_FIELDS[categoryKey] || [];
 }
 
+/**
+ * The fields for ONE category row, custom types included.
+ *
+ * A custom quote type carries its own fields on the ServiceCategory record
+ * (`customFields`); a system category looks itself up in the map above. The
+ * quote builder had this rule inline and the call-to-quote draft needed the
+ * same one — two copies would have agreed only until someone added a third
+ * kind of category, and the copy that rots is the one nobody looks at.
+ *
+ * @param category { key, customFields } — a ServiceCategory-shaped object.
+ */
+export function fieldsForCategory(category) {
+  const custom = category?.customFields;
+  if (Array.isArray(custom) && custom.length > 0) return custom;
+  return getIntakeFields(category?.key);
+}
+
 // The internal quote builder asks everything the pricing formula needs. A
 // stranger on a phone will abandon that, so the PUBLIC self-quote form shows at
 // most this many number/select fields per category: enough that the contractor
