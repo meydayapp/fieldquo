@@ -332,6 +332,25 @@ function AccountBillingScreen() {
             <ExternalLink size={14} />
             {openingPortal ? t("app.billing.opening", "Opening...") : t("app.billing.manageBilling", "Manage billing & payment method")}
           </button>
+          {/* ── The OTHER Stripe ─────────────────────────────────────────
+              Everything else on this page is FieldQuo charging the company.
+              This one link goes the other way: the company's own Connect
+              account, where the money their clients paid them lives.
+
+              It belongs here because this is where somebody looks for "my
+              money", even though the account it opens is a different Stripe
+              account from the subscription above. Labelled by what it shows
+              rather than by the button beside it, because two links called
+              "Stripe" on one screen is worse than none. Settings > Payments
+              still owns connecting, disconnecting and the payout status —
+              this is a shortcut, not a second home for it. */}
+          <a
+            href="/app/settings/payments"
+            className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
+          >
+            <ExternalLink size={14} />
+            {t("app.billing.myEarnings", "See what my clients paid me")}
+          </a>
           {subscription?.status && subscription.status !== "canceled" && (
             <button
               onClick={() => setShowCancelConfirm(true)}

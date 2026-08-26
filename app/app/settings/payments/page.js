@@ -182,6 +182,11 @@ function PaymentsPageScreen() {
     requirements.length === 0 &&
     (status?.pendingVerification || status?.detailsSubmitted);
 
+  // Only asserted when Stripe actually told us. `payoutsEnabled === false` and
+  // "we haven't asked yet" are different, and undefined must not raise an alarm
+  // about money on the strength of a status call that hasn't returned.
+  const payoutsBlocked = status?.connected === true && status?.payoutsEnabled === false;
+
   const notStarted = !hasAccount;
   const inProgress = hasAccount && !chargesEnabled && !awaitingReview;
   const active = chargesEnabled;
@@ -220,6 +225,36 @@ function PaymentsPageScreen() {
               <p className="text-sm text-muted-foreground mt-1">
                 {t("app.setPayments.activeDesc")}
               </p>
+
+              {/* ── Taking payments and BEING PAID are two different switches ──
+                  The status route has always returned payoutsEnabled and no
+                  screen has ever rendered it. An account can have
+                  charges_enabled true and payouts_enabled false at the same
+                  time — Stripe keeps accepting the client's card and holds the
+                  money, so from in here everything looks like it is working
+                  while nothing reaches the bank. Nobody finds out from a
+                  screen; they find out from an empty account weeks later.
+
+                  Shown only in the `active` block on purpose: while charges are
+                  off there is no money to be held, and saying it there would be
+                  a second alarm about the same unfinished onboarding. */}
+              {payoutsBlocked && (
+                <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  <p className="font-semibold">
+                    {t("app.setPayments.payoutsHeld")}
+                  </p>
+                  <p className="mt-0.5">
+                    {t("app.setPayments.payoutsHeldDesc")}
+                  </p>
+                  {/* Stripe's own machine reason, humanised the same way the
+                      requirement keys above it are. More specific than anything
+                      we could infer, and absent rather than guessed at when
+                      Stripe gives none. */}
+                  {status?.disabledReason && (
+                    <p className="mt-1 font-mono text-xs">{status.disabledReason}</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-3 mt-4">
                 <button
