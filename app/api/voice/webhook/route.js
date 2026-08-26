@@ -11,9 +11,21 @@
 // It has to be — the provider posts to it with no session. So the signature is
 // the only thing standing between a stranger and the ability to write calls,
 // leads and charges into any company's account. Verified first, before the body
-// is parsed for anything, and rejected outright when the secret isn't set:
+// is parsed for anything, and rejected outright when no key is set:
 // "unverified because unconfigured" is how a staging misconfiguration becomes a
 // public write endpoint.
+//
+// ── The verification was wrong, and it rejected EVERY real delivery ────────
+//
+// It hand-rolled `hmac(RETELL_WEBHOOK_SECRET, rawBody) === header`. Retell
+// sends `v=<unix-ms>,d=<hex>`, signs `rawBody + timestamp`, and keys it with an
+// API KEY rather than any secret we could invent. The comparison could not
+// match, and the 401 it returned looks exactly like a phone nobody rang — which
+// is why the owner's account has zero VoiceCall rows. See
+// lib/voice/webhookSignature.js for the whole autopsy.
+//
+// A refusal is now recorded, rate-limited, so the readiness check on the
+// settings screen can say "Retell is calling us and we are turning it away".
 //
 // ── Which company ──────────────────────────────────────────────────────────
 //
@@ -22,42 +34,31 @@
 // spoofed into pointing at a different tenant.
 export const runtime = "nodejs";
 
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toE164 } from "@/lib/voice/numbers";
 import { chargeCall, canTakeCall } from "@/lib/voice/credits";
 import { syncNumberAttachment } from "@/lib/voice/provision";
+import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { recordError } from "@/lib/platform/errorLog";
-
-/**
- * Timing-safe signature check.
- *
- * A plain `===` on an HMAC leaks its own answer through how long it takes to
- * fail, which is enough to forge one given patience. `timingSafeEqual` doesn't —
- * but it throws on a length mismatch, so the lengths are compared first.
- */
-function verify(rawBody, signature, secret) {
-  if (!secret || !signature) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  const a = Buffer.from(String(signature));
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  try {
-    return crypto.timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
+import { verifyRetellSignature, signingKeys } from "@/lib/voice/webhookSignature";
+import { recordRejectedDelivery } from "@/lib/voice/webhookHealth";
 
 export async function POST(request) {
   const raw = await request.text();
-  const signature = request.headers.get("x-retell-signature");
-  const secret = process.env.RETELL_WEBHOOK_SECRET;
 
-  if (!verify(raw, signature, secret)) {
-    // 401 and nothing else. No hint about whether the secret is missing or the
-    // signature is wrong — that difference is only useful to someone probing.
+  const check = verifyRetellSignature({
+    rawBody: raw,
+    header: request.headers.get("x-retell-signature"),
+    keys: signingKeys(),
+  });
+  if (!check.ok) {
+    // Written down before the 401. Silence here is what let a completely
+    // broken verifier look like an idle phone for months.
+    await recordRejectedDelivery({ reason: check.reason, endpoint: "/api/voice/webhook" });
+    // 401 and nothing else on the wire. No hint about whether a key is missing
+    // or the digest is wrong — that difference is only useful to someone
+    // probing, and it is already in our own log for the people who need it.
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -179,9 +180,13 @@ export async function POST(request) {
         });
       }
 
-      // Out of credit after this call — worth knowing at the moment it happens,
-      // because the next caller gets nothing.
-      const after = await canTakeCall(number.companyId);
+      // ── The balance moved, so both enforcement points have to follow ──────
+      //
+      // Priced against the number that took the call. Asking canTakeCall
+      // without a type checks a toll-free customer against the 35¢ local rate,
+      // which lets the next call start 5¢ short of what it will cost.
+      const after = await canTakeCall(number.companyId, number.numberType);
+
       if (!after.allowed) {
         await recordError({
           area: "voice_credit",
@@ -194,6 +199,14 @@ export async function POST(request) {
         // THIS one, but it does refuse the next. Reversed automatically on top-up.
         await syncNumberAttachment(number.companyId).catch(() => {});
       }
+
+      // The ceiling, EVERY time and not only on exhaustion. It is the only
+      // thing standing between a two-minute balance and an hour-long call, and
+      // it has to come down as the balance does — a company that started the
+      // day with an hour's credit keeps an hour-long ceiling otherwise, right
+      // up to the call that takes them negative. Cheap: writing an unchanged
+      // value is a no-op at the provider.
+      await pushCallCeiling(number.companyId).catch(() => {});
 
       return NextResponse.json({ ok: true, billedSeconds: seconds });
     }

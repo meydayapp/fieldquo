@@ -17,6 +17,7 @@ import {
   ArrowRight,
   RefreshCw,
   MailWarning,
+  PhoneOff,
   Sparkles,
 } from "lucide-react";
 import MetricCard, { money, count } from "@/app/components/platform/MetricCard";
@@ -44,6 +45,11 @@ export default function PlatformDashboardPage() {
   // marked Sensitive in Vercel, so it can't be read back or pulled locally —
   // the check has to run where the key already is.
   const [aiHealth, setAiHealth] = useState(null);
+  // FieldQuo's own phone pool, and whether the call meter is running. Both are
+  // platform-wide facts no tenant can see: one Retell account carries every
+  // company's calls, and call billing hangs off a webhook whose failure looks
+  // exactly like a phone nobody rang. See app/api/platform/voice-health.
+  const [voiceHealth, setVoiceHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -88,6 +94,11 @@ export default function PlatformDashboardPage() {
     fetch("/api/platform/ai-health")
       .then((r) => (r.ok ? r.json() : null))
       .then(setAiHealth)
+      .catch(() => {});
+
+    fetch("/api/platform/voice-health")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setVoiceHealth)
       .catch(() => {});
   }, []);
 
@@ -194,6 +205,59 @@ export default function PlatformDashboardPage() {
           </div>
         </div>
       )}
+
+      {/* ── The shared phone pool ─────────────────────────────────────────
+          Red when a tenant's caller is being dropped right now, amber when
+          something needs doing this week. The line under it is always shown
+          when there is anything to report, because the concurrency figure is
+          READ from Retell and the credit figure is DERIVED from our own call
+          records — and confusing those two is how a confident dashboard sends
+          someone to look in the wrong place. Retell exposes no balance
+          endpoint; see lib/voice/pool.js. */}
+      {voiceHealth?.alerts?.length > 0 &&
+        (() => {
+          const critical = voiceHealth.alerts.some((a) => a.level === "critical");
+          const tone = critical
+            ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900"
+            : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-900";
+          const ink = critical
+            ? "text-red-800 dark:text-red-200"
+            : "text-amber-900 dark:text-amber-200";
+          const body = critical
+            ? "text-red-700 dark:text-red-300"
+            : "text-amber-800 dark:text-amber-300";
+          const c = voiceHealth.concurrency;
+          return (
+            <div className={`${tone} border rounded-xl p-5`}>
+              <div className="flex items-start gap-3">
+                <PhoneOff size={20} className={`${ink} shrink-0 mt-0.5`} />
+                <div className="min-w-0">
+                  <h2 className={`font-semibold ${ink}`}>
+                    {critical
+                      ? "The phone pool is at its limit"
+                      : "The phone pool needs attention"}
+                  </h2>
+                  <ul className={`text-sm ${body} mt-1 space-y-1`}>
+                    {voiceHealth.alerts.map((a) => (
+                      <li key={a.code}>{a.message}</li>
+                    ))}
+                  </ul>
+                  <p className={`text-xs ${body} opacity-70 mt-2 font-mono`}>
+                    {c
+                      ? `concurrency ${c.current}/${c.limit} (read from Retell)`
+                      : "concurrency unavailable"}
+                    {voiceHealth.spend
+                      ? ` · ~${voiceHealth.spend.minutes} min served in ${voiceHealth.spend.days}d ≈ $${(voiceHealth.spend.cents / 100).toFixed(2)} provider cost (derived, not read)`
+                      : ""}
+                    {voiceHealth.meter?.companiesOverdrawn
+                      ? ` · ${voiceHealth.meter.companiesOverdrawn} overdrawn`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

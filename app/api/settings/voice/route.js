@@ -16,6 +16,8 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured } from "@/lib/voice/retell";
 import { provisionAgent } from "@/lib/voice/provision";
+import { quoteTopicsForCompany, photoDestination } from "@/lib/voice/quoteQuestions";
+import { greetingNamesAnotherBusiness } from "@/lib/voice/prompt";
 import { diagnoseAndHeal } from "@/lib/voice/diagnose";
 import { getAppOrigin } from "@/lib/appUrl";
 import { activeNumber, heldNumber, publicNumberFor, formatNumber, NUMBER_SOURCES, forwardingCodes } from "@/lib/voice/numbers";
@@ -75,11 +77,29 @@ export async function GET(request) {
     recentEntries(member.companyId, 20),
     db.company.findUnique({
       where: { id: member.companyId },
-      select: { outboundCallsEnabled: true, crewInboxEnabled: true },
+      // `name` travels because the greeting field has to be checked against it.
+      // A greeting typed under a former company name stays live for ever —
+      // Big painter Inc's receptionist answered "Thank you for calling Federal
+      // Test" to every caller, and nothing in the app could notice.
+      select: {
+        name: true, outboundCallsEnabled: true, crewInboxEnabled: true,
+        // Where the receptionist tells a caller to email photos, and the
+        // language its spoken trade names come out in. Both feed the "what it
+        // asks for" note the settings screen prints — see quoteTopicsForCompany.
+        email: true, defaultLanguage: true,
+      },
     }),
     db.voiceCallTask.count({ where: { companyId: member.companyId, status: "queued" } }),
     trialGranted(member.companyId),
   ]);
+
+  // What a quote for this company's instantly-priced trades needs, in its own
+  // language — the same list the agent's prompt is built from, read once here
+  // so the screen can name it rather than describe it.
+  const quoteTopics = await quoteTopicsForCompany(
+    member.companyId,
+    company?.defaultLanguage || "en",
+  );
 
   const type = number?.numberType || "local";
   const publicNum = publicNumberFor(number);
@@ -184,6 +204,7 @@ export async function GET(request) {
     // Said out loud rather than failing mysteriously. Locally there's no key,
     // and "not set up yet" is a state the screen has to render, not an error.
     configured: voiceConfigured(),
+    companyName: company?.name || null,
     agent: agent
       ? {
           enabled: agent.enabled,
@@ -192,6 +213,12 @@ export async function GET(request) {
           instructions: agent.instructions,
           transferTo: agent.transferTo,
           provisioned: Boolean(agent.providerAgentId),
+          // Decided here rather than in the page: greetingNamesAnotherBusiness
+          // lives in lib/voice/prompt.js, which reaches the database through
+          // lib/voice/numbers.js, so a client component importing it would drag
+          // Prisma into the browser bundle. Same reason formatNumber is applied
+          // above rather than sent.
+          greetingNamesOther: greetingNamesAnotherBusiness(agent.greeting, company?.name),
         }
       : null,
     number: number
@@ -262,6 +289,18 @@ export async function GET(request) {
     outbound: {
       enabled: Boolean(company?.outboundCallsEnabled),
       queued: queuedCalls,
+    },
+    // ── What the receptionist will actually ask a caller for ──────────────
+    //
+    // Derived from the same rows that build the prompt, not from a second
+    // description of it: the trades come from this company's enabled
+    // InstantQuoteConfig rows and the address is its own published email. Shown
+    // because both can be empty — a company with no instant trades gets no
+    // measuring questions at all, and one with no contact email loses the photo
+    // request entirely. Silent in either case would be its own dead control.
+    intake: {
+      trades: quoteTopics.map((topic) => topic.label),
+      photosTo: photoDestination(company),
     },
     crewInbox: {
       enabled: Boolean(company?.crewInboxEnabled),

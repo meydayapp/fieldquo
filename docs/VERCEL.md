@@ -15,7 +15,7 @@ does nothing to the deployment.
 | Variable | Why | What happens today without it |
 |---|---|---|
 | `RETELL_API_KEY` | Phone receptionist | Every voice screen shows "not configured". No agent, no number, no calls. |
-| `RETELL_WEBHOOK_SECRET` | Verifies Retell's callbacks | Call results are **rejected unverified** — calls happen, nothing is recorded, no lead, no charge. |
+| `RETELL_WEBHOOK_SECRET` | **Optional.** Only for an account whose webhook-signing key is a *different* Retell API key from `RETELL_API_KEY`. | Nothing, in the normal case. See below. |
 | `STRIPE_BILLING_WEBHOOK_SECRET` | FieldQuo's own subscriptions | Payment failures never reach us. Nobody is ever marked past-due, so the 7-day grace never starts and a dead card bills forever. |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Contractor payouts | A homeowner pays and the invoice stays unpaid on screen. |
 | `GOOGLE_MAPS_SERVER_KEY` | Geocoding · Distance Matrix · Solar · Static Maps | Roof measurement is dead. Travel-time booking silently falls back to straight-line estimates — it still works and still says "about", but a river with one bridge fools it. |
@@ -28,6 +28,20 @@ Generate the secrets with:
 ```bash
 openssl rand -base64 32
 ```
+
+### `RETELL_WEBHOOK_SECRET` is not a secret you invent
+
+It used to be listed above as "generate it with `openssl rand`", and that was
+wrong in a way that killed the whole feature. **Retell has no webhook secret.**
+It signs every callback with an API KEY — specifically the one carrying the
+webhook badge in their dashboard — as
+`HMAC-SHA256(rawBody + timestamp)`, sent as `X-Retell-Signature: v=<unix-ms>,d=<hex>`.
+
+So `RETELL_API_KEY` verifies webhooks on its own, and this variable exists only
+as an escape hatch for an account where the webhook-badged key differs from the
+key we make API calls with. If a call is answered and never recorded, check
+Settings → Phone receptionist → *Check it end to end*: a signature we turned
+away now appears there by name.
 
 ### Not an environment variable
 
@@ -90,7 +104,13 @@ Set only to override. The default is in brackets.
 | `OPENAI_WRITING_MODEL` | `OPENAI_MODEL` | Separate model for long-form copy |
 | `VOICE_CENTS_PER_MINUTE` | `35` | What we charge per voice minute |
 | `VOICE_FREE_MINUTES` | `30` | Trial voice allowance |
+| `RETELL_COST_CENTS_PER_MINUTE` | `16` | What a minute costs **FieldQuo** at Retell (not what we charge). Only used to estimate how fast the shared pool is draining, on /platform |
+| `RETELL_CREDIT_PURCHASED_CENTS` | — | Credit bought at Retell, in cents, typed in by hand after topping up. Retell exposes **no** balance API, so without this /platform shows the burn rate and says the balance is unknown — it never invents one. Update it every time you buy credit, or it silently reports runway an empty account doesn't have |
+| `CREW_SMS_CENTS` | `2` | What we charge per crew text (per segment) |
+| `CREW_MMS_CENTS` | `5` | What we charge per crew photo — an MMS costs us more than a text |
+| `CREW_OVERDRAFT_CENTS` | `200` | How far a company may go into the red before the crew line is disconnected at Twilio |
 | `RETELL_TEST_NUMBER` | — | Comma-separated shared test numbers |
+| `FIELDQUO_SALES_TRANSFER_TO` | — | Where **FieldQuo's own** sales agent puts a caller through. Unset, it has no tools and sends people to /contact. Never set this to `RETELL_TEST_NUMBER` — see `/platform/sales-agent` |
 | `EMAIL_FROM` · `EMAIL_FROM_LOCAL` · `EMAIL_REPLY_TO` | `quotes@…` | Fallback sender when a company has no verified domain |
 | `SALES_NOTIFICATION_EMAIL` | `emilio@fieldquo.com` | Where new-signup alerts go |
 | `LARGE_QUOTE_LOOKBACK_MINUTES` | — | Large-quote cron window |

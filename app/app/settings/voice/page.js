@@ -40,7 +40,22 @@ import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { supportMailto } from "@/lib/supportContact";
 import { usableNotes } from "@/lib/voice/knowledge";
+// Pure data — no React, no database. lib/voice/readiness.js is NOT importable
+// here: it pulls in Prisma and the provider client, which is the same trap that
+// keeps greetingNamesAnotherBusiness on the server (lib/voice/prompt.js imports
+// lib/voice/numbers.js, which imports the database). The answer to that one
+// travels as a boolean on the settings GET instead.
 import { DIAGNOSIS_TONE, DIAGNOSIS_TEXT, SIDE_TEXT, diagnosisKey, sideKey } from "@/lib/voice/diagnosisCopy";
+import {
+  READINESS_LINKS,
+  LINK_LABEL,
+  REASON_TEXT,
+  OWNER_TEXT,
+  OVERALL_TEXT,
+  linkLabelKey,
+  ownerKey,
+  overallKey,
+} from "@/lib/voice/readinessCopy";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
@@ -81,6 +96,16 @@ export default function VoiceSettingsPage() {
   // and "you're being charged for it" without ever asking.
   const [diag, setDiag] = useState(null);
   const [diagBusy, setDiagBusy] = useState(false);
+
+  // ── The end-to-end check ────────────────────────────────────────────────
+  //
+  // Never run on load, unlike the number diagnosis above. It is four provider
+  // round-trips and it exists to answer a question the contractor asked by
+  // pressing a button — running it on every page view would make an already
+  // slow screen slower to tell most people something they did not ask about.
+  const [chain, setChain] = useState(null);
+  const [chainBusy, setChainBusy] = useState(false);
+  const [chainFixed, setChainFixed] = useState(false);
 
   /**
    * A failed request whose message the API sent as a KEY.
@@ -162,6 +187,69 @@ export default function VoiceSettingsPage() {
       showError(t("app.setVoice.diag.error", "Couldn't check that number just now.") + (err?.message ? ` (${err.message})` : ""));
     } finally {
       setDiagBusy(false);
+    }
+  }
+
+  /** Ask the provider about every link in the chain. */
+  const runReadiness = useCallback(async () => {
+    setChainBusy(true);
+    setChainFixed(false);
+    try {
+      const res = await fetch("/api/settings/voice/readiness");
+      if (!res.ok) {
+        // Said out loud, unlike the background diagnosis: the contractor
+        // pressed a button, so a button that does nothing is the dead control
+        // this whole panel exists to remove.
+        await reportVoiceError(res, t("app.setVoice.chain.error", "Couldn't run the check just now."));
+        return;
+      }
+      setChain(await res.json());
+    } catch (err) {
+      showError(
+        t("app.setVoice.chain.error", "Couldn't run the check just now.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setChainBusy(false);
+    }
+  }, [reportVoiceError, t]);
+
+  /**
+   * Push our settings to the provider again, then re-read the chain from it.
+   *
+   * The repair for a webhook URL, a drifted prompt and a failed binding all at
+   * once — it is the same provisioning run a save does, and it honours the
+   * on/off switch, so it can never turn a contractor's phone on. The route
+   * refuses outright from a preview address, because "fixing" from there would
+   * repoint a live phone at a deployment that gets deleted.
+   */
+  async function resyncAgent() {
+    setChainBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/number/repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fix: "resync" }),
+      });
+      const result = await res.json().catch(() => null);
+      if (res.ok && result?.readiness) {
+        setChain(result.readiness);
+        setChainFixed(true);
+      } else {
+        await reportVoiceError(res, t("app.setVoice.chain.error", "Couldn't run the check just now."));
+        // Re-read anyway. A failed push still changes what the provider holds
+        // often enough that showing the OLD chain would be a second lie on top
+        // of the first.
+        await runReadiness();
+      }
+      await load();
+    } catch (err) {
+      showError(
+        t("app.setVoice.chain.error", "Couldn't run the check just now.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setChainBusy(false);
     }
   }
 
@@ -415,6 +503,13 @@ export default function VoiceSettingsPage() {
   const forwardAfford = affordFor("local");
   const rent = number?.rent || null;
   const showDate = (d) => (d ? new Date(d).toLocaleDateString() : "");
+  // Decided by the server (greetingNamesAnotherBusiness), because the function
+  // lives in lib/voice/prompt.js and that file reaches the database through
+  // lib/voice/numbers.js. Shown only while the field still holds what was
+  // saved — once they start editing it, the answer on screen would be stale and
+  // a warning about text you have already changed is worse than none.
+  const greetingWrongName =
+    Boolean(agent?.greetingNamesOther) && form.greeting === (agent?.greeting || "");
 
   return (
     <div className="max-w-3xl p-4 sm:p-6 space-y-6">
@@ -489,6 +584,22 @@ export default function VoiceSettingsPage() {
             </span>
           )}
         </div>
+
+        {/* ── The cut-off, said out loud ──────────────────────────────────
+            The agent now hangs up when a call reaches what the balance covers
+            (lib/voice/callCeiling.js — enforced at Retell, not here). That is
+            the right behaviour and it is invisible until it happens to a real
+            homeowner mid-sentence, at which point the contractor has no idea
+            why. A limit nobody was told about is the same as a hidden fee. */}
+        {credit.minutes > 0 && (
+          <p className="text-xs text-muted-foreground mt-1.5">
+            {t(
+              "app.setVoice.callCap",
+              "A call can only run as long as your credit covers — right now about {minutes} minutes. It ends there rather than running up a balance you didn't agree to. Top up and the limit lifts straight away.",
+              { minutes: credit.minutes },
+            )}
+          </p>
+        )}
 
         {freeOnly && (
           <p className="text-xs text-muted-foreground mt-1.5">
@@ -707,11 +818,24 @@ export default function VoiceSettingsPage() {
 
             {/* Only for a forwarded setup, and only the codes for THEIR
                 number — see the API. */}
-            {number.forwarding && number.status === "active" && (
+            {/* ── Shown for any held number, not only an `active` one ────────
+                This was gated on `status === "active"`, and the owner's row sat
+                on `provisioning` for weeks — so the one screen that tells a
+                forwarded contractor which code to dial showed him nothing at
+                all, on a setup whose entire remaining step was dialling a code.
+                A stale column of ours is not a reason to withhold an
+                instruction that is correct either way. The codes are harmless
+                before the receptionist is live; the line underneath says so. */}
+            {number.forwarding && number.status !== "porting" && (
               <div className="rounded-lg bg-muted p-4">
                 <p className="text-sm text-foreground font-medium">
                   {t("app.setVoice.dialTitle", "Dial one of these from the phone you want forwarded")}
                 </p>
+                {number.status !== "active" && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                    {t("app.setVoice.dialNotLiveYet", "You can set these now, but nothing will be answered until the receptionist is switched on below.")}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-0.5 mb-3">
                   {t("app.setVoice.dialHint", "Most people want the first one. Your phone rings as usual, and only the calls you miss reach the receptionist.")}
                 </p>
@@ -933,6 +1057,30 @@ export default function VoiceSettingsPage() {
               placeholder={t("app.setVoice.greetingPlaceholder", "Thanks for calling, how can I help?")}
               className="mt-1.5 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
             />
+            {/* ── A greeting that names a company that no longer exists ──────
+                Big painter Inc's receptionist answered "Thank you for calling
+                Federal Test" to every caller — a greeting typed under a former
+                name, stored verbatim, and never looked at again. On a
+                white-label product that is not a typo: this is the first and
+                often only thing a homeowner hears.
+
+                Asked, never corrected. We cannot know what they meant by it,
+                and a trading name or a shorter form is perfectly legitimate —
+                greetingNamesAnotherBusiness is deliberately weak for that
+                reason. A question is honest; silently rewriting somebody's
+                greeting would not be. */}
+            {greetingWrongName && (
+              <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                <span>
+                  {t(
+                    "app.setVoice.greetingMismatch",
+                    "This greeting doesn't mention {company}. It's the first thing every caller hears — is it still the right one?",
+                    { company: data.companyName },
+                  )}
+                </span>
+              </p>
+            )}
           </label>
 
           <label className="block">
@@ -950,6 +1098,45 @@ export default function VoiceSettingsPage() {
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
             />
           </label>
+
+          {/* ── What it will ask a caller for ──────────────────────────────
+              Not editable, and deliberately so: the questions come from the
+              trades this company prices instantly (Settings › Instant Quote),
+              so they stay in step with what a quote actually needs instead of
+              being a second list somebody has to maintain. Printed here because
+              both halves can be silently empty — no instant trades means no
+              measuring questions, and no company email means the photo request
+              is dropped from the prompt entirely rather than sent somewhere
+              invented. */}
+          <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-1.5">
+            <p className="text-sm font-medium text-foreground">
+              {t("app.setVoice.intake.title", "What it asks callers for")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {data?.intake?.trades?.length
+                ? t(
+                    "app.setVoice.intake.trades",
+                    "For {trades}, it asks the measurements a quote needs — and never gives a price. Change what it asks by changing your instant-quote trades.",
+                    { trades: data.intake.trades.join(", ") },
+                  )
+                : t(
+                    "app.setVoice.intake.none",
+                    "You have no instant-quote trades switched on, so it takes a message and asks nothing about measurements. Set some up in Settings › Instant Quote.",
+                  )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {data?.intake?.photosTo
+                ? t(
+                    "app.setVoice.intake.photos",
+                    "A call can't carry a photo, so it asks callers to email pictures to {email}.",
+                    { email: data.intake.photosTo },
+                  )
+                : t(
+                    "app.setVoice.intake.noPhotos",
+                    "It won't ask for photos: there's no company email address for them to go to. Add one in Settings › Company.",
+                  )}
+            </p>
+          </div>
 
           {/* ── Lines nobody answered ──────────────────────────────────────
               A drafted question left in [brackets] is withheld from the live
@@ -1163,90 +1350,225 @@ export default function VoiceSettingsPage() {
         )}
       </Card>
 
-      {/* ── 6. Crew inbox ───────────────────────────────────────────────────
-          Crew text photos and updates to your number; the assistant files each
-          one to the right job on their schedule, and asks when it's not sure.
-          Needs a phone number; crew are matched by the phone on their profile. */}
+      {/* ── 6. Crew texting ─────────────────────────────────────────────────
+          Not a switch any more, and not on this screen any more.
+
+          This card used to carry a toggle for the crew inbox, gated on the
+          voice number being active. It could never work: the crew inbox is
+          inbound SMS to a TWILIO number, and the number this screen provisions
+          is bought from Retell, lives in Retell's telephony account, and cannot
+          receive a text at all. Two different lines from two different
+          providers, shown as one, with a switch across the gap — so it saved a
+          column and connected nothing, and the contractor who turned it on
+          texted his number all evening for silence.
+
+          On a `forwarded` setup it was worse still: the number on the van is
+          the contractor's own, and carrier forwarding forwards CALLS, never
+          texts, so nothing reaches us whatever we do at this end.
+
+          Setup now lives on the page that shows the result — /app/crew-inbox —
+          where the number, whether it is really wired at the provider, and a
+          test text are all one surface. A link is honest; the switch was not. */}
       <Card
         step="6."
         title={t("app.setVoice.crewTitle", "Let the crew text in photos and updates")}
         hint={t("app.setVoice.crewHint", "Your crew send photos or a quick note to your number, and it files them to the right job automatically — asking which one when the day has more than one.")}
       >
+        <p className="text-sm text-muted-foreground">
+          {t("app.setVoice.crewMoved", "Crew texting uses its own number — a texting line, separate from the one that answers your calls. Set it up on the crew inbox page.")}
+        </p>
+        <Link
+          href="/app/crew-inbox"
+          className="inline-flex items-center gap-2 px-6 py-3 mt-3 rounded-full bg-inverted text-inverted-foreground text-sm font-bold"
+        >
+          <MessageSquare size={16} />
+          {t("app.setVoice.crewSetUp", "Set up crew texting")}
+        </Link>
+        <p className="text-xs text-muted-foreground mt-3">
+          {t("app.setVoice.crewNote", "Crew are matched by the phone number on their profile (Settings → Team). A text from an unknown number is logged but not filed.")}
+        </p>
+      </Card>
+
+      {/* ── 7. Does any of it actually work ─────────────────────────────────
+          The card this whole screen was missing.
+
+          Every other panel above reports what OUR OWN COLUMNS say, and the
+          owner spent months being told the receptionist worked on exactly that
+          evidence. It answered a real call and recorded nothing, because the
+          address Retell posts results to is written once at provisioning time
+          and never looked at again — invisible from here, and fatal to the
+          call log, the transcript, the lead and the billing all at once.
+
+          So this one goes and ASKS, link by link, and says "we couldn't check"
+          rather than inventing a pass. See lib/voice/readiness.js. */}
+      {number && (
+        <Card
+          step="7."
+          title={t("app.setVoice.chain.title", "Check it end to end")}
+          hint={t("app.setVoice.chain.hint", "This asks the phone service itself about every step between somebody dialling and a lead landing here. Nothing below is taken from our own records.")}
+        >
+          <ReadinessPanel
+            chain={chain}
+            busy={chainBusy}
+            fixed={chainFixed}
+            t={t}
+            number={number}
+            onRun={runReadiness}
+            onFix={resyncAgent}
+          />
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ══ The end-to-end check ═══════════════════════════════════════════════════
+//
+// Renders whatever the resolver returned, in the resolver's own order, and
+// draws nothing it wasn't given — a link that only exists in this component is
+// a link the check script cannot assert over, and the tables in
+// lib/voice/readinessCopy.js exist so it can.
+//
+// Three states and three colours, and the middle one matters most: "not
+// checked" is grey and says so. A tick that means "we couldn't look" is the
+// exact lie this screen is here to stop telling.
+function ReadinessPanel({ chain, busy, fixed, t, number, onRun, onFix }) {
+  if (!chain) {
+    return (
+      <div className="space-y-3">
         <button
           type="button"
-          // An ACTIVE number, not merely a row. The inbound webhook resolves the
-          // company with `status: "active"`, so switching this on against a
-          // number that is still porting sets a flag that nothing can ever act
-          // on — the switch would say "on" and no text would ever be filed.
-          disabled={busy || (!data?.crewInbox?.enabled && number?.status !== "active")}
-          onClick={() => save({ crewInboxEnabled: !data?.crewInbox?.enabled })}
-          className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold disabled:opacity-40 ${
-            data?.crewInbox?.enabled
-              ? "bg-emerald-600 text-white"
-              : "bg-inverted text-inverted-foreground"
-          }`}
+          disabled={busy}
+          onClick={onRun}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-inverted text-inverted-foreground text-sm font-bold disabled:opacity-50"
         >
-          {busy ? <Loader2 size={16} className="animate-spin" /> : <MessageSquare size={16} />}
-          {data?.crewInbox?.enabled ? t("app.setVoice.crewOn", "Crew inbox is on — turn off") : t("app.setVoice.crewOff", "Turn on the crew inbox")}
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
+          {busy
+            ? t("app.setVoice.chain.running", "Asking the phone service…")
+            : t("app.setVoice.chain.run", "Run the check")}
         </button>
-
-        {!data?.crewInbox?.enabled && number?.status !== "active" && (
-          <p className="text-xs text-amber-700 dark:text-amber-400 mt-3">
-            {number
-              ? "Your number isn't live yet, so there's nothing for the crew to text."
-              : "Set up a number above first — the crew inbox is texts sent TO your number."}
+        {/* Said before the check is ever pressed, because it is the one thing a
+            forwarded contractor can do without touching their carrier: ring the
+            receptionist's own line and hear it. That instruction existed
+            nowhere, so the only way to test was to test forwarding at the same
+            time — two variables, one phone call. */}
+        {number.source === "forwarded" && number.forwardsToDisplay && (
+          <p className="text-xs text-muted-foreground">
+            {t("app.setVoice.chain.testDial", "Ring {number} yourself to hear the receptionist without forwarding in the way.", { number: number.forwardsToDisplay })}{" "}
+            {t("app.setVoice.chain.testDialThen", "Then run this again — a call that was recorded is the only proof the whole thing works.")}
           </p>
         )}
+      </div>
+    );
+  }
 
-        {/* ── Turning this on sends nobody anything ─────────────────────────
-            Worth saying, because "turn on the crew inbox" reads like it
-            invites the crew in. It doesn't: this is a switch on a webhook.
-            Nothing is texted to anyone when it's enabled, no invitation goes
-            out, and the crew have no way to discover it — the contractor has to
-            tell them, with the right number, which is the part that goes wrong.
+  const tone = {
+    ok: "text-emerald-600 dark:text-emerald-400",
+    fail: "text-amber-700 dark:text-amber-400",
+    unknown: "text-muted-foreground",
+  };
+  const stateLabel = {
+    ok: t("app.setVoice.chain.state.ok", "Working"),
+    fail: t("app.setVoice.chain.state.fail", "Broken"),
+    unknown: t("app.setVoice.chain.state.unknown", "Not checked"),
+  };
 
-            And the number is the trap. On a forwarded setup the number on the
-            van is theirs and sits at their own carrier; carrier forwarding
-            forwards CALLS, never texts. A crew member texting the number they
-            already know reaches nothing. So the one they must use is printed
-            here rather than described. */}
-        {data?.crewInbox?.enabled && (
-          <div className="mt-3 space-y-2">
-            {data.crewInbox.textTo && (
-              <div className="rounded-lg bg-muted p-3 space-y-1">
-                <p className="text-sm text-foreground">
-                  Your crew text{" "}
-                  <code className="px-1.5 py-0.5 rounded bg-background border border-border text-sm tabular-nums">
-                    {data.crewInbox.textTo}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={() => copy(data.crewInbox.textTo, "crewTextTo")}
-                    className="ml-2 align-middle text-muted-foreground hover:text-foreground"
-                    aria-label="Copy the number crew should text"
-                  >
-                    {copied === "crewTextTo" ? <Check size={14} /> : <Copy size={14} />}
-                  </button>
+  // The resolver's order, filtered to what it actually returned. Sorting here
+  // instead of trusting array order keeps the page and the check script reading
+  // the same list even if one of them grows a link the other hasn't.
+  const links = READINESS_LINKS.map((id) => chain.links.find((l) => l.id === id)).filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      {fixed && (
+        <p className="text-sm font-semibold text-foreground">
+          {t("app.setVoice.chain.fixed", "Your settings were sent to the phone service again. Here's what it says now.")}
+        </p>
+      )}
+
+      <p className="text-sm text-foreground">
+        {t(overallKey(chain.overall), OVERALL_TEXT[chain.overall] || "")}
+      </p>
+
+      <ul className="space-y-2.5">
+        {links.map((l) => (
+          <li key={l.id} className="flex gap-2.5">
+            <span className={`shrink-0 mt-0.5 ${tone[l.state]}`} aria-hidden="true">
+              {l.state === "ok" ? (
+                <Check size={15} />
+              ) : l.state === "fail" ? (
+                <AlertTriangle size={15} />
+              ) : (
+                <Info size={15} />
+              )}
+            </span>
+            <div className="text-sm min-w-0">
+              <p className="font-medium text-foreground">
+                {t(linkLabelKey(l.id), LINK_LABEL[l.id] || l.id)}{" "}
+                <span className={`text-xs font-normal ${tone[l.state]}`}>
+                  — {stateLabel[l.state]}
+                </span>
+              </p>
+              <p className="text-muted-foreground">
+                {t(l.reasonKey, REASON_TEXT[l.reasonKey] || l.reason)}
+              </p>
+              {/* Whose end it is, and only where the resolver named one.
+                  Asserting a side we did not observe is the guess this whole
+                  module was built to stop. */}
+              {l.state === "fail" && l.fixer && OWNER_TEXT[l.fixer] && (
+                <p className="text-xs opacity-80 text-muted-foreground">
+                  {t(ownerKey(l.fixer), OWNER_TEXT[l.fixer])}
                 </p>
-                {data.crewInbox.textToDiffersFromPublic && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Not the number on your van — that one is still with your own carrier, and call
-                    forwarding does not forward texts. Give the crew the number above or nothing
-                    will arrive.
-                  </p>
-                )}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Nothing is sent to your crew when you switch this on — it only opens the door. Tell
-              them the number yourself, and save it in their phones.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {t("app.setVoice.crewNote", "Crew are matched by the phone number on their profile (Settings → Team). A text from an unknown number is logged but not filed.")}
-            </p>
-          </div>
+              )}
+              {/* The two addresses, printed. A webhook pointing somewhere else
+                  is the failure nobody can picture until they see both. */}
+              {l.detail?.holds && l.detail?.ours && (
+                <p className="text-xs text-muted-foreground mt-0.5 break-all">
+                  <code className="px-1 py-0.5 rounded bg-muted">{l.detail.holds}</code>
+                  {" → "}
+                  <code className="px-1 py-0.5 rounded bg-muted">{l.detail.ours}</code>
+                </p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onRun}
+          className="px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          {busy
+            ? t("app.setVoice.chain.running", "Asking the phone service…")
+            : t("app.setVoice.chain.rerun", "Check again")}
+        </button>
+        {/* Only where the resolver said a fieldquo-side link is fixable. It
+            pushes our settings to the provider again and honours the on/off
+            switch, so it can never turn a contractor's phone on for them. */}
+        {chain.repairable && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onFix}
+            className="px-4 py-2 rounded-full bg-inverted text-inverted-foreground text-sm font-bold disabled:opacity-50 inline-flex items-center gap-1.5"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+            {busy
+              ? t("app.setVoice.chain.fixing", "Fixing…")
+              : t("app.setVoice.chain.fix", "Fix what's ours to fix")}
+          </button>
         )}
-      </Card>
+      </div>
+
+      {number.source === "forwarded" && number.forwardsToDisplay && (
+        <p className="text-xs text-muted-foreground">
+          {t("app.setVoice.chain.testDial", "Ring {number} yourself to hear the receptionist without forwarding in the way.", { number: number.forwardsToDisplay })}{" "}
+          {t("app.setVoice.chain.testDialThen", "Then run this again — a call that was recorded is the only proof the whole thing works.")}
+        </p>
+      )}
     </div>
   );
 }

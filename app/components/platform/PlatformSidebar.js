@@ -25,6 +25,7 @@ import {
   CalendarClock,
   Ticket,
   ToggleLeft,
+  PhoneCall,
 } from "lucide-react";
 
 const ITEMS = [
@@ -43,6 +44,11 @@ const ITEMS = [
   { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
   { label: "Reports", href: "/platform/reports", icon: FileSpreadsheet },
   { label: "AI usage", href: "/platform/ai-usage", icon: Sparkles },
+  // FieldQuo's OWN phone agent, not a tenant's receptionist. Sits next to AI
+  // usage rather than anywhere near Companies for exactly that reason — this
+  // row is about what FieldQuo says on its own line, and putting it beside the
+  // company list is how somebody opens it expecting a customer's receptionist.
+  { label: "Sales agent", href: "/platform/sales-agent", icon: PhoneCall },
   {
     label: "Service categories",
     href: "/platform/service-categories",

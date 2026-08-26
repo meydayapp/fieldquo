@@ -37,6 +37,7 @@ import { recordActivity } from "@/lib/activity/log";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { diagnoseNumber, diagnoseAndHeal } from "@/lib/voice/diagnose";
 import { provisionAgent, syncNumberAttachment } from "@/lib/voice/provision";
+import { checkReadiness, originIsStable } from "@/lib/voice/readiness";
 import { getAppOrigin } from "@/lib/appUrl";
 
 export async function GET(request) {
@@ -77,6 +78,25 @@ export async function POST(request) {
       { status: 403 },
     );
   }
+
+  const body = await request.json().catch(() => ({}));
+
+  // ── The second repair: push our configuration to the provider again ──────
+  //
+  // Added because the number diagnosis could not see the failure that was
+  // actually keeping the owner's calls off the books. His phone ANSWERED — the
+  // number was bound, the agent spoke — and not one call was ever recorded,
+  // because the `webhook_url` Retell holds is derived from whatever origin the
+  // agent happened to be provisioned from. A URL left pointing at a preview
+  // deployment posts every call event into the void, and every downstream
+  // feature (the call log, the transcript, the lead, the billing, the
+  // call-to-quote draft) is dead while looking perfectly healthy.
+  //
+  // Repairing it is just provisionAgent again: it rewrites webhook_url, the
+  // prompt, the greeting and the tool endpoints from our database, and then
+  // syncNumberAttachment honours `enabled` — so this can never switch a
+  // contractor's phone on, only put back what we should have written.
+  if (body?.fix === "resync") return resync(request, member);
 
   // Diagnosed here rather than trusted from the request. A browser posting
   // `{ verdict: "ghost" }` at a working number would release it.
@@ -162,6 +182,68 @@ export async function POST(request) {
       { status: 502 },
     );
   }
+}
+
+/**
+ * Rewrite this company's agent at the provider from our own database.
+ *
+ * ── Why a preview origin is refused outright ─────────────────────────────
+ *
+ * The webhook URL we would write is derived from the address this request
+ * arrived on. Pressed from a `*.vercel.app` preview or from a laptop, this
+ * would take a LIVE agent that is posting to production and repoint it at a
+ * deployment that stops existing — turning a working phone into exactly the
+ * silent one we are here to fix, and doing it under a button labelled "fix".
+ *
+ * So it refuses, and says which address to use instead. `originIsStable` is
+ * shared with the readiness check, which greys the same case out rather than
+ * calling a healthy production webhook wrong.
+ */
+async function resync(request, member) {
+  const origin = getAppOrigin(request);
+  if (!originIsStable(origin)) {
+    return NextResponse.json(
+      {
+        error:
+          "This is a preview address, not your real one. Fixing from here would point your phone at a copy of FieldQuo that gets deleted — open the app at its normal address and press it there.",
+        errorKey: "app.setVoice.chain.previewRefused",
+        repaired: false,
+        reason: "preview_origin",
+      },
+      { status: 409 },
+    );
+  }
+
+  const res = await provisionAgent(member.companyId, origin);
+
+  await recordActivity(member, {
+    action: res?.ok ? "voice.agent_resynced" : "voice.agent_resync_failed",
+    entityType: "settings",
+    summary: res?.ok
+      ? "Pushed the receptionist's settings to the phone provider again"
+      : `Couldn't push the receptionist's settings (${res?.reason || "unknown"})`,
+    metadata: { origin },
+  }).catch(() => {});
+
+  if (!res?.ok) {
+    await recordError({
+      area: "voice",
+      code: "agent_resync_failed",
+      companyId: member.companyId,
+      message: `Re-pushing the agent for ${member.companyId} failed`,
+      detail: { reason: res?.reason || null, origin },
+    });
+    return NextResponse.json(
+      { repaired: false, reason: res?.reason || "provision_failed" },
+      { status: 502 },
+    );
+  }
+
+  // Proved rather than assumed, same as the number repair above: the chain is
+  // re-read from the provider so the page renders what Retell now says, not
+  // what our push believes it did.
+  const after = await checkReadiness(member.companyId, origin);
+  return NextResponse.json({ repaired: true, fix: "resync", readiness: after });
 }
 
 async function markActive(companyId, e164) {

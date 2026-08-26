@@ -31,6 +31,7 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { getOrCreateStripeCustomer } from "@/lib/platform/stripeBilling";
 import { addCredit, normaliseTopup, minutesFor, balanceFor } from "@/lib/voice/credits";
 import { syncNumberAttachment } from "@/lib/voice/provision";
+import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { activeNumber } from "@/lib/voice/numbers";
 
 async function requireAdmin(request) {
@@ -133,6 +134,12 @@ export async function GET(request) {
   // has the receptionist switched on. Without this, an account that ran dry
   // stayed silent after paying, which reads as "the top-up didn't work".
   await syncNumberAttachment(member.companyId).catch(() => {});
+
+  // And lift the call-length ceiling to match the new balance. Re-attaching
+  // without this leaves a contractor who just bought $50 of credit still capped
+  // at the one minute their empty balance bought — the phone answers and hangs
+  // up mid-sentence, which is a worse outcome than not answering at all.
+  await pushCallCeiling(member.companyId).catch(() => {});
 
   const balance = await balanceFor(member.companyId);
   return NextResponse.json({ credited: true, cents, balance });

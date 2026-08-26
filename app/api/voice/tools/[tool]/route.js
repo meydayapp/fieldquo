@@ -23,7 +23,6 @@
 // rather than silently writing an orphan lead.
 export const runtime = "nodejs";
 
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
@@ -31,19 +30,9 @@ import { toE164 } from "@/lib/voice/numbers";
 import { cleanPhone, cleanText, TOOL_NAMES } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordConsent } from "@/lib/voice/outbound";
-
-function verify(rawBody, signature, secret) {
-  if (!secret || !signature) return false;
-  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
-  const a = Buffer.from(String(signature));
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  try {
-    return crypto.timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
+import { photoDestination } from "@/lib/voice/quoteQuestions";
+import { verifyRetellSignature, signingKeys } from "@/lib/voice/webhookSignature";
+import { recordRejectedDelivery } from "@/lib/voice/webhookHealth";
 
 /** The call, the number and the company — or null. */
 async function contextFor(callId) {
@@ -65,7 +54,20 @@ export async function POST(request, { params }) {
   const { tool } = await params;
   const raw = await request.text();
 
-  if (!verify(raw, request.headers.get("x-retell-signature"), process.env.RETELL_WEBHOOK_SECRET)) {
+  // Same verifier as /api/voice/webhook, and the same bug lived here: the old
+  // hand-rolled compare rejected every real tool call, so the receptionist
+  // could take a caller's details mid-call and never once save them. See
+  // lib/voice/webhookSignature.js.
+  const check = verifyRetellSignature({
+    rawBody: raw,
+    header: request.headers.get("x-retell-signature"),
+    keys: signingKeys(),
+  });
+  if (!check.ok) {
+    await recordRejectedDelivery({
+      reason: check.reason,
+      endpoint: `/api/voice/tools/${tool}`,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!TOOL_NAMES.includes(tool)) {
@@ -176,6 +178,35 @@ async function saveCaller(ctx, args) {
         message: message || "— taken by the phone assistant",
         source: "phone_agent",
       });
+
+  // ── "I asked them to email photos" ─────────────────────────────────────
+  //
+  // A call cannot carry a picture, so the receptionist asks for them by email
+  // (lib/voice/prompt.js, and only ever to the company's OWN published address
+  // — see photoDestination). Recording that it asked is what lets whoever picks
+  // the lead up tell a quote that is deliberately photo-less from one where
+  // nobody thought to ask. Whether the photos arrived is answered by
+  // `clientPhotos`, never by a second flag that could disagree with them.
+  //
+  // Stamped once. The agent is told to call this tool repeatedly, and a later
+  // call must not move the timestamp — "when did we ask" is the useful fact.
+  if (args.photos_requested === true && !lead.photosRequestedAt) {
+    const company = await db.company
+      .findUnique({ where: { id: ctx.companyId }, select: { email: true } })
+      .catch(() => null);
+    await db.leadRequest
+      .update({
+        where: { id: lead.id },
+        data: {
+          photosRequestedAt: new Date(),
+          // Null when the company has published no address — which is also the
+          // case in which the agent was never told to ask. Recorded as absent
+          // rather than filled in with something plausible.
+          photosRequestedTo: photoDestination(company),
+        },
+      })
+      .catch((err) => console.error("[voice/tools] photo request not recorded:", err.message));
+  }
 
   // They rang US, which is about as clear a request to be reachable as there
   // is — but it still needs a row, or a call BACK would be refused by the same
