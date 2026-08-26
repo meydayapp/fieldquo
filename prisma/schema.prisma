@@ -962,6 +962,7 @@ model Company {
   voiceAgent    VoiceAgent?
   voiceCalls    VoiceCall[]
   voiceCredits  VoiceCreditEntry[]
+  voiceAutoTopup VoiceAutoTopup?
   callConsents  CallConsent[]
 
   /// Where a happy customer should leave a review. Usually a Google review
@@ -3064,6 +3065,26 @@ enum FunnelStatus {
   published
 }
 
+/// ── Written by nobody, read by nobody ──────────────────────────────────────
+///
+/// The one route that created these rows — POST /api/portal/[token]/refer — was
+/// deleted, because it was an orphan three times over. Nothing in the portal
+/// ever called it (the portal page's own comment records that it was a
+/// zero-byte file). Nothing anywhere read `ReferralLink.code`: /refer/[code]
+/// resolves through findReferrer, which looks up Company.referralCode, so every
+/// per-client link it minted would have 404'd.
+///
+/// And wiring it up would have been wrong rather than merely missing. The
+/// referral programme is FieldQuo's OWN — one contractor telling another about
+/// the product — and its landing page reads "{company} thinks you'd like
+/// FieldQuo". Pointing a homeowner at that from a contractor's client portal
+/// leaks FieldQuo into a client-facing surface, which the product's first
+/// non-negotiable exists to prevent. A homeowner referring their neighbour to
+/// the CONTRACTOR is a real and different feature; it is not this one.
+///
+/// The model is kept rather than dropped: zero rows exist today, and a migration
+/// that removes a table to tidy up dead code is a worse trade than a documented
+/// unused one. If the neighbour-referral feature is ever built, it starts here.
 model ReferralLink {
   id            String   @id @default(cuid())
   clientId      String
@@ -4696,6 +4717,154 @@ model VoiceCreditEntry {
 
   @@unique([companyId, ref])
   @@index([companyId, createdAt])
+}
+
+/// Buy more credit automatically when the balance runs low.
+///
+/// ── Why this is opt-in, and why every column below is nullable ─────────────
+///
+/// lib/voice/credits.js makes one promise above all others: nobody is ever
+/// surprised by an invoice. Charging a saved card without the contractor
+/// standing there is the one feature that can break it, so the whole model is
+/// built to be inert until somebody deliberately turns it on. `enabled` is
+/// false by default and `thresholdCents`/`amountCents` are NULL until chosen —
+/// absence of a choice is not a $10 default, it is "do not charge this card".
+/// isArmed() in lib/voice/autoTopup.js is the single reader of that rule.
+///
+/// ── Platform Billing, NOT Connect ──────────────────────────────────────────
+///
+/// This is FieldQuo charging the contractor for FieldQuo's own service, so the
+/// Customer is the one lib/platform/stripeBilling.js already keeps for their
+/// subscription — the same customer app/api/settings/voice/topup/route.js puts
+/// on the manual Checkout. There is no `transfer_data`, no connected account
+/// and no application fee anywhere near it. Mixing that in would route a
+/// contractor's own payment to their own Stripe account, which is the trap
+/// lib/stripe.js warns about at the top.
+///
+/// ── Cards only ─────────────────────────────────────────────────────────────
+///
+/// ServicePlanAuthorisation also allows Canadian pre-authorized debit, and this
+/// deliberately does not. A PAD debit settles in about five business days; a
+/// top-up that lands next week is not a top-up, it is a phone that stopped
+/// answering on Tuesday and came back on Monday. The point of this feature is
+/// that the balance never reaches zero.
+model VoiceAutoTopup {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The contractor's switch. False after WE switch it off too — see
+  /// disabledReason, which says which of the two happened.
+  enabled Boolean @default(false)
+
+  /// Buy more when the balance falls below this, in cents. One of
+  /// AUTO_TOPUP_THRESHOLDS ($5 / $10 / $20).
+  ///
+  /// Null means never chosen. Nothing fills it in: a null threshold is not
+  /// "use the default", it is a company that has not agreed to anything.
+  thresholdCents Int?
+
+  /// How much to buy each time, in cents. One of TOPUP_OPTIONS.
+  amountCents Int?
+
+  /// ── The instrument, saved off-session ────────────────────────────────────
+  ///
+  /// Collected by a Stripe Checkout session in `mode: "setup"` with
+  /// `usage: "off_session"`, exactly as lib/servicePlans/stripeMandate.js does
+  /// it. Null until that session completes, and isArmed() refuses to charge
+  /// until every one of them is filled in.
+  stripeCustomerId      String?
+  stripeSetupIntentId   String?
+  stripePaymentMethodId String?
+  /// A multi-use Mandate, when the method produces one. Cards usually don't,
+  /// and null is correct there rather than missing.
+  stripeMandateId       String?
+  /// Always "card" today. Stored anyway so the PaymentIntent can pin
+  /// payment_method_types to the method actually authorised, rather than
+  /// letting an off-session confirm wander onto something the consent below
+  /// does not cover.
+  paymentMethodType  String?
+  paymentMethodBrand String?
+  paymentMethodLast4 String?
+
+  /// ── The consent record ───────────────────────────────────────────────────
+  ///
+  /// Same discipline as ServicePlanAuthorisation, one level up: FieldQuo is the
+  /// merchant here and the contractor is the customer. Stripe's guidance for
+  /// charging a saved method off-session requires the merchant to state AND
+  /// KEEP A RECORD OF the agreement, the timing, how the amount is decided and
+  /// how to cancel. Stripe's hosted page states none of those four.
+  ///
+  /// So the exact wording shown is snapshotted verbatim into termsText, and
+  /// improving the copy later cannot rewrite what somebody already agreed to.
+  /// Stamped when the box was ticked, BEFORE Stripe was opened — a company that
+  /// ticked and then abandoned the card form leaves "agreed, never finished",
+  /// which is the truth and which isArmed() correctly refuses to charge.
+  acceptedAt         DateTime?
+  acceptedIp         String?
+  acceptedAgent      String?
+  /// Which member ticked it. "The company agreed" is not an answer anyone can
+  /// act on months later.
+  acceptedByMemberId String?
+  acceptedByName     String?
+  termsText          String?
+  termsLanguage      String?
+
+  /// The ceiling the terms actually stated, frozen at consent, in cents.
+  ///
+  /// Read back and enforced on every charge. amountCents alone would not do:
+  /// it is editable, and a settings write that raised it without re-stating the
+  /// terms would charge more than anybody agreed to. Changing the amount means
+  /// re-accepting, which re-stamps this.
+  authorisedAmountCents Int?
+  /// And the most that can be taken in one day, also stated in the terms.
+  authorisedDailyCents  Int?
+
+  /// ── The runaway guards ───────────────────────────────────────────────────
+  ///
+  /// A bug that charges a card in a loop is the worst outcome this feature has
+  /// available, so the caps are columns rather than in-process state — a second
+  /// serverless invocation shares no memory with the first, and Vercel runs
+  /// several.
+  ///
+  /// Claimed by a conditional updateMany before Stripe is called and cleared
+  /// after, so at most one automatic charge is ever in flight. The token is
+  /// what the Stripe idempotency key is built from: a retry that finds the same
+  /// claim reuses the same key and Stripe returns the SAME PaymentIntent
+  /// instead of taking a second payment.
+  chargeInFlightAt    DateTime?
+  chargeAttemptToken  String?
+
+  /// UTC day the counter below belongs to, as YYYY-MM-DD. A day key rather than
+  /// a rolling window because the cap has to be explicable to the person paying
+  /// — "at most three a day" is a sentence; "at most three per rolling 24h" is
+  /// a support ticket.
+  dayKey       String?
+  chargesToday Int      @default(0)
+  spentTodayCents Int   @default(0)
+  lastChargeAt DateTime?
+
+  /// Consecutive transient failures. A DECLINE does not count here — it
+  /// switches the feature off on the spot (see lib/voice/autoTopup.js), because
+  /// retrying a declined card is how an account ends up in a bank's fraud
+  /// rules. This counter is only for "we could not reach Stripe at all", which
+  /// is not the contractor's problem and must not disable them on one blip.
+  consecutiveFailures Int       @default(0)
+  lastFailureAt       DateTime?
+  lastFailureCode     String?
+  lastFailureMessage  String?
+
+  /// Set when FIELDQUO switched it off, with why. Null when the contractor did
+  /// it themselves — the two read identically in `enabled` and must not read
+  /// identically on screen.
+  disabledAt     DateTime?
+  disabledReason String?
+  /// When we last emailed them about it, so a cron cannot send a daily copy of
+  /// the same bad news.
+  notifiedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Permission to ring a specific number, and where it came from.
