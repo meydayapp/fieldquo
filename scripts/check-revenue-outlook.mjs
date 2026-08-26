@@ -35,19 +35,32 @@ const PROD = [
   sub({ status: "trialing", plan: plan(45),  trialEndsAt: "2026-08-15" }),
 ];
 
+// ── This block used to assert a billing outage that was not happening ──────
+//
+// It encoded the premise that a Plan without `stripePriceId` cannot be charged,
+// and asserted collectable MRR of ZERO against a nominal $1,335. The premise was
+// wrong: checkout builds `price_data` inline, Stripe mints its own Price, and
+// the Subscription references that — our plan row's id has no part in it. Ten
+// real subscriptions exist against price-id-less plans and every one of them
+// bills. Reporting a total outage that is not occurring buries a real one when
+// it comes, so these are inverted rather than deleted.
 console.log("\nProduction as it stands — the number that must not lie\n");
 const o = buildRevenueOutlook(PROD, NOW);
 check("nominal MRR is the $1,335 the dashboard shows", o.nominalMrr === 1335);
-check("collectable MRR is zero", o.collectableMrr === 0);
-check("annual run rate is zero, not $16,020", o.annualRunRate === 0);
-check("all five active subs are named as blocked", o.blocked.length === 5);
-check("the reason is the missing plan price, not a missing Stripe sub",
-  o.blocked.every((b) => b.reason === "the plan has no Stripe price"));
-check("blocked MRR equals nominal MRR", o.blockedMrr === 1335);
-check("the 'nothing collectable' flag is raised", o.nothingCollectable === true);
-check("this month expects nothing", o.thisMonth.expected === 0);
-check("next month expects nothing", o.nextMonth.expected === 0);
-check("but the nominal outlook is still reported alongside", o.thisMonth.nominal > 0);
+check("a plan with no Stripe price id still collects", o.collectableMrr === 1335);
+check("the annual run rate follows it", o.annualRunRate === 16020);
+check("no active sub is blocked on a missing plan price", o.blocked.length === 0);
+check("nothing is flagged as a total outage", o.nothingCollectable === false);
+check("this month expects the real figure", o.thisMonth.expected > 0);
+check("next month expects the real figure", o.nextMonth.expected > 0);
+check("and the nominal outlook still sits alongside it", o.thisMonth.nominal > 0);
+// The gate that DOES still block, so inverting the above cannot have removed
+// every alarm: no object at Stripe means nothing to bill against.
+check("a subscription Stripe has no object for is still blocked",
+  buildRevenueOutlook(
+    PROD.map((s) => ({ ...s, stripeSubscriptionId: null })),
+    NOW,
+  ).collectableMrr === 0);
 check("the lapsed trial is counted", o.trials.lapsed === 1);
 
 console.log("\nOnce the Stripe prices are added\n");
@@ -66,8 +79,11 @@ check("trial pipeline is now collectable", f.trials.collectableValue === 1635);
 
 console.log("\nThe billability test both halves\n");
 check("no Stripe sub → not collectable", !isCollectable(sub({ stripeSubscriptionId: null, plan: plan(45, "price_1") })));
-check("no plan price → not collectable", !isCollectable(sub({ plan: plan(45, null) })));
-check("both present → collectable", isCollectable(sub({ plan: plan(45, "price_1") })));
+// Renamed as well as inverted: it always passed `plan(45, null)` — a plan with
+// a PRICE of 45 and no price ID — so the old name described the wrong field.
+check("a missing Stripe price id does not block collection", isCollectable(sub({ plan: plan(45, null) })));
+check("a subscription with no plan at all does not throw", isCollectable(sub({ plan: undefined })) === false);
+check("a stripe sub and a real price → collectable", isCollectable(sub({ plan: plan(45, "price_1") })));
 check("a zero-priced plan is not revenue", !isCollectable(sub({ plan: plan(0, "price_1") })));
 check("a non-numeric price is not revenue", !isCollectable(sub({ plan: plan("abc", "price_1") })));
 check("null subscription doesn't throw", isCollectable(null) === false);
