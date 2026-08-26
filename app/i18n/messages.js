@@ -80,11 +80,13 @@ const en = {
   "hero.tabs.quotes.headline": "Send a professional quote in minutes, not hours",
   "hero.tabs.quotes.body":
     "Build quotes with your own pricing, service categories, and photos — client approves online, no back-and-forth.",
+  "hero.tabs.quotes.alt": "A contractor building a quote on a tablet outside a client's home while she reviews it on her phone",
   "hero.tabs.scheduling.label": "Scheduling",
   "hero.tabs.scheduling.headline":
     "Let clients book you directly from your website",
   "hero.tabs.scheduling.body":
     "A booking page that shows your real availability, assigns the right person on your team, and confirms automatically.",
+  "hero.tabs.scheduling.alt": "A client picking an appointment time on a contractor's booking page on her phone",
   "hero.tabs.invoicing.label": "Invoicing",
   "hero.tabs.invoicing.headline": "Get paid without chasing anyone down",
   "hero.tabs.invoicing.body":
@@ -310,11 +312,13 @@ const fr = {
     "Envoyez une soumission professionnelle en minutes, pas en heures",
   "hero.tabs.quotes.body":
     "Créez des soumissions avec vos propres prix, catégories de services et photos — le client approuve en ligne, sans échanges interminables.",
+  "hero.tabs.quotes.alt": "Un entrepreneur prépare une soumission sur tablette devant la maison d'une cliente, qui la consulte sur son téléphone",
   "hero.tabs.scheduling.label": "Planification",
   "hero.tabs.scheduling.headline":
     "Laissez vos clients réserver directement depuis votre site",
   "hero.tabs.scheduling.body":
     "Une page de réservation qui affiche vos vraies disponibilités, assigne la bonne personne et confirme automatiquement.",
+  "hero.tabs.scheduling.alt": "Une cliente choisit un créneau de rendez-vous sur la page de réservation d'un entrepreneur, depuis son téléphone",
   "hero.tabs.invoicing.label": "Facturation",
   "hero.tabs.invoicing.headline": "Faites-vous payer sans relancer personne",
   "hero.tabs.invoicing.body":
@@ -526,11 +530,13 @@ const es = {
     "Envía un presupuesto profesional en minutos, no en horas",
   "hero.tabs.quotes.body":
     "Arma presupuestos con tus propios precios, categorías de servicio y fotos — el cliente aprueba en línea, sin idas y vueltas.",
+  "hero.tabs.quotes.alt": "Un contratista prepara un presupuesto en una tableta frente a la casa de una clienta, que lo revisa en su teléfono",
   "hero.tabs.scheduling.label": "Agenda",
   "hero.tabs.scheduling.headline":
     "Deja que los clientes te reserven desde tu sitio web",
   "hero.tabs.scheduling.body":
     "Una página de reservas que muestra tu disponibilidad real, asigna a la persona correcta de tu equipo y confirma automáticamente.",
+  "hero.tabs.scheduling.alt": "Una clienta elige la hora de una cita en la página de reservas de un contratista desde su teléfono",
   "hero.tabs.invoicing.label": "Facturación",
   "hero.tabs.invoicing.headline": "Cobra sin tener que perseguir a nadie",
   "hero.tabs.invoicing.body":
@@ -738,11 +744,13 @@ const uk = {
     "Надсилайте професійний кошторис за хвилини, а не години",
   "hero.tabs.quotes.body":
     "Складайте кошториси з власними цінами, категоріями послуг і фото — клієнт затверджує онлайн, без нескінченного листування.",
+  "hero.tabs.quotes.alt": "Підрядник складає кошторис на планшеті біля будинку клієнтки, поки вона переглядає його на телефоні",
   "hero.tabs.scheduling.label": "Планування",
   "hero.tabs.scheduling.headline":
     "Дозвольте клієнтам бронювати вас прямо з вашого сайту",
   "hero.tabs.scheduling.body":
     "Сторінка бронювання показує вашу реальну доступність, призначає потрібного працівника та підтверджує автоматично.",
+  "hero.tabs.scheduling.alt": "Клієнтка обирає час зустрічі на сторінці бронювання підрядника у своєму телефоні",
   "hero.tabs.invoicing.label": "Рахунки",
   "hero.tabs.invoicing.headline": "Отримуйте оплату без нагадувань",
   "hero.tabs.invoicing.body":
@@ -951,11 +959,13 @@ const pa = {
     "ਘੰਟਿਆਂ ਵਿੱਚ ਨਹੀਂ, ਮਿੰਟਾਂ ਵਿੱਚ ਪੇਸ਼ੇਵਰ ਕੋਟ ਭੇਜੋ",
   "hero.tabs.quotes.body":
     "ਆਪਣੀਆਂ ਕੀਮਤਾਂ, ਸੇਵਾ ਸ਼੍ਰੇਣੀਆਂ ਅਤੇ ਫ਼ੋਟੋਆਂ ਨਾਲ ਕੋਟ ਬਣਾਓ — ਗਾਹਕ ਆਨਲਾਈਨ ਮਨਜ਼ੂਰੀ ਦਿੰਦਾ ਹੈ, ਵਾਰ-ਵਾਰ ਗੱਲਬਾਤ ਦੀ ਲੋੜ ਨਹੀਂ।",
+  "hero.tabs.quotes.alt": "ਇੱਕ ਠੇਕੇਦਾਰ ਗਾਹਕ ਦੇ ਘਰ ਦੇ ਬਾਹਰ ਟੈਬਲੇਟ ਉੱਤੇ ਹਵਾਲਾ ਬਣਾ ਰਿਹਾ ਹੈ, ਜਦਕਿ ਉਹ ਇਸਨੂੰ ਆਪਣੇ ਫ਼ੋਨ ਉੱਤੇ ਦੇਖ ਰਹੀ ਹੈ",
   "hero.tabs.scheduling.label": "ਸ਼ਡਿਊਲਿੰਗ",
   "hero.tabs.scheduling.headline":
     "ਗਾਹਕਾਂ ਨੂੰ ਸਿੱਧਾ ਤੁਹਾਡੀ ਵੈੱਬਸਾਈਟ ਤੋਂ ਬੁਕਿੰਗ ਕਰਨ ਦਿਓ",
   "hero.tabs.scheduling.body":
     "ਇੱਕ ਬੁਕਿੰਗ ਪੰਨਾ ਜੋ ਤੁਹਾਡੀ ਅਸਲ ਉਪਲਬਧਤਾ ਦਿਖਾਉਂਦਾ ਹੈ, ਸਹੀ ਟੀਮ ਮੈਂਬਰ ਨੂੰ ਸੌਂਪਦਾ ਹੈ, ਅਤੇ ਆਪਣੇ-ਆਪ ਪੁਸ਼ਟੀ ਕਰਦਾ ਹੈ।",
+  "hero.tabs.scheduling.alt": "ਇੱਕ ਗਾਹਕ ਆਪਣੇ ਫ਼ੋਨ ਉੱਤੇ ਠੇਕੇਦਾਰ ਦੇ ਬੁਕਿੰਗ ਪੰਨੇ ਤੋਂ ਮੁਲਾਕਾਤ ਦਾ ਸਮਾਂ ਚੁਣ ਰਹੀ ਹੈ",
   "hero.tabs.invoicing.label": "ਇਨਵੌਇਸਿੰਗ",
   "hero.tabs.invoicing.headline": "ਕਿਸੇ ਦੇ ਪਿੱਛੇ ਪਏ ਬਿਨਾਂ ਭੁਗਤਾਨ ਲਵੋ",
   "hero.tabs.invoicing.body":
@@ -1164,11 +1174,13 @@ const tl = {
     "Magpadala ng propesyonal na quote sa minuto, hindi oras",
   "hero.tabs.quotes.body":
     "Gumawa ng quote gamit ang sarili mong presyo, kategorya ng serbisyo at litrato — inaaprubahan ito online ng kliyente, walang paulit-ulit na usapan.",
+  "hero.tabs.quotes.alt": "Isang kontratista na gumagawa ng quote sa tablet sa labas ng bahay ng kliyente habang tinitingnan niya ito sa kanyang telepono",
   "hero.tabs.scheduling.label": "Scheduling",
   "hero.tabs.scheduling.headline":
     "Hayaang mag-book ang kliyente diretso mula sa iyong website",
   "hero.tabs.scheduling.body":
     "Isang booking page na nagpapakita ng totoo mong availability, nag-a-assign ng tamang tao sa team, at kusang nagkukumpirma.",
+  "hero.tabs.scheduling.alt": "Isang kliyenteng pumipili ng oras ng appointment sa booking page ng kontratista gamit ang kanyang telepono",
   "hero.tabs.invoicing.label": "Invoicing",
   "hero.tabs.invoicing.headline": "Mabayaran nang hindi na manghahabol",
   "hero.tabs.invoicing.body":
