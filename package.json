@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/check-imports.mjs && npx eslint app lib --config scripts/check-undef.config.mjs && node scripts/check-env-docs.mjs && prisma generate && next build",
+    "build": "node scripts/check-imports.mjs && node scripts/check-exports.mjs && npx eslint app lib --config scripts/check-undef.config.mjs && node scripts/check-env-docs.mjs && prisma generate && next build",
     "check:imports": "node scripts/check-imports.mjs",
     "check:trade-catalog": "node --import ./scripts/alias-loader.mjs scripts/check-trade-catalog.mjs",
     "check:undef": "npx eslint app lib --config scripts/check-undef.config.mjs",
@@ -158,6 +158,7 @@
     "check:stripe-identity": "node --import ./scripts/alias-loader.mjs scripts/check-stripe-identity.mjs",
     "check:address-fields": "node scripts/check-address-fields.mjs",
     "check:grant-access": "node --import ./scripts/alias-loader.mjs scripts/check-grant-access.mjs",
+    "check:exports": "node scripts/check-exports.mjs",
     "check:tax-send": "npx esbuild scripts/check-tax-send-gate.jsx --bundle --platform=node --format=cjs --jsx=automatic --loader:.js=jsx --alias:@=. --log-level=error --outfile=.tax-send.cjs && node .tax-send.cjs; code=$?; rm -f .tax-send.cjs; exit $code"
   },
   "dependencies": {
