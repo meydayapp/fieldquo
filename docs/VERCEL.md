@@ -43,6 +43,24 @@ key we make API calls with. If a call is answered and never recorded, check
 Settings → Phone receptionist → *Check it end to end*: a signature we turned
 away now appears there by name.
 
+**Where to find it in the Retell dashboard.** The API-keys list marks the
+signing key with a badge — Retell's own words are *"Only the API key that has a
+webhook badge next to it can be used to verify the webhook"*
+([docs](https://docs.retellai.com/features/secure-webhook)). Copy that key into
+`RETELL_API_KEY` if you can; if the badged key is not the one you want making
+API calls, put the badged one in `RETELL_WEBHOOK_SECRET` and the other in
+`RETELL_API_KEY`. The readiness panel names which of the two actually matched,
+so a divergence is visible rather than a blanket 401.
+
+**You do not register the webhook URL by hand.** FieldQuo sets `webhook_url` on
+each agent when it provisions one, and Retell documents agent-level webhooks as
+*overriding* the account-level one: "If set, account level webhooks will not be
+triggered for that agent"
+([docs](https://docs.retellai.com/features/register-webhook)). So a URL typed
+into Settings → Webhooks will be **silently ignored** for every FieldQuo agent
+— which looks exactly like a webhook that is configured and working. If
+deliveries stop, check the agent, not the account tab.
+
 ### Not an environment variable
 
 - **Point Twilio's inbound Messaging webhook at `/api/crew/inbound`** (POST) for
@@ -110,6 +128,7 @@ Set only to override. The default is in brackets.
 | `CREW_MMS_CENTS` | `5` | What we charge per crew photo — an MMS costs us more than a text |
 | `CREW_OVERDRAFT_CENTS` | `200` | How far a company may go into the red before the crew line is disconnected at Twilio |
 | `RETELL_TEST_NUMBER` | — | Comma-separated shared test numbers |
+| `FIELDQUO_SALES_NUMBER` | — | **FieldQuo's own** sales line, comma-separated. The webhook recognises it as FieldQuo's rather than dropping the call as an unknown number, and the calls land on `/platform/sales-agent`. Buy the number on the Retell account first. Must NOT be a tenant's number or `RETELL_TEST_NUMBER` — both are detected and reported |
 | `FIELDQUO_SALES_TRANSFER_TO` | — | Where **FieldQuo's own** sales agent puts a caller through. Unset, it has no tools and sends people to /contact. Never set this to `RETELL_TEST_NUMBER` — see `/platform/sales-agent` |
 | `EMAIL_FROM` · `EMAIL_FROM_LOCAL` · `EMAIL_REPLY_TO` | `quotes@…` | Fallback sender when a company has no verified domain |
 | `SALES_NOTIFICATION_EMAIL` | `emilio@fieldquo.com` | Where new-signup alerts go |

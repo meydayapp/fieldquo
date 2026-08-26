@@ -23,6 +23,16 @@
 // A manual catch-up after an outage, without a deploy. Bounded at 30 because a
 // window wider than that is a data-repair job someone should be watching, not
 // something a cron URL should be able to start.
+//
+// ── What this run does NOT do ──────────────────────────────────────────────
+//
+// It recovers the CALL — the row, the transcript, the summary, the recording,
+// the duration and the charge — and stops there. Reconstructing the LEAD from a
+// transcript costs a model call against the contractor's own AI allowance, per
+// call, and an hourly job doing that unasked would spend somebody's quota on a
+// schedule they never agreed to. So `recoverLead` is deliberately not passed
+// here; it comes from POST /api/voice/calls/recover, which a person presses.
+// See lib/ai/callLeadRecovery.js.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

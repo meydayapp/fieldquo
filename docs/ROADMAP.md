@@ -142,6 +142,68 @@ Settings › Services and Settings › Instant Quote now re-push the agent
 (`reprovisionIfLive`) — before this, changing your services left the phone
 saying you didn't offer them.
 
+**Calls lost to the broken signature check are RECOVERABLE.** The verifier
+rejected every real delivery for months, on `/api/voice/webhook` and on
+`/api/voice/tools/[tool]` alike — so calls that really happened left no row, no
+transcript, no recording and (because `save_caller` posts to the tools endpoint)
+no `LeadRequest`. Retell kept all of it. `lib/voice/reconcileCalls.js` is now
+the backfill as well as the meter: one sweep, extended rather than duplicated,
+that writes the transcript, summary, recording URL, duration and disposition
+alongside the charge it already rescued. `VoiceCall.recoveredAt` marks a row the
+sweep CREATED (never one the webhook wrote), and `/app/receptionist` shows a
+"Recovered" badge explaining why a two-day-old call has just appeared.
+
+Rebuilding the LEAD is a separate, deliberate step: `lib/ai/callLeadRecovery.js`
+reads the transcript under `callQuoteDraft.js`'s evidence rules, tightened so
+that **no text the model wrote reaches the lead** — every value is a verbatim
+slice of a line the caller said, and the "job description" is their own
+sentences rather than a summary. No phone, no lead. No name and no words, no
+lead. It costs the contractor's AI allowance, so the **hourly cron does not run
+it**; `POST /api/voice/calls/recover` (`user:manage`, 7-day default, 30-day cap)
+does, from a button on `/app/receptionist`. `npm run check:voice-recovery`
+executes all of it against a fixture built from the owner's real call —
+including the finding that evidence-matching alone does NOT stop injection when
+the injection is in the caller's own words, which is why `looksLikeInstruction`
+exists. **Still needs a live `RETELL_API_KEY` to actually run against Retell.**
+
+**FieldQuo's OWN phone agent is a separate agent, and it is now buildable.**
+`/platform/sales-agent` (superadmin) is the whole surface. It is not the tenant
+receptionist and must never converge with it — a contractor's receptionist that
+starts talking about FieldQuo's pricing has broken the white-label promise.
+
+- `lib/platform/salesKnowledge.js` — the knowledge base, **derived** on every
+  push. Features come from `lib/features/registry.js` resolved against the
+  PlatformFeature globals (hide one in the console and the phone stops selling
+  it); the core product from the `PERMISSION_CATEGORIES` grid; prices from the
+  `Plan` rows through the same sellability filter the public pricing page uses.
+  No figure lives in a prompt string, and `npm run check:sales-agent` proves it
+  by rendering two price lists and asserting neither leaks into the other.
+- `lib/platform/salesPrompt.js` — rules, then facts, then bounded tone notes.
+  Unlike the receptionist it MAY say the published plan prices, and it still may
+  not discount, promise, date a roadmap, or answer about anybody's account.
+- `lib/platform/salesCall.js` + `PlatformVoiceCall` — where a call to FieldQuo's
+  own number lands. The shared webhook resolved a tenant from the dialled number
+  and logged anything else as "call to an unknown number", so **every call to
+  FieldQuo's own line would have been discarded**. Not a `VoiceCall`: that model
+  requires a `companyId`, and a Company row for FieldQuo would make FieldQuo a
+  tenant in every count in the console.
+- `PlatformVoiceAgent` — the missing home for FieldQuo's own provider agent id.
+  `VoiceAgent` is keyed by `companyId`, which is why nothing could provision one.
+- Readiness **composes** `resolveReadiness` from `lib/voice/readiness.js`. Same
+  ten links, same copy table. A second resolver would be a second opinion.
+
+**Still needed before it can answer: a number.** Buy one on the Retell account
+and set `FIELDQUO_SALES_NUMBER`. Nothing here buys one — a purchase spends a
+contractor's credit against a contractor's account and neither exists here.
+`RETELL_TEST_NUMBER` is not it; that is the line for trying a *tenant*
+receptionist, and claiming it is detected and reported rather than allowed.
+
+**A FieldQuo phone lead still has no home but the call log.** `DemoBooking`
+covers a booked demo and `/api/marketing/contact` emails
+`SALES_NOTIFICATION_EMAIL` without writing a row. Nothing turns "ring me back"
+into a task anybody is reminded of, so the agent is forbidden from promising a
+callback time and the call log is where a human has to look.
+
 **The callback on an approved quote is opt-in and email-first.** It fires from
 the SEND path, not the approval: `approvedQuoteCallGate` refuses a draft, a
 quote nobody emailed, a hand-typed quote, and a company that never switched
@@ -293,7 +355,7 @@ could be switched on against a number no text could reach.
   wait to be told:
   - `lib/voice/reconcileCalls.js` + `/api/cron/voice-reconcile` (hourly) list
     Retell's own calls (`POST /v3/list-calls` — the legacy list endpoints were
-    removed 15/06/2026), bill the ones we have no entry for, and re-run the
+    deprecated, no sunset date), bill the ones we have no entry for, and re-run the
     attachment decision. Both paths key on `call:<providerCallId>` against the
     unique `(companyId, ref)` index, so neither can double-charge. Every rescue
     writes a `webhook_missed` row — a meter repaired in silence stays broken.

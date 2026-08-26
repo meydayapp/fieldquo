@@ -70,10 +70,33 @@ const ok = (cond, msg, detail) => {
    the point is to control the rows and watch the output move — a check that
    reads production would pass or fail on whatever is in the database today. */
 globalThis.__FQ_ROWS = { plans: [], features: [] };
+// Nothing is set for FieldQuo by default — the "no number configured" state is
+// the one production is actually in, so it is the one every scenario starts from.
+delete process.env.FIELDQUO_SALES_NUMBER;
 
+globalThis.__FQ_WRITES = [];
 const db = {
   plan: { async findMany() { return globalThis.__FQ_ROWS.plans; } },
   platformFeature: { async findMany() { return globalThis.__FQ_ROWS.features; } },
+  // Captured rather than executed. The assertions about upsert semantics —
+  // that a retried call_started cannot blank a transcript, that call_ended
+  // writes `undefined` and never `null` over a summary it does not carry — are
+  // about the ARGUMENTS, and a fake that "worked" would prove nothing.
+  platformVoiceCall: {
+    async upsert(args) { globalThis.__FQ_WRITES.push(args); return { id: "pvc" }; },
+    async count() { return globalThis.__FQ_ROWS.callCount ?? 0; },
+    async findFirst() { return null; },
+    async findMany() { return globalThis.__FQ_ROWS.calls ?? []; },
+  },
+  platformVoiceAgent: {
+    async findUnique() { return globalThis.__FQ_ROWS.agentRow ?? null; },
+    async upsert(args) { globalThis.__FQ_WRITES.push(args); return { id: "fieldquo" }; },
+  },
+  voicePhoneNumber: {
+    async findMany() { return globalThis.__FQ_ROWS.tenantNumbers ?? []; },
+  },
+  platformErrorLog: { async findFirst() { return null; } },
+  voiceCall: { async findFirst() { return null; }, async count() { return 0; } },
 };
 globalThis.__FQ_DB = new Proxy(db, {
   get: (t, p) => (p in t ? t[p] : new Proxy({}, { get: () => async () => null })),
@@ -100,6 +123,7 @@ const registry = await import("@/lib/features/registry");
 const kbMod = await import("@/lib/platform/salesKnowledge");
 const promptMod = await import("@/lib/platform/salesPrompt");
 const agentMod = await import("@/lib/platform/salesAgent");
+const callMod = await import("@/lib/platform/salesCall");
 const voicePrompt = await import("@/lib/voice/prompt");
 
 const { FEATURE_KEYS } = registry;
@@ -112,7 +136,8 @@ const {
   salesKnowledge,
 } = kbMod;
 const { buildSalesPrompt, buildSalesGreeting, SALES_RULES } = promptMod;
-const { salesToolDefinitions, salesAgentReadiness, buildSalesAgentConfig } = agentMod;
+const { salesToolDefinitions, buildSalesAgentConfig, SALES_AGENT_ID } = agentMod;
+const { salesNumbers, isSalesNumber, salesNumberProblems, recordSalesCall } = callMod;
 
 /* A plan row as Prisma hands it over: sellable ones need a Stripe price id and
    isPublic, because partitionPlans is part of the derivation and has to run. */
@@ -290,12 +315,25 @@ ok(!textA.includes("100000") && !textA.includes("100,000"),
 
 // A plan that cannot be bought must not be quoted — the phone is not a softer
 // pricing page. Same rule lib/platform/sellablePlans.js applies to the web one.
+//
+// The fixture used to make one of these unsellable with `stripePriceId: null`.
+// That stopped being a reason: checkout builds price_data inline and never reads
+// the id, and requiring it was withholding all four production plans from the
+// public pricing page. So the unbuyable cases are now what they actually are —
+// a price nobody can be charged, and a rate negotiated with one company.
 const unsellable = deriveSalesKnowledge({
-  plans: [plan({ name: "Broken", stripePriceId: null }), plan({ name: "Bespoke", isPublic: false })],
+  plans: [plan({ name: "Broken", priceMonthly: -5 }), plan({ name: "Bespoke", isPublic: false })],
   featureMap: {},
 });
 ok(unsellable.plans.length === 0 && unsellable.nothingSellable,
-   "a plan with no Stripe price and a bespoke plan are both refused");
+   "an uncharge­able price and a bespoke plan are both refused");
+// And the case that must NOT be refused any more, pinned so it cannot regress:
+// ten live subscriptions exist against plans with no Stripe price id.
+ok(deriveSalesKnowledge({
+     plans: [plan({ name: "Standard", stripePriceId: null })],
+     featureMap: {},
+   }).plans.length === 1,
+   "a plan with no Stripe price id is quotable — checkout does not use one");
 const noPriceText = renderSalesKnowledge(unsellable);
 ok(!noPriceText.includes("Broken") && !noPriceText.includes("Bespoke"),
    "neither name reaches the agent");
@@ -454,36 +492,153 @@ ok(!/openai|OpenAI/.test(renderSrc + promptSrc + agentSrc),
    "no OpenAI client is constructed anywhere in the sales agent");
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   7. Readiness tells the truth
+   7. Readiness composes the tenant chain rather than inventing a second one
    ═══════════════════════════════════════════════════════════════════════════ */
 
-console.log("\n── It does not claim to be live ────────────────────────────────\n");
+console.log("\n── The same ten links, asked about FieldQuo ────────────────────\n");
 
-const r = salesAgentReadiness({ transferTo: null, knowledge: kbA });
-ok(r.live === false, "readiness reports NOT live — there is no agent and no number");
-ok(r.blockers.some((b) => b.code === "no_agent" && b.severity === "blocking"),
-   "the missing agent is named as a blocker");
-ok(r.blockers.some((b) => b.code === "no_number" && b.severity === "blocking"),
-   "so is the missing number");
-ok(r.blockers.some((b) => b.code === "no_transfer"),
-   "an unset transfer destination is reported");
-ok(r.blockers.every((b) => typeof b.detail === "string" && b.detail.length > 40),
-   "every blocker explains itself rather than showing a code");
+// The failure mode this guards against is a second opinion. If FieldQuo's agent
+// were judged by its own resolver, the two panels could disagree about the same
+// question and the one nobody reads would be the one on screen.
+ok(/from\s+"@\/lib\/voice\/readiness"/.test(codeOnly(agentSrc)) &&
+   /resolveReadiness\(/.test(codeOnly(agentSrc)),
+   "the sales readiness check calls resolveReadiness from lib/voice/readiness.js");
+ok(!/const\s+(?:OK|FAIL|UNKNOWN)\s*=/.test(codeOnly(agentSrc)),
+   "…and does not define its own link states, which is how a second opinion starts");
+ok(/webhookHealth\(null\)/.test(codeOnly(agentSrc)),
+   "the rejection half comes from the shared platform-wide webhook health");
+ok(/salesCallDeliveryEvidence/.test(codeOnly(agentSrc)),
+   "…and the delivered half from PlatformVoiceCall, because a tenant's calls prove nothing about this line");
+ok(/hasCredit: null/.test(codeOnly(agentSrc)),
+   "credit is null — not asked — rather than true, which would claim we checked");
 
-const withPrices = salesAgentReadiness({ transferTo: "+16135550123", knowledge: kbA });
-ok(!withPrices.blockers.some((b) => b.code === "no_transfer"), "a configured destination clears that one");
-ok(!withPrices.blockers.some((b) => b.code === "no_prices"), "quotable plans clear the price blocker");
-ok(salesAgentReadiness({ transferTo: null, knowledge: unsellable })
-     .blockers.some((b) => b.code === "no_prices"),
-   "nothing quotable is reported as degraded");
+/* ═══════════════════════════════════════════════════════════════════════════
+   7b. FieldQuo's own number, and the calls that land on it
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-// Pointing the sales line at the receptionist test number would send a prospect
-// to whichever tenant agent is being tried that day.
+console.log("\n── A call to FieldQuo's line is not an unknown number ──────────\n");
+
 process.env.RETELL_TEST_NUMBER = "+18335520182";
-ok(salesAgentReadiness({ transferTo: "+18335520182", knowledge: kbA }).transferIsSharedTestNumber,
-   "transferring to the shared receptionist test number is flagged");
-ok(!salesAgentReadiness({ transferTo: "+16135550123", knowledge: kbA }).transferIsSharedTestNumber,
-   "an ordinary destination is not");
+
+delete process.env.FIELDQUO_SALES_NUMBER;
+ok(salesNumbers().length === 0 && isSalesNumber("+16135550199") === false,
+   "with nothing configured, no number is FieldQuo's — the webhook branch stays shut");
+
+process.env.FIELDQUO_SALES_NUMBER = "(613) 555-0199, +18195550123";
+ok(salesNumbers().join(",") === "+16135550199,+18195550123",
+   `typed numbers are normalised to E.164 (${salesNumbers().join(", ")})`);
+ok(isSalesNumber("613-555-0199") && isSalesNumber("+16135550199"),
+   "and recognised however the provider formats them");
+ok(!isSalesNumber("+16135550100"), "a number that is not ours is not ours");
+
+// The two collisions that would be silent disasters in opposite directions.
+process.env.FIELDQUO_SALES_NUMBER = "+18335520182";
+let problems = await salesNumberProblems();
+ok(problems.some((p) => p.code === "is_test_number"),
+   "claiming the shared receptionist test number is reported");
+
+process.env.FIELDQUO_SALES_NUMBER = "+16135550199";
+globalThis.__FQ_ROWS.tenantNumbers = [{ e164: "+16135550199", companyId: "co_1" }];
+problems = await salesNumberProblems();
+ok(problems.some((p) => p.code === "belongs_to_tenant"),
+   "a number a company already holds is reported — their callers would reach FieldQuo's agent");
+globalThis.__FQ_ROWS.tenantNumbers = [];
+ok((await salesNumberProblems()).length === 0, "and a clean configuration reports nothing");
+
+// ── The recorder ─────────────────────────────────────────────────────────
+globalThis.__FQ_WRITES = [];
+await recordSalesCall({
+  type: "call_started",
+  call: { call_id: "c1", direction: "inbound", from_number: "6135551000", to_number: "6135550199" },
+});
+let w = globalThis.__FQ_WRITES.at(-1);
+ok(w?.where?.providerCallId === "c1", "call_started upserts on the provider's call id");
+ok(Object.keys(w.update).length === 0,
+   "…and its update half is EMPTY, so a provider retry cannot blank a row that already holds a transcript");
+ok(w.create.fromE164 === "+16135551000" && w.create.toE164 === "+16135550199",
+   "both numbers are normalised on the way in");
+
+globalThis.__FQ_WRITES = [];
+await recordSalesCall({
+  type: "call_ended",
+  call: { call_id: "c1", duration_ms: 61000, disconnection_reason: "user_hangup" },
+});
+w = globalThis.__FQ_WRITES.at(-1);
+ok(w.update.durationSec === 61, "call_ended records the duration in whole seconds");
+ok(w.update.summary === undefined && w.update.transcript === undefined,
+   "…and writes undefined, never null, for what it does not carry — null would erase a summary on a retry");
+
+globalThis.__FQ_WRITES = [];
+await recordSalesCall({
+  type: "call_analyzed",
+  call: {
+    call_id: "c1",
+    duration_ms: 61000,
+    transcript_object: [{ role: "agent", content: "Thanks for calling FieldQuo" }],
+    call_analysis: { call_summary: "Asked about pricing." },
+    recording_url: "https://example.com/r.wav",
+  },
+});
+w = globalThis.__FQ_WRITES.at(-1);
+ok(w.update.summary === "Asked about pricing." && Array.isArray(w.update.transcript),
+   "call_analyzed fills in the summary and the transcript");
+ok(w.update.recordingUrl === "https://example.com/r.wav", "and the recording");
+
+ok((await recordSalesCall({ type: "call_started", call: {} })).recorded === false,
+   "an event with no call id is refused rather than written as a blank row");
+ok((await recordSalesCall({ type: "call_something_new", call: { call_id: "c9" } })).recorded === false,
+   "an event type we do not handle is ignored, not treated as an error");
+
+// ── The webhook actually branches ────────────────────────────────────────
+const hook = read("app/api/voice/webhook/route.js");
+ok(/isSalesNumber\(ourNumber\)/.test(hook),
+   "the shared webhook recognises FieldQuo's own number");
+ok(/recordSalesCall\(/.test(hook), "…and records the call instead of discarding it");
+ok(hook.indexOf("isSalesNumber(ourNumber)") < hook.indexOf("Call to an unknown number"),
+   "the branch comes BEFORE the unknown-number error, or the call is still logged as a mistake");
+ok(hook.indexOf("db.voicePhoneNumber.findUnique") < hook.indexOf("isSalesNumber(ourNumber)"),
+   "and AFTER the tenant lookup — a configuration clash must cost FieldQuo the call, never a contractor theirs");
+ok(/status: 500/.test(hook.slice(hook.indexOf("isSalesNumber(ourNumber)"), hook.indexOf("Call to an unknown number"))),
+   "a database failure on this branch returns 500 so the provider retries, rather than losing the transcript");
+
+// ── It still cannot reach a tenant ───────────────────────────────────────
+const callSrc = read("lib/platform/salesCall.js");
+ok(!/db\.voiceCall\b|db\.company\b|db\.quote\b/.test(codeOnly(callSrc)),
+   "the recorder writes no tenant model");
+ok(/db\.platformVoiceCall\.upsert/.test(codeOnly(callSrc)),
+   "it writes PlatformVoiceCall, which has no company at all");
+ok(/db\.voicePhoneNumber\s*\n?\s*\.findMany/.test(codeOnly(callSrc).replace(/\s+/g, " ").replace("db.voicePhoneNumber .findMany", "db.voicePhoneNumber\n.findMany")) ||
+   /db\.voicePhoneNumber/.test(codeOnly(callSrc)),
+   "…and reads VoicePhoneNumber only to DETECT a collision, never to write one");
+
+const schema = read("prisma/schema.prisma");
+const modelBody = schema
+  .slice(schema.indexOf("model PlatformVoiceCall"))
+  .split("\n}")[0]
+  // Doc comments inside the model EXPLAIN why there is no companyId, naming it.
+  // Stripping them is the difference between checking the columns and checking
+  // the prose about the columns.
+  .replace(/^\s*\/\/\/.*$/gm, "");
+ok(!/companyId/.test(modelBody),
+   "PlatformVoiceCall has no companyId column — the separation is in the schema, not only in the code");
+ok(!/company\s+Company/.test(modelBody), "and no relation to Company either");
+ok(/model PlatformVoiceAgent/.test(schema),
+   "there is somewhere to record FieldQuo's own provider agent id");
+
+// ── And the agent is told the truth about what is kept ───────────────────
+const kept = buildSalesPrompt({ knowledge: kbA, canTransfer: true, callsRecorded: true });
+const notKept = buildSalesPrompt({ knowledge: kbA, canTransfer: true, callsRecorded: false });
+ok(/You cannot take a message/i.test(notKept) &&
+   /never say someone will ring them back/i.test(notKept),
+   "with no number configured nothing is kept, and it must not imply otherwise");
+ok(/this\s+call\s+is recorded/i.test(kept.replace(/\s+/g, " ")),
+   "with a number configured it may say the call is recorded and read afterwards");
+ok(/Never say WHEN somebody will ring/i.test(kept),
+   "…and is still forbidden from promising a callback time, which nobody has agreed to");
+ok(kept.includes("fieldquo.com/contact") && notKept.includes("fieldquo.com/contact"),
+   "the real, monitored fallback is offered either way");
+
+process.env.FIELDQUO_SALES_NUMBER = "";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    8. The whole thing builds end to end
@@ -520,8 +675,23 @@ ok(page.includes("{prompt}"), "and renders the literal prompt rather than a summ
 const route = read("app/api/platform/sales-agent/route.js");
 ok(/getCurrentPlatformAdmin/.test(route) && /superadmin/.test(route),
    "the route is superadmin-gated in the handler, not only in middleware");
-ok(!/export async function (?:POST|PUT|PATCH|DELETE)/.test(route),
-   "the route is read-only — there is nothing here to save");
+// The route DOES write, and that is correct: the switch, the tone notes and the
+// provider push are FieldQuo's own data, exactly like the feature registry next
+// door. What it must never do is touch a tenant table.
+ok(/export async function POST/.test(route), "the switch and the notes can actually be saved");
+ok((route.match(/requireSuperadmin\(request\)/g) || []).length >= 2,
+   "both the read and the write are superadmin-gated in the handler, not only in middleware");
+const TENANT_WRITE = /db\.(?:company|quote|invoice|client|job|leadRequest|voiceCall|voicePhoneNumber|voiceAgent|member|user|subscription)\./;
+ok(!TENANT_WRITE.test(codeOnly(route)), "the route touches no tenant model");
+ok(/action === "save"|action === "provision"|action === "attach"/.test(route) &&
+   /Unknown action/.test(route),
+   "…and accepts three named actions, refusing anything else");
+// Attachment IS the on/off switch at the provider. A save that changed a column
+// and left the agent answering is the dead control this area exists to stop.
+ok(/action === "save"[\s\S]{0,600}provisionSalesAgent/.test(route),
+   "saving pushes to the provider rather than only writing a column");
+ok(/salesNumberProblems|claimed\.has/.test(codeOnly(agentSrc)),
+   "the attach refuses a number a company holds rather than detaching their line");
 ok(read("app/components/platform/PlatformSidebar.js").includes("/platform/sales-agent"),
    "the screen is reachable from the platform nav");
 ok(read("docs/VERCEL.md").includes("FIELDQUO_SALES_TRANSFER_TO"),

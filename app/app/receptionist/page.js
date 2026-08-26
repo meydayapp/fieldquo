@@ -23,7 +23,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
-  Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings,
+  Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings, History,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
@@ -46,6 +46,12 @@ export default function ReceptionistPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  // The outcome of a "recover missed calls" press, as a { tone, text } the
+  // panel below renders. Held rather than toast-ed because "nothing was
+  // missing" and "four calls came back" are both answers the person wants to
+  // keep reading while they scan the list.
+  const [recovering, setRecovering] = useState(false);
+  const [recoverResult, setRecoverResult] = useState(null);
 
   // `data` stays null on failure. `data?.calls || []` used to render the
   // "you haven't turned this on yet" panel — complete with a Set it up button —
@@ -85,6 +91,62 @@ export default function ReceptionistPage() {
     }
   }
 
+  // ── Asking the provider what we missed ─────────────────────────────────
+  //
+  // Every branch says something. An `if (res.ok)` with no else is the failure
+  // class AGENTS.md lists second, and it would be especially cruel here: the
+  // person pressing this has already had one thing silently fail on them.
+  async function recover() {
+    setRecovering(true);
+    setRecoverResult(null);
+    try {
+      const res = await fetch("/api/voice/calls/recover", { method: "POST" });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.receptionist.recoverError"));
+        return;
+      }
+      const body = await res.json().catch(() => null);
+      if (!body?.ok) {
+        setRecoverResult({
+          tone: "warn",
+          text:
+            body?.reason === "not_configured"
+              ? t("app.receptionist.recoverUnconfigured")
+              : t("app.receptionist.recoverError"),
+        });
+        return;
+      }
+
+      const found = body.recovered > 0 || body.leadsRecovered > 0;
+      setRecoverResult({
+        tone: found ? "good" : "plain",
+        text: found
+          ? t("app.receptionist.recoverDone", {
+              calls: body.calls,
+              recovered: body.recovered,
+              leads: body.leadsRecovered,
+            })
+          : t("app.receptionist.recoverNothing"),
+        // Said alongside the count, never instead of it. A run that recovered
+        // four calls and skipped the leads because this deployment has no model
+        // key must not look like four empty calls.
+        note:
+          body.leadsSkipped === "ai_unavailable" && body.recovered > 0
+            ? t("app.receptionist.recoverNoAi")
+            : body.leadsSkipped === "quota_exceeded" && body.recovered > 0
+              ? t("app.receptionist.recoverQuota")
+              : body.partial
+                ? t("app.receptionist.recoverPartial")
+                : null,
+      });
+      // Only reload when something actually changed. A no-op run must not make
+      // the list flash as if it had.
+      if (found) await load();
+    } finally {
+      setRecovering(false);
+    }
+  }
+
   const calls = data?.calls || [];
   // Whether the deployment can call a model at all. `data` is null on a failed
   // load, and `?? false` rather than `?? true` on purpose: offering a button we
@@ -95,6 +157,9 @@ export default function ReceptionistPage() {
   // thing they had already set up — on the very page they opened to find out
   // why it looked idle.
   const setup = data?.setup || null;
+  // Absent on a failed load, so the button is not offered when we don't know
+  // whether it would work — the same `?? false` reasoning as aiAvailable.
+  const canRecover = data?.canRecover ?? false;
   const emptyState = !setup
     ? "unknown"
     : !setup.hasNumber
@@ -116,6 +181,25 @@ export default function ReceptionistPage() {
             {t("app.receptionist.subtitle")}
           </p>
         </div>
+        {/* Present only when it can actually do something — see canRecover in
+            app/api/voice/calls/route.js. Deliberately beside Settings rather
+            than buried in it: the person who needs it is looking at an empty
+            list, on this page, right now. */}
+        {canRecover && (
+          <button
+            type="button"
+            onClick={recover}
+            disabled={recovering}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {recovering ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <History size={15} />
+            )}
+            {recovering ? t("app.receptionist.recovering") : t("app.receptionist.recover")}
+          </button>
+        )}
         <Link
           href="/app/settings/voice"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
@@ -126,6 +210,23 @@ export default function ReceptionistPage() {
             : t("app.receptionist.settings")}
         </Link>
       </div>
+
+      {recoverResult && (
+        <div
+          className={`rounded-xl border p-4 text-sm ${
+            recoverResult.tone === "good"
+              ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100"
+              : recoverResult.tone === "warn"
+                ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-100"
+                : "border-border bg-card text-foreground"
+          }`}
+        >
+          <p>{recoverResult.text}</p>
+          {recoverResult.note && (
+            <p className="mt-1 opacity-80">{recoverResult.note}</p>
+          )}
+        </div>
+      )}
 
       <ListState
         loading={loading}
@@ -238,6 +339,21 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
             <PhoneOutgoing size={11} /> {t("app.receptionist.weCalled")}
           </span>
         )}
+        {/* ── "Why is a call from Tuesday only appearing now?" ──────────────
+            Because it never reached us. The row is not late; it was lost, and
+            the contractor did nothing wrong. Said on the row rather than in a
+            help article, with the date we got it back in the title so the gap
+            between the call and the rescue is visible rather than implied. */}
+        {call.recoveredAt && (
+          <span
+            title={t("app.receptionist.recoveredWhy", {
+              when: formatDateTime(call.recoveredAt),
+            })}
+            className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300"
+          >
+            <History size={11} /> {t("app.receptionist.recoveredBadge")}
+          </span>
+        )}
         <span className="font-semibold text-foreground tabular-nums">
           {call.from || t("app.receptionist.unknownNumber")}
         </span>
@@ -263,6 +379,16 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
           >
             <UserPlus size={13} /> {t("app.receptionist.savedAsLead")}
           </Link>
+        )}
+        {/* A lead the assistant took on the line and one we read back off the
+            recording are different levels of confidence, and the person about
+            to ring the number should know which they have. Only ever shown
+            beside the lead link — it is a qualifier on that link, not a badge
+            of its own. */}
+        {call.leadId && call.leadRecovered && (
+          <span className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300">
+            <History size={13} /> {t("app.receptionist.recoveredLead")}
+          </span>
         )}
         {/* The visit, WHEN it is, and a way to reach it. This was a green pill
             with no time, no name and no href — the contractor was told a visit

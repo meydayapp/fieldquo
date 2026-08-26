@@ -249,6 +249,22 @@ export default function PlatformDashboardPage() {
                     {voiceHealth.spend
                       ? ` · ~${voiceHealth.spend.minutes} min served in ${voiceHealth.spend.days}d ≈ $${(voiceHealth.spend.cents / 100).toFixed(2)} provider cost (derived, not read)`
                       : ""}
+                    {/* The measured half, deliberately printed right next to
+                        the derived one. This is Retell's OWN per-call cost
+                        against what we actually billed — the only figures on
+                        this line that are read rather than assumed — and the
+                        coverage is stated because it is measured on the calls
+                        Retell has priced, not on all of them. */}
+                    {voiceHealth.margin?.covered > 0
+                      ? ` · measured margin $${(voiceHealth.margin.spreadCents / 100).toFixed(2)} on $${(voiceHealth.margin.billedCents / 100).toFixed(2)} billed` +
+                        (voiceHealth.margin.marginRatio !== null
+                          ? ` (${Math.round(voiceHealth.margin.marginRatio * 100)}%)`
+                          : "") +
+                        ` from ${voiceHealth.margin.covered}/${voiceHealth.margin.total} calls` +
+                        (voiceHealth.margin.costCentsPerRealMinute
+                          ? ` · Retell ${voiceHealth.margin.costCentsPerRealMinute.toFixed(1)}¢/real min`
+                          : "")
+                      : ""}
                     {voiceHealth.meter?.companiesOverdrawn
                       ? ` · ${voiceHealth.meter.companiesOverdrawn} overdrawn`
                       : ""}

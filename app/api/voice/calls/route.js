@@ -14,6 +14,8 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { formatNumber } from "@/lib/voice/numbers";
 import { costForSeconds } from "@/lib/voice/credits";
 import { isAiConfigured } from "@/lib/ai/provider";
+import { voiceConfigured } from "@/lib/voice/retell";
+import { can } from "@/lib/permissions";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -43,6 +45,12 @@ export async function GET(request) {
       reviewedAt: true,
       leadId: true,
       bookingId: true,
+      // Whether this call reached us at the time or was pulled back from the
+      // provider afterwards. A two-day-old call appearing in the list is
+      // otherwise unexplained, and the explanation is not the contractor's
+      // fault — see VoiceCall.recoveredAt.
+      recoveredAt: true,
+      leadRecoveredAt: true,
       // Whether a quote can be drafted from this call at all, and whether one
       // already has been. Never the transcript itself — the list would carry a
       // hundred call recordings to render a button.
@@ -87,13 +95,19 @@ export async function GET(request) {
   // Two cheap booleans, no provider call. Not sensitive: whether a company has a
   // phone number and whether it is switched on is not something a member of that
   // company should be kept from.
-  const [heldCount, voiceAgent] = await Promise.all([
+  const [heldCount, everHeldCount, voiceAgent] = await Promise.all([
     db.voicePhoneNumber.count({
       where: {
         companyId: member.companyId,
         status: { in: ["provisioning", "active", "porting"] },
       },
     }),
+    // ANY number this company has ever held, whatever its status. A number
+    // released last month still took calls that were rejected at our door, and
+    // the reconciler matches on every VoicePhoneNumber row rather than the live
+    // ones — so the recovery control has to be offered on the same basis, or it
+    // would be hidden from exactly the company with lost calls to find.
+    db.voicePhoneNumber.count({ where: { companyId: member.companyId } }),
     db.voiceAgent.findUnique({
       where: { companyId: member.companyId },
       select: { enabled: true },
@@ -109,6 +123,15 @@ export async function GET(request) {
       // and collapsing them is what produced the wrong one.
       answering: heldCount > 0 && Boolean(voiceAgent?.enabled),
     },
+    // ── Whether "Recover missed calls" can do anything ────────────────────
+    //
+    // All three have to be true, and each absence makes the button a lie:
+    // no permission and the POST 403s, no provider key and it 503s, no number
+    // ever held and there is nothing at the provider to find. A control that
+    // is always going to fail should not be on the screen — AGENTS.md, the
+    // rule that matters most.
+    canRecover:
+      can(member.role, "user:manage") && voiceConfigured() && everHeldCount > 0,
     // Whether the "draft a quote from this call" button can do anything.
     // OPENAI_API_KEY is Sensitive in Vercel and absent in local dev, so this is
     // genuinely false some of the time — and a button that is always going to
@@ -145,6 +168,13 @@ export async function GET(request) {
         : null,
       hasTranscript: Boolean(c.transcript),
       quoteDraftedAt: c.quoteDraftAt,
+      recoveredAt: c.recoveredAt,
+      // The lead on this call was read back off the recording rather than
+      // taken by the agent on the line. Shown beside the lead link, because
+      // "the assistant saved this" and "we reconstructed this from what they
+      // said" are different levels of confidence and the person ringing back
+      // should know which one they have.
+      leadRecovered: Boolean(c.leadRecoveredAt),
     })),
   });
 }

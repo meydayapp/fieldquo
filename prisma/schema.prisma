@@ -4506,6 +4506,22 @@ model VoiceCall {
   summary      String?
   recordingUrl String?
 
+  /// What RETELL charged FieldQuo for this call, in cents — `call_cost.
+  /// combined_cost`, documented as "Combined cost of all individual costs in
+  /// cents" (https://docs.retellai.com/api-references/get-call).
+  ///
+  /// Nullable and left null on purpose when the provider didn't give us one.
+  /// Absence is recorded as unknown, never padded with
+  /// RETELL_COST_CENTS_PER_MINUTE — that constant is a hand-typed estimate and
+  /// writing it here would make a guess indistinguishable from a reading. See
+  /// lib/voice/providerCost.js.
+  ///
+  /// Four decimal places because Retell prices in cents PER SECOND and the
+  /// combined figure is usually fractional. Distinct from the VoiceCreditEntry
+  /// that charges the CONTRACTOR: this is our cost, that is our revenue, and
+  /// the spread between them is the only measured margin the platform has.
+  providerCostCents Decimal? @db.Decimal(12, 4)
+
   /// Why it ended, from the provider — answered, no-answer, hung up, error.
   disposition String?
 
@@ -4518,6 +4534,31 @@ model VoiceCall {
   /// Needs a human to look at it — the agent flagged something, or it failed.
   needsReview Boolean @default(false)
   reviewedAt  DateTime?
+
+  /// When this call was RECOVERED rather than delivered.
+  ///
+  /// Retell's signature check rejected every delivery for months, so calls that
+  /// really happened left no row at all. lib/voice/reconcileCalls.js pulls them
+  /// back from the provider afterwards — and a contractor who opens
+  /// /app/receptionist and finds a two-day-old call sitting there is owed the
+  /// reason. Null is the ordinary case: the webhook arrived and this row was
+  /// written while the caller was still on the line.
+  ///
+  /// Set ONLY when the reconciler created the row. A row the webhook wrote and
+  /// the reconciler merely topped up was never lost, and labelling it recovered
+  /// would make the badge meaningless on the calls that really were.
+  recoveredAt DateTime?
+
+  /// The lead on this call was reconstructed from the transcript, not taken by
+  /// the agent mid-call.
+  ///
+  /// `save_caller` posts to the tools endpoint, which had the identical broken
+  /// signature check — so a recovered call has a transcript full of details and
+  /// no LeadRequest. lib/ai/callLeadRecovery.js reads them back under the same
+  /// evidence rules as lib/ai/callQuoteDraft.js. Separate from `recoveredAt`
+  /// because the two can differ: a recovered call may yield no lead at all, and
+  /// that is a correct outcome rather than a failure.
+  leadRecoveredAt DateTime?
 
   /// The internal AI's reading of this call as QUOTE SCOPE — never a quote, and
   /// never a price. See lib/ai/callQuoteDraft.js.

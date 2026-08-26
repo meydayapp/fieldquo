@@ -77,6 +77,9 @@ const {
   createPhoneCall,
   agentRouting,
   boundAgentId,
+  listCalls,
+  getConcurrency,
+  getCall,
 } = await import("../lib/voice/retell.js");
 
 const sent = [];
@@ -378,6 +381,201 @@ check(
   /providerLlmId/.test(provision) && /outboundProviderLlmId/.test(provision),
   "Without storing llm_id, every re-provision orphans the old LLM and makes a new one.",
 );
+
+/* ═════════════ verified against Retell's docs, 25/08/2026 ═════════════════
+
+   Everything below was checked against the current reference AND against the
+   `retell-sdk` npm package, whose types are generated from Retell's own
+   OpenAPI spec — so a shape that appears in both is as close to authoritative
+   as anything is without a key. There is no RETELL_API_KEY in local .env and
+   none of this has ever run against the live API; these assertions pin what
+   the DOCUMENTATION says, and each carries the URL so the next person can
+   re-check it in one click.
+   ────────────────────────────────────────────────────────────────────────── */
+
+// ── /v3/list-calls: the body Retell documents ────────────────────────────
+// https://docs.retellai.com/api-references/list-calls
+{
+  const req = await capture(() =>
+    listCalls({ sinceMs: 1000, untilMs: 2000, limit: 200, paginationKey: "pk" }),
+  );
+
+  check(
+    "list-calls POSTs to /v3/list-calls",
+    req.url === "https://api.retellai.com/v3/list-calls" && req.method === "POST",
+    "The v2 list endpoint is GONE, not deprecated. A reconciler on v2 404s every " +
+      "run and reports the provider unreachable for ever — which fails safe and " +
+      "bills nobody.",
+  );
+
+  // The filter envelope is a KEYED OBJECT of typed filters, not a list and not
+  // flat scalars. v2's `after_start_timestamp` style is what this replaced.
+  const fc = req.body?.filter_criteria;
+  check(
+    "filters go in filter_criteria, keyed by field name",
+    fc && typeof fc === "object" && !Array.isArray(fc),
+  );
+  check(
+    "a time window is a range filter: { type:'range', op:'bt', value:[lo,hi] }",
+    fc?.start_timestamp?.type === "range" &&
+      fc.start_timestamp.op === "bt" &&
+      Array.isArray(fc.start_timestamp.value) &&
+      fc.start_timestamp.value.length === 2,
+    "`bt` takes a two-element [lower, upper] array. A scalar here is the v2 shape.",
+  );
+  check(
+    "a status filter is an enum filter: { type:'enum', op:'in', value:[...] }",
+    fc?.call_status?.type === "enum" &&
+      fc.call_status.op === "in" &&
+      Array.isArray(fc.call_status.value),
+  );
+  check(
+    "paging uses pagination_key + limit, and limit stays within 1..1000",
+    req.body?.pagination_key === "pk" &&
+      Number.isInteger(req.body?.limit) &&
+      req.body.limit >= 1 &&
+      req.body.limit <= 1000,
+  );
+
+  // ── The response envelope, and the field the list does NOT carry ────────
+  //
+  // Pinned by READING the reconciler, because the envelope only exists on a
+  // real response. `{calls: []}` was the guess worth ruling out; Retell
+  // returns `{ items, has_more, pagination_key, total }`.
+  const recon = readFileSync("lib/voice/reconcileCalls.js", "utf8");
+  check(
+    "the reconciler reads the documented envelope: items / has_more / pagination_key",
+    /res\?\.items/.test(recon) && /res\?\.has_more/.test(recon) && /res\?\.pagination_key/.test(recon),
+    "The envelope is { items, has_more, pagination_key, total } — NOT { calls }.",
+  );
+  check(
+    "the reconciler does NOT read a transcript off a list item",
+    !/call\?\.transcript/.test(code(recon)),
+    "/v3/list-calls carries call_analysis, recording_url and call_cost but NOT " +
+      "transcript or transcript_object — those exist only on /v2/get-call. Reading " +
+      "them off a list item silently records every rescued call with no transcript, " +
+      "and the gap-filling update never repairs it.",
+  );
+  check(
+    "so it fetches the single-call read to get one",
+    /getCall/.test(code(recon)) && /transcript_object/.test(code(recon)),
+    "https://docs.retellai.com/api-references/get-call",
+  );
+}
+
+// ── /v2/get-call is where a transcript actually lives ────────────────────
+// https://docs.retellai.com/api-references/get-call
+{
+  const req = await capture(() => getCall("call_abc"));
+  check(
+    "get-call is the /v2/ path, GET, keyed by call id",
+    req.url === "https://api.retellai.com/v2/get-call/call_abc" && req.method === "GET",
+  );
+}
+
+// ── /get-concurrency: unversioned, GET, org-scoped by the API key alone ──
+// https://docs.retellai.com/api-references/get-concurrency
+{
+  const req = await capture(() => getConcurrency());
+  check(
+    "get-concurrency is unversioned and takes no org parameter",
+    req.url === "https://api.retellai.com/get-concurrency" &&
+      req.method === "GET" &&
+      req.body === null,
+    "The key identifies the org. There is no org scope to pass, and no BALANCE " +
+      "endpoint anywhere in the API — the money side of lib/voice/pool.js is " +
+      "derived for that reason and must keep saying so.",
+  );
+}
+
+// ── Detaching a number: both documented shapes are covered ───────────────
+// https://docs.retellai.com/api-references/update-phone-number
+{
+  // An attach has one shape and must not have grown a fallback.
+  const attach = await capture(() => attachAgent("+15145550000", "agent_x"));
+  check(
+    "attaching sends a one-entry weighted list",
+    Array.isArray(attach.body?.inbound_agents) &&
+      attach.body.inbound_agents.length === 1 &&
+      attach.body.inbound_agents[0].weight === 1,
+  );
+
+  // A detach tries [] first...
+  sent.length = 0;
+  await attachAgent("+15145550000", null);
+  check(
+    "detaching sends an explicit empty list, not an omitted field",
+    Array.isArray(sent[0]?.body?.inbound_agents) && sent[0].body.inbound_agents.length === 0,
+    "Omitting the field is a no-op at the provider, which turns the contractor's " +
+      "'Answer my calls' toggle into a dead control.",
+  );
+
+  // ...and falls back to null if the provider rejects that shape.
+  //
+  // The reference will not settle this: it types the field `Array | null` and
+  // documents "Set to null to remove" on the sibling fallback_number, while
+  // the prose says routing applies "if set and non-empty" AND that weights
+  // must total 1 — which an empty array does not. Untestable without a key, so
+  // the code covers both rather than betting on one.
+  // The two `[retell] request failed` lines below are EXPECTED: this block
+  // deliberately makes the provider reject, to prove the fallback fires. They
+  // are the real client's own logging, left in rather than muted so the branch
+  // under test is the shipped one.
+  console.log("    (the next two [retell] request failed lines are deliberate)");
+  const realFetch = globalThis.fetch;
+  let n = 0;
+  sent.length = 0;
+  globalThis.fetch = async (url, init = {}) => {
+    sent.push({ url: String(url), method: init.method, body: JSON.parse(init.body) });
+    n += 1;
+    return n === 1
+      ? new Response(JSON.stringify({ error: "weights must total 1" }), { status: 400 })
+      : new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  };
+  await attachAgent("+15145550000", null);
+  globalThis.fetch = realFetch;
+  check(
+    "a rejected empty list retries as null rather than leaving a number attached",
+    sent.length === 2 && sent[1].body.inbound_agents === null,
+    "A detach that fails silently is a company at zero credit answering calls " +
+      "free on FieldQuo's account.",
+  );
+
+  // A transport failure must NOT be retried with a different body.
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response("{}", { status: 500 });
+  };
+  await attachAgent("+15145550000", null).catch(() => {});
+  globalThis.fetch = realFetch;
+  check(
+    "a 500 is not a shape rejection and is not retried",
+    calls === 1,
+    "Retrying a different body on an outage reports 'detached' off whichever " +
+      "request happened to answer first.",
+  );
+}
+
+// ── max_call_duration_ms: the documented bounds ──────────────────────────
+// https://docs.retellai.com/api-references/update-agent — "The minimum value
+// allowed is 60,000 ms (1 min), and maximum value allowed is 7,200,000 (2
+// hours). By default, this is set to 3,600,000 (1 hour)." Accepted on
+// update-agent as well as create-agent, and hitting it force-ends the call
+// with disconnection_reason `max_duration_reached`.
+{
+  const ceiling = readFileSync("lib/voice/callCeiling.js", "utf8");
+  check(
+    "the call ceiling never sends below Retell's 60,000ms floor",
+    /60_?000/.test(ceiling),
+    "Retell rejects anything under a minute; a clamp that lets 30s through " +
+      "fails the update and leaves the previous, longer ceiling in place.",
+  );
+  check(
+    "and never above the 7,200,000ms maximum",
+    /7_?200_?000/.test(ceiling),
+  );
+}
 
 console.log(failed === 0 ? "\nALL PASS" : `\n${failed} FAILED`);
 process.exitCode = failed === 0 ? 0 : 1;

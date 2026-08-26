@@ -1092,6 +1092,30 @@ const en = {
   "app.receptionist.emptyAnswering": "Nobody has rung yet",
   "app.receptionist.emptyAnsweringHint": "Your receptionist is on and answering. If you've called it yourself and nothing showed up here, run the end-to-end check in settings — a call can be answered perfectly and still never reach us.",
   "app.receptionist.checkItCta": "Check it end to end",
+  // ── Recovered calls ──────────────────────────────────────────────────────
+  // Retell rejected every delivery for months, so calls that really happened
+  // left no row. These say so plainly: a contractor finding a two-day-old call
+  // is owed the reason, and it isn't theirs.
+  "app.receptionist.recover": "Recover missed calls",
+  "app.receptionist.recovering": "Checking with the phone provider…",
+  "app.receptionist.recoveredBadge": "Recovered",
+  "app.receptionist.recoveredWhy":
+    "This call never reached FieldQuo while it was happening, so it wasn't here at the time. We pulled it back from the phone provider on {when}.",
+  "app.receptionist.recoveredLead":
+    "Rebuilt from the recording — check the details before you ring back",
+  "app.receptionist.recoverDone":
+    "{calls} call(s) checked, {recovered} recovered, {leads} lead(s) rebuilt.",
+  "app.receptionist.recoverNothing":
+    "Nothing was missing — every call the provider has for the last week is already here.",
+  "app.receptionist.recoverNoAi":
+    "Calls recovered, but their transcripts couldn't be read back into leads — FieldQuo AI isn't available right now. The recordings and transcripts are on each call.",
+  "app.receptionist.recoverQuota":
+    "Calls recovered, but your AI allowance is spent, so the transcripts weren't read back into leads.",
+  "app.receptionist.recoverUnconfigured":
+    "The phone provider isn't set up on this deployment, so there's nothing to ask.",
+  "app.receptionist.recoverPartial":
+    "The provider stopped answering partway through, so this covers only part of the window. Try again in a few minutes.",
+  "app.receptionist.recoverError": "Couldn't reach the phone provider.",
   "app.callDraft.draftIt": "Draft a quote from this call",
   "app.callDraft.seeDraft": "See the drafted scope",
   "app.callDraft.title": "What we heard on this call",
@@ -4266,6 +4290,26 @@ const fr = {
   "app.receptionist.emptyAnswering": "Personne n'a encore appelé",
   "app.receptionist.emptyAnsweringHint": "Votre réceptionniste est actif et répond. Si vous l'avez appelé vous-même et que rien n'apparaît ici, lancez la vérification complète dans les réglages : un appel peut très bien aboutir sans jamais nous parvenir.",
   "app.receptionist.checkItCta": "Vérifier de bout en bout",
+  "app.receptionist.recover": "Récupérer les appels manqués",
+  "app.receptionist.recovering": "Vérification auprès du fournisseur téléphonique…",
+  "app.receptionist.recoveredBadge": "Récupéré",
+  "app.receptionist.recoveredWhy":
+    "Cet appel n'est jamais parvenu à FieldQuo pendant qu'il avait lieu; il n'était donc pas ici sur le moment. Nous l'avons récupéré auprès du fournisseur téléphonique le {when}.",
+  "app.receptionist.recoveredLead":
+    "Reconstitué à partir de l'enregistrement — vérifiez les détails avant de rappeler",
+  "app.receptionist.recoverDone":
+    "{calls} appel(s) vérifié(s), {recovered} récupéré(s), {leads} prospect(s) reconstitué(s).",
+  "app.receptionist.recoverNothing":
+    "Rien ne manquait — tous les appels que le fournisseur a pour la dernière semaine sont déjà ici.",
+  "app.receptionist.recoverNoAi":
+    "Appels récupérés, mais leurs transcriptions n'ont pas pu être converties en prospects — FieldQuo IA n'est pas disponible pour l'instant. Les enregistrements et les transcriptions sont sur chaque appel.",
+  "app.receptionist.recoverQuota":
+    "Appels récupérés, mais votre quota d'IA est épuisé : les transcriptions n'ont pas été converties en prospects.",
+  "app.receptionist.recoverUnconfigured":
+    "Le fournisseur téléphonique n'est pas configuré sur ce déploiement; il n'y a donc rien à demander.",
+  "app.receptionist.recoverPartial":
+    "Le fournisseur a cessé de répondre en cours de route : ceci ne couvre qu'une partie de la période. Réessayez dans quelques minutes.",
+  "app.receptionist.recoverError": "Impossible de joindre le fournisseur téléphonique.",
   "app.callDraft.draftIt": "Rédiger une soumission à partir de cet appel",
   "app.callDraft.seeDraft": "Voir l’ébauche",
   "app.callDraft.title": "Ce que nous avons entendu pendant cet appel",

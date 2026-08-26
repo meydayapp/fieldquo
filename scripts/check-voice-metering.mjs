@@ -52,6 +52,13 @@ import {
 } from "@/lib/voice/reconcileCalls";
 import { ceilingMsFor, MIN_CALL_MS, MAX_CALL_MS } from "@/lib/voice/callCeiling";
 import { alertsFor, PROVIDER_COST_CENTS_PER_MINUTE } from "@/lib/voice/pool";
+import {
+  providerCostCentsOf,
+  providerCostPatch,
+  marginOf,
+  summariseMargin,
+  MARGIN_FLOOR_RATIO,
+} from "@/lib/voice/providerCost";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -125,6 +132,11 @@ function fakeDb(seed = {}) {
       },
     },
     voiceCall: {
+      // The reconciler asks whether a row already has a transcript before
+      // spending a /v2/get-call on one. Real Prisma returns null for a miss.
+      async findUnique({ where }) {
+        return calls.get(where.providerCallId) || null;
+      },
       async upsert({ where, create, update }) {
         const existing = calls.get(where.providerCallId);
         if (existing) calls.set(where.providerCallId, { ...existing, ...update });
@@ -176,6 +188,10 @@ function runner(db, calls, over = {}) {
         db,
         configured: true,
         listCalls: async () => ({ items: calls, has_more: false }),
+        // /v3/list-calls carries no transcript — the reconciler fetches one
+        // per rescued call from /v2/get-call. Stubbed so no check reaches the
+        // network, and overridable by the transcript section below.
+        getCall: async () => ({}),
         syncNumberAttachment: async (id) => detached.push(id),
         pushCallCeiling: async (id) => ceilings.push(id),
         recordError: async (e) => logged.push(e),
@@ -560,7 +576,7 @@ console.log("\nthe pool — read what Retell gives, derive the rest, say which")
     codeOf("lib/voice/retell.js").includes("/get-concurrency"),
   );
   ok(
-    "list-calls uses /v3/ — the legacy list endpoints were removed 15/06/2026",
+    "list-calls uses /v3/ — the legacy GET /list-calls is deprecated, no sunset date",
     (() => {
       const r = codeOf("lib/voice/retell.js");
       return r.includes("/v3/list-calls") && !r.includes("/v2/list-calls");
@@ -654,6 +670,185 @@ console.log("\nwiring — a reconciler nothing runs is a dead control");
       return d.includes("RETELL_CREDIT_PURCHASED_CENTS") && d.includes("RETELL_COST_CENTS_PER_MINUTE");
     })(),
   );
+}
+
+/* ─────────── N. the provider's OWN cost, and the measured margin ─────────── */
+
+console.log("\nprovider cost — measured, never assumed");
+{
+  // ── The field, and its unit ───────────────────────────────────────────────
+  //
+  // `call_cost.combined_cost`, "Combined cost of all individual costs in
+  // CENTS": https://docs.retellai.com/api-references/get-call
+  //
+  // Present on /v3/list-calls items and on the call object the call_ended /
+  // call_analyzed webhooks carry. Fractional, because product unit prices are
+  // documented in cents PER SECOND.
+  ok(
+    "combined_cost is read straight off call_cost, in cents",
+    providerCostCentsOf({ call_cost: { combined_cost: 67 } }) === 67,
+  );
+  ok(
+    "a fractional cost is kept, not rounded away",
+    providerCostCentsOf({ call_cost: { combined_cost: 66.98 } }) === 66.98,
+  );
+
+  // ── The real call the owner pulled off his dashboard ──────────────────────
+  //
+  // call_24f6120f0adf969e5092d8d6ec7 — 3:51 (231s), $0.670. The single datum
+  // that proved RETELL_COST_CENTS_PER_MINUTE was a guess, so it is pinned.
+  {
+    const m = marginOf({ billedCents: 140, providerCostCents: 67, durationSec: 231 });
+    ok("the real call: 231s bills 4 minutes at 35¢ = $1.40", costForSeconds(231) === 140);
+    ok("its measured spread is 73¢", m.spreadCents === 73);
+    ok("its measured margin is 52%", Math.round(m.marginRatio * 100) === 52);
+    ok(
+      "Retell's real rate was 17.4¢/min, not the 16¢ assumed",
+      Math.abs(67 / (231 / 60) - 17.4) < 0.05,
+      `(${(67 / (231 / 60)).toFixed(2)}¢)`,
+    );
+    ok(
+      "and the REAL duration is reported next to the billed one, so rounding " +
+        "is not mistaken for margin",
+      Math.abs(m.realMinutes - 3.85) < 0.01 && m.billedMinutes === 4,
+    );
+    ok("a healthy call is not flagged", m.below === false);
+  }
+
+  // ── Absence is unknown, never the constant ────────────────────────────────
+  //
+  // Same rule as durationSecondsOf: padding an absent number with a default is
+  // how a guess becomes indistinguishable from a reading.
+  ok("a call with no call_cost is unknown", providerCostCentsOf({}) === null);
+  ok("an absent combined_cost is unknown", providerCostCentsOf({ call_cost: {} }) === null);
+  ok("a null combined_cost is unknown", providerCostCentsOf({ call_cost: { combined_cost: null } }) === null);
+  ok(
+    "1e400 is unknown, never Infinity",
+    providerCostCentsOf({ call_cost: { combined_cost: 1e400 } }) === null,
+  );
+  ok("NaN is unknown", providerCostCentsOf({ call_cost: { combined_cost: "abc" } }) === null);
+  ok("a negative cost is unknown", providerCostCentsOf({ call_cost: { combined_cost: -5 } }) === null);
+  ok(
+    "an unknown cost is NEVER the fallback constant",
+    providerCostCentsOf({}) !== PROVIDER_COST_CENTS_PER_MINUTE,
+  );
+
+  // The patch shape is what stops the two writers disagreeing, and what stops
+  // call_analyzed erasing what call_ended recorded.
+  ok(
+    "a known cost produces a patch",
+    providerCostPatch({ call_cost: { combined_cost: 67 } }).providerCostCents === 67,
+  );
+  ok(
+    "an unknown cost produces an EMPTY patch, so it cannot blank an existing value",
+    Object.keys(providerCostPatch({})).length === 0,
+  );
+
+  // ── An unknown cost must never look like free money ───────────────────────
+  ok("no cost means no margin row at all", marginOf({ billedCents: 140, providerCostCents: null }) === null);
+  ok(
+    "and emphatically not a 100% margin",
+    marginOf({ billedCents: 140, providerCostCents: null })?.marginRatio !== 1,
+  );
+
+  // ── A losing call is detectable ───────────────────────────────────────────
+  {
+    const loss = marginOf({ billedCents: 35, providerCostCents: 80, durationSec: 55 });
+    ok("a call that cost more than it billed has a negative spread", loss.spreadCents === -45);
+    ok("and is flagged", loss.below === true);
+  }
+  ok(
+    "a thin-but-positive call is flagged at the floor",
+    marginOf({ billedCents: 100, providerCostCents: 80, durationSec: 60 }).below === true,
+    `(floor ${MARGIN_FLOOR_RATIO})`,
+  );
+
+  // ── The rollup states its coverage rather than presenting a sample as all ─
+  {
+    const sum = summariseMargin([
+      { billedCents: 140, providerCostCents: 67, durationSec: 231 },
+      { billedCents: 35, providerCostCents: 80, durationSec: 55 },
+      { billedCents: 70, providerCostCents: null, durationSec: 90 },
+    ]);
+    ok("every call is counted in the total", sum.total === 3);
+    ok("only priced calls are averaged in", sum.covered === 2);
+    ok("the uncovered call contributes no cost", sum.costCents === 147);
+    ok("the losing call is counted", sum.negative === 1);
+    ok("the basis says the figure is measured", sum.basis === "measured");
+    ok(
+      "cost-per-minute is computed off REAL seconds, not billed minutes",
+      Math.abs(sum.costCentsPerRealMinute - 147 / ((231 + 55) / 60)) < 0.001,
+    );
+    ok("nothing priced at all says so rather than showing zero", summariseMargin([]).basis === "none");
+  }
+
+  // ── It reaches the platform page, and both writers write it ───────────────
+  ok(
+    "a negative margin raises a CRITICAL alert nobody can miss",
+    alertsFor({ margin: { covered: 2, total: 3, negative: 1, marginRatio: 0.4, costCentsPerRealMinute: 17 } })
+      .some((a) => a.code === "margin_negative" && a.level === "critical"),
+    "This is the thing that cannot be seen today.",
+  );
+  ok(
+    "a stale cost constant is called out against Retell's own figures",
+    alertsFor({ margin: { covered: 9, total: 9, negative: 0, marginRatio: 0.5, costCentsPerRealMinute: 30 } })
+      .some((a) => a.code === "cost_constant_stale"),
+  );
+  ok(
+    "nothing measured raises no margin alert — silence beats a guess",
+    !alertsFor({ margin: { covered: 0, total: 4 } }).some((a) => a.code.startsWith("margin_")),
+  );
+  ok(
+    "the webhook records the provider cost",
+    codeOf("app/api/voice/webhook/route.js").includes("providerCostPatch"),
+  );
+  ok(
+    "and so does the reconciler, through the same helper",
+    codeOf("lib/voice/reconcileCalls.js").includes("providerCostPatch"),
+  );
+  ok(
+    "the platform page shows the measured margin next to the derived spend",
+    (() => {
+      const page = read("app/platform/page.js");
+      return page.includes("measured margin") && page.includes("derived, not read");
+    })(),
+  );
+}
+
+console.log("\nthe transcript the list response does not carry");
+{
+  // /v3/list-calls returns call_analysis, recording_url and call_cost but NOT
+  // transcript / transcript_object. Reading them off a list item recorded every
+  // rescued call with an empty transcript — permanently, because the update
+  // branch only fills gaps.
+  //   https://docs.retellai.com/api-references/list-calls  (no transcript)
+  //   https://docs.retellai.com/api-references/get-call    (transcript)
+  const db = fakeDb({ numbers: [NUM] });
+  const asked = [];
+  const r = runner(db, [providerCall({ call_cost: { combined_cost: 67 } })], {
+    getCall: async (id) => {
+      asked.push(id);
+      return { transcript: "Hi, my kitchen tap is leaking." };
+    },
+  });
+  await r.run();
+
+  ok("the single-call read is used to get a transcript", asked.length === 1 && asked[0] === "c1");
+  const row = db._calls.get("c1");
+  ok("and it lands on the row", row?.transcript === "Hi, my kitchen tap is leaking.");
+  ok("the provider cost lands on the same row", Number(row?.providerCostCents) === 67);
+
+  // A detail read that fails costs the transcript and NOTHING else — the money
+  // must not depend on it.
+  const db2 = fakeDb({ numbers: [NUM] });
+  const r2 = runner(db2, [providerCall({ call_cost: { combined_cost: 67 } })], {
+    getCall: async () => {
+      throw new Error("provider down");
+    },
+  });
+  const res2 = await r2.run();
+  ok("a failed transcript fetch still bills the call", res2.rescued === 1);
+  ok("and records no transcript rather than inventing one", db2._calls.get("c1")?.transcript === null);
 }
 
 console.log(`\n${checks - failures}/${checks} checks passed`);

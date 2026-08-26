@@ -38,6 +38,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toE164 } from "@/lib/voice/numbers";
 import { chargeCall, canTakeCall } from "@/lib/voice/credits";
+import { providerCostPatch } from "@/lib/voice/providerCost";
 import { syncNumberAttachment } from "@/lib/voice/provision";
 import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { recordError } from "@/lib/platform/errorLog";
@@ -176,6 +177,10 @@ export async function POST(request) {
           transcript: call.transcript_object || call.transcript || null,
           summary: call.call_analysis?.call_summary || null,
           recordingUrl: call.recording_url || null,
+          // What Retell charged US. Absent on a call Retell hasn't priced yet,
+          // in which case this spreads to nothing and the row stays honestly
+          // unknown until the reconciler reads it off /v3/list-calls.
+          ...providerCostPatch(call),
         },
         update: {
           endedAt: new Date(),
@@ -193,6 +198,9 @@ export async function POST(request) {
           transcript: call.transcript_object || call.transcript || undefined,
           summary: call.call_analysis?.call_summary || undefined,
           recordingUrl: call.recording_url || undefined,
+          // Fills a gap, never blanks one: `call_analyzed` arriving without a
+          // cost must not erase what `call_ended` already recorded.
+          ...providerCostPatch(call),
         },
       });
 
