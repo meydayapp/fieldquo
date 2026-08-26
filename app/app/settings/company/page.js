@@ -22,6 +22,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import {
   contractTemplateList,
   unfilledPlaceholders,
+  templateApplied,
+  toggleTemplate,
 } from "@/lib/documents/contractTerms";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
@@ -711,27 +713,46 @@ export default function CompanySettingsPage() {
             <span className="text-xs text-muted-foreground">
               Start from a trade template:
             </span>
-            {contractTemplateList().map((tpl) => (
-              <button
-                key={tpl.key}
-                type="button"
-                onClick={() => {
-                  // Appends rather than overwrites: silently replacing terms
-                  // somebody has already written is the destructive-operation-
-                  // labelled-as-cosmetic failure.
-                  const current = (form.defaultProcessNotes || "").trim();
-                  setForm({
-                    ...form,
-                    defaultProcessNotes: current
-                      ? `${current}\n\n${tpl.body}`
-                      : tpl.body,
-                  });
-                }}
-                className="rounded-full border border-border px-3 py-1 text-xs hover:border-foreground/40 disabled:opacity-50"
-              >
-                {tpl.label}
-              </button>
-            ))}
+            {contractTemplateList().map((tpl) => {
+              // Each button is a TOGGLE, not an add. It used to append on every
+              // press, so pressing Painting twice put the painting terms into
+              // every quote twice with nothing on screen saying so — and with a
+              // 14-row textarea, the second copy was below the fold.
+              //
+              // Still never overwrites: adding a second trade appends, because a
+              // company that paints and roofs wants both. What changed is that
+              // the button knows whether its own block is already in there, says
+              // so, and can take back exactly what it put in.
+              const applied = templateApplied(form.defaultProcessNotes, tpl.body);
+              return (
+                <button
+                  key={tpl.key}
+                  type="button"
+                  aria-pressed={applied}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      defaultProcessNotes: toggleTemplate(
+                        form.defaultProcessNotes,
+                        tpl.body,
+                      ),
+                    })
+                  }
+                  title={
+                    applied
+                      ? `Remove the ${tpl.label} terms`
+                      : `Add the ${tpl.label} terms`
+                  }
+                  className={
+                    applied
+                      ? "rounded-full border border-foreground/50 bg-foreground/10 px-3 py-1 text-xs font-medium text-foreground"
+                      : "rounded-full border border-border px-3 py-1 text-xs hover:border-foreground/40"
+                  }
+                >
+                  {applied ? `✓ ${tpl.label}` : tpl.label}
+                </button>
+              );
+            })}
           </div>
           <textarea
             rows={14}
