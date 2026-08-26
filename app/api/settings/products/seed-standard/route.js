@@ -42,11 +42,15 @@ export async function POST(request) {
     return NextResponse.json({ error: "Category not found" }, { status: 404 });
   }
 
-  const created = await seedStandardAddOns({
+  // `linked` is items the company already had under another trade that now
+  // also serve this one — the usual outcome for a cabinet shop, since the same
+  // hinges and handles are sold on refinishing and refacing both. Returned
+  // separately because reporting it as "0 added" is what made this look broken.
+  const { created, linked } = await seedStandardAddOns({
     companyId: member.companyId,
     categoryId: category.id,
     categoryKey: category.key,
   });
 
-  return NextResponse.json({ created });
+  return NextResponse.json({ created, linked });
 }

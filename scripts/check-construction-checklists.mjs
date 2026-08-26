@@ -12,10 +12,14 @@
 // reports success. That is the quiet version of the dead-control failure: the
 // library says 88 and the app offers 83.
 import { readFileSync } from "node:fs";
+import { tradeKeys } from "@/lib/trades/catalog";
 
 const BUNDLE = "prisma/data/construction-checklists.json";
 const SEED = "prisma/seed-construction-checklists.js";
-const CATALOGUE = "prisma/seed.js";
+// The catalogue is a module now (lib/trades/catalog.js), imported below rather
+// than grepped. It was grepped out of prisma/seed.js, and when the list moved
+// the substring test matched nothing and reported every key missing.
+const CATALOGUE_KEYS = new Set(tradeKeys());
 
 let pass = 0;
 const failures = [];
@@ -27,7 +31,6 @@ const bad = (label, detail) => {
 
 const bundle = JSON.parse(readFileSync(BUNDLE, "utf8"));
 const seed = readFileSync(SEED, "utf8");
-const catalogue = readFileSync(CATALOGUE, "utf8");
 
 // ── Parse the MAP out of the seed ─────────────────────────────────────────
 // Read as text rather than imported, because importing the seed opens a
@@ -58,7 +61,7 @@ else bad("no mapping points at a checklist that doesn't exist", orphans.join(", 
 // Every trade key must be a real seeded ServiceCategory, or the checklist
 // lands with a null category and never appears in the picker.
 const keys = [...new Set(Object.values(MAP).map(([k]) => k))];
-const missingKeys = keys.filter((k) => !catalogue.includes(`key: "${k}"`));
+const missingKeys = keys.filter((k) => !CATALOGUE_KEYS.has(k));
 if (missingKeys.length === 0)
   ok(`all ${keys.length} trade keys exist in the service catalogue`);
 else

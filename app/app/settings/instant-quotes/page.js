@@ -11,9 +11,10 @@
 // what a homeowner is quoted.
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import EmbedCode from "@/app/components/settings/EmbedCode";
-import { Loader2, Plus, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import JunkGuidance from "@/app/components/settings/JunkGuidance";
@@ -190,8 +191,21 @@ function TradeCard({ trade, canEdit, onSaved }) {
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-base font-semibold text-foreground">
+          <h3 className="text-base font-semibold text-foreground flex flex-wrap items-center gap-2">
             {trade.label}
+            {/* Only on a card that is ON for work the company doesn't list as
+                a service — the case that put a roofing rate card in a cabinet
+                painter's account. Silent otherwise: a trade they haven't
+                touched needs no label, and the disclosure above already says
+                what that group is. */}
+            {trade.enabled && !trade.offeredAsService && (
+              <span className="rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 px-2 py-0.5 text-xs font-medium">
+                {t(
+                  "app.setInstantQuotes.notYourService",
+                  "Not one of your services",
+                )}
+              </span>
+            )}
           </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-md">
             {t(
@@ -944,12 +958,15 @@ export default function InstantQuotesSettingsPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [financing, setFinancing] = useState(null);
   const [live, setLive] = useState({ count: 0, slug: null });
+  const [mismatches, setMismatches] = useState(null);
+  const [showOtherTrades, setShowOtherTrades] = useState(false);
   const [error, setError] = useState("");
 
   async function load() {
     try {
       const data = await fetchJson("/api/settings/instant-quote");
       setTrades(data.trades);
+      setMismatches(data.mismatches || null);
       setCanEdit(Boolean(data.canEdit));
       setFinancing(data.financing || { enabled: false });
       setLive({
@@ -970,6 +987,37 @@ export default function InstantQuotesSettingsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // ── Their trades first, everything else behind a door ────────────────────
+  //
+  // This screen used to list all ten wired estimators flat, in code order, with
+  // nothing saying which of them the company actually does. A cabinet painter
+  // read that as a setup checklist and worked down it — six rate cards saved in
+  // twenty seconds, roofing among them. Being SHOWN a card is what made filling
+  // it in look like the job.
+  //
+  // A trade the company has already switched on stays in the first group even
+  // when it isn't one of their services. It's their row; hiding it behind a
+  // disclosure the moment they'd disagree with it would be the software marking
+  // its own homework.
+  const [mine, others] = useMemo(() => {
+    const list = trades || [];
+    return [
+      list.filter((t) => t.offeredAsService || t.enabled),
+      list.filter((t) => !t.offeredAsService && !t.enabled),
+    ];
+  }, [trades]);
+
+  const findings = [
+    ...(mismatches?.instantWithoutService || []).map((m) => ({
+      kind: "instantWithoutService",
+      ...m,
+    })),
+    ...(mismatches?.serviceWithoutInstant || []).map((m) => ({
+      kind: "serviceWithoutInstant",
+      ...m,
+    })),
+  ];
 
   return (
     <div className="max-w-3xl px-4 sm:px-6 py-6 sm:py-8">
@@ -1059,8 +1107,67 @@ export default function InstantQuotesSettingsPage() {
         </div>
       )}
 
+      {/* ── What doesn't line up, said plainly, changed by nobody ──────────
+          The owner found this himself by opening two screens: "the instant
+          quote has roofing, which is not displayed in the services, so who
+          does roofing?". Nothing here switches anything — each finding names
+          the disagreement and points at the screen that settles it. */}
+      {findings.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30 p-4">
+          <div className="flex items-start gap-2">
+            <AlertTriangle
+              size={16}
+              className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400"
+            />
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                {t(
+                  "app.setInstantQuotes.mismatchTitle",
+                  "Your instant quotes and your services don't match",
+                )}
+              </h2>
+              <ul className="mt-2 space-y-1.5">
+                {findings.map((f) => (
+                  <li
+                    key={`${f.kind}:${f.trade}`}
+                    className="text-xs text-amber-900 dark:text-amber-200"
+                  >
+                    {f.kind === "instantWithoutService"
+                      ? t(
+                          "app.setInstantQuotes.mismatchInstantOnly",
+                          "You give homeowners an instant quote for {trade}, which isn't one of your services.",
+                          { trade: f.tradeLabel },
+                        )
+                      : t(
+                          "app.setInstantQuotes.mismatchServiceOnly",
+                          "You sell {service} and can quote it instantly, but you've never set it up.",
+                          { service: f.categoryLabels.join(" / ") },
+                        )}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-300">
+                {t(
+                  "app.setInstantQuotes.mismatchHelp",
+                  "Nothing has been changed. Switch a card off below, or add the service on the Services screen — whichever is right.",
+                )}{" "}
+                <Link
+                  href="/app/settings/services"
+                  className="underline font-medium"
+                >
+                  {t(
+                    "app.setInstantQuotes.mismatchServicesLink",
+                    "Open Services",
+                  )}
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {trades?.map((trade) => (
+        {mine.map((trade) => (
           <TradeCard
             key={trade.trade}
             trade={trade}
@@ -1069,6 +1176,48 @@ export default function InstantQuotesSettingsPage() {
           />
         ))}
       </div>
+
+      {/* Everything FieldQuo can price that this company hasn't said it does.
+          Behind a disclosure rather than removed: a contractor who genuinely
+          adds a trade needs to reach it, and the honest order is to add the
+          service first — which is what the note says. */}
+      {others.length > 0 && (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setShowOtherTrades((v) => !v)}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            {showOtherTrades
+              ? t("app.setInstantQuotes.hideOtherTrades", "Hide other trades")
+              : t(
+                  "app.setInstantQuotes.showOtherTrades",
+                  "+ Show {count} other trades FieldQuo can price",
+                  { count: others.length },
+                )}
+          </button>
+          {showOtherTrades && (
+            <>
+              <p className="mt-2 mb-3 text-xs text-muted-foreground max-w-xl">
+                {t(
+                  "app.setInstantQuotes.otherTradesNote",
+                  "These aren't in your services. If you do sell one, add it under Services first — that's the list your quotes, your website and your receptionist all read.",
+                )}
+              </p>
+              <div className="space-y-4">
+                {others.map((trade) => (
+                  <TradeCard
+                    key={trade.trade}
+                    trade={trade}
+                    canEdit={canEdit}
+                    onSaved={load}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {financing && (
         <FinancingCard financing={financing} canEdit={canEdit} onSaved={load} />

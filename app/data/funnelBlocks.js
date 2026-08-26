@@ -108,11 +108,25 @@ const TRADE_EXTRA_FIELDS = {
   ],
 };
 
+// Where one trade reads FEWER fields than its measurement kind. Cabinet
+// refinishing shares manual_units with refacing but has no box-veneer rate —
+// its estimator ignores boxLinearFt entirely, so offering the owner a band
+// field for it would be a number they can type that changes no price.
+const TRADE_BAND_FIELDS = {
+  cabinet_refinishing: [
+    { key: "doorCount", label: "Doors", primary: true },
+    { key: "drawerCount", label: "Drawer fronts", primary: true },
+  ],
+};
+
 /** The numeric fields a band carries for this trade. Empty for an unknown trade. */
 export function bandFieldsFor(trade) {
   const spec = INSTANT_ESTIMATE_TRADES[trade];
   if (!spec || !BAND_MEASURES.has(spec.measure)) return [];
-  return [...(BAND_FIELDS[spec.measure] || []), ...(TRADE_EXTRA_FIELDS[trade] || [])];
+  const base = Object.prototype.hasOwnProperty.call(TRADE_BAND_FIELDS, trade)
+    ? TRADE_BAND_FIELDS[trade]
+    : BAND_FIELDS[spec.measure] || [];
+  return [...base, ...(TRADE_EXTRA_FIELDS[trade] || [])];
 }
 
 // ── Assumptions the owner states once, for the whole step ───────────────────

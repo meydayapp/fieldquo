@@ -78,6 +78,24 @@ const INTAKE_INPUTS = {
       options: [["new_or_sound", "New / sound masonry"], ["minor_repair", "Minor repair"], ["major_repair", "Major repair"]],
     },
   ],
+  // Refinishing shares the manual_units measurement with refacing and does NOT
+  // share its fields: there is no box veneer to price (the box exteriors are
+  // sprayed as part of the base scope), so that input is deliberately absent
+  // rather than rendered as a box that changes no number.
+  cabinet_refinishing: [
+    { key: "doorCount", label: "Cabinet doors", type: "number", required: true },
+    { key: "drawerCount", label: "Drawer fronts", type: "number" },
+    {
+      key: "complexityLevel",
+      label: "Condition of the cabinets",
+      type: "select",
+      options: [
+        ["standard", "Sound — normal wear"],
+        ["moderate", "Some extra prep needed"],
+        ["high", "Heavy grease, damage or peeling"],
+      ],
+    },
+  ],
   cabinet_refacing: [
     { key: "doorCount", label: "Cabinet doors", type: "number", required: true },
     { key: "drawerCount", label: "Drawer fronts", type: "number" },

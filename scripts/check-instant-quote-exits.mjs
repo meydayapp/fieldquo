@@ -229,6 +229,10 @@ const PROBE = {
   flooring: { areaSqft: 500 },
   painting: { areaSqft: 500 },
   countertop: { areaSqft: 40 },
+  // Refinishing is counted, not measured — same shape as refacing, and its
+  // floor is high enough that this probe has to be a job that CLEARS it, or
+  // "it prices" would only prove the minimum works.
+  cabinet_refinishing: { doorCount: 32, drawerCount: 3 },
   cabinet_refacing: { doorCount: 12, drawerCount: 4 },
   stair: { treads: 13 },
   lawn_mowing: { areaSqft: 4000 },

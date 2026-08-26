@@ -42,7 +42,15 @@ export const INTAKE_FIELDS = {
         "other",
       ],
     },
-    { key: "newHardware", label: "New Hardware", type: "boolean" },
+    // There is deliberately no "new hardware" question here. Hardware is
+    // SOLD, not merely recorded: handleHoles, softCloseHinges and
+    // drawerSlides are flags on the scope group itself, priced per door or
+    // drawer from the trade price book by cabinetAddOnLines() and ticked in
+    // the builder's "Add-ons & upgrades" panel, which shows each rate and
+    // the money it adds. Supplying the handles themselves is a seeded
+    // Product ("New Handles — supply & install", app/data/standardAddOns.js).
+    // An intake checkbox beside all that was a second way of saying the
+    // same thing that moved no price and produced no line.
   ],
   cabinet_refacing: [
     { key: "doorCount", label: "Cabinet Doors", type: "number" },

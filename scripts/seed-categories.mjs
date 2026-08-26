@@ -1,15 +1,15 @@
-// One-off: upsert the ServiceCategory rows from prisma/seed.js's CATEGORIES.
-// Additive and idempotent — the seed's own upsert for the category table only,
-// because `insulation` is new and everything at sortOrder 43+ shifted by one to
-// make room for it. Touches label, icon and sortOrder. Deletes nothing.
+// One-off: upsert the ServiceCategory rows from the trade catalogue.
+// Additive and idempotent — the seed's own upsert for the category table only.
+// Touches label, icon and sortOrder. Deletes nothing.
+//
+// It used to slice the array out of prisma/seed.js as text and eval it, which
+// stopped working the moment the list moved to lib/trades/catalog.js. Same
+// import the seeder uses now, so there is one list and one way to read it.
 import "dotenv/config";
-import fs from "node:fs";
 import { db } from "../lib/db.js";
+import { seedRows } from "../lib/trades/catalog.js";
 
-const src = fs.readFileSync(new URL("../prisma/seed.js", import.meta.url), "utf8");
-const i = src.indexOf("const CATEGORIES = [");
-const block = src.slice(i, src.indexOf("\n];", i) + 2);
-const CATEGORIES = eval(block.replace("const CATEGORIES =", "(") + ")");
+const CATEGORIES = seedRows();
 
 let created = 0, updated = 0;
 for (const c of CATEGORIES) {

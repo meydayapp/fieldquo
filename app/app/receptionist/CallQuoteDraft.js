@@ -56,6 +56,7 @@ import {
   Ban,
   Plus,
   Search,
+  MapPin,
   Image as ImageIcon,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -163,9 +164,32 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
         </div>
       )}
 
+      {/* Where the work is. It was on the draft and off the screen, which made
+          the not-priced outcome look thinner than it is: a call that could not
+          be auto-priced is a HANDOFF, and the address is the first thing
+          whoever raises the quote by hand needs. Quoted back in the caller's
+          own words like everything else here, because a half-heard street is
+          worse than none. */}
+      {draft?.address?.value && (
+        <p className="text-xs text-foreground flex gap-1.5">
+          <MapPin size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {t("app.callDraft.jobAddress", { address: draft.address.value })}
+            {draft.address.said && (
+              <span className="text-muted-foreground italic">
+                {" "}
+                — “{draft.address.said}”
+              </span>
+            )}
+          </span>
+        </p>
+      )}
+
       {/* Photos: a phone call cannot carry one, so the assistant asks for them
           by email. Said out loud here so a reviewer can tell a quote that is
-          photo-less ON PURPOSE from one nobody chased. */}
+          photo-less ON PURPOSE from one nobody chased — and worded so it never
+          reads as a blocker. The owner's line: pictures are optional, given
+          that the assistant got the information over the phone. */}
       {draft?.photos && (
         <p className="text-xs text-muted-foreground flex gap-1.5">
           <ImageIcon size={12} className="mt-0.5 shrink-0" />
@@ -288,7 +312,14 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
                     )
                     .join(", "),
                 })
-              : t(`app.callDraft.blocked.${b.reason}`)}
+              : b.missingQuestions?.length
+                ? // An estimator exists and this quote type cannot feed it —
+                  // "not set up for instant pricing" would be false, and would
+                  // send somebody to switch on a trade that is already on.
+                  t("app.callDraft.blocked.measure_mismatch", {
+                    fields: b.missingQuestions.join(", "),
+                  })
+                : t(`app.callDraft.blocked.${b.reason}`)}
           </span>
         </p>
       ))}

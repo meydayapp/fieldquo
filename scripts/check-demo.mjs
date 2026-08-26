@@ -1,16 +1,21 @@
-// Validates the demo industry presets against the real ServiceCategory keys in
-// prisma/seed.js, without needing a database. A preset naming a trade that
-// doesn't exist yields a demo with no services — discovered mid sales call.
-import { readFileSync } from "node:fs";
+// Validates the demo industry presets against the real ServiceCategory keys,
+// without needing a database. A preset naming a trade that doesn't exist yields
+// a demo with no services — discovered mid sales call.
+//
+// It used to scrape `key: "..."` out of prisma/seed.js as text. The catalogue
+// moved to lib/trades/catalog.js (the seeder imports it now) and the regex
+// silently matched nothing, so every preset "failed" for naming a trade that
+// existed. Reading the module the seeder itself reads is both correct and
+// something a rename cannot quietly defeat.
 import { INDUSTRIES, INDUSTRY_KEYS, industry, demoAccounts, DEMO_COUNT } from "@/lib/demo/industries";
+import { tradeKeys } from "@/lib/trades/catalog";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => { if (c) { pass++; console.log(`  ✓ ${n}`); } else { fail++; console.log(`  ✗ ${n}${got !== undefined ? `  got: ${JSON.stringify(got)}` : ""}`); } };
 
-const seed = readFileSync(new URL("../prisma/seed.js", import.meta.url), "utf8");
-const REAL = new Set([...seed.matchAll(/key:\s*"([a-z_]+)"/g)].map((m) => m[1]));
+const REAL = new Set(tradeKeys());
 
-console.log(`\nCategory keys resolve (${REAL.size} real categories in prisma/seed.js)`);
+console.log(`\nCategory keys resolve (${REAL.size} real categories in the trade catalogue)`);
 for (const [key, p] of Object.entries(INDUSTRIES)) {
   const bad = p.categories.filter((c) => !REAL.has(c));
   ok(`${key.padEnd(13)} ${p.categories.length} categories`, bad.length === 0, bad);

@@ -3,18 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, X, Sparkles, PackagePlus } from "lucide-react";
 import { INTAKE_FIELD_LIBRARY } from "@/app/data/intakeFieldLibrary";
-import { hasStandardAddOns } from "@/app/data/standardAddOns";
 import RateCard from "./RateCard";
 import QuoteWording from "./QuoteWording";
-import {
-  hasPriceBook,
-  priceBookBasis,
-  priceBookComplexity,
-  allPriceBookUnits,
-} from "@/app/data/tradePriceBooks";
+import { allPriceBookUnits } from "@/app/data/tradePriceBooks";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
+// One call for what a trade IS — its price book, what it charges by, whether it
+// ships standard add-on products, whether a homeowner can be quoted for it
+// instantly. This screen used to import four lists and ask each one separately,
+// which is how it came to disagree with the instant-quote screen about which
+// trades a company sells.
+import { tradeDefinition } from "@/lib/trades/definition";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import Link from "next/link";
+import { Zap } from "lucide-react";
 
 function emptyCustomForm() {
   return { label: "", fieldKeys: [] };
@@ -49,6 +51,9 @@ export default function ServiceSettingsPage() {
   // business-info rather than folded into the service-categories response,
   // whose plain-array shape several other pages already depend on.
   const [industries, setIndustries] = useState([]);
+  // { [instantTrade]: { enabled, ok } } — null until the instant-quote endpoint
+  // answers, so "no badge yet" is distinguishable from "no instant quote".
+  const [instantByTrade, setInstantByTrade] = useState(null);
   const [categorySearch, setCategorySearch] = useState("");
   const [showAllTrades, setShowAllTrades] = useState(false);
 
@@ -91,6 +96,26 @@ export default function ServiceSettingsPage() {
       } catch {
         // Ignore — the list simply shows all trades when we don't know the
         // company's industry.
+      }
+    })();
+
+    // Which of these trades a homeowner can already get a price for. Read from
+    // the instant-quote screen's OWN endpoint rather than mirrored into this
+    // one: a second copy of "is roofing live" is how the two screens came to
+    // disagree in the first place. Progressive enhancement — a failure just
+    // means no badge, so it stays silent rather than erroring over a hint.
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/instant-quote");
+        if (!res.ok) return;
+        const data = await res.json();
+        const live = {};
+        for (const t of Array.isArray(data?.trades) ? data.trades : []) {
+          live[t.trade] = { enabled: Boolean(t.enabled), ok: Boolean(t.readiness?.ok) };
+        }
+        setInstantByTrade(live);
+      } catch {
+        // Ignore.
       }
     })();
   }, []);
@@ -162,12 +187,27 @@ export default function ServiceSettingsPage() {
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.error || t("app.setServices.addItemsError"));
+      // Three outcomes, not two. The same hinges and handles are sold on
+      // refinishing AND refacing, so a cabinet shop that already seeded one of
+      // them gets its existing rows LINKED to this trade rather than copied —
+      // and reporting that as "already has them" was how a button that had
+      // just changed five products looked like it had done nothing.
+      const added = Number(data.created) || 0;
+      const linked = Number(data.linked) || 0;
       setSeedMsg({
         id: categoryId,
         text:
-          data.created > 0
-            ? t("app.setServices.itemsAdded", { count: data.created, label })
-            : t("app.setServices.alreadyHasItems", { label }),
+          added > 0
+            ? linked > 0
+              ? t("app.setServices.itemsAddedAndLinked", {
+                  count: added,
+                  linked,
+                  label,
+                })
+              : t("app.setServices.itemsAdded", { count: added, label })
+            : linked > 0
+              ? t("app.setServices.itemsLinked", { count: linked, label })
+              : t("app.setServices.alreadyHasItems", { label }),
       });
     } catch (err) {
       setSeedMsg({ id: categoryId, text: err.message, error: true });
@@ -297,9 +337,14 @@ export default function ServiceSettingsPage() {
           </div>
         )}
         {visibleCategories.map((c) => {
-          const basis = priceBookBasis(c.key);
-          const complexity = priceBookComplexity(c.key);
-          const priced = hasPriceBook(c.key);
+          // Null for a company's OWN custom quote type — a real category with
+          // no catalogue entry, which is not a fault. It gets no basis chips,
+          // no complexity note and the plain rate-and-unit pair below, exactly
+          // as before.
+          const def = tradeDefinition(c.key);
+          const basis = def?.priceBookBasis || [];
+          const complexity = def?.priceBookComplexity || null;
+          const priced = Boolean(def?.hasPriceBook);
           return (
             <div
               key={c.id}
@@ -375,7 +420,44 @@ export default function ServiceSettingsPage() {
                     </div>
                   )}
 
-                  {c.enabled && hasStandardAddOns(c.key) && (
+                  {/* ── The instant quote for this trade ────────────────────
+                      Enabling a service and setting up its instant quote were
+                      two unconnected lists: a cabinet painter had refinishing
+                      switched on here and no instant quote for it, while the
+                      other screen had him quoting roofs. The trade knows which
+                      estimator prices it (lib/trades/catalog.js), so the state
+                      belongs beside the switch that turns the trade on — and
+                      it's a link, not a toggle, because a rate card is
+                      numbers somebody has to read before a stranger is shown
+                      one. */}
+                  {c.enabled &&
+                    instantByTrade &&
+                    (() => {
+                      const trade = def?.instantTrade;
+                      if (!trade) return null;
+                      const state = instantByTrade[trade];
+                      if (!state) return null;
+                      const liveNow = state.enabled && state.ok;
+                      return (
+                        <Link
+                          href="/app/settings/instant-quotes"
+                          className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <Zap size={12} />
+                          {liveNow
+                            ? t(
+                                "app.setServices.instantQuoteLive",
+                                "Homeowners can get an instant price for this",
+                              )
+                            : t(
+                                "app.setServices.instantQuoteAvailable",
+                                "An instant quote is available for this — set it up",
+                              )}
+                        </Link>
+                      );
+                    })()}
+
+                  {c.enabled && def?.hasStandardAddOns && (
                     <button
                       type="button"
                       onClick={() => handleSeedStandard(c.id, c.label)}

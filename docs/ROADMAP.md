@@ -142,6 +142,47 @@ Settings › Services and Settings › Instant Quote now re-push the agent
 (`reprovisionIfLive`) — before this, changing your services left the phone
 saying you didn't offer them.
 
+**...and it may now mention what else you sell, once.** `upsellTopics()` in
+`quoteQuestions.js` reads `lib/pricing/offerings.js` — the company's own priced
+add-ons, takeoff extras and Product rows — and `upsellSection()` puts the labels
+in the prompt with the limits written in as rules rather than left to the
+model's judgement: only when it fits the work they described, at most one
+mention, never after a no, never on a call that isn't about a job. Naming is not
+quoting; every label goes through the same money-shaped filter the material list
+uses, and `npm run check:call-refinishing` asserts no figure reaches the
+section. Interest reaches the draft as a ticked upgrade with no quantity
+invented.
+
+**A phone call about cabinet refinishing now produces a draft.**
+`estimateCabinetRefinishing` in `lib/estimate/instantEstimate.js` prices doors
+and drawer fronts at the company's own per-face rate, adds the per-face
+complexity uplift in dollars, prices the upgrades the caller asked for through
+the same `cabinetAddOnLines()` the quote builder uses, and then applies the
+`minimumTotal` floor — which is load-bearing, because a small kitchen still
+needs the whole spray booth. `toRange` sets `minimumApplied` so the floor is
+never silent, and the breakdown carries the top-up as its own line, the same way
+`buildCabinets()` shows it.
+
+The reason it was unreachable is worth remembering: `CATEGORY_TO_TRADE` in
+`callEstimate.js` claimed to be the inverse of the estimator's category table
+"so the two cannot drift", and was hand-typed. `cabinet_refinishing` was absent;
+`painting` and `stair` named ServiceCategory keys the catalogue has never
+contained. Both maps now read `lib/trades/catalog.js`, and a call additionally
+has to pass a computed gate: the category's own intake questions must be able to
+supply every key the estimator's measurement shape reads. `stairs`,
+`interior_painting` and `exterior_painting` still fail that gate — the estimator
+wants `treads`/`railingFt` and `squareFootage`, the catalogue asks `stepCount`
+and room dimensions — and `callQuoteVocabularyGaps()` reports exactly those
+three so a fourth appearing fails the build. **Open product decision:** which
+rate card prices a painting call, the crude $/sqft instant one or
+`lib/pricing/paintTakeoff.js`. Nothing is bridged until that is answered.
+
+`npm run check:call-refinishing` executes the whole chain, including the write:
+`scripts/db-stub-loader.mjs` resolves `@/lib/db` to a scriptable fake so the
+check can assert that a real call lands a Quote row with
+`estimateSource: "phone_call"`, the hinges in the total and a scope group under
+the right category — rather than reading the code and hoping.
+
 **The receptionist knows how THIS company's visits work.**
 `lib/voice/visitPath.js` derives, from the company's own `EventType` rows, which
 of four things should happen when a caller asks for someone to come out: book it

@@ -21,6 +21,11 @@ import {
 } from "@/lib/estimate/instantEstimate";
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
+import {
+  categoryKeysForInstantTrade,
+  categoryLabel,
+  catalogueMismatches,
+} from "@/lib/trades/catalog";
 import { normaliseFinancing } from "@/lib/estimate/financing";
 import { reprovisionIfLive } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -33,24 +38,41 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const [saved, company] = await Promise.all([
+  const [saved, company, enabledCategories] = await Promise.all([
     db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
     db.company.findUnique({
       where: { id: member.companyId },
       select: { financing: true, slug: true },
     }),
+    // What the company says it SELLS. This screen used to render every wired
+    // estimator with no reference to it, which is how a cabinet painter came to
+    // have a roofing rate card: he was shown the card, so he filled it in.
+    db.companyServiceCategory.findMany({
+      where: { companyId: member.companyId, enabled: true },
+      select: { category: { select: { key: true } } },
+    }),
   ]);
   const byTrade = new Map(saved.map((r) => [r.trade, r]));
+  const enabledKeys = enabledCategories.map((r) => r.category.key);
+  const enabledSet = new Set(enabledKeys);
 
   const trades = Object.entries(INSTANT_ESTIMATE_TRADES).map(([trade, spec]) => {
     const row = byTrade.get(trade);
     const config = row?.config ?? INSTANT_ESTIMATE_DEFAULTS[trade] ?? null;
+    // Which of the company's own services this estimator prices. Plural: one
+    // `painting` estimator serves interior and exterior painting both.
+    const categoryKeys = categoryKeysForInstantTrade(trade);
     return {
       trade,
       label: tradeLabel(trade),
       measure: spec.measure, // roof_address | lawn_polygon | manual_area | manual_units
       hasMaterials: spec.hasMaterials,
       enabled: row?.enabled ?? false,
+      // Is this one of their trades? Drives the grouping on the settings
+      // screen — their own services first, everything else behind a
+      // disclosure — so nobody configures a rate card for work they don't do.
+      offeredAsService: categoryKeys.some((k) => enabledSet.has(k)),
+      serviceLabels: categoryKeys.map(categoryLabel),
       // Seed the form with the company's saved config, else the reference
       // defaults so they have something to edit rather than a blank grid.
       config,
@@ -64,9 +86,34 @@ export async function GET(request) {
     };
   });
 
+  // ── Where the two screens disagree ───────────────────────────────────────
+  //
+  // Reported, never repaired. He has roofing switched on; that is his row and
+  // his call, and a migration that turned it off on his behalf would be a
+  // destructive operation labelled as tidying. So the screen says what it sees
+  // and every change still comes from him pressing something.
+  const mismatches = catalogueMismatches({
+    enabledCategoryKeys: enabledKeys,
+    instantRows: saved.map((r) => ({ trade: r.trade, enabled: r.enabled })),
+    wiredTrades: Object.keys(INSTANT_ESTIMATE_TRADES),
+  });
+
   return NextResponse.json({
     trades,
     canEdit: isPricingAdmin(member.role),
+    // Labelled here rather than in the catalogue: the estimator's public name
+    // ("Stairs & Railings") is not the catalogue's name for the trade
+    // ("Stairs"), and the screen is talking about the estimator.
+    mismatches: {
+      instantWithoutService: mismatches.instantWithoutService.map((m) => ({
+        ...m,
+        tradeLabel: tradeLabel(m.trade),
+      })),
+      serviceWithoutInstant: mismatches.serviceWithoutInstant.map((m) => ({
+        ...m,
+        tradeLabel: tradeLabel(m.trade),
+      })),
+    },
     // What a homeowner opening the public link would see right now. The owner
     // asked "so I have to turn it on somewhere?" while looking at this screen;
     // the answer belongs on it.
