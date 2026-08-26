@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { getExpenseSummaryData } from "@/lib/analytics/expenseSummaryData";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
@@ -12,9 +12,8 @@ import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 // burn rate (reusing your existing lib/analytics/burnRate.js — same function
 // the benchmark/digest pages already use, so the numbers always agree).
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Company-wide expense totals, category breakdown, burn rate and runway.
   // /api/expenses scopes to the caller's own rows; this aggregate had no

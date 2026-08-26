@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -15,9 +15,8 @@ import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Loaded here rather than reusing `member`: getCurrentMember doesn't carry
   // the permissions grid, and redaction needs it.
@@ -53,9 +52,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // "Clients and Properties: view client name and address only" is the
   // narrowest level and must not permit creating client records.

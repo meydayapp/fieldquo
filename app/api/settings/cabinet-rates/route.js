@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import {
@@ -34,8 +34,13 @@ import { hasOwnRates } from "@/lib/kitchen/rates";
  *              call requireAdmin(request) with no options and are unchanged.
  */
 async function requireAdmin(request, { read = false } = {}) {
-  const member = await getCurrentMember(request);
-  if (!member) return { error: "Unauthorized", status: 401 };
+  // memberOrRefusalPlain, not getCurrentMember: this helper's callers turn a
+  // returned { error, status } into the response themselves, and the gates
+  // inside getCurrentMember THROW. A locked-for-non-payment company hitting
+  // this got a 500 with an empty body instead of the 402 that names the
+  // billing screen. The plain variant is exactly for helpers shaped like this.
+  const { member, refusal } = await memberOrRefusalPlain(request);
+  if (refusal) return refusal;
   if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");

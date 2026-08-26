@@ -317,7 +317,12 @@ export default function JobMaterials({ jobId }) {
         </ul>
       )}
 
-      {p?.total > 0 && (
+      {/* `costHidden` means the server removed the two money totals. Rendering
+          the block anyway would print "Estimated $0.00" — money(undefined) is
+          $0.00 — which claims the job's materials cost nothing. A withheld
+          figure and a zero are different statements, and the zero is the more
+          dangerous of the two. */}
+      {p?.total > 0 && !p.costHidden && (
         <div className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
           <div className="flex justify-between">
             <span>Estimated</span>

@@ -11,15 +11,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { loadLinkPageDataForCompany } from "@/lib/links/load";
 import { sanitiseLinkConfig, resolveLinks } from "@/lib/links/config";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const data = await loadLinkPageDataForCompany(member.companyId);
   if (!data) return NextResponse.json({ error: "Company not found" }, { status: 404 });
@@ -43,8 +43,8 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // The same gate every other settings route uses — there is no
   // `settings:edit` permission; `user:manage` is the admin role here.

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 async function loadOwned(companyId, id) {
   const campaign = await db.marketingCampaign.findUnique({ where: { id } });
@@ -61,6 +62,14 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { name, type, status, assignedToId, budget, externalUrl, notes, templateId } = body;
+
+  // The campaign itself was company-scoped by loadOwned; the two ids being
+  // written onto it were not, and both come back through the `include`.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...(assignedToId !== undefined && { assignedToId }),
+    ...(templateId !== undefined && { templateId }),
+  });
+  if (notOurs) return notOurs;
 
   const updated = await db.marketingCampaign.update({
     where: { id },

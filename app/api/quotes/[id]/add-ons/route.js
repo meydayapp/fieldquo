@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { TAKEOFF_ADD_ON_SOURCE } from "@/lib/quotes/takeoffAddOns";
 
@@ -23,9 +23,8 @@ const money = (v) => {
 
 export async function GET(request, { params }) {
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -45,9 +44,8 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "quote:create");

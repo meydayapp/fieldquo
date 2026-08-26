@@ -20,15 +20,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 /** Below this there's no story to tell, so we don't tell one. */
 const MIN_QUOTES = 10;
 const MIN_CLIENTS = 5;
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const companyId = member.companyId;
   const [quotes, won, clients, jobs, invoices, collected, photos] = await Promise.all([

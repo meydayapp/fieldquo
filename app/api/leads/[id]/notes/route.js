@@ -3,15 +3,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 // A lead's call-back log. Kept separate from the lead's own `message` (the
 // homeowner's words) so "left a voicemail, trying Tue" can't be confused with
 // what the client actually asked for.
 export async function GET(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({
@@ -30,9 +29,8 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({

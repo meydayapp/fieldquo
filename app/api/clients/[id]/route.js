@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -18,9 +18,8 @@ import { normaliseCountry } from "@/lib/tax/jurisdictions";
 // Next 16: params is a Promise.
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const client = await db.client.findFirst({
     where: { id: id, companyId: member.companyId },
@@ -55,9 +54,8 @@ export async function GET(request, { params }) {
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     const full = await loadEnforceableMember(db, member.id);
@@ -158,9 +156,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     const full = await loadEnforceableMember(db, member.id);

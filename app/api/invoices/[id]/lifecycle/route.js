@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import {
   loadEnforceableMember,
@@ -89,9 +89,8 @@ const JOB_SELECT = {
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const invoice = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },
@@ -349,9 +348,8 @@ async function payrollView({ companyId, timeEntries, showRates, ownUserId }) {
  */
 export async function POST(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   let full = null;
   try {

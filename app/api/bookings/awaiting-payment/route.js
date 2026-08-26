@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { effectiveBookingFeeCents, FEE_HOLD_MINUTES } from "@/lib/booking/fee";
 import { reconcileBookingFee } from "@/lib/booking/reconcileBookingFee";
@@ -51,8 +51,8 @@ function shape(booking, company) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
@@ -102,8 +102,8 @@ export async function GET(request) {
 // out of a payment is a money decision, and an employee is not the person to
 // make it.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!can(member.role, "user:manage")) {
     return NextResponse.json(

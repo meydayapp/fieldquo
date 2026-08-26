@@ -3,13 +3,12 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // ── This route has no UI and no permission check ────────────────────────
   //
@@ -45,9 +44,8 @@ export async function GET(request) {
 // Creates a new template — either blank or duplicated from an existing one (e.g. the
 // seeded default), so a company can start from the original layout and customize it.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // ── This route has no UI and no permission check ────────────────────────
   //

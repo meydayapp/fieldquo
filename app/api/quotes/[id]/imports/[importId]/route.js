@@ -8,18 +8,44 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { removeImport, updateImportMarkup, ImportError } from "@/lib/quotes/importQuote";
 import { recordActivity } from "@/lib/activity/log";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  requireToggle,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 // Change the markup on an imported cost. The received cost stays fixed; only the
 // GC's markup (their profit/overhead) moves, rescaling the client price.
 export async function PATCH(request, { params }) {
   const { id, importId } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member || !member.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // ── This route had no permission check of any kind ──────────────────────
+  //
+  // Not a role, not a level, not a toggle — only "are you signed in and does
+  // the quote belong to your company". Ownership is not authority: every other
+  // way of changing what a quote charges goes through
+  // requireLevel(quotes, view_create_edit), and the markup is the GC's own
+  // profit margin on a subcontractor's cost, which rescales the client price.
+  //
+  // showPricing as well as the level, matching PATCH /api/invoices/[id]: a
+  // member who may not see prices must not set the one that decides them.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "quotes", "view_create_edit", "edit quotes");
+    requireToggle(full, "showPricing", "change a cost markup");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { markupPercent } = await request.json().catch(() => ({}));
   if (markupPercent === undefined)
@@ -61,9 +87,20 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   const { id, importId } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member || !member.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Removing an imported cost changes the quote's total, so it is the same
+  // authority as changing the markup above.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "quotes", "view_create_edit", "edit quotes");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const targetCompany = await db.company.findUnique({
     where: { id: member.companyId },

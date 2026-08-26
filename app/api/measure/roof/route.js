@@ -16,7 +16,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { measureRoof } from "@/lib/measure/roofMeasurement";
 
 /** Human text per machine reason, so the UI can show something and branch on something. */
@@ -46,9 +46,8 @@ const REASONS = {
 };
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const address = (
     new URL(request.url).searchParams.get("address") || ""

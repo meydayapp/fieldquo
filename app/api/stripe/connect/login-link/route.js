@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { createExpressLoginLink } from "@/lib/stripe";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
@@ -21,9 +21,8 @@ import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin"
 // Same gate as connect/disconnect/refresh now — all four doors into the same
 // Stripe account should not have three different locks.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!isBillingAdmin(member.role)) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });

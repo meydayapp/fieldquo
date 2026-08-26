@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingPortalSession } from "@/lib/platform/stripeBilling";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -14,9 +14,8 @@ import { recordError, errorDetail } from "@/lib/platform/errorLog";
 // invoices, and change/cancel their subscription without any of that UI
 // living in FieldQuo.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // The portal shows invoices and the card on file and lets you cancel. That is
   // owner/admin territory — "user:manage" reaches supervisors, who have no

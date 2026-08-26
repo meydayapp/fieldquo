@@ -17,17 +17,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { classifyMedia, uploadPublicId, safeFilename } from "@/lib/media/validate";
 
 export async function POST(request) {
   // Previously absent: this endpoint accepted uploads from anyone on the
   // internet, which is a free way to exhaust the Cloudinary quota.
-  const member = await getCurrentMember(request);
-  if (!member) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY) {
     return NextResponse.json(

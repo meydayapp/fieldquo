@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { recordActivity } from "@/lib/activity/log";
 import {
@@ -28,8 +28,13 @@ import {
 } from "@/lib/billing/retention";
 
 async function requireOwner(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return { error: "Unauthorized", status: 401 };
+  // memberOrRefusalPlain, not getCurrentMember: this helper's callers turn a
+  // returned { error, status } into the response themselves, and the gates
+  // inside getCurrentMember THROW. A locked-for-non-payment company hitting
+  // this got a 500 with an empty body instead of the 402 that names the
+  // billing screen. The plain variant is exactly for helpers shaped like this.
+  const { member, refusal } = await memberOrRefusalPlain(request);
+  if (refusal) return refusal;
   // The function was already called requireOwner and already said "owner or
   // admin" — it just checked "user:manage", which supervisors hold. Accepting
   // a retention offer changes what the company is billed (a discount coupon, a

@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { getAppOrigin } from "@/lib/appUrl";
 import { referralCodeFor, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -51,9 +51,8 @@ async function getOrCreateReferralCode(company) {
 // getCurrentMember, and the only write here is the code generation below, which
 // is skipped for the same reason.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!member.impersonation && !isBillingAdmin(member.role)) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });

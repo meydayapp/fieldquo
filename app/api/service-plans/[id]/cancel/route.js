@@ -23,7 +23,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -35,11 +35,14 @@ import { summarisePlan } from "@/lib/servicePlans/summary";
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
+  // Hoisted out of the try: the response is shaped with the same member the
+  // gate used — summarisePlan redacts the client and the money from it.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "cancel a service plan");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -63,7 +66,7 @@ export async function POST(request, { params }) {
         occurrences: { orderBy: { seq: "asc" } },
       },
     });
-    return NextResponse.json({ ...summarisePlan(plan), alreadyCancelled: true });
+    return NextResponse.json({ ...summarisePlan(plan, { member: full }), alreadyCancelled: true });
   }
 
   await db.servicePlan.update({
@@ -87,7 +90,7 @@ export async function POST(request, { params }) {
   });
 
   return NextResponse.json({
-    ...summarisePlan(plan),
+    ...summarisePlan(plan, { member: full }),
     // Reported rather than swallowed. If Stripe refused the detach the plan is
     // still stopped — but somebody should be able to see that the card is still
     // sitting on the customer record.

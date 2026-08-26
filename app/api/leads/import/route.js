@@ -2,9 +2,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { normaliseLeadRow } from "@/lib/leads/importMap";
+import { db } from "@/lib/db";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 // Bulk-import leads a company bought or exported elsewhere. Each row goes through
 // the SAME createScoredLead as an inbound lead, so imported leads land triaged
@@ -14,9 +20,19 @@ import { normaliseLeadRow } from "@/lib/leads/importMap";
 // Expects rows already parsed client-side (Papa Parse). One create per row
 // rather than createMany, because scoring is per-lead.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // Bulk-creating requests is creating requests. The single-lead paths beside
+  // this one now check the grid; an import route that does not is the same
+  // door with a bigger handle.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "requests", "view_create_edit", "import requests");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { rows } = await request.json();
   if (!Array.isArray(rows) || rows.length === 0) {

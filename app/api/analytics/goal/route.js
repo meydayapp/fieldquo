@@ -11,13 +11,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseGoal, deriveTargets } from "@/lib/analytics/goal";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const company = await db.company.findUnique({
     where: { id: member.companyId },
@@ -29,8 +29,8 @@ export async function GET(request) {
 }
 
 export async function PUT(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (member.role !== "owner" && member.role !== "admin") {
     return NextResponse.json(

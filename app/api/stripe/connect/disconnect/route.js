@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 
 // Deliberately a LOCAL unlink only — clears FieldQuo's reference to the
@@ -18,9 +18,8 @@ import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin"
 // Stripe" click in the UI creates a brand-new Express account from scratch
 // (see createConnectOnboardingLink in lib/stripe.js).
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Severing the company's payment processing is not a crew-running decision.
   // This asked for "user:manage" — held by supervisors — while telling the

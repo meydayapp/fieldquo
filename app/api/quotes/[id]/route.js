@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMediaList } from "@/lib/media/validate";
 import {
@@ -33,9 +33,8 @@ export async function GET(request, { params }) {
   // lookup on this route returned "not found".
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
@@ -80,9 +79,8 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Hoisted out of the try because the response below is redacted with it too.
   // Re-querying the member for that would be a second round trip to learn
@@ -340,9 +338,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Delete is a distinct level above edit — someone trusted to revise a quote
   // isn't automatically trusted to make it disappear.

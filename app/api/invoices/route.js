@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import { normaliseMediaList } from "@/lib/media/validate";
 import {
@@ -21,11 +21,11 @@ import {
   requireCost,
   isEmptyCosting,
 } from "./costingWrite";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -66,9 +66,8 @@ export async function GET(request) {
 // an existing invoice are created (that's PATCH .../route.js below, which snapshots
 // a version before applying changes).
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Invoices carry pricing, so two checks: the category level, and the
   // showPricing toggle. A member who can't see prices shouldn't be able to
@@ -109,6 +108,24 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // Neither id was proved to belong to this company before being written.
+  //
+  // `clientId` went straight onto the invoice, so posting another tenant's
+  // client id raised an invoice in THIS company addressed to THEIR client,
+  // whose details came back on every read of it.
+  //
+  // `quoteId` LOOKED checked — the lookup below is company-scoped — but that
+  // lookup only reads a quote number, and a miss just leaves `sourceQuote`
+  // null while `quoteId: quoteId || null` still stores the foreign id. A
+  // scoped read next to an unscoped write is the easiest version of this to
+  // miss in review, which is why both now go through one call.
+  // See lib/tenant/ownedIds.js.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    clientId,
+    quoteId,
+  });
+  if (notOurs) return notOurs;
 
   // An invoice raised against a quote takes that quote's number so the pair
   // reconciles at a glance; one raised on its own has nothing to borrow and

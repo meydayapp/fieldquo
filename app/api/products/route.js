@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { translateFields } from "@/lib/i18n/translateContent";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
 
@@ -41,9 +41,8 @@ function denied(err) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // A price book is prices. There is no useful redacted version of it, so
   // this refuses outright rather than returning rows with the numbers
@@ -90,9 +89,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requireCatalogueWrite(member);

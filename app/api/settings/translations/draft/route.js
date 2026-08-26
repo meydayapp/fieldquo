@@ -57,7 +57,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isSupported } from "@/app/i18n/languages";
 import { isAiConfigured } from "@/lib/ai/provider";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -68,9 +68,8 @@ function isAdmin(role) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Same bar as editing the catalogue itself. This one also spends the
   // company's AI allowance, so it is not a read.

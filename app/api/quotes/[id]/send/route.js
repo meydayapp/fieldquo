@@ -27,7 +27,7 @@ export const runtime = "nodejs";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
 import { onQuoteEmailed } from "@/lib/voice/triggers";
 import { recordActivity } from "@/lib/activity/log";
@@ -55,9 +55,8 @@ import {
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Emailing a client is the same weight as editing the quote — it puts a
   // priced offer in front of someone on the company's behalf.

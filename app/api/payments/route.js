@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -14,9 +14,8 @@ import { formatAppMoney } from "@/lib/format/money";
 import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // ── The toggle gated the write and not the read ────────────────────────
   //
@@ -53,9 +52,8 @@ export async function GET(request) {
 // stripePaymentIntentId set and shouldn't be enterable by hand.
 // app/api/payments/route.js — POST handler, replace the totals section
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Recording a payment is the highest-trust action in the app — it marks
   // money as received. Gated on the dedicated `payments` toggle rather than

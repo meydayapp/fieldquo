@@ -5,13 +5,13 @@ import { NextResponse } from "next/server";
 import { resolveWallClock } from "@/lib/time/wallClock";
 import { recordActivity } from "@/lib/activity/log";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasLevel, redactPayList } from "@/lib/permissions/enforce";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const workerId = searchParams.get("workerId");
@@ -58,9 +58,8 @@ export async function GET(request) {
 
 // Clock in — clockOut is set later via PATCH on the [id] route
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { workerId, jobId, clockIn } = await request.json();
 
@@ -91,6 +90,13 @@ export async function POST(request) {
       { status: 403 },
     );
   }
+
+  // The worker above was proved to be ours; the job was not. A time entry
+  // booked against another tenant's jobId lands in THEIR job costing — hours
+  // and labour cost against a job they can see and we cannot — which is a
+  // cross-tenant WRITE rather than a read, and silent on both sides.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { jobId });
+  if (notOurs) return notOurs;
 
   // Prevent double clock-in — a worker can't have two open entries at once
   const openEntry = await db.timeEntry.findFirst({

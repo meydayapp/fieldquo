@@ -1264,6 +1264,24 @@ export default function QuoteDetailPage() {
           </Block>
         )}
 
+        {/* ── The totals, or a sentence saying they are withheld ───────────
+            `pricingHidden` is set by the API for a member without the
+            showPricing toggle: subtotal, tax and total are ABSENT from the
+            payload. Rendering the block anyway prints "$0.00" three times over
+            — money() coerces a missing amount to zero deliberately, because on
+            a client-facing document a visible zero beats "$NaN" — and a quote
+            reading $0.00 is a stronger false claim than one that says nothing.
+            So the block is replaced by the reason, not blanked. */}
+        {quote.pricingHidden ? (
+          <div className="px-5 sm:px-7 py-5 border-t border-border">
+            <p className="sm:w-3/5 sm:ml-auto text-sm text-muted-foreground">
+              {t(
+                "app.quoteDetail.pricingHidden",
+                "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+              )}
+            </p>
+          </div>
+        ) : (
         <div className="px-5 sm:px-7 py-5 border-t border-border">
           {/* Right-aligned and narrow above sm, exactly as TotalsSection lays
               the PDF out: a totals block spanning the full width reads as
@@ -1313,6 +1331,7 @@ export default function QuoteDetailPage() {
               )}
           </div>
         </div>
+        )}
       </article>
 
       <DeleteConfirmModal

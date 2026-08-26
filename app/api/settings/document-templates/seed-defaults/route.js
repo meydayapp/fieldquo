@@ -6,13 +6,12 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!["owner", "admin"].includes(member.role)) {
     return NextResponse.json(

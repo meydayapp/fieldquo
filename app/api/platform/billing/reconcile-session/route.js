@@ -2,7 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { reconcileCheckoutSession } from "@/lib/platform/stripeBilling";
 
 // Fallback safety net for checkout.session.completed webhook delivery
@@ -12,10 +12,8 @@ import { reconcileCheckoutSession } from "@/lib/platform/stripeBilling";
 // company via getCurrentMember; reconcileCheckoutSession double-checks the
 // session's metadata matches before writing anything.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { sessionId } = await request.json();
   if (!sessionId) {

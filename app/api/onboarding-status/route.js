@@ -3,23 +3,21 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
 
 export async function GET(request) {
   try {
-    const member = await getCurrentMember(request);
-    if (!member) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-          reason: "No active company membership could be resolved",
-        },
-        { status: 401 },
-      );
-    }
+    // Through memberOrRefusal, not getCurrentMember, because of the catch
+    // below: it turns anything thrown into a 500, and the three gates inside
+    // getCurrentMember throw on purpose. A locked-for-non-payment company
+    // asking for its setup checklist got "Could not load onboarding status"
+    // with a 500, when the honest answer is 402 and a link to the billing
+    // screen.
+    const { member, response } = await memberOrRefusal(request);
+    if (response) return response;
 
     const status = await getOnboardingStatus(member.companyId);
     return NextResponse.json(status);
@@ -55,10 +53,8 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const member = await getCurrentMember(request);
-    if (!member) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { member, response } = await memberOrRefusal(request);
+    if (response) return response;
 
     try {
       requirePermission(member.role, "user:manage");

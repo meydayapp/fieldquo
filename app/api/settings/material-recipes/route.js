@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
 
@@ -16,9 +16,8 @@ import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
 // One entry per recipe that exists, merging any saved overrides on top of
 // the shared default so the settings form always shows the live numbers.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const saved = await db.materialRecipeSetting.findMany({
     where: { companyId: member.companyId },
@@ -42,9 +41,8 @@ export async function GET(request) {
 // `overrides` should only contain keys that differ from the default (the UI
 // sends the full edited set, which is fine — getRecipe() merges either way).
 export async function PUT(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -79,9 +77,8 @@ export async function PUT(request) {
 
 // DELETE ?categoryKey=... → resets a company back to the shared defaults.
 export async function DELETE(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

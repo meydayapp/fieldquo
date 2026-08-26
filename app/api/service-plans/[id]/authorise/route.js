@@ -14,7 +14,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { lazyClient } from "@/lib/lazyClient";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -36,8 +36,8 @@ const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     const full = await loadEnforceableMember(db, member.id);
@@ -161,8 +161,8 @@ export async function POST(request, { params }) {
 export async function DELETE(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // The POST above asks for the `payments` toggle and this asked only for the
   // invoices level, so someone who could not SET UP a mandate could still tear

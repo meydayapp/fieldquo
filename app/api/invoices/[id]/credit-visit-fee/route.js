@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -102,9 +102,8 @@ async function recomputeInvoice(invoiceId) {
 }
 
 export async function GET(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { id } = await params;
   const invoice = await loadInvoice(id, member.companyId);
@@ -115,9 +114,8 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Same gate as recording a payment — this moves money on the invoice.
   try {

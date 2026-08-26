@@ -3,14 +3,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { SUPPORTED_TRIGGERS } from "@/lib/followUps/triggers";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const rules = await db.followUpRule.findMany({
     where: { companyId: member.companyId },
@@ -22,9 +22,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -47,6 +46,12 @@ export async function POST(request) {
   if (!templateId) {
     return NextResponse.json({ error: "templateId is required" }, { status: 400 });
   }
+
+  // templateId names a DocumentTemplate, which is company-owned. Unchecked, a
+  // rule could fire another tenant's template at this company's clients — and
+  // the `include` below reads its name straight back.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { templateId });
+  if (notOurs) return notOurs;
 
   const created = await db.followUpRule.create({
     data: {

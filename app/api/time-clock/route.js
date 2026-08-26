@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 // The worker record tied to the signed-in user, or null if they were never
 // added under Workers (an admin has to create that link first).
@@ -28,8 +28,8 @@ function startOfToday() {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const worker = await myWorker(member);
   if (!worker) return NextResponse.json({ worker: null, open: null, today: [], todayHours: 0 });
@@ -60,8 +60,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const worker = await myWorker(member);
   if (!worker) {

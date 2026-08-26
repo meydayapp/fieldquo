@@ -11,15 +11,18 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { deriveCommitStatus, sourceView, importerView } from "@/lib/quotes/importedStatus";
+import {
+  loadEnforceableMember,
+  hasToggle,
+} from "@/lib/permissions/enforce";
 
 export async function GET(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // The quote must be the viewer's own. A given quote can be either side of an
   // import: the SOURCE (someone imported it — the sub's view) or the TARGET
@@ -78,9 +81,26 @@ export async function GET(request, { params }) {
     hasJob: quote.jobs.length > 0,
     hasInvoice: quote.invoices.length > 0,
   });
-  const asImporter = asImporterRows.map((r) =>
-    importerView(r, { commitStatus: importerStatus }),
-  );
+  // ── The importer half is cost, markup and price ─────────────────────────
+  //
+  // The header above explains at length why the SOURCE view never assembles a
+  // price: a sub must not learn their customer's margin. The importer view
+  // assembles all three deliberately — and served them to any member of the
+  // importing company, including one with showPricing off, which is the same
+  // margin leaking through the other end of the same endpoint.
+  //
+  // The source half stays open: it carries no price by construction, and it is
+  // how a subcontractor sees whether their own bid was taken up.
+  const full = await loadEnforceableMember(db, member.id);
+  const asImporter = hasToggle(full, "showPricing")
+    ? asImporterRows.map((r) => importerView(r, { commitStatus: importerStatus }))
+    : [];
 
-  return NextResponse.json({ asSource, asImporter });
+  return NextResponse.json({
+    asSource,
+    asImporter,
+    // Declared rather than silently empty: an empty list means "nobody's cost
+    // is imported here", and the panel would say so in as many words.
+    ...(hasToggle(full, "showPricing") ? {} : { importerPricingHidden: true }),
+  });
 }

@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   getPriceBook,
   PRICE_BOOK_FIELDS,
@@ -21,9 +22,8 @@ import { getAppOrigin } from "@/lib/appUrl";
 // companyId: null and is visible to everyone; a custom one only shows up
 // for the company that created it.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const categories = await db.serviceCategory.findMany({
     where: { OR: [{ isSystem: true }, { companyId: member.companyId }] },
@@ -86,9 +86,8 @@ export async function GET(request) {
 // there's no reason to create one you can't use yet — from then on it's
 // toggled/priced through the same PATCH below as any system category.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!["owner", "admin"].includes(member.role)) {
     return NextResponse.json(
@@ -156,9 +155,8 @@ export async function POST(request) {
 // is a data migration, not a code change. Existing rows keep whatever they
 // last stored, and nothing looks at it.
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!["owner", "admin"].includes(member.role)) {
     return NextResponse.json(

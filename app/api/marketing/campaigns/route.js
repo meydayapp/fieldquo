@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 // List this company's marketing campaigns with a lightweight stop summary
 // (counts by status) for the hub cards — the full stop list is only loaded on
@@ -82,6 +83,15 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // Both ids come off the request and both are read straight back by the
+  // `include` below — the assignee as a person's name, the template as a
+  // document template's name. Neither was proved to belong to this company.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    assignedToId,
+    ...(resolvedType === "email" && { templateId }),
+  });
+  if (notOurs) return notOurs;
 
   try {
     const campaign = await db.marketingCampaign.create({

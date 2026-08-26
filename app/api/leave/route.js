@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import {
@@ -64,8 +64,9 @@ async function workingDaysFor(userId) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -191,8 +192,9 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const worker = await myWorker(member);

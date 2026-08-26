@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 // Imported rather than kept as the local two-line copy this file used to
 // have. The settings sidebar and this route now have to agree about who may
@@ -47,9 +47,8 @@ function cleanSlabs(input) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // Support sessions read it. Role "viewer" holds nothing, so the plain check
   // refused the platform console — which is the "view everything, edit nothing"
   // contract broken in the view direction (non-negotiable #3), and payroll
@@ -83,9 +82,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isPayrollAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can change payroll settings." },
@@ -175,9 +173,8 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isPayrollAdmin(member.role)) {
     return NextResponse.json({ error: "Only an owner or admin can change payroll settings." }, { status: 403 });
   }
@@ -247,9 +244,8 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isPayrollAdmin(member.role)) {
     return NextResponse.json({ error: "Only an owner or admin can change payroll settings." }, { status: 403 });
   }

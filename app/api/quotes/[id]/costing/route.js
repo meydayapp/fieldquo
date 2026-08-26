@@ -29,7 +29,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
 import { shapeSavedQuoteCosting } from "@/lib/costing/quoteCosting";
 import {
@@ -41,9 +41,8 @@ export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const full = await loadEnforceableMember(db, member.id);
   // The same gate as the job's and the invoice's cost panels. 403, not a

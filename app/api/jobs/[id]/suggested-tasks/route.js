@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { suggestTasksForJob } from "@/lib/tasks/suggestFromJob";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -22,9 +22,8 @@ export async function POST(request, { params }) {
   // Next 16: params is a Promise.
   const _params = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Gated on task:create, not on reading the job. Suggesting tasks to somebody
   // who cannot create one is a control that appears to work and doesn't.

@@ -24,7 +24,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   hasToggle,
@@ -35,9 +35,8 @@ import { resolveInvoiceJob } from "@/lib/invoices/jobLink";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const full = await loadEnforceableMember(db, member.id);
   // Same gate as the job's cost panel. Someone who may not see what a job cost

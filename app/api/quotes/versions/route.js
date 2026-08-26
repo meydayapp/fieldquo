@@ -15,16 +15,19 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
+import {
+  loadEnforceableMember,
+  redactQuoteMoney,
+} from "@/lib/permissions/enforce";
 
 // Presentation order. Sorting alphabetically would put "best" first, which
 // inverts the anchoring these tiers exist to create.
 const TIER_ORDER = { good: 0, better: 1, best: 2 };
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const quoteId = searchParams.get("quoteId");
@@ -78,5 +81,10 @@ export async function GET(request) {
       (TIER_ORDER[a.tierLabel] ?? 99) - (TIER_ORDER[b.tierLabel] ?? 99),
   );
 
-  return NextResponse.json(variants);
+  // Three priced options side by side is the most concentrated pricing payload
+  // in the product — the tier comparison exists to be read as money. The list
+  // and detail routes redact; this one selects `subtotal`, `total` and every
+  // scope group's own subtotal and line items, and had nothing.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(variants.map((v) => redactQuoteMoney(full, v)));
 }

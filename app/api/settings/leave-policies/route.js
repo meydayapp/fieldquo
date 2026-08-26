@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   LEAVE_TEMPLATES,
@@ -59,9 +59,8 @@ function cleanPolicy(body = {}) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isLeaveAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can manage leave policies." },
@@ -94,9 +93,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isLeaveAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can manage leave policies." },
@@ -197,9 +195,8 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isLeaveAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can manage leave policies." },
@@ -253,9 +250,8 @@ export async function PATCH(request) {
 }
 
 export async function DELETE(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!isLeaveAdmin(member.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can manage leave policies." },

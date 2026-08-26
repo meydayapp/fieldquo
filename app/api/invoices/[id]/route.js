@@ -3,14 +3,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
   requireToggle,
   permissionErrorResponse,
-  redactClient,
-  redactQuote,
+  redactInvoice,
 } from "@/lib/permissions/enforce";
 import { normaliseMediaList } from "@/lib/media/validate";
 import {
@@ -23,9 +22,8 @@ import {
 // Next 16: params is a Promise — same fix as the quotes route.
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const invoice = await db.invoice.findFirst({
     where: { id: id, companyId: member.companyId },
@@ -50,12 +48,15 @@ export async function GET(request, { params }) {
   // redactQuote rather than redactShareToken for the nested quote: it is the
   // single entry point, so if this include ever grows `quote: { client }` the
   // nested client is already covered instead of quietly slipping through.
+  //
+  // Money joined the same entry point. PATCH already required showPricing to
+  // EDIT an invoice; GET required nothing, so the totals, the balance and every
+  // payment row were readable by the one member the toggle exists to keep them
+  // from. redactInvoice does client, quote and money in one call for exactly
+  // the reason this comment gives about the share token: three routes each
+  // remembering three rules is two routes that forget one.
   const full = await loadEnforceableMember(db, member.id);
-  return NextResponse.json({
-    ...invoice,
-    client: redactClient(full, invoice.client),
-    quote: redactQuote(full, invoice.quote),
-  });
+  return NextResponse.json(redactInvoice(full, invoice));
 }
 
 // Editing an invoice creates a new VERSION rather than mutating in place, once it's
@@ -63,9 +64,8 @@ export async function GET(request, { params }) {
 // (never sent) can just be edited directly.
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Hoisted out of the try: both response paths below redact the client with
   // it, and loading the member twice to learn the same thing is waste.
@@ -168,10 +168,7 @@ export async function PATCH(request, { params }) {
     // to read the client's private fields — those are a separate dial — and a
     // save response that carried more than the refetch would put data on screen
     // that vanishes on reload.
-    return NextResponse.json({
-      ...updated,
-      client: redactClient(full, updated.client),
-    });
+    return NextResponse.json(redactInvoice(full, updated));
   }
 
   // ── What costing the NEW version row gets ────────────────────────────────
@@ -250,16 +247,15 @@ export async function PATCH(request, { params }) {
   });
 
   return NextResponse.json(
-    { ...newVersion, client: redactClient(full, newVersion.client) },
+    redactInvoice(full, newVersion),
     { status: 201 },
   );
 }
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     const full = await loadEnforceableMember(db, member.id);

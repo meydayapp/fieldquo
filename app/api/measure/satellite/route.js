@@ -29,7 +29,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   measureFromAddress,
   fetchSatelliteImage,
@@ -77,10 +77,8 @@ export async function GET(request) {
   // not something an anonymous caller should be able to do on our Google bill —
   // and it is not the public self-quote surface, which never sees prices or
   // internals (non-negotiable #4).
-  const member = await getCurrentMember(request);
-  if (!member) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
 

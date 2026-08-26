@@ -53,14 +53,27 @@ export default function InvoicesPage() {
   //
   // Each is null while the list is unknown, and the tiles print an em dash for
   // null. A money figure is the one number on this page nobody double-checks.
-  const money = invoices && {
-    totalBilled: invoices.reduce((sum, i) => sum + Number(i.total || 0), 0),
-    paidAmount: invoices.reduce((sum, i) => sum + Number(i.amountPaid || 0), 0),
-    outstanding: invoices.reduce(
-      (sum, i) => sum + Number(i.amountDue ?? i.total ?? 0),
-      0,
-    ),
-  };
+  //
+  // `pricingHidden` is set by the API for a member without the showPricing
+  // toggle: the money columns are ABSENT from the payload, not zeroed. Summing
+  // them would print "$0.00 billed" over a book full of invoices, which is a
+  // stronger and more wrong claim than printing nothing — so the tiles stay
+  // null and render the em dash they already have for "we were not told".
+  const pricingHidden = Boolean(invoices?.some((i) => i.pricingHidden));
+  const money =
+    invoices && !pricingHidden
+      ? {
+          totalBilled: invoices.reduce((sum, i) => sum + Number(i.total || 0), 0),
+          paidAmount: invoices.reduce(
+            (sum, i) => sum + Number(i.amountPaid || 0),
+            0,
+          ),
+          outstanding: invoices.reduce(
+            (sum, i) => sum + Number(i.amountDue ?? i.total ?? 0),
+            0,
+          ),
+        }
+      : null;
 
   // "$1,234.50", or "—" when we were not told.
   const dollars = (value) =>
@@ -183,10 +196,15 @@ export default function InvoicesPage() {
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <span className="font-semibold text-foreground">
-                  $
-                  {Number(inv.total).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {/* Number(undefined) is NaN, so without this a restricted
+                      member reads "$NaN" on every row. */}
+                  {inv.pricingHidden ? (
+                    <span className="text-muted-foreground font-normal">—</span>
+                  ) : (
+                    `$${Number(inv.total).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}`
+                  )}
                 </span>
                 <ArrowRight size={16} className="text-muted-foreground" />
               </div>

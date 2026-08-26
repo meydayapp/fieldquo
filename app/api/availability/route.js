@@ -21,7 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { ensureConsultationEventType } from "@/lib/booking/bookableMembers";
 
@@ -54,8 +54,9 @@ async function resolveTarget(member, requested, permission) {
 
 // GET — bookable hours for the signed-in user, or ?userId= for a teammate
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const requested = new URL(request.url).searchParams.get("userId");
@@ -78,8 +79,9 @@ export async function GET(request) {
 // PATCH — replace bookable hours
 // body: { schedules: [{ dayOfWeek, startTime, endTime, timezone }], userId? }
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));

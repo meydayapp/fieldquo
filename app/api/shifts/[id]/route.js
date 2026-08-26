@@ -5,8 +5,9 @@ import { NextResponse } from "next/server";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { assessShiftFit } from "@/lib/scheduling/loadShiftFit";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 async function ownShift(member, id) {
   return db.shift.findFirst({ where: { id, companyId: member.companyId } });
@@ -14,9 +15,8 @@ async function ownShift(member, id) {
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // ── The schedule grid decides this, not the coarse role ────────────────
   //
   // `user:manage` is held by SUPERVISORS — it means "may run a crew". The
@@ -49,7 +49,15 @@ export async function PATCH(request, { params }) {
   if (body.note !== undefined)
     data.note = body.note ? String(body.note).slice(0, 300) : null;
   if (body.published !== undefined) data.published = Boolean(body.published);
-  if (body.jobId !== undefined) data.jobId = body.jobId || null;
+  if (body.jobId !== undefined) {
+    // Same tenant check the create does. Attaching a job is the one field on
+    // this PATCH that names a row somebody else might own.
+    const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+      jobId: body.jobId,
+    });
+    if (notOurs) return notOurs;
+    data.jobId = body.jobId || null;
+  }
 
   const start = data.start ?? existing.start;
   const end = data.end ?? existing.end;
@@ -157,9 +165,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // ── The schedule grid decides this, not the coarse role ────────────────
   //
   // `user:manage` is held by SUPERVISORS — it means "may run a crew". The

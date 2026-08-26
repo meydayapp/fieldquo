@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { invalidSectionTypes } from "@/lib/documents/templateKind";
 
@@ -21,9 +21,8 @@ async function loadOwned(id, companyId) {
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const template = await loadOwned(id, member.companyId);
   if (!template)
@@ -38,9 +37,8 @@ export async function GET(request, { params }) {
 // omitting it (or sending null) means the email inherits Company branding.
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -90,9 +88,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

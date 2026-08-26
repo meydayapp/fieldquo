@@ -3,16 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { runContractorPayoutsForCompany } from "@/lib/payroll/stripeConnectPayout";
 import { isPayrollAdmin } from "@/lib/permissions/settingsAccess";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Every contractor payment — amount, worker, status — was returned to any
   // signed-in member. Same rule as the payroll pages.
@@ -37,9 +36,8 @@ export async function GET(request) {
 // (via the embedded provider) is a separate, not-yet-wired flow — see the payroll
 // compliance note from earlier. This endpoint only ever touches worker.type === "contractor".
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     // The comment said "owner/admin-only, moves real money" and the code said

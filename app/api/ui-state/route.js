@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -62,8 +62,9 @@ async function accountStanding(companyId) {
 }
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const [user, account] = await Promise.all([
@@ -88,8 +89,9 @@ export async function GET(request) {
 // long before it reaches here, so this never records a support user's tours
 // against the customer.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body;

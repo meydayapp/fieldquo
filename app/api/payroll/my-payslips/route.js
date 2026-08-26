@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   resolvePayCycle,
   currentPayPeriod,
@@ -37,8 +37,9 @@ const endOfDay = (d) => new Date(new Date(d).getTime() + 86400000 - 1);
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Owners/admins hold everything; everyone else needs at least view_own.

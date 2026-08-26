@@ -29,7 +29,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember } from "@/lib/permissions/enforce";
 import {
   resolveTeamScope,
@@ -45,9 +45,8 @@ import {
 const HORIZON_DAYS = 14;
 
 export async function GET(request) {
-  const session = await getCurrentMember(request);
-  if (!session)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member: session, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // The grid lives on the Member row, and getCurrentMember's shape does not
   // carry it. Without this the scope resolver would see no `permissions` and

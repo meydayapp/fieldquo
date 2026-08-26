@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { cleanAuthor, cleanQuote, contentKey } from "@/lib/reviews/testimonials";
 import {
@@ -36,8 +36,8 @@ import {
 } from "@/lib/reviews/testimonialAccess";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Unapproved ones are returned too — this is the screen where they get
   // approved, so hiding them here would strand every imported row.
@@ -71,8 +71,8 @@ export async function GET(request) {
 
 // POST { authorName, quote, authorTitle?, companyLabel? } — add one by hand.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   const refusal = refuseUnlessAdmin(member);
   if (refusal) return refusal;
 

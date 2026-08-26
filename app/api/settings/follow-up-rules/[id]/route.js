@@ -3,9 +3,10 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { SUPPORTED_TRIGGERS } from "@/lib/followUps/triggers";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 async function loadOwned(id, companyId) {
   const rule = await db.followUpRule.findUnique({ where: { id } });
@@ -15,9 +16,8 @@ async function loadOwned(id, companyId) {
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -42,6 +42,13 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // Same check the create does: the rule was company-scoped by loadOwned, the
+  // template it points at was not.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...(templateId !== undefined && { templateId }),
+  });
+  if (notOurs) return notOurs;
+
   const updated = await db.followUpRule.update({
     where: { id },
     data: {
@@ -60,9 +67,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { getCurrentMember } from "@/lib/currentMember"; // company-side session — the company owner initiates this
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
@@ -17,9 +18,8 @@ import { getAppOrigin } from "@/lib/appUrl";
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
 // because it's Stripe Billing (FieldQuo charging the company), not Connect.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Had no role gate at all: any logged-in employee could post an
   // employeeCount and start a Stripe Checkout that raises their employer's

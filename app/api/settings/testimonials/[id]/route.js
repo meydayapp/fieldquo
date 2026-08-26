@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { cleanAuthor, cleanQuote, contentKey } from "@/lib/reviews/testimonials";
 import { TESTIMONIAL_SELECT, refuseUnlessAdmin } from "@/lib/reviews/testimonialAccess";
@@ -24,8 +24,8 @@ async function loadOwned(id, companyId) {
 // PATCH { approved?, sortOrder?, authorName?, quote?, authorTitle?, companyLabel? }
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   const refusal = refuseUnlessAdmin(member);
   if (refusal) return refusal;
 
@@ -114,8 +114,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   const refusal = refuseUnlessAdmin(member);
   if (refusal) return refusal;
 

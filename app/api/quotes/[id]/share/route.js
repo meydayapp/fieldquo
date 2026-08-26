@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -29,9 +29,8 @@ function publicUrl(token, request) {
 export async function GET(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
@@ -50,9 +49,8 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Creating a share link publishes pricing to anyone holding the URL, so it
   // sits at the same level as editing the quote — not plain view access.

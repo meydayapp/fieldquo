@@ -800,6 +800,51 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The two supervisor personas, swept before role-by-role QA —
+  `scripts/check-rbac-supervisors.mjs`.**
+
+  Dispatcher and Manager both sit on `supervisor`, which is not in
+  `UNRESTRICTED_ROLES`, so everything they can do comes from the grid. That
+  makes them the tier where a missing gate is invisible: enough access for the
+  app to look normal, not enough for the hole to be obvious.
+
+  Nine gaps closed. The payroll READ side held everywhere it was claimed to
+  (`/api/workers`, `/api/settings/members`, `/api/time-entries` and the detail
+  and pending routes beside them), but the WRITE side had a door open one verb
+  along: `PATCH /api/workers/[id]` refused a rate and `POST /api/workers` took
+  one straight off the body behind `user:manage`, which supervisors hold — so a
+  Manager could create the missing Worker row for a colleague and set their pay
+  on the way in. `POST /api/workers/[id]/connect` minted a Stripe Express
+  onboarding link — somebody's *bank details* — for any worker id, to anyone
+  with a session.
+
+  Three of the four company Stripe Connect routes said "Only owners/admins can
+  …" in the error string while checking `requirePermission(role, "user:manage")`.
+  The settings row is hidden behind the `billing` capability, so the button was
+  gone and the endpoint was live — a hidden control over an open door, which is
+  the shape AGENTS.md names. `status` was ungated entirely. All five now ask
+  `isBillingAdmin`, like `login-link` already did.
+
+  `DELETE /api/shifts/[id]` was a copy of its own PATCH gate, so it stopped at
+  `schedule: edit_all` — which is exactly the Dispatcher preset. Deleting a
+  shift was the one schedule verb where the two tiers came out identical and
+  the Manage Team dial withheld nothing. `DELETE /api/tasks/[id]` had no
+  authorization at all. Posting a costing block without the `jobCosting` toggle
+  was silently DROPPED and answered 200 — the dead-control failure from the
+  other side, since silence is indistinguishable from success; it is a 403 now
+  (`requireCost`, one definition, re-exported not copied).
+
+  The check builds its fixtures from `PERMISSION_PRESETS` and `PRESET_TO_ROLE`
+  at run time rather than restating the matrix, and it is mutation-proven:
+  removing the stripping in `redactPay`, neutering `canSeeAllPay`, mapping
+  Manager back to `admin`, or reverting the shifts level each fails it.
+
+  Still open, and a product decision rather than a bug: the `notes` and
+  `requests` categories gate nothing. Neither subject has a delete endpoint, so
+  the delete levels withhold something nobody can do; the live gap is the edit
+  level, since `PATCH /api/leads/[id]` consults no grid. `lib/permissions.js`
+  records this at the top.
+
 - **One definition of what a trade is — `lib/trades/catalog.js`.**
 
   A cabinet-refinishing and painting company opened three settings screens and

@@ -8,12 +8,12 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // ── The schedule grid decides this, not the coarse role ────────────────
   //
   // `user:manage` is held by SUPERVISORS — it means "may run a crew". The

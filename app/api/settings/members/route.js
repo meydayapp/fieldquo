@@ -20,7 +20,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission, toBetterAuthRole } from "@/lib/permissions";
 import {
   rankOf,
@@ -57,9 +57,8 @@ const ROSTER_SELECT = {
 };
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Impersonation reads the full record on purpose — the platform console's
   // contract is "view everything, edit nothing", and the writes below are
@@ -158,9 +157,8 @@ export async function GET(request) {
 // it's there to reconcile onto the real Member row once the invite is
 // accepted — see reconcilePendingProfiles above.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -422,9 +420,8 @@ export async function POST(request) {
 // PATCH /api/settings/members/[id]/role and are worth nothing if a second
 // endpoint writes the same column without them. There is one door now.
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

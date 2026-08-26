@@ -3,8 +3,9 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 // Same gate as POST on the collection route, and for the same reason: this
 // handler writes feeCents/promoFeeCents, which is the amount a homeowner is
@@ -24,9 +25,8 @@ function manageGate(member) {
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const denied = manageGate(member);
   if (denied) return denied;
@@ -60,6 +60,13 @@ export async function PATCH(request, { params }) {
     return Number.isFinite(n) && n > 0 ? Math.min(n, 100000000) : null;
   };
 
+  // Same tenant check the create does — reassigning the calendar is the one
+  // field here that names somebody who might not be on this team.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...(userId !== undefined && { userId }),
+  });
+  if (notOurs) return notOurs;
+
   const updated = await db.eventType.update({
     where: { id: _params.id },
     data: {
@@ -84,9 +91,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const denied = manageGate(member);
   if (denied) return denied;

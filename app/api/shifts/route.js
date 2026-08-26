@@ -8,15 +8,15 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { assessShiftFit } from "@/lib/scheduling/loadShiftFit";
 import { workersMissingHours } from "@/lib/scheduling/shiftFit";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
@@ -122,9 +122,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // ── The schedule grid decides this, not the coarse role ────────────────
   //
   // `user:manage` is held by SUPERVISORS — it means "may run a crew". The
@@ -171,6 +170,13 @@ export async function POST(request) {
   });
   if (!worker)
     return NextResponse.json({ error: "Unknown worker." }, { status: 404 });
+
+  // The comment above says "never schedule across tenants" and means it about
+  // the worker. The jobId beside it crossed freely: a shift in this company
+  // could name another tenant's job, and the rota then renders their job title
+  // to this company's crew.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { jobId });
+  if (notOurs) return notOurs;
 
   // ── Does the shift fit the person? ───────────────────────────────────────
   //

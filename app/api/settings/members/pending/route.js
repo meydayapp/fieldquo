@@ -21,7 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { rankOf } from "@/lib/permissions/roleManagement";
 import {
@@ -46,9 +46,8 @@ const PENDING_ROSTER_SELECT = {
 };
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Same test as the members route, including the impersonation clause: the
   // platform console's contract is "view everything, edit nothing", and role

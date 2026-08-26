@@ -33,7 +33,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { upsertSubscriptionFromCheckoutSession } from "@/lib/platform/stripeBilling";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
@@ -43,9 +43,8 @@ import { notifySubscriptionState } from "@/lib/billing/notify";
 const LIVE = ["active", "trialing", "past_due"];
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (member.role !== "owner" && member.role !== "admin") {
     return NextResponse.json(
       { error: "Only an owner or admin can change billing." },

@@ -4,16 +4,16 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const job = await db.job.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -32,9 +32,8 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const job = await db.job.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -68,6 +67,15 @@ export async function POST(request, { params }) {
   // a column of "Untitled item". Null (not []) when there's nothing, so "no
   // checklist" stays distinguishable from "a checklist with no steps left".
   const items = normalizeChecklistItems(checklistItems);
+
+  // A JobVisit has no companyId of its own — it hangs off the job, which was
+  // company-scoped above. `assignedToId` does not, and the create returns
+  // `include: { assignedTo: { name } }`, so an id from another tenant came
+  // straight back as that company's employee name.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    assignedToId,
+  });
+  if (notOurs) return notOurs;
 
   const visit = await db.jobVisit.create({
     data: {

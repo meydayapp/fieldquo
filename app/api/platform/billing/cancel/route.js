@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { cancelSubscription } from "@/lib/platform/stripeBilling";
 import { notifyCancellation } from "@/lib/billing/notify";
@@ -17,9 +17,8 @@ import { isValidReason } from "@/lib/billing/retention";
 // This route doesn't touch the DB directly to avoid the two getting out of
 // sync with what Stripe actually did.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Owner/admin, not "user:manage" — that permission is held by supervisors,
   // whose job is scheduling people, not ending the company's subscription.

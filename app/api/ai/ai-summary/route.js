@@ -2,7 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { generateExpenseSummary } from "@/lib/ai/expenseSummary";
 
@@ -10,9 +10,8 @@ import { generateExpenseSummary } from "@/lib/ai/expenseSummary";
 // Settings, Overhead) — since this calls a paid model API on every click and
 // surfaces burn-rate/runway numbers that are sensitive by nature.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

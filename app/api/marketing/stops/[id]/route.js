@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 // A stop belongs to the member's company iff its campaign does. Load both so
 // we can authorize and mutate in one place.
@@ -45,6 +46,13 @@ export async function PATCH(request, { params }) {
       { status: 403 },
     );
   }
+
+  // The reassign gate above answers "may you", not "to whom". A stop reassigned
+  // to a user in another tenant returns their name in `include: { assignedTo }`.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...(assignedToId !== undefined && { assignedToId }),
+  });
+  if (notOurs) return notOurs;
 
   const updated = await db.pamphletStop.update({
     where: { id: _params.id },

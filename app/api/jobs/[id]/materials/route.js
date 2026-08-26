@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -101,9 +101,8 @@ async function ownJob(jobId, companyId) {
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   if (!(await ownJob(id, member.companyId)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   const full = await loadEnforceableMember(db, member.id);
@@ -113,9 +112,8 @@ export async function GET(request, { params }) {
 // Rebuild from the quote, or add one line by hand.
 export async function POST(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Hoisted: the response is shaped with the same member the gate used.
   let full = null;
@@ -191,9 +189,8 @@ export async function POST(request, { params }) {
 // Tick one line, or untick it.
 export async function PATCH(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   let full = null;
   try {
@@ -271,9 +268,8 @@ export async function PATCH(request, { params }) {
 
 export async function DELETE(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   let full = null;
   try {

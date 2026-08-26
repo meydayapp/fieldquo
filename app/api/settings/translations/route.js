@@ -16,14 +16,13 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/permissions";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isSupported } from "@/app/i18n/languages";
 import { isAiConfigured } from "@/lib/ai/provider";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const language = searchParams.get("language");
@@ -91,9 +90,8 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // ── This rewrites text a homeowner reads ───────────────────────────────
   //

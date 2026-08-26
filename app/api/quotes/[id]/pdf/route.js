@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
@@ -11,13 +11,35 @@ import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { hashQuote } from "@/lib/documents/signatureAudit";
+import {
+  loadEnforceableMember,
+  requireMoney,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 export async function POST(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // ── A rendered document is money and nothing else ────────────────────────
+  //
+  // The redactors elsewhere shape a payload because `quotes: view_only` is a
+  // real grant and a quote minus its totals is still a useful record of the
+  // work. There is no such shape for this: a priced PDF with the prices taken
+  // out is not a smaller PDF, it is a broken one. So this refuses.
+  //
+  // It was reachable by direct URL with nothing but a session and a company
+  // match — no category level, no toggle — which made every other pricing
+  // restriction in the product one POST away from irrelevant.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireMoney(full, "download priced documents");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },

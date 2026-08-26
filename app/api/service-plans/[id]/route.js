@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -29,11 +29,14 @@ export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
+  // Hoisted out of the try: the response is shaped with the same member the
+  // gate used — summarisePlan redacts the client and the money from it.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_only", "see service plans");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -46,17 +49,20 @@ export async function GET(request, { params }) {
   });
   if (!plan) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(summarisePlan(plan));
+  return NextResponse.json(summarisePlan(plan, { member: full }));
 }
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
+  // Hoisted out of the try: the response is shaped with the same member the
+  // gate used — summarisePlan redacts the client and the money from it.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "edit a service plan");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -103,5 +109,5 @@ export async function PATCH(request, { params }) {
     include: INCLUDE,
   });
 
-  return NextResponse.json(summarisePlan(plan));
+  return NextResponse.json(summarisePlan(plan, { member: full }));
 }

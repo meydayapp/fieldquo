@@ -3,15 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const existing = await db.task.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -62,6 +62,17 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // POST /api/tasks proves every linked id belongs to this company. This
+  // PATCH proved neither of the two it can change: `assignedToId` could name a
+  // user in another tenant (whose name then comes back in
+  // `include: { assignedTo }`), and `workAreaId` could name another tenant's
+  // area outright. The gate above answers "may you reassign", not "to whom".
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...("assignedToId" in body && { assignedToId: body.assignedToId }),
+    ...(body.workAreaId !== undefined && { workAreaId: body.workAreaId }),
+  });
+  if (notOurs) return notOurs;
+
   const updated = await db.task.update({
     where: { id: _params.id },
     data: {
@@ -86,9 +97,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const existing = await db.task.findFirst({
     where: { id: _params.id, companyId: member.companyId },

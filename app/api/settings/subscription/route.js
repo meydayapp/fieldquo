@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, seesBillingState } from "@/lib/billing/billingAdmin";
 
 // Feeds the AdminSidebar TrialBadge AND the Account & Billing page.
@@ -25,9 +25,8 @@ import { isBillingAdmin, seesBillingState } from "@/lib/billing/billingAdmin";
 // `plan.id` is in the full payload so Account & Billing can tell which plan in
 // the /api/settings/plans list is the current one.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Impersonation sees the full record: "view everything, edit nothing"
   // (non-negotiable #3), and a support session looking at a billing question

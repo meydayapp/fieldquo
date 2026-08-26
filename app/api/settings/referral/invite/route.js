@@ -21,7 +21,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { lazyClient } from "@/lib/lazyClient";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { REFEREE_BONUS_MONTHS } from "@/lib/referrals";
@@ -35,9 +35,8 @@ const DAILY_LIMIT = 20;
 const FROM = "FieldQuo <invites@fieldquo.com>";
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!["owner", "admin"].includes(member.role)) {
     return NextResponse.json(

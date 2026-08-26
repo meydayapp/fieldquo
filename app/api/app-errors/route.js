@@ -15,16 +15,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request) {
   // Authenticated only. This writes to the support-facing error table, and an
   // open endpoint that appends to it is a way to bury real failures under
   // noise — the exact thing the helper's own comment warns about.
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const body = await request.json().catch(() => ({}));
   const message = String(body?.message || "").slice(0, 500);

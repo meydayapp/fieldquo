@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createConnectOnboardingLink } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -33,11 +33,19 @@ export async function GET(request) {
       { status: 400 },
     );
 
-  const member = await getCurrentMember(request);
+  // memberOrRefusal, so the gates inside getCurrentMember answer instead of
+  // throwing an unserialisable error into Next and becoming a blank 500. This
+  // URL is opened by a BROWSER returning from Stripe, so a 500 here is a white
+  // page in the middle of payment onboarding.
+  const { member, response } = await memberOrRefusal(request);
   // A browser arriving here mid-flow, not an API client — so send an expired
   // session to the login page rather than a JSON 401 it can't render. They land
-  // back on the payments screen and start onboarding again, which works.
-  if (!member) {
+  // back on the payments screen and start onboarding again, which works. Only
+  // the 401 becomes a redirect: a 402 or 404 is a real refusal with a real
+  // message, and bouncing it to /login would say "sign in" to someone who
+  // already is.
+  if (response) {
+    if (response.status !== 401) return response;
     return NextResponse.redirect(
       new URL(
         `/login?next=${encodeURIComponent("/app/settings/payments")}`,

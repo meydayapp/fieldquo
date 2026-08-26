@@ -22,15 +22,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, requireToggle } from "@/lib/permissions/enforce";
 import { benchmarkForCompany } from "@/lib/pricing/benchmarkData";
 import { MIN_COHORT } from "@/lib/pricing/benchmark";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     const full = await loadEnforceableMember(db, member.id);

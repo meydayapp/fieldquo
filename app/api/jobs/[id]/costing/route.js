@@ -10,16 +10,15 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const full = await loadEnforceableMember(db, member.id);
   if (!hasToggle(full, "jobCosting")) {

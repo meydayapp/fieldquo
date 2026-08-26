@@ -3,15 +3,19 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { rescoreLead } from "@/lib/leads/createLead";
 import { cleanBudgetBand, cleanTimeline } from "@/lib/leads/qualifiers";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({
@@ -45,9 +49,19 @@ export async function GET(request, { params }) {
 // Update pipeline state, owner, or the qualifiers. Changing a qualifier
 // re-triages the lead so the score never goes stale against its own inputs.
 export async function PATCH(request, { params }) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // The same gate as the board's PATCH beside it. This route is the wider of
+  // the two — it reassigns the lead and rewrites the qualifiers that drive the
+  // score, not just the column — and it had exactly the same nothing.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "requests", "view_create_edit", "change a request");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { id } = await params;
   const existing = await db.leadRequest.findFirst({

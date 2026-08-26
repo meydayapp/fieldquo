@@ -21,7 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import {
   resolveServiceContent,
@@ -29,14 +29,30 @@ import {
   dominantGlossary,
 } from "@/lib/documents/serviceContent";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
+import {
+  loadEnforceableMember,
+  requireMoney,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 const num = (v) => Number(v ?? 0);
 
 export async function GET(request, { params }) {
   const { id } = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // The on-screen document mirror — the same priced payload the PDF renders,
+  // as JSON. Gated identically: hiding the download and serving its contents
+  // through the sibling endpoint would be the side door this sweep exists to
+  // close.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireMoney(full, "see priced documents");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },

@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -22,11 +22,14 @@ import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
 import { summarisePlan } from "@/lib/servicePlans/summary";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
+  // Hoisted out of the try: the response is shaped with the same member the
+  // gate used — summarisePlan redacts the client and the money from it.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_only", "see service plans");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
@@ -46,15 +49,18 @@ export async function GET(request) {
   // summarisePlan strips the authorisation's Stripe ids and returns the state
   // as a NAMED reason, so no screen has to reassemble "is there a mandate" from
   // nullable columns of its own.
-  return NextResponse.json(plans.map(summarisePlan));
+  return NextResponse.json(plans.map((p) => summarisePlan(p, { member: full })));
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
+  // Hoisted out of the try: the response is shaped with the same member the
+  // gate used — summarisePlan redacts the client and the money from it.
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "invoices", "view_create_edit", "create a service plan");
     requireToggle(full, "payments", "set up recurring payments");
   } catch (err) {
@@ -95,5 +101,5 @@ export async function POST(request) {
     },
   });
 
-  return NextResponse.json(summarisePlan(plan), { status: 201 });
+  return NextResponse.json(summarisePlan(plan, { member: full }), { status: 201 });
 }

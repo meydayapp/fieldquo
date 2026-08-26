@@ -3,13 +3,17 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
+import {
+  loadEnforceableMember,
+  requireLevel,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -75,9 +79,26 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // ── Leads ARE the "Requests" category ───────────────────────────────────
+  //
+  // lib/permissions/nav.js has said so since it was written ("Leads are the
+  // requests grid") and hides the quick-add control at view_only. The control
+  // was hidden and the endpoint behind it was open: dragging a card across the
+  // pipeline board is this PATCH, and a Worker set to "Requests: view only"
+  // could move anyone's lead to Lost.
+  //
+  // Hiding a button is not access control — and of the four grid categories in
+  // the Worker presets, requests was the one whose route had no check at all.
+  try {
+    const full = await loadEnforceableMember(db, member.id);
+    requireLevel(full, "requests", "view_create_edit", "change a request");
+  } catch (err) {
+    const { body, status } = permissionErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
 
   const { id, status } = await request.json();
   if (!id || !status) {

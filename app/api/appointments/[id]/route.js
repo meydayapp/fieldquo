@@ -3,13 +3,14 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import {
   loadEnforceableMember,
   hasLevel,
   redactClient,
 } from "@/lib/permissions/enforce";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 // ── The list route was scoped; this one was not ────────────────────────────
 //
@@ -49,9 +50,8 @@ const NOT_FOUND = {
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const appt = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -84,9 +84,8 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const existing = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -154,6 +153,14 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // Same gap as the create route: the membership lookup below only runs for a
+  // supervisor-required appointment, which is the minority case. Every reassign
+  // has to name somebody on this team.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    ...("assignedToId" in body && { assignedToId: body.assignedToId }),
+  });
+  if (notOurs) return notOurs;
+
   if (
     existing.requiresSupervisor &&
     "assignedToId" in body &&
@@ -210,9 +217,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const existing = await db.appointment.findFirst({
     where: { id: _params.id, companyId: member.companyId },

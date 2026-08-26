@@ -190,10 +190,16 @@ export default function QuotesPage() {
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <span className="font-semibold text-foreground">
-                  $
-                  {Number(q.total).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {/* `pricingHidden` means the API removed the totals for a
+                      member without showPricing. Number(undefined) is NaN, so
+                      the alternative here is literally "$NaN" on every row. */}
+                  {q.pricingHidden ? (
+                    <span className="text-muted-foreground font-normal">—</span>
+                  ) : (
+                    `$${Number(q.total).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}`
+                  )}
                 </span>
                 <ArrowRight size={16} className="text-muted-foreground" />
               </div>

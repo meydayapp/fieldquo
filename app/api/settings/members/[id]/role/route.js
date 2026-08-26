@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import {
   assignableRoles,
@@ -26,9 +26,8 @@ import {
 export async function PATCH(request, { params }) {
   const { id } = await params;
 
-  const actor = await getCurrentMember(request);
-  if (!actor)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member: actor, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(actor.role, "user:manage");
@@ -119,9 +118,8 @@ export async function PATCH(request, { params }) {
 
 /** Which roles the caller may assign, for populating the UI. */
 export async function GET(request) {
-  const actor = await getCurrentMember(request);
-  if (!actor)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member: actor, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const actorMember = await db.member.findUnique({
     where: { id: actor.id },

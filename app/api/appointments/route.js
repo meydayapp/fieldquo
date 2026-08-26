@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
 import {
   loadEnforceableMember,
@@ -16,11 +16,11 @@ import {
   toCalendarEntry,
   bookingToCalendarEntry,
 } from "@/lib/schedule/jobVisits";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Schedule scoping. "View their own schedule" means the calendar shows
   // only their jobs — a filter, not a 403. Unassigned appointments stay
@@ -136,9 +136,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "appointment:create");
@@ -189,6 +188,19 @@ export async function POST(request) {
       { status: 403 },
     );
   }
+
+  // Whoever it is assigned to has to be on this team.
+  //
+  // There WAS a membership lookup here — but only inside the
+  // `requiresSupervisor` branch below, which exists to check the assignee's
+  // ROLE. An ordinary appointment skipped it entirely, so an assignedToId
+  // naming a user in another company was written and read back through
+  // `include: { assignedTo: { name } }`. A check that runs on the unusual path
+  // and not the common one is the easiest kind to believe in.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    assignedToId,
+  });
+  if (notOurs) return notOurs;
 
   if (requiresSupervisor && assignedToId) {
     const assignee = await db.member.findUnique({

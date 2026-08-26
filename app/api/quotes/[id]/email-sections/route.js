@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -108,9 +108,8 @@ function present(company, quote) {
 export async function GET(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { quote, company } = await load(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -128,9 +127,8 @@ function readTriState(value) {
 export async function PATCH(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Same weight as editing the quote: this decides what a client reads.
   try {

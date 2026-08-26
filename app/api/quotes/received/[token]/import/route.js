@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { performImport, ImportError } from "@/lib/quotes/importQuote";
 import { deriveCommitStatus, importerView } from "@/lib/quotes/importedStatus";
 import { recordActivity } from "@/lib/activity/log";
@@ -17,9 +17,10 @@ import { recordActivity } from "@/lib/activity/log";
 export async function POST(request, { params }) {
   const { token } = await params;
 
-  const member = await getCurrentMember(request);
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
   // A write, so read-only impersonation (userId null) is refused here too.
-  if (!member || !member.userId)
+  if (!member.userId)
     return NextResponse.json(
       { error: "Sign in to add this to your project." },
       { status: 401 },

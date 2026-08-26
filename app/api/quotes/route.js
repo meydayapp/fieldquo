@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMediaList } from "@/lib/media/validate";
@@ -13,6 +13,7 @@ import {
   requireLevel,
   permissionErrorResponse,
   redactQuotes,
+  redactQuote,
 } from "@/lib/permissions/enforce";
 import {
   buildQuoteCostingRow,
@@ -21,11 +22,11 @@ import {
   requireCost,
 } from "./costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -54,9 +55,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Granular check. Previously this route trusted the coarse role alone, so a
   // member configured as "Quotes: view only" could still create quotes —
@@ -129,6 +129,17 @@ export async function POST(request) {
       { status: 400 },
     );
   }
+
+  // The clientId arrives from a browser and was written straight onto the
+  // quote. Posting another tenant's client id built a quote inside THIS
+  // company pointing at THEIR client — and every GET on it returns
+  // `client`, so the address book crossed the boundary one quote at a time.
+  // Sending that quote would then email their client on this company's
+  // letterhead. See lib/tenant/ownedIds.js.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+    clientId,
+  });
+  if (notOurs) return notOurs;
 
   const [lastQuote, company] = await Promise.all([
     db.quote.findFirst({
@@ -273,5 +284,10 @@ export async function POST(request) {
     metadata: { total: quote.total },
   });
 
-  return NextResponse.json(quote, { status: 201 });
+  // Redacted like GET beside it. Creating a quote needs quotes/view_create_edit
+  // and says nothing about clientsProperties, so an estimator restricted to
+  // name-and-address reaches here — and read the client's email back out of
+  // their own save. Same shape as the bug already fixed on PATCH
+  // /api/quotes/[id]; the POST in the same file was the copy nobody looked at.
+  return NextResponse.json(redactQuote(full, quote), { status: 201 });
 }

@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db";
 import { lazyClient } from "@/lib/lazyClient";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { SENDER_SELECT } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalUrl } from "@/lib/clientPortal";
@@ -30,9 +30,8 @@ const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // Asking a client for money on the company's behalf is not a view-only act.
   try {

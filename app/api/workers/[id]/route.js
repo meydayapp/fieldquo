@@ -9,7 +9,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
 import { managementChain } from "@/lib/org/reportingLine";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission, can } from "@/lib/permissions";
 // Same normaliser the crew inbox matches with, so a number accepted here is a
 // number that will actually be recognised on an inbound text.
@@ -18,9 +18,8 @@ import { toE164 } from "@/lib/sms/twilioClient";
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   // ── One worker's record is payroll too ──────────────────────────────────
   //
@@ -71,9 +70,8 @@ export async function GET(request, { params }) {
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -232,9 +230,8 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
   const _params = await params;
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");

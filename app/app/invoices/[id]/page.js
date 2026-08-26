@@ -887,6 +887,20 @@ export default function InvoiceDetailPage() {
             </Block>
           )}
 
+        {/* Same rule as the quote page: with showPricing off the money columns
+            are absent, money() renders a missing amount as $0.00, and an
+            invoice reading "$0.00 total, $0.00 balance due" is a worse lie than
+            saying nothing. The reason replaces the block. */}
+        {invoice.pricingHidden ? (
+          <div className="px-5 sm:px-7 py-5 border-t border-border">
+            <p className="sm:w-3/5 sm:ml-auto text-sm text-muted-foreground">
+              {t(
+                "app.invoiceDetail.pricingHidden",
+                "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+              )}
+            </p>
+          </div>
+        ) : (
         <div className="px-5 sm:px-7 py-5 border-t border-border">
           <div className="sm:w-3/5 sm:ml-auto space-y-1 text-sm">
             <Row label={labels.subtotal} value={money(invoice.subtotal)} />
@@ -925,6 +939,7 @@ export default function InvoiceDetailPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* ── Payment terms ──────────────────────────────────────────────
             The milestones when the company's terms parse as a schedule, the

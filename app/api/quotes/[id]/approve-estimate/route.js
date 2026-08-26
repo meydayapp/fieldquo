@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { recordActivity } from "@/lib/activity/log";
 import { can } from "@/lib/permissions";
 import { onQuoteApproved } from "@/lib/voice/triggers";
@@ -20,9 +20,8 @@ import { onQuoteApproved } from "@/lib/voice/triggers";
 export async function POST(request, { params }) {
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!can(member.role, "quote:approve-estimate")) {
     return NextResponse.json(

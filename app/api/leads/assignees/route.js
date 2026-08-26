@@ -3,16 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 
 // The company's people, for the "assign lead" dropdown. Deliberately lighter
 // than /api/settings/members (which is admin-gated and returns roles/seats):
 // picking who chases a lead isn't a management action, so any member can read
 // the names — just id + name, nothing sensitive.
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const members = await db.member.findMany({
     where: { companyId: member.companyId },

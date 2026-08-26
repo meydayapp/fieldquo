@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { canApprove } from "@/lib/org/reportingLine";
 import { recordActivity } from "@/lib/activity/log";
@@ -25,8 +25,9 @@ export async function PATCH(request, { params }) {
   // Next 16: params is a Promise.
   const { id } = await params;
 
-  const member = await getCurrentMember(request);
-  if (!member?.userId)
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+  if (!member.userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));

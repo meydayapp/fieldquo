@@ -3,13 +3,13 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   const eventTypes = await db.eventType.findMany({
     where: { companyId: member.companyId },
@@ -26,9 +26,8 @@ export async function GET(request) {
 // on the company's public booking page. "user:manage" is the same bar the
 // booking-page settings screen sits behind.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   try {
     requirePermission(member.role, "user:manage");
@@ -65,6 +64,13 @@ export async function POST(request) {
       { status: 409 },
     );
   }
+
+  // `userId` names WHOSE calendar this event type books. Unchecked, it could
+  // name a user in another company — and /api/booking/[slug]/members renders
+  // the assigned person on the public booking page, so the leak lands on a
+  // client-facing surface.
+  const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, { userId });
+  if (notOurs) return notOurs;
 
   const eventType = await db.eventType.create({
     data: {

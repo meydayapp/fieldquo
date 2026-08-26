@@ -3,16 +3,15 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getCurrentMember } from "@/lib/currentMember";
+import { memberOrRefusal } from "@/lib/apiMember";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 
 // Lets an existing company pull in the standard add-on products for a category
 // they already have (new companies get these at signup). Owner/admin only —
 // it writes to the shared Products & Services catalog.
 export async function POST(request) {
-  const member = await getCurrentMember(request);
-  if (!member)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
 
   if (!["owner", "admin"].includes(member.role)) {
     return NextResponse.json(
