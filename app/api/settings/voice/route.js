@@ -97,21 +97,47 @@ export async function GET(request) {
   const callAfford = number
     ? await checkSpend({ companyId: member.companyId, kind: "call", numberType: type })
     : null;
+  // ── Why a KEY travels with the sentence ─────────────────────────────────
+  //
+  // These were English, built here, and printed verbatim — so a French
+  // contractor read a French screen with one English paragraph in the middle of
+  // it, on the one card that explains why their phone isn't answering. Routes
+  // have no t(): the catalogue is a client-side hook. So the route sends the id
+  // and the values, and the page resolves it against app/i18n/appMessages.js,
+  // with the English text still attached as the per-key fallback t() already
+  // uses everywhere else.
+  const portDate = number?.portExpectedAt
+    ? new Date(number.portExpectedAt).toLocaleDateString("en-CA", { day: "numeric", month: "long" })
+    : null;
+
   const readiness = !number
-    ? { ready: false, reason: "no_number", message: "Set up a number above first — there's nothing for it to answer on." }
+    ? {
+        ready: false,
+        reason: "no_number",
+        messageKey: "app.setVoice.ready.noNumber",
+        message: "Set up a number above first — there's nothing for it to answer on.",
+      }
     : number.status === "porting"
-      ? {
-          ready: false,
-          reason: "porting",
-          message: number.portExpectedAt
-            ? `Your number is still being moved over from your old provider — expected around ${new Date(number.portExpectedAt).toLocaleDateString("en-CA", { day: "numeric", month: "long" })}. Nothing can answer on it until it lands.`
-            : "Your number is still being moved over from your old provider. Nothing can answer on it until it lands.",
-        }
+      ? portDate
+        ? {
+            ready: false,
+            reason: "porting",
+            messageKey: "app.setVoice.ready.portingDated",
+            params: { date: portDate },
+            message: `Your number is still being moved over from your old provider — expected around ${portDate}. Nothing can answer on it until it lands.`,
+          }
+        : {
+            ready: false,
+            reason: "porting",
+            messageKey: "app.setVoice.ready.porting",
+            message: "Your number is still being moved over from your old provider. Nothing can answer on it until it lands.",
+          }
       : number.status !== "active"
         ? {
             ready: false,
             reason: "number_not_active",
-            message: "Your number hasn't finished activating. Get in touch — this one needs a person.",
+            messageKey: "app.setVoice.ready.notActive",
+            message: "Your number hasn't finished activating. This one needs a person — email us and we'll finish it.",
           }
         : callAfford?.allowed
           ? { ready: true, reason: "ok", message: null }
@@ -119,11 +145,14 @@ export async function GET(request) {
             ? {
                 ready: false,
                 reason: "feature_unavailable",
-                message: "The phone receptionist isn't available on this account. Get in touch and we'll look at it.",
+                messageKey: "app.setVoice.ready.unavailable",
+                message: "The phone receptionist isn't available on this account. Email us and we'll look at it.",
               }
             : {
                 ready: false,
                 reason: "insufficient_balance",
+                messageKey: "app.setVoice.ready.lowBalance",
+                params: { rate: ratePerMinute(type), balance: `$${(cents / 100).toFixed(2)}` },
                 message: `Add credit first — a call costs ${ratePerMinute(type)}¢ a minute and your balance is $${(cents / 100).toFixed(2)}. It would pick up and fail.`,
               };
 

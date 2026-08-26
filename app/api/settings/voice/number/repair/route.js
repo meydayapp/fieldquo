@@ -162,8 +162,33 @@ async function markActive(companyId, e164) {
  * minute — that resolves itself, and a daily page of transient provider blips
  * trains everyone to ignore the log.
  */
+const NOTIFY_QUIET_HOURS = 24;
+
 async function notifyIfBroken(companyId, result, previousVerdict = null) {
   if (result.side !== "fieldquo") return;
+
+  // ── Once a day, not once a page view ────────────────────────────────────
+  //
+  // The settings page diagnoses on load, and it has to: an `unbound` number
+  // whose stored status still says `active` is invisible any other way. But a
+  // contractor who leaves that tab open would otherwise write a
+  // PlatformErrorLog row every render, and a log that fills with one company's
+  // repeated tab is a log nobody reads — the same reason company-side verdicts
+  // are not logged at all.
+  //
+  // Keyed on company AND code, so a number that DEGRADES (unbound → ghost) is
+  // reported immediately rather than being swallowed by the quiet period for
+  // the state it used to be in. A failed repair always reports: someone just
+  // pressed a button and it did not work, which is a new fact every time.
+  if (!previousVerdict) {
+    const since = new Date(Date.now() - NOTIFY_QUIET_HOURS * 60 * 60 * 1000);
+    const recent = await db.platformErrorLog.findFirst({
+      where: { companyId, code: `number_${result.verdict}`, createdAt: { gte: since } },
+      select: { id: true },
+    });
+    if (recent) return;
+  }
+
   await recordError({
     area: "voice",
     code: `number_${result.verdict}`,

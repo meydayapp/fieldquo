@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import { diagnoseNumber } from "@/lib/voice/diagnose";
 
 // Next 16: params is a Promise and must be awaited. Reading params.id
 // synchronously resolves to undefined, which turns every lookup on this route
@@ -66,7 +67,30 @@ export async function GET(request, { params }) {
 
   if (!company)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(company);
+
+  // ── What is actually wrong with a stuck number ──────────────────────────
+  //
+  // Support looking at a company should see the same diagnosis the contractor
+  // does, or the two are reading different stories off the same row. Until now
+  // this console said "nothing in the app can repair one", which stopped being
+  // true when lib/voice/diagnose.js landed.
+  //
+  // Read-only, and it stays that way: diagnoseNumber() only reads — from our
+  // database and from the provider — and there is deliberately no repair
+  // control here. Non-negotiable #3: the platform console views everything and
+  // edits nothing.
+  //
+  // Only run when something looks stuck. Every healthy company would otherwise
+  // cost a provider round-trip on a page support opens all day, for an answer
+  // that is always "ok".
+  const stuck = company.voiceNumbers.some(
+    (n) => n.status !== "active" && n.status !== "porting" && n.status !== "released",
+  );
+  const voiceDiagnosis = stuck
+    ? await diagnoseNumber(id).catch(() => null)
+    : null;
+
+  return NextResponse.json({ ...company, voiceDiagnosis });
 }
 
 export async function PATCH(request, { params }) {

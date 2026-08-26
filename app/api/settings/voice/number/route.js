@@ -29,7 +29,56 @@ import { recordError } from "@/lib/platform/errorLog";
 import { monthlyCentsFor, NUMBER_TYPES, grantFreeTrial } from "@/lib/voice/credits";
 import { reserveSpend, refundReservation, RENT_PERIOD_DAYS } from "@/lib/voice/spendGate";
 import { provisionAgent } from "@/lib/voice/provision";
+import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { getAppOrigin } from "@/lib/appUrl";
+
+/**
+ * Why they can't buy one, said in terms of what is actually wrong.
+ *
+ * The stalled case used to read "contact support before buying another —
+ * you're being charged for that one", which was two assertions nobody had
+ * checked. Now it asks the provider (lib/voice/diagnose.js) and answers with
+ * the truth, because the two possible truths need opposite actions from the
+ * contractor: a `ghost` row is a purchase that never happened, costs nothing,
+ * and should be cleared so they CAN buy — while a number that really exists
+ * should be repaired rather than duplicated.
+ *
+ * Each refusal carries an i18n key as well as the English. A route has no t(),
+ * and this message reached French contractors in English.
+ */
+async function refusalFor(companyId, existing) {
+  if (existing.status === "porting") {
+    return {
+      errorKey: "app.setVoice.numberBusy.porting",
+      errorParams: { number: existing.e164 },
+      error: `A port of ${existing.e164} is already in progress. Cancel that request first if you'd rather do something else.`,
+    };
+  }
+  if (existing.status !== "provisioning") {
+    return {
+      errorKey: "app.setVoice.numberBusy.held",
+      error: "You already have a number set up. Release it first to change.",
+    };
+  }
+
+  // Best-effort: a diagnosis that throws must not turn a clear refusal into a
+  // 500. The unspecific wording is still true of every stalled row.
+  const diag = await diagnoseNumber(companyId).catch(() => null);
+  if (diag?.verdict === "ghost") {
+    return {
+      verdict: diag.verdict,
+      errorKey: "app.setVoice.numberBusy.ghost",
+      error:
+        "Your last attempt stopped halfway and no number was actually created, so nothing is being charged. Clear it with the Fix button above and you can set one up again.",
+    };
+  }
+  return {
+    verdict: diag?.verdict || null,
+    errorKey: "app.setVoice.numberBusy.stuck",
+    errorParams: { number: existing.e164 },
+    error: `A number (${existing.e164}) is already set up for you but hasn't finished. Use the Fix button above rather than buying another — you're paying the rental on that one.`,
+  };
+}
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -50,15 +99,16 @@ export async function POST(request) {
   //
   // Each state gets its own sentence. "You already have a number" is useless to
   // someone who cannot see one on the page.
+  //
+  // The three sentences carry a KEY as well as the English. A route has no t()
+  // — the catalogue is a client-side hook — so a hardcoded string here reached
+  // a French contractor in English, and this particular one is the message that
+  // stops them buying a second number. The page resolves the key and falls back
+  // to the English attached here, exactly as t() does everywhere else.
   const existing = await heldNumber(member.companyId);
   if (existing) {
-    const message =
-      existing.status === "porting"
-        ? `A port of ${existing.e164} is already in progress. Cancel that request first if you'd rather do something else.`
-        : existing.status === "provisioning"
-          ? `A number (${existing.e164}) was already set up for you but didn't finish activating. Contact support before buying another — you're being charged for that one.`
-          : "You already have a number set up. Release it first to change.";
-    return NextResponse.json({ error: message, status: existing.status }, { status: 409 });
+    const refusal = await refusalFor(member.companyId, existing);
+    return NextResponse.json({ ...refusal, status: existing.status }, { status: 409 });
   }
 
   const body = await request.json().catch(() => ({}));

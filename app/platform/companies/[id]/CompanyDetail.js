@@ -316,16 +316,45 @@ export default function CompanyDetail({ companyId }) {
             })}
           </div>
           {/* Named rather than merely coloured. A stuck number is money
-              leaving on something the tenant cannot use and cannot fix
-              themselves — the app tells them to get in touch, so this is the
-              side that has to notice. */}
+              leaving on something the tenant cannot use — this is the side
+              that has to notice.
+
+              This used to end "nothing in the app can repair one", which was
+              written before anyone asked the provider and is no longer true:
+              lib/voice/diagnose.js reads the real state and the contractor now
+              has a Fix button for the faults that are ours. So the count is
+              still named, and the verdict is printed beside it — support and
+              the contractor should be reading the same sentence.
+
+              Still read-only. There is no repair control here on purpose
+              (non-negotiable #3): support talks the customer through pressing
+              their own button. */}
           {company.voiceNumbers.some((n) => n.status !== "active") && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-3">
-              {company.voiceNumbers.filter((n) => n.status !== "active").length} of{" "}
-              {company.voiceNumbers.length} never finished activating. The
-              company is told to contact us rather than buy another — nothing in
-              the app can repair one.
-            </p>
+            <div className="text-xs text-amber-700 dark:text-amber-400 mt-3 space-y-1">
+              <p>
+                {company.voiceNumbers.filter((n) => n.status !== "active").length} of{" "}
+                {company.voiceNumbers.length} are not active.
+              </p>
+              {company.voiceDiagnosis?.verdict ? (
+                <>
+                  <p>
+                    Provider says: <span className="font-semibold">{company.voiceDiagnosis.verdict}</span>
+                    {company.voiceDiagnosis.side ? ` · ${company.voiceDiagnosis.side}'s end` : ""}
+                    {company.voiceDiagnosis.billing ? " · being billed" : " · not being billed"}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {company.voiceDiagnosis.repairable
+                      ? "The company can fix this themselves from Settings → Phone receptionist."
+                      : "Not repairable from the app — this one needs a person."}
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">
+                  No live diagnosis — either the phone provider isn&apos;t
+                  configured on this deployment, or it couldn&apos;t be reached.
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -463,11 +463,42 @@ they set the pattern.
 
   Also fixed on that screen: the readiness sentences and the number refusals
   were built server-side in hardcoded English and printed verbatim to French
-  contractors — they now travel as a key plus values, resolved by the page. And
-  the "never finished activating" banner said "please get in touch" with nothing
-  to touch; there is no in-app support inbox (`/api/feedback` exists but nothing
-  in `/app` renders a form for it), so it links `hello@fieldquo.com` with the
-  number already in the subject. See `lib/supportContact.js`.
+  contractors — they now travel as a key plus values, resolved by the page.
+
+- **The stuck-number banner now says what is wrong and can fix it.**
+
+  `lib/voice/diagnose.js` and `app/api/settings/voice/number/repair` (the
+  backend), `lib/voice/diagnosisCopy.js` and the `NumberDiagnosis` component in
+  `app/app/settings/voice/page.js` (the UI), `lib/supportContact.js`,
+  `app/platform/companies/[id]/CompanyDetail.js`.
+
+  The old banner printed one fixed sentence — "set up but never finished
+  activating… already yours and already being charged for" — and both halves
+  were asserted without ever asking the provider. They are not always true
+  together: a `ghost` number does not exist at Retell and nobody is renting it,
+  so that copy left a contractor with no phone and an imaginary bill, while
+  also telling them not to buy a working one.
+
+  The settings page now diagnoses on load (any number not `porting`) and
+  branches on the verdict. Each verdict has its own sentence in all six
+  catalogues, the "you're paying rent on it" line is printed **only** where
+  `billing` is true, `side` says whose end it is, and a Fix button appears
+  **only** where `repairable` is true. A company-side verdict (`voice_off`,
+  `no_credit`) renders calmly and offers no Fix — repairing it would override
+  the contractor's own choice. `provider_unreachable` offers nothing and claims
+  nothing. A repair that reports failure says so and names the previous state.
+
+  The platform console shows the same verdict, still read-only. The
+  "nothing in the app can repair one" line there was true when written and is
+  not any more.
+
+  The banner used to end on "please get in touch" with nothing to touch. There
+  is no in-app support inbox — `/api/feedback` exists and the platform console
+  reads it, but nothing in `/app` renders a form for it — so `lib/supportContact.js`
+  points at `hello@fieldquo.com`, the address the marketing site already
+  publishes, with the number and the verdict in the subject. **Worth building:**
+  a real "report a problem" form in `/app` posting to the endpoint that is
+  already there.
 
 - **Service plans — recurring work sold as a package, billed on a cadence.**
 

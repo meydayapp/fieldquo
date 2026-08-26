@@ -31,12 +31,16 @@
 // one they won't pick unless it's first and explained. See lib/voice/numbers.js.
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import {
-  MessageSquare,
+  MessageSquare, Sparkles, Mail, ArrowRight, Wrench,
   Headset, Phone, Loader2, Check, Plus, AlertTriangle, Copy, Info,
 } from "lucide-react";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { supportMailto } from "@/lib/supportContact";
+import { usableNotes } from "@/lib/voice/knowledge";
+import { DIAGNOSIS_TONE, DIAGNOSIS_TEXT, SIDE_TEXT, diagnosisKey, sideKey } from "@/lib/voice/diagnosisCopy";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
@@ -67,6 +71,35 @@ export default function VoiceSettingsPage() {
   // What just happened, in a sentence. Sticky rather than a 2-second toast: the
   // thing it usually says is "now go and dial this on your phone".
   const [notice, setNotice] = useState(null);
+  // The drafted knowledge gaps. Held here and NEVER written to the agent — the
+  // owner edits it and presses Save, same as anything else they typed.
+  const [drafting, setDrafting] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [draftText, setDraftText] = useState("");
+  // What the PROVIDER says about this number, not what our column says. See
+  // lib/voice/diagnose.js — the old banner asserted both "it never activated"
+  // and "you're being charged for it" without ever asking.
+  const [diag, setDiag] = useState(null);
+  const [diagBusy, setDiagBusy] = useState(false);
+
+  /**
+   * A failed request whose message the API sent as a KEY.
+   *
+   * The voice routes build their refusals server-side, where there is no t(),
+   * so the useful ones travel as `errorKey` + `errorParams` with the English
+   * attached. Anything without a key falls through to the normal reporter.
+   */
+  const reportVoiceError = useCallback(
+    async (res, fallback) => {
+      const data = await res.clone().json().catch(() => ({}));
+      if (data?.errorKey) {
+        showError(t(data.errorKey, data.error || fallback, data.errorParams || {}));
+        return;
+      }
+      await reportResponseError(res, fallback);
+    },
+    [t],
+  );
 
   const load = useCallback(async () => {
     const res = await fetch("/api/settings/voice");
@@ -84,6 +117,54 @@ export default function VoiceSettingsPage() {
     return d;
   }, []);
 
+  /**
+   * Ask the provider what is actually true about this number.
+   *
+   * A read, and it costs one provider round-trip on a screen a contractor opens
+   * rarely — cheap against the alternative, which was a page asserting a state
+   * nobody had checked. Never run for a port in flight: "still moving" is not a
+   * fault and the card above already says when it is expected.
+   */
+  const runDiagnosis = useCallback(async () => {
+    setDiagBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/number/repair");
+      if (!res.ok) {
+        // Deliberately silent. This is a background read the contractor did not
+        // ask for; a toast about a diagnosis failing would be noise on top of
+        // whatever they came here to do. The banner simply doesn't appear.
+        setDiag(null);
+        return;
+      }
+      setDiag(await res.json());
+    } catch {
+      setDiag(null);
+    } finally {
+      setDiagBusy(false);
+    }
+  }, []);
+
+  /** Apply the one repair the diagnosis licenses, then re-render from its answer. */
+  async function repairNumber() {
+    setDiagBusy(true);
+    try {
+      const res = await fetch("/api/settings/voice/number/repair", { method: "POST" });
+      // Both the 200 and the 409/502 bodies are a diagnosis, so both are worth
+      // rendering. A Fix button that failed and said nothing would be the dead
+      // control this whole banner exists to remove.
+      const result = await res.json().catch(() => null);
+      if (result?.verdict) setDiag(result);
+      else await reportVoiceError(res, t("app.setVoice.diag.error", "Couldn't check that number just now."));
+      // The row may have changed status or been released, so the rest of the
+      // page has to be reloaded rather than left showing the old state.
+      await load();
+    } catch (err) {
+      showError(t("app.setVoice.diag.error", "Couldn't check that number just now.") + (err?.message ? ` (${err.message})` : ""));
+    } finally {
+      setDiagBusy(false);
+    }
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const topup = params.get("topup");
@@ -97,10 +178,13 @@ export default function VoiceSettingsPage() {
         );
         window.history.replaceState({}, "", window.location.pathname);
       }
-      await load();
+      const d = await load();
       setLoading(false);
+      // After the page has something to show, not before — the diagnosis is a
+      // provider round-trip and must never hold up the first paint.
+      if (d?.number && d.number.status !== "porting") runDiagnosis();
     })();
-  }, [load]);
+  }, [load, runDiagnosis]);
 
   async function save(patch) {
     setBusy(true);
@@ -151,7 +235,7 @@ export default function VoiceSettingsPage() {
         body: JSON.stringify({ source, numberType, ...extra }),
       });
       if (!res.ok) {
-        await reportResponseError(res, t("app.setVoice.numberError", "Couldn't set up a number."));
+        await reportVoiceError(res, t("app.setVoice.numberError", "Couldn't set up a number."));
         return;
       }
       const result = await res.json().catch(() => ({}));
@@ -204,6 +288,50 @@ export default function VoiceSettingsPage() {
     }
   }
 
+  /**
+   * Work out what the receptionist still doesn't know.
+   *
+   * Writes nothing. The answer comes back as questions, the owner answers the
+   * ones worth answering, and the existing Save is still the only thing that
+   * reaches the phone.
+   */
+  async function draftKnowledgeGaps() {
+    setDrafting(true);
+    try {
+      const res = await fetch("/api/settings/voice/knowledge", { method: "POST" });
+      if (!res.ok) {
+        await reportVoiceError(
+          res,
+          t("app.setVoice.kb.error", "Couldn't work out what's missing just now."),
+        );
+        return;
+      }
+      const d = await res.json();
+      setDraft(d);
+      setDraftText(d.note || "");
+    } catch (err) {
+      showError(
+        t("app.setVoice.kb.error", "Couldn't work out what's missing just now.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  /** Move the draft into the box the owner edits. Still unsaved. */
+  function acceptDraft() {
+    const addition = draftText.trim();
+    if (addition) {
+      setForm((f) => ({
+        ...f,
+        instructions: [f.instructions.trim(), addition].filter(Boolean).join("\n\n"),
+      }));
+    }
+    setDraft(null);
+    setDraftText("");
+  }
+
   async function topUp(cents) {
     setBusy(true);
     try {
@@ -248,6 +376,15 @@ export default function VoiceSettingsPage() {
   }
 
   const { agent, number, credit, pricing, sources, configured, readiness } = data;
+  // The route builds this sentence where there is no t(), so it travels as a
+  // key plus its values with the English attached as the fallback.
+  // Bracketed lines the phone will skip. Computed with the SAME function
+  // buildAgentPrompt uses, so the count shown here and the lines actually
+  // withheld cannot drift apart.
+  const unanswered = usableNotes(form.instructions).withheld;
+  const readyMessage = readiness?.messageKey
+    ? t(readiness.messageKey, readiness.message || "", readiness.params || {})
+    : readiness?.message || null;
   // The server's verdict, not a second opinion. It is computed from the same
   // checkSpend() the PUT gate enforces, so the button this page disables and the
   // request the route would refuse cannot disagree — and `readiness.message` is
@@ -513,20 +650,25 @@ export default function VoiceSettingsPage() {
               </div>
             )}
 
-            {/* A row that never finished activating. It exists at the provider
-                and is being paid for, so it must not be silently hidden — but
-                nothing in the app can repair it, and saying "try again" would
-                sell them a second one. */}
-            {number.status !== "porting" && number.status !== "active" && (
-              <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 flex gap-3">
-                <AlertTriangle size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-900 dark:text-amber-200">
-                  This number was set up but never finished activating, so nothing can answer on it.
-                  Please get in touch — don&apos;t buy another one, this one is already yours and
-                  already being charged for.
-                </p>
-              </div>
-            )}
+            {/* ── What is actually wrong, asked of the provider ──────────────
+                This used to be one fixed sentence — "set up but never finished
+                activating... already yours and already being charged for" —
+                and both halves were asserted without ever asking Retell. They
+                are not always true together: a `ghost` number does not exist at
+                the provider and nobody is renting it, so that copy left a
+                contractor with no phone and an imaginary bill.
+
+                Now it branches on the verdict from lib/voice/diagnose.js, says
+                whose end the fault is on, and offers a Fix only where the
+                diagnosis licenses one. */}
+            <NumberDiagnosis
+              diag={diag}
+              busy={diagBusy}
+              t={t}
+              display={number.display}
+              onRepair={repairNumber}
+              onRecheck={runDiagnosis}
+            />
 
             {/* ── The rental, said out loud ───────────────────────────────────
                 It comes out of the same balance the calls do, on a date, and it
@@ -627,8 +769,19 @@ export default function VoiceSettingsPage() {
             {number.status === "active" && (
               <p className="text-xs text-muted-foreground">
                 {number.source === "forwarded"
-                  ? "To stop: dial ##002# from your own phone and calls stop reaching the receptionist immediately — your number is unchanged. To stop paying for the forwarding number as well, get in touch."
-                  : "To give this number up: get in touch. Releasing it is permanent — the number goes back to the pool and can't be recovered — so it isn't a button on this page."}
+                  ? "To stop: dial ##002# from your own phone and calls stop reaching the receptionist immediately — your number is unchanged. To stop paying for the forwarding number as well, "
+                  : "Releasing a number is permanent — it goes back to the pool and can't be recovered — so it isn't a button on this page. To give this one up, "}
+                {/* Same fix as the banner above: the sentence used to end on
+                    "get in touch" with nothing to touch. */}
+                <a
+                  href={supportMailto({
+                    subject: `Release my receptionist number — ${number.display}`,
+                  })}
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  {t("app.setVoice.emailUsShort", "email us")}
+                </a>
+                .
               </p>
             )}
           </div>
@@ -798,6 +951,128 @@ export default function VoiceSettingsPage() {
             />
           </label>
 
+          {/* ── Lines nobody answered ──────────────────────────────────────
+              A drafted question left in [brackets] is withheld from the live
+              agent by buildAgentPrompt — see lib/voice/knowledge.js. Withheld
+              silently would be its own dead control, so the count is stated
+              here, next to the box the brackets are sitting in. */}
+          {unanswered.length > 0 && (
+            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              {t(
+                "app.setVoice.kb.unanswered",
+                "Lines still in brackets: {count}. The receptionist skips a line until you replace the brackets with your own answer.",
+                { count: unanswered.length },
+              )}
+            </p>
+          )}
+
+          {/* ── Draft from what FieldQuo already knows ─────────────────────
+              It asks QUESTIONS. It never writes your hours, your services or
+              your work areas into this box — the receptionist already receives
+              those as facts, and a sentence saying the same thing is a second
+              copy that goes stale the day you edit the first one. */}
+          <div className="rounded-lg border border-border bg-muted/40 p-4">
+            <button
+              type="button"
+              disabled={drafting || busy}
+              onClick={draftKnowledgeGaps}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+            >
+              {drafting ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+              {t("app.setVoice.kb.button", "Draft this from my company profile")}
+            </button>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t(
+                "app.setVoice.kb.buttonHint",
+                "Reads your profile and asks you the things it can't work out on its own. It won't repeat your opening hours, your services or your areas — the receptionist already gets those automatically.",
+              )}
+            </p>
+
+            {draft && (
+              <div className="mt-4 space-y-4">
+                {/* Facts with a proper home. Never drafted into the note. */}
+                {draft.structured.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {t("app.setVoice.kb.fixTitle", "These belong in your settings, not in the note")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("app.setVoice.kb.fixIntro", "The receptionist reads each of these from your settings on every call. Typed in here instead, it would still be saying the old answer a year from now.")}
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {draft.structured.map((s) => (
+                        <li key={s.id} className="text-sm text-foreground">
+                          {s.question}{" "}
+                          <Link
+                            href={s.href}
+                            className="inline-flex items-center gap-1 underline underline-offset-2 text-muted-foreground hover:text-foreground"
+                          >
+                            {t("app.setVoice.kb.fixLink", "Open settings")}
+                            <ArrowRight size={12} />
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {draft.questions.length > 0 ? (
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {t("app.setVoice.kb.title", "Answer these in your own words")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("app.setVoice.kb.intro", "Type over each bracket. Anything you leave in brackets is skipped, so there's no harm in ignoring one.")}
+                    </p>
+                    {/* The trade a question came from is shown HERE and never
+                        written into the note — a service name in the note is a
+                        copy of a row the owner can switch off tomorrow. */}
+                    {draft.questions.some((q) => q.forService) && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t("app.setVoice.kb.fromTrades", "Some of these come from what your quotes already say about")}{" "}
+                        {[...new Set(draft.questions.filter((q) => q.forService).map((q) => q.forService))].join(", ")}.
+                      </p>
+                    )}
+                    <textarea
+                      value={draftText}
+                      onChange={(e) => setDraftText(e.target.value)}
+                      rows={Math.min(12, draft.questions.length + 2)}
+                      className="mt-2 w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {draft.generated
+                        ? t("app.setVoice.kb.written", "Worded by FieldQuo AI from your profile. Nothing here is saved until you add it and press Save.")
+                        : draft.aiUnavailable === "quota"
+                          ? t("app.setVoice.kb.quota", "You've used this month's AI allowance, so these are the standard questions rather than ones written for your trade. They're the same questions either way.")
+                          : t("app.setVoice.kb.plain", "AI isn't switched on for this deployment, so these are the standard questions rather than ones written for your trade.")}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={acceptDraft}
+                        className="px-4 py-2 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
+                      >
+                        {t("app.setVoice.kb.use", "Add these to my note")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setDraft(null); setDraftText(""); }}
+                        className="px-4 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted"
+                      >
+                        {t("app.setVoice.kb.discard", "Discard")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-foreground">
+                    {t("app.setVoice.kb.none", "Nothing obvious left to ask — your note already covers the things your settings can't say.")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {liveWarning && (
             <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -831,7 +1106,7 @@ export default function VoiceSettingsPage() {
             // The old text said "set up a number and add some credit" to
             // everybody, including people looking at their own number two cards
             // further up the same screen.
-            : readiness?.message
+            : readyMessage
         }
       >
         <button
@@ -847,7 +1122,7 @@ export default function VoiceSettingsPage() {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Headset size={16} />}
           {agent?.enabled ? t("app.setVoice.answerOn", "It's answering — turn off") : t("app.setVoice.answerOff", "Start answering calls")}
         </button>
-        <BlockedReason show={!agent?.enabled && !canEnable} readiness={readiness} />
+        <BlockedReason show={!agent?.enabled && !canEnable} message={readyMessage} />
       </Card>
 
       {/* ── 5. Outbound ─────────────────────────────────────────────────────
@@ -876,7 +1151,7 @@ export default function VoiceSettingsPage() {
         {/* This card had no explanation at all when its button was dead — the
             precondition (a live number and enough credit for one minute) was
             enforced in the PUT route and stated nowhere. */}
-        <BlockedReason show={!data?.outbound?.enabled && !canEnable} readiness={readiness} />
+        <BlockedReason show={!data?.outbound?.enabled && !canEnable} message={readyMessage} />
 
         {data?.outbound?.enabled && (
           <p className="text-xs text-muted-foreground mt-3">
@@ -976,6 +1251,126 @@ export default function VoiceSettingsPage() {
   );
 }
 
+// ══ The stuck-number banner ════════════════════════════════════════════════
+//
+// The verdict tables live in lib/voice/diagnosisCopy.js rather than here: they
+// are the half that can be wrong silently — a verdict with no sentence renders
+// an empty banner — and a check script cannot import a client component full of
+// JSX to assert them. See the note at the top of that file.
+
+function NumberDiagnosis({ diag, busy, t, display, onRepair, onRecheck }) {
+  if (!diag?.verdict) return null;
+  const tone = DIAGNOSIS_TONE[diag.verdict];
+  if (!tone) return null;
+
+  const warn = tone === "warn";
+  const box = warn
+    ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40"
+    : "border-border bg-muted";
+  const ink = warn ? "text-amber-900 dark:text-amber-200" : "text-foreground";
+  const icon = warn ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground";
+
+  return (
+    <div className={`rounded-lg border px-4 py-3 flex gap-3 ${box}`}>
+      {warn ? (
+        <AlertTriangle size={17} className={`${icon} shrink-0 mt-0.5`} />
+      ) : (
+        <Info size={17} className={`${icon} shrink-0 mt-0.5`} />
+      )}
+      <div className={`text-sm ${ink} space-y-2`}>
+        {/* Just repaired, or just failed to. Said before the current state, so
+            the reader knows whether they are looking at an outcome or at a
+            problem they haven't touched yet. */}
+        {diag.repaired === true && (
+          <p className="font-semibold">
+            {t("app.setVoice.diag.repaired", "Fixed — this number is answering again.")}
+          </p>
+        )}
+        {/* Keyed on `repaired`, NOT on `was`. The repair route omits `was` on
+            its 409 and 502 bodies, so an early version of this only spoke up
+            when the fix half-worked — press Fix, watch a failed repair change
+            nothing on screen, which is the dead control this banner replaced.
+            The "Before" line is the extra detail, not the message. */}
+        {diag.repaired === false && (
+          <>
+            <p className="font-semibold">
+              {t("app.setVoice.diag.notRepaired", "That didn't fix it. We've been told about it and someone here will pick it up.")}
+            </p>
+            {diag.was && diag.was !== diag.verdict && (
+              <p className="text-xs opacity-80">
+                {t("app.setVoice.diag.before", "Before:")}{" "}
+                {t(diagnosisKey(diag.was), DIAGNOSIS_TEXT[diag.was] || diag.was)}
+              </p>
+            )}
+          </>
+        )}
+
+        <p>{t(diagnosisKey(diag.verdict), DIAGNOSIS_TEXT[diag.verdict])}</p>
+
+        {/* Whose fault, because the owner asked to be told. Omitted where the
+            verdict has no side — asserting one would be the same guess this
+            module was built to stop. */}
+        {diag.side && SIDE_TEXT[diag.side] && (
+          <p className="text-xs opacity-90">
+            {t(sideKey(diag.side), SIDE_TEXT[diag.side])}
+          </p>
+        )}
+
+        {/* The money sentence, and ONLY when the diagnosis licenses it. This is
+            the half that used to be printed unconditionally: telling someone
+            they're paying rent on a number that does not exist, in the same
+            breath as telling them not to buy a working one, is how they end up
+            with no phone. */}
+        <p className="text-xs opacity-90">
+          {diag.billing
+            ? t("app.setVoice.diag.billingYes", "You are paying the monthly rental on it, so don't buy another one.")
+            : t("app.setVoice.diag.billingNo", "Nothing is being charged for it.")}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+          {diag.repairable && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onRepair}
+              className="px-4 py-1.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50 inline-flex items-center gap-1.5"
+            >
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Wrench size={14} />}
+              {t("app.setVoice.diag.fix", "Fix this now")}
+            </button>
+          )}
+          {diag.verdict === "provider_unreachable" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onRecheck}
+              className="px-4 py-1.5 rounded-full border border-border text-sm text-foreground hover:bg-background disabled:opacity-50"
+            >
+              {busy ? t("app.setVoice.diag.checking", "Checking…") : t("app.setVoice.diag.recheck", "Try again")}
+            </button>
+          )}
+          {/* Left as a way out on anything we can't repair from here, and on a
+              repair that reported failure. Not offered on the company-side
+              verdicts: emailing us about a switch they can flip themselves
+              wastes their afternoon. */}
+          {diag.side === "fieldquo" && (!diag.repairable || diag.repaired === false) && (
+            <a
+              href={supportMailto({
+                subject: `Phone number problem — ${display}`,
+                body: `My receptionist number ${display} isn't working. FieldQuo's own check reports: ${diag.verdict}.`,
+              })}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2"
+            >
+              <Mail size={14} />
+              {t("app.setVoice.emailUs", "Email us about this number")}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * What this number costs, and — when they can't have it — why not.
  *
@@ -1023,12 +1418,12 @@ function PriceNote({ afford, label, money, t, configured }) {
  * runs, so this can't tell someone to top up when the real blocker was the
  * number, or tell them the number is fine when the route would refuse.
  */
-function BlockedReason({ show, readiness }) {
-  if (!show || !readiness?.message) return null;
+function BlockedReason({ show, message }) {
+  if (!show || !message) return null;
   return (
     <p className="text-xs text-amber-700 dark:text-amber-400 mt-3 flex items-start gap-1.5">
       <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-      {readiness.message}
+      {message}
     </p>
   );
 }
