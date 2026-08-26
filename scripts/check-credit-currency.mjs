@@ -77,5 +77,20 @@ function execLines(cmd) {
   return execSync(cmd, { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
 }
 
+// ── The margin compares like with like ───────────────────────────────────
+//
+// Retell's call_cost is USD and the credit ledger is USD, so measuredMargin
+// subtracts one from the other directly. If a conversion ever appears in that
+// path it means somebody saw a Canadian company and reached for an exchange
+// rate, which would corrupt a figure that is currently correct.
+{
+  const cost = readFileSync(join(ROOT, "lib/voice/providerCost.js"), "utf8");
+  const code = cost.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  ok("the margin path applies no exchange rate",
+     !/exchangeRate|fxRate|convertCurrency|\bCAD\b/.test(code));
+  ok("and the file says which currency it is in",
+     /US DOLLARS|USD/.test(cost));
+}
+
 console.log(fail === 0 ? "\nALL PASS — credit is bought and spent in the same currency" : `\n${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);
