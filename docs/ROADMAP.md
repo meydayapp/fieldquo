@@ -762,6 +762,28 @@ drift invisibly until a crew builds from the wrong one.
    the "is it priceable?" guard can't drift. Remaining calculator nicety: feed
    the kitchen designer's countertop module into the Countertop trade (optional).
 
+**Cabinets the job doesn't touch — DONE.** `config.outOfScope` on a cabinet (or
+on a single island module) keeps it on the drawing and off the price. Half of
+cabinet work happens in a kitchen that already has cabinets — the refinisher
+takes the uppers and leaves the pantry — and until this existed the designer
+charged for every box drawn, so the only way to quote a partial kitchen was to
+leave the untouched cabinets off the plan. That gets the total right by making
+the drawing wrong, which is the wrong half to sacrifice: the client signs the
+drawing and the crew builds from it.
+
+Excluded pieces come out of the cabinet line, both install modes (per box AND
+per linear foot), the refinishing face count, the tear-out count and the
+reported footage; `breakdown.excluded` says how many, because "eight cabinets
+left out on purpose" and "eight we forgot to price" are the same number in a
+total. On the drawing they are greyed away from the finish being sold and
+hatched — the drafting mark for "existing to remain", chosen because a client
+may pick a grey kitchen and colour alone would then say nothing — with a legend
+line in the sheet's foot band. The flag is opt-OUT, so every design saved before
+it prices to the same cent. `mergeClientDesign` takes it back from the
+contractor's copy for the same reason it takes appliance prices back, and the
+control is absent from `clientMode` rather than shown and ignored.
+`check:kitchen-scope`, 33 assertions.
+
 Two rules this feature already depends on. The client designer is PUBLIC, so it
 returns no prices — `stripPricing` rebuilds the payload key-by-key rather than
 deleting known fields, because a blacklist starts leaking the moment the pricing

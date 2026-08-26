@@ -27,7 +27,7 @@
 // than a blur filter, precisely so this file can draw them.
 import React from "react";
 import { Svg, Rect, Line, Circle, Path, Polygon, Text as SvgText, G } from "@react-pdf/renderer";
-import { planShapes, elevationShapes, scaleBarShapes, PLAN_COLORS } from "./planShapes";
+import { planShapes, elevationShapes, scaleBarShapes, legendShapes, PLAN_COLORS } from "./planShapes";
 
 /** Every shape type planShapes can emit. Kept in sync with PlanSvg's switch. */
 export const SUPPORTED_SHAPES = ["rect", "line", "circle", "path", "polygon", "text"];
@@ -148,14 +148,17 @@ function shapeNode(s, key) {
  *               kitchen rather than being squashed to a fixed box.
  */
 export function PlanPdf({ design, width = 480, title, subtitle }) {
-  const { shapes, width: W, height: H, pad } = planShapes(design);
+  const { shapes, width: W, height: H, pad, legend = [] } = planShapes(design);
 
   const headTop = title ? 26 : 0;
   const vbW = W + pad * 2;
+  // The foot band is always 26 here — the PDF always draws the scale bar — and
+  // the legend sits under it inside that band, at the same offset PlanSvg uses.
   const vbH = H + pad * 2 + headTop + 26;
   const height = (vbH / vbW) * width;
 
   const scale = scaleBarShapes({ x: -pad + 4, y: H + pad - 6, unitPx: 1 });
+  const key = legendShapes(legend, { x: -pad + 4, y: H + pad + 16 });
 
   return (
     <Svg
@@ -188,6 +191,7 @@ export function PlanPdf({ design, width = 480, title, subtitle }) {
         )}
         {shapes.map((s, i) => shapeNode(s, i))}
         {scale.map((s, i) => shapeNode(s, `sc${i}`))}
+        {key.map((s, i) => shapeNode(s, `lg${i}`))}
       </G>
     </Svg>
   );

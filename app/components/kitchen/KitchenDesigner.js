@@ -58,6 +58,7 @@ import {
   priceCabinet,
   getKitchenBreakdown,
   countKitchenFaces,
+  isOutOfScope,
   DEFAULT_CABINET_RATES,
   DOOR_MATERIALS,
   BOX_MATERIALS,
@@ -1116,6 +1117,7 @@ export default function KitchenDesigner({
 
       if (el.kind === "island") {
         (el.config?.modules || []).forEach((m) => {
+          const config = m.config || defaultCabinetConfig(m.kind);
           out.push({
             id: `${el.id}_${m.id}`,
             kind: m.kind,
@@ -1126,7 +1128,11 @@ export default function KitchenDesigner({
             height: m.height || BASE_HEIGHT,
             depth: m.depth || 24,
             label: `Island ${KINDS[m.kind]?.label || m.kind}`,
-            config: m.config || defaultCabinetConfig(m.kind),
+            // A module is flattened into a standalone element here, so it loses
+            // its parent — including the parent's scope. Excluding the island
+            // and still billing its six drawer banks is the exact bug this
+            // flattening invites.
+            config: isOutOfScope(el) ? { ...config, outOfScope: true } : config,
             islandId: el.id,
             islandSide: m.side || "front",
           });
@@ -1400,16 +1406,24 @@ export default function KitchenDesigner({
             fill={
               isOpening
                 ? "transparent"
-                : k.group === "appliance"
-                  ? `${theme.textMuted}22`
-                  : `${theme.gold}1f`
+                : isOutOfScope(el)
+                  ? `${theme.textMuted}18`
+                  : k.group === "appliance"
+                    ? `${theme.textMuted}22`
+                    : `${theme.gold}1f`
             }
             stroke={
               isOpening ? theme.gold : isSel ? theme.gold : `${theme.text}55`
             }
             strokeWidth={isSel ? 2 : 1}
             strokeDasharray={
-              isOpening ? "4 3" : k.plane === "upper" ? "5 3" : "0"
+              isOpening
+                ? "4 3"
+                : isOutOfScope(el)
+                  ? "4 2"
+                  : k.plane === "upper"
+                    ? "5 3"
+                    : "0"
             }
           />
           {el.kind === "island" && (
@@ -1427,11 +1441,26 @@ export default function KitchenDesigner({
           <text
             x={sx(r.x) + 3}
             y={syPlan(r.y) + 11}
-            fill={theme.text}
+            fill={isOutOfScope(el) ? theme.textMuted : theme.text}
             fontSize="8.5"
           >
             {shortLabel(el)}
           </text>
+          {/* Said on the piece, not only in the side panel. An estimator
+              scanning the plan is looking at boxes, and "which of these am I
+              charging for" has to be answerable without clicking each one.
+              Suppressed on a footprint too narrow to hold it, where it would
+              overprint the neighbour rather than inform anyone. */}
+          {isOutOfScope(el) && r.w * scale > 52 && (
+            <text
+              x={sx(r.x) + 3}
+              y={syPlan(r.y) + 20}
+              fill={theme.textMuted}
+              fontSize="6.5"
+            >
+              not in quote
+            </text>
+          )}
         </g>,
       );
     });
@@ -1580,9 +1609,11 @@ export default function KitchenDesigner({
             fill={
               k.group === "opening"
                 ? "transparent"
-                : k.group === "appliance"
-                  ? `${theme.textMuted}1c`
-                  : `${theme.gold}14`
+                : isOutOfScope(el)
+                  ? `${theme.textMuted}18`
+                  : k.group === "appliance"
+                    ? `${theme.textMuted}1c`
+                    : `${theme.gold}14`
             }
             stroke={
               k.group === "opening"
@@ -1592,7 +1623,9 @@ export default function KitchenDesigner({
                   : `${theme.text}55`
             }
             strokeWidth={isSel ? 2 : 1}
-            strokeDasharray={k.group === "opening" ? "4 3" : "0"}
+            strokeDasharray={
+              k.group === "opening" ? "4 3" : isOutOfScope(el) ? "4 2" : "0"
+            }
           />
           {isCab && eh > 16 && (
             <CabinetFace
@@ -2219,6 +2252,7 @@ export default function KitchenDesigner({
           onConfig={(patch) => updateConfig(selected.id, patch)}
           onRemove={() => remove(selected.id)}
           pricing={priceItem(selected)}
+          clientMode={clientMode}
         />
       ) : (
         <p
@@ -2309,6 +2343,43 @@ export default function KitchenDesigner({
               patchCfg={patchCfg}
             />
           )}
+        </div>
+      )}
+
+      {/* ── Pieces the job doesn't touch ───────────────────────────────────
+          Shown in the client view too, unlike everything else in this footer.
+          It carries no money — it says which boxes on the drawing the quote
+          covers, and a homeowner looking at a plan of their whole kitchen
+          beside a price for half of it is owed that sentence before they ask
+          for it. */}
+      {breakdown.excluded > 0 && (
+        <div
+          style={{
+            marginTop: "1rem",
+            display: "flex",
+            gap: "0.6rem",
+            alignItems: "flex-start",
+            padding: "0.75rem 1rem",
+            background: `${theme.text}08`,
+            border: `1px solid ${theme.border}`,
+            borderRadius: "0.75rem",
+            fontSize: "0.78rem",
+            lineHeight: 1.5,
+          }}
+        >
+          <div>
+            <strong>
+              {breakdown.excluded} cabinet{breakdown.excluded === 1 ? "" : "s"}{" "}
+              on this drawing {breakdown.excluded === 1 ? "is" : "are"} marked
+              as existing and {breakdown.excluded === 1 ? "stays" : "stay"} as{" "}
+              {breakdown.excluded === 1 ? "it is" : "they are"}.
+            </strong>{" "}
+            <span style={{ color: theme.textMuted }}>
+              {clientMode
+                ? "They are drawn so the plan matches the room, and this quote does not cover them."
+                : "Drawn hatched and greyed on the plan, the elevations and the client's PDF. Nothing on them is charged — no box, no install, no finishing, no removal."}
+            </span>
+          </div>
         </div>
       )}
 
@@ -3266,7 +3337,7 @@ function KitchenAccessoryPicker({ theme, cfg, patchCfg }) {
     </div>
   );
 }
-function IslandModuleEditor({ el, theme, onConfig }) {
+function IslandModuleEditor({ el, theme, onConfig, clientMode = false }) {
   const modules = el.config?.modules || [];
 
   const updateModule = (moduleId, patch) => {
@@ -3593,6 +3664,32 @@ function IslandModuleEditor({ el, theme, onConfig }) {
                 </button>
               ))}
             </div>
+
+            {/* Per module, not only per island. A run of island cabinets where
+                the client keeps the drawer bank and replaces the rest is an
+                ordinary job; excluding the whole island to describe it would
+                take five other modules off the quote with it. */}
+            {!clientMode && (
+              <label
+                style={{
+                  marginTop: "0.5rem",
+                  fontSize: "0.72rem",
+                  color: theme.textMuted,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!m.config?.outOfScope}
+                  onChange={(e) =>
+                    updateModuleConfig(m.id, { outOfScope: e.target.checked })
+                  }
+                />
+                Existing — drawn, not charged
+              </label>
+            )}
           </div>
         ))}
       </div>
@@ -3609,6 +3706,7 @@ function ElementEditor({
   onConfig,
   onRemove,
   pricing,
+  clientMode = false,
 }) {
   const k = KINDS[el.kind];
   const isCab = k.group === "cabinet";
@@ -3676,6 +3774,61 @@ function ElementEditor({
           <Trash2 size={14} /> Remove
         </button>
       </div>
+
+      {/* ── In this job, or already there? ──────────────────────────────────
+          First control on the card, above the dimensions, because it changes
+          what every number below it means.
+
+          The alternative an estimator had before this was to leave the
+          untouched cabinets off the drawing so the total came out right. That
+          gets the price right and the drawing wrong, and the drawing is the
+          half the client signs and the crew builds from.
+
+          Absent in clientMode, and absent rather than disabled. What is in the
+          job is the contractor's call — mergeClientDesign takes this flag back
+          from their saved copy for the same reason it takes appliance prices
+          back — so rendering the box here would be a tick a homeowner could
+          make and nothing would happen. The client still SEES which pieces are
+          excluded: they are greyed and hatched on the drawing either way. */}
+      {isCab && !clientMode && (
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 7,
+            marginBottom: "0.75rem",
+            padding: "0.55rem 0.65rem",
+            borderRadius: "0.6rem",
+            border: `1px solid ${c.outOfScope ? theme.border : "transparent"}`,
+            background: c.outOfScope ? `${theme.text}0a` : "transparent",
+            fontSize: "0.76rem",
+            color: theme.text,
+            cursor: "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            style={{ marginTop: 2 }}
+            checked={!!c.outOfScope}
+            onChange={(e) => onConfig({ outOfScope: e.target.checked })}
+          />
+          <span>
+            Already there — stays as is
+            <span
+              style={{
+                display: "block",
+                marginTop: 2,
+                fontSize: "0.7rem",
+                color: theme.textMuted,
+              }}
+            >
+              {c.outOfScope
+                ? "Drawn on the plan and the elevations, hatched and greyed, with a legend line on the client's copy. Nothing on this piece is charged — no box, no install, no finishing, no removal."
+                : "Tick this for cabinets the job doesn't touch. They stay on the drawing so it matches the room, and come off the price."}
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* dimensions */}
       <div
@@ -3760,7 +3913,12 @@ function ElementEditor({
       </div>
 
       {isIsland && (
-        <IslandModuleEditor el={el} theme={theme} onConfig={onConfig} />
+        <IslandModuleEditor
+          el={el}
+          theme={theme}
+          onConfig={onConfig}
+          clientMode={clientMode}
+        />
       )}
 
       {isAppliance && (
@@ -4156,7 +4314,19 @@ function ElementEditor({
         </div>
       )}
 
-      {isCab && !isIsland && (
+      {isCab && c.outOfScope && !clientMode && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            fontSize: "0.74rem",
+            color: theme.textMuted,
+          }}
+        >
+          Not in this quote — <strong>$0.00</strong>
+        </div>
+      )}
+
+      {isCab && !isIsland && !c.outOfScope && !clientMode && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -4199,7 +4369,7 @@ function ElementEditor({
         </div>
       )}
 
-      {isAppliance && c.billable && (
+      {isAppliance && c.billable && !clientMode && (
         <div
           style={{
             marginTop: "0.75rem",

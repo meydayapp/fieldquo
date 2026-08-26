@@ -17,6 +17,7 @@ import {
   planShapes,
   elevationShapes,
   scaleBarShapes,
+  legendShapes,
   PLAN_COLORS,
 } from "@/lib/kitchen/planShapes";
 
@@ -85,19 +86,29 @@ export default function PlanSvg({
   showScale = true,
   className,
 }) {
-  const { shapes, width, height, pad } = planShapes(design);
+  const { shapes, width, height, pad, legend = [] } = planShapes(design);
 
-  // Header and scale bar live in the SHEET, outside the room, so the viewBox
-  // has to make room for them. Sized in the same inch units as everything else.
+  // Header, scale bar and legend live in the SHEET, outside the room, so the
+  // viewBox has to make room for them. Sized in the same inch units as
+  // everything else.
   const headTop = title ? 26 : 0;
-  const scaleH = showScale ? 26 : 0;
+  // The legend needs the foot band too. Reserved for it even on a thumbnail
+  // with no scale bar — a drawing that hatches cabinets and then crops off the
+  // line saying what the hatching means is worse than one that never hatched.
+  const footH = showScale || legend.length ? 26 : 0;
 
   const vbX = -pad;
   const vbY = -pad - headTop;
   const vbW = width + pad * 2;
-  const vbH = height + pad * 2 + headTop + scaleH;
+  const vbH = height + pad * 2 + headTop + footH;
 
   const scale = showScale ? scaleBarShapes({ x: -pad + 4, y: height + pad - 6, unitPx: 1 }) : [];
+  const key = legendShapes(legend, {
+    x: -pad + 4,
+    // Below the scale bar's own "SCALE" caption when there is one, on the
+    // caption's line when there isn't.
+    y: height + pad + (showScale ? 16 : 6),
+  });
 
   return (
     <svg
@@ -142,6 +153,9 @@ export default function PlanSvg({
       ))}
       {scale.map((s, i) => (
         <Shape key={`sc${i}`} s={s} i={`sc${i}`} />
+      ))}
+      {key.map((s, i) => (
+        <Shape key={`lg${i}`} s={s} i={`lg${i}`} />
       ))}
     </svg>
   );
