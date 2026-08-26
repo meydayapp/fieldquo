@@ -286,6 +286,36 @@ and FieldQuo paid for it.
   reported as orphaned rather than silently ignored. **Still unverified against
   the real provider — there is no `RETELL_API_KEY` in local `.env`.**
 
+**The quote callback is a closer now, and the card says why it didn't call.**
+The owner switched "Call clients back automatically" on, sent a quote, and got
+nothing. The card read "It's calling clients — turn off" above "No calls
+waiting": both true, and together a description of an armed feature that would
+never fire once. `approvedQuoteCallGate` covered instant estimates only, and
+every quote he writes is typed by hand.
+
+- `Company.outboundQuoteCallScope` — `instant_estimates` (default, and exactly
+  what shipped before) / `all_quotes` / `off`. Constants and copy in
+  `lib/voice/quoteCallScope.js`, which has **no imports**, so the settings card
+  shares the gate's own refusal codes without dragging Prisma into the browser.
+  `off` is not the outbound switch: that also governs appointment reminders and
+  enquiry follow-ups, and this turns off the quote closer alone.
+- `lib/voice/quoteCallbackReport.js` — the recent sent quotes that were NOT
+  called, each with the code the real gate returned, plus the dial-time consent
+  standing the pure gate cannot see. "3 quotes sent recently, none eligible: not
+  an instant estimate" is the sentence that was missing.
+- **One call per quote, ever.** `enqueueOutbound({ once: true })` de-dupes
+  across every status, not just live ones — a quote re-sent after its call had
+  gone out used to queue a second one. The reminder trigger deliberately keeps
+  the live-only rule (a rescheduled visit warrants a second reminder).
+- A **declined** quote is refused, at queue time and again at dial time. Nothing
+  else moved: `mayCall`, credit, the feature gate and the outbound switch are
+  each still checked independently at dial time, and none of them reads the
+  scope.
+- `npm run check:voice-quote-scope` (111 assertions) executes it — including the
+  de-dupe itself, through the shipped triggers against the scriptable db stub,
+  because "a re-sent quote must not ring twice" is a property of a query and
+  cannot be honestly read off the source.
+
 **FieldQuo's OWN phone agent is a separate agent, and it is now buildable.**
 `/platform/sales-agent` (superadmin) is the whole surface. It is not the tenant
 receptionist and must never converge with it — a contractor's receptionist that

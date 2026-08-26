@@ -15,6 +15,17 @@
 // had paid nothing could cost real money on their first click. Now the rental is
 // reserved from their prepaid balance BEFORE the provider is called, through the
 // one gate in lib/voice/spendGate.js, and refunded if the provider then refuses.
+//
+// ── The duplicate guard is a transaction, not a read ───────────────────────
+//
+// "One number per company" used to be a read at the top of the handler and a
+// row written several seconds later, on the far side of a call to Retell. Two
+// requests inside that window both passed and both bought. Every write that
+// claims the company's one slot — the reservation on the purchase path, the row
+// itself on the port path — now happens in a SERIALIZABLE transaction with the
+// guard that authorised it, and the purchase path's guard reads the reservation
+// as well as the number, because the reservation is the only thing that exists
+// while the provider is being called. See lib/voice/spendGate.js.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -28,7 +39,16 @@ import { toE164, isSharedTestNumber, isTollFreeNumber, heldNumber } from "@/lib/
 import { isStillAvailable } from "@/lib/voice/numberSearch";
 import { recordError } from "@/lib/platform/errorLog";
 import { monthlyCentsFor, NUMBER_TYPES, grantFreeTrial } from "@/lib/voice/credits";
-import { reserveSpend, refundReservation, RENT_PERIOD_DAYS } from "@/lib/voice/spendGate";
+import {
+  reserveSpend,
+  refundReservation,
+  spendAvailable,
+  purchaseInFlight,
+  numberSetupRef,
+  isSerialisationFailure,
+  CLAIM_WINDOW_MS,
+  RENT_PERIOD_DAYS,
+} from "@/lib/voice/spendGate";
 import { provisionAgent } from "@/lib/voice/provision";
 import { diagnoseNumber } from "@/lib/voice/diagnose";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -79,6 +99,48 @@ async function refusalFor(companyId, existing) {
     errorParams: { number: existing.e164 },
     error: `A number (${existing.e164}) is already set up for you but hasn't finished. Use the Fix button above rather than buying another — you're paying the rental on that one.`,
   };
+}
+
+/**
+ * "We're already getting you one — don't press it again."
+ *
+ * The refusal for the window between a purchase starting and the number row
+ * existing, and also for the loser of a genuinely simultaneous pair. Both are
+ * the same fact from the contractor's side, so they get the same sentence
+ * rather than two that have to be told apart — and neither is an error: nothing
+ * was charged to the request that got refused.
+ *
+ * `retryAt` is carried so the screen can say when, rather than showing a
+ * spinner with no end. Same reasoning as portExpectedAt above.
+ */
+function inFlightRefusal(flight) {
+  return {
+    errorKey: "app.setVoice.numberBusy.inFlight",
+    error:
+      "We're already setting a number up for you — that started moments ago and is still going through. " +
+      "Give it a minute and reload the page rather than pressing again: a second number is a second monthly rental.",
+    reason: "purchase_in_flight",
+    retryAt: flight?.retryAt || new Date(Date.now() + CLAIM_WINDOW_MS),
+  };
+}
+
+/**
+ * A transaction that failed for a reason the caller cannot fix and did not cause.
+ *
+ * Answered 503, not 500, and it says nothing was charged because nothing was:
+ * a transaction that throws rolls back, so the reservation inside it never
+ * committed. A refusal that arrives as an empty 500 is the shape this codebase
+ * shipped once already.
+ */
+function txFailure(err) {
+  console.error("[voice/number] the claim transaction failed", err);
+  return NextResponse.json(
+    {
+      errorKey: "app.setVoice.numberBusy.tryAgain",
+      error: "We couldn't start setting a number up just now. Nothing has been charged — please try again.",
+    },
+    { status: 503 },
+  );
 }
 
 export async function POST(request) {
@@ -157,21 +219,70 @@ export async function POST(request) {
         { status: 400 },
       );
     }
-    const row = await db.voicePhoneNumber.create({
-      data: {
-        companyId: member.companyId,
-        e164: ownNumber,
-        publicNumber: ownNumber,
-        source: "ported",
-        status: "porting",
-        numberType,
-        monthlyCents: monthlyCentsFor(numberType),
-        portRequestedAt: new Date(),
-        // Three weeks is the honest middle of "two to four", and the UI shows
-        // it so the wait has an end rather than an open-ended spinner.
-        portExpectedAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
-      },
-    });
+    // ── The guard and the row, in one transaction ────────────────────────
+    //
+    // The purchase path needs a durable claim because its row is written on the
+    // far side of a provider call (see lib/voice/spendGate.js). A port has no
+    // provider call at all, so the row IS the claim — it just has to be created
+    // in the same transaction that checked for one, or two clicks a millisecond
+    // apart both read "no number" and file two port requests against the same
+    // line. Serialisable because the read and the write are on the same rows:
+    // that is a conflict Postgres can see, and it aborts one of the pair.
+    let ported;
+    try {
+      ported = await db.$transaction(
+        async (tx) => {
+          const raced = await heldNumber(member.companyId, tx);
+          if (raced) return { raced };
+          return {
+            row: await tx.voicePhoneNumber.create({
+              data: {
+                companyId: member.companyId,
+                e164: ownNumber,
+                publicNumber: ownNumber,
+                source: "ported",
+                status: "porting",
+                numberType,
+                monthlyCents: monthlyCentsFor(numberType),
+                portRequestedAt: new Date(),
+                // Three weeks is the honest middle of "two to four", and the UI
+                // shows it so the wait has an end rather than an open-ended
+                // spinner.
+                portExpectedAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+              },
+            }),
+          };
+        },
+        { isolationLevel: "Serializable" },
+      );
+    } catch (portErr) {
+      // The loser of a simultaneous pair gets the refusal the winner's row will
+      // give every request after it, not a 500.
+      if (isSerialisationFailure(portErr)) {
+        return NextResponse.json(inFlightRefusal(null), { status: 409 });
+      }
+      // `e164` is unique across the whole table, so a number already in FieldQuo
+      // — this company's own released row, or another tenant's line — lands
+      // here. Said without naming anyone: who else holds a number is not this
+      // company's business.
+      if (portErr?.code === "P2002") {
+        return NextResponse.json(
+          {
+            errorKey: "app.setVoice.portTaken",
+            errorParams: { number: ownNumber },
+            error: `${ownNumber} can't be set up here — it's already registered in FieldQuo. Check the digits, and get in touch if it really is yours.`,
+          },
+          { status: 409 },
+        );
+      }
+      return txFailure(portErr);
+    }
+
+    if (ported.raced) {
+      const refusal = await refusalFor(member.companyId, ported.raced);
+      return NextResponse.json({ ...refusal, status: ported.raced.status }, { status: 409 });
+    }
+    const row = ported.row;
 
     await recordActivity(member, {
       action: "voice.port_requested",
@@ -255,14 +366,73 @@ export async function POST(request) {
   //
   // Both `purchased` and `forwarded` land here, because forwarding still buys a
   // number to forward TO. Only `ported`, handled above, buys nothing.
-  const reservationRef = `number_setup:${randomUUID()}`;
-  const reserved = await reserveSpend({
-    companyId: member.companyId,
-    kind: "number_setup",
-    numberType,
-    ref: reservationRef,
-    note: `First month's rental — ${numberType === "toll_free" ? "toll-free" : "local"} number`,
-  });
+  //
+  // ── …and the guard is re-asked HERE, with the reservation ────────────────
+  //
+  // The check at the top of this handler is a fast refusal, not a lock. Between
+  // it and the VoicePhoneNumber row below sit provisionAgent() and buyNumber() —
+  // a network call to Retell, seconds long — and a second request arriving
+  // inside that window used to find no held number either. Both bought. Company
+  // cmsl36it7000004juyw4qyn0u has two numbers and two $4 debits 31 seconds
+  // apart to prove it.
+  //
+  // So the guard runs again, in the same transaction as the reservation, and it
+  // now asks two questions: is there a number, and is there a reservation with
+  // no number behind it yet. The second is what spans the provider call —
+  // lib/voice/spendGate.js explains why the transaction alone cannot, and why
+  // neither a unique index nor a placeholder row was the answer.
+  //
+  // SERIALIZABLE on top of that read handles the pair that overlap to the
+  // millisecond, where neither has committed anything for the other to see.
+  // Postgres aborts one with SQLSTATE 40001; that is a lost race, not a fault,
+  // and it answers the same 409 as every other "we're already on it".
+  const reservationRef = numberSetupRef(randomUUID());
+
+  // Resolved out here on purpose: this reads a platform-wide table and swallows
+  // its own errors (lib/features/gate.js), and neither belongs inside a
+  // serialisable transaction.
+  const offered = await spendAvailable(member.companyId);
+
+  let claim;
+  try {
+    claim = await db.$transaction(
+      async (tx) => {
+        const raced = await heldNumber(member.companyId, tx);
+        if (raced) return { raced };
+
+        const flight = await purchaseInFlight({ companyId: member.companyId, prisma: tx });
+        if (flight.inFlight) return { flight };
+
+        return {
+          reserved: await reserveSpend({
+            companyId: member.companyId,
+            kind: "number_setup",
+            numberType,
+            ref: reservationRef,
+            note: `First month's rental — ${numberType === "toll_free" ? "toll-free" : "local"} number`,
+            prisma: tx,
+            available: offered,
+          }),
+        };
+      },
+      { isolationLevel: "Serializable" },
+    );
+  } catch (claimErr) {
+    if (isSerialisationFailure(claimErr)) {
+      return NextResponse.json(inFlightRefusal(null), { status: 409 });
+    }
+    return txFailure(claimErr);
+  }
+
+  if (claim.raced) {
+    const refusal = await refusalFor(member.companyId, claim.raced);
+    return NextResponse.json({ ...refusal, status: claim.raced.status }, { status: 409 });
+  }
+  if (claim.flight) {
+    return NextResponse.json(inFlightRefusal(claim.flight), { status: 409 });
+  }
+
+  const reserved = claim.reserved;
   if (!reserved.allowed) {
     return NextResponse.json(
       {

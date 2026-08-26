@@ -173,6 +173,22 @@ ok(
     JSON.stringify(APP_MESSAGES.en) + JSON.stringify(APP_MESSAGES.fr),
   ),
 );
+// The card used to say the call happens "when you approve their quote". It
+// happens on the SEND — onQuoteApproved queues nothing on its own, because
+// until the client is holding the document there is no figure the agent may
+// read back. Under "every quote I send" there is no approval step at all.
+ok(
+  "the card describes the moment that actually queues the call: the send",
+  /after you send them a quote/.test(APP_MESSAGES.en["app.setVoice.outboundHint"]) &&
+    !/when you approve/.test(APP_MESSAGES.en["app.setVoice.outboundHint"]),
+  APP_MESSAGES.en["app.setVoice.outboundHint"],
+);
+ok(
+  "…and the trigger really does queue from the send, not the approval",
+  /export async function onQuoteEmailed/.test(
+    readFileSync(new URL("../lib/voice/triggers.js", import.meta.url), "utf8"),
+  ),
+);
 
 /* ───────────────────── 4. what the card actually says ─────────────────── */
 

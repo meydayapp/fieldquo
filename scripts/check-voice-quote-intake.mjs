@@ -244,6 +244,9 @@ const refusals = [
   ["a DRAFT nobody has approved", { ...approvedAndSent, needsReview: true }, CALLBACK_REFUSED.DRAFT],
   ["a quote that was never emailed", { ...approvedAndSent, sentAt: null }, CALLBACK_REFUSED.NOT_EMAILED],
   ["a company that never opted in", { ...approvedAndSent, company: { outboundCallsEnabled: false } }, CALLBACK_REFUSED.OFF],
+  // Under the DEFAULT scope. A company can widen this to every quote it sends —
+  // see scripts/check-voice-quote-scope.mjs, which exercises all three settings.
+  // The default is still the narrow rule, which is what this row pins.
   ["a hand-typed quote, not an estimate", { ...approvedAndSent, autoEstimated: false }, CALLBACK_REFUSED.NOT_ESTIMATE],
   ["a client with no phone number", { ...approvedAndSent, client: {} }, CALLBACK_REFUSED.NO_PHONE],
   ["no quote at all", null, CALLBACK_REFUSED.NO_QUOTE],

@@ -1763,7 +1763,7 @@ export default function VoiceSettingsPage() {
       <Card
         step="5."
         title={t("app.setVoice.outboundTitle", "Call clients back automatically")}
-        hint={t("app.setVoice.outboundHint", "The assistant rings clients who asked to be contacted — when you approve their quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good.")}
+        hint={t("app.setVoice.outboundHint", "The assistant rings clients who asked to be contacted — after you send them a quote, to confirm a booked visit the day before, and to follow up on a new enquiry. Always within calling hours, and anyone who says stop is taken off for good.")}
       >
         <button
           type="button"
@@ -2398,10 +2398,17 @@ function QuoteCallScope({ scope, options, busy, onPick, t }) {
               disabled={busy || active}
               aria-pressed={active}
               onClick={() => onPick(value)}
-              className={`text-left rounded-lg border p-3 transition-colors disabled:opacity-100 ${
+              // One opacity utility per state, never two. `disabled:opacity-50`
+              // alongside `disabled:opacity-100` looks like it resolves by class
+              // order and does not — Tailwind emits both and the later RULE
+              // wins, so the chosen option would have dimmed itself and the
+              // busy ones would not.
+              className={`text-left rounded-lg border p-3 transition-colors ${
                 active
                   ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
-                  : "border-border bg-card hover:border-foreground/30 disabled:opacity-50"
+                  : busy
+                    ? "border-border bg-card opacity-50"
+                    : "border-border bg-card hover:border-foreground/30"
               }`}
             >
               <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
