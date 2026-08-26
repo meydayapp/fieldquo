@@ -16,6 +16,7 @@ import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { voiceConfigured } from "@/lib/voice/retell";
 import { provisionAgent } from "@/lib/voice/provision";
+import { diagnoseAndHeal } from "@/lib/voice/diagnose";
 import { getAppOrigin } from "@/lib/appUrl";
 import { activeNumber, heldNumber, publicNumberFor, formatNumber, NUMBER_SOURCES, forwardingCodes } from "@/lib/voice/numbers";
 import {
@@ -106,6 +107,29 @@ export async function GET(request) {
   // and the values, and the page resolves it against app/i18n/appMessages.js,
   // with the English text still attached as the per-key fallback t() already
   // uses everywhere else.
+  // ── Our own column, reconciled before anything gates on it ──────────────
+  //
+  // Every card below — answer my calls, the callbacks, the crew inbox — gates
+  // on `number.status`, and a row left on `provisioning` locks all of them
+  // behind "email us, this needs a person". That is correct when the number
+  // really is half-built and WRONG when it is live at the provider and only our
+  // record is behind, which is a state the purchase path can leave whenever it
+  // dies between buying and its own UPDATE.
+  //
+  // Only reached when the status is already wrong, so a healthy company makes
+  // no provider call. Writes in one direction and never touches `enabled` — see
+  // lib/voice/diagnose.js. Best-effort: a provider we cannot reach leaves the
+  // row alone and the old message stands, which is the safe way to be wrong.
+  if (number && number.status !== "active" && number.status !== "porting") {
+    try {
+      const healed = await diagnoseAndHeal(member.companyId);
+      if (healed.status === "active") number.status = "active";
+    } catch {
+      // Diagnosis is a convenience here, never a precondition for rendering the
+      // page. The readiness message below still explains itself.
+    }
+  }
+
   const portDate = number?.portExpectedAt
     ? new Date(number.portExpectedAt).toLocaleDateString("en-CA", { day: "numeric", month: "long" })
     : null;
@@ -137,7 +161,7 @@ export async function GET(request) {
             ready: false,
             reason: "number_not_active",
             messageKey: "app.setVoice.ready.notActive",
-            message: "Your number hasn't finished activating. This one needs a person — email us and we'll finish it.",
+            message: "Your number isn't live at the provider yet. The panel above says what's wrong with it and can usually fix it.",
           }
         : callAfford?.allowed
           ? { ready: true, reason: "ok", message: null }

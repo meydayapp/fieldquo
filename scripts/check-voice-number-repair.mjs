@@ -13,7 +13,8 @@
 //      exists at the provider
 //   2. a receptionist the CONTRACTOR switched off is never "repaired" back on
 
-import { verdictFor, NUMBER_VERDICTS } from "../lib/voice/diagnose.js";
+import { readFileSync } from "node:fs";
+import { verdictFor, NUMBER_VERDICTS, statusNeedsCorrection } from "../lib/voice/diagnose.js";
 
 let fail = 0;
 const ok = (name, cond, extra = "") => {
@@ -110,6 +111,63 @@ for (const junk of [undefined, null, "", 0, {}, "__proto__", "constructor"]) {
 ok("verdictFor with no arguments at all does not throw",
    (() => { try { return typeof verdictFor({}) === "string"; } catch { return false; } })());
 ok("an empty call cannot claim the number exists", verdictFor({}) === "provider_unreachable");
+
+// ── The deadlock, pinned ──────────────────────────────────────────────────
+//
+// Reported in the wild: the settings page said "nothing is answering because
+// the receptionist is switched off — turn it on below" directly above three
+// cards saying "your number hasn't finished activating, email us", with the
+// switch itself locked behind the second message. There was no way out from
+// inside the app.
+//
+// Cause: a number both STALE and SWITCHED OFF reports `voice_off`, which is
+// correctly not repairable — and the stale column, which every other card gates
+// on, therefore never got corrected. Two different writes had been folded into
+// one. Correcting our record is bookkeeping; switching someone's phone on is
+// their decision.
+{
+  const stale = { status: "provisioning", existsAtProvider: true };
+  ok("a provisioning row with a live number is stale", statusNeedsCorrection(stale) === true);
+  ok("stale is independent of the verdict — voice_off is still stale",
+     v({ agentEnabled: false, boundAgent: null }) === "voice_off" &&
+     statusNeedsCorrection(stale) === true);
+  ok("stale is independent of credit",
+     statusNeedsCorrection({ status: "failed", existsAtProvider: true }) === true);
+  ok("an active row is not stale",
+     statusNeedsCorrection({ status: "active", existsAtProvider: true }) === false);
+  ok("a port in flight is not stale — it is its own state",
+     statusNeedsCorrection({ status: "porting", existsAtProvider: true }) === false);
+  // The correction is only ever licensed by CONFIRMED existence. A provider we
+  // could not reach must not mark a row active and unlock every card on the
+  // page for a number that may not exist.
+  for (const unseen of [false, null, undefined])
+    ok(`unconfirmed existence licenses no correction: ${String(unseen)}`,
+       statusNeedsCorrection({ status: "provisioning", existsAtProvider: unseen }) === false);
+}
+
+// ── The correction never moves the contractor's switch ────────────────────
+{
+  const src = readFileSync("lib/voice/diagnose.js", "utf8");
+  const heal = src.slice(src.indexOf("export async function diagnoseAndHeal"));
+  const body = heal.slice(0, heal.indexOf("\n}"));
+  ok("healing writes only the status", /data: \{ status: "active" \}/.test(body));
+  ok("healing never touches enabled", !/enabled/.test(body));
+  ok("healing only ever writes active, never back the other way",
+     (body.match(/status: "/g) || []).length === 1);
+
+  // Both screens must reconcile, or the page contradicts itself again — one
+  // card healed and the rest still reading the stale column.
+  const settings = readFileSync("app/api/settings/voice/route.js", "utf8");
+  ok("the settings route reconciles before anything gates on the status",
+     settings.indexOf("diagnoseAndHeal") < settings.indexOf("const readiness"),
+     "reconcile must come first");
+  ok("the repair route reconciles too", /diagnoseAndHeal/.test(
+     readFileSync("app/api/settings/voice/number/repair/route.js", "utf8")));
+
+  // And it must not cost a provider round-trip on every settings load.
+  ok("a healthy number makes no provider call",
+     /number\.status !== "active" && number\.status !== "porting"/.test(settings));
+}
 
 console.log(fail === 0 ? "\nALL PASS — a stuck number is diagnosed, not guessed at" : `\n${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

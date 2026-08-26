@@ -35,14 +35,30 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
-import { diagnoseNumber } from "@/lib/voice/diagnose";
+import { diagnoseNumber, diagnoseAndHeal } from "@/lib/voice/diagnose";
 import { provisionAgent, syncNumberAttachment } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
-  const result = await diagnoseNumber(member.companyId);
+  let result = await diagnoseNumber(member.companyId);
+
+  // ── Bookkeeping heals itself; the contractor's switch never moves ────────
+  //
+  // A GET that writes, narrowly and in one direction only: when the provider
+  // confirms the number exists and our column still says `provisioning`, the
+  // column is wrong and correcting it is not an action taken on anyone's
+  // behalf. `enabled` is untouched — whether the receptionist answers stays
+  // the contractor's decision.
+  //
+  // It is here rather than only behind the Fix button because the Fix button
+  // was unreachable in the case that mattered. A number both stale and
+  // switched off reports `voice_off`, which offers no repair, while every other
+  // card on the page gates on the stale column — so the page told the owner
+  // "you switched it off, turn it on below" above three cards saying "email us,
+  // this needs a person", with the switch locked behind them.
+  if (result.statusStale) result = await diagnoseAndHeal(member.companyId);
   // Told once per look rather than once per page render: a stuck number is
   // money leaving on something the tenant cannot use, and until now the only
   // way FieldQuo learned about one was the contractor emailing.
@@ -96,6 +112,7 @@ export async function POST(request) {
       }
       await markActive(member.companyId, before.e164);
     } else if (before.verdict === "unbound" || before.verdict === "status_stale") {
+      // Kept for the case where GET has not run — a repair posted directly.
       // status_stale first: syncNumberAttachment only looks at numbers whose
       // status is already `active`, which is the blind spot that let a
       // provisioning row stay stuck forever. Correcting the column is what
