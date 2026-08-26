@@ -420,28 +420,23 @@ export async function PUT(request) {
   // enabled. There is no invitation, no announcement, no outbound message of any
   // kind. The company has to tell their crew the number themselves. The screen
   // says so, because "turn on the crew inbox" reads like it does the inviting.
-  if (typeof body.crewInboxEnabled === "boolean") {
-    if (body.crewInboxEnabled) {
-      const number = await activeNumber(member.companyId);
-      if (!number || number.status !== "active") {
-        return NextResponse.json(
-          { error: "Set up a number first — the crew inbox is texts sent to it, and there's nothing for them to text yet." },
-          { status: 409 },
-        );
-      }
-    }
-    await db.company.update({
-      where: { id: member.companyId },
-      data: { crewInboxEnabled: body.crewInboxEnabled },
-    });
-    await recordActivity(member, {
-      action: body.crewInboxEnabled ? "crew_inbox.enabled" : "crew_inbox.disabled",
-      entityType: "settings",
-      summary: body.crewInboxEnabled
-        ? "Turned on the crew photo/update inbox"
-        : "Turned off the crew inbox",
-    });
-  }
+  // ── crewInboxEnabled is no longer settable from here ─────────────────────
+  //
+  // It used to be a toggle on this screen, gated on the company having an ACTIVE
+  // VoicePhoneNumber. That gate was wrong in a way nobody could see: the crew
+  // inbox is Twilio SMS and a voice number is bought from Retell, so the check
+  // it passed had nothing to do with the thing it enabled. A company could
+  // switch the inbox on, be told they were set up, and have no line anywhere
+  // that could receive a text.
+  //
+  // lib/crew/line.js owns the flag now, and there claiming a line and setting
+  // the flag are ONE act — the claim points the number's smsUrl at us in the
+  // same call. Writing the column from here would put a company back in the
+  // state this whole change removed: enabled, with nothing listening.
+  //
+  // Silently ignored rather than 400'd. No UI sends it any more, and refusing a
+  // field an old cached bundle might still post would break a screen for the
+  // length of one deploy without protecting anything.
 
   const agent = await db.voiceAgent.upsert({
     where: { companyId: member.companyId },
