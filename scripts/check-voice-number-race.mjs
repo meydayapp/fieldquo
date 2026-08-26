@@ -195,13 +195,14 @@ globalThis.__FQ_TX_THROWS = null;
 // The provider. `__FQ_BUY` is swapped per scenario — a promise this file holds
 // open is what puts a second request inside the window the real Retell call
 // opens up.
-globalThis.__FQ_BUY = async () => ({ phone_number: "+15145550111" });
+// A DIFFERENT number each time, because that is what Retell does. A provider
+// that handed back the same number twice would hide a second purchase behind
+// VoicePhoneNumber.e164's unique index.
+globalThis.__FQ_BUY = async () => ({ phone_number: `+1514555${String(1000 + globalThis.__FQ_BUY_CALLS).slice(-4)}` });
 globalThis.__FQ_BUY_CALLS = 0;
 
-const stub = (source) => ({ format: "module", shortCircuit: true, source });
-
-const HOOKS = `
-const STUBS = {
+// Which module each stub stands in for.
+const SPECIFIERS = {
   "@/lib/db": "fq:db",
   "next/server": "fq:next",
   "@/lib/apiMember": "fq:member",
@@ -219,18 +220,11 @@ const STUBS = {
   "@/lib/email/companySender": "fq:email",
   "@/lib/voice/numberRelease": "fq:release",
 };
-export async function resolve(specifier, context, nextResolve) {
-  if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
-  return nextResolve(specifier, context);
-}
-export async function load(url, context, nextLoad) {
-  const S = globalThis.__FQ_STUB_SOURCES;
-  if (S && S[url]) return { format: "module", shortCircuit: true, source: S[url] };
-  return nextLoad(url, context);
-}
-`;
 
-globalThis.__FQ_STUB_SOURCES = {
+// The stub sources are inlined into the hook, not handed to it through a
+// global: module hooks run on their own worker thread, where this file's
+// globals do not exist. Same technique as scripts/check-refusal-shape.mjs.
+const SOURCES = {
   // A Proxy rather than a snapshot: each scenario installs a fresh database and
   // a module-level binding would freeze whichever one existed at import time.
   "fq:db": "export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_DB[p] });",
@@ -280,10 +274,22 @@ globalThis.__FQ_STUB_SOURCES = {
     "export const planRelease = () => ({ reason: 'no_number' });",
 };
 
+const HOOKS = `
+const STUBS = ${JSON.stringify(SPECIFIERS)};
+const SOURCES = ${JSON.stringify(SOURCES)};
+export async function resolve(specifier, context, nextResolve) {
+  if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+export async function load(url, context, nextLoad) {
+  if (SOURCES[url]) return { format: "module", shortCircuit: true, source: SOURCES[url] };
+  return nextLoad(url, context);
+}
+`;
+
 globalThis.__FQ_MEMBER = { id: "m1", companyId: "co", role: "owner", userId: "u1" };
 
 register(`data:text/javascript,${encodeURIComponent(HOOKS)}`);
-void stub;
 
 const route = await import("@/app/api/settings/voice/number/route.js");
 const gate = await import("@/lib/voice/spendGate");
@@ -300,7 +306,7 @@ function reset(cents = LOCAL * 5) {
   globalThis.__FQ_DB = makeDb();
   globalThis.__FQ_TX_THROWS = null;
   globalThis.__FQ_BUY_CALLS = 0;
-  globalThis.__FQ_BUY = async () => ({ phone_number: "+15145550111" });
+  globalThis.__FQ_BUY = async () => ({ phone_number: `+1514555${String(1000 + globalThis.__FQ_BUY_CALLS).slice(-4)}` });
   if (cents > 0) {
     globalThis.__FQ_DB.__state.entries.push({
       id: "seed",
@@ -331,18 +337,32 @@ console.log("\n── Two clicks, one number ───────────�
   // Request A is parked exactly where Retell parks it: after the reservation
   // has committed, before the row exists. This is the whole window.
   let release;
+  let entered;
   const parked = new Promise((r) => {
     release = r;
   });
+  const atProvider = new Promise((r) => {
+    entered = r;
+  });
   globalThis.__FQ_BUY = async () => {
+    // The number is decided on the way IN, not on the way out: Retell hands each
+    // caller a different line, and computing it after the wait would give both
+    // requests the same one and hide the second purchase behind e164's unique
+    // index — the exact failure this scenario has to be able to see.
+    const mine = `+1514555${String(1000 + globalThis.__FQ_BUY_CALLS).slice(-4)}`;
+    entered();
     await parked;
-    return { phone_number: "+15145550111" };
+    return { phone_number: mine };
   };
 
+  // A safety net, so that a REGRESSION reports a failure instead of hanging: if
+  // the guard ever stops refusing, request B walks into the same parked provider
+  // call and the two wait for each other for ever.
+  const net = setTimeout(release, 3000);
+
   const a = route.POST(req({ source: "purchased", numberType: "local" }));
-  // Let A get as far as the provider call before B starts.
-  await new Promise((r) => setImmediate(r));
-  await new Promise((r) => setImmediate(r));
+  // Wait for A to actually reach the provider rather than guessing at ticks.
+  await atProvider;
 
   ok(setups(state).length === 1, "request A reserved before touching the provider");
   ok(state.numbers.length === 0, "…and no number row exists yet — this is the window");
@@ -361,6 +381,7 @@ console.log("\n── Two clicks, one number ───────────�
   );
   ok(setups(state).length === 1, "…and B reserved NOTHING", setups(state).length);
 
+  clearTimeout(net);
   release();
   const aRes = await a;
 
@@ -497,8 +518,9 @@ console.log("\n── A provider refusal still gives the money back ────
 
 {
   const state = reset();
+  const { RetellError } = await import("@/lib/voice/retell");
   globalThis.__FQ_BUY = async () => {
-    throw new (await import("@/lib/voice/retell")).RetellError("no numbers left in that area");
+    throw new RetellError("no numbers left in that area");
   };
 
   const res = await route.POST(req({ source: "purchased", numberType: "local" }));
@@ -536,9 +558,20 @@ console.log("\n── Porting claims the slot in the same transaction ───�
   ok(second.status === 409, "a second port request is refused", second.status);
   ok(state.numbers.length === 1, "…and only one porting row exists", state.numbers.length);
 
+}
+
+{
+  // A fresh company, or the porting row above would refuse at the top guard and
+  // this would pass without the transaction ever being reached.
+  reset();
   globalThis.__FQ_TX_THROWS = Object.assign(new Error("deadlock detected"), { code: "40P01" });
   const raced = await route.POST(req({ source: "ported", publicNumber: "+15145550444" }));
   ok(raced.status === 409, "a serialisation failure on the port path is 409 too", raced.status);
+  ok(
+    raced.body?.errorKey === "app.setVoice.numberBusy.inFlight",
+    "…with the same 'already on it' message",
+    raced.body?.errorKey,
+  );
 }
 
 // e164 is unique across the whole table. A number already in FieldQuo is a
@@ -653,8 +686,8 @@ ok(
   "…and the transaction closes before it, not around it — a network call inside a serialisable transaction makes things worse",
 );
 ok(
-  !/buyNumber\(/.test(routeSrc.slice(routeSrc.indexOf("$transaction"), routeSrc.indexOf("isolationLevel"))),
-  "…nothing calls the provider from inside the transaction body",
+  routeSrc.indexOf("isolationLevel", routeSrc.indexOf("reserveSpend({")) < routeSrc.indexOf("buyNumber({"),
+  "…and the reservation's own transaction is closed by the time the provider is called",
 );
 ok(
   routeSrc.lastIndexOf("refundReservation({") > routeSrc.indexOf("catch (err)"),
@@ -662,4 +695,4 @@ ok(
 );
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
-process.exit(fail === 0 ? 1 && 1 : 1);
+process.exit(fail === 0 ? 0 : 1);

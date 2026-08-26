@@ -868,6 +868,38 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Two clicks, two phone numbers, two $4 charges — the buy route's duplicate
+  guard is now a transaction. `app/api/settings/voice/number/route.js`,
+  `lib/voice/spendGate.js`, `scripts/check-voice-number-race.mjs`.**
+
+  `heldNumber()` was read at the top of the handler and the VoicePhoneNumber row
+  was written seconds later, on the far side of `provisionAgent()` +
+  `buyNumber()`. Two requests inside that window both passed and both bought.
+  Company `cmsl36it7000004juyw4qyn0u` holds two purchased numbers with two
+  `number_setup` debits 31 seconds apart.
+
+  The guard now runs again inside a `$transaction` with
+  `isolationLevel: "Serializable"` — confirmed working on Prisma 7 + PrismaPg
+  against the real database — alongside the `reserveSpend` that takes the money.
+  Serialisable on its own is NOT sufficient and the header of spendGate.js says
+  why: SSI can only order transactions that overlap, and this one has to commit
+  before the provider is called. What spans the provider call is the reservation
+  ROW, so the guard reads that too (`purchaseInFlight`): a `number_setup` debit
+  under five minutes old with no refund and no number row after it means a
+  purchase is running. Serialisable is still there for the pair that overlap to
+  the millisecond.
+
+  The loser of either race gets a 409 and `app.setVoice.numberBusy.inFlight`,
+  never a 500 — `isSerialisationFailure()` recognises SQLSTATE 40001/40P01 in
+  all three shapes this stack produces. `released` and `failed` rows still allow
+  a purchase; nothing about the guard's meaning widened.
+
+  No schema change: `@@unique([companyId])` cannot work (released rows persist),
+  a partial index needs raw SQL in a repo with no migration files, and a
+  placeholder VoicePhoneNumber row would mean inventing an `e164` that does not
+  exist yet. `npm run check:number-race` executes the real POST handler with the
+  provider parked mid-call, and fails loudly if the guard is removed.
+
 - **Automatic voice credit top-up, and the "rings out" claim that was never
   checked — `lib/voice/autoTopup.js`, `lib/voice/autoTopupConsent.js`,
   `app/api/settings/voice/auto-topup/`, `scripts/check-voice-auto-topup.mjs`.**
