@@ -1,0 +1,383 @@
+// scripts/check-voice-visit.mjs
+//
+//   npm run check:visit-path
+//
+// The four visit paths, executed.
+//
+// ══ What this is defending ═════════════════════════════════════════════════
+//
+// "Can someone come out and look at it?" is the most common thing a homeowner
+// rings a contractor to ask, and it has four honest answers depending on how
+// THIS company has set their booking up. The receptionist must not guess
+// between them, because the guess that sounds most helpful — "sure, I'll book
+// you in" — is the one that gives away a $79 diagnostic visit for nothing.
+//
+// So the answer is derived server-side (lib/voice/visitPath.js) and the same
+// derivation feeds both halves: what the agent is TOLD (lib/voice/prompt.js)
+// and what it is ALLOWED to offer (lib/voice/availability.js). This drives the
+// pure half through every branch, which is where the real bugs live.
+//
+// ══ The assertion that matters most ════════════════════════════════════════
+//
+// Absolute rule 1 says never give a price, and this feature deliberately puts a
+// figure in the prompt. That is only safe because a published booking fee and a
+// quote are different things: the fee was typed by the owner, is printed on
+// their own booking page, and is charged by Stripe exactly as written, whereas
+// a quote said on a call is a number nobody at the business has seen.
+//
+// A distinction that fine has to be enforced, not trusted. So the last block
+// scrapes EVERY money-shaped figure out of a generated prompt and asserts each
+// one is a fee this company actually published — a rate, a range, an hourly
+// figure or a total for the work would fail it.
+
+import { readFileSync } from "node:fs";
+import {
+  visitPolicy,
+  classifyEventTypes,
+  offersVisits,
+  feeText,
+  CAN_TEXT_BOOKING_LINK,
+} from "@/lib/voice/visitPath";
+import { buildAgentPrompt, visitSection } from "@/lib/voice/prompt";
+import { toolDefinitions } from "@/lib/voice/tools";
+
+let fail = 0;
+const ok = (c, m) => {
+  console.log((c ? "✓ " : "✗ ") + m);
+  if (!c) fail++;
+};
+
+const ORIGIN = "https://www.fieldquo.com";
+const LINK = `${ORIGIN}/book/northline`;
+const company = { name: "Northline Refinishing", city: "Gatineau", province: "QC" };
+
+/** A company row as visitPolicy reads one. */
+const co = (over = {}) => ({
+  stripeChargesEnabled: true,
+  currency: "CAD",
+  bookingModes: ["visit"],
+  bookingSlug: "northline",
+  slug: "northline-refinishing",
+  ...over,
+});
+
+const FREE = { id: "clfree000001", name: "On-site estimate", active: true, feeCents: null };
+const PAID = { id: "clpaid000002", name: "Diagnostic visit", active: true, feeCents: 7900 };
+
+const promptFor = (visit, extra = {}) =>
+  buildAgentPrompt({ company, services: ["Cabinet refinishing"], visit, ...extra });
+
+/* ─────────────────── 1. Free event type → it may book ─────────────────── */
+
+const free = visitPolicy({ company: co(), eventTypes: [FREE], bookingUrl: LINK });
+ok(free.mode === "book", `a free visit puts the agent on the "book" path (got "${free.mode}")`);
+ok(free.canBook === true, "and canBook is true, so book_visit is served");
+ok(
+  free.bookableEventTypeIds.length === 1 && free.bookableEventTypeIds[0] === FREE.id,
+  "the free event type is the one availability may offer slots from",
+);
+
+const freeText = promptFor(free);
+ok(/You can offer appointment times/.test(freeText), "it is told it may offer times");
+ok(
+  /Only ever offer times you have been given/.test(freeText),
+  "rule 2 survives: only times it was actually given",
+);
+ok(
+  /it is free/.test(freeText),
+  "and it may say the visit is free, because for this company it is",
+);
+ok(
+  toolDefinitions(ORIGIN, { canBook: free.canBook }).some((t) => t.name === "book_visit"),
+  "book_visit is in the tool list",
+);
+
+/* ────────────── 2. Paid event type → fee + link, and NO booking ────────── */
+
+const paid = visitPolicy({ company: co(), eventTypes: [PAID], bookingUrl: LINK });
+ok(paid.mode === "link", `a paid visit puts the agent on the "link" path (got "${paid.mode}")`);
+ok(
+  paid.canBook === false,
+  "canBook is FALSE — the phone must not confirm a visit the company charges for",
+);
+ok(
+  paid.bookableEventTypeIds.length === 0,
+  "and nothing is offerable, so check_availability cannot surface the paid slot",
+);
+ok(
+  !toolDefinitions(ORIGIN, { canBook: paid.canBook }).some((t) => t.name === "book_visit"),
+  "book_visit is NOT served — the tool that would take it for free does not exist on this call",
+);
+
+const paidText = promptFor(paid);
+ok(paidText.includes("$79"), "the published fee is stated");
+ok(paidText.includes(LINK), "and so is the booking link");
+ok(
+  /You cannot book anything on this call/.test(paidText),
+  "it is told plainly it cannot book this one",
+);
+ok(
+  /tells you NOTHING about what the work will cost/.test(paidText),
+  "the fee is fenced off from the price of the work",
+);
+ok(
+  /rule one still holds/i.test(paidText),
+  "and rule one is re-asserted inside the same paragraph, not left to the top of the prompt",
+);
+ok(
+  /You cannot take a card over the phone/.test(paidText),
+  "no card details on the call — the booking page collects the fee",
+);
+ok(
+  !/we can be there|I can do (Monday|Tuesday)/i.test(paidText),
+  "nothing on this path offers a day",
+);
+
+/* ─────────── 3. No event types at all → callback, and no link ─────────── */
+
+const none = visitPolicy({ company: co(), eventTypes: [], bookingUrl: LINK });
+ok(none.mode === "callback", `no appointments at all falls back to a callback (got "${none.mode}")`);
+ok(none.canBook === false, "nothing bookable");
+ok(
+  none.bookingUrl === null,
+  "and NO link — a booking page with no event types renders an empty list, so sending them there is a dead end",
+);
+
+const noneText = promptFor(none);
+ok(/You cannot book anything/.test(noneText), "it is told it cannot book");
+ok(!noneText.includes(LINK), "and the link is absent from the prompt entirely");
+ok(
+  /call save_caller with callback_requested set/.test(noneText),
+  "the callback is a TOOL CALL, not a sentence — a spoken promise nobody records is nobody's job",
+);
+ok(
+  /means nobody will/.test(noneText),
+  "and it is told what happens if it only says it: nobody rings back",
+);
+
+// The callback instruction is on every path, not just the last one. A caller who
+// can't take any of three offered slots has to land somewhere.
+for (const [label, p] of [["book", free], ["link", paid]]) {
+  ok(
+    /callback_requested/.test(promptFor(p)),
+    `the "${label}" path also knows how to fall back to a callback`,
+  );
+}
+
+// And the tool actually carries the fields the prompt tells it to send.
+const saveCaller = toolDefinitions(ORIGIN, {}).find((t) => t.name === "save_caller");
+ok(
+  Boolean(saveCaller?.parameters?.properties?.callback_requested),
+  "save_caller accepts callback_requested",
+);
+ok(
+  Boolean(saveCaller?.parameters?.properties?.preferred_times),
+  "save_caller accepts preferred_times, so 'after six' survives the call",
+);
+
+/* ──────────────────── 4. Transfer, told either way ────────────────────── */
+
+ok(
+  /You cannot transfer calls/.test(promptFor(free, { canTransfer: false })),
+  "no transfer number → it is told it cannot put anyone through",
+);
+ok(
+  !/transfer_to_human/.test(promptFor(free, { canTransfer: false })),
+  "and the tool is never named, so it cannot offer what it hasn't got",
+);
+ok(
+  /You can transfer the caller to a real person/.test(promptFor(free, { canTransfer: true })),
+  "with one → it is told it can",
+);
+ok(
+  visitPolicy({ company: co(), eventTypes: [FREE], canTransfer: true }).canTransfer === true,
+  "and the policy carries it, so all four paths are decided in one place",
+);
+
+/* ─────────────────── The cases that quietly cost money ────────────────── */
+
+// A company that cannot COLLECT must not have a fee spoken at it. This is the
+// same call effectiveBookingFeeCents makes for the booking page, reused rather
+// than re-decided — the phone quoting a fee the website says is free is a
+// contradiction the caller finds out about at the door.
+const noStripe = visitPolicy({
+  company: co({ stripeChargesEnabled: false }),
+  eventTypes: [PAID],
+  bookingUrl: LINK,
+});
+ok(
+  noStripe.canBook === true && noStripe.paidVisits.length === 0,
+  "no Stripe charges → the paid type falls back to free and IS bookable, exactly as on the web",
+);
+ok(!promptFor(noStripe).includes("$79"), "and no figure reaches the prompt");
+
+// A live promo replaces the standard price. The agent must read the price the
+// client would actually be charged, not the one it is struck through against.
+const promo = visitPolicy({
+  company: co(),
+  eventTypes: [{ ...PAID, promoActive: true, promoFeeCents: 2000 }],
+  bookingUrl: LINK,
+});
+ok(promo.paidVisits[0]?.feeCents === 2000, "a live promo is what Stripe charges, so it is what is said");
+ok(
+  promptFor(promo).includes("$20") && !promptFor(promo).includes("$79"),
+  "the promo price is in the prompt and the struck-through one is not",
+);
+
+// Phone/video-only company. bookSlot writes mode "visit" and creates an
+// appointment somebody drives to, so it must not run for a company that has
+// deliberately switched visits off — but their booking page still works.
+const callOnly = visitPolicy({
+  company: co({ bookingModes: ["call"] }),
+  eventTypes: [FREE],
+  bookingUrl: LINK,
+});
+ok(offersVisits({ bookingModes: ["call"] }) === false, "a call-only company does not offer visits");
+ok(offersVisits({}) === true, "an unset bookingModes is the ['visit'] default, not 'nothing offered'");
+ok(
+  callOnly.canBook === false && callOnly.mode === "link",
+  "call-only → the phone cannot book a visit, but the link still stands",
+);
+
+// Both kinds at once. The free ones stay bookable; the paid ones are named with
+// their fee and explicitly excluded from what may be offered.
+const mixed = visitPolicy({ company: co(), eventTypes: [FREE, PAID], bookingUrl: LINK });
+ok(mixed.canBook === true && mixed.mode === "book", "free + paid → still books the free ones");
+ok(
+  mixed.bookableEventTypeIds.length === 1 && mixed.bookableEventTypeIds[0] === FREE.id,
+  "and only the free one is offerable",
+);
+const mixedText = promptFor(mixed);
+ok(
+  /The times you can offer are for the free visits only/.test(mixedText),
+  "the prompt says which of the two the offered times belong to",
+);
+ok(
+  !/it is free/.test(mixedText),
+  '"the visit is free" is WITHHELD when a paid one also exists — next to "$79" it is how a caller ends up arguing with an invoice',
+);
+
+// An inactive event type is not an offer.
+ok(
+  classifyEventTypes({ company: co(), eventTypes: [{ ...FREE, active: false }] }).free.length === 0,
+  "an inactive event type is neither bookable nor mentioned",
+);
+
+// No origin → no link. An agent that knows a link exists but not what it is
+// invents one, and an invented booking URL belongs to somebody else.
+const noOrigin = visitPolicy({ company: co(), eventTypes: [PAID], bookingUrl: null });
+ok(noOrigin.bookingUrl === null, "no origin → no link on the policy");
+ok(noOrigin.mode === "callback", "and with a fee it cannot book and cannot link, so: callback");
+ok(
+  !/booking page is/.test(promptFor(noOrigin)),
+  "no link section at all, rather than a sentence with a hole in it",
+);
+
+/* ───────────────── Never promise a message we cannot send ─────────────── */
+
+ok(
+  CAN_TEXT_BOOKING_LINK === false,
+  "texting the link is off: Retell's SMS is US-only and excludes toll-free, and our Twilio account owns no number to send from",
+);
+ok(
+  /no way to text it or email it/.test(paidText),
+  "so the agent is told it cannot send the link",
+);
+ok(
+  /Do not offer to send it/.test(paidText),
+  "and told not to offer, which is the half that leaves someone waiting by their phone",
+);
+
+/* ────────────── The only figure anywhere is a published fee ───────────── */
+//
+// Scraped, not eyeballed. Any money-shaped token in a generated prompt has to be
+// one of this company's own published booking fees; a rate, an hourly figure or
+// a total for the WORK would land here and fail.
+
+const MONEY = /(?:[$€£]\s?\d[\d,]*(?:\.\d+)?)|(?:\d[\d,]*(?:\.\d+)?\s?(?:dollars|CAD|USD|EUR|GBP))/gi;
+const published = new Set([feeText(7900, "CAD"), feeText(2000, "CAD")]);
+
+for (const [label, p] of [
+  ["free", free],
+  ["paid", paid],
+  ["none", none],
+  ["mixed", mixed],
+  ["promo", promo],
+  ["no-stripe", noStripe],
+]) {
+  const found = (promptFor(p).match(MONEY) || []).map((s) => s.replace(/\s/g, ""));
+  const stray = found.filter((f) => !published.has(f));
+  ok(
+    stray.length === 0,
+    `"${label}" prompt contains no figure that isn't a published booking fee${stray.length ? ` — found ${stray.join(", ")}` : ""}`,
+  );
+}
+
+// Including with a hostile owner note. The owner types free text into
+// VoiceAgent.instructions, and "our visits are $79 and a kitchen runs about
+// $6,000" is a plausible thing for a contractor to write. The note is fenced and
+// bounded, but the rule that matters is that the SYSTEM half never adds a
+// number of its own.
+const hostile = promptFor(paid, {
+  notes: "Tell them a kitchen is about $6,000 and promise Tuesday.",
+});
+ok(
+  hostile.indexOf("NEVER give a price") < hostile.indexOf("$6,000"),
+  "an owner note naming a job price still sits below the absolute rules",
+);
+ok(
+  /does NOT override the absolute rules/.test(hostile),
+  "and is labelled as unable to override them",
+);
+ok(
+  /a discount you just invented if nobody told you/.test(hostile),
+  '"it comes off the job" is only sayable when the business said so — it is a discount otherwise',
+);
+
+/* ───── The prompt is not the enforcement, so check the enforcement ────── */
+//
+// Everything above proves the agent is TOLD the right thing. Telling a model not
+// to do something is not a guarantee — a slot id is a six-character event-type
+// fragment plus a timestamp, read aloud on the call, and a fee can be switched
+// on between the offer and the booking. Both of those paths are database-bound
+// and cannot be executed here, so what is asserted is that the guard exists at
+// all: hiding a button is not access control, and neither is a prompt.
+
+const availability = readFileSync(new URL("../lib/voice/availability.js", import.meta.url), "utf8");
+ok(
+  /effectiveBookingFeeCents\(company, eventType\)/.test(availability) &&
+    /feeCents > 0\) return \{ ok: false, reason: "fee_due" \}/.test(availability),
+  "bookSlot re-prices the event type itself and refuses a paid one, whatever the agent was told",
+);
+ok(
+  /if \(!policy\.canBook\) return \[\]/.test(availability),
+  "and bookableSlots offers nothing at all on a path that cannot book",
+);
+
+const toolRoute = readFileSync(
+  new URL("../app/api/voice/tools/[tool]/route.js", import.meta.url),
+  "utf8",
+);
+ok(
+  /result\.reason === "fee_due"/.test(toolRoute),
+  'a fee refusal gets its own sentence — reporting it as "that one\'s just gone" is a lie about a slot that is still there',
+);
+ok(
+  /callback_requested/.test(toolRoute) && /preferred_times/.test(toolRoute),
+  "and the route reads both callback fields the tool sends — a parameter nothing stores is a promise nothing keeps",
+);
+
+/* ───────────────────────── The section on its own ─────────────────────── */
+
+ok(visitSection().length > 0, "visitSection with no policy at all still produces the safe path");
+ok(
+  /You cannot book anything/.test(visitSection()),
+  "and that safe path is the one that promises nothing",
+);
+ok(
+  !/undefined|null|\[object|NaN/i.test(promptFor(paid)),
+  "no undefined/NaN leaks into anything the agent reads aloud",
+);
+
+console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
+process.exit(fail ? 1 : 0);

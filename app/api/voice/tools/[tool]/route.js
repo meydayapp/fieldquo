@@ -136,7 +136,27 @@ async function saveCaller(ctx, args) {
     ? args.urgency
     : null;
 
+  // ── A callback request, written down rather than only said ──────────────
+  //
+  // The receptionist's honest fallback is "someone will ring you back", and
+  // until now that sentence went nowhere: the lead was created, but nothing on
+  // it distinguished a caller waiting for a call from one who just asked a
+  // question, and the times they said they were reachable were lost entirely.
+  //
+  // First line of the message on purpose. Whoever opens the lead reads the top
+  // of it, and this is the part with a person's expectation attached.
+  const callbackWanted = args.callback_requested === true;
+  const preferredTimes = cleanText(args.preferred_times, 200);
+
   const detail = [
+    callbackWanted
+      ? `CALLBACK REQUESTED${preferredTimes ? ` — best time: ${preferredTimes}` : ""}`
+      : // Kept even without the flag: a caller who volunteered when they're free
+        // said something useful, and dropping it because a boolean was missing
+        // is how the useful half of a lead disappears.
+        preferredTimes
+        ? `Best time to reach them: ${preferredTimes}`
+        : null,
     address ? `Address: ${address}` : null,
     urgency ? `Urgency: ${urgency}` : null,
     summary,
@@ -278,12 +298,25 @@ async function book(ctx, args) {
   });
 
   if (!result.ok) {
-    // Re-checked at booking time, not just when offered. Two callers can be
-    // told about the same slot seconds apart, and the second one must not be
-    // promised it.
+    // ── "That one's just gone" is only true when it's true ────────────────
+    //
+    // Every failure used to be reported as a clash, which is a plausible thing
+    // to say and, for a visit the company CHARGES for, a false one — the slot
+    // is sitting there and the caller has just been told it isn't. They ring
+    // back tomorrow and get told the same thing.
+    //
+    // A fee is refused here rather than collected: taking money is the booking
+    // page's job (hold, Stripe session, settle, reconcile) and it already does
+    // it properly. So the agent says why and points at the link, which the
+    // prompt has already given it — no figure is invented here, because the
+    // prompt carries the published one.
     return NextResponse.json({
       booked: false,
-      say: "That one's just gone. Would another time work?",
+      reason: result.reason,
+      say:
+        result.reason === "fee_due"
+          ? "Ah — that one's a paid visit, so I can't take it over the phone. You can book it on the booking page and pay there. Shall I read the link out?"
+          : "That one's just gone. Would another time work?",
     });
   }
 
