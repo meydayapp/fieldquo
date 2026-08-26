@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import { holdsCapability } from "@/lib/permissions/settingsAccess";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { taxRegistrationFor } from "@/lib/compliance/taxRegistration";
 
@@ -56,9 +56,15 @@ export async function POST(request) {
     const { member, response } = await memberOrRefusal(request);
     if (response) return response;
 
-    try {
-      requirePermission(member.role, "user:manage");
-    } catch {
+    // The message was true and the gate was not. `user:manage` reaches
+    // SUPERVISORS — it means "may run a crew" — so a Dispatcher could dismiss
+    // this while being told, in the same file, that only owners and admins
+    // could. Of the two, the message is the one worth keeping: the only
+    // dismissible step is tax_registration, and "this company has no tax
+    // number" is a statement about its legal registration, not a rostering
+    // decision. Same set as the activity log and leave policies, through the
+    // capability that was named for exactly this and nothing else.
+    if (!holdsCapability(member.role, "owner-admin")) {
       return NextResponse.json(
         { error: "Only owners and admins can change setup steps" },
         { status: 403 },

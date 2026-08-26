@@ -80,7 +80,13 @@ export default function EditInvoicePage() {
         // the company's current one — an old invoice shouldn't reprice itself
         // because the company's tax setting changed since.
         const base = money(inv.subtotal) - money(inv.discount);
-        setTaxEnabled(money(inv.tax) > 0);
+        // The stored flag, not `tax > 0`. Reconstructing the switch from the
+        // amount made "tax applies at 0%" unrepresentable and, worse, made it
+        // indistinguishable from "no tax on this one" — so the client read
+        // "$0.00" for both. Invoice.taxEnabled now exists for exactly this;
+        // `!== false` so a row that predates the column reads as on, matching
+        // the column default.
+        setTaxEnabled(inv.taxEnabled !== false);
         setTaxRate(base > 0 ? +((money(inv.tax) / base) * 100).toFixed(4) : 0);
       } catch (err) {
         if (!cancelled) setError(err.message);
@@ -142,6 +148,8 @@ export default function EditInvoicePage() {
           subtotal: totals.subtotal,
           discount: money(discount),
           tax: totals.tax,
+          // Sent, not inferred. The switch above finally writes something.
+          taxEnabled,
           total: totals.total,
           dueDate: dueDate || undefined,
           notes,
@@ -397,7 +405,22 @@ export default function EditInvoicePage() {
           {money(discount) > 0 && (
             <Row label={t("app.invoiceEdit.discount")} value={-money(discount)} />
           )}
-          <Row label={t("app.invoiceEdit.tax")} value={totals.tax} />
+          {/* Tax on with nothing charged is not "$0.00" — the send route
+              refuses to post that (lib/tax/documentTax.js), so it must not
+              look settled here either. */}
+          {taxEnabled && totals.tax === 0 ? (
+            <div className="flex justify-between text-amber-700 dark:text-amber-300">
+              <span>{t("app.invoiceEdit.tax")}</span>
+              <span className="font-medium">{t("app.tax.line.unresolved")}</span>
+            </div>
+          ) : taxEnabled ? (
+            <Row label={t("app.invoiceEdit.tax")} value={totals.tax} />
+          ) : (
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t("app.invoiceEdit.tax")}</span>
+              <span>{t("app.tax.line.none")}</span>
+            </div>
+          )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1">
             <span>{t("app.invoiceEdit.total")}</span>
             <span>${totals.total.toFixed(2)}</span>

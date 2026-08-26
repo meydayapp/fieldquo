@@ -66,6 +66,12 @@ export default function QuoteTotalsBar({
   // Iceland's refund). Informational, so it sits with the note rather than the
   // caution.
   taxSchemeNote = "",
+  // Set when the rate in the box came from the COMPANY's own province because
+  // the client's record could not identify one. Rendered louder than taxNote
+  // and above the figure, because it is a guess with a price attached: an
+  // Ottawa contractor quoting across the river in Gatineau owes 14.975%, not
+  // the 13% this would have assumed.
+  taxAssumed = "",
   // { standardRate, reducedRate, workType, conditionText, onChange } when the
   // company's country operates a reduced VAT rate for renovation work. Null
   // everywhere else, including Canada and the US.
@@ -222,6 +228,17 @@ export default function QuoteTotalsBar({
           </div>
         )}
 
+        {/* Above taxNote and in the caution's register, not the note's. The
+            note explains a determination; this flags one that was NOT made. */}
+        {taxAssumed && (
+          <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg px-2.5 py-2 -mt-2">
+            <span className="font-semibold">
+              {t("app.tax.assumed.badge")}
+            </span>{" "}
+            {taxAssumed}
+          </p>
+        )}
+
         {taxNote && (
           <p className="text-xs text-muted-foreground -mt-2">{taxNote}</p>
         )}
@@ -254,10 +271,32 @@ export default function QuoteTotalsBar({
               </span>
             </div>
           )}
-          <div className="flex justify-between text-muted-foreground">
-            <span>{t("app.quoteEdit.tax")}</span>
-            <span className="tabular-nums">{money(tax)}</span>
-          </div>
+          {/* ── The zero that isn't a figure ─────────────────────────────
+              Tax switched ON with nothing charged is not "$0.00", it is "we
+              haven't worked this out" — and it is the state that let
+              Q-2026-0011 out of the building with $682.50 of HST missing.
+              The send route refuses it (lib/tax/documentTax.js); this is where
+              the estimator sees it first, while it is still fixable. */}
+          {taxEnabled && Number(tax) === 0 ? (
+            <div className="flex justify-between text-amber-700 dark:text-amber-300">
+              <span>{t("app.quoteEdit.tax")}</span>
+              <span className="font-medium">
+                {t("app.tax.line.unresolved")}
+              </span>
+            </div>
+          ) : (
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t("app.quoteEdit.tax")}</span>
+              <span className="tabular-nums">
+                {taxEnabled ? money(tax) : t("app.tax.line.none")}
+              </span>
+            </div>
+          )}
+          {taxEnabled && Number(tax) === 0 && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
+              {t("app.tax.line.unresolvedHint")}
+            </p>
+          )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>{t("app.quoteEdit.total")}</span>
             <span className="tabular-nums">{money(total)}</span>

@@ -9,6 +9,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 const STATUS_STYLES = {
   // Purple/attention — an unscheduled job (usually auto-created from an
   // accepted quote) is a to-do: it needs a date.
@@ -26,6 +27,11 @@ const STATUS_LABEL_KEYS = JOB_STATUS_LABEL_KEYS;
 
 export default function JobsPage() {
   const { t } = useTranslation();
+  // The same rule POST /api/jobs enforces, asked of the same grid — see the
+  // longer note on the quotes list. Both buttons on this page led to a form
+  // whose save answers 403, and the sidebar's quick-add entry has been hidden
+  // at this exact level since NAV_REQUIREMENTS was written.
+  const canCreate = useHasLevel("jobs", "view_create_edit");
   // null until the server answers — see lib/loadState.js.
   const [jobs, setJobs] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -79,13 +85,15 @@ export default function JobsPage() {
             {t("app.jobs.subtitle")}
           </p>
         </div>
-        <Link
-          data-tour="jobs-new"
-          href="/app/jobs/new"
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          <Plus size={16} /> {t("app.jobs.new")}
-        </Link>
+        {canCreate && (
+          <Link
+            data-tour="jobs-new"
+            href="/app/jobs/new"
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={16} /> {t("app.jobs.new")}
+          </Link>
+        )}
       </div>
 
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -163,12 +171,25 @@ export default function JobsPage() {
                     "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
                   )}
                 </p>
-                <Link
-                  href="/app/jobs/new"
-                  className="inline-flex items-center gap-2 mt-4 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-                >
-                  <Plus size={16} /> {t("app.jobs.new")}
-                </Link>
+                {/* The empty state's own copy already explains that jobs
+                    arrive on their own when a quote is accepted, so a member
+                    who may not create one is not left at a dead end — but the
+                    reason is still said rather than left as a missing button. */}
+                {canCreate ? (
+                  <Link
+                    href="/app/jobs/new"
+                    className="inline-flex items-center gap-2 mt-4 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+                  >
+                    <Plus size={16} /> {t("app.jobs.new")}
+                  </Link>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-4">
+                    {t(
+                      "app.access.cannotCreateJob",
+                      "Your access level lets you view jobs, not create them. Ask an owner or admin if you need to start one.",
+                    )}
+                  </p>
+                )}
               </>
             )}
           </div>

@@ -232,13 +232,39 @@ export default function PortalInvoice({ token, invoiceId }) {
             {Number(invoice.discount) > 0 && (
               <Row label={labels.discount} value={-Number(invoice.discount)} money={money} />
             )}
-            <Row label={labels.tax} value={invoice.tax} money={money} />
+            {/* Not always a number — see lib/tax/documentTax.js. An invoice
+                is the harder of the two documents to get wrong: this is what
+                the household actually owes, and what the company remits
+                against. `taxKind` is resolved server-side in
+                app/api/portal/[token]/route.js. */}
+            {invoice.taxKind && invoice.taxKind !== "charged" ? (
+              <div className="flex justify-between text-[#2d2520]/70">
+                <span>{labels.tax}</span>
+                <span>
+                  {invoice.taxKind === "unresolved"
+                    ? labels.taxUnresolved
+                    : labels.taxNone}
+                </span>
+              </div>
+            ) : (
+              <Row label={labels.tax} value={invoice.tax} money={money} />
+            )}
             <div className="flex justify-between pt-1 font-semibold text-[#2d2520]">
               <span>{labels.total}</span>
               <span className="tabular-nums">{money(invoice.total)}</span>
             </div>
             {Number(invoice.amountPaid) > 0 && (
               <Row label={copy.paid} value={-Number(invoice.amountPaid)} money={money} />
+            )}
+            {/* The rate came from the contractor's province rather than this
+                household's, because we hold no address for them. */}
+            {invoice.taxAssumedRegion && (
+              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+                {labels.taxAssumedNote.replace(
+                  "{region}",
+                  invoice.taxAssumedRegion,
+                )}
+              </p>
             )}
           </div>
 

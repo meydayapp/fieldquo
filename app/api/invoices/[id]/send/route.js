@@ -28,6 +28,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { ensurePortalToken, portalInvoiceUrl } from "@/lib/clientPortal";
 import { buildInvoiceEmail } from "@/lib/email/invoiceEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import { taskForSentInvoice } from "@/lib/tasks/autoCreate";
 import {
   loadEnforceableMember,
@@ -78,8 +79,40 @@ export async function POST(request, { params }) {
       defaultLanguage: true,
       stripeAccountId: true,
       stripeChargesEnabled: true,
+      // For the tax gate below.
+      taxRate: true,
+      autoApplyLocalTax: true,
+      country: true,
+      province: true,
+      vatRegistered: true,
     },
   });
+
+  // ── The tax gate ─────────────────────────────────────────────────────────
+  //
+  // The same stop as app/api/quotes/[id]/send, for the same reason and in the
+  // same shape — invoices mirror quotes (AGENTS.md), and an invoice is the
+  // HARDER of the two numbers: it is what the household actually owes and what
+  // the company will have to remit against. Three of the three invoices ever
+  // sent from this deployment carried tax $0.00 on work in Ontario and Quebec.
+  //
+  // Placed before the portal token is minted so a refused send leaves nothing
+  // behind, and it re-prices nothing — it reads the stored amount and refuses.
+  const taxRates = await db.taxRate.findMany({
+    where: { companyId: member.companyId },
+  });
+  const refusal = taxSendRefusal(
+    taxStatement({
+      taxEnabled: invoice.taxEnabled,
+      tax: invoice.tax,
+      company: company || {},
+      taxRates,
+      client: invoice.client,
+      asOf: invoice.createdAt,
+    }),
+    { client: invoice.client },
+  );
+  if (refusal) return NextResponse.json(refusal, { status: 409 });
 
   const token = await ensurePortalToken(db, invoice.clientId, member.companyId);
   if (!token) {

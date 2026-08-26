@@ -20,8 +20,10 @@ import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 export default function DashboardPage() {
   const { t } = useTranslation();
+  const canCreateQuote = useHasLevel("quotes", "view_create_edit");
   const [onboarding, setOnboarding] = useState(null);
   const [overview, setOverview] = useState(null);
   const [recentQuotes, setRecentQuotes] = useState([]);
@@ -209,12 +211,16 @@ export default function DashboardPage() {
       />
 
       <div className="flex flex-wrap gap-3">
-        <Link
-          href="/app/quotes/new"
-          className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          + New Quote
-        </Link>
+        {/* Same rule POST /api/quotes enforces — see app/app/quotes/page.js.
+            The other two lead to screens a view_only member can genuinely use. */}
+        {canCreateQuote && (
+          <Link
+            href="/app/quotes/new"
+            className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            + New Quote
+          </Link>
+        )}
         <Link
           href="/app/clients"
           className="border border-border px-4 py-2.5 rounded-full text-sm font-semibold"
@@ -248,9 +254,16 @@ export default function DashboardPage() {
           <div className="divide-y divide-border">
             {recentQuotes.length === 0 && (
               <p className="px-5 py-6 text-sm text-muted-foreground">
-                <Link href="/app/quotes/new" className="text-foreground underline">
-                  {t("app.dash.noQuotesCta", "No quotes yet — create your first quote")}
-                </Link>
+                {canCreateQuote ? (
+                  <Link href="/app/quotes/new" className="text-foreground underline">
+                    {t("app.dash.noQuotesCta", "No quotes yet — create your first quote")}
+                  </Link>
+                ) : (
+                  t(
+                    "app.access.cannotCreateQuote",
+                    "Your access level lets you view quotes, not create them. Ask an owner or admin if you need to write one.",
+                  )
+                )}
               </p>
             )}
             {recentQuotes.map((q) => (

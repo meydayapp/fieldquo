@@ -61,6 +61,15 @@ export async function POST(request) {
     email,
     phone,
     address,
+    // The structured halves of that address, straight off Google Places. The
+    // form used to send the formatted string alone, so a lead carried
+    // "…, Gatineau, QC J8T 2S9, Canada" as prose and the client it converted
+    // into had no jurisdiction at all — see lib/tax/documentTax.js. Ride in
+    // `intake` rather than as Lead columns: convertLead already seeds the
+    // client's address from there, and LeadRequest needs no new schema.
+    city,
+    province,
+    country,
     categoryId,
     description,
     // Answers to the intake fields the public form showed — { key: value }.
@@ -107,11 +116,22 @@ export async function POST(request) {
 
   // Address lives in the structured intake too, so a converted quote can seed
   // the client's address without re-parsing the message blob.
+  //
+  // Only keys that actually arrived are written. A homeowner who typed their
+  // address by hand instead of picking a suggestion has no province, and
+  // storing `province: null` beside a real address invites a later reader to
+  // treat the absence as an answer.
+  const jurisdiction = {
+    ...(address ? { address } : {}),
+    ...(city ? { city } : {}),
+    ...(province ? { province } : {}),
+    ...(country ? { country } : {}),
+  };
   const intake =
     details && typeof details === "object"
-      ? { ...details, ...(address ? { address } : {}) }
-      : address
-        ? { address }
+      ? { ...details, ...jurisdiction }
+      : Object.keys(jurisdiction).length
+        ? jurisdiction
         : null;
 
   const lead = await createScoredLead({

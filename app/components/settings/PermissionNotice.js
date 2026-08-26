@@ -31,6 +31,11 @@ export function whoLabel(t, capability) {
     case "billing":
     case "payroll":
       return t("app.perm.whoOwnerAdmin");
+    // Not a role at all. jobCosting is a per-member toggle an owner grants, so
+    // naming a role here would be wrong in both directions: a Manager holds it
+    // and a Dispatcher with the same role does not.
+    case "jobCosting":
+      return t("app.perm.whoJobCosting");
     default:
       // user:manage and workarea:assign are both held by supervisors.
       return t("app.perm.whoManagers");

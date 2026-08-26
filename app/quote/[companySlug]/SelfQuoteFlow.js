@@ -81,6 +81,14 @@ export default function SelfQuoteFlow({ companySlug }) {
     email: "",
     phone: "",
     address: "",
+    // Filled by the address autocomplete, never by a field the homeowner sees
+    // — this form asks a stranger for as little as possible. They ride along
+    // to the lead and become the client's jurisdiction when the office
+    // converts it, which is the difference between a quote that charges tax
+    // and one that silently doesn't (lib/tax/documentTax.js).
+    city: "",
+    province: "",
+    country: "",
   });
 
   // The language the resulting LEAD — and the quote it becomes — is created in.
@@ -524,8 +532,19 @@ export default function SelfQuoteFlow({ companySlug }) {
                 <AddressAutocomplete
                   value={contact.address}
                   onChange={(v) => setContact((p) => ({ ...p, address: v }))}
+                  // address-jurisdiction: keeps city, province and country.
+                  // This kept `place.address` alone and threw the structured
+                  // components away — the shape that produced production rows
+                  // like "755 Rue Saint-Louis, Gatineau, QC J8T 2S9, Canada"
+                  // with city, province and country all null.
                   onPlaceSelected={(place) =>
-                    setContact((p) => ({ ...p, address: place.address }))
+                    setContact((p) => ({
+                      ...p,
+                      address: place.address,
+                      city: place.city || p.city,
+                      province: place.province || p.province,
+                      country: place.country || p.country,
+                    }))
                   }
                   placeholder={copy.addressPlaceholder}
                   className="w-full border border-black/15 rounded-lg px-3 py-2.5 text-sm"

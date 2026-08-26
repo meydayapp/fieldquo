@@ -98,17 +98,40 @@ export default function AwaitingPayment() {
 
   if (!loaded || rows.length === 0) return null;
 
+  // ── The heading has to match the rows underneath it ──────────────────────
+  //
+  // This panel deliberately carries two states: holds still waiting on Stripe,
+  // and holds whose checkout was abandoned and whose slot was given back. Both
+  // belong here — somebody who picked a time and dropped off is a lead worth
+  // chasing, not a row to hide. But the heading said "Awaiting payment ... they
+  // are not on your calendar until the payment lands" over a list where nothing
+  // was awaiting anything, and the owner read it as four unpaid bookings
+  // including one he had in fact paid for.
+  //
+  // The ROW copy was already honest ("Payment wasn't completed — the time was
+  // released"). Only the frame was wrong, which is the harder kind to notice.
+  const stillWaiting = rows.some((b) => b.status === "pending_payment");
+  const anyLapsed = rows.some((b) => b.status === "cancelled");
+  const titleKey = stillWaiting
+    ? "app.booking.awaitingPaymentTitle"
+    : "app.booking.lapsedOnlyTitle";
+  const bodyKey = stillWaiting
+    ? anyLapsed
+      ? "app.booking.awaitingMixedBody"
+      : "app.booking.awaitingPaymentBody"
+    : "app.booking.lapsedOnlyBody";
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="flex items-center gap-2 px-5 py-4 border-b border-border">
         <Clock size={16} className="text-muted-foreground" />
         <h2 className="font-semibold text-foreground">
-          {t("app.booking.awaitingPaymentTitle")}
+          {t(titleKey)}
         </h2>
       </div>
 
       <p className="px-5 pt-3 text-xs text-muted-foreground">
-        {t("app.booking.awaitingPaymentBody")}
+        {t(bodyKey)}
       </p>
 
       {error && (

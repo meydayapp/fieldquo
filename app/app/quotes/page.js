@@ -8,6 +8,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -17,6 +18,20 @@ const STATUS_STYLES = {
 
 export default function QuotesPage() {
   const { t } = useTranslation();
+  // ── The control, at exactly the level the API enforces ──────────────────
+  //
+  // POST /api/quotes requires quotes:view_create_edit and refuses without it —
+  // deliberately, and that refusal is correct: PERMISSIONS.employee grants
+  // "quote:create" because the Dispatcher preset needs it, the GRID says
+  // view_only, and narrower wins (lib/permissions.js says so at length).
+  //
+  // What was wrong is this screen. It offered "New Quote", opened the full
+  // builder, and let someone compose a whole quote before the save came back
+  // 403. That is the worst version of the failure: it costs the person their
+  // work, not a click. The quick-add menu in the sidebar has hidden this exact
+  // entry at this exact level since NAV_REQUIREMENTS was written; the two
+  // buttons on this page were never given the same rule.
+  const canCreate = useHasLevel("quotes", "view_create_edit");
   // null until the server answers — see lib/loadState.js. The stat tiles below
   // read this, and four tiles reading "0" is a much more convincing lie than
   // any red banner is a correction.
@@ -64,13 +79,15 @@ export default function QuotesPage() {
           <h1 className="text-2xl font-bold text-foreground">{t("app.quotes.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t("app.quotes.subtitle")}</p>
         </div>
-        <Link
-          data-tour="quotes-new"
-          href="/app/quotes/new"
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          <Plus size={16} /> {t("app.quotes.new")}
-        </Link>
+        {canCreate && (
+          <Link
+            data-tour="quotes-new"
+            href="/app/quotes/new"
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={16} /> {t("app.quotes.new")}
+          </Link>
+        )}
       </div>
 
       <div data-tour="quotes-stats" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -132,13 +149,23 @@ export default function QuotesPage() {
             <p className="text-sm text-muted-foreground">
               {search ? t("app.quotes.noMatch") : t("app.quotes.emptyTitle")}
             </p>
-            {!search && (
+            {/* An empty list with no way to fill it is a dead end, so the
+                prompt is replaced by the reason rather than simply removed. */}
+            {!search && canCreate && (
               <Link
                 href="/app/quotes/new"
                 className="text-sm font-medium text-foreground underline mt-2 inline-block"
               >
                 {t("app.quotes.empty")}
               </Link>
+            )}
+            {!search && !canCreate && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {t(
+                  "app.access.cannotCreateQuote",
+                  "Your access level lets you view quotes, not create them. Ask an owner or admin if you need to write one.",
+                )}
+              </p>
             )}
           </div>
         }

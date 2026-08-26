@@ -92,6 +92,7 @@ export async function PATCH(request, { params }) {
     subtotal,
     discount,
     tax,
+    taxEnabled,
     total,
     dueDate,
     notes,
@@ -141,6 +142,7 @@ export async function PATCH(request, { params }) {
         ...(subtotal !== undefined && { subtotal }),
         ...(discount !== undefined && { discount }),
         ...(tax !== undefined && { tax }),
+        ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
         ...(total !== undefined && { total }),
         ...(dueDate !== undefined && { dueDate: new Date(dueDate) }),
         ...(notes !== undefined && { notes }),
@@ -231,6 +233,9 @@ export async function PATCH(request, { params }) {
       subtotal: subtotal ?? existing.subtotal,
       discount: discount ?? existing.discount,
       tax: tax ?? existing.tax,
+      // Carried onto the new version. Dropping it would silently re-assert
+      // "tax applies" on an invoice that was deliberately raised without any.
+      taxEnabled: taxEnabled ?? existing.taxEnabled,
       total: total ?? existing.total,
       dueDate: dueDate ? new Date(dueDate) : existing.dueDate,
       notes: notes ?? existing.notes,

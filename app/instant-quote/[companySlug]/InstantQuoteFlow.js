@@ -307,6 +307,11 @@ export default function InstantQuoteFlow({ companySlug }) {
   // filter slots against. The booking flow already refuses to offer times it
   // cannot reach; it can only do that with an address.
   const [siteAddress, setSiteAddress] = useState("");
+  // The structured halves of the site address, when it was picked from the
+  // autocomplete rather than typed. Held separately from the string because
+  // `siteAddress` is also a free-text field — someone who types it gets no
+  // jurisdiction, and an empty object is the honest record of that.
+  const [siteJurisdiction, setSiteJurisdiction] = useState({});
   const [intake, setIntake] = useState({});
   const [polygon, setPolygon] = useState(null);
   const [materialKey, setMaterialKey] = useState(null);
@@ -424,7 +429,12 @@ export default function InstantQuoteFlow({ companySlug }) {
     try {
       const payload = { trade: trade.trade, intake, materialKey, ...contact };
       if (trade.measure === "roof_address") payload.address = address;
-      else if (siteAddress.trim()) payload.address = siteAddress.trim();
+      else if (siteAddress.trim()) {
+        payload.address = siteAddress.trim();
+        // Only the pieces Google actually returned. The server normalises the
+        // country and ignores anything it doesn't recognise.
+        Object.assign(payload, siteJurisdiction);
+      }
       if (trade.measure === "lawn_polygon") payload.polygon = polygon;
       if (media.length) payload.media = media;
       // The index only. The server owns the dollars behind it — a form that
@@ -717,8 +727,25 @@ export default function InstantQuoteFlow({ companySlug }) {
                   <Section title="Where's the job?" required>
                     <AddressAutocomplete
                       value={siteAddress}
-                      onChange={setSiteAddress}
-                      onPlaceSelected={(place) => setSiteAddress(place.address)}
+                      // Typing after picking invalidates the components that
+                      // came with the pick — keeping them would attach the
+                      // previous suggestion's province to a different address.
+                      onChange={(v) => {
+                        setSiteAddress(v);
+                        setSiteJurisdiction({});
+                      }}
+                      // address-jurisdiction: keeps city, province, country.
+                      // This kept the formatted string alone, so a homeowner
+                      // who picked a real suggestion still produced a client
+                      // the tax resolver could say nothing about.
+                      onPlaceSelected={(place) => {
+                        setSiteAddress(place.address);
+                        setSiteJurisdiction({
+                          city: place.city || "",
+                          province: place.province || "",
+                          country: place.country || "",
+                        });
+                      }}
                       placeholder="Street, city, postal code"
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                     />

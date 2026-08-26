@@ -684,12 +684,41 @@ export default function QuoteApproval({ token }) {
                 money={money}
               />
             )}
-            <Row label={labels.tax} value={pricing.tax} money={money} />
+            {/* ── Not always a number ────────────────────────────────────
+                A money row reading "$0.00" says tax was worked out and came to
+                nothing. Q-2026-0011 said that here on $5,250 of Ontario work
+                with tax switched on. `taxKind` comes from the server (see
+                lib/tax/documentTax.js) and is overridden the moment a taxable
+                extra is ticked, because then a real figure exists. */}
+            {pricing.tax !== 0 || quote.taxKind === "charged" ? (
+              <Row label={labels.tax} value={pricing.tax} money={money} />
+            ) : (
+              <div className="flex justify-between text-[#2d2520]/70">
+                <span>{labels.tax}</span>
+                <span>
+                  {quote.taxKind === "unresolved"
+                    ? labels.taxUnresolved
+                    : labels.taxNone}
+                </span>
+              </div>
+            )}
             {pricing.extras > 0 && (
               <div className="flex justify-between text-[#2d2520]/70">
                 <span>{copy.includesOptionalExtras}</span>
                 <span className="tabular-nums">{money(pricing.extras)}</span>
               </div>
+            )}
+            {/* The rate came from the contractor's own province, not this
+                homeowner's — because we have no address for them. They are the
+                one person who can correct it, and an Ottawa contractor quoting
+                a Gatineau kitchen is 2% under. */}
+            {quote.taxAssumedRegion && (
+              <p className="text-xs text-[#2d2520]/55 leading-snug pt-1">
+                {labels.taxAssumedNote.replace(
+                  "{region}",
+                  quote.taxAssumedRegion,
+                )}
+              </p>
             )}
           </div>
 

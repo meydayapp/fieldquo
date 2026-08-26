@@ -134,6 +134,10 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   // successful filter, or an unrecognised address silently shows unreachable
   // times.
   const [address, setAddress] = useState(prefill?.address || "");
+  // The structured halves of that address, present only when it was PICKED
+  // from the suggestions. Empty when typed, and empty is the honest record —
+  // half a parsed address is not a jurisdiction.
+  const [jurisdiction, setJurisdiction] = useState({});
   // Seeded too, so a prefilled address filters the very first slot query rather
   // than showing times that ignore travel until they touch the field.
   const [geoAddress, setGeoAddress] = useState(prefill?.address || "");
@@ -318,6 +322,10 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
           mode,
           ...(quoteId ? { quoteId } : {}),
           address: mode === "visit" ? address.trim() || null : null,
+          // Only when the address was picked AND this is a site visit — a
+          // video call carries no site address, so it must carry no
+          // jurisdiction either.
+          ...(mode === "visit" && address.trim() ? jurisdiction : {}),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -760,10 +768,25 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
                 <AddressField
                   id="visit-address"
                   value={address}
-                  onChange={setAddress}
-                  onResolved={({ address: picked }) => {
+                  // Typing after picking invalidates the components that came
+                  // with the pick — keeping them would attach the previous
+                  // suggestion's province to a different address.
+                  onChange={(v) => {
+                    setAddress(v);
+                    setJurisdiction({});
+                  }}
+                  // address-jurisdiction: keeps city, province, country.
+                  // The confirm route creates a Client from this booking, and
+                  // one with no country resolves to no tax rate at all on
+                  // every quote that follows (lib/tax/documentTax.js).
+                  onResolved={({ address: picked, city, province, country }) => {
                     if (!picked) return;
                     setAddress(picked);
+                    setJurisdiction({
+                      city: city || "",
+                      province: province || "",
+                      country: country || "",
+                    });
                     // Picked from the list, so it's a finished address —
                     // re-query now instead of waiting out the typing debounce.
                     setGeoAddress(picked.trim());

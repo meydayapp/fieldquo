@@ -9,7 +9,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
 import InvoiceCostSection from "@/app/components/invoices/InvoiceCostSection";
 import { formatAppMoney } from "@/lib/format/money";
-import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
 
 export default function NewInvoicePage() {
   // The company's billing currency, read off whatever this page already
@@ -41,6 +42,9 @@ export default function NewInvoicePage() {
   // had no field to be acted on.
   const [taxRateTouched, setTaxRateTouched] = useState(false);
   const [taxConfig, setTaxConfig] = useState(null);
+  // Set when the rate came from the company's own province rather than this
+  // client's. A guess with a price attached — see QuoteTotalsBar.
+  const [taxAssumed, setTaxAssumed] = useState("");
   const [taxNote, setTaxNote] = useState("");
   const [taxCaution, setTaxCaution] = useState("");
   // Internal crew / hours / materials, never part of the document. Null until
@@ -81,6 +85,9 @@ export default function NewInvoicePage() {
           // The company's OWN country. For B2C services VAT is charged where
           // the supplier is — see lib/tax/jurisdictions.js.
           country: businessInfo?.country || null,
+          // And the province, which is what a rate is ASSUMED from when the
+          // client's record can't identify one.
+          province: businessInfo?.province || null,
           // Three-state, and `?? null` rather than `|| false`: an unanswered
           // VAT question must not arrive here as "not registered".
           vatRegistered: businessInfo?.vatRegistered ?? null,
@@ -95,7 +102,10 @@ export default function NewInvoicePage() {
 
   useEffect(() => {
     if (!taxConfig) return;
-    const result = resolveTaxRate({
+    // The layered resolver: same rates, plus a fall back to the COMPANY's own
+    // province when the client's record cannot answer — labelled, never
+    // silent. See lib/tax/documentTax.js.
+    const result = resolveDocumentTax({
       company: taxConfig,
       taxRates: taxConfig.taxRates,
       client: selectedClient,
@@ -106,8 +116,19 @@ export default function NewInvoicePage() {
       lang: language,
     });
     if (!taxRateTouched) setTaxRate(result.rate);
+    setTaxAssumed(
+      result.assumed
+        ? t(
+            selectedClient ? "app.tax.assumed.note" : "app.tax.assumed.noClient",
+            {
+              region: result.assumedRegion || "",
+              client: selectedClient?.name || "",
+            },
+          )
+        : "",
+    );
     const note =
-      taxConfig.autoApplyLocalTax && selectedClient
+      taxConfig.autoApplyLocalTax && selectedClient && !result.assumed
         ? explainTaxSource(result, selectedClient, language)
         : null;
     setTaxNote(note ? t(note.key, note.params) : "");
@@ -174,6 +195,10 @@ export default function NewInvoicePage() {
           lineItems,
           subtotal,
           tax,
+          // The switch on this page finally records a decision. Without it a
+          // brand-new invoice raised with tax deliberately off was stored
+          // identically to one nobody could work out a rate for.
+          taxEnabled,
           total,
           notes,
           clientPhotos,
@@ -476,10 +501,29 @@ export default function NewInvoicePage() {
             <span>{t("app.invoiceNew.subtotal")}</span>
             <span>{formatAppMoney(subtotal, currency, language)}</span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>{t("app.invoiceNew.tax")}</span>
-            <span>{formatAppMoney(tax, currency, language)}</span>
-          </div>
+          {/* Tax on with nothing charged is not a settled zero — the send
+              route refuses to post one (lib/tax/documentTax.js). */}
+          {taxEnabled && tax === 0 ? (
+            <div className="flex justify-between text-amber-700 dark:text-amber-300">
+              <span>{t("app.invoiceNew.tax")}</span>
+              <span className="font-medium">{t("app.tax.line.unresolved")}</span>
+            </div>
+          ) : (
+            <div className="flex justify-between text-muted-foreground">
+              <span>{t("app.invoiceNew.tax")}</span>
+              <span>
+                {taxEnabled
+                  ? formatAppMoney(tax, currency, language)
+                  : t("app.tax.line.none")}
+              </span>
+            </div>
+          )}
+          {taxAssumed && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
+              <span className="font-semibold">{t("app.tax.assumed.badge")}</span>{" "}
+              {taxAssumed}
+            </p>
+          )}
           <div className="flex justify-between font-semibold text-foreground text-base pt-1 border-t border-border mt-1">
             <span>{t("app.invoiceNew.total")}</span>
             <span>{formatAppMoney(total, currency, language)}</span>

@@ -214,12 +214,31 @@ export async function POST(request) {
     select: { id: true, periodStart: true, periodEnd: true, status: true },
   });
 
+  // Hours the worker approved for themselves, carried into the audit trail.
+  //
+  // The marker existed only on the Timesheets screen and in the timeEntry
+  // activity row; the run that turns those hours into money never mentioned
+  // it. PayRun has no meta column to hold it on the record itself, and adding
+  // one is a schema decision rather than a bug fix — so it goes where the rest
+  // of "who did what to payroll" already lives, and the preview says it on
+  // screen before the run is committed.
+  const selfApproved = computed.meta?.selfApprovedTime || [];
   await recordActivity(member, {
     action: "payroll.run_created",
     entityType: "payrun",
     entityId: run.id,
-    summary: `Created a draft pay run for ${start.toLocaleDateString()}–${end.toLocaleDateString()} (${computed.lines.length} people, ${computed.netTotal} net)`,
-    metadata: { grossTotal: computed.grossTotal, netTotal: computed.netTotal },
+    summary:
+      `Created a draft pay run for ${start.toLocaleDateString()}–${end.toLocaleDateString()} (${computed.lines.length} people, ${computed.netTotal} net)` +
+      (selfApproved.length
+        ? ` — includes self-approved hours: ${selfApproved
+            .map((s) => `${s.name} (${s.hours}h)`)
+            .join(", ")}`
+        : ""),
+    metadata: {
+      grossTotal: computed.grossTotal,
+      netTotal: computed.netTotal,
+      selfApprovedTime: selfApproved,
+    },
   });
 
   return NextResponse.json({ ...run, ...computed, guards }, { status: 201 });

@@ -9,6 +9,7 @@ import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 import { effectiveBookingFeeCents, feeHoldCutoff } from "@/lib/booking/fee";
 import { createBookingFeeCheckoutSession } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
+import { normaliseCountry } from "@/lib/tax/jurisdictions";
 
 // Public — confirms a booking, re-validates the slot is still free (race condition guard)
 export async function POST(request, { params }) {
@@ -16,7 +17,14 @@ export async function POST(request, { params }) {
   // which made the company lookup below silently 404 every booking.
   const { companySlug } = await params;
   const body = await request.json();
-  const { eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode, address, quoteId } =
+  const {
+    eventTypeSlug, startTime, clientName, clientEmail, clientPhone, mode,
+    address, quoteId,
+    // The structured halves of `address`, present only when the visitor picked
+    // a Places suggestion. See the client create below for why they are kept
+    // and why they are normalised rather than trusted.
+    city, province, country,
+  } =
     body;
 
   if (!eventTypeSlug || !startTime || !clientName || !clientEmail) {
@@ -78,6 +86,12 @@ export async function POST(request, { params }) {
     );
   }
 
+  // Hoisted above the client create, which now seeds the client's address
+  // from it. A failed geocode further down still stores this typed string with
+  // null coordinates — see the note there.
+  const visitAddress =
+    typeof address === "string" && address.trim() ? address.trim() : null;
+
   // Create/find client record for this company
   let client = await db.client.findFirst({
     where: { companyId: company.id, email: clientEmail },
@@ -89,6 +103,31 @@ export async function POST(request, { params }) {
         name: clientName,
         email: clientEmail,
         phone: clientPhone || null,
+        // ── Why the address lands here at all ────────────────────────────
+        //
+        // This route created a client with a name, an email and a phone
+        // number and put the site address only on the appointment. So the
+        // first quote for a booked visit was written against a client with no
+        // jurisdiction, and charged no tax without saying so.
+        //
+        // Only for a site visit, and only when the visitor PICKED the
+        // address — `city`/`province`/`country` are absent when they typed
+        // it, and absent stays null rather than becoming a guess. The country
+        // is normalised rather than trusted: this is a public endpoint.
+        //
+        // Unlike lat/lng (deliberately re-geocoded below, because coordinates
+        // from a browser would let anyone place an appointment anywhere),
+        // these decide nothing the visitor could exploit — they set a tax
+        // region the office sees on the client record and can correct.
+        ...(visitAddress
+          ? {
+              address: visitAddress,
+              city: typeof city === "string" && city ? city : null,
+              province:
+                typeof province === "string" && province ? province : null,
+              country: normaliseCountry(country),
+            }
+          : {}),
       },
     });
   }
@@ -113,7 +152,6 @@ export async function POST(request, { params }) {
   // honest — the crew still needs the street address — and travel filtering
   // treats missing coordinates as unknown rather than as the middle of the
   // ocean.
-  const visitAddress = typeof address === "string" && address.trim() ? address.trim() : null;
 
   // ── The estimate this visit is about, if the booking came from one ────────
   //

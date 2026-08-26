@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { resolveClientLanguage } from "@/lib/i18n/resolveLanguage";
+import { taxStatement } from "@/lib/tax/documentTax";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -35,6 +36,18 @@ export async function GET(request, { params }) {
           stripeAccountId: true,
           stripeChargesEnabled: true,
           paymentMethods: true,
+          // ── For the tax line, and stripped from the payload below ────────
+          //
+          // Every invoice in this portal carries a tax row, and a row reading
+          // "$0.00" is a claim the invoice may not be able to back — see
+          // lib/tax/documentTax.js and Q-2026-0011. These decide which of the
+          // three sentences that row makes; the homeowner receives the
+          // sentence, never the settings.
+          province: true,
+          country: true,
+          taxRate: true,
+          autoApplyLocalTax: true,
+          vatRegistered: true,
         },
       },
       // Drafts stay in the office, same rule the public quote page already
@@ -94,12 +107,37 @@ export async function GET(request, { params }) {
   // connected-account id on a PUBLIC, token-only endpoint, and the homeowner
   // needs the answer, not the account. So the two Stripe fields are destructured
   // off and never reach the response.
+  //
+  // The five tax settings go the same way and for the same reason: what the
+  // homeowner needs is what each invoice's tax line SAYS, resolved below.
   const {
     stripeAccountId,
     stripeChargesEnabled,
+    taxRate: _taxRate,
+    autoApplyLocalTax: _autoApply,
+    vatRegistered: _vatRegistered,
     ...companyView
   } = client.company || {};
   const onlinePayments = Boolean(stripeAccountId && stripeChargesEnabled);
+
+  // Per invoice, because each was raised on its own day with its own decision
+  // about tax. `asOf` is the invoice's creation date so a rate change last
+  // month cannot re-explain a bill sent before it.
+  const invoices = client.invoices.map((invoice) => {
+    const statement = taxStatement({
+      taxEnabled: invoice.taxEnabled,
+      tax: invoice.tax,
+      company: client.company || {},
+      client,
+      asOf: invoice.createdAt,
+      lang: resolveClientLanguage(client, client.company),
+    });
+    return {
+      ...invoice,
+      taxKind: statement.kind,
+      taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
+    };
+  });
 
   return NextResponse.json({
     clientName: client.name,
@@ -110,7 +148,7 @@ export async function GET(request, { params }) {
     company: companyView,
     onlinePayments,
     quotes: client.quotes,
-    invoices: client.invoices,
+    invoices,
     jobs: client.jobs,
   });
 }

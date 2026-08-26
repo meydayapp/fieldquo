@@ -1887,6 +1887,24 @@ model Invoice {
   tax       Decimal @default(0) @db.Decimal(12, 2)
   total     Decimal @default(0) @db.Decimal(12, 2)
 
+  /// Mirrors Quote.taxEnabled, and had to exist for the same reason it does
+  /// there: `tax: 0` on its own cannot say WHY it is zero.
+  ///
+  /// The invoice editor already rendered an "apply tax" switch, but there was
+  /// no column behind it — it reconstructed its own state as `tax > 0` on
+  /// load. So the switch round-tripped by accident and carried no meaning: an
+  /// invoice deliberately raised with no tax and one whose rate nobody could
+  /// work out were the same row, and the client read "$0.00" for both.
+  ///
+  /// With this, turning tax off is a recorded decision the send gate honours
+  /// and the document can state; leaving it on with nothing charged is the
+  /// hole it refuses to send (lib/tax/documentTax.js).
+  ///
+  /// @default(true) matches Quote, and matches what the editor already assumed
+  /// for every existing row. It does not re-price anything — Invoice.tax holds
+  /// a money AMOUNT and nothing reads this to compute one.
+  taxEnabled Boolean @default(true)
+
   dueDate      DateTime?
   startDate    DateTime?
   endDate      DateTime?

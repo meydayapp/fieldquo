@@ -47,6 +47,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { SANDBOX_ADDRESS } from "@/lib/email/platformSender";
 import { buildQuoteEmail } from "@/lib/email/quoteEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { taxStatement, taxSendRefusal } from "@/lib/tax/documentTax";
 import {
   quoteEmailSectionGate,
   QUOTE_EMAIL_COMPANY_SELECT,
@@ -120,6 +121,14 @@ export async function POST(request, { params }) {
       phone: true,
       currency: true,
       defaultLanguage: true,
+      // Everything the tax gate below needs to work out whether this quote's
+      // zero is a decision or a hole. Selected here rather than in a second
+      // query because the gate runs on every send.
+      taxRate: true,
+      autoApplyLocalTax: true,
+      country: true,
+      province: true,
+      vatRegistered: true,
       // Without these the optional sections resolve to "off" for every quote
       // this route sends, silently. buildQuoteEmail refuses to run on a
       // company row that is missing them rather than guessing — see
@@ -156,6 +165,44 @@ export async function POST(request, { params }) {
       { status: 409 },
     );
   }
+
+  // ── The tax gate ─────────────────────────────────────────────────────────
+  //
+  // Q-2026-0011 went to a homeowner reading "Tax $0.00 / TOTAL $5,250.00" with
+  // taxEnabled TRUE. The quote asserted tax applied and then charged none. On
+  // Ontario work that is $682.50 of HST the contractor either eats or goes
+  // back to the customer for, after they have already seen a total.
+  //
+  // The tax library was never the fault — resolveTaxRate refused to invent a
+  // rate for a client with no location, which is correct. The defect was that
+  // the quote was sent anyway. This is the moment the number stops being a
+  // draft and becomes a promise, so it is the moment to stop.
+  //
+  // HARD refusal, not confirm-anyway. A dialog on the way to a stranger's
+  // inbox is a button people learn to click, and there is no unsend. It is
+  // only defensible because it is never a dead end — see taxSendRefusal, and
+  // TaxUnresolvedModal, which fixes the client's address in place and retries.
+  //
+  // Placed after the section gate and BEFORE the share token is minted, for
+  // the same reason that one is: a refused send should leave nothing behind.
+  //
+  // Nothing here re-prices anything. It reads the stored amount and refuses;
+  // a quote that gets through keeps exactly the tax it was written with.
+  const taxRates = await db.taxRate.findMany({
+    where: { companyId: member.companyId },
+  });
+  const refusal = taxSendRefusal(
+    taxStatement({
+      taxEnabled: quote.taxEnabled,
+      tax: quote.tax,
+      company: company || {},
+      taxRates,
+      client: quote.client,
+      asOf: quote.createdAt,
+    }),
+    { client: quote.client },
+  );
+  if (refusal) return NextResponse.json(refusal, { status: 409 });
 
   // Mint the link if this quote has never been shared. Doing it here rather
   // than expecting the caller to have pressed "Get approved" first means the

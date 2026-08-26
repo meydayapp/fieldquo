@@ -61,6 +61,8 @@ import BrandTheme from "@/app/components/BrandTheme";
 import { moneyFormatter } from "@/lib/format/money";
 import { paymentMethodLabel } from "@/lib/payments/methodLabels";
 import { documentLabels } from "@/lib/i18n/documentLabels";
+import { taxStatement } from "@/lib/tax/documentTax";
+import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import LifecycleBanners from "./LifecycleBanners";
 import JobPanel from "./JobPanel";
 import CostPanel from "./CostPanel";
@@ -84,6 +86,8 @@ export default function InvoiceDetailPage() {
   // the layout already reads for date preferences, so it is warm, and the
   // masthead degrades to the brand mark alone if it fails.
   const [company, setCompany] = useState(null);
+  // The send refused because this invoice can't say what tax is owed.
+  const [taxBlocked, setTaxBlocked] = useState(null);
   // Everything the invoice SAYS. Its own request for the same reason the quote
   // page makes one: several kilobytes of prose that the PDF route and the
   // editor have no use for.
@@ -131,6 +135,23 @@ export default function InvoiceDetailPage() {
   // page beside it prints $2,100.00 and an invoice that printed $2100.00 next
   // to it reads as a bug.
   const money = moneyFormatter(company?.currency, language);
+
+  // What this document's tax line is allowed to say. `company` is the business
+  // -info payload, which already carries province, country, taxRate,
+  // autoApplyLocalTax, vatRegistered and the company's own TaxRate rows — so
+  // the office copy resolves it exactly as the PDF and the client's copy do,
+  // rather than reaching a different conclusion about the same row.
+  //
+  // Reads only. Nothing here re-prices anything: `invoice.tax` is untouched.
+  const taxLine = taxStatement({
+    taxEnabled: invoice?.taxEnabled,
+    tax: invoice?.tax,
+    company,
+    taxRates: company?.taxRates,
+    client: invoice?.client,
+    asOf: invoice?.createdAt ? new Date(invoice.createdAt) : undefined,
+    lang: language,
+  });
   // The document's own furniture — "Invoice", "Prepared for", "Balance due" —
   // from the catalogue the PDF and the portal use, in the STAFF's language.
   const labels = documentLabels(language);
@@ -215,6 +236,14 @@ export default function InvoiceDetailPage() {
     try {
       const res = await fetch(`/api/invoices/${id}/send`, { method: "POST" });
       const data = await res.json().catch(() => null);
+      // The invoice says tax applies and charges none. Not a failure to
+      // report — a decision to make, and the dialog holds both ways out. An
+      // invoice is the harder of the two documents to get wrong: this is what
+      // the household owes and what the company remits against.
+      if (res.status === 409 && data?.code === "tax_unresolved") {
+        setTaxBlocked(data);
+        return;
+      }
       if (!res.ok)
         throw new Error(data?.error || t("app.invoiceDetail.sendError"));
       setJustSent(data.to);
@@ -535,6 +564,22 @@ export default function InvoiceDetailPage() {
           Chosen server-side from real columns. The handlers wired here are the
           only ones offered: a banner whose action this page cannot perform
           renders without a button rather than with a dead one. */}
+      <TaxUnresolvedModal
+        isOpen={Boolean(taxBlocked)}
+        blocked={taxBlocked}
+        docPath="invoices"
+        docId={id}
+        sending={sending}
+        onClose={() => setTaxBlocked(null)}
+        onRetry={async () => {
+          setTaxBlocked(null);
+          // Refresh first — "send with no tax" flipped taxEnabled and the
+          // totals block is still showing the old row.
+          await refresh();
+          sendInvoice();
+        }}
+      />
+
       <LifecycleBanners
         banners={life?.banners || []}
         money={money}
@@ -736,9 +781,16 @@ export default function InvoiceDetailPage() {
                           </span>
                         )}
                       </span>
-                      <span className="tabular-nums shrink-0">
-                        {money(item.amount)}
-                      </span>
+                      {/* See the totals block below: with `pricingHidden`
+                          the API removed every `amount`, and money() coerces a
+                          missing amount to zero on purpose. Printing it here
+                          put "$0.00" beside real work — a stronger false claim
+                          than an absent column. */}
+                      {!invoice.pricingHidden && (
+                        <span className="tabular-nums shrink-0">
+                          {money(item.amount)}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -759,7 +811,9 @@ export default function InvoiceDetailPage() {
                   {item.description}
                   {item.quantity > 1 && ` × ${item.quantity}`}
                 </span>
-                <span className="tabular-nums">{money(item.amount)}</span>
+                {!invoice.pricingHidden && (
+                  <span className="tabular-nums">{money(item.amount)}</span>
+                )}
               </div>
             ))}
           </section>
@@ -941,7 +995,20 @@ export default function InvoiceDetailPage() {
                 value={`-${money(invoice.discount)}`}
               />
             )}
-            <Row label={labels.tax} value={money(invoice.tax)} />
+            {/* Not always a figure. See lib/tax/documentTax.js — "$0.00" on a
+                tax row is a claim ("worked out, came to nothing") that a
+                document with no jurisdiction behind it cannot make. This is
+                the office's own copy of what the client will read. */}
+            <Row
+              label={labels.tax}
+              value={
+                taxLine.kind === "charged"
+                  ? money(invoice.tax)
+                  : taxLine.kind === "unresolved"
+                    ? t("app.tax.line.unresolved")
+                    : t("app.tax.line.none")
+              }
+            />
 
             {/* The headline figure in a filled band in their colour, matching
                 the PDF and the portal. */}
@@ -1075,7 +1142,12 @@ export default function InvoiceDetailPage() {
                     ? t("app.invoiceDetail.visitCreditLabel")
                     : paymentMethodLabel(p.method)}
                 </span>
-                <span className="tabular-nums">{money(p.amount)}</span>
+                {/* The payment ROWS survive a redaction — that somebody
+                    paid, when, and how is not the amount — but their `amount`
+                    is stripped, so the figure would read $0.00. */}
+                {!invoice.pricingHidden && (
+                  <span className="tabular-nums">{money(p.amount)}</span>
+                )}
               </div>
             ))}
           </div>

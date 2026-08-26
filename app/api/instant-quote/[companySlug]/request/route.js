@@ -18,6 +18,7 @@ import { canBookVisit } from "@/lib/booking/canBookVisit";
 import { getAppOrigin } from "@/lib/appUrl";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { createEstimateDraft } from "@/lib/estimate/createEstimateQuote";
+import { normaliseCountry } from "@/lib/tax/jurisdictions";
 import { buildEstimateEmail } from "@/lib/estimate/estimateEmail";
 import { sendEmail } from "@/lib/email/resend";
 import { resolveSender } from "@/lib/email/companySender";
@@ -49,7 +50,15 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const { trade, address, polygon, intake, materialKey, name, email, phone, language, media, budgetBandIndex } = body || {};
+  const {
+    trade, address, polygon, intake, materialKey, name, email, phone, language,
+    media, budgetBandIndex,
+    // The structured halves of `address` when the homeowner picked a Places
+    // suggestion. Not trusted — normaliseCountry drops anything that isn't ISO
+    // alpha-2 — and absent when they typed the address by hand, which is the
+    // honest "we don't know" rather than a guess.
+    city, province, country,
+  } = body || {};
 
   if (!trade) return NextResponse.json({ error: "Missing service." }, { status: 400 });
   if (!name || (!email && !phone)) {
@@ -100,6 +109,11 @@ export async function POST(request, { params }) {
     estimate: priced.estimate,
     source: priced.source,
     address: address || measured.measurement.formattedAddress || null,
+    // The client this draft creates gets a jurisdiction, so the estimator
+    // reviewing it sees a real tax rate instead of a silent 0%.
+    city: city || null,
+    province: province || null,
+    country: normaliseCountry(country),
     language: language || company.defaultLanguage || "en",
     // The homeowner's attached photos/videos — re-normalised server-side (https
     // only, count-capped) so the browser can't stash anything but real media URLs.

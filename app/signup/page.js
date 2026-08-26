@@ -147,8 +147,25 @@ function CompanyFields({ form, setForm, fieldErrors }) {
         <AddressAutocomplete
           value={form.address}
           onChange={(val) => setForm((f) => ({ ...f, address: val }))}
-          onPlaceSelected={({ address, city, province }) =>
-            setForm((f) => ({ ...f, address, city, province }))
+          // address-jurisdiction: keeps city, province AND country.
+          //
+          // `country` was dropped, and it is not cosmetic here — it seeds
+          // Company.country, which drives the billing currency AND is the
+          // fallback jurisdiction every quote falls back to when the client's
+          // own address can't answer (lib/tax/documentTax.js). Left at the
+          // "CA" default, a contractor who typed a Texas address got a
+          // Canadian company. Google's short_name is already ISO alpha-2.
+          //
+          // Only overwritten when Google actually returned one — a partial
+          // place must not blank a country the user picked by hand.
+          onPlaceSelected={({ address, city, province, country }) =>
+            setForm((f) => ({
+              ...f,
+              address,
+              city: city || f.city,
+              province: province || f.province,
+              country: country || f.country,
+            }))
           }
           placeholder="Start typing your address..."
           className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${

@@ -225,11 +225,22 @@ export default function ClientPicker({
                 // `|| undefined` rather than `|| null`: an autocomplete result
                 // missing a locality should leave whatever was typed alone,
                 // not overwrite it with an absence.
-                onPlaceSelected={({ address, city, province }) =>
+                // address-jurisdiction: keeps city, province AND country.
+                //
+                // `country` used to be dropped here, and dropping it alone was
+                // enough to break tax on every client quick-added from the
+                // builder: resolveTaxRate refuses to guess a country from a
+                // province code (deliberately — "ON" on its own is ambiguous),
+                // so a client with province "ON" and country null resolves to
+                // "unknown" exactly like one with no address at all. Google
+                // returns it as short_name, which is already the ISO alpha-2
+                // the lookup wants.
+                onPlaceSelected={({ address, city, province, country }) =>
                   onNewClientChange({
                     address,
                     city: city || undefined,
                     province: province || undefined,
+                    country: country || undefined,
                   })
                 }
                 placeholder={

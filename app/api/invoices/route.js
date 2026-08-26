@@ -92,6 +92,9 @@ export async function POST(request) {
     subtotal,
     discount,
     tax,
+    // Whether this invoice CLAIMS tax applies. Distinct from `tax` being zero
+    // — see the schema note on Invoice.taxEnabled.
+    taxEnabled,
     total,
     dueDate,
     notes,
@@ -177,6 +180,10 @@ export async function POST(request) {
       subtotal: subtotal || 0,
       discount: discount || 0,
       tax: tax || 0,
+      // Same three-state care as the quote route: `taxEnabled: false` is a
+      // decision and must not be read as "unset". Only an absent field falls
+      // back to the column default.
+      taxEnabled: taxEnabled === undefined ? true : Boolean(taxEnabled),
       total,
       // Seed the balance so list views and emails that read amountDue are
       // correct BEFORE any payment. It was defaulting to 0 (the column default),

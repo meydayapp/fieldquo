@@ -890,6 +890,71 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Every client in production had a country of `null`, so no quote could
+  charge tax. `app/components/AddressAutocomplete.js` (consumers),
+  `lib/tax/documentTax.js`, `app/api/quotes/[id]/send/route.js`,
+  `app/api/invoices/[id]/send/route.js`,
+  `app/components/tax/TaxUnresolvedModal.js`,
+  `scripts/check-address-fields.mjs`, `scripts/check-tax-send-gate.mjs`.**
+
+  Q-2026-0011 went to a homeowner reading `Subtotal $5,250.00 / Tax $0.00 /
+  TOTAL $5,250.00` with `taxEnabled: true`. $682.50 of Ontario HST, asserted
+  and not charged.
+
+  The tax library was not at fault and was not touched. `resolveTaxRate`
+  refused to invent a rate for a client with no location, which is correct.
+  Three separate defects sat on top of it:
+
+  1. **The capture.** `AddressAutocomplete` has always extracted city,
+     province, postal code and country from Google's `address_components`.
+     Six of its eight consumers threw them away — ClientPicker and signup
+     dropped `country`; SelfQuoteFlow, InstantQuoteFlow and BookingFlow kept
+     only the formatted string. Result: 55 client rows, **zero** with a
+     country, three with a province and no country (which is inert — the
+     resolver will not guess a country from a region code). Every consumer now
+     keeps them, the server routes persist them end to end (self-quote →
+     `intake` → `convertLead`, instant-quote → `createEstimateDraft`, booking
+     confirm → the Client row), and `check:address-fields` derives the consumer
+     list from the filesystem so a new form is covered the day it is written.
+     A consumer that legitimately wants only coordinates declares
+     `// address-jurisdiction: none — <why>` in the file.
+
+  2. **The zero that looked like an answer.** `taxEnabled: true` with `tax: 0`
+     rendered as `$0.00` everywhere. `lib/tax/documentTax.js` classifies a tax
+     line as `charged | off | none | unresolved`; `unresolved` renders as "To
+     be confirmed" on the builder, the document, the PDF, the email, `/q/*`
+     and the portal, and never as a figure. A deliberate zero reads "None".
+     `Invoice.taxEnabled` was added to mirror `Quote.taxEnabled` — the invoice
+     editor's tax switch had no column behind it and reconstructed its state
+     as `tax > 0`, so "no tax on this one" and "nobody worked it out" were the
+     same row.
+
+  3. **The send.** Both send routes now refuse — hard 409, `tax_unresolved` —
+     when a document says tax applies and nothing anywhere can explain the
+     zero. `TaxUnresolvedModal` carries both ways out: set the client's
+     country and province inline (then it says what the rate came to, asked of
+     the server via `/api/clients/[id]/tax-preview`, so the dialog cannot hold
+     a second opinion), or switch tax off on that document only. All ten sent
+     quotes in production would have been stopped by it.
+
+  **The company-province default is an assumption and says so.** Where the
+  client's record cannot answer, the rate falls back to the company's own
+  province — the owner's instruction — but never silently. `resolveDocumentTax`
+  wraps `resolveTaxRate` (which is untouched) and returns `assumed` plus the
+  province it assumed; the builder shows an amber "Assumed Ontario — check it"
+  panel, and the client's own copy carries a line naming the province and
+  inviting a correction. The argument for the noise is in the owner's own data:
+  his company is in Ottawa and his client Emilio Boves is in Gatineau —
+  14.975%, not 13%, and remitted to a different authority. It stays overridable
+  per quote through the existing `taxRateTouched` guard.
+
+  **Historical exposure, measured and not written to:** all 10 sent quotes and
+  all 3 sent invoices carry tax on with nothing charged — $5,576.63 and
+  $1,563.92 of untaxed base at the rate their clients' addresses would resolve
+  to. Nothing was re-priced. Six of the 55 clients have a Google-formatted
+  address from which country and province are recoverable; a backfill is a
+  product decision and was deliberately not run.
+
 - **The cancel screen was promising a month it does not give.
   `app/app/settings/account-billing/CancelFlow.js`,
   `lib/billing/cancelConsequences.js`,
@@ -1173,6 +1238,96 @@ they set the pattern.
   that can tell a wrong gate from a missing one, which is what the salaries
   read/write split was. 511 assertions, and mutation-proven: deleting the gate
   from `/api/debt` puts the Dispatcher back at 200 and 201.
+
+- **The six surfaces the money/client redaction sweep did not reach —
+  `lib/permissions/enforce.js`, `scripts/check-rbac-redaction.mjs`.**
+
+  A live QA pass as a crew member on the Worker (limited) preset —
+  `showPricing: false`, `clientsProperties: name_address_only` — walked round
+  the first sweep in six places. Every one of them is a route that DID call a
+  redactor, just not on the field, the sibling collection or the verb that
+  mattered, which is why the grep-for-the-call half of the old guard passed
+  them all.
+
+  * **Settings > Services served the whole rate card.** $150 per door, the
+    complexity uplifts, add-ons to $1,000, a $3,800 job minimum.
+    `GET /api/settings/service-categories` had no check on any verb's read,
+    while the sibling Products & Services page refused on
+    `requireToggle(full, "showPricing")`. It redacts rather than refuses —
+    four other screens read the same payload for the labels and the enabled
+    flags — so `defaultRate`, `priceBook` and `rateOverrides` are absent and
+    each row is marked `pricingHidden`. `GET /api/settings/instant-quote` was
+    the same leak one screen along and is nothing but sell rates, so that one
+    refuses. Material Costs was the other half of C1 and was closed by the
+    cost-basis sweep above, on `jobCosting`.
+  * **`GET /api/leads` returned every enquiry's email, phone and stated
+    budget.** Leads were never looked at — a `LeadRequest` is not a `Client`
+    row — and carry the same personal data one step earlier in the pipeline.
+    `redactLead` shapes the payload rather than refusing, because the board is
+    a screen a crew member may open. `scoreReasons` goes with `budgetBand`:
+    the stored reasons are English sentences and two of them are
+    "Budget $15k+" and "Phone number provided".
+  * **Money survived inside a payload already marked `pricingHidden`.**
+    `acceptedTotal`/`acceptedSubtotal`/`acceptedTax` (what the client actually
+    agreed to, and what the invoice is built from),
+    `lineItems[].meta.baseUnitPrice` and `meta.complexityUpcharge` one level
+    below the loop that was stripping `rate` and `amount`, and the whole of
+    `estimateData` — the range the homeowner saw and an itemised breakdown of
+    amounts — sitting in a Json column beside four deleted Decimal ones. The
+    measurements, the breakdown LABELS and the complexity spec survive; they
+    are the job, not the price.
+  * **Invoice totals in plain text.** `GET /api/clients/[id]` redacted the
+    nested `quotes` and handed `invoices` over whole on the next line, and
+    `GET /api/invoices/[id]/lifecycle` recomputed the totals from its own
+    select and fed them to the banner ("Paid in full — $7,645.00"). The
+    banners stay and the figures go: `stripBannerMoney` in
+    `lib/invoices/lifecycle.js`, with amount-free sentences on the page,
+    because `money(undefined)` renders "$0.00" and "Paid in full — $0.00
+    received" is a false statement rather than a withheld one.
+  * **A worker could reopen and rewrite his own APPROVED timesheet.**
+    `timeTracking: view_record_own` is *record*, not *edit*, and the route only
+    separated own from everyone's — so `PATCH /api/time-entries/[id]` answered
+    200, recalculated hours 0.01 → 1 and flipped approved back to pending.
+    `status: "pending"` slipped the approval gate entirely, because that gate
+    excludes "pending" so clocking out can leave an entry pending. Two rungs
+    now: the `view_record_edit_own` level, and an approved entry that only the
+    set who may approve may reopen. `workerFullView` is `view_record_edit_own`
+    and keeps editing its own entries, which is the distinction that had to
+    survive. Clocking in and out is untouched — that is `POST /api/time-entries`
+    and `POST /api/time-clock`, neither of which passes through here.
+  * **A restriction rendered as "Not set".** The job detail page printed
+    "Not set" over a phone number and an email the client definitely has.
+    `redactClient` has set `restricted: true` for exactly this since it was
+    written and NOTHING read it. "Not set" is an instruction: it tells a crew
+    member to go and collect data that already exists, over a boundary their
+    owner drew. Absence and restriction are different statements.
+
+  Alongside them, **B1/B2: a must-allow that failed silently.** "New Quote" and
+  "New Job" were offered with the full builder and Save controls while
+  `POST /api/quotes` and `POST /api/jobs` answered 403. The refusal is correct
+  and deliberate — the `employee` ROLE grants `quote:create` because Dispatcher
+  needs it, the GRID says `view_only`, narrower wins — so the UI is what was
+  wrong. The six entry points now hide at exactly the level the API enforces
+  (`useHasLevel`/`useHasToggle` on `PermissionProvider`, one hook instead of six
+  copies), the builder refuses before the work rather than after it, and a
+  refusal that does reach the client is scrolled into view: the banner is at the
+  top of a builder several screens long whose Save buttons are at the bottom,
+  which is why QA reported the button doing nothing.
+
+  `check:rbac-redaction` now **executes the handlers** for leads, time entries,
+  the estimate queue, the client detail, the invoice lifecycle and the service
+  catalogue against fixtures built from `PERMISSION_PRESETS` at both worker
+  presets, asserting on the PAYLOAD rather than the markup — 282 assertions.
+  Mutation-proven in two places: removing `redactLeads` puts the email, phone
+  and budget band straight back, and removing the two timesheet gates reopens
+  the approved entry at 0.01 → 1 hours exactly as QA did.
+
+  One thing found and NOT fixed, because it belongs to the settings-access
+  work rather than here: every control on Settings > Services (Save, Add custom
+  type, Quote Wording) is `owner`/`admin` only at
+  `PATCH /api/settings/service-categories`, so for a supervisor the whole screen
+  is live-looking inputs over a refusal. The proper fix is the read-only
+  rendering Company Settings got, not another hidden row.
 
 - **One definition of what a trade is — `lib/trades/catalog.js`.**
 

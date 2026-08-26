@@ -18,6 +18,7 @@ import { onQuoteAccepted, onQuoteDeclined } from "@/lib/quotes/quoteLifecycle";
 import { recordActivity } from "@/lib/activity/log";
 import { buildSignatureRecord } from "@/lib/documents/signatureAudit";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { taxStatement } from "@/lib/tax/documentTax";
 import { usableSections } from "@/lib/documents/templateKind";
 import { financingOffer } from "@/lib/estimate/financing";
 import { financingTerms } from "@/lib/financing/monthlyEstimate";
@@ -74,6 +75,20 @@ async function loadQuote(token) {
           // selected because the financing block is built from it server-side,
           // not because a stranger should receive the raw setting.
           financing: true,
+          // ── Also stripped in present() ────────────────────────────────────
+          //
+          // These five decide what the TAX LINE on this page is allowed to
+          // say, and the decision is made server-side: the page receives
+          // `taxKind` and a province name, never the company's tax settings.
+          //
+          // province/country add no exposure — `address` above already carries
+          // both to the same stranger. The other three are settings and are
+          // peeled off before the response is built.
+          province: true,
+          country: true,
+          taxRate: true,
+          autoApplyLocalTax: true,
+          vatRegistered: true,
         },
       },
       scopeGroups: {
@@ -175,7 +190,37 @@ function present(quote) {
   // financing is company-level configuration, not something a stranger with a
   // link should receive verbatim; `company` below is returned wholesale, so it
   // is peeled off here and re-published only in the shape financingBlock allows.
-  const { financing: _financing, ...companyPublic } = quote.company || {};
+  //
+  // The five tax settings go the same way, for the same reason: what a
+  // stranger needs is what this quote's tax line SAYS, not the configuration
+  // behind it. `taxLine` below is that sentence and nothing more.
+  const {
+    financing: _financing,
+    taxRate: _taxRate,
+    autoApplyLocalTax: _autoApply,
+    vatRegistered: _vatRegistered,
+    ...companyPublic
+  } = quote.company || {};
+
+  // ── Why the page is told a KIND and not just a number ────────────────────
+  //
+  // Q-2026-0011 rendered "Tax $0.00" here on $5,250 of Ontario work with tax
+  // switched on. A money row saying zero is a claim the quote could not back.
+  // The kind lets the page print "To be confirmed" instead — and, when the
+  // rate came from the contractor's own province rather than the homeowner's,
+  // say so to the one person who can correct it.
+  const statement = taxStatement({
+    taxEnabled: quote.taxEnabled,
+    tax: quote.tax,
+    company: quote.company || {},
+    client: quote.client,
+    asOf: quote.createdAt,
+    lang: resolveClientLanguage({
+      document: quote,
+      client: quote.client,
+      company: quote.company,
+    }),
+  });
 
   return {
     quoteNumber: quote.quoteNumber,
@@ -197,6 +242,13 @@ function present(quote) {
     subtotal: num(quote.subtotal),
     discount: num(quote.discount),
     tax: num(quote.tax),
+    // "charged" | "off" | "none" | "unresolved" — see lib/tax/documentTax.js.
+    // Recomputed on the page as add-ons are ticked: an extra that carries tax
+    // turns an unresolved line into a charged one.
+    taxKind: statement.kind,
+    // The province the rate was ASSUMED from, or null. Never presented as
+    // determined — see QuoteApproval.
+    taxAssumedRegion: statement.assumed ? statement.assumedRegion : null,
     total: num(quote.total),
     // Present once decided, so a client reopening the link sees the figure
     // they actually agreed to rather than the pre-add-on quote total.

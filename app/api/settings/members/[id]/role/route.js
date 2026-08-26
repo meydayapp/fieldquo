@@ -19,6 +19,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import {
   assignableRoles,
+  canGrantAccess,
   clampPermissions,
   validateRoleChange,
 } from "@/lib/permissions/roleManagement";
@@ -34,6 +35,20 @@ export async function PATCH(request, { params }) {
   } catch {
     return NextResponse.json(
       { error: "You don't have permission to manage team members." },
+      { status: 403 },
+    );
+  }
+
+  // The entry gate above is "may you administer people at all". This one is
+  // "may you decide what they see" — narrower, and owner/admin only. Both are
+  // needed: user:manage reaches supervisors, and a supervisor re-grading a
+  // colleague is the escalation QA actually walked through.
+  if (!canGrantAccess(actor.role)) {
+    return NextResponse.json(
+      {
+        error:
+          "Only an owner or administrator can change what a team member can see and do. You can still add people, schedule them, and edit their details.",
+      },
       { status: 403 },
     );
   }
@@ -128,6 +143,10 @@ export async function GET(request) {
 
   return NextResponse.json({
     assignableRoles: assignableRoles(actorMember?.role),
+    // The screen renders a picker or a read-only badge off this. Sent by the
+    // server rather than re-derived in the browser, for the same reason
+    // assignableRoles is: the UI must offer exactly what the PATCH accepts.
+    canGrantAccess: canGrantAccess(actorMember?.role),
     yourRole: actorMember?.role,
     yourPermissions: actorMember?.permissions || null,
   });

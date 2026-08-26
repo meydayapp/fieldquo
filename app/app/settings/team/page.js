@@ -20,6 +20,7 @@ import {
   ROLE_RANK,
   canRevokeAccess,
   tierNote,
+  canGrantAccess,
 } from "@/lib/permissions/roleManagement";
 
 // Both of these were private copies of the maps in lib/permissions/roleManagement.js.
@@ -64,6 +65,7 @@ export default function TeamOverviewPage() {
   // accept, so a supervisor never picks a role that then bounces with a 403.
   const [grants, setGrants] = useState({
     assignableRoles: [],
+    canGrantAccess: false,
     yourRole: null,
   });
 
@@ -76,7 +78,7 @@ export default function TeamOverviewPage() {
       // The id in this path is ignored by the GET handler — it returns the
       // caller's own grants, not the target's.
       fetch("/api/settings/members/self/role").then((r) =>
-        r.ok ? r.json() : { assignableRoles: [] },
+        r.ok ? r.json() : { assignableRoles: [], canGrantAccess: false },
       ),
       // Worker and Member are separate rosters and they have drifted. A worker
       // with userId: null is schedulable and payable — QA found one sitting in
@@ -315,7 +317,12 @@ export default function TeamOverviewPage() {
 
   // Mirrors canManageMember on the server. Duplicated deliberately — the
   // server is the authority, this only decides whether to render a control.
+  // Two rules, and both have to hold. Rank stops a Manager re-grading someone
+  // senior; canGrantAccess stops a supervisor re-grading anyone at all — see
+  // lib/permissions/roleManagement.js for why that is the owner's call. Same
+  // shape as canToggleActive below, because it is the same kind of authority.
   function canEdit(member) {
+    if (!canGrantAccess(grants.yourRole)) return false;
     const mine = ROLE_RANK[grants.yourRole] ?? -1;
     const theirs = ROLE_RANK[member.role] ?? -1;
     return mine > theirs;
@@ -465,9 +472,11 @@ export default function TeamOverviewPage() {
                 <span
                   className="text-xs bg-muted px-2.5 py-1 rounded-full w-fit"
                   title={[
-                    m.role === "owner"
-                      ? t("app.setTeam.ownerChangeHint")
-                      : t("app.setTeam.roleBelowHint"),
+                    !canGrantAccess(grants.yourRole)
+                      ? t("app.setTeam.accessOwnerOnlyHint")
+                      : m.role === "owner"
+                        ? t("app.setTeam.ownerChangeHint")
+                        : t("app.setTeam.roleBelowHint"),
                     accessBadge(m).tier,
                   ]
                     .filter(Boolean)

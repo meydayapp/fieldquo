@@ -52,6 +52,8 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
+import { taxStatement } from "@/lib/tax/documentTax";
+import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -120,6 +122,23 @@ export default function QuoteDetailPage() {
   // date preferences, so it's warm, and the masthead degrades to the brand mark
   // alone if it fails.
   const [company, setCompany] = useState(null);
+
+  // What this document's tax line is allowed to say. `company` is the business
+  // -info payload, which already carries province, country, taxRate,
+  // autoApplyLocalTax, vatRegistered and the company's own TaxRate rows — so
+  // the office copy resolves it exactly as the PDF and the client's copy do,
+  // rather than reaching a different conclusion about the same row.
+  //
+  // Reads only. Nothing here re-prices anything: `quote.tax` is untouched.
+  const taxLine = taxStatement({
+    taxEnabled: quote?.taxEnabled,
+    tax: quote?.tax,
+    company,
+    taxRates: company?.taxRates,
+    client: quote?.client,
+    asOf: quote?.createdAt ? new Date(quote.createdAt) : undefined,
+    lang: language,
+  });
   const [loading, setLoading] = useState(true);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -143,6 +162,14 @@ export default function QuoteDetailPage() {
   // See lib/quotes/emailSections.js for why the server refuses rather than
   // dropping the section.
   const [blockedSections, setBlockedSections] = useState(null);
+  // The send refused because this quote says tax applies and charges none.
+  // Held as state for the same reason as blockedSections: the 409 carries the
+  // two ways out and a red banner cannot offer a form.
+  const [taxBlocked, setTaxBlocked] = useState(null);
+  // Arrived from the builder with ?taxBlocked=quote. Held until the quote and
+  // the company are both loaded, because the dialog needs the client's name
+  // and the refusal needs `taxLine` to still be true.
+  const [taxBlockedPending, setTaxBlockedPending] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -205,7 +232,8 @@ export default function QuoteDetailPage() {
     const params = new URLSearchParams(window.location.search);
     const sendError = params.get("sendError");
     const sendBlocked = params.get("sendBlocked");
-    if (!sendError && !sendBlocked) return;
+    const taxBlockedFlag = params.get("taxBlocked");
+    if (!sendError && !sendBlocked && !taxBlockedFlag) return;
     if (sendError) setError(sendError);
     // The builder's "Save & Send" hit the empty-section gate. Re-read the
     // sections rather than smuggling the 409 payload through the URL: it is
@@ -223,8 +251,39 @@ export default function QuoteDetailPage() {
         )
         .catch((err) => setError(err.message));
     }
+    // The builder's "Save & Send" hit the tax gate. Recorded, not acted on
+    // yet: the effect below opens the dialog once the quote and the company
+    // have both landed.
+    //
+    // NOT by re-POSTing to /send to see whether it still refuses. That route
+    // EMAILS on success, so a "just checking" request that happened to pass
+    // the gate would put the quote in front of the client on a page load
+    // nobody treated as a send. The state this page already resolves for its
+    // own totals (`taxLine`) answers the same question and cannot send
+    // anything.
+    if (taxBlockedFlag) setTaxBlockedPending(true);
+
     window.history.replaceState({}, "", window.location.pathname);
   }, [id]);
+
+  // Opens the dialog the builder redirected here for — but only if the quote
+  // STILL cannot say what tax is owed. If somebody fixed the client in another
+  // tab while this navigated, there is nothing to block and no dialog, rather
+  // than a modal arguing with a stale copy.
+  useEffect(() => {
+    if (!taxBlockedPending || !quote || !company) return;
+    setTaxBlockedPending(false);
+    if (taxLine.kind !== "unresolved") return;
+    setTaxBlocked({
+      kind: "quote",
+      clientId: quote.client?.id || null,
+      clientName: quote.client?.name || null,
+      missing: [
+        ...(quote.client?.country ? [] : ["country"]),
+        ...(quote.client?.province ? [] : ["province"]),
+      ],
+    });
+  }, [taxBlockedPending, quote, company, taxLine.kind]);
 
   /**
    * Actually emails the client.
@@ -278,6 +337,14 @@ export default function QuoteDetailPage() {
         body: JSON.stringify({ kind }),
       });
       const data = await res.json().catch(() => null);
+      if (res.status === 409 && data?.code === "tax_unresolved") {
+        // Not an error state. The quote isn't wrong, it just can't say what
+        // tax is owed — and both fixes are in the dialog. The kind rides along
+        // so Retry sends the same thing a follow-up must not come back as a
+        // fresh quote.
+        setTaxBlocked({ kind, ...data });
+        return;
+      }
       if (res.status === 409 && data?.code === "email_sections_empty") {
         // Not an error state: nothing is wrong with the request, the quote
         // just isn't ready. The kind is kept alongside so Retry sends the same
@@ -585,6 +652,28 @@ export default function QuoteDetailPage() {
         </div>
       )}
 
+      <TaxUnresolvedModal
+        isOpen={Boolean(taxBlocked)}
+        blocked={taxBlocked}
+        docPath="quotes"
+        docId={id}
+        sending={Boolean(sending)}
+        onClose={() => setTaxBlocked(null)}
+        onRetry={() => {
+          const kind = taxBlocked?.kind;
+          setTaxBlocked(null);
+          // Re-read the quote first: "send with no tax" flipped taxEnabled and
+          // the page is still showing the old row. Without this the totals
+          // block would keep claiming an unresolved tax on a quote that has
+          // just declared it charges none.
+          fetch(`/api/quotes/${id}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((fresh) => fresh && setQuote(fresh))
+            .catch(() => {})
+            .finally(() => doSend(kind));
+        }}
+      />
+
       <EmailSectionsBlockedModal
         isOpen={Boolean(blockedSections)}
         quoteId={id}
@@ -788,9 +877,19 @@ export default function QuoteDetailPage() {
                           </span>
                         )}
                       </span>
-                      <span className="tabular-nums shrink-0">
-                        {money(item.amount)}
-                      </span>
+                      {/* `pricingHidden` means the API removed `amount` from
+                          every line. money() coerces a missing amount to zero
+                          deliberately — on a client-facing document a visible
+                          zero beats "$NaN" — so rendering it here printed
+                          "$0.00" beside real work, which is a stronger false
+                          claim than saying nothing. The totals block below
+                          already replaces itself with the reason; these lines
+                          simply drop the column. */}
+                      {!quote.pricingHidden && (
+                        <span className="tabular-nums shrink-0">
+                          {money(item.amount)}
+                        </span>
+                      )}
                     </div>
                   ))}
                   {/* ── Why this line costs what it costs ──────────────────
@@ -1327,7 +1426,20 @@ export default function QuoteDetailPage() {
                 value={`-${money(quote.discount)}`}
               />
             )}
-            <Row label={t("app.quoteDetail.tax")} value={money(quote.tax)} />
+            {/* Not always a figure. See lib/tax/documentTax.js — "$0.00" on a
+                tax row is a claim ("worked out, came to nothing") that a
+                document with no jurisdiction behind it cannot make. This is
+                the office's own copy of what the client will read. */}
+            <Row
+              label={t("app.quoteDetail.tax")}
+              value={
+                taxLine.kind === "charged"
+                  ? money(quote.tax)
+                  : taxLine.kind === "unresolved"
+                    ? t("app.tax.line.unresolved")
+                    : t("app.tax.line.none")
+              }
+            />
 
             {/* The headline figure in a filled band in their colour, matching
                 the PDF and the approval page. Everything above it is quiet, so

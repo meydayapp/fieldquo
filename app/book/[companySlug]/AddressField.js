@@ -93,6 +93,11 @@ export default function AddressField({
           // purpose, because a browser-supplied lat/lng would let anyone drop
           // an appointment anywhere and those coordinates decide which other
           // slots get offered.
+          // address-jurisdiction: forwarded — this component chooses nothing.
+          // The whole place object (address, city, province, postalCode,
+          // country, lat, lng) goes straight to the caller's `onResolved`, and
+          // BookingFlow is where the decision about what to keep is made and
+          // checked.
           onPlaceSelected={onResolved}
           placeholder={placeholder}
           className={className}

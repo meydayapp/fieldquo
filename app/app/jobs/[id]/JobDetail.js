@@ -378,7 +378,7 @@ export default function JobDetail({ jobId }) {
                   {job.client.phone}
                 </a>
               ) : (
-                "Not set"
+                <Absent client={job.client} t={t} />
               )
             }
           />
@@ -403,14 +403,17 @@ export default function JobDetail({ jobId }) {
                   {formatAddress(job.client)}
                 </a>
               ) : (
-                "Not set"
+                // The address is NOT one of the restricted fields — a member on
+                // name_address_only gets it in full — so a blank one here is a
+                // genuine blank, and Absent says so.
+                <Absent client={job.client} t={t} />
               )
             }
           />
           <Field
             icon={FileText}
             label="Email"
-            value={job.client?.email || "Not set"}
+            value={job.client?.email || <Absent client={job.client} t={t} />}
           />
         </div>
       </div>
@@ -511,6 +514,37 @@ export default function JobDetail({ jobId }) {
       {/* Curate the crew's photos → website gallery */}
       <JobPhotoCurator jobId={jobId} />
     </div>
+  );
+}
+
+/**
+ * Why a client field is empty — and the two answers are not the same answer.
+ *
+ * This page printed "Not set" over a phone number and an email address the
+ * client definitely has. The API had removed both because the member is on
+ * clientsProperties "name_address_only", and marked the record
+ * `restricted: true` for exactly this reason (lib/permissions/enforce.js) —
+ * which nothing read.
+ *
+ * The cost of getting it wrong is not cosmetic. "Not set" is an instruction: it
+ * tells a crew member the office never captured a contact, and the reasonable
+ * next step is to ring the client, ask for their email, and type it in. That is
+ * a person collecting data that already exists, over a boundary their owner
+ * deliberately drew. AGENTS.md names this one: absence of a statement is not a
+ * statement.
+ */
+function Absent({ client, t }) {
+  if (client?.restricted) {
+    return (
+      <span className="text-muted-foreground italic">
+        {t("app.access.restricted", "Hidden by your access level")}
+      </span>
+    );
+  }
+  return (
+    <span className="text-muted-foreground">
+      {t("app.job.notSet", "Not set")}
+    </span>
   );
 }
 

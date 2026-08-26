@@ -286,6 +286,14 @@ export default function CampaignDetailPage() {
           <AddressAutocomplete
             value={newStop.address}
             onChange={(v) => setNewStop({ ...newStop, address: v })}
+            // address-jurisdiction: none — coordinates only, deliberately.
+            //
+            // A marketing stop is a pin on a door-knocking route, not a
+            // person: MarketingStop has no city/province/country to write to
+            // and creates no Client, so there is no tax jurisdiction for these
+            // components to inform. Declared by name rather than left to look
+            // like the same oversight as the six consumers that WERE dropping
+            // them — scripts/check-address-fields.mjs reads this line.
             onPlaceSelected={({ address, lat, lng }) =>
               setNewStop({ address, latitude: lat, longitude: lng })
             }

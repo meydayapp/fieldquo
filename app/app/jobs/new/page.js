@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -27,6 +28,12 @@ export default function NewJobPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // The same rule POST /api/jobs enforces. It refused correctly and this screen
+  // did not: QA reached the full form by direct URL, filled it in, and the save
+  // came back 403. The list page no longer offers the link; this is the door it
+  // used to point at, and a URL somebody has bookmarked still opens it.
+  const canCreate = useHasLevel("jobs", "view_create_edit");
 
   useEffect(() => {
     // An empty client list blocks job creation, so a failed load must not be
@@ -92,17 +99,35 @@ export default function NewJobPage() {
     }
   }
 
+  const header = (
+    <div>
+      <Link
+        href="/app/jobs"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
+      >
+        <ArrowLeft size={14} /> {t("app.job.backToJobs")}
+      </Link>
+      <h1 className="text-2xl font-bold text-foreground">{t("app.jobs.new")}</h1>
+    </div>
+  );
+
+  if (!canCreate) {
+    return (
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+        {header}
+        <div className="bg-muted border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground">
+          {t(
+            "app.access.cannotCreateJob",
+            "Your access level lets you view jobs, not create them. Ask an owner or admin if you need to start one.",
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
-      <div>
-        <Link
-          href="/app/jobs"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-2"
-        >
-          <ArrowLeft size={14} /> {t("app.job.backToJobs")}
-        </Link>
-        <h1 className="text-2xl font-bold text-foreground">{t("app.jobs.new")}</h1>
-      </div>
+      {header}
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
