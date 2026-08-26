@@ -800,6 +800,36 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A contractor could not name their own Stripe account —
+  `lib/stripe/connectAccount.js`, `scripts/check-stripe-identity.mjs`.**
+
+  FieldQuo holds the Connect account and the contractor's name is on it. When
+  Stripe holds a payout, the only party who can lift it is Stripe — and no
+  screen in the product had ever shown the contractor the `acct_…` that Stripe
+  uses to find the account. Stripe's own documentation is blunt about what
+  identifies one: the ID it generates is *different from the account's name*
+  and is what uniquely identifies it. So an owner whose money was held could
+  see "Stripe is holding your money" and had nothing to give anybody.
+
+  New owner-only block on `/app/settings/payments`: the account id with a copy
+  button, the email Stripe sends the Express sign-in code to, charges and
+  payouts stated as the two separate switches they are, and the outstanding
+  requirements in Stripe's own words with the deadline when Stripe gave one —
+  `currentDeadline` was another field the API returned and nothing rendered.
+
+  Two things it deliberately does NOT do. It prints no Stripe support phone
+  number, address or URL: Stripe routes connected-account support through the
+  signed-in dashboard, and a channel we guessed at would send someone whose
+  money is held somewhere that is not Stripe. And it sends people to the Stripe
+  dashboard FIRST — the Express dashboard collects currently-due requirements
+  itself, so almost none of this needs a human at Stripe at all.
+
+  Owner rather than the owner|admin the rest of the page runs on, per the
+  owner's ask, and refused by the API returning no object rather than by the
+  page hiding a div — `accountIdentityFor()` is the gate, and `accountId` moved
+  off the top level of the status payload so there is no ungated copy of the
+  value the gate exists to protect.
+
 - **The tenant boundary on the WRITE side, and the shape of every refusal —
   `scripts/check-tenant-scope.mjs`, `scripts/check-refusal-shape.mjs`,
   `scripts/check-public-payload.mjs`.**

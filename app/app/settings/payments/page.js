@@ -8,15 +8,19 @@ import {
   CreditCard,
   ExternalLink,
   AlertTriangle,
+  Copy,
+  Check,
   X,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 function PaymentsPageScreen() {
   const { t } = useTranslation();
+  const { formatDate } = useCompanyPreferences();
   const [company, setCompany] = useState(null);
   // What Stripe itself says, as opposed to what our database last heard. See
   // the comment on loadStatus below — these disagreeing is the normal case,
@@ -29,6 +33,12 @@ function PaymentsPageScreen() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [savingFinancing, setSavingFinancing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Not folded into `copied`: navigator.clipboard is undefined on plain HTTP
+  // and refused when the document isn't focused, and a Copy button that
+  // silently does nothing is the dead control this codebase keeps hunting.
+  // On failure the button says so and points at the text, which is selectable.
+  const [copyFailed, setCopyFailed] = useState(false);
   const [error, setError] = useState("");
 
   function loadCompany() {
@@ -141,6 +151,18 @@ function PaymentsPageScreen() {
     }
   }
 
+  async function handleCopyAccountId(value) {
+    setCopyFailed(false);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      setCopyFailed(true);
+    }
+  }
+
   async function handleDisconnect() {
     setError("");
     setDisconnecting(true);
@@ -200,6 +222,23 @@ function PaymentsPageScreen() {
   const notStarted = !hasAccount;
   const inProgress = hasAccount && !chargesEnabled && !awaitingReview;
   const active = chargesEnabled;
+
+  // ── Who this block is for ───────────────────────────────────────────────
+  //
+  // Presence of `accountDetails` IS the permission. The status route only puts
+  // the object in the response for an owner (or a read-only support session);
+  // an admin receives no such key and there is nothing here to hide. See
+  // accountIdentityFor() in lib/stripe/connectAccount.js for why owner rather
+  // than the owner|admin the rest of this page runs on.
+  const details = status?.accountDetails || null;
+
+  // Stripe gives current_deadline as unix SECONDS. formatCompanyDate returns
+  // "" for anything it can't parse, and an empty string is not a date — so the
+  // deadline line is dropped rather than rendered as a blank or an epoch.
+  const deadlineText =
+    status?.currentDeadline > 0
+      ? formatDate(new Date(status.currentDeadline * 1000))
+      : "";
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
@@ -395,6 +434,176 @@ function PaymentsPageScreen() {
           </div>
         )}
       </div>
+
+      {/* ── Your Stripe account ────────────────────────────────────────────
+          The contractor holds the Stripe relationship; FieldQuo holds the
+          `acct_…` that names it. Until this block existed there was no screen
+          in the product that showed a contractor the one value Stripe asks for
+          to find their account — Stripe's own docs put it plainly: the ID it
+          generates "is different from your account's name and uniquely
+          identifies your account". Someone whose payouts are held could not
+          identify their own account to the company holding their money.
+
+          Owner-only, by the object simply not being in the response for anyone
+          else. It renders even in the not-connected state, where it says in a
+          sentence that there is nothing to identify yet. */}
+      {details && (
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="font-semibold text-foreground">
+            {t("app.setPayments.accountTitle")}
+          </h2>
+
+          {!details.accountId ? (
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("app.setPayments.accountNone")}
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground mt-1">
+                {t("app.setPayments.accountIntro")}
+              </p>
+
+              <dl className="mt-5 space-y-5">
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("app.setPayments.accountIdLabel")}
+                  </dt>
+                  <dd className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <code className="font-mono text-sm text-foreground break-all select-all rounded bg-muted px-2 py-1">
+                      {details.accountId}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyAccountId(details.accountId)}
+                      className="flex items-center gap-1.5 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-muted"
+                    >
+                      {copied ? <Check size={13} /> : <Copy size={13} />}
+                      {copied
+                        ? t("app.setPayments.accountCopied")
+                        : t("app.setPayments.accountCopy")}
+                    </button>
+                  </dd>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {copyFailed
+                      ? t("app.setPayments.accountCopyFailed")
+                      : t("app.setPayments.accountIdHelp")}
+                  </p>
+                </div>
+
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("app.setPayments.accountEmailLabel")}
+                  </dt>
+                  {/* Absence is a sentence. An Express account with no email on
+                      file is exactly why someone can't get into Stripe, and a
+                      blank row would leave them guessing at their own. */}
+                  <dd className="mt-1.5 text-sm text-foreground break-all">
+                    {details.email || (
+                      <span className="text-muted-foreground">
+                        {t("app.setPayments.accountEmailNone")}
+                      </span>
+                    )}
+                  </dd>
+                  {details.email && (
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      {t("app.setPayments.accountEmailHelp")}
+                    </p>
+                  )}
+                </div>
+
+                {/* Two switches, said plainly. "Cards work but we're not being
+                    paid" is a real and confusing state, and the badge at the
+                    top of this page says "Active" throughout it. */}
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("app.setPayments.accountSwitchesLabel")}
+                  </dt>
+                  <dd className="mt-1.5 text-sm text-foreground space-y-1">
+                    <p>
+                      {t("app.setPayments.accountCharges")}:{" "}
+                      <strong>
+                        {status?.chargesEnabled
+                          ? t("app.setPayments.accountOn")
+                          : t("app.setPayments.accountOff")}
+                      </strong>
+                    </p>
+                    <p>
+                      {t("app.setPayments.accountPayouts")}:{" "}
+                      <strong>
+                        {status?.payoutsEnabled
+                          ? t("app.setPayments.accountOn")
+                          : t("app.setPayments.accountPaused")}
+                      </strong>
+                    </p>
+                  </dd>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {t("app.setPayments.accountSwitchesHelp")}
+                  </p>
+                </div>
+
+                <div>
+                  <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("app.setPayments.accountOutstandingLabel")}
+                  </dt>
+                  <dd className="mt-1.5 text-sm text-foreground">
+                    {requirements.length > 0 ? (
+                      <>
+                        <ul className="space-y-1.5 list-disc pl-5">
+                          {requirements.map((r) => (
+                            <li key={r.key}>{r.label}</li>
+                          ))}
+                        </ul>
+                        {/* Only when Stripe actually gave a deadline. Most
+                            accounts have none, and an invented one would be a
+                            fabricated threat about their money. */}
+                        {deadlineText && (
+                          <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                            {t("app.setPayments.accountDeadline", {
+                              date: deadlineText,
+                            })}
+                          </p>
+                        )}
+                      </>
+                    ) : status?.pendingVerification ? (
+                      // The distinction the payout banner above draws, kept
+                      // intact: nothing to send, and sending it again is how
+                      // the same document gets uploaded four times.
+                      <span className="text-muted-foreground">
+                        {t("app.setPayments.accountNothingReviewing")}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("app.setPayments.accountNothingOutstanding")}
+                      </span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+
+              {/* Dashboard FIRST. Stripe's Express dashboard carries a
+                  notification banner that collects the currently-due
+                  requirements and the account settings that satisfy them, so
+                  almost nothing here needs a human at Stripe at all. No support
+                  phone number, address or URL is printed anywhere in this
+                  block: what Stripe's own documentation describes is support
+                  reached from inside the dashboard while signed in, and a
+                  channel we guessed at would send a contractor whose payouts
+                  are held somewhere that isn't Stripe.
+                  Which button to point at depends on which one this page is
+                  currently drawing — an Express login link only exists once
+                  onboarding is done, so in setup we point at Finish Setup. */}
+              <div className="mt-5 rounded-lg border border-border bg-muted/40 px-3.5 py-3 text-sm text-muted-foreground space-y-2">
+                <p>
+                  {active
+                    ? t("app.setPayments.accountWhereActive")
+                    : t("app.setPayments.accountWhereSetup")}
+                </p>
+                <p>{t("app.setPayments.accountSupport")}</p>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Pay-over-time is only meaningful once the company can actually take
           payments, so it rides on the active Stripe connection rather than
