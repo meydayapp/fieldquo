@@ -12,6 +12,7 @@ import { can } from "@/lib/permissions";
 import {
   loadEnforceableMember,
   redactClient,
+  redactQuoteMoney,
 } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
@@ -44,9 +45,20 @@ export async function GET(request) {
   // to an employee restricted to name_address_only. Same data, different
   // handler, no filter — which is exactly the shape of miss that a shared
   // helper is supposed to prevent and only prevents where it is called.
+  // ── And the money half, which the first pass here also missed ───────────
+  //
+  // The client filter landed; `total` and `estimateData` did not. estimateData
+  // is the estimator's verbatim snapshot — the range the homeowner was shown,
+  // the itemised breakdown and its amounts, the budget they stated — so the
+  // whole price survived inside a Json column while `total` sat beside it in
+  // plain sight. QA read 6750 / 2250 / 11250 out of it.
+  //
+  // redactQuoteMoney rather than a hand-written delete: this route's select is
+  // a subset of a Quote, and the next column added to that select should not
+  // need a second person to remember this line exists.
   const full = await loadEnforceableMember(db, member.id);
   const redacted = quotes.map((q) => ({
-    ...q,
+    ...redactQuoteMoney(full, q),
     client: redactClient(full, q.client),
   }));
 

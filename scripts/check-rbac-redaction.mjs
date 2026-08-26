@@ -483,6 +483,594 @@ check("notes IS still named as the one that is (it genuinely is)",
 check("showPricing's description covers the read half it now controls",
   /See prices on quotes, invoices and jobs/.test(HEADER));
 
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SURFACES THE FIRST SWEEP DID NOT REACH — EXECUTED
+//
+// Everything above this line is a pure function called directly, plus a grep
+// for the CALL at each route. That pairing found nine holes and missed six
+// more, all reported by the same QA pass against production as `jonny` on the
+// Worker (limited) preset:
+//
+//   C1  Settings > Services served the whole rate card — $150/door, the
+//       complexity uplifts, add-ons to $1,000, a $3,800 job minimum — to a
+//       member with showPricing:false. The sibling Products & Services page
+//       already refused; the check existed and had never been applied here.
+//   C2  GET /api/leads returned every enquiry's email, phone and stated
+//       budget. Clients, quotes, invoices, appointments and jobs had all been
+//       redacted; leads were never looked at.
+//   C3  `pricingHidden: true` rode along correctly while `acceptedTotal`,
+//       `estimateData.breakdown[].amount` and `lineItems[].meta.baseUnitPrice`
+//       survived in the same payload.
+//   C4  Invoice totals in plain text on the client page and in the lifecycle
+//       banner ("Paid in full — $7,645.00").
+//   C6  A worker at timeTracking "view_record_own" — record, NOT edit — could
+//       PATCH his own APPROVED entry: hours 0.01 → 1, approved → pending.
+//
+// A grep would have passed on every one of them, because in each case the
+// route DID call a redactor — just not on the field, the sibling collection or
+// the verb that mattered. So this section runs the handlers.
+//
+// The stub trio below is the same one scripts/check-cost-basis.mjs uses and
+// for the same three reasons: "@/lib/db" builds a Prisma pool against Neon at
+// module load, "@/lib/currentMember" drags in Better Auth, and bare node
+// cannot resolve "next/server". apiMember, enforce and every route handler are
+// the shipped files.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const { register } = await import("node:module");
+const { writeFileSync, rmSync } = await import("node:fs");
+const { pathToFileURL } = await import("node:url");
+
+globalThis.__FQ_ENFORCEABLE = null;
+globalThis.__FQ_MEMBER = async () => null;
+globalThis.__FQ_DB = null;
+
+const HOOKS = `
+const STUBS = {
+  "@/lib/db": "fq-stub:db",
+  "@/lib/currentMember": "fq-stub:member",
+  "next/server": "fq-stub:next",
+};
+export async function resolve(specifier, context, nextResolve) {
+  if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
+  return nextResolve(specifier, context);
+}
+export async function load(url, context, nextLoad) {
+  if (url === "fq-stub:db") {
+    return { format: "module", shortCircuit: true,
+      source: "export const db = new Proxy({}, { get: (_t, p) => globalThis.__FQ_DB[p] });" };
+  }
+  if (url === "fq-stub:member") {
+    return { format: "module", shortCircuit: true,
+      source: "export const getCurrentMember = (...a) => globalThis.__FQ_MEMBER(...a);" };
+  }
+  if (url === "fq-stub:next") {
+    return { format: "module", shortCircuit: true,
+      source: "export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };" };
+  }
+  return nextLoad(url, context);
+}
+`;
+register(`data:text/javascript,${encodeURIComponent(HOOKS)}`);
+
+// ── The fixtures every handler below reads ────────────────────────────────
+//
+// One lead, one quote, one invoice, one time entry — each carrying exactly the
+// values QA read off production, so a failure here prints the real number that
+// leaked rather than a placeholder.
+
+const LEAD = {
+  id: "lead1", companyId: "co", name: "Emilio Boves",
+  email: "emilio.boves@gmail.com", phone: "819-238-7263",
+  message: "Kitchen cabinets, 32 doors, want them sprayed white",
+  status: "new", source: "website", budgetBand: "15k_plus", timeline: "asap",
+  score: 78, temperature: "hot",
+  scoreReasons: [{ label: "Budget $15k+", weight: 30 }, { label: "Phone number provided", weight: 8 }],
+  photosRequestedAt: "2026-08-02", photosRequestedTo: "office@truefinish.ca",
+  intake: { rooms: 1 }, createdAt: "2026-08-01",
+  category: { label: "Cabinet refinishing" },
+  assignedTo: { id: "u2", name: "Sam" },
+  quote: null,
+};
+
+const ESTIMATE_QUOTE = {
+  id: "q9", quoteNumber: "Q-2026-0031", total: "20250",
+  estimateSource: "website", reviewNotes: null, createdAt: "2026-08-03",
+  estimateData: {
+    trade: "roofing", materialKey: "architectural",
+    measurement: { squares: 27, areaSqft: 2700 },
+    range: { low: 18000, point: 20250, high: 22500 },
+    unit: null,
+    breakdown: [
+      { label: "Tear-off", amount: 6750 },
+      { label: "Underlay", amount: 2250 },
+      { label: "Shingles", amount: 11250 },
+    ],
+    assumptions: ["One layer to remove"],
+    budget: { label: "15,000+", exceeded: false },
+    capturedAt: "2026-08-03",
+  },
+  client: { name: "Marie Tremblay", email: CLIENT.email, phone: CLIENT.phone, address: CLIENT.address },
+};
+
+const CLIENT_ROW = {
+  ...CLIENT,
+  quotes: [{ id: "q1", quoteNumber: "Q-0001", total: "7645", shareToken: "tok_share_abc" }],
+  invoices: [
+    { id: "i9", invoiceNumber: "INV-0009", status: "paid", subtotal: "7000", discount: "0", tax: "645", total: "7645", amountPaid: "7645", amountDue: "0" },
+    { id: "i3", invoiceNumber: "INV-0003", status: "sent", subtotal: "6000", discount: "0", tax: "650", total: "6650", amountPaid: "0", amountDue: "6650" },
+  ],
+  jobs: [{ id: "j1", title: "Repaint kitchen" }],
+};
+
+const LIFECYCLE_INVOICE = {
+  id: "i9", companyId: "co", invoiceNumber: "INV-0009", status: "paid",
+  clientId: "c1", quoteId: null, jobId: null, version: 1, parentInvoiceId: null,
+  total: "7645", subtotal: "7000", discount: "0",
+  amountPaid: "7645", amountDue: "0",
+  paidDate: "2026-08-10", paidVia: "card", dueDate: "2026-08-09",
+  sentAt: "2026-08-01", sentToEmail: CLIENT.email,
+  client: { id: "c1", name: CLIENT.name, email: CLIENT.email },
+};
+
+// The entry QA rewrote: 0.01 hours, already APPROVED, and his own.
+const APPROVED_ENTRY = {
+  id: "te1", workerId: "w1", jobId: null, hours: 0.01, status: "approved",
+  // 09:00 and 09:00:36 in America/Toronto, which is what the company's zone is
+  // set to below. Stored UTC, because that is how the column is stored — and
+  // resolveWallClock reads the PATCH's bare "2026-08-20T10:00" in the company's
+  // zone, so a UTC clockIn here would make the arithmetic below off by the
+  // offset and quietly turn a 1-hour assertion into a 5-hour one.
+  approvedById: "u-boss", clockIn: new Date("2026-08-20T13:00:00Z"),
+  clockOut: new Date("2026-08-20T13:00:36Z"),
+  worker: { id: "w1", companyId: "co", userId: "u-jonny", name: "Jonny", hourlyRate: 25 },
+};
+const PENDING_ENTRY = { ...APPROVED_ENTRY, id: "te2", status: "pending", approvedById: null };
+
+// Which time entry timeEntry.findFirst hands back. Set per scenario.
+let timeEntryRow = APPROVED_ENTRY;
+
+function makeDb() {
+  const explicit = {
+    // The whole point of the fixture: the handler asks the database who is
+    // calling, and gets the preset under test.
+    member: { async findUnique() { return globalThis.__FQ_ENFORCEABLE; } },
+    leadRequest: {
+      async findMany() { return [LEAD]; },
+      async findFirst() { return { ...LEAD, notes: [] }; },
+    },
+    callConsent: { async findMany() { return []; }, async findFirst() { return null; } },
+    quote: { async findMany() { return [ESTIMATE_QUOTE]; } },
+    client: { async findFirst() { return CLIENT_ROW; } },
+    invoice: {
+      async findFirst() { return { ...LIFECYCLE_INVOICE }; },
+      async findMany() { return [{ id: "i9", version: 1 }]; },
+    },
+    job: { async findFirst() { return null; } },
+    task: { async findUnique() { return null; } },
+    company: { async findUnique() { return { id: "co", timezone: "America/Toronto", slug: "truefinish", financing: null, currency: "CAD" }; } },
+    timeEntry: {
+      async findFirst() { return timeEntryRow; },
+      // Echoes the patch back over the row, so an assertion can read what the
+      // handler actually decided to write rather than trusting the status.
+      async update({ data }) {
+        return { ...timeEntryRow, ...data, worker: { id: "w1", name: "Jonny" } };
+      },
+    },
+    user: { async findUnique() { return { name: "Jonny", email: "j@x.ca" }; } },
+    activityLog: { async create() { return {}; } },
+    serviceCategory: {
+      async findMany() {
+        return [{
+          id: "sc1", key: "cabinet_refinishing", label: "Cabinet Refinishing",
+          icon: null, isSystem: true, customFields: null,
+          companySettings: [{ companyId: "co", enabled: true, defaultRate: 150, unit: "door", rates: { perDoor: 150 } }],
+        }];
+      },
+    },
+    instantQuoteConfig: { async findMany() { return []; } },
+    companyServiceCategory: { async findMany() { return []; } },
+  };
+
+  const byName = (prop) => {
+    if (/^(findMany|groupBy)$/.test(prop)) return async () => [];
+    if (/^count$/.test(prop)) return async () => 0;
+    if (/^aggregate$/.test(prop)) return async () => ({ _sum: {}, _count: {} });
+    return async () => null;
+  };
+  return new Proxy(explicit, {
+    get(target, model) {
+      if (model in target)
+        return new Proxy(target[model], { get: (t, prop) => (prop in t ? t[prop] : byName(prop)) });
+      return new Proxy({}, { get: (_t, prop) => byName(prop) });
+    },
+  });
+}
+globalThis.__FQ_DB = makeDb();
+
+/** Sign in as one of the personas above. */
+function become(p, { userId = "u-jonny" } = {}) {
+  const row = { id: "m-x", userId, companyId: "co", role: p.role, permissions: p.permissions };
+  globalThis.__FQ_ENFORCEABLE = row;
+  globalThis.__FQ_MEMBER = async () => ({ ...row, impersonation: false });
+}
+
+const req = (url, body) => ({
+  url,
+  json: async () => body ?? {},
+});
+const params = (o) => Promise.resolve(o);
+
+const routeCache = new Map();
+async function route(spec) {
+  if (!routeCache.has(spec)) routeCache.set(spec, await import(spec));
+  return routeCache.get(spec);
+}
+
+// ── C2 — every lead leaked client contact ─────────────────────────────────
+console.log("\nC2 — GET /api/leads, executed at both worker presets\n");
+
+const leads = await route("@/app/api/leads/route");
+
+become(worker);
+const workerLeads = (await leads.GET(req("http://x/api/leads"))).body;
+check("the list still arrives — a lead board is a screen a crew member may open",
+  Array.isArray(workerLeads) && workerLeads.length === 1);
+const wl = workerLeads[0];
+check("the enquirer's email is ABSENT from the payload", wl.email === undefined);
+check("…and the phone number", wl.phone === undefined);
+check("…and the budget band they stated", wl.budgetBand === undefined);
+check("…and the score reasons, which say the band in prose ('Budget $15k+')",
+  wl.scoreReasons === undefined);
+check("…and the address photos were requested at", wl.photosRequestedTo === undefined);
+check("doNotCall goes with the number it describes", wl.doNotCall === undefined);
+check("the NAME survives — the board is unusable without it", wl.name === "Emilio Boves");
+check("…and what they asked for", /32 doors/.test(wl.message || ""));
+check("…and the triage: score and temperature are not contact data",
+  wl.score === 78 && wl.temperature === "hot");
+check("…and the timeline, which is when not how much", wl.timeline === "asap");
+check("marked restricted, so a screen can say why rather than show a gap",
+  wl.restricted === true);
+
+become(workerFull);
+const fullLeads = (await leads.GET(req("http://x/api/leads"))).body;
+check("workerFullView (full_view) still reads the email", fullLeads[0].email === LEAD.email);
+check("…and the phone", fullLeads[0].phone === LEAD.phone);
+check("…and the budget band", fullLeads[0].budgetBand === "15k_plus");
+check("…and is NOT marked restricted", fullLeads[0].restricted === undefined);
+
+const leadDetail = await route("@/app/api/leads/[id]/route");
+become(worker);
+const oneLead = (await leadDetail.GET(req("http://x/api/leads/lead1"), { params: params({ id: "lead1" }) })).body;
+check("the DETAIL door is closed too — enumerating ids off the board gets nothing more",
+  oneLead.email === undefined && oneLead.phone === undefined && oneLead.budgetBand === undefined);
+become(workerFull);
+const oneLeadFull = (await leadDetail.GET(req("http://x/api/leads/lead1"), { params: params({ id: "lead1" }) })).body;
+check("…and workerFullView still opens it in full", oneLeadFull.email === LEAD.email);
+
+// ── C6 — his own APPROVED timesheet ───────────────────────────────────────
+console.log("\nC6 — PATCH /api/time-entries/[id], the record/edit rung\n");
+
+const timeEntry = await route("@/app/api/time-entries/[id]/route");
+const patchEntry = async (body) =>
+  timeEntry.PATCH(req("http://x/api/time-entries/te", body), { params: params({ id: timeEntryRow.id }) });
+
+timeEntryRow = PENDING_ENTRY;
+become(worker);
+const workerEditsOwn = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("view_record_own may NOT edit its own entry — 'record' is not 'edit'",
+  workerEditsOwn.status === 403);
+check("…and the refusal is 403, never 500", workerEditsOwn.status === 403);
+check("…and it says what they CAN still do rather than naming a permission",
+  /record time, not edit it/.test(workerEditsOwn.body?.error || ""));
+
+become(workerFull);
+const fullEditsOwnPending = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("workerFullView (view_record_edit_own) KEEPS editing its own pending entry",
+  fullEditsOwnPending.status === 200);
+check("…and the hours are recomputed by the server, not accepted from the body",
+  fullEditsOwnPending.body?.hours === 1);
+
+timeEntryRow = APPROVED_ENTRY;
+const fullEditsOwnApproved = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("…but NOT once it has been approved — payroll multiplies those hours",
+  fullEditsOwnApproved.status === 403);
+check("…and the refusal names who can reopen it",
+  /supervisor or admin/.test(fullEditsOwnApproved.body?.error || ""));
+
+const fullUnapprovesOwn = await patchEntry({ status: "pending" });
+check("…and 'pending' is not a way round it — that is un-approving",
+  fullUnapprovesOwn.status === 403);
+const fullApprovesOwn = await patchEntry({ status: "approved" });
+check("…nor is approving (this was the one gate that already worked)",
+  fullApprovesOwn.status === 403);
+
+become(dispatcher, { userId: "u-boss" });
+const bossReopens = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("a supervisor CAN reopen an approved entry — somebody has to be able to",
+  bossReopens.status === 200);
+
+timeEntryRow = PENDING_ENTRY;
+become(worker, { userId: "u-someone-else" });
+const workerEditsColleague = await patchEntry({ clockOut: "2026-08-20T10:00" });
+check("…and nobody at 'own' touches a colleague's row", workerEditsColleague.status === 403);
+
+// ── C3 — money in the payload behind `pricingHidden: true` ────────────────
+console.log("\nC3 — the money that survived a payload already marked pricingHidden\n");
+
+const ACCEPTED = {
+  id: "q7", quoteNumber: "Q-0007", status: "accepted",
+  subtotal: "7000", discount: "0", tax: "645", total: "7645",
+  acceptedSubtotal: "7000", acceptedTax: "645", acceptedTotal: "7645",
+  lineItems: [{
+    description: "Prime and spray 32 doors", quantity: 32, unit: "door",
+    rate: 170, amount: 5440,
+    meta: {
+      baseUnitPrice: 150, complexityLevel: "moderate", complexityUpcharge: 20,
+      complexityReasons: ["deep_damage"], color: "Cloud White", sheen: "satin",
+    },
+  }],
+  estimateData: ESTIMATE_QUOTE.estimateData,
+  client: { ...CLIENT },
+};
+const hiddenQuote = redactQuoteMoney(worker, ACCEPTED);
+check("it did declare itself hidden — that part was right all along",
+  hiddenQuote.pricingHidden === true);
+check("acceptedTotal is ABSENT — what the client agreed to is the harder number",
+  hiddenQuote.acceptedTotal === undefined);
+check("…and acceptedSubtotal and acceptedTax with it",
+  hiddenQuote.acceptedSubtotal === undefined && hiddenQuote.acceptedTax === undefined);
+check("lineItems[].meta.baseUnitPrice is gone — the rate before complexity is still a rate",
+  hiddenQuote.lineItems[0].meta.baseUnitPrice === undefined);
+check("…and meta.complexityUpcharge, which is what was added to it",
+  hiddenQuote.lineItems[0].meta.complexityUpcharge === undefined);
+check("…while the SPEC in meta survives: level, reasons, colour, sheen",
+  hiddenQuote.lineItems[0].meta.complexityLevel === "moderate" &&
+  hiddenQuote.lineItems[0].meta.color === "Cloud White" &&
+  hiddenQuote.lineItems[0].meta.sheen === "satin");
+check("estimateData.range is gone — that is the price the homeowner was shown",
+  hiddenQuote.estimateData.range === undefined);
+check("…and every breakdown amount (6750 / 2250 / 11250)",
+  hiddenQuote.estimateData.breakdown.every((b) => b.amount === undefined));
+check("…and the budget the homeowner stated", hiddenQuote.estimateData.budget === undefined);
+check("…while the breakdown LABELS and the measurements stay — that is the job",
+  hiddenQuote.estimateData.breakdown[0].label === "Tear-off" &&
+  hiddenQuote.estimateData.measurement.squares === 27 &&
+  hiddenQuote.estimateData.assumptions.length === 1);
+check("estimateData declares itself hidden too, so no screen prints $0",
+  hiddenQuote.estimateData.pricingHidden === true);
+check("the source quote is not mutated",
+  ACCEPTED.acceptedTotal === "7645" && ACCEPTED.lineItems[0].meta.baseUnitPrice === 150 &&
+  ACCEPTED.estimateData.range.point === 20250);
+
+console.log("\n…and workerFullView, who holds showPricing, still reads all of it\n");
+const shownQuote = redactQuoteMoney(workerFull, ACCEPTED);
+check("acceptedTotal survives", shownQuote.acceptedTotal === "7645");
+check("meta.baseUnitPrice survives", shownQuote.lineItems[0].meta.baseUnitPrice === 150);
+check("the estimate range survives", shownQuote.estimateData.range.point === 20250);
+check("…and nothing is marked hidden", shownQuote.pricingHidden === undefined);
+
+console.log("\nGET /api/quotes/estimate-reviews, executed\n");
+const reviews = await route("@/app/api/quotes/estimate-reviews/route");
+become(worker);
+const workerReviews = (await reviews.GET(req("http://x/api/quotes/estimate-reviews"))).body;
+const wr = workerReviews.quotes[0];
+check("the queue's own `total` is absent", wr.total === undefined);
+check("…and the breakdown amounts inside estimateData",
+  wr.estimateData.breakdown.every((b) => b.amount === undefined));
+check("…and the range", wr.estimateData.range === undefined);
+check("the client filter that DID land is still landing", wr.client.email === undefined);
+check("…and it is declared", wr.pricingHidden === true);
+become(workerFull);
+const fullReviews = (await reviews.GET(req("http://x/api/quotes/estimate-reviews"))).body;
+check("workerFullView reads the queue in full",
+  fullReviews.quotes[0].total === "20250" &&
+  fullReviews.quotes[0].estimateData.breakdown[0].amount === 6750);
+
+// ── C4 — invoice totals in plain text ─────────────────────────────────────
+console.log("\nC4 — the client page and the lifecycle banner\n");
+
+const clientDetail = await route("@/app/api/clients/[id]/route");
+become(worker);
+const workerClient = (await clientDetail.GET(req("http://x/api/clients/c1"), { params: params({ id: "c1" }) })).body;
+check("the client's own contact details are gone (this half already worked)",
+  workerClient.email === undefined);
+check("the nested QUOTES are redacted (this half already worked)",
+  workerClient.quotes[0].total === undefined && workerClient.quotes[0].shareToken === undefined);
+check("INV-0009's $7,645 is ABSENT — the half the first pass walked past",
+  workerClient.invoices[0].total === undefined);
+check("…and INV-0003's $6,650", workerClient.invoices[1].total === undefined);
+check("…and what is still owed on it", workerClient.invoices[1].amountDue === undefined);
+check("…and what has been paid", workerClient.invoices[0].amountPaid === undefined);
+check("the invoice NUMBER and STATUS survive — which invoices exist is not money",
+  workerClient.invoices[0].invoiceNumber === "INV-0009" &&
+  workerClient.invoices[0].status === "paid");
+check("…and each is declared hidden", workerClient.invoices[0].pricingHidden === true);
+become(workerFull);
+const fullClient = (await clientDetail.GET(req("http://x/api/clients/c1"), { params: params({ id: "c1" }) })).body;
+check("workerFullView still reads the invoice totals", fullClient.invoices[0].total === "7645");
+
+const lifecycle = await route("@/app/api/invoices/[id]/lifecycle/route");
+become(worker);
+const workerLife = (await lifecycle.GET(req("http://x/api/invoices/i9/lifecycle"), { params: params({ id: "i9" }) })).body;
+const paidBanner = workerLife.banners.find((b) => b.id === "paid");
+check("the paid banner still appears — the STATE is not the amount", !!paidBanner);
+check("…but '$7,645.00 received' is not in it", paidBanner.data.paid === undefined);
+check("…and the banner declares itself, so the page prints the amount-free sentence",
+  paidBanner.pricingHidden === true);
+check("…and the paid DATE survives, which is when not how much",
+  paidBanner.data.paidDate === "2026-08-10");
+check("the `money` block is null rather than a set of zeroes", workerLife.money === null);
+check("…and the response says why", workerLife.pricingHidden === true);
+become(workerFull);
+const fullLife = (await lifecycle.GET(req("http://x/api/invoices/i9/lifecycle"), { params: params({ id: "i9" }) })).body;
+check("workerFullView gets the figures back",
+  fullLife.money?.total === 7645 &&
+  fullLife.banners.find((b) => b.id === "paid").data.paid === 7645);
+check("…and nothing is marked hidden", fullLife.pricingHidden === undefined);
+
+// ── C1 — the price book on Settings > Services ────────────────────────────
+console.log("\nC1 — the rate card the sibling page already refused\n");
+
+const serviceCategories = await route("@/app/api/settings/service-categories/route");
+become(worker);
+const workerCats = (await serviceCategories.GET(req("http://x/api/settings/service-categories"))).body;
+check("the catalogue still arrives — four other screens read it for the labels",
+  Array.isArray(workerCats) && workerCats[0].label === "Cabinet Refinishing");
+check("…and which trades are switched on", workerCats[0].enabled === true);
+check("the $150/door price book is ABSENT", workerCats[0].priceBook === undefined);
+check("…and the company's own overrides", workerCats[0].rateOverrides === undefined);
+check("…and the flat default rate", workerCats[0].defaultRate === undefined);
+check("`unit` survives — 'per door' is how work is counted, not what it costs",
+  workerCats[0].unit === "door");
+check("and it is declared, so the screen prints the reason not empty boxes",
+  workerCats[0].pricingHidden === true);
+become(workerFull);
+const fullCats = (await serviceCategories.GET(req("http://x/api/settings/service-categories"))).body;
+check("workerFullView reads the rate card", fullCats[0].priceBook?.perDoor === 150);
+check("…and its defaultRate", fullCats[0].defaultRate === 150);
+check("…and is not marked hidden", fullCats[0].pricingHidden === undefined);
+
+const instantQuote = await route("@/app/api/settings/instant-quote/route");
+become(worker);
+const workerInstant = await instantQuote.GET(req("http://x/api/settings/instant-quote"));
+check("GET /api/settings/instant-quote refuses — it is nothing but sell rates",
+  workerInstant.status === 403);
+check("…with a 403, not a 500", workerInstant.status === 403);
+become(workerFull);
+const fullInstant = await instantQuote.GET(req("http://x/api/settings/instant-quote"));
+check("…and workerFullView is let through", fullInstant.status === 200);
+
+// ── B1/B2 and C8 — the screens agree with the API ─────────────────────────
+//
+// These are greps, and deliberately so: they assert that a RENDERING reads the
+// flag the executed sections above proved is in the payload. Everything that
+// can be executed is executed; a React tree cannot be, so the pairing is what
+// is checked — payload here, reader there.
+console.log("\nThe screens read what the API declares\n");
+
+for (const [label, rel, pattern] of [
+  // B1/B2 — the create controls, at exactly the level POST enforces. The
+  // refusal was correct and the UI was wrong: the builder stayed on screen and
+  // said nothing.
+  ["the quotes list hides New Quote", "app/app/quotes/page.js",
+   /useHasLevel\("quotes", "view_create_edit"\)/],
+  ["the jobs list hides New Job", "app/app/jobs/page.js",
+   /useHasLevel\("jobs", "view_create_edit"\)/],
+  ["the dashboard's + New Quote too", "app/app/page.js",
+   /useHasLevel\("quotes", "view_create_edit"\)/],
+  ["the client page's two quick actions", "app/app/clients/[id]/page.js",
+   /useHasLevel\("jobs", "view_create_edit"\)/],
+  ["…and its Edit button, which PATCH refuses at full_edit", "app/app/clients/[id]/page.js",
+   /useHasLevel\("clientsProperties", "full_edit"\)/],
+  // The builder itself, for the URL somebody has bookmarked. One gate covers
+  // /app/quotes/new AND /app/quotes/[id]/edit, because there is one screen.
+  ["the quote builder refuses before the work, not after it",
+   "app/components/quotes/builder/QuoteBuilder.js", /if \(!canWrite \|\| !canSeePrices\)/],
+  ["…and scrolls a refusal that DOES arrive into view",
+   "app/components/quotes/builder/QuoteBuilder.js", /errorRef\.current\?\.scrollIntoView/],
+  ["the new-job form refuses the same way", "app/app/jobs/new/page.js",
+   /useHasLevel\("jobs", "view_create_edit"\)/],
+  // C8 — the trap AGENTS.md names. redactClient has set `restricted` since it
+  // was written and nothing read it, so the job page printed "Not set" over a
+  // phone number the client has.
+  ["the job page tells restriction from absence", "app/app/jobs/[id]/JobDetail.js",
+   /client\?\.restricted/],
+  ["…and the client page says so too", "app/app/clients/[id]/page.js",
+   /client\.restricted &&/],
+  ["…and the leads board", "app/app/leads/page.js", /lead\.restricted &&/],
+  ["…and its budget picker never claims 'Not stated' over a withheld band",
+   "app/app/leads/page.js", /\{!lead\.restricted && \(/],
+  // C4 — the banner's amount-free sentences.
+  ["the invoice banner has a sentence without the figure",
+   "app/app/invoices/[id]/LifecycleBanners.js", /paidNoAmount/],
+  // C1 — the services screen prints the reason where the rates were.
+  ["Settings > Services prints the reason, not empty rate boxes",
+   "app/app/settings/services/page.js", /c\.pricingHidden/],
+]) check(label, pattern.test(src(rel)));
+
+check("…and 'Not set' is no longer hard-coded over a withheld field",
+  !/\|\| "Not set"/.test(src("app/app/jobs/[id]/JobDetail.js")));
+
+// One sentence, one key. app.quoteDetail.pricingHidden and
+// app.invoiceDetail.pricingHidden held the identical string and a third and
+// fourth were about to be written for the job page and the services screen.
+check("the restriction sentences are one shared key, not one per screen",
+  !/"app\.(quote|invoice)Detail\.pricingHidden":/.test(src("app/i18n/appMessages.js")));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MUTATION TESTS — prove each guard is what is doing the work
+//
+// An assertion that passes is only worth something if it FAILS when the thing
+// it guards is removed. Both of these were live in production, so the mutant
+// is the shipped file as it was, not a hypothetical.
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\nMutation: each guard, removed, and the leak comes back\n");
+
+async function mutant(rel, edits, run) {
+  const path = new URL(`../${rel}`, import.meta.url);
+  const original = readFileSync(path, "utf8");
+  let mutated = original;
+  for (const [from, to] of edits) mutated = mutated.replace(from, to);
+  check(`${rel}: the mutation actually changed the source`, mutated !== original);
+
+  const tmp = new URL(`../.rbac-mutant-${Math.random().toString(36).slice(2)}.js`, import.meta.url);
+  try {
+    writeFileSync(tmp, mutated);
+    const mod = await import(`${pathToFileURL(tmp.pathname).href}?v=${Date.now()}`);
+    return await run(mod);
+  } finally {
+    rmSync(tmp, { force: true });
+  }
+}
+
+// C2 — take redactLeads out and the email and phone come straight back.
+await mutant(
+  "app/api/leads/route.js",
+  [["redactLeads(\n      full,", "((_m, rows) => rows)(\n      full,"]],
+  async (mod) => {
+    become(worker);
+    const leaked = (await mod.GET(req("http://x/api/leads"))).body[0];
+    check("without redactLeads, a name_address_only member reads the email again",
+      leaked.email === LEAD.email);
+    check("…and the phone", leaked.phone === LEAD.phone);
+    check("…and the budget band", leaked.budgetBand === "15k_plus");
+  },
+);
+
+// C6 — take the two new gates out and the approved timesheet reopens.
+await mutant(
+  "app/api/time-entries/[id]/route.js",
+  [
+    ['if (!hasLevel(full, "timeTracking", "view_record_edit_own")) {', "if (false) {"],
+    ['existing.status === "approved" &&', "false &&"],
+  ],
+  async (mod) => {
+    timeEntryRow = APPROVED_ENTRY;
+    become(worker);
+    const reopened = await mod.PATCH(
+      req("http://x/api/time-entries/te1", { clockOut: "2026-08-20T10:00", status: "pending" }),
+      { params: params({ id: "te1" }) },
+    );
+    check("without the two gates, view_record_own edits an approved entry again",
+      reopened.status === 200);
+    check("…recalculating the hours 0.01 → 1, exactly as QA did",
+      reopened.body?.hours === 1);
+    check("…and flipping it back from approved to pending",
+      reopened.body?.status === "pending");
+  },
+);
+
+// And the shipped file does not behave that way. Same member, same request.
+timeEntryRow = APPROVED_ENTRY;
+become(worker);
+const shipped = await timeEntry.PATCH(
+  req("http://x/api/time-entries/te1", { clockOut: "2026-08-20T10:00", status: "pending" }),
+  { params: params({ id: "te1" }) },
+);
+check("…while the shipped route refuses it", shipped.status === 403);
+
+
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;
 

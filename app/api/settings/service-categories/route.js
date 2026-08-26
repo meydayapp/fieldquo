@@ -14,15 +14,42 @@ import { toStoredFields } from "@/app/data/intakeFieldLibrary";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { reprovisionIfLive } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
+import { loadEnforceableMember, canSeeMoney } from "@/lib/permissions/enforce";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
 // by companyId so one company never sees another's — a system category has
 // companyId: null and is visible to everyone; a custom one only shows up
 // for the company that created it.
+//
+// ── Why this REDACTS where /api/products REFUSES ───────────────────────────
+//
+// The two screens are siblings and QA read the second one straight through:
+// Products & Services answers 403 to a member without showPricing, and
+// Settings > Services — which carries the same company's rate card, $150 per
+// door, the complexity uplifts, add-ons to $1,000 and a $3,800 job minimum —
+// had no check of any kind on any verb's read.
+//
+// The check is the same one (`showPricing`); the SHAPE of the answer has to
+// differ, because the two payloads are not the same thing. A price book is
+// nothing but prices, so a stripped one is a broken screen. This payload is
+// the company's SERVICE CATALOGUE — which trades are switched on, what a quote
+// says about each, what fields the intake asks — and four other screens read
+// it for exactly that: Company Settings, Checklists, Products & Services and
+// New Service Plan. Refusing here would break all four to protect a rate that
+// is one field of the row.
+//
+// So the rate card is removed from the payload and the removal is declared,
+// the same way redactQuoteMoney does it. `pricingHidden` is what stops the
+// settings screen rendering empty rate boxes over the absence — which would be
+// the dead control AGENTS.md names, and would also let someone type a number
+// into an input whose save the PATCH below refuses anyway.
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const full = await loadEnforceableMember(db, member.id);
+  const showMoney = canSeeMoney(full);
 
   const categories = await db.serviceCategory.findMany({
     where: { OR: [{ isSystem: true }, { companyId: member.companyId }] },
@@ -44,20 +71,37 @@ export async function GET(request) {
       enabled: setting?.enabled ?? false,
       // No `pricingModel`: see the PATCH below. The column still exists but
       // nothing reads it, so returning it only invited a new caller to.
-      // Opening rate for a trade with no price book, when this company has
-      // not set its own. Read-time only — nothing writes it, so a company
-      // keeps inheriting changes to the default and the benchmark data stays
-      // built from rates real companies chose. See defaultTradeRate.
-      defaultRate:
-        setting?.defaultRate ?? defaultTradeRate(c.key)?.rate ?? null,
       unit: setting?.unit ?? defaultTradeRate(c.key)?.unit ?? null,
-      // The trade's structured rates: code defaults with this company's sparse
-      // overrides merged in. `rateOverrides` is sent alongside so the settings
-      // screen can show which fields have actually been customised — and so a
-      // save round-trips the patch rather than writing back a full copy of the
-      // defaults, which would detach the company from future improvements.
-      priceBook: getPriceBook(c.key, setting?.rates) || null,
-      rateOverrides: setting?.rates ?? null,
+      // ── The three money fields, present only for members who may see money ──
+      //
+      // `defaultRate` is the opening rate for a trade with no price book, when
+      // this company has not set its own. Read-time only — nothing writes it,
+      // so a company keeps inheriting changes to the default and the benchmark
+      // data stays built from rates real companies chose. See defaultTradeRate.
+      //
+      // `priceBook` is the trade's structured rates: code defaults with this
+      // company's sparse overrides merged in. `rateOverrides` is sent alongside
+      // so the settings screen can show which fields have actually been
+      // customised — and so a save round-trips the patch rather than writing
+      // back a full copy of the defaults, which would detach the company from
+      // future improvements.
+      //
+      // Spread conditionally rather than nulled: `priceBook: null` is a real
+      // and different statement ("this trade has no rate card"), which the
+      // screen keys its whole rate-and-unit fallback off. Absent means
+      // withheld, and `pricingHidden` below says which.
+      //
+      // `unit` stays. "per sq ft" is how the work is counted, not what it
+      // costs — the same line redactQuoteMoney draws between `quantity` and
+      // `rate`.
+      ...(showMoney
+        ? {
+            defaultRate:
+              setting?.defaultRate ?? defaultTradeRate(c.key)?.rate ?? null,
+            priceBook: getPriceBook(c.key, setting?.rates) || null,
+            rateOverrides: setting?.rates ?? null,
+          }
+        : { pricingHidden: true }),
       // What this company's quotes SAY about the trade. The columns existed and
       // resolveServiceContent read them, but nothing ever wrote one — so every
       // company sat on the defaults with no way off them. Sent here, edited in

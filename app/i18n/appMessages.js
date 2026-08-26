@@ -3428,6 +3428,33 @@ const en = {
   "app.tax.vatCondition.ukResidentialConversion": "Narrow: conversions that change the number of dwellings, and homes empty for 2 years or more. Not general renovation.",
   "app.tax.vatScheme.rot": "Sweden has no reduced VAT rate for renovation. Your client may be able to claim the ROT deduction on their own tax return instead.",
   "app.tax.vatScheme.icelandRefund": "Iceland has no reduced VAT rate for renovation. Your client may be able to reclaim part of the labour VAT on residential work instead.",
+  // ── An unresolved tax line, and the send that refuses to carry it ────────
+  // Q-2026-0011 reached a homeowner reading "Tax $0.00" with taxEnabled true —
+  // $682.50 of Ontario HST asserted and not charged. These are the strings
+  // that stop that happening twice. See lib/tax/documentTax.js.
+  "app.tax.line.unresolved": "Not worked out",
+  "app.tax.line.none": "None",
+  "app.tax.line.unresolvedHint": "Tax is switched on for this quote but nothing has been charged. Set the client's country and province, enter a rate, or switch tax off.",
+  "app.tax.assumed.badge": "Assumed",
+  "app.tax.assumed.note": "Assumed {region} — your own province, because {client} has no address on file. Check it: a client across a provincial line owes a different rate.",
+  "app.tax.assumed.noClient": "Assumed {region} — your own province. Pick a client with an address on file and the real rate applies instead.",
+  "app.tax.blocked.title": "This says tax applies, but charges none",
+  "app.tax.blocked.body": "Sending it would put a total in front of your client that leaves the tax out. Fix the address or say there's no tax — either way it takes one step.",
+  "app.tax.blocked.missing": "{client} has no {fields} on file, and you have no fallback rate set.",
+  "app.tax.blocked.fieldCountry": "country",
+  "app.tax.blocked.fieldProvince": "province or state",
+  "app.tax.blocked.fieldJoin": " or ",
+  "app.tax.blocked.setAddress": "Set {client}'s location",
+  "app.tax.blocked.countryLabel": "Country",
+  "app.tax.blocked.provinceLabel": "Province or state",
+  "app.tax.blocked.save": "Save and work out the tax",
+  "app.tax.blocked.saved": "Saved — tax now works out to {rate}%. Send when you're ready.",
+  "app.tax.blocked.stillUnknown": "Saved, but that still doesn't identify a tax rate. Enter one by hand on the quote, or send with no tax.",
+  "app.tax.blocked.noTaxTitle": "Or: there's genuinely no tax on this one",
+  "app.tax.blocked.noTaxBody": "Switches tax off on this document only. Your settings and every other quote are untouched, and the document will say no tax was charged rather than showing a zero.",
+  "app.tax.blocked.noTaxAction": "Send with no tax",
+  "app.tax.blocked.retry": "Send now",
+  "app.tax.blocked.openClient": "Open the client record",
   // ── Painting takeoff ─────────────────────────────────────────────────────
   // Staff-facing estimating form, never seen by a homeowner: an AREA (a room)
   // holds SUBSTRATES — ceiling, walls, baseboard, doors — each costed from a
@@ -6822,6 +6849,31 @@ const fr = {
   "app.tax.vatCondition.ukResidentialConversion": "Portée restreinte : conversions modifiant le nombre de logements et logements vacants depuis 2 ans ou plus. Pas la rénovation en général.",
   "app.tax.vatScheme.rot": "La Suède n'a pas de taux de TVA réduit pour la rénovation. Votre client pourra plutôt demander la déduction ROT dans sa propre déclaration de revenus.",
   "app.tax.vatScheme.icelandRefund": "L'Islande n'a pas de taux de TVA réduit pour la rénovation. Votre client pourra plutôt récupérer une partie de la TVA sur la main-d'œuvre des travaux résidentiels.",
+  // Voir la note anglaise : ces chaînes empêchent l'envoi d'un document qui
+  // affirme que la taxe s'applique et n'en facture aucune.
+  "app.tax.line.unresolved": "Non déterminée",
+  "app.tax.line.none": "Aucune",
+  "app.tax.line.unresolvedHint": "La taxe est activée pour ce devis, mais aucun montant n'est facturé. Indiquez le pays et la province du client, saisissez un taux, ou désactivez la taxe.",
+  "app.tax.assumed.badge": "Présumée",
+  "app.tax.assumed.note": "{region} présumée — votre propre province, car aucune adresse n'est enregistrée pour {client}. Vérifiez : un client de l'autre côté d'une frontière provinciale doit un taux différent.",
+  "app.tax.assumed.noClient": "{region} présumée — votre propre province. Choisissez un client dont l'adresse est enregistrée et le taux réel s'appliquera.",
+  "app.tax.blocked.title": "Ce document affirme que la taxe s'applique, mais n'en facture aucune",
+  "app.tax.blocked.body": "L'envoyer mettrait sous les yeux de votre client un total sans la taxe. Corrigez l'adresse ou indiquez qu'il n'y a pas de taxe — dans les deux cas, une seule étape.",
+  "app.tax.blocked.missing": "Aucun {fields} enregistré pour {client}, et vous n'avez aucun taux par défaut.",
+  "app.tax.blocked.fieldCountry": "pays",
+  "app.tax.blocked.fieldProvince": "province ou État",
+  "app.tax.blocked.fieldJoin": " ni ",
+  "app.tax.blocked.setAddress": "Indiquer où se trouve {client}",
+  "app.tax.blocked.countryLabel": "Pays",
+  "app.tax.blocked.provinceLabel": "Province ou État",
+  "app.tax.blocked.save": "Enregistrer et calculer la taxe",
+  "app.tax.blocked.saved": "Enregistré — la taxe est maintenant de {rate} %. Envoyez quand vous voulez.",
+  "app.tax.blocked.stillUnknown": "Enregistré, mais cela ne permet toujours pas de déterminer un taux. Saisissez-en un à la main sur le devis, ou envoyez sans taxe.",
+  "app.tax.blocked.noTaxTitle": "Ou : il n'y a réellement aucune taxe sur celui-ci",
+  "app.tax.blocked.noTaxBody": "Désactive la taxe sur ce document seulement. Vos réglages et tous vos autres devis restent intacts, et le document indiquera qu'aucune taxe n'a été facturée au lieu d'afficher un zéro.",
+  "app.tax.blocked.noTaxAction": "Envoyer sans taxe",
+  "app.tax.blocked.retry": "Envoyer maintenant",
+  "app.tax.blocked.openClient": "Ouvrir la fiche client",
   // ── Painting takeoff ─────────────────────────────────────────────────────
   // Staff-facing estimating form, never seen by a homeowner: an AREA (a room)
   // holds SUBSTRATES — ceiling, walls, baseboard, doors — each costed from a

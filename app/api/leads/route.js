@@ -7,6 +7,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import {
   loadEnforceableMember,
   requireLevel,
+  redactLeads,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 
@@ -73,8 +74,28 @@ export async function GET(request) {
     : [];
   const blocked = new Set(optedOut.map((c) => c.e164));
 
+  // ── The one pipeline stage the redaction sweep never reached ────────────
+  //
+  // Clients, quotes, invoices, appointments and jobs were all filtered for a
+  // member on clientsProperties "name_address_only"; leads were not looked at,
+  // because a LeadRequest is not a Client row. It carries the same personal
+  // data one step earlier — QA read a real email, a real phone number and a
+  // stated budget of 15k_plus straight out of this list — and the pipeline
+  // board is a screen a crew member is legitimately shown, so it is the
+  // payload that narrows rather than the endpoint that refuses.
+  //
+  // Note the ORDER: doNotCall is derived from the phone first, then
+  // redactLead drops both together. Deriving it after the redaction would
+  // silently mark every restricted lead as callable.
+  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(
-    leads.map((l) => ({ ...l, doNotCall: Boolean(l.phone && blocked.has(l.phone)) })),
+    redactLeads(
+      full,
+      leads.map((l) => ({
+        ...l,
+        doNotCall: Boolean(l.phone && blocked.has(l.phone)),
+      })),
+    ),
   );
 }
 

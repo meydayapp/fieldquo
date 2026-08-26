@@ -92,10 +92,12 @@ import {
   applyLineItemEdit,
   newScopeGroup,
 } from "@/lib/quotes/builderPayload";
-import { resolveTaxRate, explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -269,6 +271,21 @@ export function costingInputsFrom(costing) {
 
 export default function QuoteBuilder({ mode = "create", quoteId = null }) {
   const { t } = useTranslation();
+  // The same grid question POST /api/quotes and PATCH /api/quotes/[id] ask.
+  // See the refusal below, before the first return.
+  const canWrite = useHasLevel("quotes", "view_create_edit");
+  // ── And the second half, which no preset reaches but a custom grid can ──
+  //
+  // No preset pairs quotes:view_create_edit with showPricing:false — Dispatcher
+  // and Manager hold both, and both Worker presets are view_only — so nobody in
+  // the matrix is narrowed by this. A hand-edited grid CAN reach it, and what
+  // that member would get is worse than a refusal: /api/products answers 403 so
+  // the add-on catalogue is empty, and /api/settings/service-categories now
+  // withholds `rateOverrides`, so getPriceBook() falls back to the CODE
+  // defaults. They would price a quote off numbers that are not this company's
+  // and never be told. Building a priced document is not something to do
+  // half-blind.
+  const canSeePrices = useHasToggle("showPricing");
   const [bootstrap, setBootstrap] = useState(null);
   const [initial, setInitial] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -300,13 +317,21 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // Settings > Material Costs. Resolved server-side (defaults merged
           // with any saved overrides), so this is fed straight into
           // estimateQuoteCost() as-is.
+          //
+          // Both this and the overhead call below now answer 403 without the
+          // jobCosting toggle (lib/permissions/costBasis.js). That lands on the
+          // same fallback an empty override set already used, and `mayCost`
+          // means the panel they feed is not rendered for that person anyway —
+          // so the refusal costs nothing on screen and no branch is needed.
           fetch("/api/settings/material-recipes").then((r) =>
             r.ok ? r.json() : {},
           ),
           // Real overhead per job. Returns 400 with needsCapacity when the
           // company hasn't said how many jobs a week they can take — a
           // legitimate "we don't know", not an error to surface here, so the
-          // panel falls back to the percentage and labels it.
+          // panel falls back to the percentage and labels it. A 403 without
+          // jobCosting arrives as a body with no costPerJob on it, which
+          // resolves to the same null.
           fetch("/api/analytics/minimum-price")
             .then((r) => r.json().catch(() => null))
             .catch(() => null),
@@ -341,6 +366,10 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             // The company's OWN country, not the client's. For B2C services
             // VAT is charged where the supplier is — see lib/tax/jurisdictions.js.
             country: businessInfo?.country || null,
+            // And its province, which is what the rate is ASSUMED from when
+            // the client's record can't answer. Never silently: see
+            // lib/tax/documentTax.js and the note rendered below.
+            province: businessInfo?.province || null,
             // Three-state, and `?? null` rather than `|| false`: an
             // unanswered VAT question must not arrive here as "not registered".
             vatRegistered: businessInfo?.vatRegistered ?? null,
@@ -525,6 +554,37 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
     };
   }, [mode, quoteId]);
 
+  // ── Refused before the work, not after it ────────────────────────────────
+  //
+  // POST /api/quotes and PATCH /api/quotes/[id] both require
+  // quotes:view_create_edit, and both correctly refuse a member at view_only.
+  // The screen did not: QA opened the full builder, filled it in, pressed Save,
+  // and got a 403 that set an error banner at the top of a page whose Save
+  // button is at the bottom — so from where they were standing nothing
+  // happened at all.
+  //
+  // Placed here rather than in the two route wrappers because
+  // scripts/check-quote-builder.mjs requires those to stay thin — and because
+  // there is one screen behind both of them, which is the entire point of this
+  // component. Both verbs, one rule, one place.
+  if (!canWrite || !canSeePrices) {
+    return (
+      <div className="p-4 sm:p-6 max-w-lg mx-auto">
+        <div className="bg-muted border border-border rounded-xl p-5 text-sm text-muted-foreground">
+          {canWrite
+            ? t(
+                "app.access.pricingHidden",
+                "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+              )
+            : t(
+                "app.access.cannotCreateQuote",
+                "Your access level lets you view quotes, not create them. Ask an owner or admin if you need to write one.",
+              )}
+        </div>
+      </div>
+    );
+  }
+
   if (loadError && !initial) {
     return (
       <div className="p-4 sm:p-6 max-w-lg mx-auto">
@@ -622,8 +682,13 @@ export function QuoteBuilderForm({
     // Set by the address autocomplete, not by a field the user sees. They
     // decide whether local tax applies, so dropping them meant every
     // quick-added client was quietly untaxed.
+    //
+    // `country` was missing from this object entirely, so ClientPicker had
+    // nowhere to put it even once it stopped discarding it — and without a
+    // country the province is inert (see lib/tax/documentTax.js).
     city: "",
     province: "",
+    country: "",
   });
 
   // The language this quote is WRITTEN in, fixed at creation. Not a display
@@ -660,6 +725,10 @@ export function QuoteBuilderForm({
   // A caveat about the resolved rate, distinct from the note explaining where
   // it came from. Empty most of the time.
   const [taxCaution, setTaxCaution] = useState("");
+  // Set when the rate came from the COMPANY's province because the client's
+  // record could not answer. Rendered as a warning, not a note — it is a guess
+  // that costs money when it is wrong.
+  const [taxAssumed, setTaxAssumed] = useState("");
   // Has the estimator edited the rate by hand on this quote? Once true, the
   // resolver stops writing to the box. See the effect below.
   const [taxRateTouched, setTaxRateTouched] = useState(false);
@@ -708,8 +777,16 @@ export function QuoteBuilderForm({
   // that one is. The totals bar spins only the button that was pressed.
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
+  const errorRef = useRef(null);
   const [showTour, setShowTour] = useState(false);
   const [pendingSend, setPendingSend] = useState(null);
+
+  // See the banner's own note further down: it renders at the top of a very
+  // long page and the Save buttons are at the bottom, so a refusal set here
+  // was invisible from where it was triggered.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [error]);
 
   // Arrived from the builder's "Save & review". Read from the URL once and then
   // stripped, so a refresh doesn't spend tokens on a second review nobody asked
@@ -752,7 +829,12 @@ export function QuoteBuilderForm({
     // chosen and put it back if they want it.
     const config = boot.taxConfig;
     if (!config) return;
-    const result = resolveTaxRate({
+    // resolveDocumentTax, not resolveTaxRate directly: it is the same
+    // resolver with one layer over it, which falls back to the COMPANY's own
+    // province when the client's record cannot answer. That fallback is the
+    // owner's instruction and it is a guess — `result.assumed` says so, and
+    // the note below puts it on screen naming the province. Never silent.
+    const result = resolveDocumentTax({
       company: config,
       taxRates: config.taxRates,
       client: selectedClient,
@@ -771,8 +853,27 @@ export function QuoteBuilderForm({
       result.detail?.schemeNoteKey ? t(result.detail.schemeNoteKey) : "",
     );
 
+    // ── The assumption gets its own line, louder than the note ────────────
+    //
+    // When the rate came from the company's province rather than the client's,
+    // saying "using your Ontario rate" in the quiet grey note would read as a
+    // determination. It is not one. His own data is the argument: TrueFinish
+    // is in Ottawa and the client Emilio Boves is in Gatineau — 14.975%, not
+    // 13% — and that river has contractors on both sides of it every week.
+    setTaxAssumed(
+      result.assumed
+        ? t(
+            selectedClient ? "app.tax.assumed.note" : "app.tax.assumed.noClient",
+            {
+              region: result.assumedRegion || "",
+              client: selectedClient?.name || "",
+            },
+          )
+        : "",
+    );
+
     const note =
-      config.autoApplyLocalTax && selectedClient
+      config.autoApplyLocalTax && selectedClient && !result.assumed
         ? explainTaxSource(result, selectedClient, lang)
         : null;
     // explainTaxSource returns a key plus params, never a sentence — it used
@@ -1149,6 +1250,7 @@ export function QuoteBuilderForm({
         // attach the previous client's tax region to the next one.
         city: "",
         province: "",
+        country: "",
       });
     } catch (err) {
       // Keep the panel open with whatever they typed still in it — losing a
@@ -1292,6 +1394,15 @@ export function QuoteBuilderForm({
           router.push(`/app/quotes/${id}?sendBlocked=quote`);
           return;
         }
+        // Tax is switched on and nothing is charged. Same hand-off and the
+        // same reason: the detail page owns the dialog that offers both ways
+        // out, and a red banner here would be a dead end. The flag is enough
+        // — that page re-asks the server rather than smuggling the 409 through
+        // the URL, so the dialog opens on the CURRENT state.
+        if (sendRes.status === 409 && data?.code === "tax_unresolved") {
+          router.push(`/app/quotes/${id}?taxBlocked=quote`);
+          return;
+        }
         // Land them on the quote regardless — it exists and their work is
         // saved. The reason is carried through so the detail page can say why
         // it's still a draft instead of leaving them to guess.
@@ -1387,8 +1498,17 @@ export function QuoteBuilderForm({
         </div>
       )}
 
+      {/* Scrolled to, not merely rendered.
+          This banner sits at the TOP of a builder that is several screens long
+          and whose Save buttons are at the BOTTOM. A save that came back 403
+          set the sentence here and left the person looking at an unchanged
+          form — which they reported, correctly, as the button doing nothing.
+          A refusal the user cannot see is a refusal that failed silently. */}
       {error && (
-        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300">
+        <div
+          ref={errorRef}
+          className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl px-4 py-3 flex items-start gap-2 text-sm text-red-700 dark:text-red-300"
+        >
           <AlertCircle size={16} className="shrink-0 mt-0.5" />
           {error}
         </div>
@@ -1721,6 +1841,7 @@ export function QuoteBuilderForm({
         )}
         taxNote={taxNote}
         taxCaution={taxCaution}
+        taxAssumed={taxAssumed}
         taxSchemeNote={taxSchemeNote}
         // Only where a reduced construction rate actually exists for the
         // company's country. Most member states have none, and offering a

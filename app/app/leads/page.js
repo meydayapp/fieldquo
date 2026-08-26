@@ -489,6 +489,18 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               {lead.intake?.address && (
                 <div className="text-muted-foreground">{lead.intake.address}</div>
               )}
+              {/* Said, not left as a gap.
+                  GET /api/leads removes the email, the phone and the stated
+                  budget for a member on clientsProperties "name_address_only"
+                  and marks the lead `restricted`. Without this the block simply
+                  renders empty, which reads as an enquiry that arrived with no
+                  way to answer it — and sends somebody looking for a contact
+                  the company already has. */}
+              {lead.restricted && (
+                <div className="text-muted-foreground italic text-xs">
+                  {t("app.access.restricted", "Hidden by your access level")}
+                </div>
+              )}
             </div>
 
             {/* Why this score */}
@@ -506,8 +518,14 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               </div>
             )}
 
-            {/* Qualifiers — editable, re-scores on change */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Qualifiers — editable, re-scores on change.
+                The BUDGET half is withheld from a restricted member, and a
+                <select> whose value resolves to "" would show "Not stated" —
+                claiming this household never said what it could spend, when it
+                said 15k+. That is the same false absence the job page printed
+                as "Not set". So the pair collapses to the timeline alone and
+                the reason is said once. */}
+            <div className={lead.restricted ? "" : "grid grid-cols-2 gap-3"}>
               <label className="text-xs">
                 <span className="text-muted-foreground">{t("app.leads.timeline")}</span>
                 <select
@@ -522,20 +540,22 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                   ))}
                 </select>
               </label>
-              <label className="text-xs">
-                <span className="text-muted-foreground">{t("app.leads.budget")}</span>
-                <select
-                  value={lead.budgetBand || ""}
-                  disabled={busy}
-                  onChange={(e) => patch({ budgetBand: e.target.value })}
-                  className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
-                >
-                  <option value="">{t("app.leads.notStated")}</option>
-                  {Object.entries(BUDGET_LABEL_KEY).map(([k, key]) => (
-                    <option key={k} value={k}>{t(key)}</option>
-                  ))}
-                </select>
-              </label>
+              {!lead.restricted && (
+                <label className="text-xs">
+                  <span className="text-muted-foreground">{t("app.leads.budget")}</span>
+                  <select
+                    value={lead.budgetBand || ""}
+                    disabled={busy}
+                    onChange={(e) => patch({ budgetBand: e.target.value })}
+                    className="w-full mt-1 border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
+                  >
+                    <option value="">{t("app.leads.notStated")}</option>
+                    {Object.entries(BUDGET_LABEL_KEY).map(([k, key]) => (
+                      <option key={k} value={k}>{t(key)}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
 
             {/* Their message */}

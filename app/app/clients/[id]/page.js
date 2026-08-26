@@ -27,6 +27,7 @@ import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError, showError } from "@/lib/clientErrors";
 import { formatAddress } from "@/lib/format/address";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 
 const inputClass =
   "w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10 focus:border-border";
@@ -46,6 +47,17 @@ export default function ClientDetailPage() {
   const [error, setError] = useState("");
   // Shown as "Company default (X)" in the picker so null reads as a real choice.
   const [companyLanguage, setCompanyLanguage] = useState("en");
+
+  // ── Three controls, three endpoints, the same grid ──────────────────────
+  //
+  // PATCH /api/clients/[id] requires clientsProperties:full_edit, POST
+  // /api/quotes requires quotes:view_create_edit and POST /api/jobs requires
+  // jobs:view_create_edit. All three refuse a Worker (limited) — and all three
+  // buttons were drawn for one, the two Quick Actions opening a whole builder
+  // before the save came back 403.
+  const canEditClient = useHasLevel("clientsProperties", "full_edit");
+  const canCreateQuote = useHasLevel("quotes", "view_create_edit");
+  const canCreateJob = useHasLevel("jobs", "view_create_edit");
 
   async function load() {
     try {
@@ -170,12 +182,14 @@ export default function ClientDetailPage() {
               {isCompany ? t("app.clientNew.company") : t("app.clientNew.homeowner")}
             </span>
           </div>
-          <button
-            onClick={openEdit}
-            className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
-          >
-            <Pencil size={14} /> {t("app.action.edit")}
-          </button>
+          {canEditClient && (
+            <button
+              onClick={openEdit}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
+            >
+              <Pencil size={14} /> {t("app.action.edit")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -209,6 +223,18 @@ export default function ClientDetailPage() {
             )}
           </div>
         )}
+        {/* Said, rather than left as an absence.
+            GET /api/clients/[id] removes the phone, the email, the contact name
+            and the private notes for a member on clientsProperties
+            "name_address_only" and marks the row `restricted`. Without this the
+            block simply renders shorter, which reads as a client nobody has
+            finished entering — and invites someone to go and collect details
+            the company already holds. */}
+        {client.restricted && (
+          <p className="text-xs text-muted-foreground italic pt-1">
+            {t("app.access.restricted", "Hidden by your access level")}
+          </p>
+        )}
         {isCompany && (
           <p className="text-xs text-muted-foreground pt-1">
             {t("app.clientDetail.jobSitesVary")}
@@ -236,20 +262,26 @@ export default function ClientDetailPage() {
         )}
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — each drawn only if its endpoint would accept it.
+          Both of these opened a full builder for a member at view_only whose
+          save the API refuses; see the note on app/app/quotes/page.js. */}
       <div className="flex flex-wrap gap-3">
-        <Link
-          href={`/app/quotes/new?clientId=${client.id}`}
-          className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold"
-        >
-          <Plus size={14} /> {t("app.clientDetail.newQuote")}
-        </Link>
-        <Link
-          href={`/app/jobs/new?clientId=${client.id}`}
-          className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
-        >
-          <Plus size={14} /> {t("app.clientDetail.newJob")}
-        </Link>
+        {canCreateQuote && (
+          <Link
+            href={`/app/quotes/new?clientId=${client.id}`}
+            className="flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold"
+          >
+            <Plus size={14} /> {t("app.clientDetail.newQuote")}
+          </Link>
+        )}
+        {canCreateJob && (
+          <Link
+            href={`/app/jobs/new?clientId=${client.id}`}
+            className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold hover:bg-muted"
+          >
+            <Plus size={14} /> {t("app.clientDetail.newJob")}
+          </Link>
+        )}
       </div>
 
       {/* Related records */}

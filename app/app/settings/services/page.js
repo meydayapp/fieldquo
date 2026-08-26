@@ -65,6 +65,20 @@ export default function ServiceSettingsPage() {
   const [seedingId, setSeedingId] = useState(null);
   const [seedMsg, setSeedMsg] = useState(null);
 
+  // ── The rate card, for someone who may not see rates ────────────────────
+  //
+  // GET /api/settings/service-categories removes `defaultRate`, `priceBook` and
+  // `rateOverrides` for a member without the showPricing toggle and marks each
+  // row `pricingHidden`. That is the same check Products & Services makes —
+  // this screen had none at all, and QA read $150 per door, the complexity
+  // uplifts, add-ons to $1,000 and a $3,800 job minimum off it as a crew
+  // member with pricing switched off.
+  //
+  // Read off any row rather than a top-level flag because the payload is a
+  // plain array (several other screens depend on that shape) and the server
+  // marks every row identically — one member either sees prices or does not.
+  const pricingHidden = categories.some((c) => c.pricingHidden);
+
   useEffect(() => {
     (async () => {
       try {
@@ -302,6 +316,18 @@ export default function ServiceSettingsPage() {
         {t("app.setServices.subtitle")}
       </p>
 
+      {/* Said once, at the top, rather than as a row of empty rate boxes.
+          The subtitle above promises "set your default rate for each", so an
+          unexplained gap where the rates were reads as a broken screen. */}
+      {pricingHidden && (
+        <div className="mb-4 rounded-lg border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {t(
+            "app.access.pricingHidden",
+            "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+          )}
+        </div>
+      )}
+
       {categories.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
           <input
@@ -485,7 +511,7 @@ export default function ServiceSettingsPage() {
                 below holds those numbers. Showing a single rate box next to it
                 would be a second, contradictory answer to the same question,
                 so the basis is stated and the numbers live in one place. */}
-              {c.enabled && !priced && (
+              {c.enabled && !priced && !c.pricingHidden && (
                 <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-9 sm:pl-0">
                   <input
                     type="number"
@@ -518,8 +544,12 @@ export default function ServiceSettingsPage() {
               )}
 
               {/* The structured rate card, for trades that have one. The single
-                rate above stays for trades that genuinely are one number. */}
-              {c.enabled && (
+                rate above stays for trades that genuinely are one number.
+                `pricingHidden` means the server sent no `priceBook` at all, so
+                RateCard would render its whole grid of inputs empty — a form
+                that looks fillable over numbers the caller may not read, and
+                whose save the PATCH refuses anyway. */}
+              {c.enabled && !c.pricingHidden && (
                 <RateCard
                   category={c}
                   overrides={c.rateOverrides}

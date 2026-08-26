@@ -9,6 +9,7 @@ import { cleanBudgetBand, cleanTimeline } from "@/lib/leads/qualifiers";
 import {
   loadEnforceableMember,
   requireLevel,
+  redactLead,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
 
@@ -43,7 +44,12 @@ export async function GET(request, { params }) {
     doNotCall = Boolean(optOut);
   }
 
-  return NextResponse.json({ ...lead, doNotCall });
+  // The same filter as the list beside it. Enumerating ids off a redacted
+  // board and pulling each detail is precisely how the client leak was
+  // reached before it — see the note in app/api/clients/[id]/route.js — so the
+  // detail door closes at the same time as the list.
+  const full = await loadEnforceableMember(db, member.id);
+  return NextResponse.json(redactLead(full, { ...lead, doNotCall }));
 }
 
 // Update pipeline state, owner, or the qualifiers. Changing a qualifier

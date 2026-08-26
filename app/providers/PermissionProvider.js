@@ -36,6 +36,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
 
 const PermissionContext = createContext(null);
 
@@ -57,4 +58,28 @@ export function PermissionProvider({ permissions, role, children }) {
  */
 export function usePermissions() {
   return useContext(PermissionContext);
+}
+
+/**
+ * "May this caller do X?", asked of the same grid and the same functions the
+ * API route asks.
+ *
+ * Two thin hooks rather than a per-screen `const caller = usePermissions()`
+ * followed by a hand-written hasLevel call. QA found "New Quote" and "New Job"
+ * offered with a full builder behind them to a member whose POST answers 403 —
+ * and the fix has to land on six entry points (the quotes list twice, the jobs
+ * list twice, the dashboard, the client page) plus the two builder screens
+ * themselves. Six copies of the same two lines is the duplication AGENTS.md
+ * names, and the copy that rots is the one that keeps offering the button.
+ *
+ * The rule the answers follow is enforce.js's, unchanged: an unresolved
+ * provider falls OPEN, because a UI that hides itself while a lookup is slow
+ * looks like the account broke, and the server refuses regardless.
+ */
+export function useHasLevel(category, level) {
+  return hasLevel(useContext(PermissionContext), category, level);
+}
+
+export function useHasToggle(toggle) {
+  return hasToggle(useContext(PermissionContext), toggle);
 }

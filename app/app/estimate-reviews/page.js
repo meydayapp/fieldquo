@@ -114,6 +114,13 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
   const m = d.measurement || {};
   const range = d.range || {};
   const [total, setTotal] = useState(Math.round(Number(q.total) || 0));
+  // `pricingHidden` means the API removed `total` and every figure inside
+  // estimateData — the range the homeowner saw, the breakdown, the budget they
+  // stated. Rendering the block anyway prints "$0–$0" and an Approve control
+  // that would submit a price of zero, which is worse than either the boundary
+  // or the screen. This queue exists to sign off a number, so when the number
+  // is withheld the honest screen is the reason and no controls.
+  const pricingHidden = q.pricingHidden === true;
 
   return (
     <div className="rounded-xl border border-border bg-card p-5">
@@ -145,10 +152,12 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
             {m.tearOffLayers ? <span>{m.tearOffLayers} layer(s) tear-off</span> : null}
           </div>
           {d.materialKey && <div>{t("app.reviews.material")}<strong className="text-foreground">{d.materialKey}</strong></div>}
+          {!pricingHidden && (
           <div>
             Homeowner saw:{" "}
             <strong className="text-foreground">{money(range.low)}–{money(range.high)}{d.unit ? ` ${d.unit}` : ""}</strong>
           </div>
+          )}
           {/* What they said they could spend, next to what it prices at. The
               over-budget flag is the reviewer's cue to lead with financing on
               the call — computed at capture, from the bands in force that day,
@@ -172,7 +181,9 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
           {d.breakdown.map((b, i) => (
             <li key={i} className="flex justify-between">
               <span>{b.label}</span>
-              <span>{money(b.amount)}</span>
+              {/* The line survives, the amount does not — same rule the quote
+                  builder follows: what the work is stays, what it costs goes. */}
+              {!pricingHidden && <span>{money(b.amount)}</span>}
             </li>
           ))}
         </ul>
@@ -194,6 +205,15 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
+        {pricingHidden ? (
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "app.access.pricingHidden",
+              "Pricing is hidden by your access level. Ask an owner or admin if you need to see it.",
+            )}
+          </p>
+        ) : (
+          <>
         <label className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{t("app.reviews.approveAt")}</span>
           <span className="text-muted-foreground">$</span>
@@ -213,6 +233,8 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
           {busy ? <Loader2 size={15} className="animate-spin" /> : <BadgeCheck size={15} />}
           Approve
         </button>
+          </>
+        )}
         <Link
           href={`/app/quotes/${q.id}`}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"

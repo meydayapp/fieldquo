@@ -11,6 +11,7 @@ import {
   permissionErrorResponse,
   redactClient,
   redactQuotes,
+  redactInvoices,
 } from "@/lib/permissions/enforce";
 import { isSupported } from "@/app/i18n/languages";
 import { normaliseCountry } from "@/lib/tax/jurisdictions";
@@ -45,10 +46,24 @@ export async function GET(request, { params }) {
   // The nested quotes carry shareToken as well, which opens the priced public
   // page with no credential at all, so they go through redactQuotes rather
   // than being handed over whole.
+  //
+  // ── And the invoices, which that fix walked straight past ───────────────
+  //
+  // Half the job got done: `quotes` was redacted and `invoices` — the same
+  // shape, the same money, sitting on the next line — was handed over whole.
+  // QA read "INV-0009 $7,645" and "INV-0003 $6,650" off this client page as a
+  // member with showPricing:false, and an invoice is the harder number of the
+  // two: it is what the household actually owes, and it carries amountPaid and
+  // amountDue as well as the total.
+  //
+  // This is why redactInvoice exists next to redactQuote rather than being
+  // spelled out per route — invoices mirror quotes (AGENTS.md on
+  // lib/documentSections), and their redaction is not a lesser version of it.
   const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json({
     ...redactClient(full, client),
     quotes: redactQuotes(full, client.quotes),
+    invoices: redactInvoices(full, client.invoices),
   });
 }
 

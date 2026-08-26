@@ -32,9 +32,14 @@ import {
   requireLevel,
   hasToggle,
   canSeeAllPay,
+  canSeeMoney,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { selectInvoiceBanners, invoiceMoney } from "@/lib/invoices/lifecycle";
+import {
+  selectInvoiceBanners,
+  invoiceMoney,
+  stripBannerMoney,
+} from "@/lib/invoices/lifecycle";
 import { resolveInvoiceJob } from "@/lib/invoices/jobLink";
 import { invoiceChaseKey } from "@/lib/tasks/autoCreate";
 import { createJob } from "@/lib/jobs/createJob";
@@ -135,6 +140,22 @@ export async function GET(request, { params }) {
 
   const banners = selectInvoiceBanners({ invoice, job, chaseTask });
 
+  // ── The money half of THIS endpoint, which is not the costing half ──────
+  //
+  // Everything below the `jobCosting` line is what the job cost US. This is
+  // what the CLIENT owes — the invoice's own total, balance and paid-to-date,
+  // reached through a second door. GET /api/invoices/[id] redacts all three on
+  // `showPricing`; this route computed them again from its own select and
+  // handed them over, and QA read "Paid in full — $7,645.00" off the banner it
+  // feeds.
+  //
+  // `money` is set to null rather than an object of zeroes. invoiceMoney also
+  // returns `settled` and `partiallyPaid`, which are booleans rather than
+  // amounts — but keeping them while dropping the figures would let the page
+  // draw a paid/unpaid state whose numbers it cannot show, and the BANNERS
+  // already say that state in words. One statement, not two.
+  const showMoney = canSeeMoney(full);
+
   const body = {
     job: job
       ? {
@@ -145,8 +166,12 @@ export async function GET(request, { params }) {
         }
       : null,
     chaseTask,
-    banners,
-    money: invoiceMoney(invoice),
+    banners: showMoney ? banners : stripBannerMoney(banners),
+    money: showMoney ? invoiceMoney(invoice) : null,
+    // Declared, never merely absent — the same contract redactQuoteMoney has.
+    // A missing `money` with nothing to explain it reads as an invoice nobody
+    // has priced.
+    ...(showMoney ? {} : { pricingHidden: true }),
     // Not gated: this is the fact that a link is possible, not what it cost.
     canLinkJob: true,
     costing: null,

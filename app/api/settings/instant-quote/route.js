@@ -30,6 +30,11 @@ import {
 import { normaliseFinancing } from "@/lib/estimate/financing";
 import { reprovisionIfLive } from "@/lib/voice/provision";
 import { getAppOrigin } from "@/lib/appUrl";
+import {
+  loadEnforceableMember,
+  requireToggle,
+  permissionErrorResponse,
+} from "@/lib/permissions/enforce";
 
 function isPricingAdmin(role) {
   return role === "owner" || role === "admin";
@@ -38,6 +43,30 @@ function isPricingAdmin(role) {
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // ── The read had no check at all ─────────────────────────────────────────
+  //
+  // Writes were owner/admin from the start; reading was open to any member of
+  // the company. What this returns is `config` and `rateFields` per trade —
+  // the per-unit sell rates a stranger is quoted from, the same $150 per door
+  // Settings > Services carries — so it is gated on the same toggle
+  // /api/products is, and refuses rather than redacting for the same reason
+  // that route gives: a rate card with the rates removed is a broken screen,
+  // not a boundary.
+  //
+  // Impersonation is carved out of the READ only. Non-negotiable #3 is that the
+  // platform console views everything and edits nothing, and a support
+  // session's role is "viewer", which holds no grid at all. PUT below does not
+  // consult member.impersonation, so a write cannot pick the carve-out up.
+  if (!member.impersonation) {
+    const full = await loadEnforceableMember(db, member.id);
+    try {
+      requireToggle(full, "showPricing", "see the instant-quote rates");
+    } catch (err) {
+      const { body, status } = permissionErrorResponse(err);
+      return NextResponse.json(body, { status });
+    }
+  }
 
   const [saved, company, enabledCategories] = await Promise.all([
     db.instantQuoteConfig.findMany({ where: { companyId: member.companyId } }),
