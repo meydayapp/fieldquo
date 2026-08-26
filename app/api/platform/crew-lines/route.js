@@ -32,6 +32,12 @@ import { getAppOrigin } from "@/lib/appUrl";
 import { twilioConfigured } from "@/lib/sms/twilioClient";
 import { crewSignatureConfigured, sharedTestLineE164 } from "@/lib/crew/capability";
 import { listSmsCapableNumbers, inboundWebhookUrl } from "@/lib/crew/line";
+import {
+  platformNumbers,
+  buyPlatformNumber,
+  releasePlatformNumber,
+} from "@/lib/crew/platformNumber";
+import { searchLocalNumbers } from "@/lib/voice/numberSearch";
 import { auditCrewLines } from "@/lib/crew/lineAudit";
 
 export async function GET(request) {
@@ -84,10 +90,69 @@ export async function GET(request) {
       missingEnv: signatureConfigured ? [] : ["TWILIO_AUTH_TOKEN"],
       // Configuration names a number; naming is not owning. Probing the account
       // once found it holding none at all, which is why every path asks.
+      // What FieldQuo has actually BOUGHT, as opposed to what configuration
+      // names. The two disagreeing is the entire failure this page reports:
+      // TWILIO_PHONE_NUMBER named +17372212163 while the account owned nothing.
+      platformNumbers: await platformNumbers(),
       sharedLineEnv: sharedTestLineE164(),
       sharedLineHeld: numbers.some((n) => n.e164 === sharedTestLineE164()),
     },
     numbersError,
     ...audit,
   });
+}
+
+/**
+ * FieldQuo's own numbers: find one, buy one, hand one back.
+ *
+ * Superadmin only, and gated exactly as GET is — this spends FieldQuo's money
+ * at a carrier, which is the narrowest authority on the platform.
+ *
+ * Deliberately NOT reachable from any tenant route. The company-facing purchase
+ * is /api/crew/line { action: "buy" }, which reserves from that company's credit
+ * balance; this one reserves nothing because the money is FieldQuo's. Two doors,
+ * because they spend two different people's money.
+ */
+export async function POST(request) {
+  const admin = await getCurrentPlatformAdmin(request);
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json().catch(() => ({}));
+  const action = body?.action;
+
+  if (action === "search") {
+    const found = await searchLocalNumbers({
+      country: (body?.country || "CA").toUpperCase(),
+      areaCode: body?.areaCode || null,
+    }).catch(() => null);
+    if (!found) {
+      return NextResponse.json(
+        { error: "Couldn't reach the number directory just now." },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json({ ok: true, ...found });
+  }
+
+  if (action === "buy") {
+    const result = await buyPlatformNumber({
+      e164: body?.e164,
+      purpose: body?.purpose || "system",
+      origin: getAppOrigin(request),
+    });
+    if (!result.ok) {
+      return NextResponse.json({ error: result.reason }, { status: result.status || 400 });
+    }
+    return NextResponse.json({ ok: true, number: result.number });
+  }
+
+  if (action === "release") {
+    const result = await releasePlatformNumber(body?.e164);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.reason }, { status: result.status || 400 });
+    }
+    return NextResponse.json({ ok: true, number: result.number });
+  }
+
+  return NextResponse.json({ error: `Unknown action "${action}"` }, { status: 400 });
 }

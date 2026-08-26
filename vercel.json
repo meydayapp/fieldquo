@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/voice-auto-topup",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/crew-line-rent",
+      "schedule": "0 7 * * *"
     }
   ]
 }

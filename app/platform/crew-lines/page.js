@@ -159,6 +159,8 @@ export default function CrewLinesPage() {
         <Stat label="Orphaned" value={counts.orphaned} bad={counts.orphaned > 0} />
       </div>
 
+      <BuyNumberPanel onChanged={load} />
+
       {/* The env var names a number; naming is not owning. Probing the account
           once found it holding none, which is the whole reason every path here
           asks Twilio instead of trusting configuration. */}
@@ -181,8 +183,9 @@ export default function CrewLinesPage() {
           </p>
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
             Every tenant&apos;s crew inbox correctly says FieldQuo hasn&apos;t got a
-            number to give them. Buy one in the Twilio console and it appears here and
-            on their screens.
+            number to give them. Buy one above and it appears here and on their
+            screens — the row and the carrier are written by the same action, so
+            they cannot disagree the way configuration did.
           </p>
         </div>
       ) : (
@@ -313,6 +316,187 @@ function LineRow({ line }) {
           </div>
         )}
       </dl>
+    </div>
+  );
+}
+
+/**
+ * Buying a number for FieldQuo itself.
+ *
+ * ── Why this is here and not in the Twilio console ────────────────────────
+ *
+ * Because the console route needed four steps outside the product — buy by
+ * hand, copy the number, edit a Vercel variable, redeploy — and one of them was
+ * silently wrong for months: TWILIO_PHONE_NUMBER named +17372212163, which this
+ * account has never owned. Every send that fell back to it failed at the
+ * carrier, and no screen anywhere could say so, because naming a number in
+ * configuration is not owning it.
+ *
+ * Buying it here writes the row the sender actually reads, so the purchase and
+ * the fact are the same event.
+ *
+ * The purpose selector is not cosmetic. `system` is the outbound From for a
+ * company that has no number of its own; `shared_test` is the line lent to one
+ * company at a time. On a small deployment one number is usually both, which is
+ * exactly what the single env var used to be — but they are bought as separate
+ * rows so splitting them later is a purchase, not a migration.
+ */
+function BuyNumberPanel({ onChanged }) {
+  const [areaCode, setAreaCode] = useState("");
+  const [purpose, setPurpose] = useState("system");
+  const [found, setFound] = useState(null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [confirming, setConfirming] = useState(null);
+
+  async function post(action, extra) {
+    const res = await fetch("/api/platform/crew-lines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, ...extra }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(json?.error || `Request failed (${res.status})`);
+    return json;
+  }
+
+  async function search() {
+    setBusy("search");
+    setErr("");
+    setFound(null);
+    try {
+      setFound(await post("search", { areaCode: areaCode.trim() || null }));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function buy(e164) {
+    setBusy(e164);
+    setErr("");
+    try {
+      await post("buy", { e164, purpose });
+      setConfirming(null);
+      setFound(null);
+      setAreaCode("");
+      await onChanged();
+    } catch (e) {
+      setErr(e.message);
+      setConfirming(null);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <h2 className="text-sm font-bold text-foreground">Buy a number for FieldQuo</h2>
+      <p className="text-xs text-muted-foreground mt-1">
+        Bought here, the number is recorded and its inbound webhook is set in the same
+        call — it is never live and pointing nowhere. This spends FieldQuo&apos;s money
+        at the carrier, not a tenant&apos;s credit.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="text-xs text-muted-foreground">
+          Area code
+          <input
+            value={areaCode}
+            onChange={(e) => setAreaCode(e.target.value.replace(/\D/g, "").slice(0, 3))}
+            placeholder="343"
+            inputMode="numeric"
+            className="mt-1 block w-24 px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+          />
+        </label>
+        <label className="text-xs text-muted-foreground">
+          Purpose
+          <select
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+            className="mt-1 block px-2 py-1.5 rounded-lg border border-border bg-background text-sm text-foreground"
+          >
+            <option value="system">System — outbound From</option>
+            <option value="shared_test">Shared test line — lent out</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={search}
+          disabled={busy === "search"}
+          className="px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium disabled:opacity-50"
+        >
+          {busy === "search" ? "Searching…" : "Search"}
+        </button>
+      </div>
+
+      {err && (
+        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{err}</p>
+      )}
+
+      {/* "We looked and found nothing" and "we had nothing to look with" are
+          different answers, and an empty list dressed up as one is how an area
+          code with no inventory comes to look like a broken connection. */}
+      {found && found.numbers.length === 0 && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {found.searched?.areaCode
+            ? `No numbers free in ${found.searched.areaCode} right now. Try another area code.`
+            : "Nothing to search on — enter an area code."}
+        </p>
+      )}
+
+      {found && found.numbers.length > 0 && (
+        <ul className="mt-3 divide-y divide-border border border-border rounded-lg">
+          {found.numbers.map((n) => (
+            <li key={n.e164} className="flex items-center justify-between gap-3 px-3 py-2">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-foreground">{n.display || n.e164}</div>
+                <div className="text-xs text-muted-foreground truncate">
+                  {[n.locality, n.region].filter(Boolean).join(", ") || "—"}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirming(n)}
+                disabled={busy === n.e164}
+                className="text-xs px-2.5 py-1 rounded-full border border-border text-foreground hover:bg-accent disabled:opacity-50"
+              >
+                {busy === n.e164 ? "Buying…" : "Buy"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Money, and a carrier. Named in full before it happens — a one-click buy
+          on a row that looks like every other row is how the wrong number gets
+          bought. */}
+      {confirming && (
+        <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+          <p className="text-sm text-foreground">
+            Buy <strong>{confirming.display || confirming.e164}</strong> as the{" "}
+            <strong>{purpose === "system" ? "system outbound number" : "shared test line"}</strong>?
+            FieldQuo is billed monthly by Twilio from the moment it exists.
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => buy(confirming.e164)}
+              className="px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium"
+            >
+              Buy it
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(null)}
+              className="px-3 py-1.5 rounded-lg border border-border text-sm text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

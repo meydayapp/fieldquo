@@ -28,17 +28,32 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   MessageSquare, AlertTriangle, Check, ImageIcon, HelpCircle, UserX, Loader2,
-  Copy, MapPin, Send, Link2, Power,
+  Copy, MapPin, Send, Link2, Power, Phone, ShoppingCart,
 } from "lucide-react";
-import { reportResponseError } from "@/lib/clientErrors";
+import { reportResponseError, showError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+// The purchase confirmation. Reused rather than rebuilt: it already names the
+// one thing being committed to and puts it on its own line, which is the whole
+// job here — see the note in that file on why two of its labels became props.
+import SendConfirmModal from "@/app/components/SendConfirmModal";
+import { formatAppMoney } from "@/lib/format/money";
+import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // What the setup panel shows, decided as a list rather than as fifteen separate
 // conditions scattered down a component. The blocker sentence used to render
 // twice — two correct branches that nothing could see together. See the file.
 import { crewPanelBlocks } from "@/lib/crew/panelBlocks";
+
+// Credit is collected in USD and this page is read by companies whose every
+// other figure is CAD. A bare `$` here said "$4.00" to a contractor who was
+// about to be charged four US dollars, which is the exact mistake the voice
+// settings screen was fixed for — a contractor read "$30.00", pressed buy, and
+// Stripe took around forty Canadian ones. Same formatter, same currency
+// constant, so the two screens cannot drift.
+const money = (cents) =>
+  formatAppMoney(Number(cents || 0) / 100, CREDIT_CURRENCY, "en");
 
 export default function CrewInboxPage() {
   const { t } = useTranslation();
@@ -466,9 +481,7 @@ function SetupPanel({ onChanged }) {
           covering both, and this is the way to it. */}
       {show("credit") && (
         <p className="text-xs text-muted-foreground mt-2">
-          {t("app.crewSetup.balance", {
-            amount: `$${(spend.balanceCents / 100).toFixed(2)}`,
-          })}{" "}
+          {t("app.crewSetup.balance", { amount: money(spend.balanceCents) })}{" "}
           ·{" "}
           {t("app.crewSetup.rates", {
             sms: spend.smsCents,
@@ -483,6 +496,22 @@ function SetupPanel({ onChanged }) {
             {t("app.crewSetup.topUp")}
           </Link>
         </p>
+      )}
+
+      {/* Buying one of their own. Offered by crewPanelBlocks, so it cannot
+          appear on a setup that could not receive the first text — the
+          not-configured state returns a single sentence and no actions at all,
+          and this is an action. */}
+      {can("buy") && (
+        <BuyLine
+          t={t}
+          busy={Boolean(busy)}
+          onBought={async (e164) => {
+            setNote(t("app.crewSetup.buy.bought", { number: e164 }));
+            await load();
+            await onChanged?.();
+          }}
+        />
       )}
 
       <div className="flex flex-wrap gap-2 mt-3">
@@ -529,6 +558,308 @@ function SetupPanel({ onChanged }) {
           a bare "—" that said nothing about what its absence meant. Both facts
           are real and both still matter; they are on /platform/crew-lines, read
           from Twilio, next to the person who can repoint them. */}
+    </div>
+  );
+}
+
+// ══ Buying a crew number ═══════════════════════════════════════════════════
+//
+// Deliberately the same shape as the voice screen's NumberPicker — an area code
+// box, a list of real free numbers, the monthly price on every row. Two screens
+// that buy a phone number should not feel like two different products, and a
+// contractor who has already bought a receptionist number should recognise this
+// one without being taught it again.
+//
+// ── Where it differs, and why ─────────────────────────────────────────────
+//
+// The voice picker buys on the click: "Picking one buys it straight away." This
+// one asks first. The difference is not taste — that picker sits inside a
+// several-step "get a receptionist" flow where the contractor arrived intending
+// to spend, whereas this panel is on the page they open to read their crew's
+// photos. A row that looks like a list and charges money is the dead control's
+// mirror image: a control that does MORE than it appears to.
+//
+// ── Three answers, three sentences, and none of them a spinner ────────────
+//
+// `null` results — nothing searched yet.
+// `[]` results — we looked and that area code has nothing free. Routine, not a
+//   failure: 416 and 514 both come back empty from real inventory because
+//   Toronto and Montreal local stock is exhausted. It gets its own sentence and
+//   must never read as a connection problem.
+// a refused search — we could not look at all. Reported through the normal
+//   error path, which is a different sentence again, and `results` stays null so
+//   the "nothing free" line cannot render on top of it.
+//
+// ── The price is stated before the button, never at the 402 ───────────────
+//
+// `monthlyCents` and `balanceCents` come back on the SAME search response, so
+// the two figures on screen were read at the same instant and cannot disagree
+// with each other. When the credit won't cover the first month the number list
+// is withheld entirely and the shortfall is named instead — the voice screen
+// hides its picker in the same state for the same reason. A row that 402s on
+// press is a button that appears to work and doesn't.
+function BuyLine({ t, busy, onBought }) {
+  const [open, setOpen] = useState(false);
+  const [areaCode, setAreaCode] = useState("");
+  const [results, setResults] = useState(null);
+  const [searched, setSearched] = useState(null);
+  // { monthlyCents, balanceCents } — never held from an earlier page load. See
+  // the note above on why both have to come off one response.
+  const [price, setPrice] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+  const [buying, setBuying] = useState(false);
+
+  async function search(code) {
+    setSearching(true);
+    setResults(null);
+    try {
+      const wanted = String(code ?? areaCode).trim();
+      const res = await fetch("/api/crew/line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // No area code at all is a real request, not an empty one: the server
+        // falls back to the company's own number and then to its city, and
+        // sending "" would ask it to search for nothing.
+        body: JSON.stringify({ action: "search", ...(wanted ? { areaCode: wanted } : {}) }),
+      });
+      if (!res.ok) {
+        // A failed LOOK, which is not an empty result. `results` is left null
+        // so the "nothing free in 819" sentence below cannot render as well.
+        await reportResponseError(
+          res,
+          t("app.crewSetup.buy.searchFailed", "We couldn't check which numbers are free just now. Nothing has been charged."),
+        );
+        return;
+      }
+      const payload = await res.json();
+      setResults(payload.numbers || []);
+      setSearched(payload.searched || null);
+      setPrice({
+        monthlyCents: payload.monthlyCents,
+        balanceCents: payload.balanceCents,
+      });
+      // Show which area code was actually used. The server picked it from the
+      // company's own number; reflecting it keeps the box honest about what was
+      // asked, and gives the contractor something to edit rather than a blank.
+      // `searched.areaCode` is null when it fell back to the city — nothing is
+      // invented into the box in that case, because three digits sitting in a
+      // box are three digits somebody buys a number in.
+      if (!wanted && payload.searched?.areaCode) setAreaCode(payload.searched.areaCode);
+    } catch (err) {
+      showError(
+        t("app.crewSetup.buy.searchFailed", "We couldn't check which numbers are free just now. Nothing has been charged.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function buy(e164) {
+    setBuying(true);
+    try {
+      const res = await fetch("/api/crew/line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // An E.164 and nothing else. The browser never sends an amount — the
+        // price is read from our own rows inside the reservation.
+        body: JSON.stringify({ action: "buy", e164 }),
+      });
+      if (!res.ok) {
+        const payload = await res.clone().json().catch(() => ({}));
+        // A 402 carries the real figures. Adopting them turns "not enough
+        // credit" from a toast that disappears into a shortfall that stays on
+        // screen with the top-up link beside it. Only when there IS a shortfall:
+        // the same refusal is also returned when FieldQuo has withdrawn the
+        // feature, and telling someone to add money to a problem money cannot
+        // solve is the worst kind of dead control.
+        if (payload?.verdict?.shortfallCents > 0) {
+          setPrice({
+            monthlyCents: payload.verdict.needCents,
+            balanceCents: payload.verdict.balanceCents,
+          });
+        }
+        await reportResponseError(res, t("app.crewSetup.buy.error", "We couldn't buy that number."));
+        // The number may have gone in the seconds since the list was drawn, so
+        // the list is now a claim we can't stand behind. Re-asked rather than
+        // left on screen offering a number somebody else already owns.
+        await search();
+        return;
+      }
+      const data = await res.json();
+      setOpen(false);
+      await onBought?.(data.line?.e164 || e164);
+    } finally {
+      setBuying(false);
+      setConfirming(null);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => {
+          setOpen(true);
+          search();
+        }}
+        className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-foreground underline underline-offset-2 disabled:opacity-50"
+      >
+        <ShoppingCart size={13} />
+        {t("app.crewSetup.buy.open", "Buy your crew a number of their own")}
+      </button>
+    );
+  }
+
+  // Read once so the list and the sentence explaining its absence cannot
+  // disagree about whether the credit covers the first month.
+  const short = price ? price.balanceCents < price.monthlyCents : false;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 mt-3 space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-foreground">
+          {t("app.crewSetup.buy.title", "Pick your crew's number")}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {t("app.crewSetup.buy.hint", "These are real numbers that are free right now. The one you pick is the one you get — if somebody else takes it first we'll tell you, and nothing is charged.")}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <label className="text-xs text-muted-foreground" htmlFor="crew-area-code">
+          {t("app.crewSetup.buy.areaCodeLabel", "Area code")}
+        </label>
+        <input
+          id="crew-area-code"
+          value={areaCode}
+          onChange={(e) => setAreaCode(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+          inputMode="numeric"
+          maxLength={3}
+          // No placeholder digits. A greyed-out "819" in an empty box reads as a
+          // value, and this is a box where a misread default gets bought.
+          placeholder=""
+          className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+        />
+        <button
+          type="button"
+          onClick={() => search()}
+          disabled={busy || searching || buying}
+          className="px-3 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          {searching ? (
+            <Loader2 size={14} className="inline animate-spin" />
+          ) : (
+            t("app.crewSetup.buy.search", "Show me numbers")
+          )}
+        </button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {t("app.crewSetup.buy.areaCodeHint", "Change the area code if you'd rather your crew's number looked local to somewhere else.")}
+      </p>
+
+      {searching && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Loader2 size={12} className="animate-spin" />
+          {t("app.crewSetup.buy.searching", "Checking what's free…")}
+        </p>
+      )}
+
+      {/* ── The price, before the button, next to what they hold ──────────
+          Both figures off the one search response. A contractor must never
+          discover the cost at the refusal. */}
+      {!searching && price && (
+        <p className="text-xs text-foreground">
+          {t("app.crewSetup.buy.price", "{amount} a month, taken from your credit. You have {balance}.", {
+            amount: money(price.monthlyCents),
+            balance: money(price.balanceCents),
+          })}
+        </p>
+      )}
+
+      {/* Can't afford it, so no list. Hiding the rows rather than disabling them
+          is the same choice the voice screen makes: a row that looks pickable
+          and answers with a payment error is a control that appears to work. */}
+      {!searching && short && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {t("app.crewSetup.buy.shortfall", "Add {amount} more credit first — the first month's {rental} rental is charged up front.", {
+            amount: money(price.monthlyCents - price.balanceCents),
+            rental: money(price.monthlyCents),
+          })}{" "}
+          <Link href="/app/settings/voice#credit" className="underline">
+            {t("app.crewSetup.topUp")}
+          </Link>
+        </p>
+      )}
+
+      {/* An empty result is an ANSWER and gets said as one. Busy area codes run
+          dry constantly — 416 and 514 are both empty against real inventory
+          today — and rendering that as a failure sends a contractor chasing a
+          problem that was never theirs. */}
+      {!searching && !short && results?.length === 0 && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {searched?.areaCode
+            ? t("app.crewSetup.buy.noneInAreaCode", "Nothing free in {code} right now — it's a busy area code. Try one next to it.", { code: searched.areaCode })
+            : t("app.crewSetup.buy.noneNearby", "We couldn't find a free number near you. Try typing an area code.")}
+        </p>
+      )}
+
+      {!searching && !short && results?.length > 0 && (
+        <div className="space-y-2">
+          {searched?.locality && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.crewSetup.buy.nearCity", "Free numbers near {city}.", { city: searched.locality })}
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            {results.map((n) => (
+              <button
+                key={n.e164}
+                type="button"
+                disabled={busy || buying}
+                onClick={() => setConfirming(n)}
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border text-left hover:bg-muted disabled:opacity-50"
+              >
+                <span className="text-sm font-semibold text-foreground tabular-nums">
+                  {n.display}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {/* The city only when the phone company gave us one. Part of
+                      the inventory comes back with no locality at all, and
+                      printing the area code's "usual" city there would be an
+                      invented place on a screen about buying a number. */}
+                  {n.locality ? `${n.locality} · ` : ""}
+                  {money(price.monthlyCents)}
+                  {t("app.setVoice.perMonth", "/month")}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <SendConfirmModal
+        isOpen={Boolean(confirming)}
+        busy={buying}
+        icon={<Phone size={24} className="text-foreground" />}
+        // The two facts being committed to: which number, and what it costs.
+        // Both named, because this is the last screen before the money moves.
+        title={t("app.crewSetup.buy.confirmTitle", "Buy this number for your crew?")}
+        recipient={confirming?.display || confirming?.e164 || ""}
+        detail={t("app.crewSetup.buy.confirmDetail", "{amount} a month. The first month comes out of your credit now.", {
+          amount: money(price?.monthlyCents),
+        })}
+        confirmLabel={t("app.crewSetup.buy.confirmCta", "Buy this number")}
+        cancelLabel={t("app.crewSetup.buy.cancel", "Cancel")}
+        // Not closed until the outcome is known — a refusal arriving with the
+        // dialog already gone leaves nothing on screen tying the message to what
+        // was attempted.
+        onClose={() => (buying ? null : setConfirming(null))}
+        onConfirm={() => buy(confirming.e164)}
+      />
     </div>
   );
 }

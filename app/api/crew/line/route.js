@@ -52,6 +52,9 @@ import {
   crewSignatureConfigured,
   sharedTestLineE164,
 } from "@/lib/crew/capability";
+import { purchaseCrewLine } from "@/lib/crew/line";
+import { searchLocalNumbers, defaultAreaCode } from "@/lib/voice/numberSearch";
+import { CREW_LINE_MONTHLY_CENTS } from "@/lib/voice/credits";
 import { balanceFor } from "@/lib/voice/credits";
 import {
   crewSpendVerdict,
@@ -227,6 +230,109 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => ({}));
   const action = body?.action;
+
+  // ── Find numbers to buy ───────────────────────────────────────────────────
+  //
+  // A POST because it takes a body and costs a provider round trip, not because
+  // it changes anything. It buys nothing and reserves nothing — the price comes
+  // back with the list so the screen can state it BEFORE the button rather than
+  // after.
+  if (action === "search") {
+    const company = await db.company.findUnique({
+      where: { id: member.companyId },
+      select: { city: true, province: true, country: true, phone: true },
+    });
+
+    // The company's own area code is the default, because a crew texts a number
+    // that looks local to them. An explicit choice always wins.
+    //
+    // `.areaCode` is not decoration: defaultAreaCode returns { areaCode, from },
+    // and handing the whole OBJECT to the search broke it twice over. String()
+    // of it is "[object Object]", so isUsableAreaCode found no three digits and
+    // the area code was dropped — and the object is also truthy, so the
+    // ternaries that used to sit on the next two lines nulled the city and the
+    // province as well. Every search without an explicit area code therefore had
+    // nothing to search on and came back empty, which the screen would have
+    // shown as "that area code has nothing free". The voice picker's own search
+    // route reads `.areaCode` off it, and always has.
+    const areaCode = body?.areaCode || defaultAreaCode(company).areaCode;
+    const found = await searchLocalNumbers({
+      country: (company?.country || "CA").toUpperCase(),
+      areaCode,
+      // Passed unconditionally. searchLocalNumbers already consults these only
+      // when it has no usable area code; gating them here as well put that one
+      // decision in two places, and the copy was the one that was wrong.
+      locality: company?.city || null,
+      region: company?.province || null,
+    }).catch(() => null);
+
+    if (!found) {
+      return NextResponse.json(
+        { error: "We couldn't reach the number directory just now. Nothing has been charged — please try again." },
+        { status: 503 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      numbers: found.numbers,
+      searched: found.searched,
+      monthlyCents: CREW_LINE_MONTHLY_CENTS,
+      // So the screen can put "you have $X" next to "this costs $Y" instead of
+      // the contractor finding out at the 402.
+      balanceCents: await balanceFor(member.companyId),
+    });
+  }
+
+  // ── Buy a line of their own ───────────────────────────────────────────────
+  //
+  // Everything that DECIDES anything lives in purchaseCrewLine: availability,
+  // the reservation, the provider call and the refund, in that order and for
+  // the reasons written there. This route is the doorway — it authenticates,
+  // passes the number through, and records what happened.
+  //
+  // The browser posts an E.164 and NEVER an amount (non-negotiable #5). The
+  // price is read from our own rows inside the reservation.
+  if (action === "buy") {
+    const result = await purchaseCrewLine({
+      companyId: member.companyId,
+      e164: body?.e164,
+      origin: getAppOrigin(request),
+    });
+
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error: result.reason,
+          // Carried through so a 402 can show the shortfall and a top-up button
+          // rather than being a dead end.
+          ...(result.verdict ? { verdict: result.verdict } : {}),
+        },
+        { status: result.status || 400 },
+      );
+    }
+
+    await recordActivity(member, {
+      action: "crew_inbox.line_purchased",
+      entityType: "settings",
+      summary: `Bought a crew texting number — ${result.line.e164}`,
+      metadata: {
+        e164: result.line.e164,
+        source: result.line.source,
+        chargedCents: result.chargedCents,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      line: {
+        e164: result.line.e164,
+        source: result.line.source,
+        connectedAt: result.line.connectedAt,
+      },
+      chargedCents: result.chargedCents,
+    });
+  }
 
   // ── Claim (and wire) a line ───────────────────────────────────────────────
   if (action === "claim") {

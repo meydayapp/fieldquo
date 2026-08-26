@@ -106,6 +106,56 @@ model DemoHostAvailability {
 // Deliberately NOT a general application log. Only real failures land here, so
 // an empty list genuinely means "nothing broke", which is the only thing that
 // makes it worth opening.
+/// FieldQuo's OWN texting numbers — the ones the platform holds, not a tenant's.
+///
+/// ══ Why this is a table and not TWILIO_PHONE_NUMBER ═══════════════════════
+///
+/// It was an env var, and an env var cannot be bought. Standing one up meant
+/// opening the Twilio console, buying a number by hand, editing a Vercel
+/// setting and redeploying — four steps outside the product, none of them
+/// visible to anyone afterwards, and one of them silently wrong: production's
+/// TWILIO_PHONE_NUMBER named +17372212163, a number the account has never
+/// owned. Every send using it failed with Twilio error 21606, and nothing
+/// anywhere said so, because naming a number in configuration is not owning it.
+///
+/// A row can be bought from /platform, is written by the same purchase that
+/// tells the carrier, and can be checked against the account. The env var
+/// remains as a fallback so nothing breaks the moment this ships, and so a
+/// deployment can still be pointed at a number by hand if it must be.
+model PlatformSmsNumber {
+  id String @id @default(cuid())
+
+  /// E.164. Unique because two rows for one number is two owners for one thing.
+  e164 String @unique
+
+  /// Twilio's IncomingPhoneNumber SID — needed to hand the number back.
+  providerId String?
+
+  /// system      the default "From" for outbound texts by a company that has no
+  ///             number of its own. What TWILIO_PHONE_NUMBER used to name.
+  /// shared_test the line lent to one company at a time so a contractor can
+  ///             prove crew texting works before buying anything.
+  ///
+  /// One number can be both, and on a small deployment usually is — which is
+  /// exactly what the env var did. Kept as separate rows rather than flags so
+  /// splitting them later is a purchase, not a migration.
+  purpose String @default("system")
+
+  /// Cleared rather than deleted when a number is handed back, so the ledger of
+  /// what FieldQuo has rented over time survives. `active: false` never resolves.
+  active Boolean @default(true)
+
+  /// What we paid, in cents, at the provider. Recorded because FieldQuo's own
+  /// carrier spend is not otherwise visible anywhere in this product.
+  monthlyCostCents Int?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  releasedAt DateTime?
+
+  @@index([purpose, active])
+}
+
 model PlatformErrorLog {
   id String @id @default(cuid())
 
@@ -5071,6 +5121,31 @@ model CrewInboxNumber {
   /// company — otherwise the first contractor to press the button owns the only
   /// test line forever.
   expiresAt DateTime?
+
+  /// ── Monthly rental, for `dedicated` lines only ──────────────────────────
+  ///
+  /// Same three columns, same meanings and the same pure rule as
+  /// VoicePhoneNumber — lib/voice/spendGate.js `rentDecision` decides for both,
+  /// via a shim in lib/crew/lineRent.js. Duplicating the grace-and-warning
+  /// logic for a second kind of number is how the two would come to disagree
+  /// about what a delinquent company is owed.
+  ///
+  /// A `shared_test` loan has no rental: it is FieldQuo's own number, and the
+  /// loan expires instead (see expiresAt). These stay null on those rows, and
+  /// the rent cron skips them by source.
+  ///
+  /// Rent is paid up to this instant and not one second further. Null on a
+  /// dedicated line means "never charged", which reads as due immediately.
+  rentPaidThroughAt DateTime?
+
+  /// Set when a rent debit failed for want of balance. The line KEEPS WORKING
+  /// until this passes — a crew's texts stopping without warning is worse than
+  /// FieldQuo carrying a week of rental. Cleared the moment rent is paid.
+  rentGraceUntilAt DateTime?
+
+  /// Last time we told them the rental was short, so a reminder can't become a
+  /// daily email.
+  rentWarnedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -22,6 +22,20 @@
 
 import { Send, X } from "lucide-react";
 
+// ── Why `icon` and `cancelLabel` are props rather than constants ───────────
+//
+// The crew-inbox screen needed this exact dialog for a PURCHASE: name the one
+// thing being committed to, say what it costs, confirm. Everything about the
+// shape fitted; two details were wrong, and both were hardcoded.
+//
+// A paper-plane icon over "Buy this number?" describes the wrong action, and
+// "Cancel" was English on a screen the rest of which is translated — the
+// untranslatable-string class this repo has been sweeping for. Copying the
+// component to change two lines was the alternative, and the copy is the one
+// that rots, because it is the one nobody looks at.
+//
+// Both default to what was here before, so every existing caller renders
+// byte-for-byte what it rendered yesterday.
 export default function SendConfirmModal({
   isOpen,
   onClose,
@@ -31,6 +45,8 @@ export default function SendConfirmModal({
   recipient,
   detail,
   confirmLabel,
+  cancelLabel,
+  icon,
 }) {
   if (!isOpen) return null;
 
@@ -46,7 +62,7 @@ export default function SendConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-          <Send size={24} className="text-foreground" />
+          {icon || <Send size={24} className="text-foreground" />}
         </div>
 
         <h2 className="text-lg font-semibold text-foreground text-center">
@@ -75,7 +91,7 @@ export default function SendConfirmModal({
             className="flex-1 border border-border rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
           >
             <X size={14} className="inline mr-1.5 -mt-0.5" />
-            Cancel
+            {cancelLabel || "Cancel"}
           </button>
           <button
             type="button"
