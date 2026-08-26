@@ -112,10 +112,31 @@ export async function POST(request) {
 
   try {
     if (before.verdict === "ghost") {
-      // The row is the only thing that exists. Released rather than deleted:
-      // the rent ledger and any activity log entry point at this id, and
-      // deleting the row would orphan them. `releasedAt` is what frees the
-      // company to buy, because heldNumber() only counts the three live states.
+      // ── Why this one is allowed to skip the provider ───────────────────────
+      //
+      // It writes `status: "released"` without calling releaseNumber(), which
+      // is the shape of a real and expensive bug: a row that says released
+      // while Retell keeps billing FieldQuo, invisibly, for ever. It reads like
+      // that bug and it is not one — but only because of where it sits.
+      //
+      // `ghost` is reachable from exactly one place. verdictFor returns it only
+      // when `existsAtProvider === false`, and diagnoseNumber sets that false
+      // only on a 404 from get-phone-number; every other failure is
+      // `provider_unreachable`, which is not repairable and never gets here.
+      // So by the time this line runs, Retell has itself said the number does
+      // not exist. There is nothing to DELETE and nobody is being billed.
+      //
+      // Two things keep that true rather than merely true today. The verdict is
+      // re-derived HERE (`before`) rather than taken from the request, so a
+      // browser cannot post `{ verdict: "ghost" }` at a working number. And the
+      // release path proper (lib/voice/numberRelease.js) treats a 404 on the
+      // DELETE as success for the same reason — if anyone ever routes this
+      // branch through it, the outcome is identical rather than merely similar.
+      //
+      // Released rather than deleted: the rent ledger and any activity log
+      // entry point at this id, and deleting the row would orphan them.
+      // `releasedAt` is what frees the company to buy, because heldNumber()
+      // only counts the three live states.
       await db.voicePhoneNumber.updateMany({
         where: { companyId: member.companyId, e164: before.e164 },
         data: { status: "released", releasedAt: new Date() },

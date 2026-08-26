@@ -615,8 +615,17 @@ ok(/tollFree/.test(routeSrc) && /country:/.test(routeSrc),
    "the purchase request states the type and the country explicitly");
 ok(/providerId:\s*bought\?\.phone_number\b/.test(routeSrc),
    "providerId stores the E.164, not the pretty display string");
-ok(/releaseNumber\(number\.e164\)/.test(code(src(GATE))),
+// The release itself moved out of the gate and into lib/voice/numberRelease.js,
+// shared with the contractor's own Release button — so the E.164 invariant is
+// asserted where it now lives. `providerId` holds Retell's
+// `phone_number_pretty` on older rows: a release that looked the number up
+// there would fail silently and leave the rental running for ever.
+ok(/releaseHeldNumber\(number/.test(code(src(GATE))),
+   "the gate releases through the one shared helper rather than calling the provider itself");
+ok(/releaseAtProvider\(number\.e164/.test(code(src("lib/voice/numberRelease.js"))),
    "…and the release keys on the E.164 too, so an old pretty-string row still releases");
+ok(!/providerId/.test(code(src("lib/voice/numberRelease.js"))),
+   "…and never on providerId, which is a display string on rows written before that was fixed");
 
 console.log(fail === 0 ? "\nALL PASS\n" : `\n${fail} FAILED\n`);
 process.exit(fail ? 1 : 0);

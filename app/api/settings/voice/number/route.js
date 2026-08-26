@@ -498,20 +498,29 @@ export async function POST(request) {
  *
  *   DELETE  (no body)
  *
- * ── Why only a port, and nothing else ──────────────────────────────────────
+ * ── Why only a port, and why database-only is CORRECT here ─────────────────
  *
- * A port request is the one number state that costs nothing and exists nowhere
- * but our own database: no number was bought, no provider object was created,
- * no rental was reserved (see the POST above). Withdrawing it is a status
- * change and nothing more, so it is safe to hand the contractor.
+ * This writes `status: "released"` and never calls the provider, which is the
+ * shape of a real bug elsewhere — a row that says released while Retell keeps
+ * billing FieldQuo for ever. It is not that bug, and the reason is specific
+ * rather than general: Retell's API has no porting endpoint at all. The
+ * `ported` branch in the POST above records an intent and stops; importNumber()
+ * is a SIP import of a number the company KEEPS at their own carrier and is
+ * wired to nothing. So a `porting` row has no provider object behind it, no
+ * rental was reserved for it (see the POST), and there is literally nothing to
+ * DELETE. Withdrawing it is a status change and nothing more.
  *
- * Releasing a LIVE number is a different operation and is deliberately NOT here.
- * It means a real DELETE at the provider, it is irreversible — the number goes
- * back to the pool and cannot be got again — and it needs an answer to "what
- * happens to the month already paid" that nobody has given yet. Only the rent
- * cron releases numbers today (lib/voice/spendGate.js), and that is the honest
- * state of it. A "release" button here that silently did nothing, or that
- * destroyed a number the company advertises, would be worse than its absence.
+ * That reasoning depends on a fact that could change, so it is CHECKED rather
+ * than trusted: the branch below refuses a porting row that carries a
+ * `providerId`. The day anyone wires importNumber up, a port will have a real
+ * provider object and this path would otherwise start abandoning live numbers
+ * while telling the contractor it cancelled some paperwork.
+ *
+ * Releasing a LIVE number is a different operation and lives in
+ * ./release/route.js — a real DELETE at the provider, read back before the row
+ * moves, behind two confirmations. It is not here because overloading DELETE
+ * with "withdraw a request" and "destroy a phone line" is how the two get
+ * confused by a caller.
  *
  * ── Why this exists at all ─────────────────────────────────────────────────
  *
@@ -535,14 +544,32 @@ export async function DELETE(request) {
     return NextResponse.json({ error: "There's nothing to cancel." }, { status: 404 });
   }
   if (held.status !== "porting") {
-    // Named rather than refused generically: the difference between "this isn't
-    // cancellable" and "we can't release a live number yet" is the difference
-    // between a user error and a missing feature, and they deserve to know
-    // which one they've hit.
+    // Named rather than refused generically, and it now points at the door that
+    // does exist: releasing a live number is POST ./release, which needs the
+    // number typed back because it is irreversible. This used to end on "get in
+    // touch and we'll sort it out", which was true when nothing could release a
+    // number and is a dead end now that something can.
     return NextResponse.json(
       {
+        errorKey: "app.setVoice.cancelNotPort",
         error:
-          "This number is live, and releasing a live number isn't something you can do yourself yet — get in touch and we'll sort it out.",
+          "This number is live, so there's no request to cancel — use Release this number instead, and read what it warns you about first.",
+        reason: "not_a_port",
+      },
+      { status: 409 },
+    );
+  }
+
+  // See the header: database-only is right for a port precisely because no
+  // provider object exists. A `providerId` would mean one does, and this path
+  // would be abandoning a number FieldQuo keeps paying for.
+  if (held.providerId) {
+    return NextResponse.json(
+      {
+        errorKey: "app.setVoice.cancelPortProvisioned",
+        error:
+          "This number already exists at the phone provider, so cancelling the paperwork wouldn't give it back. Use Release this number instead.",
+        reason: "port_has_provider_number",
       },
       { status: 409 },
     );

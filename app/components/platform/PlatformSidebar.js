@@ -26,6 +26,7 @@ import {
   Ticket,
   ToggleLeft,
   PhoneCall,
+  PhoneOff,
   MessageSquareText,
 } from "lucide-react";
 
@@ -56,6 +57,11 @@ const ITEMS = [
   // tenant's data. It moved here off /app/crew-inbox, where a contractor was
   // being shown our inbound webhook URL and clicking it.
   { label: "Crew lines", href: "/platform/crew-lines", icon: MessageSquareText },
+  // FieldQuo's Retell estate, next to its Twilio one. Answers the question
+  // neither a tenant screen nor our own tables can: which numbers is Retell
+  // billing this account for that nobody holds. A released row that never
+  // reached the provider is invisible everywhere else and costs money monthly.
+  { label: "Voice numbers", href: "/platform/voice-numbers", icon: PhoneOff },
   {
     label: "Service categories",
     href: "/platform/service-categories",
