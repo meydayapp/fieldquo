@@ -321,61 +321,119 @@ export function unscopedLookups(file) {
 }
 
 /**
+ * Each exported handler's body, plus everything outside them.
+ *
+ * Load-bearing for the foreign-key check below. A proof has to be in the SAME
+ * handler as the write it protects: GET /api/quotes filters by
+ * `{ companyId, ...(clientId && { clientId }) }`, and a file-wide search would
+ * read that as proving the `clientId` that POST writes onto a new quote — which
+ * is precisely the bug, sitting forty lines above itself.
+ */
+export function handlerBodies(src) {
+  const out = [];
+  const re = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE|HEAD|OPTIONS)\s*\(/g;
+  let m;
+  let firstStart = src.length;
+  while ((m = re.exec(src))) {
+    const parens = balanced(src, m.index + m[0].length - 1);
+    let i = m.index + m[0].length - 1 + parens.length;
+    while (i < src.length && /\s/.test(src[i])) i++;
+    if (src[i] !== "{") continue;
+    const body = balanced(src, i);
+    firstStart = Math.min(firstStart, m.index);
+    out.push({ name: m[1], offset: i, text: body });
+  }
+  // The prelude: imports and the file's own helper functions, which every
+  // handler may legitimately lean on.
+  out.push({ name: "(module scope)", offset: 0, text: src.slice(0, firstStart) });
+  return out;
+}
+
+/**
  * UNPROVEN FOREIGN KEYS — the "write" half, and the one that was actually
  * broken. See lib/tenant/ownedIds.js for what this class of bug looks like.
+ *
+ * Scoped per handler: a proof in GET does not protect a write in POST.
  */
 export function unprovenForeignKeys(file, ownedFields) {
   const src = decomment(readFileSync(join(ROOT, file), "utf8"));
-  const calls = prismaCalls(src);
-  const tainted = requestDerived(src);
-
-  // A key is proved when it appears inside a company-scoped `where`, inside an
-  // assertOwnedIds/ownedIdsRefusal argument, or inside a scoped lookup made
-  // through a dynamic delegate (`db[model].findFirst`), which POST /api/tasks
-  // uses.
-  const proved = new Set();
-  for (const call of calls) {
-    if (!call.where || !/companyId/.test(call.where)) continue;
-    for (const t of tainted) if (new RegExp(`\\b${t}\\b`).test(call.where)) proved.add(t);
-  }
-  const dynamic = /\b(?:db|tx|prisma)\s*\[\s*[A-Za-z0-9_]+\s*\]\s*\.\s*[A-Za-z]+\s*\(/g;
-  let dm;
-  while ((dm = dynamic.exec(src))) {
-    const args = balanced(src, dm.index + dm[0].length - 1);
-    if (!/companyId/.test(args)) continue;
-    // Whatever ids are handed to the surrounding function are the ones proved.
-    for (const t of tainted) if (new RegExp(`\\b${t}\\b`).test(src)) proved.add(t);
-  }
-  const asserts = /\b(?:assertOwnedIds|ownedIdsRefusal)\s*\(/g;
-  let am;
-  while ((am = asserts.exec(src))) {
-    const args = balanced(src, am.index + am[0].length - 1);
-    for (const key of Object.keys(ownedFields)) {
-      if (new RegExp(`\\b${key}\\b`).test(args)) proved.add(key);
-      // `{ assignedToId: body.assignedToId }` proves the body field too.
-      for (const t of tainted) if (new RegExp(`\\b${t}\\b`).test(args)) proved.add(t);
-    }
-  }
-
+  const bodies = handlerBodies(src);
+  const prelude = bodies.find((b) => b.name === "(module scope)").text;
   const findings = [];
-  for (const call of calls) {
-    if (!WRITES.has(call.op) || !call.data) continue;
-    for (const field of Object.keys(ownedFields)) {
-      const explicit = call.data.match(
-        new RegExp(`\\b${field}\\s*:\\s*([A-Za-z0-9_.?]+)`),
-      );
-      let source = null;
-      if (explicit) {
-        const base = explicit[1].split(".")[0].replace("?", "");
-        if (tainted.has(base)) source = base;
-      } else if (
-        new RegExp(`[{,\\s]${field}\\s*[,}]`).test(call.data) &&
-        tainted.has(field)
-      ) {
-        source = field;
-      }
-      if (source && !proved.has(source) && !proved.has(field)) {
-        findings.push({ file, line: call.line, model: call.model, op: call.op, field, source });
+
+  for (const handler of bodies) {
+    if (handler.name === "(module scope)") continue;
+    // The handler, plus the file's helpers — a route that factors its checks
+    // into `assertOwnership()` is doing the right thing, not hiding.
+    const scope = prelude + "\n" + handler.text;
+    const calls = prismaCalls(handler.text);
+    const tainted = requestDerived(handler.text);
+
+    const proved = new Set();
+    for (const call of prismaCalls(scope)) {
+      if (!call.where || !/companyId/.test(call.where)) continue;
+      for (const t of tainted) if (new RegExp(`\\b${t}\\b`).test(call.where)) proved.add(t);
+    }
+    // `db[model].findFirst({ where: { id, companyId } })` — the dynamic form
+    // POST /api/tasks uses to check five links in one helper. What it proves is
+    // whatever ids were handed to that helper in this handler.
+    const dynamic = /\b(?:db|tx|prisma)\s*\[\s*[A-Za-z0-9_]+\s*\]\s*\.\s*[A-Za-z]+\s*\(/g;
+    let dm;
+    while ((dm = dynamic.exec(scope))) {
+      const args = balanced(scope, dm.index + dm[0].length - 1);
+      if (!/companyId/.test(args)) continue;
+      // The ids passed to the enclosing helper, read off its call sites in
+      // THIS handler.
+      for (const t of tainted)
+        if (new RegExp(`\\b${t}\\b`).test(handler.text)) proved.add(t);
+    }
+    const asserts = /\b(?:assertOwnedIds|ownedIdsRefusal)\s*\(/g;
+    let am;
+    while ((am = asserts.exec(scope))) {
+      const args = balanced(scope, am.index + am[0].length - 1);
+      for (const key of Object.keys(ownedFields))
+        if (new RegExp(`\\b${key}\\b`).test(args)) proved.add(key);
+      for (const t of tainted)
+        if (new RegExp(`\\b${t}\\b`).test(args)) proved.add(t);
+    }
+
+    for (const call of calls) {
+      if (!WRITES.has(call.op) || !call.data) continue;
+      for (const field of Object.keys(ownedFields)) {
+        const explicit = call.data.match(
+          new RegExp(`\\b${field}\\s*:\\s*([A-Za-z0-9_.?]+)`),
+        );
+        let source = null;
+        if (explicit) {
+          const expr = explicit[1];
+          const base = expr.split(".")[0].replace("?", "");
+          if (tainted.has(base)) source = base;
+          // `assignedToId: body.assignedToId` — read straight off the parsed
+          // body without ever being destructured into a variable. PATCH
+          // /api/tasks/[id] writes both of its foreign keys this way, so a
+          // reader that only knew about destructured names missed it entirely.
+          else if (["body", "_params", "params"].includes(base)) {
+            const prop = expr.split(".").pop().replace("?", "");
+            source = prop || field;
+          }
+        } else if (
+          new RegExp(`[{,\\s]${field}\\s*[,}]`).test(call.data) &&
+          tainted.has(field)
+        ) {
+          source = field;
+        }
+        if (source && !proved.has(source) && !proved.has(field)) {
+          findings.push({
+            file,
+            handler: handler.name,
+            line: src.slice(0, handler.offset).split("\n").length +
+              call.line - 1,
+            model: call.model,
+            op: call.op,
+            field,
+            source,
+          });
+        }
       }
     }
   }
