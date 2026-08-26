@@ -8,7 +8,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { getCurrentMember } from "@/lib/currentMember"; // company-side session — the company owner initiates this
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";

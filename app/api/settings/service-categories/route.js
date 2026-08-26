@@ -10,7 +10,6 @@ import {
   PRICE_BOOK_FIELDS,
   defaultTradeRate,
 } from "@/app/data/tradePriceBooks";
-import { getCurrentMember } from "@/lib/currentMember"; // resolves session -> { companyId, role }
 import { toStoredFields } from "@/app/data/intakeFieldLibrary";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
 import { reprovisionIfLive } from "@/lib/voice/provision";

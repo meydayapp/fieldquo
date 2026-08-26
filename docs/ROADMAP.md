@@ -800,6 +800,67 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The tenant boundary on the WRITE side, and the shape of every refusal —
+  `scripts/check-tenant-scope.mjs`, `scripts/check-refusal-shape.mjs`,
+  `scripts/check-public-payload.mjs`.**
+
+  Two sweeps, both enumerated from the filesystem so a route added tomorrow is
+  covered without touching a list.
+
+  **Cross-tenant.** All 298 API routes, every by-id lookup on every model that
+  carries a `companyId` (read out of `schema.prisma`, not listed). The READ
+  side held: `findFirst({ where: { id, companyId } })` is near-universal and
+  the fifteen genuine exceptions — crons, share-token routes, the Retell tool
+  endpoint — are now declared by name with a reason, and a declaration that
+  stops matching anything fails the check.
+
+  The WRITE side was open in nineteen places. A route that correctly refuses to
+  *load* another tenant's row would happily *store* a foreign key pointing at
+  one: `POST /api/quotes` and `POST /api/invoices` took a `clientId` off the
+  body and never checked it, so a quote or an invoice could be raised inside
+  your company addressed to somebody else's client — and every read of it
+  returned that client. `lib/jobs/createJob.js` was the worst version: it
+  carries a header explaining at length why `quoteId` must be proved to belong
+  to the caller, three lines above a `clientId` that never was, and its create
+  runs `include: { client: true }` — so one POST returned the foreign client's
+  email, phone, address, notes and `portalToken`, which is the credential to
+  that client's own portal.
+
+  Also `jobId` on time entries (hours and labour cost written into another
+  tenant's job costing), `jobId` on shifts, `assignedToId` on appointments,
+  job visits, tasks, campaigns and pamphlet stops, `workAreaId` on tasks,
+  `workerId` on salaries, `templateId` on follow-up rules and campaigns, and
+  `userId` on event types — which decides whose calendar a *public* booking
+  page offers.
+
+  One table now says how each foreign key is proved: `lib/tenant/ownedIds.js`.
+  `assertOwnedIds` is executed in the check against a fake client, including
+  the inputs that would make a lazy implementation wave things through.
+
+  **Refusals.** `getCurrentMember` has three gates that throw — impersonation
+  (403), billing (402), features (404). `lib/apiMember.js` was written for
+  exactly this and its own header records that the fix was applied to ~35
+  routes and deferred on "the other ~145… a mechanical follow-up with no
+  registry to keep it honest". All 298 now go through it; the one public route
+  that treats a session as optional declares why. The registry is the check.
+  Until this, a company past its payment grace period got a blank 500 on every
+  write instead of the 402 that names the billing screen, and a hidden feature
+  answered 500 where an unknown path answers 404 — which is the one trace
+  `hidden` promises not to leave. The narrow version of this assertion has been
+  removed from `check-voice-readiness.mjs` rather than left as a second copy.
+
+  **Non-negotiables, verified rather than assumed.** #2 impersonation is
+  refused in both middleware.js and lib/currentMember.js, and the second check
+  still re-derives the mode instead of reading the header the first one set.
+  #3 no `/api/platform/**` route writes a customer's quote, invoice, job or
+  client — the six tables the console may write are named with a reason each.
+  #4 and #5 hold across all 92 routes that resolve no member: none reads a
+  money field off a request, none touches the price book, none selects a
+  per-unit rate. The four token routes that legitimately state a figure — a
+  quote's own total, a client's own balance, the booking fee, a service plan's
+  price — are named, and the tokens they stand on are asserted to come from
+  `randomBytes(32)`.
+
 - **The two supervisor personas, swept before role-by-role QA —
   `scripts/check-rbac-supervisors.mjs`.**
 

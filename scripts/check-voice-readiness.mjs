@@ -43,7 +43,6 @@ import {
   SIGNATURE_REASONS,
   SIGNATURE_REASON_TEXT,
 } from "../lib/voice/webhookSignature.js";
-import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -634,33 +633,22 @@ ok(
 // when they already suspect their phone is broken. Curling production found it;
 // no check would have.
 //
-// So: any file that calls memberOrRefusalPlain INSIDE an exported route handler
-// must wrap the refusal. Files that only use it inside their own helpers are
-// fine — that is what it is for.
+// The ASSERTION now lives in scripts/check-refusal-shape.mjs, over all 298
+// routes rather than the files that happen to import one helper — a second copy
+// here is the copy that rots (AGENTS.md failure class #4). What stays is the
+// one thing that is specifically about this endpoint: that it still shapes its
+// own refusal rather than returning the plain object.
 {
-  const files = execSync(
-    "grep -rl memberOrRefusalPlain app/api || true",
-    { cwd: ROOT, encoding: "utf8" },
-  ).split("\n").filter(Boolean);
-  ok("some route files use the plain refusal helper", files.length > 0, String(files.length));
-
-  for (const f of files) {
-    const src = readFileSync(join(ROOT, f), "utf8");
-    // Walk each exported handler body and look for a bare `return refusal`.
-    const bad = [];
-    const re = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE)\s*\([^)]*\)\s*\{/g;
-    let m;
-    while ((m = re.exec(src))) {
-      // Body = from the brace to the next top-level export, or end of file.
-      const start = m.index + m[0].length;
-      const next = src.indexOf("\nexport ", start);
-      const body = src.slice(start, next === -1 ? src.length : next);
-      if (/\bmemberOrRefusalPlain\s*\(/.test(body) && /\breturn\s+refusal\s*;/.test(body)) {
-        bad.push(m[1]);
-      }
-    }
-    ok(`${f} wraps its refusal in a Response`, bad.length === 0, bad.join(", "));
-  }
+  const src = readFileSync(join(ROOT, "app/api/settings/voice/readiness/route.js"), "utf8");
+  ok(
+    "readiness turns its plain refusal into a Response",
+    /memberOrRefusalPlain/.test(src) && !/\breturn\s+refusal\s*;/.test(src),
+  );
+  ok(
+    "...keeping the status the gate chose",
+    /const\s*\{\s*status[^}]*\}\s*=\s*refusal/.test(src),
+    src.match(/if \(refusal\)[\s\S]{0,160}/)?.[0],
+  );
 }
 
 console.log(fail ? `\n${fail} failed` : "\nall good");
