@@ -86,11 +86,24 @@ t("the calendar API reads JobVisit", /db\.jobVisit\.findMany/.test(api));
 // has since gained `archivedAt: null` too, and an exact-string assertion
 // failed on a change that kept the scoping perfectly intact.
 t("...scoped to the company", /job: \{[^}]*companyId: member\.companyId/.test(api));
-t("...and honours the same own-vs-everyone split", /seesEveryone/.test(api));
+// Was /seesEveryone/, matching an inline ternary that each of the queries
+// carried its own copy of. That rule now comes from ownScheduleFilter() in
+// lib/schedule/teamScope.js, so the assertion moved with it — and got
+// stronger: the point was never that a particular variable existed, it was
+// that every source on this calendar splits own-vs-everyone the SAME way.
+// Counting the call sites says that; grepping for a name did not.
+t("...and honours the same own-vs-everyone split", /ownScheduleFilter/.test(api));
+t("...via one shared rule, applied to every source on the calendar",
+  (api.match(/ownFilter\(/g) || []).length, 3);
 
 const cal = read("../app/app/appointments/page.js");
+// Bookings joined visits as a kind whose id is not an Appointment id, so
+// PATCHing either against /api/appointments/[id] would 404.
 t("a visit is not offered the appointment assign control",
-  /appt\.kind === "visit" \? \(/.test(cal));
+  /appt\.kind === "visit" \|\| appt\.kind === "booking" \? \(/.test(cal));
+t("...and neither is a client booking",
+  /appt\.kind === "booking" \|\| appt\.kind === "visit" \? \(/.test(cal) ||
+    /appt\.kind === "visit" \|\| appt\.kind === "booking" \? \(/.test(cal));
 t("a visit links to its job instead", /app\/jobs\/\$\{appt\.jobId\}/.test(cal));
 
 const dash = read("../app/app/page.js");

@@ -6,7 +6,12 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { can, requirePermission } from "@/lib/permissions";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
-import { VISIT_INCLUDE, toCalendarEntry } from "@/lib/schedule/jobVisits";
+import { ownScheduleFilter } from "@/lib/schedule/teamScope";
+import {
+  VISIT_INCLUDE,
+  toCalendarEntry,
+  bookingToCalendarEntry,
+} from "@/lib/schedule/jobVisits";
 
 export async function GET(request) {
   const member = await getCurrentMember(request);
@@ -17,17 +22,18 @@ export async function GET(request) {
   // only their jobs — a filter, not a 403. Unassigned appointments stay
   // visible to everyone: an unclaimed job nobody can see is a job nobody
   // does.
+  //
+  // The fragment is built by ownScheduleFilter() rather than written out here
+  // three times (appointments, visits, bookings). Three hand-copied copies of
+  // the same rule is how one of them ends up disagreeing with the other two,
+  // and the one that disagrees is the one nobody reads.
   const full = await loadEnforceableMember(db, member.id);
-  const seesEveryone = hasLevel(full, "schedule", "edit_all");
+  const ownFilter = (field) => ownScheduleFilter(full, member.userId, { field });
 
   const appointments = await db.appointment.findMany({
     where: {
       companyId: member.companyId,
-      ...(seesEveryone
-        ? {}
-        : {
-            OR: [{ assignedToId: member.userId }, { assignedToId: null }],
-          }),
+      ...ownFilter("assignedToId"),
     },
     include: {
       client: true,
@@ -59,17 +65,50 @@ export async function GET(request) {
       // the dashboard count with them. Otherwise "archive" would only tidy the
       // Jobs list while the work kept showing up everywhere else.
       job: { companyId: member.companyId, archivedAt: null },
-      ...(seesEveryone
-        ? {}
-        : { OR: [{ assignedToId: member.userId }, { assignedToId: null }] }),
+      ...ownFilter("assignedToId"),
     },
     include: VISIT_INCLUDE,
     orderBy: { scheduledAt: "asc" },
   });
 
+  // ── And bookings, when they never became an appointment ────────────────
+  //
+  // A confirmed booking is meant to turn into an Appointment and reach this
+  // list as one. `Booking.appointmentId` is nullable, though — rows predating
+  // the link have none — and a booking that did not convert is a client who
+  // has been sent a confirmation for a visit nobody in the company can see.
+  //
+  // `appointmentId: null` is what keeps this from double-counting: a booking
+  // that DID convert is already in `appointments` above, and is skipped here.
+  // So this is a floor under the conversion, not a second copy of it, and it
+  // stays correct whichever way that mechanism behaves.
+  //
+  // pending_payment is deliberately excluded. It is a slot held while someone
+  // pays, not a booked visit, and putting unpaid holds on the calendar would
+  // send a crew to a house that never confirmed.
+  const bookings = await db.booking.findMany({
+    where: {
+      appointmentId: null,
+      status: { in: ["confirmed", "cancelled", "completed"] },
+      eventType: {
+        companyId: member.companyId,
+        // Same rule, same builder — but the assignee column is `userId` here,
+        // because a booking is owned through the EventType whose page took it.
+        // A company-wide type has no owner, which is the unassigned case and
+        // stays visible for the same reason an unclaimed appointment does.
+        ...ownFilter("userId"),
+      },
+    },
+    include: {
+      eventType: { select: { name: true, userId: true, user: { select: { id: true, name: true } } } },
+    },
+    orderBy: { startTime: "asc" },
+  });
+
   return NextResponse.json([
     ...appointments.map((a) => ({ ...a, kind: "appointment" })),
     ...visits.map(toCalendarEntry).filter(Boolean),
+    ...bookings.map(bookingToCalendarEntry).filter(Boolean),
   ].sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)));
 }
 

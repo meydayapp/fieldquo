@@ -116,6 +116,10 @@ export default function AppointmentsPage() {
   const { weekStartsOn, formatDate } = useCompanyPreferences();
   const [appointments, setAppointments] = useState([]);
   const [members, setMembers] = useState([]);
+  // List 2. `null` means "not yours to see" — the server's answer, not a
+  // guess made here — and TeamSchedule renders nothing for it.
+  const [team, setTeam] = useState(null);
+  const [teamBasis, setTeamBasis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -148,6 +152,23 @@ export default function AppointmentsPage() {
         setLoading(false);
       }
     })();
+
+    // Fetched separately, and deliberately so: the crew list is secondary, and
+    // a failure fetching it must not blank the calendar the person actually
+    // came for.
+    //
+    // The endpoint answers 200 with `team: null` for a caller without the
+    // permission — that is not an error and gets no banner. A genuine failure
+    // does get one, worded so it says nothing about whether this person has a
+    // team: telling an employee their "team schedule" failed would imply an
+    // entitlement they do not have, which is the same lie as rendering the
+    // empty heading.
+    fetchJson("/api/schedule/team")
+      .then((d) => {
+        setTeam(d.canSeeTeam ? d.team : null);
+        setTeamBasis(d.basis || null);
+      })
+      .catch(() => setError("Part of the calendar couldn't be loaded. Try refreshing."));
   }, []);
 
   // Status-filtered, and the source for BOTH surfaces. A calendar showing
@@ -504,6 +525,15 @@ export default function AppointmentsPage() {
                       {t("app.appts.jobVisit")}
                     </span>
                   )}
+                  {/* A booking the client made that never became an
+                      appointment. Labelled for the same reason a visit is:
+                      unlabelled, it would look like an appointment whose
+                      controls have simply stopped working. */}
+                  {appt.kind === "booking" && (
+                    <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300">
+                      {t("app.appts.clientBooking")}
+                    </span>
+                  )}
                   {appt.requiresSupervisor && (
                     <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
                       <ShieldAlert size={12} />{t("app.appts.supervisorRequired")}</span>
@@ -526,11 +556,14 @@ export default function AppointmentsPage() {
                 )}
               </div>
 
-              {/* A visit's id is a JobVisit id — PATCHing it against
-                  /api/appointments/[id] would 404. Rather than render a select
-                  that silently fails, visits show who is assigned and link to
-                  the job, which is where a visit is actually rescheduled. */}
-              {appt.kind === "visit" ? (
+              {/* A visit's id is a JobVisit id, and a booking's is a Booking
+                  id — PATCHing either against /api/appointments/[id] would
+                  404. Rather than render a select that silently fails, both
+                  show who is assigned; a visit also links to its job, which is
+                  where a visit is actually rescheduled. A booking is
+                  rescheduled by the client through their manage link, so there
+                  is nothing here to offer and nothing is offered. */}
+              {appt.kind === "visit" || appt.kind === "booking" ? (
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="flex items-center gap-2 text-sm text-muted-foreground">
                     <UserIcon size={14} />
@@ -573,6 +606,12 @@ export default function AppointmentsPage() {
         })}
       </div>
 
+      {/* List 2, and deliberately BELOW list 1 rather than merged into it.
+          Your own day is what you came for; the crew is context. Merging them
+          into one colour-coded stream buries your 8am between two other
+          people's. */}
+      <TeamSchedule team={team} basis={teamBasis} />
+
       {showForm && (
         <NewAppointmentModal
           members={members}
@@ -584,6 +623,91 @@ export default function AppointmentsPage() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * What the people reporting to you are doing, per person.
+ *
+ * Renders NOTHING — not a heading, not an empty state — when the caller has no
+ * team or no permission to see one. `team` is null for "you may not", [] for
+ * "you may, and nobody reports to you"; both mean there is nothing truthful to
+ * put on screen, and a heading over nothing is a control that appears to work.
+ *
+ * The server decides which of those it is. This component cannot grant itself
+ * a team by rendering one, and the API refuses the data independently — see
+ * lib/schedule/teamScope.js.
+ */
+function TeamSchedule({ team, basis }) {
+  const { t, language } = useTranslation();
+  if (!Array.isArray(team) || team.length === 0) return null;
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-base font-semibold">{t("app.appts.teamTitle")}</h2>
+      <p className="text-sm text-muted-foreground mt-1 mb-4">
+        {/* Says which list this actually is. A company that has drawn an org
+            chart gets "reporting to you"; one that has not gets "your team",
+            because claiming a reporting line that nobody entered would be
+            inventing a fact about the company. */}
+        {basis === "reporting_line"
+          ? t("app.appts.teamReportsSubtitle")
+          : t("app.appts.teamCompanySubtitle")}
+      </p>
+
+      <div className="space-y-3">
+        {team.map((person) => (
+          <div key={person.memberId} className="glass-effect rounded-lg p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium truncate">{person.name}</span>
+              <span className="text-xs text-muted-foreground shrink-0">
+                {person.entries.length === 0
+                  ? t("app.appts.teamNothingBooked")
+                  : t("app.appts.teamBookedCount", { count: person.entries.length })}
+              </span>
+            </div>
+
+            {person.entries.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {person.entries.map((e) => (
+                  <li
+                    key={`${e.kind}-${e.id}`}
+                    className="flex items-baseline gap-2 text-sm min-w-0"
+                  >
+                    {/* An INSTANT, so it formats local — the house rule in
+                        lib/format/companyDate.js. Running it through the
+                        date-only formatter (which reads UTC getters) would
+                        file every evening booking under tomorrow. */}
+                    <span className="tabular-nums text-muted-foreground shrink-0">
+                      {localeFormat(new Date(e.scheduledAt), language, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    <span className="truncate">
+                      {e.client?.name || e.title || t("app.appts.untitledEntry")}
+                    </span>
+                    {e.kind === "visit" && (
+                      <span className="text-[10px] uppercase tracking-wide text-purple-700 dark:text-purple-300 shrink-0">
+                        {t("app.appts.jobVisit")}
+                      </span>
+                    )}
+                    {e.kind === "booking" && (
+                      <span className="text-[10px] uppercase tracking-wide text-teal-700 dark:text-teal-300 shrink-0">
+                        {t("app.appts.clientBooking")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
