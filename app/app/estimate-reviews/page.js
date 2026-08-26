@@ -178,6 +178,21 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
         </ul>
       )}
 
+      {/* What the call asked for that this price does not include. Rendered
+          above the approve button on purpose: approving at a figure that is
+          missing the upgrades the caller rang about is the mistake this exists
+          to stop, and a caveat below the button is a caveat read afterwards. */}
+      {q.reviewNotes && (
+        <div className="mt-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+            {t("app.reviews.reviewNotes")}
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80 whitespace-pre-line">
+            {q.reviewNotes}
+          </p>
+        </div>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{t("app.reviews.approveAt")}</span>

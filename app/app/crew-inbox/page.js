@@ -35,6 +35,10 @@ import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// What the setup panel shows, decided as a list rather than as fifteen separate
+// conditions scattered down a component. The blocker sentence used to render
+// twice — two correct branches that nothing could see together. See the file.
+import { crewPanelBlocks } from "@/lib/crew/panelBlocks";
 
 export default function CrewInboxPage() {
   const { t } = useTranslation();
@@ -232,6 +236,28 @@ export default function CrewInboxPage() {
 // Renders the SERVER's verdict — `capability`, computed by lib/crew/capability.js
 // and read by the inbound webhook too. Nothing is decided here, so the panel
 // cannot say "ready" about a line the webhook would refuse.
+//
+// ══ What this panel is for, and what it stopped being ══════════════════════
+//
+// It is the contractor's answer to four questions: what number do my crew text,
+// is it on, what does it cost, and what do I have to do. That is all.
+//
+// It used to also print `https://www.fieldquo.com/api/crew/inbound` under a
+// "Setup details" disclosure. The owner read it off his own screen, clicked it,
+// and got a blank page — correctly, since it is a POST-only webhook address and
+// not a page at all. Worse than confusing: it was an invitation to wire a
+// private Twilio number straight at our endpoint, around the claim flow whose
+// unique CrewInboxNumber.e164 is the only guarantee that a crew photo reaches
+// the right tenant. FieldQuo holds the Twilio account and lends the number, the
+// same way it holds the Retell account and provisions the voice line, and no
+// contractor has ever been shown a Retell agent id either. That whole half now
+// lives on /platform/crew-lines, where somebody can act on it.
+//
+// The same rule killed the duplicate. The blocker sentence rendered twice —
+// once as `capability.message` and once again from a `!signatureConfigured`
+// branch below it — and both copies named an environment variable at a painter.
+// One sentence now, and it says the true and useful half: not available yet,
+// FieldQuo's problem, nothing for you to do.
 function SetupPanel({ onChanged }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
@@ -284,19 +310,27 @@ function SetupPanel({ onChanged }) {
     ? t(capability.messageKey, capability.message || "")
     : capability?.message || "";
 
-  // What can actually be pressed. A claim is offered only when the shared line
-  // exists AND is free AND the deployment could verify a reply — offering it
-  // otherwise is the dead button this whole change exists to remove.
-  // A claim is offered only when there is something real to claim: the
-  // deployment can verify a reply, the balance is not spent, and Twilio actually
-  // holds an SMS-capable number. That last one is not a formality — the account
-  // was found holding none, and a button that fails on press is the thing this
-  // whole page exists to stop shipping.
+  // ── What this panel shows, decided as data ──────────────────────────────
+  //
+  // Every `show(...)` below reads a list that crewPanelBlocks built once. That
+  // is what makes "the blocker renders once" a thing a check can execute rather
+  // than a thing a reviewer has to notice: the duplicate that shipped was two
+  // correct conditions in different halves of this component, and no amount of
+  // reading catches that. check:crew-inbox now walks every state a contractor
+  // can be in and fails if the list repeats itself.
+  const { blocks, actions } = crewPanelBlocks({
+    deployment,
+    capability,
+    line,
+    owned,
+    provider,
+    spend,
+    test,
+  });
+  const show = (key) => blocks.includes(key);
+  const can = (key) => actions.includes(key);
+
   const claimable = line ? [line.e164] : (owned || []).map((n) => n.e164);
-  const canClaim =
-    deployment?.signatureConfigured &&
-    (spend ? spend.canReceive : true) &&
-    claimable.length > 0;
   const claimLabel = line ? t("app.crewSetup.reconnect") : t("app.crewSetup.claim");
 
   return (
@@ -311,7 +345,13 @@ function SetupPanel({ onChanged }) {
         <Link2 size={15} /> {t("app.crewSetup.title")}
       </h2>
 
-      {ready && line ? (
+      {/* The blocker, and the ONLY place a capability sentence is printed when
+          FieldQuo can't run the feature at all. Nothing follows it: a number
+          list, a rate card and a claim button are all statements about
+          something that cannot happen here. */}
+      {show("blocker") && <p className="text-sm text-foreground mt-2">{message}</p>}
+
+      {show("number") && line ? (
         <div className="mt-2 space-y-2">
           <p className="text-sm text-foreground">
             {t("app.crewSetup.textThis")}{" "}
@@ -330,7 +370,7 @@ function SetupPanel({ onChanged }) {
               {copied ? <Check size={14} /> : <Copy size={14} />}
             </button>
           </p>
-          {line.expiresAt && (
+          {show("expires") && (
             <p className="text-xs text-muted-foreground">
               {t("app.crewSetup.expires", {
                 date: new Date(line.expiresAt).toLocaleDateString(),
@@ -339,35 +379,41 @@ function SetupPanel({ onChanged }) {
           )}
         </div>
       ) : (
-        <p className="text-sm text-foreground mt-2">{message}</p>
+        show("status") && <p className="text-sm text-foreground mt-2">{message}</p>
       )}
 
-      {/* The one thing only a person with Vercel access can fix, said plainly
-          and named exactly. Its absence is why every inbound text 401s. */}
-      {deployment && !deployment.signatureConfigured && (
-        <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
-          {t("app.crewSetup.ready.notConfigured")}
-        </p>
-      )}
-
-      {!line && (owned || []).length === 0 && deployment?.twilioConfigured && (
+      {/* No number to lend. Says what is true — FieldQuo hasn't got one for you
+          — and stops. It used to promise that a number added to our account
+          "appears here to switch on", which is only true when the deployment can
+          also verify a reply; in the state the owner was actually looking at, it
+          was a promise the screen could not keep. crewPanelBlocks never emits
+          this alongside the blocker, so the sentence is honest wherever it
+          renders. */}
+      {show("noNumbers") && (
         <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
           {t("app.crewSetup.noNumbers")}
         </p>
       )}
-      {!line && !deployment?.twilioConfigured && (
-        <p className="text-xs text-muted-foreground mt-2">{t("app.crewSetup.noShared")}</p>
+
+      {/* A number that can take an SMS but not an MMS is a real state and a bad
+          surprise: the crew's photos — the entire point of the feature — are
+          silently refused by the carrier. A property of the line they hold, so
+          it belongs on their screen. */}
+      {show("noMms") && (
+        <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
+          {t("app.crewSetup.noMms")}
+        </p>
       )}
 
       {/* More than one to choose from: pick, don't guess. With exactly one the
           button below claims it without an extra step. */}
-      {!line && (owned || []).length > 1 && (
+      {show("pickNumber") && (
         <div className="flex flex-wrap gap-1.5 mt-3">
           {owned.map((n) => (
             <button
               key={n.e164}
               type="button"
-              disabled={Boolean(busy) || !canClaim}
+              disabled={Boolean(busy)}
               onClick={() => act({ action: "claim", e164: n.e164 }, "claim")}
               className="text-sm px-3 py-1.5 rounded-full border border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 tabular-nums"
             >
@@ -377,8 +423,22 @@ function SetupPanel({ onChanged }) {
         </div>
       )}
 
-      {test && !test.to && (
-        <p className="text-xs text-muted-foreground mt-2">{t("app.crewSetup.addPhone")}</p>
+      {/* ── The one thing that IS the contractor's to do ──────────────────
+          And, until now, the one thing they could not actually do. The sentence
+          said "add your own mobile to your staff profile" and named no screen;
+          the screen it meant is Settings → Team → Workers, which had no phone
+          field at all — mobile could only ever be typed once, on the invite
+          form. So an owner whose record predates the field read an instruction
+          with nowhere to carry it out. The field now exists on the worker row
+          and this links straight at it. */}
+      {show("addPhone") && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {t("app.crewSetup.addPhonePre")}{" "}
+          <Link href="/app/settings/team/workers" className="underline">
+            {t("app.crewSetup.addPhoneLink")}
+          </Link>
+          {t("app.crewSetup.addPhonePost")}
+        </p>
       )}
 
       {/* Credit. The same pooled balance the phone agent draws on, and the same
@@ -386,25 +446,47 @@ function SetupPanel({ onChanged }) {
           The paused state is a real state at the PROVIDER, not a hidden button:
           past the overdraft floor the number's webhook is un-pointed at Twilio,
           which is what actually stops the spending. */}
-      {spend && !spend.canReceive && (
+      {show("paused") && (
         <p className="text-xs text-amber-800 dark:text-amber-300 mt-2">
           {t("app.crewSetup.paused")}
         </p>
       )}
-      {spend && (
+      {/* ── The rate, said the way it is actually charged ─────────────────
+          "2¢ a text" was a promise the meter did not keep. Twilio bills SMS by
+          SEGMENT and lib/crew/messaging.js follows it — a 200-character update
+          is two segments and costs 4¢ — so a per-message price undercharged on
+          screen and overcharged on the statement. The segment length is now in
+          the sentence, and check:crew-inbox asserts the number in the copy is
+          the same constant the webhook debits.
+
+          The statement link matters as much as the price. A charge a contractor
+          cannot find an itemised record of is how a support call becomes a
+          chargeback, and the crew's texts land in the same VoiceCreditEntry
+          ledger the calls do — so "where did my credit go" has one answer
+          covering both, and this is the way to it. */}
+      {show("credit") && (
         <p className="text-xs text-muted-foreground mt-2">
           {t("app.crewSetup.balance", {
             amount: `$${(spend.balanceCents / 100).toFixed(2)}`,
           })}{" "}
-          · {t("app.crewSetup.rates", { sms: spend.smsCents, mms: spend.mmsCents })}{" "}
-          <Link href="/app/settings/voice" className="underline">
+          ·{" "}
+          {t("app.crewSetup.rates", {
+            sms: spend.smsCents,
+            mms: spend.mmsCents,
+            chars: spend.smsSegmentChars,
+          })}{" "}
+          <Link href="/app/settings/voice#credit" className="underline">
+            {t("app.crewSetup.statement")}
+          </Link>{" "}
+          ·{" "}
+          <Link href="/app/settings/voice#credit" className="underline">
             {t("app.crewSetup.topUp")}
           </Link>
         </p>
       )}
 
       <div className="flex flex-wrap gap-2 mt-3">
-        {!ready && canClaim && (line || (owned || []).length === 1) && (
+        {can("claim") && (
           <button
             type="button"
             disabled={Boolean(busy)}
@@ -415,7 +497,7 @@ function SetupPanel({ onChanged }) {
             {claimLabel}
           </button>
         )}
-        {ready && test?.to && (
+        {can("test") && (
           <button
             type="button"
             disabled={Boolean(busy)}
@@ -426,7 +508,7 @@ function SetupPanel({ onChanged }) {
             {t("app.crewSetup.test")}
           </button>
         )}
-        {line && (
+        {can("off") && (
           <button
             type="button"
             disabled={Boolean(busy)}
@@ -441,24 +523,12 @@ function SetupPanel({ onChanged }) {
 
       {note && <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2">{note}</p>}
 
-      {/* Read from Twilio, not from our own row. "It says connected and nothing
-          arrives" is the state that cost an afternoon; this is where you see
-          which of the two is lying. */}
-      <details className="mt-3">
-        <summary className="text-xs text-muted-foreground cursor-pointer">
-          {t("app.crewSetup.details")}
-        </summary>
-        <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-          <div>
-            <dt className="inline font-medium">{t("app.crewSetup.deliversTo")}: </dt>
-            <dd className="inline break-all">{provider?.smsUrl || "—"}</dd>
-          </div>
-          <div>
-            <dt className="inline font-medium">FieldQuo: </dt>
-            <dd className="inline break-all">{deployment?.webhookUrl}</dd>
-          </div>
-        </dl>
-      </details>
+      {/* There is deliberately no "Setup details" disclosure here any more. It
+          held the number's Twilio smsUrl and this deployment's inbound webhook
+          URL — FieldQuo's plumbing, printed at a contractor, one of them beside
+          a bare "—" that said nothing about what its absence meant. Both facts
+          are real and both still matter; they are on /platform/crew-lines, read
+          from Twilio, next to the person who can repoint them. */}
     </div>
   );
 }

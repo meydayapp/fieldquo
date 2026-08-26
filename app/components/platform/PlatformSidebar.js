@@ -26,6 +26,7 @@ import {
   Ticket,
   ToggleLeft,
   PhoneCall,
+  MessageSquareText,
 } from "lucide-react";
 
 const ITEMS = [
@@ -49,6 +50,12 @@ const ITEMS = [
   // row is about what FieldQuo says on its own line, and putting it beside the
   // company list is how somebody opens it expecting a customer's receptionist.
   { label: "Sales agent", href: "/platform/sales-agent", icon: PhoneCall },
+  // FieldQuo's Twilio estate: which numbers we hold, who we've lent each one
+  // to, and where its texts are really being delivered. Next to Sales agent
+  // because it is the same kind of row — our own provider account, not a
+  // tenant's data. It moved here off /app/crew-inbox, where a contractor was
+  // being shown our inbound webhook URL and clicking it.
+  { label: "Crew lines", href: "/platform/crew-lines", icon: MessageSquareText },
   {
     label: "Service categories",
     href: "/platform/service-categories",

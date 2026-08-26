@@ -70,9 +70,12 @@ import {
 const money = (c) =>
   formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
-function Card({ title, hint, children, step, dataTour }) {
+// `id` is an anchor target, not decoration: /app/crew-inbox links to
+// #credit so "where did my credit go" lands on the statement rather than at
+// the top of a long settings page.
+function Card({ title, hint, children, step, dataTour, id }) {
   return (
-    <section data-tour={dataTour} className="bg-card border border-border rounded-xl p-5">
+    <section id={id} data-tour={dataTour} className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-baseline gap-2">
         {step && (
           <span className="text-xs font-bold text-muted-foreground tabular-nums">{step}</span>
@@ -350,10 +353,28 @@ export default function VoiceSettingsPage() {
                 tone: "ok",
                 text: `Done — your number is ${result.publicNumber || result.e164} and it now forwards to ${result.e164}. The last step is on your own phone: dial one of the codes below from it, or nothing will reach the receptionist.`,
               }
-            : {
-                tone: "ok",
-                text: `Done — your new number is ${result.e164}.`,
-              },
+            : // ── What they GOT, and whether it is what they picked ────────
+              //
+              // The number is read off the provider's response, never off the
+              // request — a contractor who asked for 819 and silently received
+              // 437 prints the wrong one on a van, which is the whole reason
+              // this flow exists.
+              //
+              // `requestedE164` is set by the route only when the two genuinely
+              // differ, and it should never be set: naming a number asks for
+              // exactly that number. If it ever is, the swap is stated in the
+              // same breath as the success rather than buried in a log, because
+              // this is the one moment the contractor is looking at the number
+              // and could still act on it.
+              result.requestedE164
+                ? {
+                    tone: "warn",
+                    text: t("app.setVoice.pick.substituted", "You picked {asked}, but the phone company gave us {got} instead. {got} is your number — use that one, not the one you picked.", { asked: result.requestedE164, got: result.e164 }),
+                  }
+                : {
+                    tone: "ok",
+                    text: t("app.setVoice.pick.bought", "Done — your new number is {number}.", { number: result.e164 }),
+                  },
       );
     } catch (err) {
       // A thrown fetch (offline, DNS, a killed request) never reached the
@@ -474,7 +495,7 @@ export default function VoiceSettingsPage() {
     );
   }
 
-  const { agent, number, credit, pricing, sources, configured, readiness } = data;
+  const { agent, number, credit, pricing, sources, configured, readiness, numberChoice } = data;
   // The route builds this sentence where there is no t(), so it travels as a
   // key plus its values with the English attached as the fallback.
   // Bracketed lines the phone will skip. Computed with the SAME function
@@ -547,16 +568,27 @@ export default function VoiceSettingsPage() {
 
       {/* What the last action actually did. Stays until the next one — the
           forwarding instruction it usually carries is a task, not a flash. */}
+      {/* Three tones, not two. `warn` was added for the one outcome that is
+          neither a success nor a note: the purchase went through and the
+          provider handed over a DIFFERENT number than the one that was picked.
+          Falling through to the neutral "info" styling would have dressed "your
+          number is not the one you chose" as a pleasantry, on the one screen
+          where the contractor is looking straight at the number and could still
+          act on it. */}
       {notice && (
         <div
           className={`rounded-xl border px-4 py-3 flex gap-3 ${
             notice.tone === "ok"
               ? "border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40"
-              : "border-border bg-muted"
+              : notice.tone === "warn"
+                ? "border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40"
+                : "border-border bg-muted"
           }`}
         >
           {notice.tone === "ok" ? (
             <Check size={17} className="text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+          ) : notice.tone === "warn" ? (
+            <AlertTriangle size={17} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
           ) : (
             <Info size={17} className="text-muted-foreground shrink-0 mt-0.5" />
           )}
@@ -564,7 +596,9 @@ export default function VoiceSettingsPage() {
             className={`text-sm ${
               notice.tone === "ok"
                 ? "text-emerald-900 dark:text-emerald-200"
-                : "text-foreground"
+                : notice.tone === "warn"
+                  ? "text-amber-900 dark:text-amber-200"
+                  : "text-foreground"
             }`}
           >
             {notice.text}
@@ -576,6 +610,7 @@ export default function VoiceSettingsPage() {
           First, because a number's first month comes out of this balance
           before the number is bought. */}
       <Card
+        id="credit"
         dataTour="voice-credit"
         step="1."
         title={t("app.setVoice.creditTitle", "Credit")}
@@ -642,6 +677,29 @@ export default function VoiceSettingsPage() {
             </button>
           ))}
         </div>
+
+        {/* ── The other thing this balance pays for ────────────────────────
+            Crew texts draw on the same pooled credit and land in the same
+            ledger, and the card's own hint only ever mentioned minutes and the
+            number's rental. So a contractor looking at "where did my credit go"
+            met a column of "Crew photo received" lines against a price stated
+            nowhere on this page — he had to be told to open a panel on another
+            screen to find the rate he was already being charged. It belongs
+            where the money is, and it is read from the same constants the
+            webhook debits with. */}
+        {credit.crew && (
+          <p className="text-sm text-muted-foreground mt-3">
+            {t(
+              "app.setVoice.crewRate",
+              "Crew texting comes out of this same credit: {sms}¢ per text (each {chars} characters) and {mms}¢ per photo.",
+              {
+                sms: credit.crew.smsCents,
+                mms: credit.crew.mmsCents,
+                chars: credit.crew.smsSegmentChars,
+              },
+            )}
+          </p>
+        )}
 
         {credit.entries.length > 0 && (
           <details className="mt-4">
@@ -986,6 +1044,30 @@ export default function VoiceSettingsPage() {
                         </button>
                       ))}
                     </div>
+
+                    {/* ── Choosing the actual number ───────────────────────
+                        Local only, and only where the inventory can really be
+                        searched. A toll-free number comes from the 800/833
+                        pools and has no area to be in, so the button above
+                        stays the whole of that path.
+
+                        When `canChoose` is false the picker does not render at
+                        all and the line below says so. That is the point: the
+                        only lever without Twilio is Retell's `area_code`, which
+                        is documented "Currently only supports US area code" —
+                        inert for the Quebec companies this product serves. An
+                        area-code box the provider throws away is a dead
+                        control, and this codebase has been swept for those. */}
+                    {configured && affordFor("local").allowed && (
+                      <NumberPicker
+                        choice={numberChoice}
+                        busy={busy}
+                        money={money}
+                        monthlyCents={affordFor("local").needCents}
+                        t={t}
+                        onPick={(e164) => getNumber(s.key, "local", { phoneNumber: e164 })}
+                      />
+                    )}
                     {/* One line per type they CAN'T have, naming the gap. The
                         affordable case gets a single line rather than one per
                         button — the same sentence twice reads as a warning. */}
@@ -1758,6 +1840,221 @@ function BlockedReason({ show, message }) {
       <AlertTriangle size={13} className="shrink-0 mt-0.5" />
       {message}
     </p>
+  );
+}
+
+/**
+ * Pick the actual number, in the contractor's own area code.
+ *
+ * ── What this replaces ────────────────────────────────────────────────────
+ *
+ * "Local number — $4/mo" and a shrug. NUMBER_TYPES.local has advertised "A
+ * number in your own area code" since it was written, and nothing delivered it:
+ * the only lever was Retell's `area_code`, which the reference documents as
+ * "Currently only supports US area code". Every Canadian company got whatever
+ * the pool held, which is how a Drummondville business ends up with a Toronto
+ * number on its van.
+ *
+ * ── Three states, and none of them is a spinner that lies ─────────────────
+ *
+ * `null` results — nothing searched yet.
+ * `[]` results — we looked and that area code has nothing free. This is a
+ *   ROUTINE answer, not a failure: checked live, both 416 and 514 return zero
+ *   from Twilio because Toronto and Montreal local inventory is exhausted. It
+ *   gets its own sentence, suggesting a neighbouring code, and it must never
+ *   render as an error (see scripts/check-empty-vs-error.mjs).
+ * a thrown search — we could not look at all. Reported through the normal error
+ *   path, which is a different sentence again.
+ *
+ * ── The box can legitimately open empty ───────────────────────────────────
+ *
+ * `choice.areaCode` is null when the company has no phone number on file, and
+ * nothing invents one. A guessed area code here is not a cosmetic default: it
+ * is three digits somebody buys a number in and prints on a vehicle. The search
+ * still works — it falls back to the company's city, and the area codes come
+ * back from real inventory rather than from a table of ours.
+ */
+function NumberPicker({ choice, busy, money, monthlyCents, t, onPick }) {
+  const [areaCode, setAreaCode] = useState(choice?.areaCode || "");
+  const [results, setResults] = useState(null);
+  const [searched, setSearched] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Nothing to search with, so nothing to offer. The sentence is the honest
+  // fallback the owner asked for rather than a picker that ignores the choice.
+  if (!choice?.canChoose) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {t("app.setVoice.pick.unavailable", "We can't show you a list of free numbers on this setup, so we'll get you the closest one we can to where you are. We'll tell you the number you actually got.")}
+      </p>
+    );
+  }
+
+  async function search() {
+    setSearching(true);
+    setResults(null);
+    try {
+      const qs = areaCode.trim() ? `?areaCode=${encodeURIComponent(areaCode.trim())}` : "";
+      const res = await fetch(`/api/settings/voice/numbers/search${qs}`);
+      if (!res.ok) {
+        // A failed LOOK, which is not an empty result. Handled by the same
+        // key-aware reporter the rest of this screen uses so the refusal
+        // arrives in the contractor's language.
+        const payload = await res.clone().json().catch(() => ({}));
+        if (payload?.errorKey) {
+          showError(t(payload.errorKey, payload.error || "", payload.errorParams || {}));
+        } else {
+          await reportResponseError(res, t("app.setVoice.pick.searchFailed", "We couldn't check which numbers are free just now. Nothing has been charged."));
+        }
+        return;
+      }
+      const payload = await res.json();
+      setResults(payload.numbers || []);
+      setSearched(payload.searched || null);
+      // The server may have fallen back to the company's city. Reflecting the
+      // area code it actually used keeps the box honest about what was asked.
+      if (!areaCode.trim() && payload.numbers?.[0]?.areaCode) {
+        setAreaCode(payload.numbers[0].areaCode);
+      }
+    } catch (err) {
+      showError(
+        t("app.setVoice.pick.searchFailed", "We couldn't check which numbers are free just now. Nothing has been charged.") +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+          search();
+        }}
+        disabled={busy}
+        className="text-xs font-semibold text-foreground underline underline-offset-2 disabled:opacity-50"
+      >
+        {t("app.setVoice.pick.open", "Choose the number yourself")}
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border p-3 space-y-3">
+      <div>
+        <p className="text-sm font-semibold text-foreground">
+          {t("app.setVoice.pick.title", "Pick your number")}
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {t("app.setVoice.pick.hint", "These are real numbers that are free right now. The one you pick is the one you get — if somebody else takes it first we'll tell you, and nothing is charged.")}
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <label className="text-xs text-muted-foreground" htmlFor="voice-area-code">
+          {t("app.setVoice.pick.areaCodeLabel", "Area code")}
+        </label>
+        <input
+          id="voice-area-code"
+          value={areaCode}
+          onChange={(e) => setAreaCode(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+          inputMode="numeric"
+          maxLength={3}
+          // No placeholder digits. A greyed-out "819" in an empty box reads as a
+          // value, and this is a box where a misread default gets bought.
+          placeholder=""
+          className="w-20 px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+        />
+        <button
+          type="button"
+          onClick={search}
+          disabled={busy || searching}
+          className="px-3 py-2 rounded-full border border-border text-sm text-foreground hover:bg-muted disabled:opacity-50"
+        >
+          {searching ? (
+            <Loader2 size={14} className="inline animate-spin" />
+          ) : (
+            t("app.setVoice.pick.search", "Show me numbers")
+          )}
+        </button>
+      </div>
+
+      {/* Where the three digits came from, said out loud. The contractor can
+          tell a derived default from a typed one, and change it. */}
+      {choice.from === "phone" && choice.areaCode && (
+        <p className="text-xs text-muted-foreground">
+          {t("app.setVoice.pick.fromPhone", "{code} is the area code of the number on your company profile. Change it if you'd rather have a different one.", { code: choice.areaCode })}
+        </p>
+      )}
+      {!choice.areaCode && (
+        <p className="text-xs text-muted-foreground">
+          {/* Absence of a statement is not a statement — AGENTS.md. There is no
+              phone on the company profile, so there is nothing to derive from
+              and no default is invented. */}
+          {t("app.setVoice.pick.noDefault", "There's no phone number on your company profile, so we can't tell which area code you want. Type one, or leave it blank and we'll look near your city.")}
+        </p>
+      )}
+
+      {searching && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <Loader2 size={12} className="animate-spin" />
+          {t("app.setVoice.pick.searching", "Checking what's free…")}
+        </p>
+      )}
+
+      {/* An empty result is an ANSWER, and gets said as one. Busy area codes
+          run dry all the time — 514 and 416 are both empty against real Twilio
+          inventory today — and rendering that as a failure would send a
+          contractor chasing a problem that isn't theirs. */}
+      {!searching && results?.length === 0 && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {searched?.areaCode
+            ? t("app.setVoice.pick.noneInAreaCode", "Nothing free in {code} right now — it's a busy area code. Try one next to it, or take the button above and we'll get the closest we can.", { code: searched.areaCode })
+            : t("app.setVoice.pick.noneNearby", "We couldn't find a free number near you. Try typing an area code, or take the button above and we'll get the closest we can.")}
+        </p>
+      )}
+
+      {!searching && results?.length > 0 && (
+        <div className="space-y-2">
+          {searched?.locality && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.pick.nearCity", "Free numbers near {city}.", { city: searched.locality })}
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            {results.map((n) => (
+              <button
+                key={n.e164}
+                type="button"
+                disabled={busy}
+                onClick={() => onPick(n.e164)}
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg border border-border text-left hover:bg-muted disabled:opacity-50"
+              >
+                <span className="text-sm font-semibold text-foreground tabular-nums">
+                  {n.display}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {/* The city only when Twilio gave us one. Part of the
+                      inventory comes back with no locality at all, and printing
+                      the area code's "usual" city there would be an invented
+                      place on a screen about buying a number. */}
+                  {n.locality ? `${n.locality} · ` : ""}
+                  {money(monthlyCents)}
+                  {t("app.setVoice.perMonth", "/month")}
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t("app.setVoice.pick.buysNow", "Picking one buys it straight away, and the first month comes out of your credit.")}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }
 

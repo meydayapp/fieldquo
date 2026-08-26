@@ -28,6 +28,11 @@ export async function GET(request) {
       total: true,
       estimateSource: true,
       estimateData: true,
+      // What the caller asked for that this automatic price does not carry.
+      // Internal — Quote.reviewNotes is never on a client-facing surface — and
+      // the reviewer is exactly who it was written for, so a queue that showed
+      // the figure but not the caveat would be the wrong half of the story.
+      reviewNotes: true,
       createdAt: true,
       client: { select: { name: true, email: true, phone: true, address: true } },
     },

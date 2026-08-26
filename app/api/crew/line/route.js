@@ -18,6 +18,26 @@
 // SMS capability — rather than echoing our own stored intent back. The whole
 // failure being repaired is a screen that looked configured while the provider
 // had never been told anything.
+//
+// ══ What this route is NOT allowed to hand a tenant ════════════════════════
+//
+// The provider's `smsUrl`, this deployment's `/api/crew/inbound` URL, the env
+// vars behind either, and the ops half of the capability verdict. All of it was
+// here, and the owner read `https://www.fieldquo.com/api/crew/inbound` off his
+// own screen, clicked it, and got a blank page — because it is a POST-only
+// webhook address, not a page, and it was never his to configure.
+//
+// FieldQuo holds the Twilio account, buys the numbers and lends one to a
+// company — the same arrangement as Retell on the voice side, where no
+// contractor has ever seen an agent id. Publishing the inbound URL to tenants
+// also invites someone to point their OWN Twilio number straight at it, around
+// the claim flow, and the one-to-one uniqueness of CrewInboxNumber.e164 is the
+// only thing standing between that and a crew photo filed to a stranger's job.
+//
+// So this route answers "what is true for YOU": your number, whether it's on,
+// what it costs, what you must do. The provider's side of it lives on
+// /api/platform/crew-lines, superadmin-gated. scripts/check-crew-inbox.mjs
+// fails the build if a webhook URL finds its way back into this payload.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -38,6 +58,7 @@ import {
   CREW_SMS_CENTS,
   CREW_MMS_CENTS,
   CREW_OVERDRAFT_FLOOR_CENTS,
+  SMS_SEGMENT_CHARS,
 } from "@/lib/crew/messaging";
 import {
   crewLineFor,
@@ -46,7 +67,6 @@ import {
   twilioNumberState,
   listSmsCapableNumbers,
   inboundWebhookUrl,
-  SHARED_LOAN_DAYS,
 } from "@/lib/crew/line";
 
 /**
@@ -82,16 +102,23 @@ export async function GET(request) {
   });
 
   // What the PROVIDER says, not what we stored. Best-effort: Twilio being
-  // unreachable must not blank the screen, and `null` here renders as "couldn't
-  // check" rather than as "not connected", because those are different problems
-  // and only one of them is the contractor's.
+  // unreachable must not blank the screen.
+  //
+  // Only the two facts a contractor can act on survive into the response —
+  // whether the number can carry texts and photos at all. `smsUrl` is read here
+  // and deliberately dropped below: it is FieldQuo's plumbing, and the tenant
+  // screen showing it is what started this. Drift between it and this
+  // deployment is a real failure and it is diagnosed on /platform/crew-lines,
+  // where somebody can repoint it.
   let provider = null;
-  let providerError = null;
   if (line?.e164 && twilioConfigured()) {
     try {
       provider = await twilioNumberState(line.e164);
-    } catch (err) {
-      providerError = err.message;
+    } catch {
+      // Swallowed rather than reported to the tenant: "Twilio returned 20003"
+      // is not a sentence a painter can use. The capability verdict above
+      // already says whether their crew can text, computed from our own row.
+      provider = null;
     }
   }
 
@@ -114,23 +141,23 @@ export async function GET(request) {
 
   // What the Twilio account really has. Probed rather than assumed: the env var
   // names a number, and naming one is not owning one.
+  //
+  // Only asked when the deployment could actually verify a reply. Without the
+  // auth token nothing here can be claimed, and listing numbers to build a
+  // "switch it on" affordance that would be refused on press is the dead
+  // control AGENTS.md forbids — see the panel, which renders nothing but the
+  // unavailable sentence in that state.
   let owned = [];
-  let ownedError = null;
-  if (twilioConfigured()) {
+  if (twilioConfigured() && crewSignatureConfigured()) {
     try {
       owned = await listSmsCapableNumbers();
-    } catch (err) {
-      ownedError = err.message;
+    } catch {
+      // Same reasoning as `provider` above: a Twilio error code is FieldQuo's
+      // problem to read, not the contractor's. An empty list renders as "no
+      // number yet", which is what it means to them either way.
+      owned = [];
     }
   }
-
-  const shared = sharedTestLineE164();
-  const sharedHolder = shared
-    ? await db.crewInboxNumber.findUnique({
-        where: { e164: shared },
-        select: { companyId: true, expiresAt: true },
-      })
-    : null;
 
   return NextResponse.json({
     // What the crew must text. Null is an answer, not a blank — the screen says
@@ -143,48 +170,36 @@ export async function GET(request) {
           expiresAt: line.expiresAt,
         }
       : null,
-    capability,
-    // Everything a person needs to diagnose this without a Vercel login. No
-    // secret is included — only whether each one is present.
-    deployment: {
-      webhookUrl,
-      twilioConfigured: twilioConfigured(),
-      // The single sentence that would have saved an afternoon. An API key can
-      // send texts and manage numbers but cannot verify an inbound signature,
-      // so this is checked separately from twilioConfigured above.
-      signatureConfigured: crewSignatureConfigured(),
+    // The tenant half of the verdict only. `opsMessage` names env vars and
+    // endpoints and is stripped here on purpose — /api/platform/crew-lines is
+    // the route that returns it.
+    capability: {
+      ready: capability.ready,
+      reason: capability.reason,
+      messageKey: capability.messageKey,
+      message: capability.message,
     },
-    provider: provider
-      ? {
-          smsUrl: provider.smsUrl,
-          sms: provider.sms,
-          mms: provider.mms,
-          pointedHere: provider.smsUrl === webhookUrl,
-        }
-      : null,
-    providerError,
-    // Offered by the screen as the numbers a crew line can be. Empty is the
-    // honest answer when the account owns none, and the panel says what to do
-    // about it instead of showing a button that would fail on press.
-    owned: owned.map((n) => ({
-      e164: n.e164,
-      mms: n.mms,
-      pointedHere: n.smsUrl === webhookUrl,
-      // Taken by another company right now. Shown rather than hidden, so
-      // "why can't I pick that one" has an answer on the screen.
-      taken: false,
-    })),
-    ownedError,
-    sharedLine: shared
-      ? {
-          e164: shared,
-          loanDays: SHARED_LOAN_DAYS,
-          available:
-            !sharedHolder ||
-            sharedHolder.companyId === member.companyId ||
-            (sharedHolder.expiresAt && new Date(sharedHolder.expiresAt) <= new Date()),
-        }
-      : null,
+    // Two booleans, no URLs. `available` is the one thing the screen needs to
+    // know: can this deployment run crew texting at all. What is missing when it
+    // can't is FieldQuo's business — a contractor cannot set an env var on a
+    // Vercel project they have no login for, and telling them its name only
+    // makes the outage look like their fault.
+    deployment: {
+      available: twilioConfigured() && crewSignatureConfigured(),
+    },
+    // Capability of the number, not its configuration. `mms: false` is worth a
+    // contractor knowing — it means their crew's photos won't arrive — and it
+    // is a property of the line they hold, not of our wiring.
+    provider: provider ? { sms: provider.sms, mms: provider.mms } : null,
+    // The numbers a crew line can be. Empty is the honest answer when the
+    // account owns none, and the panel says so rather than showing a button
+    // that would fail on press. `smsUrl` is deliberately not carried.
+    owned: owned.map((n) => ({ e164: n.e164, mms: n.mms })),
+    // Deliberately NOT returned: `sharedLine`. It was here, described the
+    // platform's own loan pool, and was read by nothing — the write-and-never-
+    // read class AGENTS.md lists. Whether the shared line is free is FieldQuo's
+    // question and it is answered on /platform/crew-lines; the claim POST below
+    // still resolves it server-side, which is where that decision belongs.
     test: { to: testTo, crewName: worker?.name || null },
     // Stated before anything is charged, and read from the same constants the
     // webhook bills with — a rate card that can drift from the meter is worse
@@ -196,6 +211,11 @@ export async function GET(request) {
       low: spend.low,
       smsCents: CREW_SMS_CENTS,
       mmsCents: CREW_MMS_CENTS,
+      // The unit the SMS price is per. Twilio charges by segment and so do we,
+      // so a rate quoted per "text" was true right up to the 161st character
+      // and then quietly wrong — on the statement, after the fact. Sent from
+      // the same constant segmentsFor() measures with.
+      smsSegmentChars: SMS_SEGMENT_CHARS,
       overdraftCents: CREW_OVERDRAFT_FLOOR_CENTS,
     },
   });
@@ -214,11 +234,15 @@ export async function POST(request) {
       // Refused rather than half-done. Claiming would repoint a number at an
       // endpoint that rejects every message it receives, which looks exactly
       // like the bug this replaces.
+      //
+      // The reason is FieldQuo's, so the sentence is too. The version that named
+      // TWILIO_AUTH_TOKEN told a contractor to go and fix a Vercel project he
+      // has no login for. The operator-facing version of this exact state is on
+      // /platform/crew-lines.
       return NextResponse.json(
         {
           error:
-            "This deployment can't verify incoming texts yet — TWILIO_AUTH_TOKEN isn't set, " +
-            "so every text sent to the line would be refused. Set it and try again.",
+            "Crew texting isn't available yet — FieldQuo is still getting it set up.",
         },
         { status: 409 },
       );
@@ -246,7 +270,10 @@ export async function POST(request) {
     const e164 = toE164(body?.e164) || sharedTestLineE164();
     if (!e164) {
       return NextResponse.json(
-        { error: "There's no shared test line configured on this deployment." },
+        {
+          error:
+            "FieldQuo hasn't got a texting number to give you yet. It'll appear here once there is one.",
+        },
         { status: 409 },
       );
     }
@@ -303,8 +330,8 @@ export async function POST(request) {
       return NextResponse.json(
         {
           error:
-            "Add your own mobile to your staff profile under Settings → Team first — " +
-            "it's also what lets the inbox recognise your texts.",
+            "Add your own mobile to your worker record under Settings → Team → Workers " +
+            "first — it's also what lets the inbox recognise your texts.",
         },
         { status: 409 },
       );

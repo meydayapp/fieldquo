@@ -72,7 +72,12 @@ async function settleCrewSpend({ line, to, from, reply }) {
       // To the crew member who texted, FROM the crew line they texted.
       const sent = await sendSms({ to: from, from: to, body: reply }).catch(() => null);
       if (sent?.success && sent.sid) {
-        await chargeOutboundCrewReply({ companyId: line.companyId, sid: sent.sid, body: reply });
+        await chargeOutboundCrewReply({
+          companyId: line.companyId,
+          sid: sent.sid,
+          body: reply,
+          to: from,
+        });
       }
     } else {
       // Withheld, and recorded — a reply that silently stops arriving reads as

@@ -325,19 +325,53 @@ could be switched on against a number no text could reach.
   WIRED in one operation — claiming points the number's `smsUrl` at this
   deployment, and a failure at the provider leaves `connectedAt` null rather
   than a row that lies. `/app/crew-inbox` carries the setup panel: what the
-  crew text, what Twilio really has (asked, not assumed), what is missing when
-  it isn't working, and a test text to the admin's own staff phone. The dead
-  toggle on voice settings step 6 is gone — it links here instead.
+  crew text, whether it is on, what it costs, and a test text to the admin's own
+  staff phone. The dead toggle on voice settings step 6 is gone — it links here
+  instead.
+
+  **The panel was then telling the contractor the wrong things** — fixed, and
+  worth recording because the mistake is easy to repeat:
+
+  - The `TWILIO_AUTH_TOKEN` blocker rendered **twice, verbatim**: once as
+    `capability.message` and once from a second `!signatureConfigured` branch
+    added later. Both branches were correct alone, and nothing — build, lint or
+    reader — can see two conditions in different halves of a 200-line component.
+    The panel's block list is now a pure function (`lib/crew/panelBlocks.js`)
+    and `check:crew-inbox` walks every contractor-reachable state asserting no
+    block repeats.
+  - It printed `https://www.fieldquo.com/api/crew/inbound` under "Setup
+    details". The owner clicked it and got a blank page — it is POST-only — and
+    then asked the better question: **why is a contractor being shown FieldQuo's
+    plumbing at all?** We hold the Twilio account and lend numbers out of it,
+    exactly as we hold the Retell account and provision voice, and no contractor
+    has ever seen a Retell agent id. Publishing the inbound URL also invited
+    someone to wire a private number straight at it, around the claim whose
+    unique `CrewInboxNumber.e164` is the only guarantee a crew photo cannot land
+    on a stranger's job.
+  - `TWILIO_AUTH_TOKEN` missing is **FieldQuo's** problem. The contractor now
+    reads "crew texting isn't available yet, FieldQuo is getting it set up",
+    and the whole panel collapses to that one sentence — no number list, no rate
+    card, no switch. The cause, named, is on the platform screen.
+
+  **New: `/platform/crew-lines`** (superadmin, read-only). Which numbers the
+  Twilio account holds, who holds each one, where each `smsUrl` actually points,
+  and the inbound URL with a copy button and a plain "this is not a page". It
+  also catches **webhook drift** — a number pointed at a dead preview deployment
+  keeps a green tick in our own row (`crewInboxCapability` reads the row and says
+  `ready`) while delivering a tenant's crew photos into a branch database. That
+  comparison is `lib/crew/lineAudit.js`, executed by `check:crew-inbox`.
 
   **What is still needed, and only the owner can do it:**
   1. `TWILIO_AUTH_TOKEN` in Vercel. The inbound route refuses everything
-     without it (an API key cannot verify a signature), and the panel now says
-     so in those words instead of showing a working-looking switch.
+     without it (an API key cannot verify a signature). `/platform/crew-lines`
+     names it; tenants are not told about it.
   2. **A texting number.** Probing the Twilio account these credentials belong
      to found it owns ZERO numbers — so `TWILIO_PHONE_NUMBER` names a number
      the account does not hold, and every `sendSms` in the product would fail
      the same way. Buy one SMS-capable number and it appears in the panel to
-     switch on.
+     switch on — verified, not assumed: `check:crew-inbox` asserts that one
+     owned number makes the claim action appear, and that it does NOT while
+     the auth token is missing.
 - ~~A real call end to end, once the Retell keys are in Vercel.~~ **The phone
   answers.** The owner rang his number and spoke to the receptionist. What did
   NOT work was everything after the call:
@@ -423,6 +457,40 @@ could be switched on against a number no text could reach.
   and withhold the reply. Past a $2 overdraft floor the number's webhook is
   un-pointed at Twilio, which is enforcement at the PROVIDER, the same rule the
   voice side follows when it detaches an agent.
+
+  **The margin, measured against Twilio's published Canadian long-code pricing**
+  (https://www.twilio.com/en-us/sms/pricing/ca, checked 26/08/2026, USD — the
+  tenant base is Canadian and Canada is the country that decides whether these
+  rates hold). Canada's carrier-fee table charges on OUTBOUND only; every
+  inbound column is blank:
+
+  | | our cost | we charge | margin |
+  |---|---|---|---|
+  | inbound SMS, per segment | $0.0083 | 2¢ | ~59% |
+  | inbound MMS (a photo) | $0.0165 | 5¢ | ~67% |
+  | outbound SMS reply, per segment | $0.0083 + $0.0064–$0.0087 carrier | 2¢ | **~15–26%** |
+
+  So the two things a crew member does cost us the base rate flat, and the
+  courtesy reply — the thin one — costs nearly double its base once Bell or
+  Rogers take their cut. It is still positive at 2¢, and it is already the first
+  thing withheld when credit runs out, which was chosen for a product reason and
+  happens to agree with the arithmetic. Not in the table: the number rental
+  (US$1.15/month for a Canadian long code) and the Cloudinary storage a re-hosted
+  photo occupies, so an idle crew line is a standing loss of about a dollar a
+  month — bounded, and the same shape as an idle voice number. **No rate was
+  changed; that is a pricing decision.**
+
+  **Segments, and the promise the screen was making.** Twilio bills SMS per
+  SEGMENT and `costForMessage` follows it, so a 200-character update is two
+  segments and 4¢ — against a screen that said "2¢ a text". The rate line now
+  reads "2¢ per text (each 160 characters)", from `SMS_SEGMENT_CHARS`, the same
+  constant `segmentsFor` measures with. The ledger note said the same thing
+  wrongly: a three-segment text was debited 6¢ under "Crew text received @ 2¢",
+  a description contradicting its own amount, which is the short road from a
+  support call to a card dispute. Notes now carry the multiplier and the
+  sender's last four digits, and the rate is stated on the credit card at
+  `/app/settings/voice#credit` where the money actually sits, not only on a
+  panel somebody had to be told to open.
 
   Still unmetered: appointment reminders and visit notifications. Same shape,
   and the rates above are a PRICING decision the owner should confirm —

@@ -12,6 +12,8 @@
 import { readFileSync } from "node:fs";
 import { tenantKeyFromInbound, collectMediaUrls, isTwilioMediaUrl, pointFromInbound, MAX_MEDIA } from "@/lib/crew/inboundParse";
 import { crewInboxCapability, SMS_CAPABLE_PROVIDERS } from "@/lib/crew/capability";
+import { crewPanelBlocks } from "@/lib/crew/panelBlocks";
+import { auditCrewLines } from "@/lib/crew/lineAudit";
 import { dayBoundsIn } from "@/lib/crew/inbox";
 import { attributeMessage } from "@/lib/crew/attribution";
 import { decideAction } from "@/lib/crew/inboxLogic";
@@ -19,10 +21,13 @@ import {
   costForMessage,
   segmentsFor,
   crewSpendVerdict,
+  crewChargeNote,
   CREW_SMS_CENTS,
   CREW_MMS_CENTS,
   CREW_OVERDRAFT_FLOOR_CENTS,
+  SMS_SEGMENT_CHARS,
 } from "@/lib/crew/messaging";
+import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => {
@@ -148,7 +153,12 @@ const goodLine = {
 };
 const noToken = crewInboxCapability({ line: goodLine, signatureConfigured: false });
 ok("not ready", noToken.ready === false);
-ok("...and says which env var is missing", /TWILIO_AUTH_TOKEN/.test(noToken.message), noToken.message);
+// The env var is named to FIELDQUO, on /platform/crew-lines, and never to a
+// contractor. The tenant-facing half of this exact verdict used to say
+// "TWILIO_AUTH_TOKEN isn't set" on /app/crew-inbox — at a painter, about a
+// Vercel project he has no login for.
+ok("...and tells FieldQuo which env var is missing", /TWILIO_AUTH_TOKEN/.test(noToken.opsMessage), noToken.opsMessage);
+ok("...while the contractor is told it's ours to fix", /FieldQuo/.test(noToken.message) && !/TWILIO/.test(noToken.message), noToken.message);
 ok("...reason not_configured", noToken.reason === "not_configured");
 ok(
   "an otherwise perfect line is still refused without the token",
@@ -330,6 +340,408 @@ ok(
   inboxSrc.includes("ANSWER_WINDOW_MS") && /createdAt: \{ gte:/.test(inboxSrc),
 );
 ok("a superseded question is actually marked so", /status: "superseded"/.test(inboxSrc));
+
+// ══ The panel renders each thing ONCE ══════════════════════════════════════
+//
+// The bug the owner found: the blocker sentence printed twice, verbatim. Two
+// correct conditions in different halves of a 200-line component, coinciding
+// only at runtime — invisible to a build, a lint and a reader. So the panel's
+// choice of blocks is a pure function now (lib/crew/panelBlocks.js) and every
+// state a contractor can be in is walked here.
+
+console.log("\nThe setup panel shows each thing once, in every state");
+const UNAVAILABLE = { ready: false, reason: "not_configured", messageKey: "app.crewSetup.ready.unavailable" };
+const READY = { ready: true, reason: "ready", messageKey: "app.crewSetup.ready.ready" };
+const NO_LINE = { ready: false, reason: "no_line", messageKey: "app.crewSetup.ready.noLine" };
+const LIVE = { e164: "+15145551234", expiresAt: null };
+const FUNDED = crewSpendVerdict({ balanceCents: 5000 });
+const BROKE = crewSpendVerdict({ balanceCents: -CREW_OVERDRAFT_FLOOR_CENTS });
+
+const PANEL_STATES = [
+  ["deployment can't run it", { deployment: { available: false }, capability: UNAVAILABLE, spend: FUNDED, test: {} }],
+  ["...even with a line and numbers and credit", {
+    deployment: { available: false }, capability: UNAVAILABLE, line: LIVE,
+    owned: [{ e164: "+15145551234" }, { e164: "+14385550000" }], spend: FUNDED, test: { to: "+15145559999" },
+  }],
+  ["no numbers to lend", { deployment: { available: true }, capability: NO_LINE, owned: [], spend: FUNDED, test: { to: "+1" } }],
+  ["one number, claimable", { deployment: { available: true }, capability: NO_LINE, owned: [{ e164: "+15145551234" }], spend: FUNDED, test: { to: "+1" } }],
+  ["several numbers to pick from", { deployment: { available: true }, capability: NO_LINE, owned: [{ e164: "+1" }, { e164: "+2" }], spend: FUNDED, test: { to: "+1" } }],
+  ["live and healthy", { deployment: { available: true }, capability: READY, line: LIVE, provider: { sms: true, mms: true }, spend: FUNDED, test: { to: "+1" } }],
+  ["live on a shared loan", { deployment: { available: true }, capability: READY, line: { ...LIVE, expiresAt: new Date() }, spend: FUNDED, test: { to: "+1" } }],
+  ["live but SMS-only", { deployment: { available: true }, capability: READY, line: LIVE, provider: { sms: true, mms: false }, spend: FUNDED, test: { to: "+1" } }],
+  ["no mobile on the staff profile", { deployment: { available: true }, capability: READY, line: LIVE, spend: FUNDED, test: { to: null } }],
+  ["credit spent, line cut", { deployment: { available: true }, capability: { ready: false, reason: "not_connected" }, line: LIVE, spend: BROKE, test: { to: "+1" } }],
+  ["nothing known at all", {}],
+];
+
+for (const [label, input] of PANEL_STATES) {
+  const { blocks, actions } = crewPanelBlocks(input);
+  const dupeBlock = blocks.find((b, i) => blocks.indexOf(b) !== i);
+  const dupeAction = actions.find((a, i) => actions.indexOf(a) !== i);
+  ok(`${label}: no block renders twice`, dupeBlock === undefined, dupeBlock);
+  ok(`${label}: no action offered twice`, dupeAction === undefined, dupeAction);
+  // The status sentence and the number are the two mutually exclusive halves of
+  // the same slot. Both at once is the duplicate wearing a different hat.
+  ok(
+    `${label}: the capability sentence has exactly one home`,
+    ["blocker", "status", "number"].filter((b) => blocks.includes(b)).length === 1,
+    blocks,
+  );
+}
+
+console.log("\nA deployment that can't run it says so, and offers nothing else");
+const blocked = crewPanelBlocks({
+  deployment: { available: false },
+  capability: UNAVAILABLE,
+  owned: [{ e164: "+15145551234" }],
+  spend: FUNDED,
+  test: { to: null },
+});
+ok("exactly one block", blocked.blocks.length === 1, blocked.blocks);
+ok("...and it is the blocker", blocked.blocks[0] === "blocker");
+ok("no claim button — it would be refused on press", !blocked.actions.includes("claim"));
+ok("no actions at all", blocked.actions.length === 0, blocked.actions);
+// The old copy promised a number added to our Twilio account "appears here to
+// switch on". In this exact state it never would: the switch is gated on the
+// deployment too. A promise a screen cannot keep is the dead control.
+ok("...and no number list promising a switch that can't switch", !blocked.blocks.includes("noNumbers"));
+ok(
+  "...and no rate card advertising a meter that isn't running",
+  !blocked.blocks.includes("credit"),
+);
+
+console.log("\nControls appear only when pressing them would do something");
+ok(
+  "no claim while the credit is spent",
+  !crewPanelBlocks({
+    deployment: { available: true }, capability: NO_LINE,
+    owned: [{ e164: "+1" }], spend: BROKE,
+  }).actions.includes("claim"),
+);
+// The positive half of the copy's promise: "it'll appear here once there is
+// one". Executed rather than trusted — the old sentence said a number added to
+// our Twilio account "appears here to switch on", and in the state the owner was
+// actually in the switch was gated on the deployment as well, so it never would.
+{
+  const withOne = crewPanelBlocks({
+    deployment: { available: true }, capability: NO_LINE,
+    owned: [{ e164: "+15145551234" }], spend: FUNDED, test: { to: "+1" },
+  });
+  ok("a number the account holds really does become claimable", withOne.actions.includes("claim"));
+  ok("...and the 'no numbers' sentence stops being shown", !withOne.blocks.includes("noNumbers"));
+}
+ok(
+  "no claim when the account holds no number",
+  !crewPanelBlocks({
+    deployment: { available: true }, capability: NO_LINE, owned: [], spend: FUNDED,
+  }).actions.includes("claim"),
+);
+ok(
+  "no test text without a mobile to send it to",
+  !crewPanelBlocks({
+    deployment: { available: true }, capability: READY, line: LIVE, spend: FUNDED, test: { to: null },
+  }).actions.includes("test"),
+);
+ok(
+  "...and the prompt to add one is shown instead",
+  crewPanelBlocks({
+    deployment: { available: true }, capability: READY, line: LIVE, spend: FUNDED, test: { to: null },
+  }).blocks.includes("addPhone"),
+);
+ok(
+  "no turn-off button without a line to turn off",
+  !crewPanelBlocks({ deployment: { available: true }, capability: NO_LINE }).actions.includes("off"),
+);
+
+// ══ No integration detail reaches a tenant ═════════════════════════════════
+//
+// The owner read `https://www.fieldquo.com/api/crew/inbound` off his own screen
+// and clicked it. It is a POST-only webhook address — a browser renders nothing
+// — and it was never his to configure: FieldQuo holds the Twilio account and
+// lends the number, exactly as it holds the Retell account and provisions the
+// voice line. Publishing it also invited someone to wire a private number
+// straight at our endpoint, around the claim whose unique CrewInboxNumber.e164
+// is the only guarantee a crew photo cannot land on a stranger's job.
+
+console.log("\nThe tenant screen leaks no webhook, no env var, no provider URL");
+const TENANT_FILES = [
+  "../app/app/crew-inbox/page.js",
+  "../app/api/crew/line/route.js",
+  "../lib/crew/panelBlocks.js",
+];
+// Matched against CODE only. The files carry long comments explaining exactly
+// which endpoint was removed and why, and a check that failed on the
+// explanation would delete the reason along with the bug.
+const stripComments = (src) =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+for (const rel of TENANT_FILES) {
+  const code = stripComments(readFileSync(new URL(rel, import.meta.url), "utf8"));
+  const name = rel.split("/").slice(-2).join("/");
+  ok(`${name}: no inbound webhook path`, !code.includes("api/crew/inbound"), name);
+  ok(`${name}: no provider smsUrl`, !/smsUrl/.test(code), name);
+  ok(`${name}: names no env var`, !/TWILIO_|process\.env/.test(code), name);
+  ok(`${name}: no ops half of the verdict`, !/opsMessage/.test(code), name);
+}
+
+// The crew route has to COMPUTE the inbound URL — it is what crewInboxCapability
+// compares a row against to catch drift. What it must never do is hand it to the
+// browser. So the response literal is checked, not the whole file.
+{
+  const src = readFileSync(new URL("../app/api/crew/line/route.js", import.meta.url), "utf8");
+  // The LAST return in GET, not the first: the first is the permission refusal
+  // `NextResponse.json({ error }, ...)`, and slicing from there swept in the
+  // `const webhookUrl = …` the drift comparison legitimately needs.
+  const endOfGet = src.indexOf("export async function POST");
+  const payload = src.slice(src.lastIndexOf("return NextResponse.json({", endOfGet), endOfGet);
+  const code = stripComments(payload);
+  ok("the tenant payload carries no webhook URL", !/webhookUrl/.test(code));
+  ok("...no provider smsUrl", !/smsUrl/.test(code));
+  ok("...and no ops half of the verdict", !/opsMessage/.test(code));
+  // capability is destructured field by field rather than spread, so a field
+  // added to the verdict later cannot ride into the tenant payload by accident.
+  ok("...and the verdict is copied field by field, never spread", !/\.\.\.capability/.test(code));
+}
+
+console.log("\n...and the strings it prints don't either");
+for (const [lang, catalogue] of Object.entries(APP_MESSAGES)) {
+  const leaks = Object.entries(catalogue)
+    .filter(([k]) => k.startsWith("app.crewSetup.") || k.startsWith("app.crewInbox."))
+    .filter(([, v]) => /TWILIO|api\/crew|webhook|smsUrl|env var|deployment/i.test(String(v)))
+    .map(([k]) => k);
+  ok(`${lang}: no crew string names our infrastructure`, leaks.length === 0, leaks);
+}
+
+// The webhook URL still has to live SOMEWHERE — it is genuinely needed to wire
+// a number by hand. It lives on the platform screen, and it must not be an
+// anchor there either: it is POST-only, so a link renders a blank page and
+// reads as broken. A copy control is the honest affordance.
+console.log("\nThe platform screen carries it instead — copied, never linked");
+const platformPage = readFileSync(new URL("../app/platform/crew-lines/page.js", import.meta.url), "utf8");
+ok("the platform page prints the webhook URL", platformPage.includes("deployment.webhookUrl"));
+ok(
+  "...inside a <code>, not an <a href>",
+  /<code[^>]*>\s*\{deployment\.webhookUrl\}/.test(platformPage),
+);
+ok(
+  "...with no anchor wrapping it",
+  !/<a[^>]*href=\{deployment\.webhookUrl\}/.test(platformPage) &&
+    !/href=\{[^}]*webhookUrl/.test(platformPage),
+);
+ok("...and a copy button", /onClick=\{\(\) => copy\(deployment\.webhookUrl/.test(platformPage));
+ok("...labelled as something to paste into Twilio", /Paste this into/.test(platformPage));
+ok("...and said plainly not to be a page", /not a page/.test(platformPage));
+// A dash with no explanation is what "Twilio delivers texts to: —" was. Absent
+// has to be a sentence.
+ok(
+  "an unset webhook says what its absence means, rather than printing a dash",
+  /no message webhook is set on this number/.test(platformPage),
+);
+ok("the platform route is superadmin-gated", readFileSync(new URL("../app/api/platform/crew-lines/route.js", import.meta.url), "utf8").includes("getCurrentPlatformAdmin"));
+
+// ══ Webhook drift ══════════════════════════════════════════════════════════
+//
+// The failure this audit exists for: a number whose smsUrl points at a dead
+// preview deployment keeps a green tick in our row and delivers a tenant's crew
+// photos into a branch database. Invisible from the tenant, invisible from our
+// row, visible only by asking Twilio and comparing.
+
+console.log("\nThe platform audit sees drift our own row can't");
+const HERE = "https://www.fieldquo.com/api/crew/inbound";
+const THERE = "https://preview-abc.vercel.app/api/crew/inbound";
+const connectedRow = {
+  e164: "+15145551234", companyId: "c1", provider: "twilio", source: "shared_test",
+  providerId: "PN1", webhookUrl: HERE, connectedAt: new Date("2026-08-01"), expiresAt: null,
+  company: { name: "Big Painter Inc", crewInboxEnabled: true },
+};
+
+const healthy = auditCrewLines({
+  numbers: [{ e164: "+15145551234", sid: "PN1", mms: true, smsUrl: HERE }],
+  rows: [connectedRow],
+  expectedWebhookUrl: HERE,
+  signatureConfigured: true,
+});
+ok("a healthy line is not flagged", healthy.counts.drifting === 0, healthy.lines[0]);
+ok("...and reads as claimed", healthy.counts.claimed === 1 && healthy.counts.free === 0);
+ok("...and ready", healthy.lines[0].claim.ready === true);
+
+const drifted = auditCrewLines({
+  numbers: [{ e164: "+15145551234", sid: "PN1", mms: true, smsUrl: THERE }],
+  rows: [connectedRow],
+  expectedWebhookUrl: HERE,
+  signatureConfigured: true,
+});
+ok("a number pointed at another deployment IS flagged", drifted.counts.drifting === 1);
+// The point of the whole audit: our row is happy. It says connected, to the URL
+// we expect, and crewInboxCapability calls it ready. Nothing built from our own
+// record can see this, which is why the comparison is against TWILIO's answer.
+ok("...even though our own row says connected", drifted.lines[0].claim.connectedAt !== null);
+ok("...and our own verdict still reads ready", drifted.lines[0].claim.ready === true);
+ok("...so the drift gets its own sentence", Boolean(drifted.lines[0].driftMessage));
+ok("...naming where the texts are actually going", /preview-abc/.test(drifted.lines[0].driftMessage), drifted.lines[0].driftMessage);
+ok("a healthy line has no drift sentence to print", healthy.lines[0].driftMessage === null);
+
+const unpointed = auditCrewLines({
+  numbers: [{ e164: "+15145551234", sid: "PN1", mms: true, smsUrl: null }],
+  rows: [connectedRow],
+  expectedWebhookUrl: HERE,
+  signatureConfigured: true,
+});
+ok("a number with NO webhook at all is drift too", unpointed.counts.drifting === 1);
+ok("...and says the texts are being dropped, not misrouted", /dropped silently/.test(unpointed.lines[0].driftMessage), unpointed.lines[0].driftMessage);
+ok("...and is distinguishable from pointed-elsewhere", unpointed.lines[0].pointedSomewhere === false);
+
+const orphaned = auditCrewLines({
+  numbers: [],
+  rows: [connectedRow],
+  expectedWebhookUrl: HERE,
+  signatureConfigured: true,
+});
+ok("a claimed number Twilio doesn't hold is an orphan", orphaned.counts.orphaned === 1);
+ok("...and is not double-counted as drift", orphaned.counts.drifting === 0);
+ok("...and still names the company holding it", orphaned.orphans[0].claim.companyName === "Big Painter Inc");
+
+const free = auditCrewLines({
+  numbers: [{ e164: "+14385550000", sid: "PN2", mms: false, smsUrl: null }],
+  rows: [],
+  expectedWebhookUrl: HERE,
+  signatureConfigured: true,
+});
+ok("an unclaimed number is free to lend", free.counts.free === 1 && free.lines[0].claim === null);
+ok("...and its lack of MMS is recorded as false, not as unknown", free.lines[0].mms === false);
+ok("an orphan's unknown MMS stays null rather than becoming false", orphaned.orphans[0].mms === null);
+
+console.log("\nThe audit survives shapes it will meet in production");
+ok("no arguments at all", auditCrewLines().counts.held === 0);
+ok("nulls where arrays belong", auditCrewLines({ numbers: null, rows: null }).counts.held === 0);
+ok("a number row with no e164 is skipped", auditCrewLines({ numbers: [{ sid: "PN9" }, null] }).counts.held === 0);
+ok(
+  "no expected URL means nothing is called drift",
+  auditCrewLines({
+    numbers: [{ e164: "+1", smsUrl: THERE }],
+    rows: [{ ...connectedRow, e164: "+1" }],
+    expectedWebhookUrl: null,
+  }).counts.drifting === 1,
+);
+
+// ══ The price on the screen is the price on the meter ══════════════════════
+//
+// "2¢ a text" was true of a short text and false of a long one. Twilio bills
+// SMS per SEGMENT and costForMessage follows it, so a 200-character update
+// costs 4¢ against a screen quoting 2¢ — the contractor finds out on the
+// statement. The screen now states the unit, and it states it from the same
+// constant segmentsFor measures with.
+
+console.log("\nThe rate card states the unit the meter actually uses");
+const en = APP_MESSAGES.en;
+ok("the rate string mentions the segment length", /\{chars\}/.test(en["app.crewSetup.rates"]), en["app.crewSetup.rates"]);
+ok("...and the per-text and per-photo prices", /\{sms\}/.test(en["app.crewSetup.rates"]) && /\{mms\}/.test(en["app.crewSetup.rates"]));
+ok(
+  "the credit screen says crew texting spends the same balance",
+  /\{sms\}/.test(en["app.setVoice.crewRate"]) && /\{chars\}/.test(en["app.setVoice.crewRate"]),
+  en["app.setVoice.crewRate"],
+);
+for (const lang of Object.keys(APP_MESSAGES)) {
+  const v = APP_MESSAGES[lang]["app.crewSetup.rates"];
+  ok(`${lang}: the rate string keeps all three placeholders`, /\{sms\}/.test(v) && /\{mms\}/.test(v) && /\{chars\}/.test(v), v);
+}
+
+console.log("\nThe stated segment length is the one the meter measures with");
+ok("a text of exactly the stated length is one segment", segmentsFor("x".repeat(SMS_SEGMENT_CHARS)) === 1);
+ok("...one character more is two", segmentsFor("x".repeat(SMS_SEGMENT_CHARS + 1)) === 2);
+ok("...and costs twice the quoted rate", costForMessage({ segments: segmentsFor("x".repeat(SMS_SEGMENT_CHARS + 1)) }) === CREW_SMS_CENTS * 2);
+ok("the quoted length is 160, the GSM-7 single-segment size", SMS_SEGMENT_CHARS === 160);
+
+// Both routes that quote a price read it from the constants the webhook debits
+// with. A rate card that can drift from the meter is worse than none.
+const lineRoute = readFileSync(new URL("../app/api/crew/line/route.js", import.meta.url), "utf8");
+ok("the crew route quotes SMS_SEGMENT_CHARS, not a literal", lineRoute.includes("smsSegmentChars: SMS_SEGMENT_CHARS"));
+ok("...and the rates from the same module the webhook bills from", lineRoute.includes('from "@/lib/crew/messaging"'));
+const voiceRoute = readFileSync(new URL("../app/api/settings/voice/route.js", import.meta.url), "utf8");
+ok("the credit screen quotes them from that module too", voiceRoute.includes('from "@/lib/crew/messaging"'));
+ok("...and sends the crew rate card with the balance", voiceRoute.includes("smsSegmentChars: SMS_SEGMENT_CHARS"));
+
+// ══ A charge has to be findable, and it has to add up ══════════════════════
+//
+// Crew texts land in VoiceCreditEntry, which /app/settings/voice already prints
+// as "Where the credit went" — so the record existed. What it said did not add
+// up: a three-segment text was debited 6¢ under a note reading "Crew text
+// received @ 2¢". A statement whose description contradicts its own amount is
+// the short road from a support call to a card dispute.
+
+console.log("\nA charge on the statement reconciles against its own amount");
+const oneSeg = crewChargeNote({ direction: "in", segments: 1, party: "+15145551234" });
+ok("a plain text names the price", oneSeg.includes(`${CREW_SMS_CENTS}¢`), oneSeg);
+ok("...and does not clutter it with a ×1", !oneSeg.includes("1 ×"), oneSeg);
+const threeSeg = crewChargeNote({ direction: "in", segments: 3, party: "+15145551234" });
+ok("a split text shows the multiplier", threeSeg.includes(`3 × ${CREW_SMS_CENTS}¢`), threeSeg);
+ok(
+  "...and the multiplier equals what was actually debited",
+  costForMessage({ segments: 3 }) === 3 * CREW_SMS_CENTS,
+);
+const photo = crewChargeNote({ direction: "in", hasMedia: true, party: "+15145551234" });
+ok("a photo is priced at the MMS rate", photo.includes(`${CREW_MMS_CENTS}¢`), photo);
+ok("...and is not described as a text", !/text received/i.test(photo), photo);
+ok("a reply is distinguishable from an inbound", crewChargeNote({ direction: "out", segments: 1 }).includes("sent"));
+
+console.log("\n...and can be matched to the message that caused it");
+ok("the sender's last four digits are on the line", oneSeg.includes("1234"), oneSeg);
+ok("...and the full number is not", !oneSeg.includes("5145551234") && !oneSeg.includes("+1"), oneSeg);
+ok("no sender is simply omitted, not faked", !crewChargeNote({ direction: "in", segments: 1 }).includes("·"));
+ok("a nonsense sender doesn't produce a nonsense tag", !crewChargeNote({ direction: "in", party: "not a phone" }).includes("·"));
+ok("every note is a non-empty string", ["in", "out"].every((d) => crewChargeNote({ direction: d }).length > 8));
+// A forged NumSegments must not invent a note that promises more than the cap
+// actually charged.
+ok(
+  "a forged segment count is capped in the note as it is in the charge",
+  crewChargeNote({ direction: "in", segments: 10000 }).includes(`10 × ${CREW_SMS_CENTS}¢`),
+  crewChargeNote({ direction: "in", segments: 10000 }),
+);
+
+const msgSrc2 = readFileSync(new URL("../lib/crew/messaging.js", import.meta.url), "utf8");
+ok("both charges write a note through the one builder", (msgSrc2.match(/crewChargeNote\(/g) || []).length >= 3);
+ok("...and neither hand-rolls its own wording", !/note: `Crew /.test(msgSrc2));
+const inboxSrc2 = readFileSync(new URL("../lib/crew/inbox.js", import.meta.url), "utf8");
+ok("the sender travels to the meter so the note can name it", /from: fromE164 \|\| fromPhone/.test(inboxSrc2));
+const inboundSrc2 = readFileSync(new URL("../app/api/crew/inbound/route.js", import.meta.url), "utf8");
+ok("...and so does the reply's recipient", /to: from,/.test(inboundSrc2));
+
+console.log("\nThe statement the contractor is pointed at really shows them");
+const voicePage = readFileSync(new URL("../app/app/settings/voice/page.js", import.meta.url), "utf8");
+ok("the credit card has the anchor the crew inbox links to", voicePage.includes('id="credit"'));
+ok("...the statement prints each entry's note", voicePage.includes("{e.note || e.kind}"));
+ok("...and its amount", voicePage.includes("money(Math.abs(e.cents))"));
+ok("...and the crew rate is stated on it", voicePage.includes("app.setVoice.crewRate"));
+const crewPage = readFileSync(new URL("../app/app/crew-inbox/page.js", import.meta.url), "utf8");
+ok("the crew panel links to that anchor", crewPage.includes("/app/settings/voice#credit"));
+ok("...and nothing filters crew rows out of the ledger read", !/kind: "call"/.test(readFileSync(new URL("../lib/voice/credits.js", import.meta.url), "utf8").slice(
+  readFileSync(new URL("../lib/voice/credits.js", import.meta.url), "utf8").indexOf("export async function recentEntries"),
+)));
+
+// ══ The one thing the contractor IS told to do ═════════════════════════════
+//
+// "Add your own mobile to your staff profile so the inbox recognises your
+// texts." True, necessary — and impossible. Worker.phone was writable exactly
+// once, on the invite form; the Workers screen had no phone field and the PATCH
+// route did not accept one. An owner whose record predated the field read an
+// instruction with nowhere to carry it out.
+
+console.log("\n'Add your mobile' is an instruction that can be carried out");
+const workerRoute = readFileSync(new URL("../app/api/workers/[id]/route.js", import.meta.url), "utf8");
+ok("the worker PATCH accepts a phone", /const \{[^}]*\bphone\b/.test(workerRoute));
+ok("...and writes it", /phone: phoneValue/.test(workerRoute));
+ok("...refusing a number that could never match", /toE164\(phone\)/.test(workerRoute));
+ok("...and treating an empty one as cleared, not as a match on nothing", /phoneValue = null/.test(workerRoute));
+const workersPage = readFileSync(new URL("../app/app/settings/team/workers/page.js", import.meta.url), "utf8");
+ok("the Workers screen renders a mobile field", workersPage.includes("app.setWorkers.mobile"));
+ok("...bound to the form", /form\.phone/.test(workersPage));
+ok("...and sends it on save", /phone: form\.phone/.test(workersPage));
+ok(
+  "the crew inbox links to that screen rather than naming it in prose",
+  crewPage.includes('href="/app/settings/team/workers"'),
+);
+ok("...and the matcher it feeds is the roster phone", /toE164\(w\.phone\) === fromE164/.test(inboxSrc2));
+
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

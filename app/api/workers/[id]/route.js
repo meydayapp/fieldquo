@@ -11,6 +11,9 @@ import { db } from "@/lib/db";
 import { managementChain } from "@/lib/org/reportingLine";
 import { getCurrentMember } from "@/lib/currentMember";
 import { requirePermission, can } from "@/lib/permissions";
+// Same normaliser the crew inbox matches with, so a number accepted here is a
+// number that will actually be recognised on an inbound text.
+import { toE164 } from "@/lib/sms/twilioClient";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -88,7 +91,39 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { name, email, hourlyRate, active, hiredOn, managerId } = body;
+  const { name, email, phone, hourlyRate, active, hiredOn, managerId } = body;
+
+  // ── Mobile, and why it was missing ──────────────────────────────────────
+  //
+  // Worker.phone is what the crew inbox matches an inbound text against
+  // (lib/crew/inbox.js: exact E.164 comparison against the roster). The crew
+  // inbox told people to "add your own mobile to your staff profile" — and no
+  // screen and no route could. It was writable exactly once, on the invite
+  // form, so an owner whose record predates that field read an instruction with
+  // nowhere to carry it out, and their own texts went on landing in the
+  // "numbers not on your team" pile for ever.
+  //
+  // Stored as typed rather than as E.164, matching what the invite form writes;
+  // toE164 normalises on both sides of the comparison, so "(514) 555-1234" and
+  // "+15145551234" are the same roster entry. An unparseable number is refused
+  // rather than saved — a phone that will never match is worse than a blank
+  // one, because a blank one still shows the "add your mobile" prompt.
+  let phoneValue;
+  if (phone !== undefined) {
+    if (phone === null || String(phone).trim() === "") {
+      phoneValue = null;
+    } else if (!toE164(phone)) {
+      return NextResponse.json(
+        {
+          error:
+            "That doesn't look like a mobile number. It needs the area code — the crew inbox matches it exactly.",
+        },
+        { status: 400 },
+      );
+    } else {
+      phoneValue = String(phone).trim();
+    }
+  }
 
   // Setting someone's pay is payroll. The Workers tab offered a "Pay rate
   // ($/hour)" field to a Manager and the write landed — QA moved a colleague
@@ -183,6 +218,7 @@ export async function PATCH(request, { params }) {
     data: {
       ...(name !== undefined && { name }),
       ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone: phoneValue }),
       ...(hourlyRate !== undefined && { hourlyRate }),
       ...(active !== undefined && { active }),
       ...(hiredOn !== undefined && { hiredOn: hiredOnValue }),

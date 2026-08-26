@@ -22,6 +22,9 @@ import { eligibleManagers } from "@/lib/org/reportingLine";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import { formatDateOnly, isoDateOnly } from "@/lib/format/companyDate";
+// Same as-you-type formatter the invite form uses, so a number typed on either
+// screen ends up looking and normalising the same way.
+import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 // hiredOn is a calendar day. Both reading it into the <input type="date"> and
@@ -149,6 +152,7 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     name: worker.name || "",
+    phone: worker.phone || "",
     hourlyRate: worker.hourlyRate == null ? "" : String(worker.hourlyRate),
     hiredOn: dateInput(worker.hiredOn),
     active: worker.active !== false,
@@ -168,6 +172,10 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name,
+          // "" clears the mobile back to unset, which is a real state: it means
+          // the crew inbox stops recognising that person's texts, and the
+          // prompt to add one comes back rather than silently matching nothing.
+          phone: form.phone.trim() === "" ? null : form.phone,
           // "" clears the rate back to unset, which is a real state — it means
           // payroll warns instead of paying a made-up number.
           hourlyRate: form.hourlyRate === "" ? null : Number(form.hourlyRate),
@@ -207,6 +215,32 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
             />
+          </label>
+          {/* ── Mobile ────────────────────────────────────────────────────
+              The number the crew inbox matches an inbound text against. It was
+              writable exactly once, on the invite form, and nowhere after —
+              while /app/crew-inbox told people to "add your own mobile to your
+              staff profile so the inbox recognises your texts". An owner whose
+              worker record predates the field read an instruction with nowhere
+              to carry it out, and their own site photos kept landing in the
+              "numbers not on your team" pile. */}
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("app.setWorkers.mobile")}
+            </span>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={form.phone}
+              onChange={(e) =>
+                setForm({ ...form, phone: formatPhoneInput(e.target.value) })
+              }
+              placeholder={t("app.setWorkers.notSet")}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              {t("app.setWorkers.mobileHint")}
+            </span>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
