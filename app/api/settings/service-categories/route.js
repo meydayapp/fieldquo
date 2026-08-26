@@ -12,6 +12,8 @@ import {
 import { getCurrentMember } from "@/lib/currentMember"; // resolves session -> { companyId, role }
 import { toStoredFields } from "@/app/data/intakeFieldLibrary";
 import { resolveServiceContent } from "@/lib/documents/serviceContent";
+import { reprovisionIfLive } from "@/lib/voice/provision";
+import { getAppOrigin } from "@/lib/appUrl";
 
 // GET — system catalog + this company's own custom quote types, merged with
 // this company's settings (enabled/rate/unit). Custom categories are scoped
@@ -232,6 +234,20 @@ export async function PATCH(request) {
         },
       }),
     ),
+  );
+
+  // ── The phone receptionist's closed list of services lives here ─────────
+  //
+  // buildAgentPrompt says "they do exactly these things, and nothing else",
+  // built from the enabled rows this PATCH just wrote — and nothing re-pushed
+  // it. So a company could switch a trade on, see it on this screen, and have
+  // an agent still telling callers they don't do it. Pushed here for the same
+  // reason provisionAgent pushes on every voice save: the provider holds a
+  // cache and this is the write that invalidates it.
+  //
+  // Best-effort and never creates an agent — see reprovisionIfLive.
+  await reprovisionIfLive(member.companyId, getAppOrigin(request)).catch((err) =>
+    console.error("[settings/service-categories] couldn't refresh the receptionist:", err?.message),
   );
 
   return NextResponse.json({ success: true, updated: results.length });

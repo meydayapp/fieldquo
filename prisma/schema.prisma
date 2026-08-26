@@ -140,6 +140,106 @@ model PlatformErrorLog {
   @@index([area, createdAt])
 }
 
+/// FIELDQUO'S OWN phone agent at the provider. At most one row, ever.
+///
+/// VoiceAgent — the only other place a provider agent id is stored — is keyed
+/// by companyId, so there was nowhere to record FieldQuo's own. That absence is
+/// what made "does FieldQuo have an agent?" unanswerable, and it is why nothing
+/// could provision one.
+///
+/// The prompt is deliberately NOT stored here. It is derived from the feature
+/// registry and the Plan rows on every push (lib/platform/salesKnowledge.js), so
+/// a copy in this table would be a second, staler answer to "what does it say" —
+/// and the whole point of deriving it is that a price change reaches the phone
+/// without anyone editing a prompt. Only the two things a person genuinely
+/// decides live here: whether it answers, and the tone notes.
+model PlatformVoiceAgent {
+  /// Fixed by convention to "fieldquo" so upserts are unconditional and a
+  /// second row cannot appear. There is one FieldQuo.
+  id String @id @default("fieldquo")
+
+  providerAgentId String?
+  providerLlmId   String?
+
+  /// Attachment is the on/off switch at the provider, exactly as for a tenant.
+  /// Off by default: an agent that answers before anybody has heard it speak is
+  /// how a prospect becomes the first listener.
+  enabled Boolean @default(false)
+
+  /// FieldQuo's own tone notes. Bounded and fenced in the prompt, and unable to
+  /// override the absolute rules — see lib/platform/salesPrompt.js.
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A call to FIELDQUO'S OWN number — the sales line, not a tenant's phone.
+///
+/// ══ Why this is not a VoiceCall ═══════════════════════════════════════════
+///
+/// VoiceCall.companyId is a required relation to Company, so recording one of
+/// these there needs a Company row for FieldQuo. That row would then be a
+/// tenant everywhere a tenant is counted: the company list, the platform
+/// dashboard's active-companies figure, MRR, the feature-override picker, the
+/// voice credit ledger, the rent cron, every `db.company.findMany` in the
+/// console. One table saved, a dozen numbers quietly wrong.
+///
+/// It also breaks the property FieldQuo's own agent is built around — that it
+/// has no tenant and can reach no tenant row. A separate table makes that
+/// structural instead of merely intended.
+///
+/// ══ What it is for ════════════════════════════════════════════════════════
+///
+/// The webhook resolves a tenant from the number that was dialled, so a call to
+/// FieldQuo's own number matched nothing and was recorded as "call to an
+/// unknown number" and dropped — no record, no transcript, no summary, nowhere
+/// to look. This is where those land, and /platform/sales-agent is where they
+/// are read.
+///
+/// ══ Nothing here is billed ════════════════════════════════════════════════
+///
+/// Deliberately no credit ledger and no charge: FieldQuo's own minutes are
+/// FieldQuo's own cost and already appear in the shared-pool spend on
+/// /platform/voice-health (lib/voice/pool.js counts every minute served).
+/// Charging a company for them would need a company, which is the whole point.
+model PlatformVoiceCall {
+  id String @id @default(cuid())
+
+  /// Retell's id. Unique so the three events for one call (started, ended,
+  /// analyzed) upsert onto one row and a provider retry cannot duplicate it.
+  providerCallId String @unique
+
+  /// The agent that answered, as Retell knows it. A plain string rather than a
+  /// relation: there is no VoiceAgent row for FieldQuo's own agent, because
+  /// that table is keyed by companyId.
+  providerAgentId String?
+
+  direction String  @default("inbound")
+  /// The caller. This is the only contact detail a sales call leaves behind, so
+  /// it is what "ring them back" is answered from.
+  fromE164  String?
+  /// FieldQuo's own number, as dialled.
+  toE164    String?
+
+  startedAt   DateTime?
+  endedAt     DateTime?
+  durationSec Int       @default(0)
+
+  transcript   Json?
+  summary      String?
+  recordingUrl String?
+
+  /// Why it ended, from the provider.
+  disposition String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([startedAt])
+}
+
 model PlatformAuditLog {
   id              String        @id @default(cuid())
   platformAdminId String
@@ -916,6 +1016,11 @@ model Company {
 
   /// The crew-messaging inbox: crew text photos/updates to a number and the
   /// assistant files them to the right job. Off by default. See lib/crew/.
+  ///
+  /// Written by claiming/releasing a crew line (app/api/crew/line) — the flow
+  /// that also wires the number's SMS webhook. It is NOT an independent switch:
+  /// on without a CrewInboxNumber is the exact state that let a contractor turn
+  /// this on and text a number nothing was listening to.
   crewInboxEnabled Boolean @default(false)
 
   /// A yearly revenue target the owner sets. Null means "no goal set", which is
@@ -972,6 +1077,7 @@ model Company {
   demoIndustry String?
   voiceCallTasks VoiceCallTask[]
   crewMessages CrewInboundMessage[]
+  crewLine     CrewInboxNumber?
   jobPhotos JobPhoto[]
 
   /// Per-company AVAILABILITY overrides. Not to be confused with the adoption
@@ -2746,6 +2852,23 @@ model LeadRequest {
   // land here. Carried onto the Quote when the lead is converted.
   clientPhotos  Json?
 
+  /// The phone assistant asked them to email photos, and where it sent them.
+  ///
+  /// A call cannot carry a picture, and for most trades a picture is what the
+  /// person pricing the job wants most — so the receptionist asks, and this
+  /// records that it did. Two columns rather than one boolean because the
+  /// reviewer's real question is "photos are outstanding — where should they
+  /// have landed?", and the address is the company's own contact email at the
+  /// time of the call, which can change afterwards.
+  ///
+  /// Whether they ARRIVED is deliberately not a third column: `clientPhotos`
+  /// already answers it, and a second representation of the same fact is one
+  /// that can disagree with the pictures actually attached. See
+  /// lib/ai/callQuoteDraft.js, which reads both so a reviewer can tell a
+  /// photo-less quote that is photo-less ON PURPOSE from one nobody chased.
+  photosRequestedAt DateTime?
+  photosRequestedTo String?
+
   // The structured intake answers, kept ALONGSIDE the human-readable `message`
   // blob (which used to be the only home for them). Shape: { fieldKey: value }.
   // Scoring reads typed values here; conversion seeds the quote's scope from it.
@@ -4430,7 +4553,16 @@ model VoiceCreditEntry {
   /// away from the calls that moved it.
   cents Int
 
-  kind   String  // "topup" | "call" | "trial" | "adjustment" | "number_setup" | "number_rent"
+  /// "topup" | "call" | "trial" | "adjustment" | "number_setup" | "number_rent"
+  /// | "crew_text"
+  ///
+  /// `crew_text` covers both directions of the crew inbox — an inbound photo
+  /// or note and the reply that goes back. One ledger with voice on purpose:
+  /// the contractor buys credit once, and "where did my credit go" has to have
+  /// a single answer covering everything that spent it. The direction and the
+  /// rate live in `note`, and `ref` ("crew_in:<msgId>" / "crew_out:<sid>")
+  /// makes each one land exactly once.
+  kind   String
   callId String?
   /// The Stripe Checkout session or payment intent behind a top-up, so a
   /// disputed charge can be traced to the credit it bought.
@@ -4574,6 +4706,74 @@ model VoiceCallTask {
   @@index([status, notBefore])
 }
 
+/// The number a company's crew texts.
+///
+/// ── Deliberately NOT VoicePhoneNumber ──────────────────────────────────────
+///
+/// VoicePhoneNumber is bought from Retell and answers CALLS. It cannot receive
+/// texts: the number lives in Retell's telephony account, FieldQuo's Twilio
+/// account has never heard of it, and Retell's own inbound webhook carries no
+/// message body and no MMS media. Conflating the two is what shipped a crew
+/// inbox whose switch saved a column and whose webhook nothing could ever
+/// reach. They are two different lines from two different providers, so they
+/// are two different tables — and on a `forwarded` setup the voice number the
+/// company advertises isn't even ours, because carrier forwarding forwards
+/// calls and never texts.
+///
+/// ── Both uniques are load-bearing ──────────────────────────────────────────
+///
+/// `companyId` unique: one crew line per company, so "which number do my crew
+/// text?" has exactly one answer to print.
+///
+/// `e164` unique: one company per number, enforced by the database rather than
+/// by a check someone remembers to write. That is what makes the shared
+/// platform test line safe to hand out — while a company holds it, the inbound
+/// webhook resolving `To` → this row can only ever land on that one tenant. A
+/// second company claiming it is a constraint violation, not a race.
+model CrewInboxNumber {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164, normalised — the webhook's `To` is matched against this and nothing
+  /// else. See app/api/crew/inbound/route.js on why the sender is never a key.
+  e164 String @unique
+
+  /// Only "twilio" resolves today; see lib/crew/capability.js. Stored rather
+  /// than assumed so the day a second provider can deliver a body and media,
+  /// the rows already say which is which.
+  provider String @default("twilio")
+
+  /// shared_test — FieldQuo's own platform number, on loan to one company at a
+  ///               time so a contractor can prove the feature works before
+  ///               anybody buys anything.
+  /// dedicated   — a number bought for this company alone.
+  source String @default("shared_test")
+
+  /// Twilio's IncomingPhoneNumber SID. Needed to set the messaging webhook, and
+  /// stored so re-pointing it doesn't have to search the account by number.
+  providerId String?
+
+  /// The URL we actually pointed the number's SMS webhook at, and when.
+  ///
+  /// Stored so the setup screen can detect DRIFT rather than assume: a preview
+  /// deployment claiming the shared line repoints it, and the production tenant
+  /// who claimed it yesterday would otherwise show a green tick while their
+  /// crew's texts went to a branch build. Null `connectedAt` means the number
+  /// exists but nothing has been wired — the honest "not finished" state.
+  webhookUrl  String?
+  connectedAt DateTime?
+
+  /// When a shared-line loan lapses. Null for a dedicated number, which doesn't
+  /// expire. A lapsed loan stops resolving and frees the number for the next
+  /// company — otherwise the first contractor to press the button owns the only
+  /// test line forever.
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// One message a crew member texted in — a photo, an update, a voice note.
 ///
 /// Doubles as the record of what was filed AND the "which job?" question when
@@ -4599,11 +4799,23 @@ model CrewInboundMessage {
   longitude Decimal? @db.Decimal(9, 6)
 
   /// pending → filed | ignored | superseded
+  ///
+  /// `superseded` is a question the crew answered with a new photo instead of an
+  /// answer. It stops the SMS side treating it as the open question — a stale
+  /// "which job?" that a later unrelated "2" could resolve is a silent wrong
+  /// file — while still showing in the office inbox, because the held photo is
+  /// real and a person can still say where it goes. It is NOT a tombstone;
+  /// fileHeldMessage accepts it for exactly that reason.
   status String @default("pending")
-  /// How it was attributed once filed: explicit | gps | only-one | answered.
+  /// How it was attributed once filed: explicit | gps | only-one | answered |
+  /// manual. `manual` is a person picking the job in the office inbox; the
+  /// others are the attribution engine's own verdicts (lib/crew/attribution.js).
   method String?
 
-  /// Where it landed. jobVisitId is the specific visit the media was appended to.
+  /// Where it landed. jobVisitId is the specific visit the media was appended
+  /// to — read back when re-filing and asserted on, because a null here next to
+  /// status "filed" means the media went nowhere while the crew were told it
+  /// had. See fileToVisit, which now refuses to report success it didn't have.
   jobId      String?
   jobVisitId String?
 

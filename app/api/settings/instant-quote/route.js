@@ -22,6 +22,8 @@ import {
 import { instantQuoteReadiness } from "@/lib/estimate/instantQuoteReadiness";
 import { tradeLabel } from "@/lib/estimate/instantQuoteServer";
 import { normaliseFinancing } from "@/lib/estimate/financing";
+import { reprovisionIfLive } from "@/lib/voice/provision";
+import { getAppOrigin } from "@/lib/appUrl";
 
 function isPricingAdmin(role) {
   return role === "owner" || role === "admin";
@@ -163,6 +165,20 @@ export async function PUT(request) {
     summary: `${saved.enabled ? "Enabled" : "Updated"} instant-quote pricing for ${saved.trade}`,
     metadata: { trade: saved.trade, enabled: saved.enabled },
   });
+
+  // ── The phone receptionist asks for whatever this trade needs ───────────
+  //
+  // Its questions are derived from these rows (lib/voice/quoteQuestions.js), so
+  // enabling a trade here and not pushing would leave an agent that has never
+  // heard of it — the settings screen saying one thing and the phone another,
+  // which is the whole reason provisionAgent pushes on every save.
+  //
+  // Best-effort, and it never creates an agent: reprovisionIfLive refuses when
+  // the company has no live one, so a company that has never set up voice pays
+  // nothing for saving a rate card.
+  await reprovisionIfLive(member.companyId, getAppOrigin(request)).catch((err) =>
+    console.error("[settings/instant-quote] couldn't refresh the receptionist:", err?.message),
+  );
 
   return NextResponse.json({ ok: true, trade: saved.trade, enabled: saved.enabled });
 }

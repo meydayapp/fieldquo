@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { onQuoteSent } from "@/lib/quotes/quoteLifecycle";
+import { onQuoteEmailed } from "@/lib/voice/triggers";
 import { recordActivity } from "@/lib/activity/log";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import {
@@ -299,6 +300,21 @@ export async function POST(request, { params }) {
   if (!isFollowUp) {
     await onQuoteSent(quote.id).catch((err) =>
       console.error("[quotes/send] lead sync:", err?.message),
+    );
+
+    // ── And only now may the assistant ring them about it ─────────────────
+    //
+    // The client has the quote in writing, so a call can refer to a document
+    // rather than invent a figure — which is the whole reason the callback
+    // waits for this moment and not for the approval. The gate in
+    // lib/voice/triggers.js refuses everything else (a draft, a hand-typed
+    // quote, a company that never opted in), and consent, calling hours and the
+    // stop list are still checked at dial time.
+    //
+    // Best-effort, after the send: a queuing hiccup must never fail an email
+    // that has already gone out.
+    await onQuoteEmailed(quote.id).catch((err) =>
+      console.error("[quotes/send] couldn't queue the callback:", err?.message),
     );
   }
 

@@ -25,6 +25,7 @@ export async function GET(request) {
     select: {
       id: true, senderPhone: true, senderUserId: true, body: true,
       mediaUrls: true, status: true, method: true, jobId: true,
+      jobVisitId: true, latitude: true, longitude: true,
       candidateJobIds: true, createdAt: true,
     },
   });
@@ -61,7 +62,28 @@ export async function GET(request) {
       photos: m.mediaUrls.slice(0, 4),
       status: m.status,
       method: m.method,
+      // Both statuses a person can still act on. Computed here rather than by
+      // the screen matching status strings, so adding a fourth state can't
+      // silently drop a queue of held photos out of the "needs you" list —
+      // which is what happened when `superseded` started being written and the
+      // page was still filtering on `pending` alone.
+      needsYou: m.status === "pending" || m.status === "superseded",
+      // Why it stopped being the live question. Shown so "we asked, they sent
+      // another photo instead" doesn't read as "we forgot".
+      superseded: m.status === "superseded",
       filedTo: m.jobId ? nameOf(m.jobId) : null,
+      jobId: m.jobId,
+      // Where the media actually landed. Returned so "filed" can be verified
+      // against a real visit rather than trusted — a filed row with no visit id
+      // is the shape of a photo that went nowhere.
+      jobVisitId: m.jobVisitId,
+      // The coordinates the carrier sent, when it sent any. Stored since this
+      // feature shipped and read by nothing until now: on a message a person has
+      // to place by hand, where it was taken is the most useful thing we know.
+      point:
+        m.latitude != null && m.longitude != null
+          ? { lat: Number(m.latitude), lng: Number(m.longitude) }
+          : null,
       candidates: (m.candidateJobIds || []).map((id) => ({ jobId: id, name: nameOf(id) })),
       at: m.createdAt,
     })),

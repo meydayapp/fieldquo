@@ -67,7 +67,12 @@ const q = buildOutboundPrompt({
 ok("contains the absolute rules", q.prompt.includes("ABSOLUTE RULES"));
 ok("contains the opening verbatim", q.prompt.includes(q.opening));
 ok("states the approved total as a fact", q.prompt.includes("$4,200"));
-ok("permits stating it", /you may state that figure/i.test(q.prompt));
+// The wording moved when the callback was tied to the email going out first —
+// the agent now reads a figure BACK off a document the client is holding,
+// rather than announcing one. Same permission, and the assertion follows the
+// meaning rather than the old sentence.
+ok("permits reading it back", /you may read that figure back/i.test(q.prompt));
+ok("says the client already has it in writing", /already been emailed this quote/i.test(q.prompt));
 ok("forbids changing it", /may NOT change it/i.test(q.prompt));
 
 console.log("\nA quote call with NO total never invents one");

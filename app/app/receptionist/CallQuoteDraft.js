@@ -34,7 +34,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2, Quote, CircleHelp, Ban } from "lucide-react";
+import { Sparkles, Loader2, Quote, CircleHelp, Ban, Image as ImageIcon } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -125,6 +125,36 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
           {t(`app.callDraft.reason.${reason}`)}
         </p>
       ) : null}
+
+      {/* What the receptionist wrote down during the call. Rendered ABOVE the
+          drafted scope on purpose: it is the only thing on this panel the model
+          did not produce, so it is what the rest gets checked against. */}
+      {draft?.callerNotes && (
+        <div className="rounded-md border border-border bg-card p-3">
+          <p className="text-xs font-semibold text-foreground">
+            {t("app.callDraft.callerNotes")}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground whitespace-pre-line">
+            {draft.callerNotes}
+          </p>
+        </div>
+      )}
+
+      {/* Photos: a phone call cannot carry one, so the assistant asks for them
+          by email. Said out loud here so a reviewer can tell a quote that is
+          photo-less ON PURPOSE from one nobody chased. */}
+      {draft?.photos && (
+        <p className="text-xs text-muted-foreground flex gap-1.5">
+          <ImageIcon size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {draft.photos.received > 0
+              ? t("app.callDraft.photosArrived", { count: draft.photos.received })
+              : draft.photos.to
+                ? t("app.callDraft.photosAsked", { to: draft.photos.to })
+                : t("app.callDraft.photosAskedNoAddress")}
+          </span>
+        </p>
+      )}
 
       {(draft?.groups || []).map((g) => (
         <div key={g.categoryKey} className="rounded-md border border-border bg-card p-3">

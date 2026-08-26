@@ -43,6 +43,7 @@ import { pushCallCeiling } from "@/lib/voice/callCeiling";
 import { recordError } from "@/lib/platform/errorLog";
 import { verifyRetellSignature, signingKeys } from "@/lib/voice/webhookSignature";
 import { recordRejectedDelivery } from "@/lib/voice/webhookHealth";
+import { isSalesNumber, recordSalesCall } from "@/lib/platform/salesCall";
 
 export async function POST(request) {
   const raw = await request.text();
@@ -89,6 +90,33 @@ export async function POST(request) {
         select: { id: true, companyId: true, agentId: true, numberType: true },
       })
     : null;
+
+  // ── FieldQuo's OWN line ──────────────────────────────────────────────────
+  //
+  // Not a tenant's number and not a mistake. FieldQuo's sales agent answers on
+  // a number that is configuration rather than a VoicePhoneNumber row (there is
+  // no Company for it to belong to), so without this branch every call to it
+  // was recorded as "call to an unknown number" and discarded — no record, no
+  // transcript, nowhere to look.
+  //
+  // Checked AFTER the tenant lookup on purpose. If a number were ever in both
+  // places the contractor keeps their calls and FieldQuo loses its own, which
+  // is the right way round for a configuration mistake.
+  if (!number && isSalesNumber(ourNumber)) {
+    try {
+      const result = await recordSalesCall({ type, call });
+      return NextResponse.json({ ok: true, ...result });
+    } catch (err) {
+      await recordError({
+        area: "voice_webhook",
+        message: `FieldQuo sales call webhook failed: ${err.message}`,
+        detail: { providerCallId, type },
+      }).catch(() => {});
+      // 500 so Retell retries. Losing FieldQuo's own transcript to a database
+      // blip is the failure this branch exists to stop.
+      return NextResponse.json({ error: "Failed" }, { status: 500 });
+    }
+  }
 
   if (!number) {
     // A call to a number we don't have on file. Logged rather than 404'd: it

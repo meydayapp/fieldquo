@@ -126,6 +126,30 @@ provisioning, Stripe top-ups, agent provisioning from the company's own data,
 the tools (`save_caller` / `check_availability` / `book_visit`), and the call
 review queue at `/app/receptionist` — which is no longer a placeholder.
 
+**The receptionist now collects what a quote needs.** `lib/voice/quoteQuestions.js`
+derives the questions from the company's own enabled `InstantQuoteConfig` rows
+and the measurement shapes in `lib/estimate/callEstimate.js` — the same list the
+draft path reads, so what the agent asks and what a draft needs cannot drift.
+A cabinet shop's agent asks about doors and drawers; a company with no instant
+trades gets no question block at all. Asking is not quoting: rule 1 is untouched
+and `npm run check:voice-intake` executes the claim that the generated text
+carries no figure, currency, rate or duration, including against hostile
+material labels typed into the settings screen. Photos are asked for by email —
+only ever to `Company.email`, and the whole instruction is omitted when there
+isn't one. `LeadRequest.photosRequestedAt/To` records that the ask was made;
+whether they arrived is read off `clientPhotos`, never a second flag.
+Settings › Services and Settings › Instant Quote now re-push the agent
+(`reprovisionIfLive`) — before this, changing your services left the phone
+saying you didn't offer them.
+
+**The callback on an approved quote is opt-in and email-first.** It fires from
+the SEND path, not the approval: `approvedQuoteCallGate` refuses a draft, a
+quote nobody emailed, a hand-typed quote, and a company that never switched
+outbound calls on — and consent, the calling window and the stop list are still
+checked at dial time by the existing `mayCall`. `placeQueuedCall` re-reads the
+quote and drops the figure if the total moved since the email, so the agent can
+only ever read back a number the client is already holding in writing.
+
 **Found in the first live test, and fixed:** every number bought or forwarded
 was written on the schema default `status = provisioning`, and nothing anywhere
 promoted it to `active`. Every reader filters on `active` — `activeNumber()`,
@@ -202,15 +226,57 @@ could be switched on against a number no text could reach.
   `/api/settings/voice/number`, porting rows only — no provider call, no
   money), which was the immediate problem: a port row matched the duplicate
   guard, so every other setup path returned 409 and there was no way out.
-- **The crew inbox has no wired inbound path.** `/api/crew/inbound` is a
-  Twilio SMS webhook, but numbers are bought from **Retell**, so they are not
-  in FieldQuo's Twilio account and Twilio will never post a text about them.
-  Nothing in the codebase configures an incoming number's SMS URL. Until that
-  is resolved the switch opens a door with no road to it. (It is also purely
-  inbound — enabling it sends nobody anything, which the screen now says.)
-- A real call end to end, once `RETELL_API_KEY` and `RETELL_WEBHOOK_SECRET`
-  are in Vercel. Everything below the provider boundary has been exercised
-  with signed fixtures; nothing has yet spoken to Retell.
+- ~~**The crew inbox has no wired inbound path.**~~ **The road is built; it
+  needs a number to run on.** The diagnosis held: `/api/crew/inbound` is a
+  Twilio webhook, numbers are bought from **Retell**, and nothing set an
+  incoming number's SMS URL. Retell is not a substitute — its inbound webhook
+  fires before the message exists and carries no body and no MMS media, and its
+  SMS product is A2P-gated to US non-toll-free numbers after 2–3 weeks of
+  review, while this product defaults to Canada.
+
+  So the crew line is now its OWN number, in FieldQuo's own Twilio account:
+  `CrewInboxNumber` (unique on `e164`, unique on `companyId`), claimed and
+  WIRED in one operation — claiming points the number's `smsUrl` at this
+  deployment, and a failure at the provider leaves `connectedAt` null rather
+  than a row that lies. `/app/crew-inbox` carries the setup panel: what the
+  crew text, what Twilio really has (asked, not assumed), what is missing when
+  it isn't working, and a test text to the admin's own staff phone. The dead
+  toggle on voice settings step 6 is gone — it links here instead.
+
+  **What is still needed, and only the owner can do it:**
+  1. `TWILIO_AUTH_TOKEN` in Vercel. The inbound route refuses everything
+     without it (an API key cannot verify a signature), and the panel now says
+     so in those words instead of showing a working-looking switch.
+  2. **A texting number.** Probing the Twilio account these credentials belong
+     to found it owns ZERO numbers — so `TWILIO_PHONE_NUMBER` names a number
+     the account does not hold, and every `sendSms` in the product would fail
+     the same way. Buy one SMS-capable number and it appears in the panel to
+     switch on.
+- ~~A real call end to end, once the Retell keys are in Vercel.~~ **The phone
+  answers.** The owner rang his number and spoke to the receptionist. What did
+  NOT work was everything after the call:
+  - **The webhook signature check rejected 100% of deliveries.** It compared a
+    bare hex digest of the body against `X-Retell-Signature`, keyed with an
+    invented `RETELL_WEBHOOK_SECRET`. Retell sends `v=<ms>,d=<hex>`, signs
+    `body + timestamp`, and keys it with an API key. Three independent reasons
+    it could never match, on BOTH public endpoints — so no call was ever
+    recorded, no lead saved mid-call, no minute billed. Fixed in
+    `lib/voice/webhookSignature.js`; a refusal is now logged rather than
+    returning a silent 401.
+  - **The webhook URL Retell holds is written once and never read back.**
+    `provisionAgent` derives it from the request origin, so a save made from a
+    preview deployment repoints the live agent at an address that gets deleted.
+    Now a named link in the readiness check, repairable from the page, and the
+    repair refuses to run from a preview origin.
+  - **Settings → Phone receptionist → "Check it end to end"** is the new
+    control: `lib/voice/readiness.js` asks the provider about every link
+    (number, agent, response engine, binding, switch, webhook URL, live prompt,
+    deliveries) and may never report a link green on the strength of our own
+    columns. `npm run check:voice-readiness` executes the resolver over 4,500
+    chains to hold that property.
+  - Carrier forwarding is reported as permanently uncheckable, with the
+    instruction to ring the FieldQuo line directly to test the receptionist on
+    its own.
 - ~~Monthly number rental is stored on the row and not yet billed.~~ **Done.**
   The rental now debits the prepaid balance: the first month is reserved
   BEFORE the number is bought (`lib/voice/spendGate.js`), and
@@ -219,15 +285,63 @@ could be switched on against a number no text could reach.
   period in which the number keeps working, then release — never a silent
   disappearance. Every path that costs FieldQuo money goes through the one
   gate; `npm run check:voice-spend` fails if a second one appears.
-- Concurrency is NOT gated. The one Retell account has a shared
-  simultaneous-call ceiling (`/get-concurrency`), so one tenant's busy Monday
-  can make another's phone stop answering. Same class as the spend gate, but a
-  capacity limit rather than a money one — see the header of `spendGate.js`
-  for where it would go.
-- SMS is not metered at all. Twilio bills FieldQuo per message for appointment
-  reminders, visit notifications and the crew inbox, and nothing charges for
-  it. Same shape as the rental leak was; it needs a price per message first,
-  which is a product decision.
+- ~~The whole pay-per-use meter hung off one webhook.~~ **Done.** Every minute
+  was billed from the `call_ended` branch of `/api/voice/webhook`, and that
+  delivery was silently failing for a live tenant — so calls were never
+  charged, balances never fell, and a company at zero credit could talk
+  indefinitely on the pooled account. There is now a second path that does not
+  wait to be told:
+  - `lib/voice/reconcileCalls.js` + `/api/cron/voice-reconcile` (hourly) list
+    Retell's own calls (`POST /v3/list-calls` — the legacy list endpoints were
+    removed 15/06/2026), bill the ones we have no entry for, and re-run the
+    attachment decision. Both paths key on `call:<providerCallId>` against the
+    unique `(companyId, ref)` index, so neither can double-charge. Every rescue
+    writes a `webhook_missed` row — a meter repaired in silence stays broken.
+  - A call whose duration cannot be established is **unbilled and flagged**,
+    never estimated. `costForSeconds` now refuses non-finite input outright: it
+    used to carry `1e400` through to a Prisma `Int` as `Infinity`.
+  - An unreachable provider charges nobody and detaches nobody, and a partial
+    page read bills what it saw but refuses to act on a balance.
+- ~~A call could run an hour on two minutes of credit.~~ **Done.** Credit was
+  checked when a call STARTED and charged when it ENDED, with nothing in
+  between. `lib/voice/callCeiling.js` now sets Retell's `max_call_duration_ms`
+  from what the balance actually covers, on both the inbound and outbound
+  agents, re-pushed after every call and after every top-up. The contractor is
+  told (`app.setVoice.callCap`) — a limit that hangs up on their customer must
+  not be a surprise. **Residual, deliberately visible rather than absorbed:**
+  concurrent calls each respect the ceiling and together can overshoot, so a
+  negative balance is logged as an overdraft and totalled on `/platform`.
+  Closing it properly needs a per-call reservation at answer time.
+- Concurrency is still not GATED, but it is now WATCHED. `/api/platform/voice-health`
+  reads `/get-concurrency` and surfaces it on `/platform`, warning at 70% of
+  the shared ceiling and going red at it — previously nothing anywhere looked,
+  so one tenant's busy Monday took every other tenant's phone down with no
+  warning. Refusing the outbound queue first is still the right gate when the
+  ceiling is real; see the header of `spendGate.js`.
+- **Retell exposes no credit-balance API** — billing is dashboard-only. So the
+  money half of the pool report is DERIVED (minutes we metered × an estimated
+  provider cost per minute) and labelled as derived everywhere it appears, and
+  `RETELL_CREDIT_PURCHASED_CENTS` has to be typed in by hand after each top-up
+  or the runway figure means nothing. Replace `derivedSpend` with a real read
+  the day that endpoint exists.
+- SMS metering now covers the CREW INBOX only. `lib/crew/messaging.js` prices a
+  message rather than a minute — 2¢ a text segment, 5¢ a photo, because an MMS
+  costs us more — and both directions debit the same `VoiceCreditEntry` ledger
+  under `kind: "crew_text"`, so one balance answers "where did my credit go"
+  for voice and texting together. Refs are `crew_in:<messageId>` and
+  `crew_out:<sid>`, so nothing bills twice, and the reply goes out over REST
+  rather than TwiML *specifically* so there is a SID to key on — TwiML returns
+  no delivery evidence and billing on it would be billing on an unverifiable
+  send. Out of credit: receive and file ALWAYS (the carrier has already been
+  paid; dropping the photo destroys work product to save money already spent)
+  and withhold the reply. Past a $2 overdraft floor the number's webhook is
+  un-pointed at Twilio, which is enforcement at the PROVIDER, the same rule the
+  voice side follows when it detaches an agent.
+
+  Still unmetered: appointment reminders and visit notifications. Same shape,
+  and the rates above are a PRICING decision the owner should confirm —
+  `CREW_SMS_CENTS`, `CREW_MMS_CENTS` and `CREW_OVERDRAFT_CENTS` are
+  env-overridable so they can move without a deploy.
 - There is still no way for a contractor to RELEASE a LIVE number. Only the
   rent-expiry path releases anything. The screen no longer leaves this
   unanswered — a forwarded setup says "dial `##002#`", a bought one says to

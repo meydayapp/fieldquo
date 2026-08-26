@@ -74,9 +74,15 @@ export async function POST(request, { params }) {
     metadata: data.total != null ? { total: data.total } : undefined,
   });
 
-  // Best-effort: if the company turned on outbound calls, queue one to confirm
-  // and schedule. Never allowed to fail the approval — a queuing hiccup must not
-  // block a reviewer clearing needsReview.
+  // Best-effort: queue the confirm-and-schedule call, IF the client already has
+  // the quote in writing. Approval alone is not enough — the agent may read a
+  // total back off a document they were emailed, never announce one — so on the
+  // usual path (approve, then send) this is a no-op and the send route queues
+  // it. It fires here only for the reverse order: a quote already emailed, then
+  // adjusted and re-approved. See approvedQuoteCallGate.
+  //
+  // Never allowed to fail the approval — a queuing hiccup must not block a
+  // reviewer clearing needsReview.
   await onQuoteApproved(id).catch((err) =>
     console.error("[approve-estimate] couldn't queue outbound call:", err?.message),
   );
