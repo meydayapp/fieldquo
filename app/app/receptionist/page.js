@@ -90,6 +90,18 @@ export default function ReceptionistPage() {
   // load, and `?? false` rather than `?? true` on purpose: offering a button we
   // don't know works is the failure this codebase keeps being swept for.
   const aiAvailable = data?.aiAvailable ?? false;
+  // Three states, and only the first of them wants "Set it up". A company whose
+  // receptionist is bought and answering was being told to go and set up the
+  // thing they had already set up — on the very page they opened to find out
+  // why it looked idle.
+  const setup = data?.setup || null;
+  const emptyState = !setup
+    ? "unknown"
+    : !setup.hasNumber
+      ? "no_number"
+      : setup.answering
+        ? "answering"
+        : "switched_off";
   const flagged = calls.filter((c) => c.needsReview);
   const rest = calls.filter((c) => !c.needsReview);
 
@@ -108,7 +120,10 @@ export default function ReceptionistPage() {
           href="/app/settings/voice"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
         >
-          <Settings size={15} /> {t("app.receptionist.setUp")}
+          <Settings size={15} />{" "}
+          {emptyState === "no_number" || emptyState === "unknown"
+            ? t("app.receptionist.setUp")
+            : t("app.receptionist.settings")}
         </Link>
       </div>
 
@@ -131,15 +146,29 @@ export default function ReceptionistPage() {
           // the failure this whole change is about.
           <div className="rounded-xl border border-border bg-card p-8 text-center">
             <Phone size={22} className="mx-auto text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground mt-3">{t("app.receptionist.empty")}</p>
+            <p className="text-sm font-medium text-foreground mt-3">
+              {emptyState === "answering"
+                ? t("app.receptionist.emptyAnswering")
+                : emptyState === "switched_off"
+                  ? t("app.receptionist.emptyOff")
+                  : t("app.receptionist.empty")}
+            </p>
             <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-              {t("app.receptionist.emptyHint")}
+              {emptyState === "answering"
+                ? t("app.receptionist.emptyAnsweringHint")
+                : emptyState === "switched_off"
+                  ? t("app.receptionist.emptyOffHint")
+                  : t("app.receptionist.emptyHint")}
             </p>
             <Link
               href="/app/settings/voice"
               className="inline-block mt-4 px-5 py-2.5 rounded-full bg-inverted text-inverted-foreground text-sm font-semibold"
             >
-              {t("app.receptionist.setUpCta")}
+              {emptyState === "answering"
+                ? t("app.receptionist.checkItCta")
+                : emptyState === "switched_off"
+                  ? t("app.receptionist.turnOnCta")
+                  : t("app.receptionist.setUpCta")}
             </Link>
           </div>
         }

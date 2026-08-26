@@ -76,8 +76,39 @@ export async function GET(request) {
     where: { companyId: member.companyId, needsReview: true, reviewedAt: null },
   });
 
+  // ── Is it set up, and is it switched on? ─────────────────────────────────
+  //
+  // The empty state used to offer "Set it up" to anyone with no calls, which is
+  // most of the reason this page exists to answer. A company whose receptionist
+  // is bought, configured and answering — and has simply had a quiet week, or,
+  // as tonight, has had every delivery rejected at the door — was told to go and
+  // set up the thing they had already set up.
+  //
+  // Two cheap booleans, no provider call. Not sensitive: whether a company has a
+  // phone number and whether it is switched on is not something a member of that
+  // company should be kept from.
+  const [heldCount, voiceAgent] = await Promise.all([
+    db.voicePhoneNumber.count({
+      where: {
+        companyId: member.companyId,
+        status: { in: ["provisioning", "active", "porting"] },
+      },
+    }),
+    db.voiceAgent.findUnique({
+      where: { companyId: member.companyId },
+      select: { enabled: true },
+    }),
+  ]);
+
   return NextResponse.json({
     pending,
+    setup: {
+      hasNumber: heldCount > 0,
+      // Three states, not two: no number at all, a number with the receptionist
+      // switched off, and running-but-quiet. Each needs a different sentence,
+      // and collapsing them is what produced the wrong one.
+      answering: heldCount > 0 && Boolean(voiceAgent?.enabled),
+    },
     // Whether the "draft a quote from this call" button can do anything.
     // OPENAI_API_KEY is Sensitive in Vercel and absent in local dev, so this is
     // genuinely false some of the time — and a button that is always going to
