@@ -868,6 +868,35 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The cancel screen was promising a month it does not give.
+  `app/app/settings/account-billing/CancelFlow.js`,
+  `lib/billing/cancelConsequences.js`,
+  `app/api/settings/subscription/consequences/route.js`,
+  `scripts/check-cancel-consequences.mjs`.**
+
+  It said "You've paid to <date>, so you keep working normally until then."
+  `cancelSubscription()` is `stripe.subscriptions.cancel()` with no
+  `cancel_at_period_end` — the subscription ends on the button press,
+  `customer.subscription.deleted` stamps `canceledAt: now`, and `accessFor()`
+  returns `readonly` from that second. The remainder of the paid month is not
+  refunded. So the screen now says it ends now, and names the date only as the
+  thing that is not refunded.
+
+  Everything else on that screen is read off the company's own rows and shown
+  only when the count is non-zero, because a warning that lists a phone number
+  you haven't got teaches people to skip warnings. What cancelling really does:
+  the number is **not** released (`/api/cron/voice-rent` selects on
+  `VoicePhoneNumber.status` alone, so rent keeps draining the prepaid balance and
+  the number is released for good once it runs dry); auto top-up keeps charging
+  the contractor's card; service plans keep charging the *clients'* cards;
+  nothing is deleted anywhere; and every client-facing link — `/q`, `/portal`,
+  `/book`, `/site`, `/embed` — keeps working, because the billing gate lives in
+  `getCurrentMember` and no public path calls it. That last part is the owner's
+  ruling, not an accident.
+
+  The decision of which warnings apply is a pure function so it can be executed;
+  the check asserts the *module* that performs each consequence, not the wording.
+
 - **Two clicks, two phone numbers, two $4 charges — the buy route's duplicate
   guard is now a transaction. `app/api/settings/voice/number/route.js`,
   `lib/voice/spendGate.js`, `scripts/check-voice-number-race.mjs`.**

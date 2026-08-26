@@ -51,6 +51,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { CANCELLED_DAYS } from "@/lib/billing/access";
 import { HELD_STATUSES } from "@/lib/voice/numberRelease";
+import { RENT_GRACE_DAYS } from "@/lib/voice/spendGate";
 import { balanceFor } from "@/lib/voice/credits";
 import { isChargeable } from "@/lib/servicePlans/authorisation";
 
@@ -116,6 +117,10 @@ export async function GET(request) {
       monthlyCents: n.monthlyCents ?? 0,
     })),
     voiceCreditCents: creditCents,
+    // How long the number survives once the credit can no longer cover the
+    // rent. Imported rather than restated: a second copy of "7" here would be
+    // the one that rots the day the grace period changes.
+    rentGraceDays: RENT_GRACE_DAYS,
     autoTopup: {
       // `enabled` alone is what the cron filters on, so `enabled` alone is what
       // is reported. A row armed with a saved card is worse news and is said

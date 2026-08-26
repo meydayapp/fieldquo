@@ -21,16 +21,46 @@
 //
 //   1. Why are you leaving?          → "Cancel anyway" works, first click
 //   2. Here's what might help        → "No thanks, cancel" works, first click
-//   3. Confirm — and when it ends    → this is the only irreversible one
+//   3. Confirm — what actually happens, then the button
 //
 // A save flow you can't get out of is why people call their bank instead of
 // clicking your button, and a chargeback costs several times the month you were
 // trying to keep. So the escape is on every screen, in plain words, never
 // greyed out and never behind a "type CANCEL to confirm".
+//
+// ══ Screen three tells the truth, and it is NOT a fourth screen ════════════
+//
+// The consequences live ON the confirm screen rather than in a step of their
+// own, deliberately. A company that wants to leave still gets there in the same
+// number of clicks it took yesterday — informed consent, not friction. Adding a
+// gate would be the dark pattern this file's header spends twenty lines arguing
+// against, and it would push people to their bank instead.
+//
+// ══ Every sentence is a fact about code, and it used to be wrong ═══════════
+//
+// This screen previously said: "You've paid to <date>, so you keep working
+// normally until then." That was false in both halves.
+// app/api/platform/billing/cancel/route.js calls cancelSubscription(), which is
+// `stripe.subscriptions.cancel()` with no cancel_at_period_end — Stripe ends
+// the subscription THERE AND THEN, fires customer.subscription.deleted, and
+// lib/platform/stripeBilling.js writes status:"canceled" with canceledAt=now.
+// accessFor() in lib/billing/access.js then returns `readonly` immediately. So
+// the contractor lost write access the moment they pressed a button that had
+// just promised them the rest of the month, and the remainder is not refunded.
+//
+// Everything else on this screen is read from /api/settings/subscription/
+// consequences, which counts the company's OWN rows. A warning that lists a
+// phone number you don't have, or clients' cards you never saved, teaches
+// people to skip warnings. So each block renders only when its count is real.
+//
+// scripts/check-cancel-consequences.mjs asserts the modules named above still
+// do these things — it tests the code, not the wording, because asserting on
+// wording only ever proves the wording did not change.
 
 import { useEffect, useState } from "react";
-import { Loader2, X, ArrowLeft, Check } from "lucide-react";
+import { Loader2, X, ArrowLeft, Check, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { consequenceItems } from "@/lib/billing/cancelConsequences";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const REASONS = [
@@ -47,6 +77,72 @@ const REASONS = [
 const money = (n) =>
   `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
+/** Cents, with the cents shown — these are $4.00 rentals, not $18,000 of won work. */
+const cents = (c) =>
+  `$${(Number(c || 0) / 100).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+/**
+ * One consequence, in words.
+ *
+ * WHICH items appear is decided by consequenceItems() in
+ * lib/billing/cancelConsequences.js, which is pure and executed by
+ * scripts/check-cancel-consequences.mjs. This function only turns a decided
+ * item into a sentence — split that way so the decision can be checked without
+ * rendering React, which is the reason nobody ever checked the chain of `&&`
+ * this replaced.
+ *
+ * The keys are written as literals rather than built from item.key, because
+ * check-translations.mjs scans source for `"app.*"` literals and a computed key
+ * is invisible to it — an undefined key would then render as its own name on a
+ * screen somebody reads once, in the worst minute of their relationship with us.
+ */
+function itemText(item, t) {
+  switch (item.key) {
+    case "numberKept":
+      return t("app.cancelFlow.numberKept", "{number} is not handed back. We keep renting it and {amount} a month keeps coming out of your phone credit — {balance} left. Once the credit can't cover it you get {days} days' notice and then the number is released for good, and it can't be got back. Release it yourself first if you'd rather pick the moment.", {
+        number: item.number,
+        amount: cents(item.monthlyCents),
+        balance: cents(item.balanceCents),
+        days: item.days,
+      });
+    case "creditNoRefund":
+      return t("app.cancelFlow.creditNoRefund", "The {balance} of phone credit you've already bought isn't refunded.", {
+        balance: cents(item.balanceCents),
+      });
+    case "autoTopupArmed":
+      return t("app.cancelFlow.autoTopupArmed", "Automatic phone-credit top-ups stay switched on, so your saved card is still charged {amount} whenever the balance runs low. Switch it off first if you don't want that.", {
+        amount: cents(item.amountCents),
+      });
+    case "autoTopupOn":
+      return t("app.cancelFlow.autoTopupOn", "Automatic phone-credit top-ups stay switched on. Switch them off first if you don't want them running after you've gone.");
+    case "servicePlansRun":
+      return t("app.cancelFlow.servicePlansRun", "{count} service plans keep running. Invoices keep going out and your clients' saved cards keep being charged on schedule. Cancel the plans first if that isn't what you want.", {
+        count: item.count,
+      });
+    case "unpaidInvoices":
+      return t("app.cancelFlow.unpaidInvoices", "{count} invoices are still unpaid — {amount} in total. Your clients can still pay them, but once you're read-only you can't edit, re-send or chase them.", {
+        count: item.count,
+        amount: money(item.amountDue),
+      });
+    case "heldBookings":
+      return t("app.cancelFlow.heldBookings", "{count} bookings are still waiting on a visit fee. Those settle or expire on their own.", {
+        count: item.count,
+      });
+    case "siteStaysLive":
+      return t("app.cancelFlow.siteStaysLive", "Your website and booking page stay live, so new booking requests keep arriving — and after {days} days you won't be able to open the account to see them. A small “Site by FieldQuo” line also comes back to the footer then. Unpublish the site first if you'd rather it went quiet.", {
+        days: item.days,
+      });
+    // No default sentence. An item this function does not know is a key added
+    // to cancelConsequences.js without wording, and rendering nothing is the
+    // honest outcome — the check script fails the build for it separately.
+    default:
+      return null;
+  }
+}
+
 export default function CancelFlow({ open, onClose, onCancelled, periodEnd, formatDate }) {
   const { t } = useTranslation();
   const [step, setStep] = useState("why");
@@ -55,6 +151,7 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
   const [offers, setOffers] = useState([]);
   const [cooldown, setCooldown] = useState(null);
   const [value, setValue] = useState(null);
+  const [what, setWhat] = useState(null);
   const [busy, setBusy] = useState(false);
   const [accepted, setAccepted] = useState(null);
 
@@ -67,9 +164,23 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
       .then((r) => (r.ok ? r.json() : null))
       .then(setValue)
       .catch(() => {});
+
+    // The per-company consequences. Also silent on failure, and the confirm
+    // screen below falls back to only the sentences that are true for EVERY
+    // company — which is the safe direction: a company that cannot be told
+    // about its phone number still must not be told it hasn't got one.
+    fetch("/api/settings/subscription/consequences")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setWhat)
+      .catch(() => {});
   }, [open]);
 
   if (!open) return null;
+
+  // Decided in lib/billing/cancelConsequences.js, not here. `what` being null
+  // — the fetch failed, or has not landed — yields an empty list, so the screen
+  // shows the three universal sentences and claims nothing it cannot support.
+  const items = consequenceItems(what);
 
   async function chooseReason(key) {
     setReason(key);
@@ -258,25 +369,75 @@ export default function CancelFlow({ open, onClose, onCancelled, periodEnd, form
         {/* ── 3. Confirm ─────────────────────────────────────────────────── */}
         {step === "confirm" && (
           <div className="p-5 space-y-4">
+            {/* ── When ─────────────────────────────────────────────────────
+                Immediate, because cancelSubscription() is
+                stripe.subscriptions.cancel() with no cancel_at_period_end.
+                The date is still shown when we have it, but as the thing that
+                is NOT refunded rather than as a promise of time left. */}
             <p className="text-sm text-foreground">
-              {periodEnd ? (
+              <strong>
+                {t("app.cancelFlow.endsNow", "Your plan ends the moment you press the button below — not at the end of the month.")}
+              </strong>
+              {periodEnd && (
                 <>
+                  {" "}
                   {/* The COMPANY's date format, not toLocaleDateString().
                       "8/29/2026" is ambiguous to anyone outside the US, and
                       formatDate is what every other date in the product uses —
                       a cancellation screen is the worst place to show someone a
                       date they have to decode. */}
-                  {t("app.cancelFlow.paidTo", "You've paid to")}{" "}
-                  <strong>{formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString()}</strong>{t("app.cancelFlow.paidToRest", ", so you keep working normally until then. Nothing is charged after that.")}
+                  {t("app.cancelFlow.paidToNoRefund", "You've paid to {date}, and the rest of that isn't refunded.", {
+                    date: formatDate ? formatDate(periodEnd) : new Date(periodEnd).toLocaleDateString(),
+                  })}
                 </>
-              ) : (
-                <>{t("app.cancelFlow.planWillStop", "Your plan will stop at the end of the period you've paid for.")}</>
               )}
             </p>
 
-            <p className="text-sm text-muted-foreground">
-              {t("app.cancelFlow.dataStays", "Your quotes, clients, jobs and invoices stay in your account. Nothing is deleted, and turning the plan back on brings it all back.")}
-            </p>
+            {/* ── What happens ─────────────────────────────────────────────
+                Three sentences that are true for every company, so they render
+                even when the consequences fetch failed. Two of the three are
+                reassuring on purpose: an honest warning includes what you do
+                NOT lose, and "nothing is deleted" is the single most useful
+                fact on this screen. */}
+            <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-5">
+              <li>
+                {t("app.cancelFlow.youReadOnly", "You can still open FieldQuo and read everything for {days} days, but not change anything. After that it stays shut until you start the plan again.", {
+                  days: what?.readOnlyDays ?? 30,
+                })}
+              </li>
+              <li>
+                {t("app.cancelFlow.clientLinksLive", "Your clients keep every link you've already sent them — quotes, the client portal, invoice payment pages. Those still open, and anything they pay still reaches your Stripe account.")}
+              </li>
+              <li>
+                {t("app.cancelFlow.nothingDeleted", "Nothing is deleted. Your quotes, clients, jobs, invoices and photos stay exactly as they are, and starting the plan again gives you all of it back.")}
+              </li>
+            </ul>
+
+            {/* ── Only what is actually true of THIS company ───────────────
+                Every item below is a non-zero count from their own rows. A
+                warning that lists a phone number you haven't got is how people
+                learn to skip warnings.
+
+                The heading is not decoration: cancelling makes the account
+                read-only immediately (denyReason in lib/billing/access.js), so
+                releasing a number, cancelling a service plan or unpublishing a
+                site all become impossible AFTER this button. Doing them first
+                is the only order that works. */}
+            {items.length > 0 && (
+              <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4">
+                <div className="flex gap-2">
+                  <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    {t("app.cancelFlow.doFirst", "Sort these out first — the account goes read-only the moment you cancel, so you won't be able to afterwards.")}
+                  </p>
+                </div>
+                <ul className="mt-2 space-y-2 text-sm text-amber-900 dark:text-amber-200 list-disc pl-5">
+                  {items.map((item, i) => (
+                    <li key={`${item.key}-${item.number || i}`}>{itemText(item, t)}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Free text, after the multiple choice rather than instead of it.
                 The tick-box answer is comparable across companies; this is where
