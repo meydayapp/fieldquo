@@ -4,10 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { finalizeBooking } from "@/lib/booking/finalizeBooking";
 import { recordStripePayment } from "@/lib/invoices/recordStripePayment";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
-import { recordAuthorisationFromSession } from "@/lib/servicePlans/authorisation";
+import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 
 // Record an invoice payment from a completed/settled checkout session.
 //
@@ -26,8 +25,22 @@ async function recordInvoicePayment(session) {
   });
 }
 
-// Handles Connect events (company payment setup + invoice payments) — a SEPARATE
-// webhook endpoint/secret from the Billing webhook. Never combine these two.
+// FieldQuo's Connect-integration webhook: its own endpoint and its own signing
+// secret, distinct from the Billing webhook.
+//
+// The name is a trap, and it cost five bookings. STRIPE_CONNECT_WEBHOOK_SECRET
+// is named for the Connect *integration*, not for connected-account *events* —
+// but if this endpoint is registered in the Stripe dashboard as a "Connect"
+// endpoint, it receives events from connected accounts ONLY. Every payment
+// FieldQuo takes on a client's behalf is a DESTINATION charge created on the
+// PLATFORM account (lib/stripe.js, `{ stripeAccount: undefined }`), so those
+// events are platform events and never reach a Connect endpoint at all.
+//
+// The two routes are still separate endpoints with separate secrets — that part
+// was always right. What changed is that neither of them assumes which kind of
+// session it will be handed: both dispatch through settleCheckoutSession, which
+// routes on metadata. See lib/stripe/settleCheckoutSession.js for the full
+// story.
 export async function POST(request) {
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -61,95 +74,19 @@ export async function POST(request) {
 
     case "checkout.session.completed": {
       const session = event.data.object;
-      const { invoiceId, bookingId, servicePlanId } = session.metadata || {};
 
-      // ── A service plan authorisation ─────────────────────────────────────
-      //
-      // Setup mode: NO money moved. The client has just saved a payment method
-      // with a mandate. There is no separate "setup completed" event type —
-      // Checkout reports every finished session here, and `mode` is what tells
-      // them apart, so this branch must come before anything that assumes a
-      // payment.
-      //
-      // The return redirect calls the same helper, so whichever gets there
-      // first wins and the other is a no-op (the row is keyed on planId).
-      if (session.mode === "setup" && servicePlanId) {
-        await recordAuthorisationFromSession(servicePlanId, session.id);
-        break;
-      }
-
-      // A paid booking VISIT FEE cleared: turn the held slot into a real
-      // appointment, record the fee, confirm, and finalise (email/consent/
-      // reminder). Idempotent — a re-delivered event finds the booking already
-      // confirmed and does nothing.
-      if (bookingId) {
-        const held = await db.booking.findUnique({
-          where: { id: bookingId },
-          include: { eventType: { include: { company: true } } },
-        });
-        if (held && held.status === "pending_payment" && held.eventType) {
-          const company = held.eventType.company;
-          const eventType = held.eventType;
-
-          let client = await db.client.findFirst({
-            where: { companyId: company.id, email: held.clientEmail },
-          });
-          if (!client) {
-            client = await db.client.create({
-              data: {
-                companyId: company.id,
-                name: held.clientName,
-                email: held.clientEmail,
-                phone: held.clientPhone || null,
-              },
-            });
-          }
-
-          const appointment = await db.appointment.create({
-            data: {
-              companyId: company.id,
-              clientId: client.id,
-              scheduledAt: held.startTime,
-              location: held.address || eventType.location || null,
-              ...(held.latitude != null &&
-                held.longitude != null && {
-                  latitude: held.latitude,
-                  longitude: held.longitude,
-                }),
-              status: "scheduled",
-              createdById: eventType.userId,
-              assignedToId: eventType.userId,
-            },
-          });
-
-          const confirmed = await db.booking.update({
-            where: { id: held.id },
-            data: {
-              status: "confirmed",
-              appointmentId: appointment.id,
-              feePaidCents: session.amount_total || 0,
-              feeCurrency: session.currency || null,
-              feeStripePaymentIntentId: session.payment_intent || null,
-            },
-          });
-
-          await finalizeBooking({
-            company,
-            eventType,
-            booking: confirmed,
-            clientId: client.id,
-          });
-        }
-        break;
-      }
-
-      // Only record a payment here for SYNCHRONOUS methods (card), which are
-      // already `paid` at completion. An asynchronous method (Affirm, and other
-      // delayed-notification methods) completes the session as `unpaid`/
-      // `processing` and only settles later via async_payment_succeeded —
-      // recording it now would mark an unsettled invoice paid.
-      if (invoiceId && session.payment_status === "paid") {
-        await recordInvoicePayment(session);
+      // Booking fee, invoice payment or service-plan authorisation — whichever
+      // it is, one shared settler decides, and every branch is idempotent.
+      const { handled } = await settleCheckoutSession(session);
+      if (!handled) {
+        // A subscription checkout reaching the Connect endpoint would mean the
+        // dashboard routing is inverted. Say so rather than dropping it: silence
+        // here is what made the original bug invisible for five bookings.
+        console.warn(
+          "[stripe] unrecognised checkout session on the Connect endpoint:",
+          session.id,
+          JSON.stringify(session.metadata || {}),
+        );
       }
       break;
     }

@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
+import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
 import { recordError } from "@/lib/platform/errorLog";
 
 // Raw body required for Stripe signature verification — Next.js needs the request
@@ -24,6 +25,48 @@ export async function POST(request) {
       { error: `Webhook signature verification failed: ${err.message}` },
       { status: 400 },
     );
+  }
+
+  // ── Not every completed session here is a subscription ────────────────────
+  //
+  // This is the PLATFORM endpoint, and every payment FieldQuo takes on a
+  // contractor's behalf is a destination charge created on the platform account
+  // (lib/stripe.js, `{ stripeAccount: undefined }`). So booking visit fees and
+  // invoice payments land HERE, not on the Connect endpoint that was written to
+  // handle them — and this handler used to read every one of them as a failed
+  // subscription sync. A real $50 visit fee was taken, logged as
+  // "a payment may have succeeded with no Subscription row", answered 200, and
+  // the booking held a slot for ever with no record of the money.
+  //
+  // So: place the session first, and only fall through to the subscription
+  // handler when it is genuinely not one of the client-facing payments. This
+  // does NOT merge the two webhooks — separate endpoints, separate secrets, as
+  // before. It stops each one assuming which kind of session Stripe will hand
+  // it, because that assumption is not ours to make.
+  if (event.type === "checkout.session.completed") {
+    try {
+      const { handled, kind } = await settleCheckoutSession(event.data.object);
+      if (handled) {
+        return NextResponse.json({ received: true, settled: kind });
+      }
+    } catch (err) {
+      // A settlement that failed IS worth retrying — the money is real and the
+      // booking or invoice is still waiting on it. 500 asks Stripe to redeliver;
+      // the hourly reconciler is the backstop if it never does.
+      await recordError({
+        area: "billing-webhook",
+        code: "settle_checkout_session",
+        message: `Settling checkout session failed: ${err?.message}`,
+        companyId: event?.data?.object?.metadata?.companyId || null,
+        detail: {
+          eventId: event?.id,
+          sessionId: event?.data?.object?.id || null,
+          metadata: event?.data?.object?.metadata || null,
+          needsManualReconciliation: true,
+        },
+      });
+      return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
+    }
   }
 
   // syncSubscriptionFromStripeEvent throws when a checkout session arrives with

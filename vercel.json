@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/service-plans",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/booking-fees",
+      "schedule": "15 * * * *"
     }
   ]
 }

@@ -34,6 +34,42 @@ Still outstanding at the time of writing: the Retell keys, both Stripe webhook
 secrets, `GOOGLE_MAPS_SERVER_KEY`, `CRON_SECRET`, the two JWT secrets, the
 `*.fieldquo.com` wildcard domain, three secrets to rotate, and the Resend DNS.
 
+**Stripe webhook endpoints — check which ONE is registered as a Connect
+endpoint (owner action).** A booking visit fee, an invoice payment and a voice
+top-up are all DESTINATION charges: the Checkout Session is created on the
+PLATFORM account (`lib/stripe.js`, `{ stripeAccount: undefined }`) and the money
+is transferred to the company. Their `checkout.session.completed` is therefore a
+PLATFORM event, and a Stripe endpoint registered as a **Connect** endpoint
+receives events from connected accounts ONLY — it never sees them.
+
+`/api/stripe/webhook` is currently registered as a Connect endpoint
+(`application: ca_…`), which is why every booking fee ever paid went to
+`/api/platform/billing/webhook` instead, failed subscription sync, and was
+logged in `/platform/errors` as "a payment may have succeeded with no
+Subscription row". The env var name is the trap:
+`STRIPE_CONNECT_WEBHOOK_SECRET` names FieldQuo's Connect *integration*, not
+connected-account *events*.
+
+The code no longer depends on getting this right — both routes dispatch through
+`lib/stripe/settleCheckoutSession.js`, and `/api/cron/booking-fees` reconciles
+against Stripe hourly regardless. Fixing the dashboard just makes it instant:
+
+1. Stripe → Developers → Webhooks. Do this in **both test and live mode** —
+   they are separate endpoints with separate signing secrets.
+2. Add (or convert) an endpoint for `https://www.fieldquo.com/api/stripe/webhook`
+   in the **"Events on your account"** category, NOT "Events on connected
+   accounts". Subscribe it to `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`, `payment_intent.succeeded`,
+   `payment_intent.payment_failed`.
+3. `account.updated` genuinely IS a connected-account event, so keep a Connect
+   endpoint subscribed to that one.
+4. Put each endpoint's signing secret in the matching Vercel env var, and check
+   the mode matches: a `sk_test_` key produces test events, which are delivered
+   only to test-mode endpoints. A live-mode secret in
+   `STRIPE_CONNECT_WEBHOOK_SECRET` fails every test payment with a signature
+   error and nothing else.
+
 **Cloudinary — "Allow delivery of PDF and ZIP files" (owner action, unverified).**
 Cloudinary blocks PDF _delivery_ on new and free accounts. The upload returns
 200 and the asset appears in the Media Library; the delivery URL then returns
@@ -437,6 +473,117 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **The Calendar shows your own day amalgamated, and your crew's separately.**
+
+  `lib/schedule/teamScope.js` is the resolver and the only place the rule
+  lives: `ownScheduleFilter()` builds the own-list `where` for all three
+  sources on `/api/appointments` (Appointment, JobVisit and now Booking — three
+  copies of one ternary became one builder), and `resolveTeamScope()` /
+  `canViewMemberSchedule()` decide list 2. `/api/schedule/team` is the new
+  endpoint; the panel is at the foot of `/app/appointments`.
+
+  **The team list is gated by RBAC, not by job title**, and by two things at
+  once: `can(role, "user:view")` — the same coarse gate `/api/team/schedules`
+  already used, so nothing became visible that wasn't — AND
+  `hasLevel(member, "schedule", "edit_all")`, the first schedule level meaning
+  "everyone" under the existing `_all` convention. A supervisor dialled down to
+  `view_own` loses the data, not just the heading; an employee handed
+  `edit_delete_all` still gets nothing, because the coarse floor holds
+  independently. The gate runs before the query, so a refused caller never
+  causes the rows to be read.
+
+  "Who reports to me" reuses `Worker.managerId` and
+  `reportsUnder()` from `lib/org/reportingLine.js` — the org chart leave
+  approval already walks — rather than inventing a second notion of seniority.
+  Most companies never draw one, so `basis` reports which answer you got:
+  `reporting_line` when a chart exists, `company` when it doesn't (owners and
+  admins always get `company`; they hold `*`). The screen labels the list from
+  `basis` instead of claiming a reporting line nobody entered.
+
+  Bookings joined the calendar as a third source, excluded when
+  `appointmentId` is set so a converted booking never appears twice — a floor
+  under the booking→appointment conversion rather than a second copy of it, and
+  correct whichever way that conversion behaves. `pending_payment` holds are
+  deliberately NOT on the calendar; they belong to `AwaitingPayment.js`.
+
+  `npm run check:team-calendar` — 104 assertions, executed against a fixture
+  company with a drawn org chart (owner, admin, two peer managers, an
+  estimator, a worker) plus a second company that exists only to be refused.
+  It asserts peers are excluded, that removing the permission removes the rows,
+  and that forged / `__proto__` / null member ids are refused. It found that
+  `can("__proto__", …)` threw a TypeError instead of denying — `PERMISSIONS`
+  was indexed bare, so a prototype key returned `Object.prototype` — now fixed
+  in `lib/permissions.js`.
+
+- **A paid booking is confirmed by three independent paths, and a held one is
+  visible.**
+
+  `lib/booking/settleBookingFee.js` (the one place a paid fee becomes an
+  Appointment, idempotent via a conditional `updateMany`),
+  `lib/stripe/settleCheckoutSession.js` (metadata-routed dispatch, called by
+  BOTH webhook routes so neither has to guess which one Stripe will deliver to),
+  `lib/booking/reconcileBookingFee.js` + `/api/cron/booking-fees` (hourly:
+  settles a payment the webhook lost, cancels a lapsed hold with a reason,
+  never cancels on a Stripe outage), `/api/booking/[companySlug]/settle` (the
+  client's return from Checkout, verified against Stripe rather than a query
+  flag), and `app/components/dashboard/AwaitingPayment.js` (the only screen a
+  `pending_payment` booking appears on, with a Check-with-Stripe button gated on
+  `user:manage`).
+
+  Found because a $50 visit fee was paid and the booking stayed
+  `pending_payment` with no Appointment, on no screen, for ever, while the page
+  said "Payment received — your visit is confirmed". Two lessons worth keeping:
+  a destination charge is a PLATFORM event whatever the endpoint is called, and
+  a system that depends on a webhook needs a way to notice one that never
+  arrived. `npm run check:booking-fee` executes the whole state machine.
+
+- **Painting priced the way a painting estimator prices: by area, then by
+  substrate, from production rates and coverage.**
+
+  `lib/pricing/paintTakeoff.js` (the whole engine and every rate, with its
+  provenance), the `takeoff:` block on both painting books in
+  `app/data/tradePriceBooks.js`, `buildPaintAreas` / `tradeOptionalExtras` in
+  `lib/pricing/tradeScope.js`, `paintingMaterials` in
+  `lib/costing/tradeMaterials.js`, `lib/quotes/takeoffAddOns.js`,
+  `app/components/quotes/builder/PaintAreas.js`,
+  `scripts/check-paint-takeoff.mjs`.
+
+  An area is a room measured L × W × H (wall area is GROSS — openings are not
+  deducted, which is standard practice and what every rate was recovered
+  against). Inside it, substrates — ceiling, walls, baseboard, door sides,
+  frames, closets — each carry a production rate and a coverage, so the takeoff
+  answers **how long** and **how much paint** instead of only **how much**.
+
+  **Every default rate was recovered from the owner's own completed jobs**, one
+  interior and one exterior, by solving his invoice lines backwards. The check
+  script reproduces both to the cent and fails the build if any rate moves —
+  they look like round numbers somebody could tidy and they are not. Rates his
+  jobs never exercised are labelled ANALOGUE with the multiple stated.
+
+  Three things worth copying:
+
+  1. **Substrates and area types are KEYED MAPS.** `getPriceBook`'s mergeDeep
+     replaces arrays wholesale, so as an array a company overriding one rate
+     would discard every other. The legacy `interior_painting.roomTypes` array
+     beside it still has that bug and now carries a comment saying so.
+  2. **Hours are hours.** The engine emits hours and multiplies by the hourly
+     SELL rate ($85 interior / $80 exterior) exactly once, for the client's
+     side. `lib/costing/` takes the same hours against the burdened COST rate.
+     Interior painting used to report 0 predicted hours, so its margin figure
+     was labour-blind; it no longer is, and it is no longer paint-blind either.
+  3. **Rounding ORDER.** Gallons ceil per substrate when rounding is on, and
+     stay fractional and roll up per PRODUCT when it is off. Money uses what
+     the room consumed; the buy list uses the tins. On a house those differ by
+     a trip to the store.
+
+  Optional areas and substrates are real: they leave the priced scope and come
+  back as `QuoteAddOn` rows, so unticking one changes the total on the document
+  the client signs. Nothing renders the checkbox that does not.
+
+  Existing painting quotes are untouched. A stored takeoff with no `model` key
+  keeps pricing off the complexity grid, forever; only new ones carry
+  `model: "area_substrate"`.
 
 - **The receptionist's knowledge base, drafted from the company profile.**
 

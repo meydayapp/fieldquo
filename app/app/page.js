@@ -17,6 +17,7 @@ import {
 import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
+import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 export default function DashboardPage() {
@@ -227,6 +228,11 @@ export default function DashboardPage() {
           {t("app.dash.scheduleAppointment")}
         </Link>
       </div>
+
+      {/* Bookings held for a visit fee that hasn't landed. They have no
+          Appointment by design, so they appear on no calendar — this is the one
+          place they are visible at all. Renders itself away when empty. */}
+      <AwaitingPayment />
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-xl overflow-hidden">

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { findBookingCompany } from "@/lib/booking/findBookingCompany";
 import { geocodeAddress } from "@/lib/measure/roofMeasurement";
 import { finalizeBooking } from "@/lib/booking/finalizeBooking";
-import { effectiveBookingFeeCents } from "@/lib/booking/fee";
+import { effectiveBookingFeeCents, feeHoldCutoff } from "@/lib/booking/fee";
 import { createBookingFeeCheckoutSession } from "@/lib/stripe";
 import { getAppOrigin } from "@/lib/appUrl";
 
@@ -47,9 +47,15 @@ export async function POST(request, { params }) {
 
   // Re-check for a conflict right before booking (another visitor may have taken
   // it). Includes recent pending_payment holds so two people can't both be sent
-  // to pay for the same slot; a hold older than 30 minutes is treated as
+  // to pay for the same slot; a hold older than FEE_HOLD_MINUTES is treated as
   // abandoned and no longer blocks.
-  const holdSince = new Date(Date.now() - 30 * 60 * 1000);
+  //
+  // The window is shared with the sentence the booking page shows the client
+  // ("your time is held for 30 minutes") and with the reconciler that cancels a
+  // lapsed hold — see lib/booking/fee.js. Note the lapsed hold stops BLOCKING
+  // here but is not cleared here; the hourly reconciler is what actually decides
+  // whether it was paid and closes the row out either way.
+  const holdSince = feeHoldCutoff();
   const conflict = await db.booking.findFirst({
     where: {
       eventType: { userId: eventType.userId },
@@ -150,9 +156,14 @@ export async function POST(request, { params }) {
   if (feeCents > 0) {
     // PAID: hold the slot with a pending_payment booking and send the client to
     // Stripe. Deliberately NO appointment yet — an unpaid appointment must not
-    // appear on the crew's calendar. The webhook (metadata.bookingId) creates
-    // the appointment, records the fee, flips to confirmed, and finalises once
-    // payment lands.
+    // appear on the crew's calendar.
+    //
+    // The appointment is created by lib/booking/settleBookingFee.js once the
+    // money lands, and THREE things can trigger that: the Stripe webhook, the
+    // client's own return from Checkout, and the hourly reconciler. It used to
+    // be the webhook alone, which is how five bookings came to hold slots for
+    // payments the app had no record of — a system that depends on a webhook and
+    // cannot detect its absence has no way to tell "not paid" from "not told".
     if (!company.stripeAccountId) {
       return NextResponse.json(
         { error: "This company can't collect the booking fee yet." },
@@ -182,9 +193,27 @@ export async function POST(request, { params }) {
         company,
         label: `${eventType.name} — visit fee`,
         amountCents: feeCents,
-        successUrl: `${origin}/book/${companySlug}?booked=1`,
+        // {CHECKOUT_SESSION_ID} is substituted by Stripe on the redirect. It
+        // used to be a bare `?booked=1`, which the page turned straight into
+        // "Payment received — your visit is confirmed" having verified nothing
+        // at all: the same screen appeared whether the webhook had confirmed the
+        // booking, had never arrived, or had never been routed to us. The client
+        // now returns with something the server can check.
+        successUrl: `${origin}/book/${companySlug}?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${origin}/book/${companySlug}?payment_cancelled=1`,
       });
+
+      // Stored so reconciliation can run FROM our side. Stripe already knew
+      // which booking the session was for; we did not know which session the
+      // booking was waiting on, which is why a webhook that never arrived left
+      // no thread to pull. Best-effort — the checkout is already live, and the
+      // reconciler falls back to scanning by metadata if this write is lost.
+      await db.booking
+        .update({ where: { id: held.id }, data: { feeCheckoutSessionId: session.id } })
+        .catch((err) =>
+          console.error("[booking] couldn't store checkout session id:", err?.message),
+        );
+
       return NextResponse.json({
         requiresPayment: true,
         checkoutUrl: session.url,

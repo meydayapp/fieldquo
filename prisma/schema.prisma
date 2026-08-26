@@ -3032,6 +3032,26 @@ model Booking {
   feeStripePaymentIntentId String?
   feeCreditedInvoiceId     String?
 
+  // The Stripe Checkout Session this hold was sent to.
+  //
+  // Stripe already carries the link the other way (session.metadata.bookingId),
+  // and for a long time that was the only link there was — which is precisely
+  // why a webhook that never arrived was undetectable. Reconciliation has to run
+  // FROM our side: "this booking says it is waiting for money, what does Stripe
+  // say about it?" is a question that cannot be asked without this column.
+  // See lib/booking/reconcileBookingFee.js.
+  //
+  // Nullable: holds created before this existed have none, and the reconciler
+  // falls back to scanning Stripe around createdAt for them.
+  feeCheckoutSessionId     String?
+
+  // Why this booking is cancelled, when something other than a person cancelled
+  // it. Today the only writer is the reconciler, stamping "payment_incomplete"
+  // on a hold whose checkout was abandoned — read by the awaiting-payment panel
+  // so a contractor sees "payment wasn't completed" rather than a slot that
+  // silently evaporated.
+  cancelReason             String?
+
   createdAt     DateTime      @default(now())
   /// Where the visit is. Collected from the client at booking time for
   /// in-person modes, and geocoded once so the scheduler can work out whether

@@ -193,20 +193,62 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
     };
   }, [companySlug, initialEventSlug]);
 
-  // Returned from the Stripe checkout for a paid visit fee — the webhook has
-  // confirmed the booking. Show a thank-you (the fresh page load has no form
-  // state, so the message is generic) and strip the param.
+  // Returned from the Stripe checkout for a paid visit fee.
+  //
+  // This used to read a bare `?booked=1` and print "Payment received — your
+  // visit is confirmed" on the strength of it, having verified nothing. That
+  // sentence was true only if the webhook had already run; when the webhook was
+  // being delivered to an endpoint that dropped it, the homeowner was told their
+  // visit was confirmed while the booking sat unpaid-looking and invisible on
+  // every screen the contractor had.
+  //
+  // So ask. Stripe substitutes the real session id into the success URL, and
+  // /settle checks it against Stripe and confirms the booking there and then.
+  // The screen says what came back, and nothing more.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search);
-    if (p.get("booked") === "1") {
-      setConfirmed({ paid: true });
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (p.get("payment_cancelled") === "1") {
+    const sessionId = p.get("session_id");
+
+    if (p.get("payment_cancelled") === "1") {
       setSubmitError("Payment was cancelled — your time wasn't booked. You can try again.");
       window.history.replaceState({}, "", window.location.pathname);
+      return;
     }
-  }, []);
+    if (!sessionId) return;
+
+    window.history.replaceState({}, "", window.location.pathname);
+    // `settling` rather than a bare spinner: the client has just paid and is
+    // owed an answer, so the screen says what is happening instead of looking
+    // like the page forgot.
+    setConfirmed({ settling: true });
+
+    fetch(`/api/booking/${companySlug}/settle`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || "We couldn't check that payment.");
+        return data;
+      })
+      .then((data) =>
+        setConfirmed({
+          settling: false,
+          paid: Boolean(data?.paid),
+          confirmed: Boolean(data?.confirmed),
+          startTime: data?.startTime || null,
+        }),
+      )
+      .catch((err) => {
+        // A failed CHECK is not a failed payment, and must not be reported as
+        // one. Say what is actually known: the money may well be theirs and
+        // gone, and telling them otherwise is the worse mistake.
+        console.error("[booking] settle check failed:", err?.message);
+        setConfirmed({ settling: false, paid: null, confirmed: false, startTime: null });
+      });
+  }, [companySlug]);
 
   useEffect(() => {
     const offered = company?.bookingModes?.length ? company.bookingModes : ["visit"];
@@ -424,6 +466,43 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   }
 
   if (confirmed) {
+    // Four outcomes, and the screen has to be able to say each of them. The old
+    // version could only say one — "you're booked" — which is why it said it
+    // even when the booking had not been confirmed.
+    //
+    //   settling         we are asking Stripe right now
+    //   paid && confirmed  money taken, appointment made      ← the happy path
+    //   paid && !confirmed money taken, we could not confirm  ← must not claim a visit
+    //   paid === null      we could not even check            ← must not claim either
+    //
+    // The free path arrives here with none of these set and keeps its original
+    // wording, because for a free booking the row IS the confirmation.
+    const settling = confirmed.settling === true;
+    const returnedFromPayment = settling || confirmed.paid !== undefined;
+    const trouble = !settling && returnedFromPayment && !confirmed.confirmed;
+
+    const heading = settling
+      ? "Checking your payment…"
+      : trouble
+        ? "We're still confirming your visit"
+        : "You're booked";
+
+    let body;
+    if (settling) {
+      body = "One moment — we're confirming this with our payment provider.";
+    } else if (confirmed.paid === null) {
+      // The check itself failed. Do not guess in either direction.
+      body = `We couldn't reach our payment provider to check. Don't pay again — ${company.name} will confirm your visit shortly, and you'll get an email either way.`;
+    } else if (confirmed.paid && !confirmed.confirmed) {
+      // Money taken, booking not confirmed. This is the state that used to be
+      // reported as a confirmed visit.
+      body = `Your payment went through, but we haven't been able to confirm the time yet. Don't pay again — ${company.name} can see this and will be in touch to finish booking you in.`;
+    } else if (confirmed.paid) {
+      body = `Payment received — your visit is confirmed. A confirmation email is on its way, and ${company.name} will be in touch if anything changes.`;
+    } else {
+      body = `A confirmation is on its way${form.email ? ` to ${form.email}` : ""}. ${company.name} will be in touch if anything changes.`;
+    }
+
     return (
       <Shell theme={theme}>
         <Header company={company} theme={theme} solid={solid} />
@@ -432,12 +511,20 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
             className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ backgroundColor: wash.bg }}
           >
-            <Check size={26} style={{ color: theme.accentText }} />
+            {/* A tick means "done". It must not appear over a visit we have not
+                managed to book, or over a check still in flight. */}
+            {settling ? (
+              <Loader2 size={26} className="animate-spin" style={{ color: theme.accentText }} />
+            ) : trouble ? (
+              <Clock size={26} style={{ color: theme.accentText }} />
+            ) : (
+              <Check size={26} style={{ color: theme.accentText }} />
+            )}
           </div>
           <h2 className="text-lg font-bold" style={{ color: theme.ink }}>
-            You&apos;re booked
+            {heading}
           </h2>
-          {confirmed.startTime && (
+          {confirmed.startTime && !settling && (
             <p className="text-sm mt-2" style={{ color: theme.ink }}>
               {new Date(confirmed.startTime).toLocaleString(undefined, {
                 weekday: "long",
@@ -449,9 +536,7 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
             </p>
           )}
           <p className="text-sm mt-3" style={{ color: theme.inkMuted }}>
-            {confirmed.paid
-              ? `Payment received — your visit is confirmed. A confirmation email is on its way, and ${company.name} will be in touch if anything changes.`
-              : `A confirmation is on its way${form.email ? ` to ${form.email}` : ""}. ${company.name} will be in touch if anything changes.`}
+            {body}
           </p>
         </div>
       </Shell>
