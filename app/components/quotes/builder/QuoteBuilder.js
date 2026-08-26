@@ -183,6 +183,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       language: null,
       groups: [],
       notes: "",
+      reviewNotes: "",
       processNotes: null,
       clientPhotos: [],
       discount: "",
@@ -211,6 +212,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       (g) => groupFromStored(g, quote.importedGroupIds, fallbackLabel),
     ),
     notes: quote.notes || "",
+    reviewNotes: quote.reviewNotes || "",
     processNotes: quote.processNotes || "",
     clientPhotos: Array.isArray(quote.clientPhotos) ? quote.clientPhotos : [],
     discount: discount ? String(discount) : "",
@@ -432,6 +434,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
                   g.intakeValues && typeof g.intakeValues === "object"
                     ? g.intakeValues
                     : {},
+                // The upgrades the caller asked for, as keys. newScopeGroup
+                // ticks only the ones this company's own book prices and the
+                // price book does the rest — the model never named a figure
+                // and nothing here invents a quantity, so an upgrade on a call
+                // where nobody counted doors opens ticked and worth nothing
+                // until the estimator types the count.
+                addOns: (Array.isArray(g.addOns) ? g.addOns : [])
+                  .map((a) => a?.key)
+                  .filter(Boolean),
               },
             );
           })
@@ -442,7 +453,15 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             (bootstrap.clients || []).find((c) => c.id === draft.clientId)) ||
           null;
 
-        setInitial({ ...base, groups, client });
+        setInitial({
+          ...base,
+          groups,
+          client,
+          // What the call asked for that the draft could not place. Lands in
+          // the INTERNAL review box, never in `notes` — see the schema comment
+          // on Quote.reviewNotes.
+          reviewNotes: typeof draft?.reviewNotes === "string" ? draft.reviewNotes : "",
+        });
       } catch {
         if (!cancelled) setInitial(base);
       }
@@ -619,6 +638,11 @@ export function QuoteBuilderForm({
 
   // ── Terms & content ──────────────────────────────────────────────────────
   const [notes, setNotes] = useState(start.notes || "");
+  // INTERNAL. What a caller asked for that the draft could not place — never
+  // rendered on a document. A second field rather than a prefix on `notes`
+  // because `notes` goes on the PDF the homeowner opens, and one forgotten
+  // deletion would put "we couldn't work out what you meant" in front of them.
+  const [reviewNotes, setReviewNotes] = useState(start.reviewNotes || "");
   const [processNotes, setProcessNotes] = useState(
     // On a create, the company's default is what the saved quote WILL carry,
     // so the box opens holding it rather than blank — editing it now writes a
@@ -1187,6 +1211,7 @@ export function QuoteBuilderForm({
       taxEnabled,
       total,
       notes,
+      reviewNotes,
       processNotes,
       validUntil: validUntil || null,
       clientPhotos,
@@ -1637,6 +1662,30 @@ export function QuoteBuilderForm({
           className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
         />
       </div>
+
+      {/* Notes for review — INTERNAL.
+          Rendered only when there is something in it. An always-present empty
+          box beside the client-facing one is two textareas that look alike and
+          do opposite things, which is how a back-office note ends up on a
+          homeowner's PDF. It appears when a phone draft filled it, says plainly
+          that the client never sees it, and clears to nothing once the
+          estimator has dealt with what it says. */}
+      {reviewNotes ? (
+        <div className="bg-card border border-amber-300 dark:border-amber-800 rounded-xl p-5">
+          <h2 className="font-semibold text-foreground mb-1">
+            {t("app.quoteNew.reviewNotes")}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-2">
+            {t("app.quoteNew.reviewNotesHint")}
+          </p>
+          <textarea
+            value={reviewNotes}
+            onChange={(e) => setReviewNotes(e.target.value)}
+            rows={3}
+            className="w-full border border-border rounded-lg px-3 py-2 text-sm resize-none"
+          />
+        </div>
+      ) : null}
 
       {/* Job photos. The column and the quote detail page already supported
           these, but only lead intake ever filled them — a quote typed up by

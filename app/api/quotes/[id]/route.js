@@ -138,6 +138,10 @@ export async function PATCH(request, { params }) {
     // price they had deliberately set without it.
     taxEnabled,
     notes,
+    // Internal — see the Quote.reviewNotes comment in the schema. Editable so
+    // an estimator who has dealt with what the caller asked for can clear it;
+    // a note nobody can tick off is a note people stop reading.
+    reviewNotes,
     processNotes,
     validUntil,
     scopeGroups,
@@ -170,6 +174,7 @@ export async function PATCH(request, { params }) {
     ...(total !== undefined && { total }),
     ...(taxEnabled !== undefined && { taxEnabled: Boolean(taxEnabled) }),
     ...(notes !== undefined && { notes }),
+    ...(reviewNotes !== undefined && { reviewNotes }),
     ...(processNotes !== undefined && { processNotes }),
     ...(validUntil !== undefined && {
       validUntil: validUntil ? new Date(validUntil) : null,

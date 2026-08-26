@@ -24,6 +24,20 @@
 // could not be traced back to something the caller said never reached this
 // screen at all (lib/ai/callQuoteDraft.js drops it).
 //
+// ── "You don't offer that" is not this panel's to say ─────────────────────
+//
+// It used to say it, and it was wrong. A caller asked a cabinet painter for new
+// hinges and handles and this panel told the owner they don't sell them, while
+// their own price book charged $35 a door for soft-close hinges. Three
+// renderings now, and the distinction between them is the fix:
+//
+//   ADDED        an upgrade off the company's own price book, ticked on the
+//                draft and priced by the builder. Never priced here.
+//   CHECK THIS   something asked for that resembles what they sell but could
+//                not be placed automatically. Named beside what it looked like.
+//   NO MATCH     nothing in their services, price book or products matched. Even
+//                this is not thrown away — it goes onto the quote's review notes.
+//
 // ── And what it did NOT hear is on the screen too ──────────────────────────
 //
 // The list of questions the call left unanswered is not a gap in the panel, it
@@ -34,7 +48,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2, Quote, CircleHelp, Ban, Image as ImageIcon } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  Quote,
+  CircleHelp,
+  Ban,
+  Plus,
+  Search,
+  Image as ImageIcon,
+} from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
@@ -186,6 +209,28 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
             </ul>
           )}
 
+          {/* The upgrades the caller asked for. Shown with their price-book
+              label and the caller's own words, and with no figure — the
+              builder prices them from the company's own book. */}
+          {(g.addOns || []).length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {g.addOns.map((a) => (
+                <li key={a.key} className="text-xs text-foreground flex gap-1.5">
+                  <Plus size={12} className="mt-0.5 shrink-0" />
+                  <span>
+                    <span className="font-medium">{a.label}</span>
+                    {a.said && (
+                      <span className="text-muted-foreground italic">
+                        {" "}
+                        — “{a.said}”
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           {/* The unanswered questions, said out loud. Absence of a statement is
               not a statement — see the header. */}
           {(g.missing || []).length > 0 && (
@@ -248,18 +293,49 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
         </p>
       ))}
 
+      {/* Asked for, not placed, but it looks like something they DO sell.
+          Never a refusal — the panel names what it resembles and asks. */}
+      {(draft?.review || []).map((r) => (
+        <p key={r.asked} className="text-xs text-muted-foreground flex gap-1.5">
+          <Search size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {t("app.callDraft.checkThis", {
+              asked: r.asked,
+              items: r.looksLike.join(", "),
+            })}
+          </span>
+        </p>
+      ))}
+
       {(draft?.unmatched || []).length > 0 && (
         <p className="text-xs text-muted-foreground flex gap-1.5">
           <Ban size={12} className="mt-0.5 shrink-0" />
           <span>
-            {t("app.callDraft.notOffered", {
+            {t("app.callDraft.noMatch", {
               items: draft.unmatched.join(", "),
             })}
           </span>
         </p>
       )}
 
-      {draft?.groups?.length > 0 && (
+      {/* Everything above, as it will reach whoever reviews the quote. Shown so
+          the estimator knows the note exists before they open the builder —
+          and said out loud that the client never sees it. */}
+      {draft?.reviewNotes && (
+        <div className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3">
+          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+            {t("app.callDraft.reviewNotes")}
+          </p>
+          <p className="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80 whitespace-pre-line">
+            {draft.reviewNotes}
+          </p>
+        </div>
+      )}
+
+      {/* Reachable whenever there is anything to carry across — a call that
+          produced only a note for review still has to reach the builder, or
+          the note has nowhere to land. */}
+      {(draft?.groups?.length > 0 || draft?.reviewNotes) && (
         <>
           <p className="text-[11px] text-muted-foreground">
             {t("app.callDraft.noPrices")}

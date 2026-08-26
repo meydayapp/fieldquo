@@ -103,6 +103,9 @@ export async function POST(request) {
     // nothing, so the "Apply tax" checkbox never survived a save.
     taxEnabled,
     notes,
+    // Internal, and never on the document. What a caller asked for that the
+    // draft could not place — see the Quote.reviewNotes comment in the schema.
+    reviewNotes,
     // What happens next, per quote. The company's default is still what the box
     // OPENS with — see the copy below — but the builder now lets it be edited
     // before the first save instead of only afterwards on the edit route, which
@@ -180,6 +183,7 @@ export async function POST(request) {
       taxEnabled: taxEnabled === undefined ? true : Boolean(taxEnabled),
       total,
       notes: notes || null,
+      reviewNotes: reviewNotes || null,
       // COPIED onto the quote, not referenced from the company. A quote sent
       // in March must keep saying what it said in March even after the terms
       // change — reading the live company record would silently rewrite the

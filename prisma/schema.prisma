@@ -1484,6 +1484,16 @@ model Quote {
   total        Decimal   @default(0) @db.Decimal(12, 2)
   taxEnabled   Boolean   @default(true)
   notes        String?
+  // INTERNAL. Never rendered on a client-facing surface — `notes` above is the
+  // one the homeowner reads (lib/documentSections/NotesSection.js), and this is
+  // deliberately a second field rather than a prefix on that one.
+  //
+  // What it holds: what a caller asked for that the draft could not place on
+  // the quote. A phone lead says "and maybe new handles, I'm not sure"; the
+  // request has to survive to whoever reviews the draft, and it must not
+  // survive onto the PDF, where "we couldn't work out what you meant" is an
+  // apology nobody asked for. See lib/ai/callQuoteDraft.js reviewNotesFromDraft.
+  reviewNotes  String?
   validUntil   DateTime?
   pdfUrl       String?
 

@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 25 August 2026. **Update this file when you finish something.**
+Last updated: 26 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -141,6 +141,30 @@ whether they arrived is read off `clientPhotos`, never a second flag.
 Settings › Services and Settings › Instant Quote now re-push the agent
 (`reprovisionIfLive`) — before this, changing your services left the phone
 saying you didn't offer them.
+
+**The receptionist knows how THIS company's visits work.**
+`lib/voice/visitPath.js` derives, from the company's own `EventType` rows, which
+of four things should happen when a caller asks for someone to come out: book it
+on the call, send them to the booking page because there is a fee to collect,
+put them through to a person, or take a callback. Same derivation feeds both
+halves — `lib/voice/provision.js` builds the prompt from it and
+`lib/voice/availability.js` serves slots from it — so the agent can never be told
+it may book something the availability endpoint then refuses to offer. This
+closed a real hole: `canBook` was `eventType.count(active) > 0`, which knew
+nothing about `feeCents`, so a company charging a $79 diagnostic visit had a
+receptionist confirming it for free with no Stripe session, while their own
+booking page put the identical slot behind a `pending_payment` hold. `bookSlot`
+now re-prices and refuses (`fee_due`) rather than trusting what was offered, and
+the agent gets its own sentence for that case instead of the old lie that the
+slot had gone. A published booking fee is the one figure the agent may say —
+rule 1 is about the price of the WORK, and `npm run check:visit-path` scrapes
+every money-shaped token out of a generated prompt and asserts each is a fee the
+company actually published. **The link cannot be texted**: Retell's SMS is A2P
+10DLC-gated to US non-toll-free numbers (this product defaults to CA) and our
+Twilio account owns no number to send from, so the agent reads it out and is
+told explicitly not to offer to send it. `save_caller` now carries
+`callback_requested` and `preferred_times`, so "someone will ring you back" is
+written on the lead instead of only spoken.
 
 **Calls lost to the broken signature check are RECOVERABLE.** The verifier
 rejected every real delivery for months, on `/api/voice/webhook` and on
@@ -649,6 +673,32 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **A call draft reads the whole catalogue, and "you don't offer that" is
+  earned.**
+
+  A real lead asked a cabinet painter for new hinges and handles; the panel told
+  the owner they don't sell them, while `cabinet_refinishing.addOns` priced
+  soft-close hinges at $35 a door. `lib/pricing/offerings.js` is now the one
+  definition of what a company can price — enabled trades, intake questions,
+  price-book add-ons, takeoff extras, materials, tiered packages and the
+  company's own `Product` rows — and `lib/ai/callQuoteDraft.js` shows the model
+  all of it instead of the first two.
+
+  **Nothing the model failed to place is reported as unavailable until it has
+  been re-checked against that catalogue without the model.** A phrase sharing a
+  real word with something sellable becomes "they asked for X, check whether it
+  belongs"; only a phrase matching nothing anywhere is called unmatched, and even
+  that goes onto `Quote.reviewNotes` — a NEW, internal column, deliberately not
+  `Quote.notes`, which is rendered on the homeowner's PDF.
+
+  Requested upgrades reach the builder as ticked flags and are priced by
+  `cabinetAddOnLines` off the company's own book; **no quantity is invented**, so
+  an upgrade on a call where nobody counted doors opens ticked and worth nothing.
+  Evidence may now be a LIST of caller quotes — the real call died because the
+  caller corrected himself and no single sentence proved the scope.
+
+  `scripts/check-call-offerings.mjs` replays that call end to end.
 
 - **The Calendar shows your own day amalgamated, and your crew's separately.**
 
