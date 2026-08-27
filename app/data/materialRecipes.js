@@ -32,11 +32,28 @@ export const MATERIAL_RECIPES = {
     // Coverage (sqft per gallon) and unit costs ($/gal). Shellac primer (BIN)
     // covers less than a top coat. Costs are editable defaults.
     primerCoverageSqftPerGal: 300,
-    primerCostPerGal: 55,
+    // The owner's real shelf price, replacing placeholders of 55 and 90 that
+    // were never anybody's. Both the same because he buys both at the same
+    // rate; the two keys stay separate so a company whose primer and top coat
+    // differ can say so.
+    primerCostPerGal: 150,
     topCoatCoverageSqftPerGal: 350,
-    topCoatCostPerGal: 90,
+    topCoatCostPerGal: 150,
     hardenerPctOfTopCoat: 0.05, // 5% catalyst, TrueFinish 2K system
-    hardenerCostPerGal: 120,
+    // ── Priced and bought by the QUART ──────────────────────────────────────
+    //
+    // It was $120 a gallon and the quote printed "0.15 gal", which is not a
+    // thing anybody buys. Catalyst comes in quarts, and a job needing 0.6 of
+    // one costs a whole one — the remainder has a working life measured in
+    // hours once mixed, so it is not stock, it is spent.
+    //
+    // $30 a quart is the same $120 a gallon the recipe already carried; the
+    // unit changed, not the rate. What DOES change is the total, because
+    // rounding up to the quart you actually pay for is the honest number:
+    // roughly $18 became $30 on a small kitchen. That is a cost the shop was
+    // already bearing and the estimate was not showing.
+    hardenerQuartsPerGal: 4,
+    hardenerCostPerQuart: 30,
 
     // Consumables — ratio-based, with a per-job minimum.
     consumables: {
@@ -134,7 +151,12 @@ export const RECIPE_EDITABLE_FIELDS = {
     { key: "topCoatCoverageSqftPerGal", label: "Top coat coverage (sqft/gal)", type: "number", step: 1 },
     { key: "topCoatCostPerGal", label: "Top coat cost ($/gal)", type: "number", step: 0.01 },
     { key: "hardenerPctOfTopCoat", label: "Hardener/catalyst (% of top coat)", type: "number", step: 0.01 },
-    { key: "hardenerCostPerGal", label: "Hardener cost ($/gal)", type: "number", step: 0.01 },
+    // Per QUART, because that is the unit it is sold in and the unit a job
+    // consumes — see estimateJobCost, which rounds up to whole quarts. The old
+    // per-gallon key is deliberately NOT offered here any more: leaving both
+    // editable would let a company set two figures that disagree, and the
+    // fallback in the estimator would then silently pick one of them.
+    { key: "hardenerCostPerQuart", label: "Hardener cost ($/quart)", type: "number", step: 0.01 },
     { key: "labourMinutesPerDoor", label: "Labour minutes / door", type: "number", step: 1 },
     { key: "labourMinutesPerDrawer", label: "Labour minutes / drawer", type: "number", step: 1 },
     { key: "setupHours", label: "Setup / teardown hours (per job)", type: "number", step: 0.5 },
