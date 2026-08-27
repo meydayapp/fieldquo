@@ -11,6 +11,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";
+import { findOrCreateCustomPlan } from "@/lib/billing/customPlan";
 import { getAppOrigin } from "@/lib/appUrl";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
@@ -58,16 +59,13 @@ export async function POST(request) {
         { status: 400 },
       );
     }
-    const customPlanName = `Custom (${pricing.employeeCount} employees)`;
-    plan = await db.plan.upsert({
-      where: { name: customPlanName },
-      update: { priceMonthly: pricing.monthlyTotal, maxUsers: pricing.employeeCount },
-      create: {
-        name: customPlanName,
-        priceMonthly: pricing.monthlyTotal,
-        maxUsers: pricing.employeeCount,
-      },
-    });
+    // Find-or-create, NOT upsert-with-update. The `update` this replaces wrote
+    // calculatePricing()'s number back over whatever an operator had set on
+    // /platform/billing/plans, so a price edited there was reverted by the next
+    // stranger who signed up or upgraded at the same headcount — a control that
+    // appears to work and doesn't. Once the row exists it is the price. See
+    // lib/billing/customPlan.js.
+    plan = await findOrCreateCustomPlan(pricing);
   } else {
     plan = await db.plan.findUnique({ where: { id: planId } });
   }

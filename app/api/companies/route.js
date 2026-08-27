@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";
+import { findOrCreateCustomPlan } from "@/lib/billing/customPlan";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
@@ -108,16 +109,11 @@ export async function POST(request) {
       );
     }
   } else {
-    const customPlanName = `Custom (${employeeCount} employees)`;
-    const customPlan = await db.plan.upsert({
-      where: { name: customPlanName },
-      update: {},
-      create: {
-        name: customPlanName,
-        priceMonthly: pricing.monthlyTotal,
-        maxUsers: employeeCount,
-      },
-    });
+    // Shared with the "Add licenses" checkout route, which had the same block
+    // with a divergent `update` clause that overwrote operator price edits.
+    // `where: { name }` also stopped being a legal upsert target when
+    // Plan.name lost its @unique, so this would have thrown outright.
+    const customPlan = await findOrCreateCustomPlan(pricing);
     resolvedPlanId = customPlan.id;
   }
 

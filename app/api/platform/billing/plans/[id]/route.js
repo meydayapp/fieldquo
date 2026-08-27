@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentPlatformAdmin } from "@/lib/platform/currentPlatformAdmin";
 import { requirePlatformPermission } from "@/lib/platform/permissions";
+import { parsePlanFields } from "@/lib/billing/planFields";
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
@@ -30,30 +31,19 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const {
-    name,
-    priceMonthly,
-    stripePriceId,
-    maxUsers,
-    maxQuotesPerMonth,
-    aiCopilotEnabled,
-    features,
-  } = body;
 
-  const plan = await db.plan.update({
-    where: { id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(priceMonthly !== undefined && { priceMonthly }),
-      ...(stripePriceId !== undefined && { stripePriceId: stripePriceId || null }),
-      ...(maxUsers !== undefined && { maxUsers }),
-      ...(maxQuotesPerMonth !== undefined && { maxQuotesPerMonth }),
-      ...(aiCopilotEnabled !== undefined && {
-        aiCopilotEnabled: !!aiCopilotEnabled,
-      }),
-      ...(features !== undefined && { features }),
-    },
-  });
+  // ── The same rules POST has, which this route did not ───────────────────
+  //
+  // POST refused a negative price, a non-numeric price and a fractional seat
+  // count. PATCH spread the raw body straight into `update`, so "$-5 CAD
+  // /month" on the public pricing page was reachable by creating a sane plan
+  // and then editing it — one extra click round a check that already existed.
+  // Both routes now call the same parser; `partial` is what keeps an absent
+  // key meaning "leave it alone" rather than "blank it".
+  const { data, error } = parsePlanFields(body, { partial: true });
+  if (error) return NextResponse.json({ error }, { status: 400 });
+
+  const plan = await db.plan.update({ where: { id }, data });
 
   await db.platformAuditLog.create({
     data: {
@@ -62,11 +52,23 @@ export async function PATCH(request, { params }) {
       details: {
         planId: id,
         name: plan.name,
+        tierKey: plan.tierKey,
+        currency: plan.currency,
         // Price changes affect what existing subscribers are billed, so the
         // before value is the one you'll want when someone asks why their
-        // invoice changed.
+        // invoice changed. Seats and crew are here for the same reason: moving
+        // a tier's included seats down is a price rise for everyone on it, and
+        // it leaves no other trace.
         previousPrice: String(existing.priceMonthly),
         newPrice: String(plan.priceMonthly),
+        previousPriceAnnual:
+          existing.priceAnnual === null ? null : String(existing.priceAnnual),
+        newPriceAnnual:
+          plan.priceAnnual === null ? null : String(plan.priceAnnual),
+        previousSeats: existing.seats,
+        newSeats: plan.seats,
+        previousCrewSeats: existing.crewSeats,
+        newCrewSeats: plan.crewSeats,
       },
     },
   });
