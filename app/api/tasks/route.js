@@ -14,11 +14,64 @@ export async function GET(request) {
   const status = searchParams.get("status");
   const assignedToId = searchParams.get("assignedToId");
 
+  // ── The write side was scoped and the read was not ─────────────────────────
+  //
+  // PATCH and DELETE on /api/tasks/[id] both narrow to "yours, or claimable".
+  // This list narrowed to nothing but the company, and `assignedToId` above is
+  // a filter the CALLER chooses, not a gate — so a Crew member (quotes: none,
+  // jobs scoped to their own visits) could read every to-do in the company:
+  // description, due date, assignee name, the linked client's name and the
+  // linked job's title, including tasks hanging off documents they are refused
+  // everywhere else.
+  //
+  // Gated on task:assign — supervisor and up — which is the capability POST
+  // below already uses to decide who may hand a to-do to somebody else. It is
+  // the closest thing in the table to "may act on other people's tasks", which
+  // is the question this list asks.
+  //
+  // task:create draws the SAME line today (checked: `employee` holds neither,
+  // despite the comment on the PATCH route implying it holds task:create), so
+  // it would work identically right now. It is the wrong one anyway: it means
+  // "may raise a to-do", and the day an owner decides field staff may add
+  // their own, gating the read on it would silently unscope the whole list
+  // as a side effect of a permission nobody thought was about reading.
+  //
+  // Unassigned tasks stay VISIBLE. The PATCH deliberately lets anyone claim an
+  // orphan; hiding orphans from the only list that shows them would leave that
+  // claim path with no way to reach it — a control that exists and cannot be
+  // used, which is the same failure as a dead button, just from the other side.
+  //
+  // Spread as its own AND term rather than as a bare top-level `OR`, so a
+  // scoped caller passing ?assignedToId=<a colleague> still gets only their
+  // own: the two clauses intersect instead of one overwriting the other, and a
+  // later edit adding an `OR` of its own cannot silently replace this one.
+  //
+  // The sentinel is assignedJobWhere's, for its reason: a scoped caller we
+  // cannot identify (a half-loaded member, a synthesised row) must match
+  // nothing. `member.userId` left as undefined would make Prisma DROP those two
+  // terms, and an OR with a dropped arm matches everything — fail-open, in the
+  // one place that must fail closed.
+  const me = member.userId || "__none__";
+  const scope = can(member.role, "task:assign")
+    ? {}
+    : {
+        AND: [
+          {
+            OR: [
+              { assignedToId: me },
+              { createdById: me },
+              { assignedToId: null },
+            ],
+          },
+        ],
+      };
+
   const tasks = await db.task.findMany({
     where: {
       companyId: member.companyId,
       ...(status && { status }),
       ...(assignedToId && { assignedToId }),
+      ...scope,
     },
     include: {
       assignedTo: { select: { id: true, name: true } },

@@ -38,10 +38,10 @@ is a spec that gets half-remembered.
 | 1.19 | Those jobs carry **no prices** | DONE | no `redactJobMoney` needed — `Job` has no money column; costing already behind `jobCosting` |
 | 1.20 | Those jobs show visits, materials to buy, tasks from notes, **site address** | **OPEN** | the crew work-order document is not built |
 | 1.21 | Calendar shows only their schedule + their assigned jobs | PARTIAL | `getUpcomingWork` fixed and re-granted; the calendar screens themselves are UNVERIFIED |
-| 1.22 | To-dos assigned to them | **OPEN** | unverified |
+| 1.22 | To-dos assigned to them | DONE | `GET /api/tasks` was scoped on companyId ALONE — a crew member could list every to-do in the company. Now yours, raised by you, or unassigned |
 | 1.23 | Team visible **read-only** | DONE | Manage Team settings row hidden — the main rail already gated the same page |
-| 1.24 | Cannot "assign shift" | **OPEN** | unverified |
-| 1.25 | Team calendar shows only their own work | **OPEN** | unverified |
+| 1.24 | Cannot "assign shift" | DONE | verified: all four shift writes refuse below `schedule: edit_all`, and the UI matches |
+| 1.25 | Team calendar shows only their own work | DONE | verified: all three team views refuse BEFORE the query. The nav row that led straight to that refusal is gated now |
 | 1.26 | Crew inbox — only messages pertinent to them | DONE | scoped on `senderUserId` |
 | 1.27 | Crew inbox **setup** = owner / admin / manager, not dispatcher | DONE | `canSetUpCrewTexting` |
 | 1.28 | No AI buttons on jobs, "unless it's empty" | **OPEN — NEEDS THE OWNER** | the empty-field clause was never understood; nothing built on a guess |

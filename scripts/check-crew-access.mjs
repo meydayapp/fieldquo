@@ -26,7 +26,10 @@
 // Verified by mutation when it was written: moving `none` to the END of the
 // quotes levels array (i.e. making it the MOST access) fails 9 assertions
 // here, and swapping the Crew preset's `none` back to `view_only` fails 11.
-import { PERMISSION_CATEGORIES, PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
+// `can` for section 14: the nav rule mirrors a COARSE role check, so the
+// assertion has to read the same table the endpoint does rather than restate
+// which roles are supervisors.
+import { can, PERMISSION_CATEGORIES, PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import {
   hasLevel,
   UNRESTRICTED_ROLES,
@@ -500,7 +503,7 @@ console.log("\n10. The job routes, EXECUTED against a scripted database\n");
 
 const { register } = await import("node:module");
 
-globalThis.__FQ_ROWS = { member: [], job: [], jobMaterial: [] };
+globalThis.__FQ_ROWS = { member: [], job: [], jobMaterial: [], task: [] };
 
 // Relation keys on the fixtures, so the projection can drop what Prisma drops.
 const RELATIONS = new Set([
@@ -510,6 +513,8 @@ const RELATIONS = new Set([
   "assignedTo",
   "job",
   "invoices",
+  // Section 13's to-do rows carry one.
+  "workArea",
 ]);
 
 /** A small, general Prisma `where` evaluator — including relation filters. */
@@ -517,6 +522,26 @@ function matchWhere(row, where = {}) {
   if (!row) return false;
   for (const [key, cond] of Object.entries(where)) {
     if (cond === undefined) continue;
+
+    // ── The boolean combinators, added for section 13 ────────────────────────
+    //
+    // The task scope is `AND: [{ OR: [...] }]` beside a caller-supplied
+    // `assignedToId`, and the whole point of that assertion is that the two
+    // INTERSECT. Without these two branches `OR` would fall through to the
+    // relation-filter case below, be compared against a column no row has, and
+    // match nothing — which would make section 13 pass on a route returning
+    // everything as readily as on a correct one.
+    if (key === "AND") {
+      const terms = Array.isArray(cond) ? cond : [cond];
+      if (!terms.every((c) => matchWhere(row, c))) return false;
+      continue;
+    }
+    if (key === "OR") {
+      const terms = Array.isArray(cond) ? cond : [cond];
+      if (!terms.some((c) => matchWhere(row, c))) return false;
+      continue;
+    }
+
     const value = row[key];
     if (cond === null) {
       if (value != null) return false;
@@ -596,6 +621,11 @@ globalThis.__FQ_DB = new Proxy(
     member: stubModel("member"),
     job: stubModel("job"),
     jobMaterial: stubModel("jobMaterial"),
+    // Section 13. Registered here rather than in a second stub, because the
+    // whole value of this harness is that every executed route answers the
+    // SAME evaluator — a private stub for tasks could be lenient in a way the
+    // job stub is not, and then agree with itself.
+    task: stubModel("task"),
   },
   {
     get(target, prop) {
@@ -967,6 +997,244 @@ ok(
 ok(
   "…and it no longer queries the company's whole calendar",
   !/where: \{ job: \{ companyId \}, scheduledAt/.test(COPILOT),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n13. The to-do list, EXECUTED — the fifth door onto the same rows\n");
+//
+// GET /api/tasks had no assignee scoping at all. `assignedToId` on the query
+// string is a filter the CALLER chooses, not a gate, so a crew member on
+// quotes:none whose job list is narrowed to their own visits could still read
+// every to-do in the company — and a Task carries the linked client's name and
+// the linked job's title, which is the leak sections 10 and 11 close on the
+// job routes arriving through a different route file.
+//
+// The write side already held the predicate (app/api/tasks/[id]/route.js:
+// yours, or claimable-if-unassigned). This asserts the read mirrors it, and it
+// EXECUTES rather than greps for two reasons: the composition with the query
+// parameter is the part that goes wrong, and "the clause is present" says
+// nothing about whether it intersects or overwrites.
+
+const tasksList = await import("@/app/api/tasks/route.js");
+
+const T_MINE = "task_mine";
+const T_I_MADE = "task_i_made";
+const T_THEIRS = "task_theirs";
+const T_ORPHAN = "task_orphan";
+
+// The colleague's to-do is deliberately fat: a client the crew member may not
+// look up and the job they answer 404 on in section 10. Those two strings are
+// what section 11's argument is about, one model over.
+const taskRow = (id, fields) => ({
+  id,
+  companyId: "co",
+  title: "Order material",
+  description: null,
+  status: "open",
+  priority: "normal",
+  dueDate: null,
+  assignedToId: null,
+  createdById: "u_disp",
+  clientId: null,
+  jobId: null,
+  workAreaId: null,
+  assignedTo: null,
+  client: null,
+  workArea: null,
+  job: null,
+  ...fields,
+});
+
+globalThis.__FQ_ROWS.task = [
+  taskRow(T_MINE, {
+    title: "Pick up the keys",
+    assignedToId: "u_crew",
+    assignedTo: { id: "u_crew", name: "Dani" },
+  }),
+  // Assigned to somebody else but RAISED by the crew member. The PATCH counts
+  // this as theirs, so the list has to as well or they cannot see what they
+  // asked for.
+  taskRow(T_I_MADE, {
+    title: "Confirm the paint colour",
+    assignedToId: "u_other",
+    createdById: "u_crew",
+    assignedTo: { id: "u_other", name: "Sam" },
+  }),
+  taskRow(T_THEIRS, {
+    title: "Chase the deposit",
+    assignedToId: "u_other",
+    assignedTo: { id: "u_other", name: "Sam" },
+    clientId: "c2",
+    client: { id: "c2", name: "Bea Nolan" },
+    jobId: THEIRS,
+    job: { id: THEIRS, title: "Deck stain, 9 Oak Ave", status: "scheduled" },
+  }),
+  // Nobody's yet. PATCH lets anyone claim it, so hiding it here would leave
+  // that claim path unreachable.
+  taskRow(T_ORPHAN, { title: "Book the skip", status: "open" }),
+  // A different tenant's row, to prove the scope was added ON TOP of the
+  // company filter rather than in place of it.
+  taskRow("task_other_co", { companyId: "co2", assignedToId: "u_crew" }),
+];
+
+const taskReq = (qs = "") => ({ url: `http://local/api/tasks${qs}`, json: async () => ({}) });
+const idsOf = (res) => (res.body || []).map((t) => t.id);
+
+asMember("m_crew");
+const crewTasks = await tasksList.GET(taskReq());
+ok("GET /api/tasks answers Crew at all (200)", crewTasks.status === 200);
+ok("Crew see the to-do assigned to them", idsOf(crewTasks).includes(T_MINE));
+ok(
+  "…and the one they raised for somebody else",
+  idsOf(crewTasks).includes(T_I_MADE),
+);
+ok(
+  "…and NOT a colleague's, which is the whole exposure",
+  !idsOf(crewTasks).includes(T_THEIRS),
+);
+ok(
+  "…and NOT another tenant's, so the company filter still stands",
+  !idsOf(crewTasks).includes("task_other_co"),
+);
+ok("…which is three rows, not five", crewTasks.body.length === 3);
+
+// The claim path, asserted as a behaviour rather than trusted to the comment.
+ok(
+  "an unassigned to-do stays visible — PATCH lets them claim it",
+  idsOf(crewTasks).includes(T_ORPHAN),
+);
+
+// What a Task carries that a Job read would have refused them. Asserted on the
+// serialised payload, the same posture as section 11's moneyIn walk: the point
+// is that the string is nowhere in the response, not that one field is absent.
+const crewTaskJson = JSON.stringify(crewTasks.body);
+ok(
+  "no client name from a to-do they cannot see",
+  !crewTaskJson.includes("Bea Nolan"),
+);
+ok(
+  "…and no job title from one either",
+  !crewTaskJson.includes("Deck stain"),
+);
+
+// ── The query parameter must not be a way out of the scope ─────────────────
+//
+// This is the assertion the composition turns on. `?assignedToId=u_other` is a
+// filter, and a scoped caller passing it must be INTERSECTED with the scope,
+// not have the scope replaced by it. If the two clauses ever collide, this
+// line returns the colleague's to-do.
+const crewProbe = await tasksList.GET(taskReq("?assignedToId=u_other"));
+ok(
+  "Crew asking for a colleague's to-dos do not get them",
+  !idsOf(crewProbe).includes(T_THEIRS),
+);
+ok(
+  "…they get the intersection: the one assigned to that colleague that THEY raised",
+  crewProbe.body.length === 1 && crewProbe.body[0].id === T_I_MADE,
+);
+// And the parameter still does its job for the person it was built for.
+asMember("m_disp");
+const dispProbe = await tasksList.GET(taskReq("?assignedToId=u_other"));
+ok(
+  "…while a supervisor's filter still returns both of that colleague's",
+  dispProbe.body.length === 2 &&
+    idsOf(dispProbe).includes(T_THEIRS) &&
+    idsOf(dispProbe).includes(T_I_MADE),
+);
+
+const dispTasks = await tasksList.GET(taskReq());
+ok(
+  "a supervisor is NOT narrowed — they hold task:assign",
+  dispTasks.status === 200 && dispTasks.body.length === 4,
+);
+ok(
+  "…including the colleague's to-do with the client on it",
+  idsOf(dispTasks).includes(T_THEIRS),
+);
+
+// The other filter, kept honest: the scope is an extra term, not a replacement
+// for `status`.
+asMember("m_crew");
+globalThis.__FQ_ROWS.task.push(
+  taskRow("task_mine_done", { assignedToId: "u_crew", status: "done" }),
+);
+const crewOpen = await tasksList.GET(taskReq("?status=open"));
+ok(
+  "the status filter still composes with the scope",
+  !idsOf(crewOpen).includes("task_mine_done") && idsOf(crewOpen).includes(T_MINE),
+);
+globalThis.__FQ_ROWS.task.pop();
+
+// The fail-closed direction, the same one assignedJobWhere is asserted on in
+// section 9. A scoped caller whose userId we could not load must match nothing
+// of their own — NOT everything.
+//
+// `userId` is ABSENT here rather than null, and the difference is the whole
+// assertion: Prisma treats `assignedToId: null` as a real IS NULL filter, but
+// DROPS `assignedToId: undefined` — and an OR with a dropped arm is an OR that
+// is always true, so the route would answer with the entire company. Written
+// with null first, this check passed against a route with no sentinel at all.
+globalThis.__FQ_SESSION = { id: "m_ghost", companyId: "co", role: "employee" };
+const ghostTasks = await tasksList.GET(taskReq());
+ok(
+  "a scoped caller with no userId gets only the unclaimed one, never the company's",
+  ghostTasks.body.length === 1 && ghostTasks.body[0].id === T_ORPHAN,
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log("\n14. The Team schedule row, which led straight to a refusal\n");
+//
+// navRowAllowed shows any row it has no rule for — the deliberate fall-open in
+// nav.js's header — and "app.nav.teamSchedule" had no rule. So Crew were shown
+// the row, opened /app/schedule, and got a red banner: GET
+// /api/team/schedules refuses on can(member.role, "user:view"), which
+// PERMISSIONS.employee does not carry. That is the exact failure the
+// "Rows that led straight to a refusal" block in nav.js exists for.
+
+ok(
+  "app.nav.teamSchedule has a rule at all",
+  Boolean(NAV_REQUIREMENTS["app.nav.teamSchedule"]),
+);
+// Gated the same way as the roster row beside it, and asserted against that
+// row rather than against a copied literal: if somebody widens Team, this
+// notices that the two stopped agreeing.
+ok(
+  "…the same rule as the roster row it sits with",
+  JSON.stringify(NAV_REQUIREMENTS["app.nav.teamSchedule"]) ===
+    JSON.stringify(NAV_REQUIREMENTS["app.nav.team"]),
+);
+ok("the row is hidden from Crew", navRowAllowed("app.nav.teamSchedule", crew) === false);
+ok(
+  "…and from an Estimator, who also lacks user:view",
+  navRowAllowed("app.nav.teamSchedule", estimator) === false,
+);
+ok(
+  "…and SHOWN to a Dispatcher, who is a supervisor and holds it",
+  navRowAllowed("app.nav.teamSchedule", dispatcher) === true,
+);
+ok("…and to a Manager", navRowAllowed("app.nav.teamSchedule", manager) === true);
+ok("…and to an owner", navRowAllowed("app.nav.teamSchedule", owner) === true);
+// The role that gates it, read off PERMISSIONS rather than assumed — this is
+// the link between the nav rule and the endpoint's actual check.
+ok(
+  "the endpoint's gate is what the rule mirrors: employee lacks user:view",
+  can("employee", "user:view") === false && can("supervisor", "user:view") === true,
+);
+ok(
+  "GET /api/team/schedules really does gate on user:view",
+  /can\(member\.role, "user:view"\)/.test(
+    readFileSync(join(ROOT, "app/api/team/schedules/route.js"), "utf8"),
+  ),
+);
+// The fall-open posture is unchanged for this row too — a missing provider
+// must not empty the sidebar.
+ok(
+  "the row still shows when the provider is missing",
+  navRowAllowed("app.nav.teamSchedule", null) === true,
+);
+ok(
+  "…and for a member with no grid, who is gated by their role alone",
+  navRowAllowed("app.nav.teamSchedule", legacy) === false,
 );
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
