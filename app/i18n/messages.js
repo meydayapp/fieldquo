@@ -91,10 +91,12 @@ const en = {
   "hero.tabs.invoicing.headline": "Get paid without chasing anyone down",
   "hero.tabs.invoicing.body":
     "Turn an accepted quote into an invoice with one click, and let clients pay online the moment it lands in their inbox.",
+  "hero.tabs.invoicing.alt": "A client reading a quote on their phone, with an Approve button at the bottom",
   "hero.tabs.analytics.label": "Analytics",
   "hero.tabs.analytics.headline": "Know what to charge, before you're guessing",
   "hero.tabs.analytics.body":
     "See your real overhead, your minimum price per job, and how you compare to other shops in your trade.",
+  "hero.tabs.analytics.alt": "A dashboard showing cost per job, minimum price and how your average prices compare to other shops in your trade",
 
   // Features
   "features.title": "Everything you need to run the job",
@@ -324,11 +326,13 @@ const fr = {
   "hero.tabs.invoicing.headline": "Faites-vous payer sans relancer personne",
   "hero.tabs.invoicing.body":
     "Transformez une soumission acceptée en facture en un clic, et laissez le client payer en ligne dès sa réception.",
+  "hero.tabs.invoicing.alt": "Un client consulte une soumission sur son téléphone, avec un bouton d'approbation en bas",
   "hero.tabs.analytics.label": "Analytique",
   "hero.tabs.analytics.headline":
     "Sachez quoi facturer, au lieu de deviner",
   "hero.tabs.analytics.body":
     "Voyez vos vrais frais généraux, votre prix minimum par chantier, et votre position face aux autres entreprises de votre métier.",
+  "hero.tabs.analytics.alt": "Un tableau de bord affichant le coût par chantier, le prix minimum et la comparaison de vos prix moyens avec ceux d'autres entreprises de votre métier",
 
   "features.title": "Tout ce qu'il faut pour gérer le chantier",
   "features.quotes.title": "Des soumissions en minutes",
@@ -543,10 +547,12 @@ const es = {
   "hero.tabs.invoicing.headline": "Cobra sin tener que perseguir a nadie",
   "hero.tabs.invoicing.body":
     "Convierte un presupuesto aprobado en factura con un clic, y deja que el cliente pague en línea apenas lo recibe.",
+  "hero.tabs.invoicing.alt": "Un cliente lee un presupuesto en su teléfono, con un botón de aprobación abajo",
   "hero.tabs.analytics.label": "Analítica",
   "hero.tabs.analytics.headline": "Sabe cuánto cobrar, en vez de adivinar",
   "hero.tabs.analytics.body":
     "Ve tus gastos reales, tu precio mínimo por trabajo, y cómo te comparas con otros negocios de tu oficio.",
+  "hero.tabs.analytics.alt": "Un panel que muestra el costo por trabajo, el precio mínimo y cómo se comparan sus precios medios con los de otras empresas de su oficio",
 
   "features.title": "Todo lo necesario para manejar el trabajo",
   "features.quotes.title": "Presupuestos en minutos",
@@ -758,10 +764,12 @@ const uk = {
   "hero.tabs.invoicing.headline": "Отримуйте оплату без нагадувань",
   "hero.tabs.invoicing.body":
     "Перетворіть затверджений кошторис на рахунок одним кліком, а клієнт оплатить онлайн щойно отримає його.",
+  "hero.tabs.invoicing.alt": "Клієнт читає кошторис на телефоні, з кнопкою підтвердження внизу",
   "hero.tabs.analytics.label": "Аналітика",
   "hero.tabs.analytics.headline": "Знайте, скільки брати, замість здогадок",
   "hero.tabs.analytics.body":
     "Побачте свої реальні накладні витрати, мінімальну ціну за роботу та як ви виглядаєте на тлі інших у вашій галузі.",
+  "hero.tabs.analytics.alt": "Панель із собівартістю роботи, мінімальною ціною та порівнянням ваших середніх цін із цінами інших компаній вашого фаху",
 
   "features.everything": "Усе потрібне вашому бізнесу — в одному місці",
   "features.anyTrade": "Створено для будь-якої галузі",
@@ -974,10 +982,12 @@ const pa = {
   "hero.tabs.invoicing.headline": "ਕਿਸੇ ਦੇ ਪਿੱਛੇ ਪਏ ਬਿਨਾਂ ਭੁਗਤਾਨ ਲਵੋ",
   "hero.tabs.invoicing.body":
     "ਮਨਜ਼ੂਰ ਕੋਟ ਨੂੰ ਇੱਕ ਕਲਿੱਕ ਵਿੱਚ ਇਨਵੌਇਸ ਬਣਾਓ, ਅਤੇ ਗਾਹਕ ਇਨਬਾਕਸ ਵਿੱਚ ਪਹੁੰਚਦੇ ਹੀ ਆਨਲਾਈਨ ਭੁਗਤਾਨ ਕਰ ਸਕਦਾ ਹੈ।",
+  "hero.tabs.invoicing.alt": "ਇੱਕ ਗਾਹਕ ਆਪਣੇ ਫ਼ੋਨ ਉੱਤੇ ਹਵਾਲਾ ਪੜ੍ਹ ਰਿਹਾ ਹੈ, ਹੇਠਾਂ ਮਨਜ਼ੂਰੀ ਦਾ ਬਟਨ ਹੈ",
   "hero.tabs.analytics.label": "ਵਿਸ਼ਲੇਸ਼ਣ",
   "hero.tabs.analytics.headline": "ਅੰਦਾਜ਼ਾ ਲਗਾਉਣ ਤੋਂ ਪਹਿਲਾਂ ਜਾਣੋ ਕਿ ਕੀ ਵਸੂਲਣਾ ਹੈ",
   "hero.tabs.analytics.body":
     "ਆਪਣਾ ਅਸਲ ਖਰਚਾ, ਹਰ ਕੰਮ ਲਈ ਘੱਟੋ-ਘੱਟ ਕੀਮਤ, ਅਤੇ ਆਪਣੇ ਖੇਤਰ ਦੀਆਂ ਹੋਰ ਦੁਕਾਨਾਂ ਨਾਲ ਤੁਲਨਾ ਵੇਖੋ।",
+  "hero.tabs.analytics.alt": "ਇੱਕ ਡੈਸ਼ਬੋਰਡ ਜੋ ਪ੍ਰਤੀ ਕੰਮ ਲਾਗਤ, ਘੱਟੋ-ਘੱਟ ਕੀਮਤ ਅਤੇ ਤੁਹਾਡੀਆਂ ਔਸਤ ਕੀਮਤਾਂ ਦੀ ਤੁਲਨਾ ਦਿਖਾਉਂਦਾ ਹੈ",
 
   "features.everything": "ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਲਈ ਲੋੜੀਂਦਾ ਸਭ ਕੁਝ, ਇੱਕੋ ਥਾਂ",
   "features.anyTrade": "ਹਰ ਕਿੱਤੇ ਲਈ ਬਣਾਇਆ ਗਿਆ",
@@ -1190,11 +1200,13 @@ const tl = {
   "hero.tabs.invoicing.headline": "Mabayaran nang hindi na manghahabol",
   "hero.tabs.invoicing.body":
     "Gawing invoice ang aprubadong quote sa isang click, at makakabayad online ang kliyente sa oras na dumating ito sa inbox nila.",
+  "hero.tabs.invoicing.alt": "Isang kliyenteng nagbabasa ng quote sa kanyang telepono, may Approve na buton sa ibaba",
   "hero.tabs.analytics.label": "Analytics",
   "hero.tabs.analytics.headline":
     "Alamin kung magkano ang sisingilin, bago ka manghula",
   "hero.tabs.analytics.body":
     "Tingnan ang totoong gastos mo, ang pinakamababang presyo bawat trabaho, at kung paano ka kumpara sa ibang negosyo sa larangan mo.",
+  "hero.tabs.analytics.alt": "Isang dashboard na nagpapakita ng gastos bawat trabaho, pinakamababang presyo, at kung paano nakukumpara ang iyong mga presyo sa ibang kumpanya sa iyong hanapbuhay",
 
   "features.everything":
     "Lahat ng kailangan ng negosyo mo, sa iisang lugar",

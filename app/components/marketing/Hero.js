@@ -32,8 +32,29 @@ const TABS = [
     width: 1400,
     height: 1120,
   },
-  { key: "invoicing", icon: Receipt },
-  { key: "analytics", icon: BarChart3 },
+  {
+    key: "invoicing",
+    icon: Receipt,
+    image: "/marketing/hero-invoicing.webp",
+    width: 1400,
+    height: 1050,
+  },
+  {
+    key: "analytics",
+    icon: BarChart3,
+    // Drawn rather than photographed, from the real screens: the cost-per-job
+    // and minimum-price figures are what /app/settings/overhead computes, and
+    // the comparison rows are the shape /app/analytics/benchmark renders —
+    // your average against the trade's, per service, with the sample size
+    // shown. A marketing image of a screen that does not exist is the same
+    // dishonesty as a control that does not work.
+    image: "/marketing/hero-analytics.webp",
+    // 4:3, matching the other three. The first version was 1400x742 and sat
+    // visibly wider than its neighbours as the tabs switched — a panel that
+    // changes shape under you reads as a layout bug, not a different picture.
+    width: 1400,
+    height: 1050,
+  },
 ];
 
 export default function Hero() {
