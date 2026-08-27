@@ -1490,13 +1490,16 @@ export default function SignupPage() {
                   </span>
                 </div>
 
-                {/* ── How often, not how much ──────────────────────────────
-                    Both options carry the SAME rate. There is no annual
-                    discount today, so there is no badge claiming one — what
-                    differs is the commitment and the number of charges, and
-                    that is what the copy says. If an operator ever types a
-                    real annual discount into /platform/billing/plans, the
-                    saving line below prints the number they typed. */}
+                {/* ── How often, and what it saves ─────────────────────────
+                    This comment used to say the two options carried the same
+                    rate and that no badge should claim otherwise. That stopped
+                    being true when the owner pointed at the competitor pricing
+                    he had already given me — a commitment that saves nothing is
+                    never taken — and the ladder moved to two months free. The
+                    saving is read from Plan.priceAnnual, so an operator who
+                    types a different deal into /platform/billing/plans gets the
+                    number they typed, and a plan with no annual price is
+                    disabled rather than quietly sold on a cadence it lacks. */}
                 {hasSelection && !pricing.contactSalesRequired && (
                   <div className="mt-4">
                     <div className="text-sm font-medium text-foreground">

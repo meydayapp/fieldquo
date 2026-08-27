@@ -726,6 +726,23 @@ model Subscription {
   /// threaten to cancel isn't a discount — it's the price, and the customers
   /// who learn that are the ones who cost the most. One offer per twelve
   /// months; see lib/billing/retention.js.
+  /// month · year — the cadence they are actually being charged on.
+  ///
+  /// The commitment a company chose at signup lived only in the Stripe checkout
+  /// session's metadata, so FieldQuo's own database could not answer "are they
+  /// on the one-year deal". The Account & Billing page therefore offered every
+  /// upgrade at the monthly rate, and a company on the year silently lost the
+  /// two free months by changing tier.
+  ///
+  /// Written from STRIPE, not from what a screen asked for: the authority on
+  /// how somebody is billed is the price on the live subscription item, and it
+  /// can change in the Stripe portal without passing through this app.
+  ///
+  /// Defaults to "month" rather than being nullable. Every existing row was
+  /// created before the annual option existed, and monthly is what they are on
+  /// — a null here would mean "unknown", which no screen could render honestly.
+  billingInterval String @default("month")
+
   retentionOffer   String?
   retentionOfferAt DateTime?
 

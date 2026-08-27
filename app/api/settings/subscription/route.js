@@ -54,6 +54,10 @@ export async function GET(request) {
       status: true,
       trialEndsAt: true,
       currentPeriodEnd: true,
+      // Which cadence they are on, so the page can say "billed yearly" and
+      // preselect it on an upgrade instead of quietly moving a one-year
+      // company back to monthly.
+      billingInterval: true,
       plan: {
         // seats and crewSeats, not just maxUsers — the card describes the plan as
         // "1 seat · 5 crew", and a field the screen reads but the route never
@@ -65,6 +69,11 @@ export async function GET(request) {
           maxUsers: true,
           seats: true,
           crewSeats: true,
+          // So an annual company is quoted the number on their invoice. Showing
+          // the monthly rate to somebody billed once a year is the same class
+          // of wrong as "up to 6 users" — a true figure answering a question
+          // nobody asked.
+          priceAnnual: true,
         },
       },
     },

@@ -11,6 +11,11 @@ import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 
 import CancelFlow from "./CancelFlow";
+import {
+  annualPriceOf,
+  annualSaving,
+  isBillingInterval,
+} from "@/lib/billing/interval";
 function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
 }
@@ -85,6 +90,22 @@ function AccountBillingScreen() {
   const [error, setError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncNote, setSyncNote] = useState("");
+  // ── Which cadence an upgrade is bought on ────────────────────────────────
+  //
+  // null until the subscription loads, then seeded from what the company is
+  // ALREADY on. This route used to send no cadence at all, so a company that
+  // took the one-year commitment at signup and changed tier here was moved to
+  // monthly without being told — the two months they had committed for, gone.
+  //
+  // Seeded rather than defaulted to monthly for the same reason: the safe
+  // assumption for somebody who has already chosen is what they chose.
+  const [billingInterval, setBillingInterval] = useState(null);
+  // Two different questions that were briefly one variable: `onYear` is the
+  // cadence they are BILLED on, `billingInterval` is the cadence the plan cards
+  // are being priced in. They start equal and diverge the moment somebody flips
+  // the switch to compare — at which point the current-plan line above must not
+  // move.
+  const onYear = subscription?.billingInterval === "year";
   // Whether the account was locked when this page loaded. A ref, not state:
   // it's read once inside an effect that must not re-run when it changes.
   const wasLockedRef = useRef(false);
@@ -117,7 +138,13 @@ function AccountBillingScreen() {
         setError(t("app.billing.loadFailed", "Couldn't load your subscription. Please try again."));
         return;
       }
-      setSubscription(await subRes.json());
+      const sub = await subRes.json();
+      setSubscription(sub);
+      // Only on the first load. Re-seeding on every refresh would yank the
+      // control back under someone who had just switched it.
+      setBillingInterval((current) =>
+        current ?? (isBillingInterval(sub?.billingInterval) ? sub.billingInterval : "month"),
+      );
       // { plans, currency } since the ladder shipped — the route now filters to
       // the company's own currency rather than listing both, because the two
       // rows of a tier carry the same NUMBER and picking between them is not a
@@ -237,7 +264,11 @@ function AccountBillingScreen() {
       const res = await fetch("/api/platform/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
+        // The cadence goes with the plan. The server revalidates it against
+        // the plan's own priceAnnual and refuses rather than falling back —
+        // "1 year commitment" on screen with a monthly charge on the card is
+        // the failure this whole path exists to prevent.
+        body: JSON.stringify({ planId, interval: billingInterval || "month" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t("app.billing.checkoutFailed", "Could not start checkout"));
@@ -325,8 +356,16 @@ function AccountBillingScreen() {
             </div>
             {subscription?.plan && (
               <p className="text-sm text-muted-foreground mt-1">
-                {money(subscription.plan.priceMonthly)}{t("app.billing.perMonth", "/month")}
+                {/* Quoted on the cadence they are actually billed on. An
+                    annual company reading "/month" here has to multiply in
+                    their head to recognise their own invoice, and the figure
+                    they land on is not the one they pay — the year is two
+                    months cheaper than twelve of them. */}
+                {onYear && annualPriceOf(subscription.plan) !== null
+                  ? `${money(annualPriceOf(subscription.plan))}${t("app.billing.perYear", "/year")}`
+                  : `${money(subscription.plan.priceMonthly)}${t("app.billing.perMonth", "/month")}`}
                 {seatLine(subscription.plan, t) ? ` · ${seatLine(subscription.plan, t)}` : ""}
+                {onYear ? ` · ${t("app.billing.oneYearCommitment", "1 year commitment")}` : ""}
               </p>
             )}
             {isTrialing && trialDays !== null && (
@@ -417,10 +456,60 @@ function AccountBillingScreen() {
 
       {/* Available plans */}
       <div>
-        <h2 className="text-base font-semibold text-foreground mb-3">{t("app.billing.plansHeading", "Plans")}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-base font-semibold text-foreground">{t("app.billing.plansHeading", "Plans")}</h2>
+
+          {/* ── How often, chosen before which tier ────────────────────────
+              This screen used to have no cadence control and sent none, so
+              every upgrade was bought monthly — including by companies who had
+              taken the one-year commitment at signup and were quietly moved
+              off it. The switch is seeded from what they are already on.
+
+              Rendered only when some plan on offer actually HAS an annual
+              price. A toggle whose other half cannot be bought is a control
+              that appears to work. */}
+          {plans.some((p) => annualPriceOf(p) !== null) && (
+            <div className="inline-flex rounded-full border border-border p-0.5 text-xs font-semibold">
+              {[
+                ["month", t("app.billing.payMonthly", "Monthly")],
+                ["year", t("app.billing.payYearly", "1 year commitment")],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setBillingInterval(value)}
+                  aria-pressed={billingInterval === value}
+                  className={`px-3 py-1.5 rounded-full ${
+                    billingInterval === value
+                      ? "bg-inverted text-inverted-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="grid sm:grid-cols-3 gap-4">
           {plans.map((plan) => {
-            const isCurrent = plan.id === currentPlanId;
+            // ── "Current plan" is the tier AND the cadence ────────────────
+            //
+            // Their own tier with the switch flipped to the year is a real
+            // purchase — it is how a monthly company takes the commitment —
+            // so the button stays live and says so. Disabling it on the tier
+            // alone would leave the only route to the annual deal being to
+            // downgrade and come back.
+            const sameTier = plan.id === currentPlanId;
+            const isCurrent =
+              sameTier && (subscription?.billingInterval || "month") === billingInterval;
+            // null means this tier has no annual option — not "free", and not
+            // "fall back to monthly". See lib/billing/interval.js.
+            const yearly = billingInterval === "year" ? annualPriceOf(plan) : null;
+            const saving = yearly !== null ? annualSaving(plan) : null;
+            // The server refuses this combination, so the button must not offer
+            // it. Refusing on both sides rather than trusting either.
+            const unsellable = billingInterval === "year" && annualPriceOf(plan) === null;
             return (
               <div
                 key={plan.id}
@@ -429,12 +518,44 @@ function AccountBillingScreen() {
                 }`}
               >
                 <h3 className="font-semibold text-foreground">{plan.name}</h3>
+                {/* The yearly figure is the plan's OWN priceAnnual, never twelve
+                    times the monthly one — the ladder gives two months free, and
+                    an operator can type a different deal per tier. A tier with no
+                    annual price shows its monthly one and says so on the button
+                    below, rather than displaying a year it cannot sell. */}
                 <p className="text-2xl font-bold text-foreground mt-1">
-                  {money(plan.priceMonthly)}
-                  <span className="text-sm font-normal text-muted-foreground">{t("app.billing.perMonthShort", "/mo")}</span>
+                  {money(yearly !== null ? yearly : plan.priceMonthly)}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    {yearly !== null
+                      ? t("app.billing.perYearShort", "/yr")
+                      : t("app.billing.perMonthShort", "/mo")}
+                  </span>
                 </p>
+                {yearly !== null && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t("app.billing.perMonthEquivalent", "{amount} a month", {
+                      amount: money(yearly / 12),
+                    })}
+                  </p>
+                )}
+                {/* The saving is the REASON to commit, so it is said in money
+                    and in months — "two months free" is checkable against the
+                    monthly price; a percentage is a number to trust. Hidden at
+                    zero rather than printed as "Save $0". */}
+                {yearly !== null && saving > 0 && (
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400 mt-0.5">
+                    {t("app.billing.annualSaving", "Save {amount} a year", {
+                      amount: money(saving),
+                    })}
+                  </p>
+                )}
                 {seatLine(plan, t) && (
                   <p className="text-xs text-muted-foreground mt-1">{seatLine(plan, t)}</p>
+                )}
+                {billingInterval === "year" && yearly === null && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("app.billing.monthlyOnly", "This plan is billed monthly only.")}
+                  </p>
                 )}
                 {plan.aiCopilotEnabled && (
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -443,18 +564,22 @@ function AccountBillingScreen() {
                 )}
                 <button
                   onClick={() => handleUpgrade(plan.id)}
-                  disabled={isCurrent || busyPlanId === plan.id}
+                  disabled={isCurrent || unsellable || busyPlanId === plan.id}
                   className={`w-full mt-3 py-2 rounded-full text-sm font-semibold disabled:opacity-60 ${
-                    isCurrent
+                    isCurrent || unsellable
                       ? "bg-muted text-muted-foreground"
                       : "bg-inverted text-inverted-foreground"
                   }`}
                 >
                   {isCurrent
                     ? t("app.billing.currentPlan", "Current plan")
-                    : busyPlanId === plan.id
-                      ? t("app.billing.redirecting", "Redirecting...")
-                      : t("app.billing.choosePlan", "Choose plan")}
+                    : unsellable
+                      ? t("app.billing.noAnnual", "Not sold yearly")
+                      : busyPlanId === plan.id
+                        ? t("app.billing.redirecting", "Redirecting...")
+                        : sameTier
+                          ? t("app.billing.switchToYearly", "Switch to yearly")
+                          : t("app.billing.choosePlan", "Choose plan")}
                 </button>
               </div>
             );

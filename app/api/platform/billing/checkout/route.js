@@ -13,6 +13,7 @@ import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
 import { calculatePricing } from "@/lib/pricing";
 import { findOrCreateCustomPlan } from "@/lib/billing/customPlan";
 import { getAppOrigin } from "@/lib/appUrl";
+import { resolveCheckoutInterval } from "@/lib/billing/interval";
 
 // Note: this is called by a COMPANY (upgrading their own plan), not a platform admin —
 // hence getCurrentMember, not getCurrentPlatformAdmin. It lives under /platform/billing
@@ -28,7 +29,7 @@ export async function POST(request) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
-  const { planId, employeeCount } = await request.json();
+  const { planId, employeeCount, interval: requestedInterval } = await request.json();
   if (!planId && !employeeCount)
     return NextResponse.json(
       { error: "planId or employeeCount is required" },
@@ -87,11 +88,30 @@ export async function POST(request) {
     );
   }
 
+  // ── The cadence, which this route used to throw away ──────────────────────
+  //
+  // It passed nothing and got monthly. So a company that took the one-year
+  // commitment at signup and later changed tier from Account & Billing was
+  // moved to monthly without being told, losing the two free months they had
+  // committed for — a control that appears to work, with money attached.
+  //
+  // The decision is resolveCheckoutInterval rather than an inline guard because
+  // an inline guard could only be asserted by grepping this file for it, and a
+  // grep passes just as happily on a guard somebody has disabled. It is pure,
+  // so scripts/check-billing-interval.mjs runs it against a plan with no annual
+  // price and watches it refuse.
+  const cadence = resolveCheckoutInterval(plan, requestedInterval);
+  if (cadence.error) {
+    return NextResponse.json({ error: cadence.error }, { status: 400 });
+  }
+  const { interval } = cadence;
+
   const baseUrl = getAppOrigin(request);
 
   const session = await createBillingCheckoutSession({
     company,
     plan,
+    interval,
     trialDays,
     // session_id, not just a flag. The page reconciles with it on arrival rather
     // than waiting for the checkout.session.completed webhook to land — Checkout

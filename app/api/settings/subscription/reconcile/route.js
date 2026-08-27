@@ -38,6 +38,7 @@ import { upsertSubscriptionFromCheckoutSession } from "@/lib/platform/stripeBill
 import { recordError } from "@/lib/platform/errorLog";
 import { recordActivity } from "@/lib/activity/log";
 import { notifySubscriptionState } from "@/lib/billing/notify";
+import { intervalFromStripeSubscription } from "@/lib/billing/interval";
 
 /** Stripe statuses that mean "this company is entitled to use the product". */
 const LIVE = ["active", "trialing", "past_due"];
@@ -209,6 +210,12 @@ export async function POST(request) {
           ? new Date(live.current_period_end * 1000)
           : null,
         trialEndsAt: live.trial_end ? new Date(live.trial_end * 1000) : null,
+        // Same rule as the webhook: the live price says how they are billed,
+        // and a shape we can't read leaves the stored cadence alone rather
+        // than overwriting a year with a guessed month.
+        ...(intervalFromStripeSubscription(live)
+          ? { billingInterval: intervalFromStripeSubscription(live) }
+          : {}),
       },
       create: {
         companyId: member.companyId,
@@ -220,6 +227,12 @@ export async function POST(request) {
           ? new Date(live.current_period_end * 1000)
           : null,
         trialEndsAt: live.trial_end ? new Date(live.trial_end * 1000) : null,
+        // Same rule as the webhook: the live price says how they are billed,
+        // and a shape we can't read leaves the stored cadence alone rather
+        // than overwriting a year with a guessed month.
+        ...(intervalFromStripeSubscription(live)
+          ? { billingInterval: intervalFromStripeSubscription(live) }
+          : {}),
       },
     });
 

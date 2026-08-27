@@ -97,6 +97,9 @@ capabilities.
 | 3.12 | Checkout honours the chosen interval | DONE | one shared line builder; refuses a cadence the plan has no price for rather than falling back |
 | 3.13 | Plan selection moves **last** at signup, after the address | DONE |
 | 3.14 | What "first month free" means on an annual prepay | DONE | owner confirmed: 30 free days, then the full year, then a normal yearly cycle |
+| 3.15 | The cadence is **recorded**, not just sold | DONE | `Subscription.billingInterval`, written from the live Stripe price — the commitment previously existed only in a checkout session's metadata |
+| 3.16 | Upgrading from Account & Billing keeps the commitment | DONE | the cards carry a monthly/yearly switch seeded from what they are on; it used to post no cadence at all and silently moved an annual company to monthly |
+| 3.17 | The current-plan line is quoted on the cadence they are billed on | DONE | an annual company was being shown the monthly rate |
 
 ---
 
