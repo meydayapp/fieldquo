@@ -378,6 +378,67 @@ model CompanyFeatureOverride {
 // company that signs up with it. Single-use per link by default (generate more
 // as needed). `label`/`notes` record who we handed it to and are NEVER shown to
 // the redeemer.
+
+/// A public, time-boxed promotional price — the "$98/mo for 3 months, then
+/// $139" that competitors run on their own pricing pages.
+///
+/// ══ Why this is not PlatformPromoCode ══════════════════════════════════════
+///
+/// That model is a CODE somebody types, granted to one influencer or tester,
+/// worth N free months, redeemed a fixed number of times. This is the opposite
+/// on every axis: nobody types anything, it applies to everyone who signs up
+/// while it is running, it changes the PRICE rather than granting free months,
+/// and it ends on a date rather than on a redemption count.
+///
+/// Folding the two together would mean a `kind` flag switching off half the
+/// columns of whichever row you were looking at.
+///
+/// ══ It expires by DATE, and the date is the point ══════════════════════════
+///
+/// `endsAt` is what makes a promotion a promotion. A discount with no end is a
+/// price, and pretending otherwise on a pricing page is the kind of thing that
+/// gets a marketing team a letter. `active` is the manual switch on top, so a
+/// promotion can be pulled early without editing its dates and losing the
+/// record of what it was.
+model PlatformPromotion {
+  id    String  @id @default(cuid())
+  /// Shown on the pricing page — "Save $47/mo for 3 months".
+  label String
+  notes String?
+
+  /// The switch. False means off regardless of dates.
+  active Boolean @default(false)
+
+  /// Null startsAt means "as soon as it is active".
+  startsAt DateTime?
+  /// Required. See the note above — a promotion without an end is a price.
+  endsAt   DateTime
+
+  /// "percent" — 30 means 30% off.
+  /// "amount"  — a fixed reduction in the plan's OWN currency, so a CAD plan
+  ///             and a USD plan of the same tier are not discounted by the same
+  ///             number of dollars in different money.
+  discountKind  String  @default("percent")
+  discountValue Decimal @db.Decimal(12, 2)
+
+  /// How many months the promotional price applies before the plan reverts.
+  /// 3 is the shape competitors use. 0 would mean "forever", which is a price
+  /// change, so it is rejected in code rather than encoded here.
+  durationMonths Int @default(3)
+
+  /// Empty means every tier. Otherwise the tierKeys it applies to.
+  tierKeys Json?
+
+  /// Empty means every currency.
+  currencies Json?
+
+  createdByAdminId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([active, endsAt])
+}
+
 model PlatformPromoCode {
   id               String    @id @default(cuid())
   code             String    @unique
@@ -545,8 +606,45 @@ model TaxRate {
 
 model Plan {
   id                String   @id @default(cuid())
-  name              String   @unique
+  /// No longer unique on its own: one tier exists once per currency, and
+  /// "Crew (USD)" and "Crew" are the same plan to a human. Uniqueness moved to
+  /// (tierKey, currency) below; `name` stays unique-per-currency in practice
+  /// because the seeder builds it from the tier.
+  name              String
   priceMonthly      Decimal  @default(0) @db.Decimal(12, 2)
+
+  /// ── The seat ladder ──────────────────────────────────────────────────────
+  ///
+  /// `maxUsers` below counted PEOPLE, which is the wrong unit now: a plan
+  /// carries billable seats and free crew separately, and 1+5 and 6+0 are the
+  /// same headcount for very different money. Left in place and still written,
+  /// because /platform/billing/plans reads it and a company on the old model
+  /// must keep working until every reader has moved.
+  ///
+  /// A SEAT is anyone who can create or change a quote, job or invoice.
+  /// Everyone else is crew and is free. That line is not a label — it is read
+  /// off the permission grid, because owners and admins can hand an `employee`
+  /// quote-create rights through the custom grid, and billing on the role name
+  /// would let a shop run twenty estimators on a one-seat plan.
+  seats             Int      @default(1)
+  crewSeats         Int      @default(0)
+
+  /// "solo" | "crew" | "shop" | "scale". Stable across price changes and
+  /// currencies, so the CAD and USD rows of one tier can find each other.
+  tierKey           String?
+
+  /// ISO 4217. Two rows per tier — the same plan priced in the customer's own
+  /// money, not converted at checkout. Jobber quotes USD with no selector, so a
+  /// Canadian pays their sticker plus FX plus a card fee; matching their number
+  /// in CAD is a real discount that costs nothing.
+  currency          String   @default("CAD")
+
+  /// Billed annually. Same monthly rate today — the owner's decision — so this
+  /// is the INTERVAL, not a discount. Null means the tier has no annual option.
+  priceAnnual       Decimal? @db.Decimal(12, 2)
+  stripePriceIdAnnual String?
+
+  sortOrder         Int      @default(0)
   stripePriceId     String?
   maxUsers          Int?
   maxQuotesPerMonth Int?
@@ -573,6 +671,8 @@ model Plan {
   createdAt         DateTime @default(now())
 
   subscriptions Subscription[]
+
+  @@unique([tierKey, currency])
 }
 
 model Subscription {
