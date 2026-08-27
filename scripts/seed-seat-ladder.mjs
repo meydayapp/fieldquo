@@ -32,7 +32,7 @@
 
 import "dotenv/config";
 import { db } from "../lib/db.js";
-import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "../lib/pricing/ladder.js";
+import { SEAT_LADDER, SUPPORTED_CURRENCIES, defaultAnnualPrice } from "../lib/pricing/ladder.js";
 
 const DRY = process.argv.includes("--dry");
 
@@ -40,17 +40,22 @@ const rows = SUPPORTED_CURRENCIES.flatMap((currency) =>
   SEAT_LADDER.map((tier) => ({
     tierKey: tier.tierKey,
     currency,
-    // "Solo (CAD)" rather than "Solo". Plan.name is no longer unique, but it
-    // is what the platform console labels a row with and what
-    // /api/platform/analytics/overview keys its subscriber counts by — two
-    // rows both called "Solo" would be two indistinguishable cards showing
-    // each other's company count.
-    name: `${tier.label} (${currency})`,
+    // "Solo", not "Solo (CAD)". The name is CUSTOMER-facing — it is what the
+    // plan card and the Stripe line item say — and a Canadian only ever sees
+    // the row matching their address, so a currency in the name invites the
+    // question of what the other one costs. The answer is "the same number",
+    // which is not a question worth prompting.
+    //
+    // Two rows now share a name. The console tells them apart by the currency
+    // column it already renders, and /api/platform/analytics/overview keys its
+    // plan mix by name AND currency rather than by name alone — otherwise the
+    // two would merge into one bucket and hide the CAD/USD split.
+    name: tier.label,
     priceMonthly: tier.price,
-    // Same number monthly and annual: annual is the INTERVAL, not a discount —
-    // the owner's decision, recorded on Plan.priceAnnual. Twelve times the
-    // monthly figure, because the column is a per-year charge.
-    priceAnnual: tier.price * 12,
+    // Two months free. Annual is a real DISCOUNT, not merely a different
+    // interval: a commitment that saves nothing asks a customer to give up
+    // flexibility for nothing, so nobody takes it. See ANNUAL_FREE_MONTHS.
+    priceAnnual: defaultAnnualPrice(tier.price),
     seats: tier.seats,
     crewSeats: tier.crewSeats,
     // maxUsers counted PEOPLE and still has readers (the company-facing plan

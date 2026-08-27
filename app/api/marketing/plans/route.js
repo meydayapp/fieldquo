@@ -35,6 +35,13 @@ export async function GET() {
       currency: true,
       tierKey: true,
       priceAnnual: true,
+      // Seats and crew, separately. `maxUsers` is their SUM, and describing a
+      // plan by the sum is what produced "Solo — up to 6 users" followed by
+      // "1 master account + 5 RBAC seats": five people the company is not
+      // charged for, described as five access grants to administer. The card
+      // needs both numbers to say what the plan actually is.
+      seats: true,
+      crewSeats: true,
       // Both selected only to decide whether the plan may be OFFERED, and
       // both stripped before the response — a price id is an internal
       // identifier and this endpoint is public.

@@ -1554,8 +1554,9 @@ export default function SignupPage() {
                             {annualAvailable ? (
                               <>
                                 {symbol}
-                                {money(annualPrice)} a year — one charge instead
-                                of twelve, for a year.
+                                {money(annualPrice)} a year — that&apos;s{" "}
+                                {symbol}
+                                {money(annualPrice / 12)} a month.
                               </>
                             ) : isCustom ? (
                               "Custom sizing is billed monthly."
@@ -1563,10 +1564,15 @@ export default function SignupPage() {
                               "This plan is billed monthly only."
                             )}
                           </span>
+                          {/* The saving is the REASON to commit, so it is said
+                              in money and in months rather than a percentage —
+                              "two months free" is checkable in the head against
+                              the monthly price on the other option; "17% off"
+                              is a number somebody has to trust. */}
                           {annualAvailable && (
-                            <span className="block text-muted-foreground mt-1">
+                            <span className="block mt-1 font-medium text-green-700 dark:text-green-400">
                               {yearlySaving > 0
-                                ? `That's ${symbol}${money(yearlySaving)} less than paying monthly.`
+                                ? `Save ${symbol}${money(yearlySaving)} a year — two months free.`
                                 : "Same rate as monthly — the year is the commitment, not a discount."}
                             </span>
                           )}

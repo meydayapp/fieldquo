@@ -167,6 +167,7 @@ const en = {
   "pricing.seatsOne": "1 employee account",
   "pricing.seatsMany": "{count} employee accounts",
   "pricing.rbacSeats": "1 master account + {count} RBAC seats",
+  "pricing.crewIncluded": "{count} crew members included — free",
   "pricing.fullAccess":
     "Full access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Up to {count} quotes per month",
@@ -397,6 +398,7 @@ const fr = {
   "pricing.seatsOne": "1 compte employé",
   "pricing.seatsMany": "{count} comptes employés",
   "pricing.rbacSeats": "1 compte principal + {count} accès par rôle",
+  "pricing.crewIncluded": "{count} équipiers inclus — gratuitement",
   "pricing.fullAccess":
     "Accès complet — soumissions, facturation, planification, analytique",
   "pricing.quoteLimit": "Jusqu'à {count} soumissions par mois",
@@ -612,6 +614,7 @@ const es = {
   "pricing.seatsOne": "1 cuenta de empleado",
   "pricing.seatsMany": "{count} cuentas de empleado",
   "pricing.rbacSeats": "1 cuenta principal + {count} accesos por rol",
+  "pricing.crewIncluded": "{count} miembros de cuadrilla incluidos — gratis",
   "pricing.fullAccess":
     "Acceso completo — presupuestos, facturación, agenda, analítica",
   "pricing.quoteLimit": "Hasta {count} presupuestos por mes",
@@ -794,6 +797,7 @@ const uk = {
   "pricing.seatsOne": "1 обліковий запис працівника",
   "pricing.seatsMany": "Облікових записів працівників: {count}",
   "pricing.rbacSeats": "1 головний обліковий запис + {count} доступів за ролями",
+  "pricing.crewIncluded": "{count} членів бригади включено — безкоштовно",
   "pricing.fullAccess":
     "Повний доступ — кошториси, рахунки, планування, аналітика",
   "pricing.quoteLimit": "До {count} кошторисів на місяць",
@@ -1009,6 +1013,7 @@ const pa = {
   "pricing.seatsOne": "1 ਕਰਮਚਾਰੀ ਖਾਤਾ",
   "pricing.seatsMany": "{count} ਕਰਮਚਾਰੀ ਖਾਤੇ",
   "pricing.rbacSeats": "1 ਮੁੱਖ ਖਾਤਾ + {count} ਭੂਮਿਕਾ-ਆਧਾਰਿਤ ਪਹੁੰਚਾਂ",
+  "pricing.crewIncluded": "{count} ਕਰੂ ਮੈਂਬਰ ਸ਼ਾਮਲ — ਮੁਫ਼ਤ",
   "pricing.fullAccess":
     "ਪੂਰੀ ਪਹੁੰਚ — ਕੋਟ, ਇਨਵੌਇਸਿੰਗ, ਸ਼ਡਿਊਲਿੰਗ, ਵਿਸ਼ਲੇਸ਼ਣ",
   "pricing.quoteLimit": "ਹਰ ਮਹੀਨੇ {count} ਕੋਟ ਤੱਕ",
@@ -1226,6 +1231,7 @@ const tl = {
   "pricing.seatsOne": "1 employee account",
   "pricing.seatsMany": "{count} na employee account",
   "pricing.rbacSeats": "1 master account + {count} na RBAC seat",
+  "pricing.crewIncluded": "{count} miyembro ng crew kasama — libre",
   "pricing.fullAccess":
     "Buong access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Hanggang {count} na quote bawat buwan",

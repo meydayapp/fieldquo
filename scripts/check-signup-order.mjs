@@ -50,7 +50,7 @@ import {
   chargeFor,
   supportsInterval,
 } from "../lib/billing/interval.js";
-import { SEAT_LADDER } from "../lib/pricing/ladder.js";
+import { SEAT_LADDER, defaultAnnualPrice } from "../lib/pricing/ladder.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
@@ -366,11 +366,11 @@ console.log("\nThe interval: annual is the cadence, not a discount");
 const solo = SEAT_LADDER[0];
 const LADDER_ROW = {
   id: "plan_solo_cad",
-  name: `${solo.label} (CAD)`,
+  name: solo.label,
   tierKey: solo.tierKey,
   currency: "CAD",
   priceMonthly: solo.price,
-  priceAnnual: solo.price * 12,
+  priceAnnual: defaultAnnualPrice(solo.price),
 };
 // A bespoke row, exactly as lib/billing/customPlan.js mints it: no annual.
 const CUSTOM_ROW = {
@@ -382,7 +382,14 @@ const CUSTOM_ROW = {
   priceAnnual: null,
 };
 // What Prisma actually hands back for a Decimal column.
-const AS_STRINGS = { ...LADDER_ROW, priceMonthly: "129", priceAnnual: "1548" };
+// Prisma returns Decimal columns as strings. Derived from the ladder rather
+// than typed, so a reprice cannot leave this fixture asserting last month's
+// price while claiming to be about string handling.
+const AS_STRINGS = {
+  ...LADDER_ROW,
+  priceMonthly: String(solo.price),
+  priceAnnual: String(defaultAnnualPrice(solo.price)),
+};
 
 eq("the cadences on offer", BILLING_INTERVALS.join(","), "month,year");
 eq("the default is the one with no commitment attached", DEFAULT_INTERVAL, "month");
@@ -396,21 +403,47 @@ ok(
     !isBillingInterval(undefined),
 );
 
-eq("a ladder row bills CA$129 a month", chargeFor(LADDER_ROW, "month").unitAmountCents, 12900);
-eq("...and CA$1,548 a year", chargeFor(LADDER_ROW, "year").unitAmountCents, 154800);
+// Derived from SEAT_LADDER, not typed in. These were literals and the owner's
+// reprice broke them, which is the check failing for the right reason but in
+// the wrong place — the price is not what this file is about.
+eq("a ladder row bills the tier's monthly price",
+  chargeFor(LADDER_ROW, "month").unitAmountCents, Math.round(solo.price * 100));
+eq("...and ten months for the year",
+  chargeFor(LADDER_ROW, "year").unitAmountCents,
+  Math.round(defaultAnnualPrice(solo.price) * 100));
 eq("the yearly line really is yearly", chargeFor(LADDER_ROW, "year").interval, "year");
-eq("Prisma's Decimal-as-string prices survive the trip", chargeFor(AS_STRINGS, "year").unitAmountCents, 154800);
+eq("Prisma's Decimal-as-string prices survive the trip",
+  chargeFor(AS_STRINGS, "year").unitAmountCents,
+  Math.round(defaultAnnualPrice(solo.price) * 100));
 
+// ── These two INVERTED, and the inversion is the point ───────────────────
+//
+// They asserted that a year cost exactly twelve months — because it did, and a
+// saving badge would then have advertised something that did not exist. The
+// owner corrected the pricing after noticing the plan step gave no reason to
+// commit: a commitment that saves nothing asks a customer to give up
+// flexibility for nothing, so nobody takes it.
 eq(
-  "twelve months and one year cost exactly the same — no invented discount",
+  "a year costs ten months, so committing saves two",
   annualSaving(LADDER_ROW),
-  0,
+  solo.price * 2,
 );
 ok(
-  "every rung of the ladder is the same rate on both cadences",
+  "every rung saves two months, not a percentage somebody chose",
   SEAT_LADDER.every(
-    (tier) => annualSaving({ priceMonthly: tier.price, priceAnnual: tier.price * 12 }) === 0,
+    (tier) =>
+      annualSaving({
+        priceMonthly: tier.price,
+        priceAnnual: defaultAnnualPrice(tier.price),
+      }) === tier.price * 2,
   ),
+);
+// The old shape must still be handled: an operator may set a rung's annual
+// price to twelve months by hand, and that rung then has no saving to claim.
+eq(
+  "an annual price of twelve months saves nothing, and says so",
+  annualSaving({ priceMonthly: 99, priceAnnual: 1188 }),
+  0,
 );
 eq(
   "a plan with no annual price can't be compared, so no saving is claimed",
@@ -490,13 +523,24 @@ ok(
     !/monthlyTotal:\s*/.test(page.split("fetch(\"/api/companies\"")[1] || ""),
   "the browser never sends an amount — the server reprices from its own rows",
 );
+// ── This assertion INVERTED, and that is the change ──────────────────────
+//
+// It used to require that no saving was claimed anywhere on the step, because
+// annual was billed at the monthly rate and a badge would have advertised
+// something that did not exist. The owner corrected the pricing — two months
+// free — so the saving is now real, and the failure to guard against is the
+// opposite one: an annual option offered with no reason to take it.
 ok(
-  "nothing on the plan step claims a saving that does not exist",
-  !/\bsave\s+(up to\s+)?[$\d]/i.test(page) &&
-    !/\d+\s*%\s*(off|cheaper|less|saving)/i.test(page) &&
-    !/best value|biggest saving/i.test(page),
-  "annual is the interval, not a discount — annualSaving() is 0 on every rung, " +
-    "so a badge here would be advertising something that does not exist",
+  "the plan step states what the year saves",
+  /yearlySaving/.test(page) && /Save \$\{symbol\}/.test(page),
+  "the reason to commit IS the saving — an annual option with no stated benefit " +
+    "is a question the buyer answers by picking monthly",
+);
+ok(
+  "…and never prints a saving of zero",
+  /yearlySaving > 0\s*\?/.test(page),
+  "annualSaving returns null when a price is missing and 0 when there is none — " +
+    "both must fall to the 'same rate' sentence rather than 'Save $0'",
 );
 
 ok(

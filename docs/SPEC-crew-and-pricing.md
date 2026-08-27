@@ -82,8 +82,10 @@ capabilities.
 | # | Requirement | State |
 |---|---|---|
 | 3.1 | Four tiers: 1 / 3 / 6 / 10 seats | DONE |
+| 3.1a | Plan names carry **no currency** — a customer sees only their own | DONE |
+| 3.1b | Cards state **seats and crew separately**, never their sum | DONE | "up to 6 users" + "1 master account + 5 RBAC seats" was one number split along the wrong line |
 | 3.2 | Crew 5 / 8 / 11 / 15 → **6 / 11 / 17 / 25 people** | DONE |
-| 3.3 | 129 / 189 / 289 / 389 | DONE |
+| 3.3 | **99 / 169 / 269 / 369** (owner repriced 2026-08-27) | DONE |
 | 3.4 | **CAD for Canada, USD for the USA** | DONE |
 | 3.5 | Currency from the **company address**, never selectable | DONE |
 | 3.6 | Falls back to the address and province when the column is empty | DONE |
@@ -91,9 +93,9 @@ capabilities.
 | 3.8 | Promotion: enable/disable, set an expiry | DONE |
 | 3.9 | Promotion shows what it reverts to, and for how long | DONE |
 | 3.10 | Old per-headcount plans retired, existing subscribers keep theirs | DONE |
-| 3.11 | **Monthly vs 1-year commitment**, same rate | IN FLIGHT |
-| 3.12 | Checkout honours the chosen interval | IN FLIGHT — `recurring: { interval: "month" }` is hardcoded |
-| 3.13 | Plan selection moves **last** at signup, after the address | IN FLIGHT |
+| 3.11 | Monthly vs 1-year commitment — **two months free on the year** | DONE | was same-rate; the owner corrected it, since a commitment that saves nothing is never taken |
+| 3.12 | Checkout honours the chosen interval | DONE | one shared line builder; refuses a cadence the plan has no price for rather than falling back |
+| 3.13 | Plan selection moves **last** at signup, after the address | DONE |
 | 3.14 | What "first month free" means on an annual prepay | DONE | owner confirmed: 30 free days, then the full year, then a normal yearly cycle |
 
 ---

@@ -34,6 +34,9 @@ import {
   promotionApplies,
   currencyForCountry,
   currencyLabel,
+  ANNUAL_FREE_MONTHS,
+  defaultAnnualPrice,
+  annualComparison,
 } from "@/lib/pricing/ladder";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 
@@ -60,8 +63,8 @@ ok("crew are 5 / 8 / 11 / 15",
 ok("people are 6 / 11 / 17 / 25",
   JSON.stringify(SEAT_LADDER.map((t) => t.seats + t.crewSeats)) === "[6,11,17,25]",
   shape.join(" "));
-ok("prices are 129 / 189 / 289 / 389",
-  JSON.stringify(SEAT_LADDER.map((t) => t.price)) === "[129,189,289,389]");
+ok("prices are 99 / 169 / 269 / 369",
+  JSON.stringify(SEAT_LADDER.map((t) => t.price)) === "[99,169,269,369]");
 
 console.log("\nA seat is what you can DO, not what you are called");
 ok("Crew is free", isBillableSeat(member("worker")) === false);
@@ -144,22 +147,22 @@ console.log("\nThe price it produces");
 const solo = SEAT_LADDER[0];
 const at = (d) => priceFor({ tier: solo, currency: "CAD", promotion: promo, now: new Date(d) });
 const during = at("2026-08-27");
-ok("30% off 129 is 90.30", during.now === 90.3, during.now);
-ok("it always reports what it reverts to", during.revertsTo === 129);
+ok("30% off 99 is 69.30", during.now === 69.3, during.now);
+ok("it always reports what it reverts to", during.revertsTo === 99);
 ok("and for how long", during.durationMonths === 3);
-ok("and the saving", during.saving === 38.7, during.saving);
-ok("after expiry it is the full price", at("2026-09-02").now === 129);
+ok("and the saving", during.saving === 29.7, during.saving);
+ok("after expiry it is the full price", at("2026-09-02").now === 99);
 ok("...and says no promotion was applied", at("2026-09-02").promoApplied === false);
 // Stripe rejects a zero unit_amount on a one-time line, so a typo that zeroes
 // the price must not render as free — it must not move the price at all.
 ok("a 100% discount is refused, not rendered free",
-  priceFor({ tier: solo, promotion: { ...promo, discountValue: 100 }, now: new Date("2026-08-27") }).now === 129);
+  priceFor({ tier: solo, promotion: { ...promo, discountValue: 100 }, now: new Date("2026-08-27") }).now === 99);
 ok("a discount bigger than the price is refused",
-  priceFor({ tier: solo, promotion: { ...promo, discountKind: "amount", discountValue: 500 }, now: new Date("2026-08-27") }).now === 129);
+  priceFor({ tier: solo, promotion: { ...promo, discountKind: "amount", discountValue: 500 }, now: new Date("2026-08-27") }).now === 99);
 ok("a zero discount does not claim a promotion",
   priceFor({ tier: solo, promotion: { ...promo, discountValue: 0 }, now: new Date("2026-08-27") }).promoApplied === false);
 ok("no promotion at all is just the price",
-  priceFor({ tier: solo, promotion: null }).now === 129);
+  priceFor({ tier: solo, promotion: null }).now === 99);
 
 console.log("\nScoping a promotion to some tiers or currencies");
 ok("empty lists mean everything", promotionApplies({}, { tierKey: "solo", currency: "CAD" }) === true);
@@ -183,6 +186,28 @@ ok("a country we do not price is null, not a guess", currencyForCountry("GB") ==
 // the address rule exists to remove.
 ok("USD is written US$", currencyLabel("USD") === "US$");
 ok("CAD is written CA$", currencyLabel("CAD") === "CA$");
+
+console.log("\nA year's commitment actually saves money");
+// It did not. The owner said "billed annually instead of the no commitment" and
+// that was built literally — same rate, one charge. A commitment that saves
+// nothing asks a customer to give up flexibility for nothing, so nobody takes
+// it, so the commitment is never bought. Two months free now.
+ok("the default is two months free", ANNUAL_FREE_MONTHS === 2);
+for (const tier of SEAT_LADDER) {
+  const annual = defaultAnnualPrice(tier.price);
+  ok(`${tier.label}: a year costs ten months, not twelve`, annual === tier.price * 10, annual);
+  const c = annualComparison({ priceMonthly: tier.price, priceAnnual: annual });
+  ok(`  ...and it says it saves ${"$"}${c.saves}`, c.saves === tier.price * 2, c.saves);
+  ok("  ...at 17%", c.percent === 17, c.percent);
+  // The number a buyer checks against the monthly price on the next card.
+  ok("  ...with an effective monthly rate below the monthly price", c.perMonth < tier.price);
+}
+// A plan with no annual price has no annual option — not a free one.
+const none = annualComparison({ priceMonthly: 99, priceAnnual: null });
+ok("no annual price means no annual option", none.available === false && none.saves === 0);
+// And a badge must never print "Save $0".
+const same = annualComparison({ priceMonthly: 99, priceAnnual: 1188 });
+ok("an annual price equal to twelve months saves nothing, and says so", same.saves === 0);
 
 console.log("\nThe page a customer sees");
 const page = ladderFor({ currency: "CAD", promotion: promo, now: new Date("2026-08-27") });

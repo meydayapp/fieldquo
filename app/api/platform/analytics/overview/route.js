@@ -163,7 +163,9 @@ export async function GET(request) {
         stripeSubscriptionId: true,
         company: { select: { name: true } },
         plan: {
-          select: { name: true, priceMonthly: true, stripePriceId: true },
+          // currency is selected because the plan mix keys on it — two rows
+          // are both called "Solo" and merging them hides the split.
+          select: { name: true, currency: true, priceMonthly: true, stripePriceId: true },
         },
       },
     }),
@@ -246,7 +248,11 @@ export async function GET(request) {
   // Plan mix — which plans people actually buy.
   const planMix = {};
   for (const s of activeOnly) {
-    planMix[s.plan.name] = (planMix[s.plan.name] || 0) + 1;
+    // Name AND currency. The ladder exists once per currency and both rows are
+    // called "Solo" — keying on the name alone merged them into one bucket and
+    // hid the CAD/USD split, which is the one thing this breakdown is for.
+    const key = s.plan.currency ? `${s.plan.name} (${s.plan.currency})` : s.plan.name;
+    planMix[key] = (planMix[key] || 0) + 1;
   }
 
   return NextResponse.json({

@@ -394,18 +394,33 @@ function AccountBillingScreen() {
                   {money(plan.priceMonthly)}
                   <span className="text-sm font-normal text-muted-foreground">{t("app.billing.perMonthShort", "/mo")}</span>
                 </p>
-                {plan.maxUsers && (
+                {/* A ladder plan states seats and crew apart; `maxUsers` is
+                    their SUM and saying "up to 6 users" of a plan that bills
+                    for one is the confusion the owner named. A legacy plan has
+                    no crew concept, so it keeps the old wording rather than
+                    being handed an invented zero. */}
+                {plan.crewSeats != null ? (
                   <p className="text-xs text-muted-foreground mt-1">
-                    {/* "Up to 1 users" on the 1-Employee card. Singular and
-                        plural are separate strings rather than a stripped "s",
-                        because the six languages here don't agree on how
-                        plurals work. */}
-                    {plan.maxUsers === 1
-                      ? t("app.billing.upToUsersCapOne", "Up to 1 user")
-                      : t("app.billing.upToUsersCap", "Up to {count} users", {
-                          count: plan.maxUsers,
+                    {plan.seats === 1
+                      ? t("app.billing.seatsOneWithCrew", { crew: plan.crewSeats })
+                      : t("app.billing.seatsWithCrew", {
+                          seats: plan.seats,
+                          crew: plan.crewSeats,
                         })}
                   </p>
+                ) : (
+                  plan.maxUsers && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {/* Singular and plural are separate strings rather than a
+                          stripped "s", because the six languages here don't
+                          agree on how plurals work. */}
+                      {plan.maxUsers === 1
+                        ? t("app.billing.upToUsersCapOne", "Up to 1 user")
+                        : t("app.billing.upToUsersCap", "Up to {count} users", {
+                            count: plan.maxUsers,
+                          })}
+                    </p>
+                  )
                 )}
                 {plan.aiCopilotEnabled && (
                   <p className="text-xs text-muted-foreground mt-0.5">

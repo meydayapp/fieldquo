@@ -26,6 +26,21 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
   const label = isDbPlan ? plan.name : tier.label;
   const employeeCount = isDbPlan ? plan.maxUsers : tier.employeeCount;
 
+  // ── Seats and crew are two different things, and one number hid that ──────
+  //
+  // This card described a plan as "N users", from `maxUsers`, which under the
+  // seat ladder is seats PLUS free crew added together — so Solo read "up to 6
+  // users" and then "1 master account + 5 RBAC seats", which is five people the
+  // owner is not charged for described as five access grants they must
+  // administer. The owner called it confusing and he was right: it is two
+  // separate numbers reported as one and then split along the wrong line.
+  //
+  // A ladder plan says what it is. A legacy plan has no crew concept and keeps
+  // the old wording, because inventing "0 crew" for it would be a claim about a
+  // plan that predates the idea.
+  const ladderSeats = isDbPlan && plan.crewSeats != null ? plan.seats : null;
+  const ladderCrew = isDbPlan && plan.crewSeats != null ? plan.crewSeats : null;
+
   const calculated = calculatePricing(employeeCount || 1);
 
   // TRIAL_PRICE, not a literal. This was hardcoded to 1 and would have gone on
@@ -94,18 +109,29 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
           <CheckCircle2 size={16} className="text-green-600 shrink-0" />
           {/* Separate keys rather than appending "s" — most languages don't
               pluralise by suffixing, and Ukrainian has three plural forms. */}
-          {!employeeCount
-            ? t("pricing.seatsUnlimited")
-            : employeeCount === 1
+          {ladderSeats != null
+            ? ladderSeats === 1
               ? t("pricing.seatsOne")
-              : t("pricing.seatsMany", { count: employeeCount })}
+              : t("pricing.seatsMany", { count: ladderSeats })
+            : !employeeCount
+              ? t("pricing.seatsUnlimited")
+              : employeeCount === 1
+                ? t("pricing.seatsOne")
+                : t("pricing.seatsMany", { count: employeeCount })}
         </li>
 
-        {employeeCount > 1 && (
+        {ladderCrew != null ? (
           <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
-            {t("pricing.rbacSeats", { count: employeeCount - 1 })}
+            {t("pricing.crewIncluded", { count: ladderCrew })}
           </li>
+        ) : (
+          employeeCount > 1 && (
+            <li className="flex items-center gap-2 text-sm text-foreground">
+              <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+              {t("pricing.rbacSeats", { count: employeeCount - 1 })}
+            </li>
+          )
         )}
 
         <li className="flex items-center gap-2 text-sm text-foreground">
