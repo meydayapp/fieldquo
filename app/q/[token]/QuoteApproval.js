@@ -19,6 +19,7 @@ import SignaturePad from "@/app/components/SignaturePad";
 import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
+import { jsonBody } from "@/lib/jsonBody";
 
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
@@ -110,7 +111,7 @@ export default function QuoteApproval({ token }) {
         // No total is sent. Deliberate — the server prices it. On acceptance we
         // send the signature (name + drawn mark + consent); the server adds IP,
         // device, timestamp and the document hash and treats it as the approval.
-        body: JSON.stringify({
+        body: jsonBody({
           decision,
           addOnIds: decision === "accepted" ? picked : [],
           ...(decision === "accepted"
@@ -122,7 +123,7 @@ export default function QuoteApproval({ token }) {
                 },
               }
             : {}),
-        }),
+        }, "approval"),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {

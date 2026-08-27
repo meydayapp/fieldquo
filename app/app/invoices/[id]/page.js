@@ -54,6 +54,7 @@ import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
+import { jsonBody } from "@/lib/jsonBody";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
@@ -307,7 +308,7 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${id}/request-payment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: chaseNote.trim() }),
+        body: jsonBody({ note: chaseNote.trim() }, "invoice reminder"),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok)

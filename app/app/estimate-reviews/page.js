@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Loader2, BadgeCheck, ExternalLink } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
+import { jsonBody } from "@/lib/jsonBody";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 function money(n) {
@@ -56,7 +57,7 @@ export default function EstimateReviewsPage() {
       await fetchJson(`/api/quotes/${q.id}/approve-estimate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(adjusted != null ? { total: adjusted } : {}),
+        body: jsonBody(adjusted != null ? { total: adjusted } : {}, "estimate approval"),
       });
       await load();
     } catch (err) {

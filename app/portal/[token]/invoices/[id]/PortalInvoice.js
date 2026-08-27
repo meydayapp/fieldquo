@@ -26,6 +26,7 @@ import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { offlinePaymentLines } from "@/lib/payments/offlinePaymentNote";
 import { taxIdLine } from "@/lib/documents/taxId";
+import { jsonBody } from "@/lib/jsonBody";
 
 export default function PortalInvoice({ token, invoiceId }) {
   const [data, setData] = useState(null);
@@ -60,7 +61,7 @@ export default function PortalInvoice({ token, invoiceId }) {
       const res = await fetch(`/api/portal/${token}/pay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ invoiceId }),
+        body: jsonBody({ invoiceId }, "payment"),
       });
       const d = await res.json().catch(() => null);
       if (!res.ok || !d?.checkoutUrl) {

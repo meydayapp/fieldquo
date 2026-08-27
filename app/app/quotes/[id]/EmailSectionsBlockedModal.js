@@ -29,6 +29,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { jsonBody } from "@/lib/jsonBody";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 /**
@@ -65,7 +66,7 @@ export default function EmailSectionsBlockedModal({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(action?.body || {}),
+          body: jsonBody(action?.body || {}, "section change"),
         },
       );
       onCleared?.(result.blocked || []);

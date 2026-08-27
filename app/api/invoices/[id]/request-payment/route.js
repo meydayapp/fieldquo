@@ -75,6 +75,10 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       phone: true,
+      // Same omission as the send route had: without it buildInvoiceEmail
+      // formats every amount as CAD, so a chaser could name a different
+      // currency than the invoice it is chasing.
+      currency: true,
       paymentTerms: true,
       paymentMethods: true,
       defaultLanguage: true,

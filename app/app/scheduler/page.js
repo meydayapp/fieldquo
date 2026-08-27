@@ -392,7 +392,22 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
   // gated on typing — but offered, because the record is worth reading later.
   const [overrideNote, setOverrideNote] = useState("");
 
-  async function save(override = false) {
+  // ── `override === true`, not `Boolean(override)` ─────────────────────────
+  //
+  // "Add to draft" wired this as `onClick={save}`, so React passed the CLICK
+  // EVENT as `override` — a default parameter only fires for `undefined`, and
+  // an event is not undefined. The event was truthy, so `override || undefined`
+  // put a React synthetic event in the request body and JSON.stringify threw
+  // "Converting circular structure to JSON" (Safari: "cannot serialize cyclic
+  // structures"). No fetch was ever made: the primary Add-to-draft button on
+  // the scheduler could not create a shift at all.
+  //
+  // Same defect, same shape, as the quote page's Send button. The call site is
+  // fixed too; this guard stays because the next person to wire a handler
+  // straight to onClick will make the same mistake and the failure it produces
+  // names nothing about where it came from.
+  async function save(overrideArg = false) {
+    const override = overrideArg === true;
     if (!workerId || end <= start) return;
     setSaving(true);
     if (!override) setRefusal(null);
@@ -571,7 +586,9 @@ function AddShiftModal({ dateStr, workers, onClose, onSaved, t }) {
             </p>
           )}
           <button
-            onClick={save}
+            // Wrapped, not passed. `onClick={save}` handed save the click event
+            // as its `override` argument — see the note on save().
+            onClick={() => save()}
             disabled={saving || !workerId || end <= start}
             className="w-full rounded-lg bg-inverted text-inverted-foreground py-2.5 text-sm font-semibold disabled:opacity-60"
           >

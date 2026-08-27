@@ -74,6 +74,13 @@ export async function POST(request, { params }) {
       logoUrl: true,
       brandColor: true,
       phone: true,
+      // Not optional, and its absence was silent. buildInvoiceEmail calls
+      // documentFormatters(language, company?.currency), which falls back to
+      // CAD — so a GBP company's invoice email printed "$1,000.00" for the
+      // same job its quote email had priced at "£1,000.00". The quote send
+      // route has always selected this; the two routes mirror each other
+      // (AGENTS.md) and this one had drifted.
+      currency: true,
       paymentTerms: true,
       paymentMethods: true,
       defaultLanguage: true,
