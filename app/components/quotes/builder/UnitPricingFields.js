@@ -44,26 +44,42 @@ const WOOD_SPECIES = [
 const ADD_ONS = [
   {
     key: "handleHoles",
-    label: "New handle holes drilled in the doors",
+    // Drawer fronts take handles too. This counted doors only, so a
+    // 24-door/8-drawer kitchen was quoted 24 holes for 32 pieces.
+    label: "New handle holes drilled in the doors and drawer fronts",
     needsDrawers: false,
-    hint: (a) => `$${Number(a.handleHolesPerDoor) || 0} per door`,
+    countsKey: "handleHoles",
+    defaultUnits: (d, dr) => d + dr,
+    unitWord: "pieces",
+    hint: (a) => `$${Number(a.handleHolesPerDoor) || 0} per piece`,
   },
   {
     key: "softCloseHinges",
     label: "Soft-close hinges",
     needsDrawers: false,
+    countsKey: "softCloseHinges",
+    defaultUnits: (d) => d,
+    unitWord: "doors",
     hint: (a) => `$${Number(a.softCloseHingesPerDoor) || 0} per door`,
   },
   {
     key: "drawerSlides",
     label: "Drawer slides",
     needsDrawers: true,
+    countsKey: "drawerSlides",
+    defaultUnits: (d, dr) => dr,
+    unitWord: "drawers",
     hint: (a) => `$${Number(a.drawerSlidesPerDrawer) || 0} per drawer`,
   },
   {
     key: "twoTone",
     label: "Two-tone finish",
     needsDrawers: false,
+    // Both tone options share ONE count — they are mutually exclusive, and
+    // two boxes for one question is how the island ends up counted twice.
+    countsKey: "tone",
+    defaultUnits: (d, dr) => d + dr,
+    unitWord: "pieces",
     hint: (a) =>
       `$${Number(a.twoToneFlat) || 0} + $${Number(a.twoTonePerUnit) || 0} per unit`,
   },
@@ -71,6 +87,9 @@ const ADD_ONS = [
     key: "threeTone",
     label: "Three-colour finish (replaces two-tone)",
     needsDrawers: false,
+    countsKey: "tone",
+    defaultUnits: (d, dr) => d + dr,
+    unitWord: "pieces",
     hint: (a) =>
       `$${Number(a.threeToneFlat) || 0} + $${Number(a.threeTonePerUnit) || 0} per unit`,
   },
@@ -348,8 +367,15 @@ export default function UnitPricingFields({
           const on = Boolean(group[addOn.key]);
           // Priced through the shared helper one at a time, so the row shows
           // what this upgrade alone costs on this job.
+          const units = group.addOnUnits || {};
+          const stated = units[addOn.countsKey];
+          const hasOverride = Number.isFinite(Number(stated));
+          // Priced with the override in play, so the figure on the row is the
+          // figure that lands on the quote. Pricing the default here and the
+          // override at save time is how a screen comes to disagree with the
+          // document it produces.
           const own = cabinetAddOnLines(
-            { doors, drawers, [addOn.key]: true },
+            { doors, drawers, [addOn.key]: true, addOnUnits: units },
             book,
           );
           const amount = own.reduce((sum, i) => sum + i.amount, 0);
@@ -392,6 +418,43 @@ export default function UnitPricingFields({
                       ? "Enter a drawer count above"
                       : "Enter a door count above"}
                 </span>
+
+                {/* ── How many, when it isn't all of them ──────────────────
+                    The count was derived and unreachable: a client who wants
+                    handles on two doors was quoted thirty-two. It still
+                    derives — that is right on most jobs and typing it twice is
+                    how the two come to disagree — but an estimator who has
+                    counted can say so.
+
+                    Only when ticked. An empty number box beside every
+                    unticked upgrade is five controls that do nothing. */}
+                {on && applicable && (
+                  <span className="mt-1 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      value={hasOverride ? stated : ""}
+                      placeholder={String(addOn.defaultUnits(doors, drawers))}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const next = { ...units };
+                        // Cleared means "back to the derived count", which is
+                        // NOT the same as zero — zero drops the line, and a
+                        // backspace must not silently do that.
+                        if (raw === "") delete next[addOn.countsKey];
+                        else next[addOn.countsKey] = Math.max(0, Number(raw));
+                        onPricingChange({ addOnUnits: next });
+                      }}
+                      className="w-20 border border-border rounded px-2 py-1 text-xs bg-background text-foreground"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {addOn.unitWord}
+                      {hasOverride
+                        ? ` — of ${addOn.defaultUnits(doors, drawers)}`
+                        : " (all of them)"}
+                    </span>
+                  </span>
+                )}
               </span>
             </label>
           );

@@ -276,20 +276,32 @@ ok(
 
 section("The upgrades the caller asked for");
 
-// Soft-close hinges at $35 a door and handle holes at $12 a door, on 32 doors.
+// Soft-close hinges at $35 a DOOR, handle holes at $12 a PIECE.
+//
+// The two counts differ on purpose and this is the check that says so. A drawer
+// front takes a handle exactly like a door does, so handle holes price across
+// 32 + 3 = 35 pieces; a drawer runs on slides rather than hinges, so soft-close
+// hinges stay on the 32 doors. This file previously asserted 32 for both, which
+// under-quoted every kitchen with drawers in it by one handle per drawer.
 const withAddOns = await priceIt({
   doorCount: 32,
   drawerCount: 3,
   addOns: ["softCloseHinges", "handleHoles"],
 });
-// $5,250 of faces + 32 sets of hinges + 32 sets of handle holes = $6,754,
-// shown as $6,750: every figure this file publishes is rounded to a tidy $10,
-// because "$6,754" reads as a machine guessing and a range is not that precise.
-eq("hinges and handles are IN the total", withAddOns.point, 6750);
+// $5,250 of faces + 32 sets of hinges + 35 sets of handle holes = $6,790,
+// shown to the tidy $10 this file publishes everything at, because "$6,794"
+// reads as a machine guessing and a range is not that precise.
+eq("hinges and handles are IN the total", withAddOns.point, 6790);
+// The arithmetic, not just the total — a total can match for the wrong reasons.
+eq(
+  "handles priced per piece, hinges per door",
+  withAddOns.point - 5250 - 32 * 35,
+  35 * 12,
+);
 eq("each upgrade is its own line", withAddOns.breakdown.map((b) => b.label), [
   "32 doors refinished",
   "3 drawer fronts",
-  "New handle holes drilled in the doors",
+  "New handle holes drilled in the doors and drawer fronts",
   "Soft-close hinges",
 ]);
 eq("the breakdown still adds up", sum(withAddOns), withAddOns.point);
