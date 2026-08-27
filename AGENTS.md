@@ -85,7 +85,8 @@ These came from the product owner directly. Do not relax them without asking.
    free — `TRIAL_PRICE` in `lib/pricing.js`). What is invite-only is being
    added to an *existing* company —
    employees are invited against that company's licensed seats — plus the
-   referral flow (invitee and referrer each get 3 free months) and FieldQuo's
+   referral flow (invitee and referrer each get ONE free month — the owner
+   overrode the original three on 2026-08-27) and FieldQuo's
    own platform admins (backend). There is no self-serve way to add yourself to
    a company you weren't invited to, and platform admin is never self-serve.
 2. **Impersonation is read-only and superadmin-only.** Enforced in
