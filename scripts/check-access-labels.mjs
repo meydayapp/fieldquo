@@ -96,7 +96,7 @@ t(
     ROLE_LABELS[PRESET_TO_ROLE.dispatcher] === PERMISSION_PRESETS.manager.label,
 );
 // Two presets on one tier must come out DIFFERENT, whatever they are called.
-// (Not "never equals the tier label" — workerFullView is honestly called
+// (Not "never equals the tier label" — estimator is honestly called
 // "Worker" and the employee tier is honestly called "Worker"; the failure is
 // two people being given the same word, not a word being reused.)
 const byTier = new Map();
@@ -227,7 +227,7 @@ t(
 t(
   "...and lists the preset names the screen offers",
   supervisorAssigns.error.includes(PERMISSION_PRESETS.worker.label) &&
-    supervisorAssigns.error.includes(PERMISSION_PRESETS.workerFullView.label),
+    supervisorAssigns.error.includes(PERMISSION_PRESETS.estimator.label),
 );
 const invite = validateInvite({
   actor: { role: "supervisor", permissions: {} },

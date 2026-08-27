@@ -65,8 +65,21 @@ ok("prices are 129 / 189 / 289 / 389",
 
 console.log("\nA seat is what you can DO, not what you are called");
 ok("Crew is free", isBillableSeat(member("worker")) === false);
-ok("Worker (full view) is free — seeing prices is not writing quotes",
-  isBillableSeat(member("workerFullView")) === false);
+// Estimator IS a seat, and this assertion flipping is the point of that preset
+// existing. It was "Worker (full view)": free, because view_only sits below the
+// billing threshold, while holding showPricing and the whole client book — so a
+// company could seat forty of them and give forty people the rate card for
+// nothing. It creates quotes now, which is what makes it billable.
+//
+// Note what it is NOT: role `employee`, so no `user:manage`. Dispatcher and
+// Manager reach the billing tier through `supervisor`, which carries authority
+// over people that an estimator has no use for. A role can be PAID without
+// being SENIOR, and that is only expressible because seats are counted off the
+// grid rather than the role.
+ok("Estimator IS a seat — it writes quotes",
+  isBillableSeat(member("estimator")) === true);
+ok("...without becoming a supervisor",
+  PRESET_TO_ROLE.estimator === "employee");
 ok("Dispatcher is a seat", isBillableSeat(member("dispatcher")) === true);
 ok("Manager is a seat", isBillableSeat(member("manager")) === true);
 ok("Owner is a seat", isBillableSeat({ role: "owner", permissions: null, active: true }) === true);

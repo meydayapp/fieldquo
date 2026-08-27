@@ -46,7 +46,7 @@ export async function PATCH(request, { params }) {
   // (limited) preset — could PATCH its own row: QA changed an entry's hours
   // from 0.01 to 1 and got a 200.
   //
-  // The distinction that has to survive: workerFullView is view_record_edit_own
+  // The distinction that has to survive: estimator is view_record_edit_own
   // and MUST keep editing its own entries. This is the rung between them, not a
   // narrowing of both.
   //

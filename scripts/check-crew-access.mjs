@@ -192,7 +192,7 @@ ok(
 // ═══════════════════════════════════════════════════════════════════════════
 console.log("\n5. The other presets are untouched\n");
 
-for (const key of ["workerFullView", "dispatcher", "manager"]) {
+for (const key of ["estimator", "dispatcher", "manager"]) {
   const preset = PERMISSION_PRESETS[key];
   const m = member(PRESET_TO_ROLE[key], { ...preset.values });
   for (const category of DOCUMENT_CATEGORIES) {
@@ -246,7 +246,27 @@ console.log("\n6. Billing did not move — Crew was already free\n");
 // nothing, and this is cheaper to assert than to argue.
 
 ok("Crew is not a billable seat", isBillableSeat(crew) === false);
-ok("…nor is a Worker at view_only", isBillableSeat(member("employee", { ...PERMISSION_PRESETS.workerFullView.values })) === false);
+// A member sitting at view_only on all four is still free — that is the rung
+// this file is really about, and adding `none` beneath it must not disturb it.
+// Written as an explicit grid rather than as a preset: the preset that used to
+// hold this shape is Estimator now and CREATES quotes, so naming it here would
+// assert the opposite of what this line means.
+ok(
+  "…nor is a member at view_only on all four",
+  isBillableSeat(
+    member("employee", {
+      quotes: "view_only",
+      jobs: "view_only",
+      invoices: "view_only",
+      requests: "view_only",
+    }),
+  ) === false,
+);
+// And Estimator, which sits just above it, IS billed — because it writes.
+ok(
+  "…but Estimator is, because it creates quotes",
+  isBillableSeat(member("employee", { ...PERMISSION_PRESETS.estimator.values })) === true,
+);
 ok("a Dispatcher still is", isBillableSeat(dispatcher) === true);
 ok("a Manager still is", isBillableSeat(manager) === true);
 ok("an owner still is", isBillableSeat(member("owner", null)) === true);
@@ -294,7 +314,7 @@ ok(
   "…and kept for a Worker on full_view",
   navRowAllowed(
     "app.nav.clients",
-    member("employee", { ...PERMISSION_PRESETS.workerFullView.values }),
+    member("employee", { ...PERMISSION_PRESETS.estimator.values }),
   ) === true,
 );
 ok(

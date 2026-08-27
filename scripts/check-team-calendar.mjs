@@ -59,7 +59,7 @@ const mk = (key, name, role, permissions) => ({
 });
 
 const MANAGER_GRID = PERMISSION_PRESETS.manager.values;
-const WORKER_GRID = PERMISSION_PRESETS.workerFullView.values;
+const WORKER_GRID = PERMISSION_PRESETS.estimator.values;
 
 const olivia = mk("olivia", "Olivia", "owner", null);
 const adam = mk("adam", "Adam", "admin", null);
@@ -102,7 +102,7 @@ t("the schedule level is real",
 t("the Manager preset maps to a role that holds it",
   can(PRESET_TO_ROLE.manager, TEAM_SCHEDULE_PERMISSION));
 t("the Worker preset maps to a role that does NOT",
-  can(PRESET_TO_ROLE.workerFullView, TEAM_SCHEDULE_PERMISSION), false);
+  can(PRESET_TO_ROLE.estimator, TEAM_SCHEDULE_PERMISSION), false);
 
 // ───────────────────────────────────────────────────────────────────────────
 console.log("\nList 1 — everyone's OWN list is exactly what is assigned to them");

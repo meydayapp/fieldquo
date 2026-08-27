@@ -11,13 +11,13 @@
 //
 // This closes that, once, on purpose:
 //
-//   employee   -> workerFullView   (can see clients and pricing, edits nothing)
+//   employee   -> estimator   (can see clients and pricing, edits nothing)
 //   supervisor -> dispatcher       (edits jobs, clients and quotes)
 //   admin      -> untouched        (PERMISSIONS.admin is ["*"]; the grid
 //                                   doesn't constrain them)
 //   owner      -> untouched        (same)
 //
-// employee maps to workerFullView rather than the stricter `worker` preset on
+// employee maps to estimator rather than the stricter `worker` preset on
 // purpose. `worker` hides pricing entirely, and silently hiding prices from
 // someone who has been quoting all year is a support call, not a security
 // win. Companies that want the tighter preset can set it per member.
@@ -49,7 +49,7 @@ const db = new PrismaClient({ adapter: new PrismaPg(pool) });
 const APPLY = process.argv.includes("--apply");
 
 const ROLE_TO_PRESET = {
-  employee: "workerFullView",
+  employee: "estimator",
   supervisor: "dispatcher",
 };
 

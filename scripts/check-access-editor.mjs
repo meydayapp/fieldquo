@@ -57,7 +57,7 @@ for (const [key, preset] of Object.entries(PERMISSION_PRESETS)) {
   t(`"${preset.label}" has a grid`, Object.keys(preset.values || {}).length > 0);
 }
 t("the five presets the owner listed all exist",
-  ["worker", "workerFullView", "dispatcher", "manager"].every((k) => PERMISSION_PRESETS[k]));
+  ["worker", "estimator", "dispatcher", "manager"].every((k) => PERMISSION_PRESETS[k]));
 
 console.log("\nA stored grid resolves back to the preset that made it");
 // This is what lets the panel open showing "Dispatcher" for someone created
@@ -81,14 +81,14 @@ t("a lowered dial is not still 'Dispatcher'",
 console.log("\nThe two Worker presets are genuinely different");
 // They share a role, so the ROLE dropdown could never tell them apart — which
 // is exactly why an access editor was needed rather than a relabelled select.
-t("both are the same role", PRESET_TO_ROLE.worker === PRESET_TO_ROLE.workerFullView);
+t("both are the same role", PRESET_TO_ROLE.worker === PRESET_TO_ROLE.estimator);
 t("but they grant different things",
   JSON.stringify(PERMISSION_PRESETS.worker.values) !==
-    JSON.stringify(PERMISSION_PRESETS.workerFullView.values));
+    JSON.stringify(PERMISSION_PRESETS.estimator.values));
 t("limited access really is more limited",
   PERMISSION_PRESETS.worker.values.showPricing !== true);
 t("full-view really does show pricing",
-  PERMISSION_PRESETS.workerFullView.values.showPricing === true);
+  PERMISSION_PRESETS.estimator.values.showPricing === true);
 // Same for the two that share `supervisor`.
 t("Dispatcher and Manager share a role",
   PRESET_TO_ROLE.dispatcher === PRESET_TO_ROLE.manager);

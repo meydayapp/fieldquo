@@ -139,30 +139,48 @@ const persona = (key) => ({
   permissions: { ...PERMISSION_PRESETS[key].values },
 });
 const worker = persona("worker");             // Employee (limited)
-const workerFull = persona("workerFullView"); // Employee
+const workerFull = persona("estimator"); // Employee
 const dispatcher = persona("dispatcher");
 const src = (rel) => readFileSync(new URL(`../${rel}`, import.meta.url), "utf8");
 
 console.log("\nThe presets are still the personas this file tests\n");
 check("worker maps to the employee role", worker.role === "employee");
-check("workerFullView maps to the employee role", workerFull.role === "employee");
+check("estimator maps to the employee role", workerFull.role === "employee");
 check("worker is name_address_only", worker.permissions.clientsProperties === "name_address_only");
-check("workerFullView is full_view", workerFull.permissions.clientsProperties === "full_view");
+// full_EDIT, not full_view. You cannot quote somebody you cannot add, and an
+// estimator who has to ask a dispatcher to create the client first is an
+// estimator who writes the quote somewhere else.
+check("estimator is full_edit", workerFull.permissions.clientsProperties === "full_edit");
 check("worker cannot see prices", worker.permissions.showPricing === false);
-check("workerFullView can", workerFull.permissions.showPricing === true);
+check("estimator can", workerFull.permissions.showPricing === true);
 check("neither has job costing", !worker.permissions.jobCosting && !workerFull.permissions.jobCosting);
 check("neither has payments", !worker.permissions.payments && !workerFull.permissions.payments);
-// ── The two presets no longer agree here, and that IS the change ─────────
+// ── Three different answers now, and that IS the change ──────────────────
 //
-// They were both view_only on all four, which made "Worker (limited access)"
-// a name for a tier that could read every quote, invoice, job and lead in the
-// company. The lower one is now Crew and holds `none`; workerFullView is
-// unchanged and still reads all four. Asserted as two different values rather
-// than one shared one, because a preset edit that quietly re-merged them is
-// exactly what this file exists to catch.
+// These two presets were once both view_only on all four, which made "Worker
+// (limited access)" a name for a tier that could read every quote, invoice,
+// job and lead in the company.
+//
+// The lower one is Crew and holds `none`. The upper one was "Worker (full
+// view)" — free, because view_only sits below the billing threshold, while
+// carrying showPricing and the whole client book. A company could seat forty
+// of them and hand forty people the rate card for nothing.
+//
+// It is Estimator now: it CREATES quotes and requests, which is what makes it
+// a paid seat, and stays read-only on jobs and invoices, because turning a
+// quote into a job and billing it belongs to the dispatcher and the manager —
+// an estimator who can edit the invoice can move a price after it was agreed.
+//
+// Asserted per category rather than as one shared value, because a preset edit
+// that quietly re-merged them is exactly what this file exists to catch.
 for (const cat of ["quotes", "jobs", "invoices", "requests"]) {
   check(`Crew holds NO access to ${cat}`, worker.permissions[cat] === "none");
-  check(`workerFullView still reads ${cat}`, workerFull.permissions[cat] === "view_only");
+}
+for (const cat of ["quotes", "requests"]) {
+  check(`Estimator CREATES ${cat}`, workerFull.permissions[cat] === "view_create_edit");
+}
+for (const cat of ["jobs", "invoices"]) {
+  check(`Estimator only reads ${cat}`, workerFull.permissions[cat] === "view_only");
 }
 
 // The persona the REDACTORS are about: somebody who may open the documents and
@@ -262,18 +280,25 @@ const planWorker = summarisePlan(PLAN, { member: worker });
 check("a service plan's client email is redacted", planWorker.client.email === undefined);
 check("...and the name survives", planWorker.client.name === "Marie Tremblay");
 check("...and it is marked restricted, not blanked", planWorker.client.restricted === true);
-check("workerFullView keeps the plan's client email",
+check("estimator keeps the plan's client email",
   summarisePlan(PLAN, { member: workerFull }).client.email === CLIENT.email);
 
-// workerFullView is full_view: the whole point of the second persona is that
+// estimator is full_view: the whole point of the second persona is that
 // it sees what the first cannot. A redactor that redacted for both would pass
 // every assertion above and be wrong.
 console.log("\n...and the OTHER persona is not over-restricted\n");
-check("workerFullView reads a client's email", redactClient(workerFull, CLIENT).email === CLIENT.email);
-check("workerFullView reads a client's phone", redactClient(workerFull, CLIENT).phone === CLIENT.phone);
-check("workerFullView is NOT marked restricted", redactClient(workerFull, CLIENT).restricted === undefined);
-check("workerFullView still cannot read a shareToken (that's the quotes level, not this one)",
-  redactShareToken(workerFull, QUOTE).shareToken === undefined);
+check("estimator reads a client's email", redactClient(workerFull, CLIENT).email === CLIENT.email);
+check("estimator reads a client's phone", redactClient(workerFull, CLIENT).phone === CLIENT.phone);
+check("estimator is NOT marked restricted", redactClient(workerFull, CLIENT).restricted === undefined);
+// An Estimator READS the share token, and that is correct rather than a
+// relaxation. redactShareToken gates on `quotes: view_create_edit` precisely
+// because the token is a distribution capability, not a number — whoever can
+// send the quote can already produce the link legitimately. An estimator sends
+// quotes. Crew, at `none`, still cannot; that assertion is below.
+check("Estimator reads a shareToken, because they can send the quote",
+  redactShareToken(workerFull, QUOTE).shareToken === QUOTE.shareToken);
+check("Crew cannot read a shareToken",
+  redactShareToken(worker, QUOTE).shareToken === undefined);
 
 // Routes that assemble the client themselves. Grepped, because calling them
 // needs a database — but grepped for the CALL, so a route that drops the
@@ -345,14 +370,14 @@ check("...but the DUE DATE and status survive — the cadence is not the price",
   planWorker.occurrences[0].dueDate === "2026-02-01" && planWorker.occurrences[0].status === "paid");
 check("plan marked pricingHidden", planWorker.pricingHidden === true);
 
-console.log("\n...and workerFullView, who HAS showPricing, still sees all of it\n");
-check("canSeeMoney is true for workerFullView", canSeeMoney(workerFull) === true);
+console.log("\n...and estimator, who HAS showPricing, still sees all of it\n");
+check("canSeeMoney is true for estimator", canSeeMoney(workerFull) === true);
 check("canSeeMoney is false for worker", canSeeMoney(worker) === false);
-check("workerFullView keeps the quote total", redactQuoteMoney(workerFull, RICH_QUOTE).total === "22425");
-check("workerFullView keeps the invoice balance", redactInvoiceMoney(workerFull, INVOICE).amountDue === "1800");
-check("workerFullView keeps the plan amount",
+check("estimator keeps the quote total", redactQuoteMoney(workerFull, RICH_QUOTE).total === "22425");
+check("estimator keeps the invoice balance", redactInvoiceMoney(workerFull, INVOICE).amountDue === "1800");
+check("estimator keeps the plan amount",
   summarisePlan(PLAN, { member: workerFull }).amountPerOccurrence === 450);
-check("workerFullView is not marked pricingHidden",
+check("estimator is not marked pricingHidden",
   redactQuoteMoney(workerFull, RICH_QUOTE).pricingHidden === undefined);
 check("an owner keeps everything", redactQuoteMoney(owner, RICH_QUOTE).total === "22425");
 
@@ -467,7 +492,7 @@ const { requireCost, mayCost } = await import("../app/api/invoices/costingWrite.
 check("mayCost is false for both personas", !mayCost(worker) && !mayCost(workerFull));
 check("mayCost is true for a manager", mayCost(persona("manager")));
 throws403("requireCost for a worker", () => requireCost(worker));
-throws403("requireCost for workerFullView (showPricing does not imply costing)", () => requireCost(workerFull));
+throws403("requireCost for estimator (showPricing does not imply costing)", () => requireCost(workerFull));
 check("requireCost lets a manager through", (() => {
   try { requireCost(persona("manager")); return true; } catch { return false; }
 })());
@@ -775,7 +800,7 @@ check("marked restricted, so a screen can say why rather than show a gap",
 
 become(workerFull);
 const fullLeads = (await leads.GET(req("http://x/api/leads"))).body;
-check("workerFullView (full_view) still reads the email", fullLeads[0].email === LEAD.email);
+check("estimator (full_view) still reads the email", fullLeads[0].email === LEAD.email);
 check("…and the phone", fullLeads[0].phone === LEAD.phone);
 check("…and the budget band", fullLeads[0].budgetBand === "15k_plus");
 check("…and is NOT marked restricted", fullLeads[0].restricted === undefined);
@@ -787,7 +812,7 @@ check("the DETAIL door is closed too — enumerating ids off the board gets noth
   oneLead.email === undefined && oneLead.phone === undefined && oneLead.budgetBand === undefined);
 become(workerFull);
 const oneLeadFull = (await leadDetail.GET(req("http://x/api/leads/lead1"), { params: params({ id: "lead1" }) })).body;
-check("…and workerFullView still opens it in full", oneLeadFull.email === LEAD.email);
+check("…and estimator still opens it in full", oneLeadFull.email === LEAD.email);
 
 // ── C6 — his own APPROVED timesheet ───────────────────────────────────────
 console.log("\nC6 — PATCH /api/time-entries/[id], the record/edit rung\n");
@@ -807,7 +832,7 @@ check("…and it says what they CAN still do rather than naming a permission",
 
 become(workerFull);
 const fullEditsOwnPending = await patchEntry({ clockOut: "2026-08-20T10:00" });
-check("workerFullView (view_record_edit_own) KEEPS editing its own pending entry",
+check("estimator (view_record_edit_own) KEEPS editing its own pending entry",
   fullEditsOwnPending.status === 200);
 check("…and the hours are recomputed by the server, not accepted from the body",
   fullEditsOwnPending.body?.hours === 1);
@@ -884,7 +909,7 @@ check("the source quote is not mutated",
   ACCEPTED.acceptedTotal === "7645" && ACCEPTED.lineItems[0].meta.baseUnitPrice === 150 &&
   ACCEPTED.estimateData.range.point === 20250);
 
-console.log("\n…and workerFullView, who holds showPricing, still reads all of it\n");
+console.log("\n…and estimator, who holds showPricing, still reads all of it\n");
 const shownQuote = redactQuoteMoney(workerFull, ACCEPTED);
 check("acceptedTotal survives", shownQuote.acceptedTotal === "7645");
 check("meta.baseUnitPrice survives", shownQuote.lineItems[0].meta.baseUnitPrice === 150);
@@ -904,7 +929,7 @@ check("the client filter that DID land is still landing", wr.client.email === un
 check("…and it is declared", wr.pricingHidden === true);
 become(workerFull);
 const fullReviews = (await reviews.GET(req("http://x/api/quotes/estimate-reviews"))).body;
-check("workerFullView reads the queue in full",
+check("estimator reads the queue in full",
   fullReviews.quotes[0].total === "20250" &&
   fullReviews.quotes[0].estimateData.breakdown[0].amount === 6750);
 
@@ -929,7 +954,7 @@ check("the invoice NUMBER and STATUS survive — which invoices exist is not mon
 check("…and each is declared hidden", workerClient.invoices[0].pricingHidden === true);
 become(workerFull);
 const fullClient = (await clientDetail.GET(req("http://x/api/clients/c1"), { params: params({ id: "c1" }) })).body;
-check("workerFullView still reads the invoice totals", fullClient.invoices[0].total === "7645");
+check("estimator still reads the invoice totals", fullClient.invoices[0].total === "7645");
 
 const lifecycle = await route("@/app/api/invoices/[id]/lifecycle/route");
 become(viewOnly);
@@ -945,7 +970,7 @@ check("the `money` block is null rather than a set of zeroes", workerLife.money 
 check("…and the response says why", workerLife.pricingHidden === true);
 become(workerFull);
 const fullLife = (await lifecycle.GET(req("http://x/api/invoices/i9/lifecycle"), { params: params({ id: "i9" }) })).body;
-check("workerFullView gets the figures back",
+check("estimator gets the figures back",
   fullLife.money?.total === 7645 &&
   fullLife.banners.find((b) => b.id === "paid").data.paid === 7645);
 check("…and nothing is marked hidden", fullLife.pricingHidden === undefined);
@@ -968,7 +993,7 @@ check("and it is declared, so the screen prints the reason not empty boxes",
   workerCats[0].pricingHidden === true);
 become(workerFull);
 const fullCats = (await serviceCategories.GET(req("http://x/api/settings/service-categories"))).body;
-check("workerFullView reads the rate card", fullCats[0].priceBook?.perDoor === 150);
+check("estimator reads the rate card", fullCats[0].priceBook?.perDoor === 150);
 check("…and its defaultRate", fullCats[0].defaultRate === 150);
 check("…and is not marked hidden", fullCats[0].pricingHidden === undefined);
 
@@ -980,7 +1005,7 @@ check("GET /api/settings/instant-quote refuses — it is nothing but sell rates"
 check("…with a 403, not a 500", workerInstant.status === 403);
 become(workerFull);
 const fullInstant = await instantQuote.GET(req("http://x/api/settings/instant-quote"));
-check("…and workerFullView is let through", fullInstant.status === 200);
+check("…and estimator is let through", fullInstant.status === 200);
 
 // ── B1/B2 and C8 — the screens agree with the API ─────────────────────────
 //

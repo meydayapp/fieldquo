@@ -267,7 +267,7 @@ const EXPECTED_READ = {
   owner:                      [R,      R,        R,          R,               R,           R],
   admin:                      [R,      R,        R,          R,               R,           R],
   worker:                     [X,      X,        X,          X,               X,           X],
-  workerFullView:             [X,      X,        X,          X,               X,           X],
+  estimator:             [X,      X,        X,          X,               X,           X],
   dispatcher:                 [X,      X,        X,          X,               X,           X],
   manager:                    [R,      R,        X,          R,               R,           R],
   // No grid stored: hasLevel/hasToggle fall back to the coarse role, so a
@@ -780,7 +780,7 @@ for (const { name, member } of FIXTURES) {
   // to the tier that may not open a single job.
   ok(!worker.includes("getUpcomingWork"),
     "Crew is not handed the company-wide schedule tool");
-  ok(toolNamesFor(byName.workerFullView).includes("getUpcomingWork"),
+  ok(toolNamesFor(byName.estimator).includes("getUpcomingWork"),
     "…while a Worker at jobs:view_only still is");
   ok(!worker.includes("findQuote"), "…and is not handed quote lookups");
   ok(!worker.includes("findInvoice"), "…nor invoice lookups");

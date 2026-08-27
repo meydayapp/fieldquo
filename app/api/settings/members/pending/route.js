@@ -118,7 +118,7 @@ export async function GET(request) {
           ? "manager"
           : kind === "dispatcher"
             ? "dispatcher"
-            : kind === "workerFullView"
+            : kind === "estimator"
               ? "worker"
               : kind === "worker"
                 ? "crew"

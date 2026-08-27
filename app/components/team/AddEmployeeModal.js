@@ -26,7 +26,7 @@ const inputClass =
 // deliberately absent: the grid it edits doesn't fit in this popup, and an
 // option that silently did something else would be worse than a link to the
 // page that actually has it.
-const PRESET_KEYS = ["worker", "workerFullView", "dispatcher", "manager"];
+const PRESET_KEYS = ["worker", "estimator", "dispatcher", "manager"];
 
 export default function AddEmployeeModal({ onClose, onAdded }) {
   const [form, setForm] = useState({
@@ -38,7 +38,7 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
     province: "",
     postalCode: "",
     country: "",
-    preset: "workerFullView",
+    preset: "estimator",
     workerType: "employee",
     hourlyRate: "",
   });
