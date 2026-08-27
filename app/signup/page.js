@@ -9,6 +9,7 @@ import {
   firstStep,
   resumeStep,
   previousStep,
+  nextStep,
   billingBasis,
 } from "@/lib/signup/funnel";
 import {
@@ -790,7 +791,10 @@ export default function SignupPage() {
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    goToStep("industry");
+    // Off the funnel, not typed. Every forward move on this page asks
+    // lib/signup/funnel.js where it goes, so reordering the steps there cannot
+    // leave a button pointing at the old next one.
+    goToStep(nextStep("business", { accountExists }));
   }
 
   // replace handleAccountSubmit entirely
@@ -832,7 +836,7 @@ export default function SignupPage() {
       // The account now exists without a company, which is exactly the state
       // this page can resume into if they stop here.
       setAccountReady({ email: form.email });
-      goToStep("industry");
+      goToStep(nextStep("account", { accountExists: true }));
     } catch (err) {
       setError(err?.message || "Could not create your account");
     } finally {
@@ -1231,7 +1235,7 @@ export default function SignupPage() {
                   .map((c) => c.id);
                 setSelectedCategoryIds(presetIds);
                 setShowAllServices(presetIds.length === 0);
-                goToStep("services");
+                goToStep(nextStep("industry", { accountExists }));
               }}
               disabled={selectedIndustries.length === 0}
               className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
@@ -1305,7 +1309,7 @@ export default function SignupPage() {
                 leads to payment, and it comes after this one. */}
             <button
               type="button"
-              onClick={() => goToStep("plan")}
+              onClick={() => goToStep(nextStep("services", { accountExists }))}
               disabled={selectedCategoryIds.length === 0}
               className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
             >

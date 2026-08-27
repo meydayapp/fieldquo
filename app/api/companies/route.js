@@ -22,6 +22,8 @@ import { applySignupReferral, REFEREE_BONUS_MONTHS } from "@/lib/referrals";
 import { redeemPromoCode } from "@/lib/platform/promoCodes";
 import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
+import { billingBasis } from "@/lib/signup/funnel";
+import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -50,15 +52,59 @@ export async function POST(request) {
     // client documents). `country` is already destructured above and derives
     // the billing currency.
     language,
+    // "month" (no commitment) or "year" (one year, billed annually). Absent on
+    // any request from a page older than this one, which is the correct default
+    // — monthly is what every existing subscription is on.
+    billingInterval,
   } = await request.json();
 
   // The company's default language, validated to a supported code (else English).
   const defaultLanguage = isSupported(language) ? language : DEFAULT_LANGUAGE;
-  // Billing currency is DERIVED from country, never asked at signup — a Canadian
-  // company is billed in CAD without being shown USD/EUR. They can turn on
-  // "serves abroad" in settings later to bill in other currencies.
-  const homeCountry = String(country || "CA").toUpperCase();
+
+  // ── Where they are, read rather than defaulted ──────────────────────────
+  //
+  // This was `String(country || "CA").toUpperCase()`. Paired with the signup
+  // form seeding `country: "CA"`, it meant a company that never stated a
+  // country was made Canadian TWICE — and Company.country is not decoration:
+  // it picks the billing currency and it is the jurisdiction every quote falls
+  // back to when the client's own address can't answer (lib/tax/documentTax.js).
+  //
+  // billingBasis reads the column, then the formatted address, then the
+  // province (lib/company/resolveCountry.js), and returns null rather than
+  // guessing. Null is refused here instead of being padded, because the padding
+  // is a price and a tax jurisdiction.
+  const basis = billingBasis({ country, address, province });
+  const homeCountry = basis.country;
+  if (!homeCountry) {
+    return NextResponse.json(
+      {
+        error:
+          "We couldn't tell which country this business is in. Add the address " +
+          "(or pick a country) — it's what sets your billing currency and your " +
+          "default tax jurisdiction.",
+      },
+      { status: 400 },
+    );
+  }
+  // The currency the COMPANY's own documents are in. Distinct from
+  // basis.planCurrency, which is the one FieldQuo may bill THEM in: the seat
+  // ladder exists in CAD and USD only, while a company can quote its own
+  // clients in any of the currencies lib/currency.js lists.
   const currency = currencyForCountry(homeCountry);
+
+  // ── The cadence, validated rather than coerced ──────────────────────────
+  //
+  // Refused rather than quietly read as "month": a body asking for something
+  // this doesn't understand is a bug somewhere, and answering it with a
+  // successful checkout on a different cadence is how a control comes to look
+  // like it worked.
+  if (billingInterval !== undefined && !isBillingInterval(billingInterval)) {
+    return NextResponse.json(
+      { error: "billingInterval must be \"month\" or \"year\"" },
+      { status: 400 },
+    );
+  }
+  const interval = billingInterval || "month";
 
   if (!name) {
     return NextResponse.json(
@@ -96,13 +142,11 @@ export async function POST(request) {
   //    seeded Plan matches an arbitrary count, so find-or-create one sized
   //    to this exact pricing, keyed by employee count so repeat signups at
   //    the same count reuse the same Plan row instead of piling up dupes.
-  let resolvedPlanId = planId;
+  let plan;
 
-  if (resolvedPlanId) {
-    const existingPlan = await db.plan.findUnique({
-      where: { id: resolvedPlanId },
-    });
-    if (!existingPlan) {
+  if (planId) {
+    plan = await db.plan.findUnique({ where: { id: planId } });
+    if (!plan) {
       return NextResponse.json(
         { error: "Selected plan not found" },
         { status: 400 },
@@ -113,8 +157,49 @@ export async function POST(request) {
     // with a divergent `update` clause that overwrote operator price edits.
     // `where: { name }` also stopped being a legal upsert target when
     // Plan.name lost its @unique, so this would have thrown outright.
-    const customPlan = await findOrCreateCustomPlan(pricing);
-    resolvedPlanId = customPlan.id;
+    plan = await findOrCreateCustomPlan(pricing);
+  }
+  // ── A tier from the other currency is not buyable here ──────────────────
+  //
+  // The browser posts an id, and the seat ladder exists once per currency with
+  // the SAME NUMBER in each row. So a stale draft — or a hand-rolled body —
+  // could hand us "Solo (CAD)" for a company in Texas, which is not a currency
+  // choice, it is about 38% off. The signup page only ever offers the matching
+  // set; this is the half that doesn't trust the page.
+  //
+  // Scoped to ladder rows on purpose. Legacy per-headcount plans and bespoke
+  // "Custom (N employees)" rows carry the schema's default currency rather than
+  // a chosen one, and refusing those would stop a US company buying Custom at
+  // all — a break, not a guard.
+  if (plan.tierKey && plan.currency !== basis.planCurrency) {
+    return NextResponse.json(
+      {
+        error: basis.planCurrency
+          ? "That plan is priced in a different currency from your business address."
+          : `FieldQuo doesn't have plan pricing for ${homeCountry} yet — please contact us.`,
+      },
+      { status: 400 },
+    );
+  }
+
+  // ── The cadence has to exist on the plan ────────────────────────────────
+  //
+  // Plan.priceAnnual is nullable and null MEANS "this tier has no annual
+  // option" — every bespoke Custom row is created without one. Refused rather
+  // than silently downgraded to monthly: the visitor pressed a button labelled
+  // "1 year commitment", and charging them monthly instead is the failure this
+  // whole guard exists for.
+  const charge = chargeFor(plan, interval);
+  if (!charge) {
+    return NextResponse.json(
+      {
+        error:
+          interval === "year"
+            ? "That plan is billed monthly only — pick monthly, or choose a different plan."
+            : "That plan has no usable price. Please contact us.",
+      },
+      { status: 400 },
+    );
   }
 
   const slug = name
@@ -246,7 +331,12 @@ export async function POST(request) {
   const checkoutSession = await createTrialCheckoutSession({
     company,
     pricing,
-    planId: resolvedPlanId,
+    // The ROW, not just its id. The recurring line is built from the plan's own
+    // price now — see lib/platform/stripeBilling.js for why the old
+    // calculatePricing() line was charging a seat-ladder signup a different
+    // number from the one on the card they clicked.
+    plan,
+    interval,
     trialDays,
     // {CHECKOUT_SESSION_ID} is a literal Stripe template placeholder — Stripe
     // substitutes it with the real session id before redirecting the
