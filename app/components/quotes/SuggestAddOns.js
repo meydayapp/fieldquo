@@ -27,6 +27,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { jsonBody } from "@/lib/jsonBody";
 
 const money = (n) =>
   Number(n ?? 0).toLocaleString("en-CA", {
@@ -134,7 +135,7 @@ export default function SuggestAddOns({
       const saved = await fetchJson(`/api/quotes/${quoteId}/add-ons`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ addOns: next }),
+        body: jsonBody({ addOns: next }, "add-on list"),
       });
       setAddOns(saved);
       setSavedAt(Date.now());

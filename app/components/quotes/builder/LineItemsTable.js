@@ -28,6 +28,12 @@ import { formatAppMoney } from "@/lib/format/money";
 // six to nine and is better off flat, so the switch is on count, not on trade.
 const GROUPED_PICKER_THRESHOLD = 20;
 
+// Shown greyed in the box, so an estimator can see the SHAPE of a good scope
+// note without having to be told. Deliberately about prep and process — the
+// parts a client cannot see and therefore assumes are not happening.
+const detailPlaceholder =
+  "What this includes — prep, materials, how many coats, what's excluded (optional)";
+
 export default function LineItemsTable({
   // The company's billing currency. Without it these rendered a bare
   // toFixed(2), which does not group — $2100.00 next to a grouped total.
@@ -153,6 +159,26 @@ export default function LineItemsTable({
                 <X size={14} />
               </button>
             </div>
+
+            {/* ── What the work actually involves ──────────────────────────
+                The name of a line is not the scope of it. "Cabinet
+                Refinishing" tells a homeowner nothing about the degreasing,
+                the primer coats or the sanding between them — and the AI
+                review recommended "clearer wording" on every quote forever
+                precisely because that text had nowhere to live, so the only
+                thing anyone could improve was the name.
+
+                Spans the full grid on desktop so it reads as a paragraph
+                belonging to the line above it rather than a fifth column.
+                Optional on every line: a disposal fee does not need a
+                paragraph, and forcing one would fill quotes with padding. */}
+            <textarea
+              value={item.detail || ""}
+              onChange={(e) => onChange(i, "detail", e.target.value)}
+              rows={2}
+              placeholder={detailPlaceholder}
+              className="w-full sm:col-span-12 border border-border rounded px-2 py-1.5 text-xs resize-y bg-background text-foreground placeholder:text-muted-foreground"
+            />
 
             <BenchmarkHint item={item} categoryKey={categoryKey} />
           </div>

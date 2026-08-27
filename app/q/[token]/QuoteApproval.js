@@ -390,22 +390,34 @@ export default function QuoteApproval({ token }) {
 
                   <div className="space-y-1.5">
                     {g.lineItems.map((li, j) => (
-                      <div
-                        key={j}
-                        className="flex justify-between gap-4 text-sm text-[#2d2520]"
-                      >
-                        <span>
-                          {li.description}
-                          {Number(li.quantity) > 1 && (
-                            <span className="text-[#2d2520]/50">
-                              {" "}
-                              × {li.quantity}
-                            </span>
-                          )}
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {money(li.amount)}
-                        </span>
+                      <div key={j}>
+                        <div className="flex justify-between gap-4 text-sm text-[#2d2520]">
+                          <span>
+                            {li.description}
+                            {Number(li.quantity) > 1 && (
+                              <span className="text-[#2d2520]/50">
+                                {" "}
+                                × {li.quantity}
+                              </span>
+                            )}
+                          </span>
+                          <span className="shrink-0 tabular-nums">
+                            {money(li.amount)}
+                          </span>
+                        </div>
+                        {/* The scope under the name, same as the PDF — this
+                            page and the printed quote are the same document
+                            and a client who opens both must not find one of
+                            them explaining more than the other.
+
+                            whitespace-pre-line: an estimator who typed a list
+                            of steps on separate lines gets a list, not one
+                            run-on paragraph. */}
+                        {li.detail ? (
+                          <p className="mt-0.5 pl-2 pr-12 text-xs leading-relaxed text-[#2d2520]/70 whitespace-pre-line">
+                            {li.detail}
+                          </p>
+                        ) : null}
                       </div>
                     ))}
                   </div>

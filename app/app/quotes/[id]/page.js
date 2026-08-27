@@ -870,6 +870,16 @@ export default function QuoteDetailPage() {
                     >
                       <span className="min-w-0">
                         {item.description}
+                        {/* The scope the client will read, shown to staff on
+                            the same row. This page is where somebody checks a
+                            quote before it goes out, and a paragraph that only
+                            appears on the version the homeowner receives is a
+                            paragraph nobody proofreads. */}
+                        {item.detail ? (
+                          <span className="block mt-0.5 text-xs leading-relaxed text-muted-foreground whitespace-pre-line">
+                            {item.detail}
+                          </span>
+                        ) : null}
                         {item.quantity > 1 && (
                           <span className="text-muted-foreground">
                             {" "}

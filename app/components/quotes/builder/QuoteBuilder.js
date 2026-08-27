@@ -93,6 +93,7 @@ import {
   newScopeGroup,
 } from "@/lib/quotes/builderPayload";
 import { explainTaxSource } from "@/lib/tax/resolveTaxRate";
+import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
@@ -1266,7 +1267,21 @@ export function QuoteBuilderForm({
    * synchronous, so a flag set in the modal's onConfirm would still be false
    * when this read it, and the modal would re-open forever.
    */
-  async function handleSave(action, { confirmed = false } = {}) {
+  // The thin wrapper exists for one reason: `jsonBody` throws, and an
+  // exception out of an async click handler is an unhandled rejection — it
+  // lands in the console, the spinner never stops, and the contractor watches a
+  // button do nothing. The whole point of naming the bad field is that somebody
+  // gets to READ the name.
+  async function handleSave(action, opts) {
+    try {
+      await runSave(action, opts);
+    } catch (err) {
+      setSaving("");
+      setError(err?.message || t("app.quoteEdit.saveError"));
+    }
+  }
+
+  async function runSave(action, { confirmed = false } = {}) {
     setError("");
 
     if (!isEdit) {
@@ -1326,7 +1341,7 @@ export function QuoteBuilderForm({
       const res = await fetch(`/api/quotes/${quoteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: jsonBody({
           ...shared,
           // Omitted once the client has decided: the API refuses line-item
           // changes on a decided quote, and sending them would fail the whole
@@ -1350,7 +1365,7 @@ export function QuoteBuilderForm({
       const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: jsonBody({
           ...shared,
           clientId: selectedClient.id,
           composeSeconds,
