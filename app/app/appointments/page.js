@@ -18,6 +18,9 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
+import { usePermissions } from "@/app/providers/PermissionProvider";
+import { can } from "@/lib/permissions";
+import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 const STATUS_STYLES = {
@@ -114,6 +117,28 @@ function legsByAppointment(appointments) {
 export default function AppointmentsPage() {
   const { t, language } = useTranslation();
   const { weekStartsOn, formatDate } = useCompanyPreferences();
+  // ── What the assign control is allowed to offer ──────────────────────────
+  //
+  // The row below used to render a select of the WHOLE team on every
+  // appointment, for everybody. PATCH /api/appointments/[id] allows an
+  // employee exactly one assignment: putting their own name on an unassigned
+  // row. Every other name in that list answered 403, so a crew member got a
+  // dropdown whose entries all failed — the dead control AGENTS.md names.
+  //
+  // The coarse role is the right question because it is the one the server
+  // asks: `can(role, "appointment:assign")`, not a schedule level. Asking a
+  // different question here is how a UI ends up offering what the API refuses.
+  //
+  // Unresolved provider falls OPEN, which is PermissionProvider's own rule —
+  // an owner must not be shown a crew-shaped control because a lookup was
+  // slow, and the server refuses regardless of what this renders.
+  const caller = usePermissions();
+  const canAssign = !caller?.role || can(caller.role, "appointment:assign");
+  // Claiming needs the caller's own USER id — Member.userId server-side, which
+  // is the session user's id. Nothing else on this page knows it: the roster
+  // from /api/settings/members does not say which row is you.
+  const { data: session } = useSession();
+  const myUserId = session?.user?.id || null;
   const [appointments, setAppointments] = useState([]);
   const [members, setMembers] = useState([]);
   // List 2. `null` means "not yours to see" — the server's answer, not a
@@ -578,7 +603,7 @@ export default function AppointmentsPage() {
                     </Link>
                   )}
                 </div>
-              ) : (
+              ) : canAssign ? (
               <div className="flex items-center gap-2 shrink-0">
                 <UserIcon size={14} className="text-muted-foreground" />
                 <select
@@ -597,6 +622,35 @@ export default function AppointmentsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              ) : (
+              /* No appointment:assign. Same shape as the visit branch above,
+                 for the same reason: who it is assigned to is a fact worth
+                 reading, and the only WRITE the server will accept from here
+                 is claiming an unassigned row for yourself.
+
+                 The claim button is withheld on a supervisor-required
+                 appointment, and that is not a second guess at the rule — it
+                 is the same one. appointment:assign is held by owner, admin
+                 and supervisor, so anybody reaching this branch is an
+                 employee, and PATCH answers 400 ("requires a supervisor or
+                 admin to be assigned") for exactly that assignee. Offering it
+                 would be the dead control again, one branch further in. The
+                 "Supervisor required" badge on the row already says why. */
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <UserIcon size={14} />
+                  {appt.assignedTo?.name || t("app.appts.unassigned")}
+                </span>
+                {!appt.assignedToId && !appt.requiresSupervisor && myUserId && (
+                  <button
+                    type="button"
+                    onClick={() => assign(appt.id, myUserId)}
+                    className="text-sm font-medium underline underline-offset-2 shrink-0"
+                  >
+                    {t("app.appts.assignToMe", "Assign to me")}
+                  </button>
+                )}
               </div>
               )}
             </div>

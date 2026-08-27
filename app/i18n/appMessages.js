@@ -549,6 +549,7 @@ const en = {
 
   // ── Appointments ─────────────────────────────────────────────────────────
   "app.appts.title": "Appointments",
+  "app.appts.assignToMe": "Assign to me",
   "app.appts.subtitle": "In-person visits and site assignments.",
   "app.appts.new": "New Appointment",
   "app.appts.empty": "No appointments in this view.",
@@ -4109,6 +4110,7 @@ const fr = {
   "app.leads.nothingHere": "Rien ici",
 
   "app.appts.title": "Rendez-vous",
+  "app.appts.assignToMe": "Me l'assigner",
   "app.appts.subtitle": "Visites sur place et affectations de chantier.",
   "app.appts.new": "Nouveau rendez-vous",
   "app.appts.empty": "Aucun rendez-vous dans cette vue.",
@@ -7548,6 +7550,7 @@ const es = {
   "app.leads.startQuote": "Crear una cotización",
   "app.leads.nothingHere": "No hay nada aquí",
   "app.appts.title": "Citas",
+  "app.appts.assignToMe": "Asignármelo",
   "app.appts.subtitle": "Visitas presenciales y asignaciones de obra.",
   "app.appts.new": "Nueva cita",
   "app.appts.empty": "No hay citas en esta vista.",
@@ -10429,6 +10432,7 @@ const uk = {
   "app.leads.startQuote": "Створити кошторис",
   "app.leads.nothingHere": "Тут нічого немає",
   "app.appts.title": "Зустрічі",
+  "app.appts.assignToMe": "Призначити мені",
   "app.appts.subtitle": "Особисті візити та призначення на об'єкти.",
   "app.appts.new": "Нова зустріч",
   "app.appts.empty": "У цьому поданні немає зустрічей.",
@@ -13293,6 +13297,7 @@ const pa = {
   "app.leads.startQuote": "ਕੋਟ ਸ਼ੁਰੂ ਕਰੋ",
   "app.leads.nothingHere": "ਇੱਥੇ ਕੁਝ ਨਹੀਂ",
   "app.appts.title": "ਮੁਲਾਕਾਤਾਂ",
+  "app.appts.assignToMe": "ਮੈਨੂੰ ਸੌਂਪੋ",
   "app.appts.subtitle": "ਵਿਅਕਤੀਗਤ ਮੁਲਾਕਾਤਾਂ ਅਤੇ ਸਾਈਟ ਅਸਾਈਨਮੈਂਟ।",
   "app.appts.new": "ਨਵੀਂ ਮੁਲਾਕਾਤ",
   "app.appts.empty": "ਇਸ ਦ੍ਰਿਸ਼ ਵਿੱਚ ਕੋਈ ਮੁਲਾਕਾਤ ਨਹੀਂ।",
@@ -16159,6 +16164,7 @@ const tl = {
   "app.leads.startQuote": "Magsimula ng quote",
   "app.leads.nothingHere": "Walang laman dito",
   "app.appts.title": "Mga Appointment",
+  "app.appts.assignToMe": "I-assign sa akin",
   "app.appts.subtitle": "Mga personal na pagbisita at site assignment.",
   "app.appts.new": "Bagong Appointment",
   "app.appts.empty": "Walang appointment sa view na ito.",

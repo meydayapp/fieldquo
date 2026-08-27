@@ -140,11 +140,39 @@ export async function PATCH(request, { params }) {
     );
   }
 
-  // Changing who it's assigned to requires appointment:assign, unless someone is unassigning themselves
+  // ── Putting your own name on, and taking your own name off ──────────────
+  //
+  // Changing who an appointment is assigned to requires appointment:assign,
+  // with two exceptions. Both only ever move the row towards the caller or
+  // away from them, so neither can be used to take a colleague's Tuesday or to
+  // read anything they could not already read.
+  //
+  // The second one was described here and not implemented. The comment said
+  // "unless someone is unassigning themselves" and the condition refused it:
+  // for `{ assignedToId: null }` on your own row, `null !== existing` and
+  // `null !== member.userId` both hold, so an employee dropping off a job got
+  // a 403. The DELETE handler below states the same intent independently and
+  // leans on it — "a worker who wants off a job unassigns themselves, which
+  // PATCH already allows" is its whole argument for having no self-delete. Two
+  // comments agreeing about the behaviour and one condition disagreeing meant
+  // a worker had no way off a job at all, so the CODE is what was wrong.
+  //
+  // `!body.assignedToId` rather than `=== null`: the update below writes
+  // `body.assignedToId || null`, so "" and null are the same release as far as
+  // the row is concerned, and the gate has to agree with the write or one of
+  // the two forms slips past. `member.userId` is checked truthy first for the
+  // reason GET gives — an impersonated session has none, and `undefined` must
+  // not match an unassigned row.
+  const releasingOwn =
+    !body.assignedToId &&
+    !!member.userId &&
+    existing.assignedToId === member.userId;
+
   if (
     "assignedToId" in body &&
     body.assignedToId !== existing.assignedToId &&
     body.assignedToId !== member.userId &&
+    !releasingOwn &&
     !can(member.role, "appointment:assign")
   ) {
     return NextResponse.json(

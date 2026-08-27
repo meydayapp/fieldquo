@@ -9,6 +9,7 @@ import {
   loadEnforceableMember,
   hasLevel,
   redactClient,
+  assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { ownScheduleFilter } from "@/lib/schedule/teamScope";
 import {
@@ -31,8 +32,14 @@ export async function GET(request) {
   // three times (appointments, visits, bookings). Three hand-copied copies of
   // the same rule is how one of them ends up disagreeing with the other two,
   // and the one that disagrees is the one nobody reads.
+  //
+  // `includeUnassigned` is now decided per source rather than taken as the
+  // default everywhere. It defaults to true because of what an unassigned
+  // APPOINTMENT is; the other two sources are different rows carrying
+  // different data, and each says below why it answers differently.
   const full = await loadEnforceableMember(db, member.id);
-  const ownFilter = (field) => ownScheduleFilter(full, member.userId, { field });
+  const ownFilter = (field, opts) =>
+    ownScheduleFilter(full, member.userId, { field, ...opts });
 
   const appointments = await db.appointment.findMany({
     where: {
@@ -63,13 +70,52 @@ export async function GET(request) {
   // lib/schedule/jobVisits.js for why. Entries carry `kind` so the UI links a
   // visit to its job instead of offering an appointment editor that would not
   // work on it.
+  //
+  // ── "Unassigned" does not mean the same thing on a visit ────────────────
+  //
+  // Unassigned APPOINTMENTS stay visible to everyone, and that is right: the
+  // row is a time and a client the caller can already read at their level.
+  //
+  // A visit is not that row. toCalendarEntry carries the JOB's title, the
+  // client's name and the site address — precisely what a Crew member is
+  // confined away from — so an unassigned visit on a job they are not on put
+  // that job's title and the homeowner's address on their calendar while
+  // GET /api/jobs/[id] answered 404 for the very same job. The calendar was
+  // the widest door onto the client list again, one table over.
+  //
+  // So an unassigned visit is theirs to pick up only on a job that is already
+  // theirs. "Their job" is assignedJobWhere — the same fragment every job read
+  // in the product uses — rather than a second definition written out here:
+  // two definitions of one rule is how the calendar and the job board come to
+  // disagree about which jobs exist, and the copy is the one that rots.
+  //
+  // Nobody who could see the whole calendar loses anything. ownFilter returns
+  // {} for a member holding schedule edit_all, so visitScope is {} and the
+  // spread is a no-op; and assignedJobWhere returns {} for anyone who sees the
+  // whole job board (an Estimator sits at jobs:view_only and keeps every job),
+  // so for them an unassigned visit stays visible — its address is on a job
+  // they can already open.
+  const ownVisits = ownFilter("assignedToId", { includeUnassigned: false });
+  const myJobs = assignedJobWhere(full);
+  const visitScope = Object.keys(ownVisits).length
+    ? {
+        OR: [
+          ownVisits,
+          // Spread, not `job: myJobs`: myJobs is {} for an unscoped member and
+          // an empty relation filter is a claim about the relation rather than
+          // the absence of one.
+          { assignedToId: null, ...(Object.keys(myJobs).length ? { job: myJobs } : {}) },
+        ],
+      }
+    : {};
+
   const visits = await db.jobVisit.findMany({
     where: {
       // Archived jobs are filed away, so their visits leave the calendar and
       // the dashboard count with them. Otherwise "archive" would only tidy the
       // Jobs list while the work kept showing up everywhere else.
       job: { companyId: member.companyId, archivedAt: null },
-      ...ownFilter("assignedToId"),
+      ...visitScope,
     },
     include: VISIT_INCLUDE,
     orderBy: { scheduledAt: "asc" },
@@ -98,9 +144,18 @@ export async function GET(request) {
         companyId: member.companyId,
         // Same rule, same builder — but the assignee column is `userId` here,
         // because a booking is owned through the EventType whose page took it.
-        // A company-wide type has no owner, which is the unassigned case and
-        // stays visible for the same reason an unclaimed appointment does.
-        ...ownFilter("userId"),
+        //
+        // `includeUnassigned` is off, and this is the one source where the
+        // default was plainly wrong. EventType.userId is null for a
+        // COMPANY-WIDE booking type — the public /book page anyone in the city
+        // can fill in — so "unassigned" here does not mean "spare work waiting
+        // to be claimed", it means "every booking the company has ever taken
+        // through its own front door". Each one carried a stranger's name and
+        // street address onto the calendar of every member scoped to their own
+        // schedule, and there is nothing for them to claim: a booking is not
+        // assignable at all (bookingToCalendarEntry has no editor behind it,
+        // and its id would 404 against /api/appointments/[id]).
+        ...ownFilter("userId", { includeUnassigned: false }),
       },
     },
     include: {

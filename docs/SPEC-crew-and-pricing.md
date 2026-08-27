@@ -37,7 +37,7 @@ is a spec that gets half-remembered.
 | 1.18 | **Jobs assigned to them only** | DONE | `assignedJobWhere` — a relation filter on `JobVisit.assignedToId`; not theirs = **404** |
 | 1.19 | Those jobs carry **no prices** | DONE | no `redactJobMoney` needed — `Job` has no money column; costing already behind `jobCosting` |
 | 1.20 | Those jobs show visits, materials to buy, tasks from notes, **site address** | DONE | address, visits and the buy list were already there; the to-dos were not — they lived only in a company-wide list a person in a driveway never opens |
-| 1.21 | Calendar shows only their schedule + their assigned jobs | PARTIAL | `getUpcomingWork` fixed and re-granted; the calendar screens themselves are UNVERIFIED |
+| 1.21 | Calendar shows only their schedule + their assigned jobs | DONE | the screens were scoped, but an UNASSIGNED visit carried the job title, client name and site address of jobs that 404 for them; unassigned is now theirs only on a job `assignedJobWhere` already grants |
 | 1.22 | To-dos assigned to them | DONE | `GET /api/tasks` was scoped on companyId ALONE — a crew member could list every to-do in the company. Now yours, raised by you, or unassigned |
 | 1.23 | Team visible **read-only** | DONE | Manage Team settings row hidden — the main rail already gated the same page |
 | 1.24 | Cannot "assign shift" | DONE | verified: all four shift writes refuse below `schedule: edit_all`, and the UI matches |
