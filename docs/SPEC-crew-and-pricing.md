@@ -31,7 +31,7 @@ is a spec that gets half-remembered.
 | 1.12 | Own work schedule | DONE | `schedule: view_complete_own` |
 | 1.13 | Time clock | DONE | |
 | 1.14 | Own timesheets — past, current, upcoming | DONE | `timeTracking: view_record_edit_own` |
-| 1.15 | A timesheet edit by the worker returns to **pending approval** | **OPEN** | machinery exists (`approvedById`, `selfApprovedHours`); the reset is UNVERIFIED |
+| 1.15 | A timesheet edit by the worker returns to **pending approval** | DONE | two guards: Crew cannot touch an approved row at all, and a self-edit of a signed-off one reopens it. Extracted to `lib/payroll/timesheetEdit.js` and asserted (18) — it was correct but unasserted |
 | 1.16 | Own time off, and can request it | DONE | |
 | 1.17 | Own payroll — earned and expected | DONE | `payroll: view_own` |
 | 1.18 | **Jobs assigned to them only** | DONE | `assignedJobWhere` — a relation filter on `JobVisit.assignedToId`; not theirs = **404** |
@@ -94,13 +94,25 @@ capabilities.
 | 3.11 | **Monthly vs 1-year commitment**, same rate | IN FLIGHT |
 | 3.12 | Checkout honours the chosen interval | IN FLIGHT — `recurring: { interval: "month" }` is hardcoded |
 | 3.13 | Plan selection moves **last** at signup, after the address | IN FLIGHT |
-| 3.14 | What "first month free" means on an annual prepay | **OPEN — NEEDS THE OWNER** |
+| 3.14 | What "first month free" means on an annual prepay | DONE | owner confirmed: 30 free days, then the full year, then a normal yearly cycle |
+
+---
+
+## 4. Referrals
+
+| # | Requirement | State |
+|---|---|---|
+| 4.1 | Referrer and invitee each get **1 free month** (owner overrode the 3 in AGENTS.md) | DONE |
+| 4.2 | The reward is **extended access**, not a dollar credit | DONE |
+| 4.3 | Annual: free month runs from the year end and **does not trigger a renewal** | DONE |
+| 4.4 | Monthly: applied to the next month | DONE |
+| 4.5 | Referrals **stack** — a second extends the first | DONE |
+| 4.6 | AGENTS.md corrected so it does not contradict the code | DONE |
 
 ---
 
 ## Needs a decision from the owner
 
 1. **1.28** — "no AI buttons, unless it's empty, then it can read it so it can be filled."
-2. **3.14** — first month free on a twelve-month prepay: same offer, or not?
 3. **2.9** — at the seat limit: block the save, or auto-add a seat at the extra-seat price? (Blocking mid-job is how software gets uninstalled.)
 4. A 1-seat owner with 9 crew fits neither Solo (5 crew) nor Crew (8 crew) and lands on Shop at 289. Correct, or should crew overflow into paid seats?

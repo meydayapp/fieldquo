@@ -2,6 +2,10 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import {
+  canEditApprovedEntry,
+  shouldReopenForApproval,
+} from "@/lib/payroll/timesheetEdit";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
@@ -98,10 +102,7 @@ export async function PATCH(request, { params }) {
   // a Dispatcher's grant over other people's hours, and undoing an approval is
   // an authority question rather than a scope one. It matches the gate
   // directly above so the two cannot drift.
-  if (
-    existing.status === "approved" &&
-    !["owner", "admin", "supervisor"].includes(member.role)
-  ) {
+  if (existing.status === "approved" && !canEditApprovedEntry(member.role)) {
     return NextResponse.json(
       {
         error:
@@ -165,13 +166,13 @@ export async function PATCH(request, { params }) {
   // Note the guard above already refuses a non-supervisor editing an APPROVED
   // entry outright, so in practice this reopens two cases: a rejected entry the
   // worker has corrected, and an approver amending their own approved hours.
-  const timesChanged = clockOut !== undefined;
-  const selfEdited = existing.worker?.userId === member.userId;
-  const reopen =
-    timesChanged &&
-    selfEdited &&
-    status === undefined &&
-    existing.status !== "pending";
+  const reopen = shouldReopenForApproval({
+    existingStatus: existing.status,
+    existingWorkerUserId: existing.worker?.userId,
+    editorUserId: member.userId,
+    timesChanged: clockOut !== undefined,
+    statusProvided: status !== undefined,
+  });
 
   const updated = await db.timeEntry.update({
     where: { id: _params.id },
