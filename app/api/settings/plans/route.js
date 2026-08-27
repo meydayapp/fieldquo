@@ -69,16 +69,19 @@ export async function GET(request) {
   });
   const currency = currencyForCountry(resolveCountry(company).country);
 
+  // `Plan.currency` is NOT NULL with a default, so there is no null branch to
+  // allow for — an earlier version wrote `{ currency: null }` for legacy rows
+  // and Prisma rejected the whole query with "Argument `currency` is missing".
+  // The route then 500'd, the page read the failure as "no currency", and a
+  // Canadian company with a Canadian address was told we did not know where
+  // their business was. Empty and broken have to answer differently.
   const plans = await db.plan.findMany({
     where: {
       // Their own plan is always visible, whatever its currency or visibility —
       // a billing page that cannot name the plan you are paying for is broken in
       // a more obvious way than one showing a row it should not sell.
       OR: [
-        {
-          isPublic: true,
-          ...(currency ? { OR: [{ currency }, { currency: null }] } : {}),
-        },
+        { isPublic: true, ...(currency ? { currency } : {}) },
         ...(subscription?.planId ? [{ id: subscription.planId }] : []),
       ],
     },

@@ -701,6 +701,7 @@ export function QuoteBuilderForm({
     // nowhere to put it even once it stopped discarding it — and without a
     // country the province is inert (see lib/tax/documentTax.js).
     city: "",
+    postalCode: "",
     province: "",
     country: "",
   });

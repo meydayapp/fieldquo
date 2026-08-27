@@ -96,13 +96,27 @@ function AccountBillingScreen() {
       // rows of a tier carry the same NUMBER and picking between them is not a
       // currency choice, it is a discount. The array form is still accepted so
       // a cached older response does not empty the page.
+      // ── A failed request is not "we don't know your country" ──────────────
+      //
+      // This read a non-ok response as `body = null`, which made `currency`
+      // null, which made the page say "we need to know where your business is"
+      // — to a company whose Canadian address was on file and had already been
+      // priced in CAD. The route was throwing on a bad Prisma query and the
+      // screen turned a 500 into a question about the customer's address.
+      //
+      // `undefined` means we could not ask. `null` means we asked and they
+      // genuinely have no country. Only the second is the customer's problem.
       const body = planRes.ok ? await planRes.json() : null;
       const planList = Array.isArray(body) ? body : body?.plans;
       setPlans(Array.isArray(planList) ? planList : []);
-      // null means we do not hold their country, so no ladder was returned.
-      // Reported so the screen can ask for an address instead of rendering an
-      // empty list, which reads as an outage.
-      setPlanCurrency(Array.isArray(body) ? undefined : (body?.currency ?? null));
+      if (!planRes.ok) {
+        setPlanCurrency(undefined);
+        setError(
+          t("app.billing.loadFailed", "Couldn't load your subscription. Please try again."),
+        );
+      } else {
+        setPlanCurrency(Array.isArray(body) ? undefined : (body?.currency ?? null));
+      }
     });
   }
 

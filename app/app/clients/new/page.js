@@ -200,12 +200,13 @@ export default function NewClientPage() {
           <AddressAutocomplete
             value={form.address}
             onChange={(v) => set("address", v)}
-            onPlaceSelected={({ address, city, province, country }) =>
+            onPlaceSelected={({ address, city, province, postalCode, country }) =>
               setForm((prev) => ({
                 ...prev,
                 address,
                 city: city || prev.city,
                 province: province || prev.province,
+                postalCode: postalCode || prev.postalCode,
                 // Google returns short_name here, which is already the
                 // ISO alpha-2 the tax lookup wants. It always did; there was
                 // simply nowhere to put it until Client.country existed.

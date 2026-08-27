@@ -434,12 +434,13 @@ export default function ClientDetailPage() {
               <AddressAutocomplete
                 value={form.address}
                 onChange={(v) => setForm({ ...form, address: v })}
-                onPlaceSelected={({ address, city, province, country }) =>
+                onPlaceSelected={({ address, city, province, postalCode, country }) =>
                   setForm((prev) => ({
                     ...prev,
                     address,
                     city: city || prev.city,
                     province: province || prev.province,
+                    postalCode: postalCode || prev.postalCode,
                     // Already ISO alpha-2 from Google. This is how the
                     // country fills itself in for existing clients, which is
                     // why nothing backfilled the column.

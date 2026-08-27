@@ -23,6 +23,34 @@ function placesSuggestionsOpen() {
   );
 }
 
+
+/**
+ * Pull a postal code out of a Google-formatted address.
+ *
+ * Canadian codes are matched anywhere in the string: "A1A 1A1" is distinctive
+ * enough that no street name or city collides with it.
+ *
+ * US ZIPs are NOT, because "12345 Main St" is a house number. So they are only
+ * read from the comma-segment that also carries a two-letter state — Google's
+ * format puts them together ("Buffalo, NY 14201") — which is the one place a
+ * bare five-digit number is unambiguous.
+ *
+ * Returns "" rather than a guess when neither pattern fits. An absent postal
+ * code is a fact about the address; a wrong one is a fact about nothing.
+ */
+function postalCodeFromFormatted(formatted) {
+  const s = String(formatted || "");
+
+  const ca = s.match(/\b([A-Za-z]\d[A-Za-z])[ -]?(\d[A-Za-z]\d)\b/);
+  if (ca) return `${ca[1].toUpperCase()} ${ca[2].toUpperCase()}`;
+
+  for (const part of s.split(",")) {
+    const us = part.trim().match(/^[A-Z]{2}\s+(\d{5}(?:-\d{4})?)$/);
+    if (us) return us[1];
+  }
+  return "";
+}
+
 export default function AddressAutocomplete({
   value,
   onChange, // (address: string) => void
@@ -140,6 +168,23 @@ export default function AddressAutocomplete({
             postalCode = component.long_name;
           if (component.types.includes("country"))
             country = component.short_name;
+        }
+
+        // ── Google often omits the postal code from a street-level result ──
+        //
+        // `address_components` is requested and city and province arrive
+        // reliably, but Places Autocomplete frequently stops at
+        // administrative_area_level_1 and leaves postal_code out — while the
+        // formatted_address it hands back in the same response CONTAINS it:
+        //
+        //     "1039 Bank St, Ottawa, ON K1X 1H4, Canada"
+        //
+        // So the field sat empty on every company that used the picker, which
+        // is what the owner reported. This reads the code out of the string
+        // Google already returned; it invents nothing and never overrides a
+        // component when there is one.
+        if (!postalCode && formatted) {
+          postalCode = postalCodeFromFormatted(formatted);
         }
 
         const lat = place.geometry?.location?.lat?.();

@@ -168,12 +168,13 @@ function CompanyFields({ form, setForm, fieldErrors }) {
           //
           // Only overwritten when Google actually returned one — a partial
           // place must not blank a country the user picked by hand.
-          onPlaceSelected={({ address, city, province, country }) =>
+          onPlaceSelected={({ address, city, province, postalCode, country }) =>
             setForm((f) => ({
               ...f,
               address,
               city: city || f.city,
               province: province || f.province,
+              postalCode: postalCode || f.postalCode,
               country: country || f.country,
             }))
           }
