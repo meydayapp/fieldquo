@@ -9,7 +9,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
-import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { useHasLevel, useSeesOnlyAssignedJobs } from "@/app/providers/PermissionProvider";
 import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 const STATUS_STYLES = {
   // Purple/attention — an unscheduled job (usually auto-created from an
@@ -33,6 +33,8 @@ export default function JobsPage() {
   // whose save answers 403, and the sidebar's quick-add entry has been hidden
   // at this exact level since NAV_REQUIREMENTS was written.
   const canCreate = useHasLevel("jobs", "view_create_edit");
+  // Same predicate the API scopes the query with — see the hook.
+  const seesOnlyAssigned = useSeesOnlyAssignedJobs();
   // The bottom rung — GET /api/jobs refuses below it. See the quotes list.
   const canView = useHasLevel("jobs", "view_only");
   // null until the server answers — see lib/loadState.js.
@@ -173,11 +175,20 @@ export default function JobsPage() {
               <p className="text-sm text-muted-foreground">{t("app.jobs.empty")}</p>
             ) : (
               <>
+                {/* Two different empty lists, and they mean opposite things.
+                    "Jobs are scheduled work for a client — they appear here
+                    when a quote is accepted" is a statement about the COMPANY,
+                    and it is false in front of a crew member whose company has
+                    forty live jobs and has simply not put them on one. That is
+                    absence dressed up as restriction, and it invites them to
+                    wait for something that will never arrive on its own. */}
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  {t(
-                    "app.jobs.emptyFirstRun",
-                    "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
-                  )}
+                  {seesOnlyAssigned
+                    ? t("app.jobs.emptyNoneAssigned")
+                    : t(
+                        "app.jobs.emptyFirstRun",
+                        "Jobs are scheduled work for a client — they appear here, and are created automatically when a quote is accepted.",
+                      )}
                 </p>
                 {/* The empty state's own copy already explains that jobs
                     arrive on their own when a quote is accepted, so a member

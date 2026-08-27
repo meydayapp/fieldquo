@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
-import { hasToggle } from "@/lib/permissions/enforce";
+import { hasToggle, assignedJobWhere } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 
 export async function GET(request, { params }) {
@@ -38,8 +38,17 @@ export async function GET(request, { params }) {
     );
   }
 
+  // Three gates now: the job's level, the job's SCOPE, then what it cost. A
+  // member scoped to their own jobs cannot hold jobCosting and reach this — the
+  // Crew preset has it off — but the scope belongs on the query regardless, so
+  // that turning the toggle on for one crew member grants them costing on
+  // THEIR jobs rather than on the company's.
   const job = await db.job.findFirst({
-    where: { id: _params.id, companyId: member.companyId },
+    where: {
+      id: _params.id,
+      companyId: member.companyId,
+      ...assignedJobWhere(full),
+    },
     select: {
       id: true,
       // `id` so quotedCostFor can be asked about it; `total` is the revenue

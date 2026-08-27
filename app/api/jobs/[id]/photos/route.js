@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
 
 export async function GET(request, { params }) {
@@ -21,7 +22,7 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_only",
@@ -29,8 +30,11 @@ export async function GET(request, { params }) {
   );
   if (denied) return denied;
 
+  // Scoped like the job itself. Site photos carry the client's house in them,
+  // which is the one thing a name-and-address member is trusted with for their
+  // OWN job and nobody else's.
   const job = await db.job.findFirst({
-    where: { id, companyId: member.companyId },
+    where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
     select: { id: true },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -57,7 +61,7 @@ export async function PATCH(request, { params }) {
   // Featuring lifts a photo onto the company's public website, and this route
   // asked for nothing but a session and a company match. It sits at the same
   // level as the job's other edits — materials, status, the job itself.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_create_edit",
@@ -71,8 +75,21 @@ export async function PATCH(request, { params }) {
 
   // Scope: the photo must belong to a job in this company. Checked by matching
   // both, so a photo id from another tenant can't be flipped.
+  // No-op for anyone who can reach view_create_edit (see the PATCH note in
+  // app/api/jobs/[id]/route.js), applied for the same reason it is there.
+  //
+  // Spread CONDITIONALLY, unlike every other call site: JobPhoto.job is a
+  // nullable relation, and `job: {}` is a filter on the relation existing
+  // rather than the no-op an empty spread is on a scalar where. Writing it the
+  // uniform way would have quietly excluded orphaned photos for everybody.
+  const jobScope = assignedJobWhere(full);
   const photo = await db.jobPhoto.findFirst({
-    where: { id: photoId, companyId: member.companyId, jobId: id },
+    where: {
+      id: photoId,
+      companyId: member.companyId,
+      jobId: id,
+      ...(Object.keys(jobScope).length ? { job: jobScope } : {}),
+    },
     select: { id: true },
   });
   if (!photo) return NextResponse.json({ error: "Not found" }, { status: 404 });

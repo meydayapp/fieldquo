@@ -30,6 +30,7 @@ import {
   requireLevel,
   requireToggle,
   requireMoney,
+  seesOnlyAssignedJobs,
 } from "../lib/permissions/enforce.js";
 import { readFileSync } from "node:fs";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE, can } from "../lib/permissions.js";
@@ -173,9 +174,27 @@ check("neither has payments", !worker.permissions.payments && !workerFull.permis
 //
 // Asserted per category rather than as one shared value, because a preset edit
 // that quietly re-merged them is exactly what this file exists to catch.
-for (const cat of ["quotes", "jobs", "invoices", "requests"]) {
+//
+// JOBS is the exception, and it is not a relaxation. Crew are back at
+// view_only because lib/permissions/enforce.js now narrows every job read to
+// the jobs they have a visit on (seesOnlyAssignedJobs / assignedJobWhere) — a
+// scope, which the levels ladder cannot express. `none` was the honest landing
+// while that filter did not exist and it left a crew member unable to see the
+// address they were driving to. scripts/check-crew-access.mjs owns that pair
+// and executes the routes; this file asserts the level and the SCOPE together
+// so neither can be reverted here without the other showing up.
+for (const cat of ["quotes", "invoices", "requests"]) {
   check(`Crew holds NO access to ${cat}`, worker.permissions[cat] === "none");
 }
+check("Crew reads jobs", worker.permissions.jobs === "view_only");
+check(
+  "…but only the ones they are assigned to",
+  seesOnlyAssignedJobs(worker) === true,
+);
+check(
+  "…while an Estimator at the same level sees the whole board",
+  seesOnlyAssignedJobs(workerFull) === false,
+);
 for (const cat of ["quotes", "requests"]) {
   check(`Estimator CREATES ${cat}`, workerFull.permissions[cat] === "view_create_edit");
 }

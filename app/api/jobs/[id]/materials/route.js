@@ -14,6 +14,7 @@ import {
   requireLevel,
   permissionErrorResponse,
   hasToggle,
+  assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { requireCost } from "@/app/api/invoices/costingWrite";
 import {
@@ -92,10 +93,19 @@ async function listFor(jobId, member) {
   };
 }
 
-/** The job must belong to the caller's company. Checked on every verb. */
-async function ownJob(jobId, companyId) {
+/**
+ * The job must belong to the caller's company AND be one they may see.
+ *
+ * Checked on every verb, and the scope is spread here rather than at the four
+ * call sites for the reason assignedJobWhere itself exists: the fourth copy is
+ * the one that gets forgotten. A crew member asking about a job they are not
+ * on gets the same "Not found" the other tenant's job gets — the shopping list
+ * for a job whose existence they should not learn is not a smaller leak than
+ * the job.
+ */
+async function ownJob(jobId, companyId, member) {
   return db.job.findFirst({
-    where: { id: jobId, companyId },
+    where: { id: jobId, companyId, ...assignedJobWhere(member) },
     select: { id: true },
   });
 }
@@ -115,7 +125,7 @@ export async function GET(request, { params }) {
   );
   if (denied) return denied;
 
-  if (!(await ownJob(id, member.companyId)))
+  if (!(await ownJob(id, member.companyId, full)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(await listFor(id, full));
 }
@@ -136,7 +146,7 @@ export async function POST(request, { params }) {
     return NextResponse.json(body, { status });
   }
 
-  if (!(await ownJob(id, member.companyId)))
+  if (!(await ownJob(id, member.companyId, full)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
@@ -216,7 +226,9 @@ export async function PATCH(request, { params }) {
   const line = await db.jobMaterial.findFirst({
     where: {
       id: String(body.materialId || ""),
-      job: { companyId: member.companyId },
+      // Company scope AND job scope, on the nested job — the line is only ever
+      // as reachable as the job it hangs off.
+      job: { companyId: member.companyId, ...assignedJobWhere(full) },
     },
   });
   if (!line) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -293,7 +305,11 @@ export async function DELETE(request, { params }) {
 
   const materialId = new URL(request.url).searchParams.get("materialId") || "";
   const line = await db.jobMaterial.findFirst({
-    where: { id: materialId, jobId: id, job: { companyId: member.companyId } },
+    where: {
+      id: materialId,
+      jobId: id,
+      job: { companyId: member.companyId, ...assignedJobWhere(full) },
+    },
     select: { id: true },
   });
   if (!line) return NextResponse.json({ error: "Not found" }, { status: 404 });

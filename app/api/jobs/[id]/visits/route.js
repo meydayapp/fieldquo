@@ -8,6 +8,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
+import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 export async function GET(request, { params }) {
@@ -16,7 +17,7 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_only",
@@ -24,8 +25,16 @@ export async function GET(request, { params }) {
   );
   if (denied) return denied;
 
+  // Scoped, then unscoped WITHIN the job: a crew member reaches this because
+  // they have a visit on this job, and once they are on it they see the whole
+  // day — who else is booked and when. Narrowing to their own visit would hide
+  // the colleague arriving after them, which is the thing the list is for.
   const job = await db.job.findFirst({
-    where: { id: _params.id, companyId: member.companyId },
+    where: {
+      id: _params.id,
+      companyId: member.companyId,
+      ...assignedJobWhere(full),
+    },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -49,7 +58,7 @@ export async function POST(request, { params }) {
   // a member at jobs:view_only has always been able to book one from the job
   // page. This gate exists to close jobs:none, not to take that away — raising
   // it is a product decision, not a cleanup.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_only",
@@ -57,8 +66,18 @@ export async function POST(request, { params }) {
   );
   if (denied) return denied;
 
+  // This one MATTERS, and is not the dead-code spread the write routes carry:
+  // booking a visit is gated at view_only by the decision above, so a scoped
+  // member really can reach it. Without the scope they could book themselves
+  // (or, with job:assign, anyone) onto any job in the company — and a visit is
+  // exactly what makes a job theirs, so an unscoped POST here would be a
+  // self-service door into every job record the list is narrowing.
   const job = await db.job.findFirst({
-    where: { id: _params.id, companyId: member.companyId },
+    where: {
+      id: _params.id,
+      companyId: member.companyId,
+      ...assignedJobWhere(full),
+    },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

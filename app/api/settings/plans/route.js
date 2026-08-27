@@ -15,6 +15,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { currencyForCountry } from "@/lib/pricing/ladder";
+import { resolveCountry } from "@/lib/company/resolveCountry";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -56,11 +57,17 @@ export async function GET(request) {
   // rather than in CAD by default: three of the companies here have no country,
   // and defaulting them would be padding absent data with a price. They are
   // shown the same "tell us where you are" state the checkout uses.
+  // The address, not just the column. A company that signed up before the
+  // country component was carried through from AddressAutocomplete has a null
+  // `country` and a complete address — "1039 Bank St, Ottawa, ON K1X 1H4,
+  // Canada" — sitting in the columns beside it. Asking that company where their
+  // business is, while Company Settings displays the answer, is the product
+  // being unable to read its own record.
   const company = await db.company.findUnique({
     where: { id: member.companyId },
-    select: { country: true },
+    select: { country: true, address: true, province: true },
   });
-  const currency = currencyForCountry(company?.country);
+  const currency = currencyForCountry(resolveCountry(company).country);
 
   const plans = await db.plan.findMany({
     where: {

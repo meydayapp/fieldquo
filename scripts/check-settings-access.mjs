@@ -4,7 +4,16 @@
 //
 // The settings area's permission story, executed rather than described.
 //
-// Three things this has to prove, in order of how expensive being wrong is:
+// Four things this has to prove, in order of how expensive being wrong is:
+//
+//   0. EVERY ROW HAS AN ANSWER. SETTINGS_ROW_CAPABILITY is deny-by-default now:
+//      canSeeSettingsRow hides a row nobody has written a rule for. That closes
+//      the hole where twenty rows reached every member because they were merely
+//      absent — but on its own it opens a worse one, because the next row
+//      somebody adds disappears for everybody below owner and nobody notices a
+//      screen that was never there. So this file FAILS when a row in
+//      SettingsSidebar has no entry in the map. The two halves are one change:
+//      do not keep the deny without keeping this.
 //
 //   1. THE OWNER'S SCREEN DID NOT CHANGE. Every row, every capability, every
 //      time. A permission sweep that quietly takes something away from the
@@ -45,16 +54,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   SETTINGS_ROW_CAPABILITY,
+  SETTINGS_ROW_REQUIREMENTS,
   SETTINGS_ROWS_VISIBLE_WITH_PARTIAL_ACCESS,
+  SETTINGS_SIDEBAR_CHROME_KEYS,
   SETTINGS_CAPABILITIES,
   canSee,
   canChange,
+  canSeeSettingsRow,
   filterSettingsGroups,
 } from "@/lib/permissions/settingsAccess";
 import {
   requirePermission,
   permissionDenialMessage,
   PERMISSIONS,
+  PERMISSION_PRESETS,
+  PRESET_TO_ROLE,
 } from "@/lib/permissions";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -93,6 +107,80 @@ const rows = [
 const rowKeys = rows.map((r) => r.key);
 
 ok(rowKeys.length >= 30, "parsed the settings sidebar rows", `${rowKeys.length} rows`);
+
+// ── 0. Deny-by-default cannot silently swallow a new page ──────────────────
+//
+// The other half of inverting the default, and the reason it is safe to invert.
+// An unlisted row is now HIDDEN, so "nobody wrote a rule" has to be loud.
+//
+// It is checked here rather than in settingsAccess.js because the map cannot
+// see the sidebar: the rows are JSX data in a "use client" component, and the
+// map is imported by that component. The parse is the same one section 2b uses.
+
+console.log("\nEvery row has been decided about\n");
+
+{
+  // The parse above matches `key: "…", href: "…"` pairs. A row written some
+  // other way would be invisible to it, and an invisible row is a row this
+  // section cannot demand a rule for — so the sidebar's app.settings.* literals
+  // are reconciled against the rows, and anything left over has to be a key
+  // settingsAccess.js has declared as chrome.
+  const literals = [
+    ...new Set([...sidebarSrc.matchAll(/"(app\.settings\.[A-Za-z0-9]+)"/g)].map((m) => m[1])),
+  ];
+  const unaccounted = literals.filter(
+    (k) => !rowKeys.includes(k) && !SETTINGS_SIDEBAR_CHROME_KEYS.includes(k),
+  );
+  ok(unaccounted.length === 0,
+    "every app.settings.* key in the sidebar is either a parsed row or declared chrome",
+    unaccounted.join(", "));
+
+  // And the chrome really is chrome. `title` is the <h1> and the mobile
+  // "you are here" label; `search` is the filter placeholder. Neither is
+  // navigable, and a rule on a heading is noise — but the way to know that is
+  // to assert it, not to write it down. If one of these ever grows an href it
+  // becomes a row and needs a capability like any other.
+  for (const key of SETTINGS_SIDEBAR_CHROME_KEYS) {
+    ok(literals.includes(key), `${key}: declared chrome is still present in the sidebar`);
+    ok(!rowKeys.includes(key), `${key}: is chrome, not a navigable row — no href`);
+    ok(!SETTINGS_ROW_CAPABILITY[key],
+      `${key}: carries no capability, because a heading is not a destination`);
+  }
+
+  // THE ASSERTION. Add a row, forget this map, fail the build.
+  const undecided = rowKeys.filter((k) => !SETTINGS_ROW_CAPABILITY[k]);
+  ok(undecided.length === 0,
+    "every settings row has a capability — an unlisted row is now HIDDEN, not shown",
+    undecided.length
+      ? `no entry in SETTINGS_ROW_CAPABILITY for: ${undecided.join(", ")}`
+      : `${rowKeys.length}/${rowKeys.length} decided`);
+
+  // A typo'd capability would fall open: holdsCapability returns true for a
+  // name it does not recognise (deliberately — see its own note), so
+  // "user:mangae" would be a rule that reads as enforcement and enforces
+  // nothing. Deny-by-default does not catch that; this does.
+  for (const [key, capability] of Object.entries(SETTINGS_ROW_CAPABILITY)) {
+    ok(SETTINGS_CAPABILITIES.includes(capability),
+      `${key}: "${capability}" is a declared capability, not a typo that falls open`);
+  }
+
+  // Same for the grid half: a rule naming a category or toggle nothing knows
+  // about falls open through hasLevel/hasToggle.
+  for (const [key, requirement] of Object.entries(SETTINGS_ROW_REQUIREMENTS)) {
+    ok(rowKeys.includes(key), `${key}: grid rule points at a row that exists`);
+    ok(!!SETTINGS_ROW_CAPABILITY[key],
+      `${key}: a grid rule does not replace the role answer — both are required`);
+  }
+
+  // And the flip itself, executed. Reading the source for `return false` would
+  // pass on a comment.
+  ok(canSeeSettingsRow(EMPLOYEE, "app.settings.somethingNobodyDecided") === false,
+    "a row with no rule is hidden from a member");
+  ok(canSeeSettingsRow(OWNER, "app.settings.somethingNobodyDecided") === false,
+    "…and from an owner too, so the omission is visible to the person who'd report it");
+  ok(canSeeSettingsRow(SUPPORT, "app.settings.somethingNobodyDecided") === true,
+    "…but NOT from a read-only support session — non-negotiable #3 outranks the default");
+}
 
 const groups = [{ key: "g", items: rowKeys.map((key) => ({ key, href: `/x/${key}` })) }];
 const ownerRows = filterSettingsGroups(groups, OWNER).flatMap((g) => g.items);
@@ -138,14 +226,84 @@ ok(!named(employeeRows, "app.settings.accountBilling"), "employee: Account & Bil
 ok(!named(employeeRows, "app.settings.refer"), "employee: Refer & Earn is hidden");
 ok(!named(employeeRows, "app.settings.payroll"), "employee: Payroll is hidden");
 ok(!named(employeeRows, "app.settings.bookingPage"), "employee: Booking Page is hidden");
-ok(named(employeeRows, "app.settings.team"), "employee: Manage Team stays — the roster is reasonable to see");
 ok(named(employeeRows, "app.settings.availability"), "employee: Availability stays — it is their own hours");
-ok(named(employeeRows, "app.settings.company"), "employee: Company Settings stays, rendered read-only");
-ok(named(employeeRows, "app.settings.workAreas"), "employee: Work Areas stays, rendered read-only");
+// These four were asserted the other way round until the owner's Crew spec, and
+// the change is deliberate rather than incidental — spelled out here so a future
+// reader sees a decision reversed, not a rule that drifted.
+//
+//   Manage Team   AdminSidebar's "app.nav.team" points at this exact page and
+//                 NAV_REQUIREMENTS already hid it from an employee. The settings
+//                 sidebar was a second door to a page the main rail had closed.
+//   Company       had a real read-only rendering, which is why it survived the
+//                 first sweep. It still has one, and a support session still
+//                 gets it; a crew member has no use for the company's tax rate.
+//   Work Areas    POST/PATCH /api/work-areas require workarea:assign, which an
+//                 employee does not hold.
+//   Custom Fields POST /api/custom-fields requires user:manage. Defining the
+//                 boxes is administration; filling them in is on the quote.
+ok(!named(employeeRows, "app.settings.team"), "employee: Manage Team is hidden — same page the main rail already hides");
+ok(!named(employeeRows, "app.settings.company"), "employee: Company Settings is hidden");
+ok(!named(employeeRows, "app.settings.workAreas"), "employee: Work Areas is hidden");
+ok(!named(employeeRows, "app.settings.customFields"), "employee: Custom Fields is hidden");
 ok(named(supervisorRows, "app.settings.bookingPage"),
   "supervisor: Booking Page stays — they hold user:manage, which is what the route checks");
 ok(!named(supervisorRows, "app.settings.accountBilling"),
   "supervisor: Account & Billing is hidden — holding user:manage is not authority over the card");
+
+// ── Crew, against the real preset ──────────────────────────────────────────
+//
+// Everything above asks about a ROLE, and Crew is not one: PERMISSION_PRESETS
+// .worker and .estimator both map to `employee`. So the owner's spec — Crew's
+// entire settings surface is three rows — can only be checked by building the
+// member the preset actually produces and running the real predicate over it.
+//
+// The preset is IMPORTED rather than restated. A copy of the grid here would
+// agree with lib/permissions.js today and stop agreeing the first time somebody
+// tunes the tier, which is the failure this whole file is written against.
+
+console.log("\nCrew — the preset, not the role\n");
+
+const gridMember = (preset) => ({
+  role: PRESET_TO_ROLE[preset],
+  permissions: PERMISSION_PRESETS[preset].values,
+});
+const rowsFor = (preset) =>
+  rowKeys.filter((key) =>
+    canSeeSettingsRow(
+      { role: PRESET_TO_ROLE[preset], impersonation: false },
+      key,
+      gridMember(preset),
+    ),
+  );
+
+const CREW_SETTINGS = [
+  "app.settings.productUpdates", // what changed in the product
+  "app.settings.language", // the language THEY read the app in
+  "app.settings.availability", // the hours they can be scheduled
+];
+
+const crewRows = rowsFor("worker");
+ok(PERMISSION_PRESETS.worker.label === "Crew",
+  "the preset called Crew is still `worker`",
+  PERMISSION_PRESETS.worker.label);
+for (const key of CREW_SETTINGS) {
+  ok(crewRows.includes(key), `Crew keeps ${key}`);
+}
+ok(crewRows.length === CREW_SETTINGS.length,
+  "…and nothing else. Crew's whole settings surface is those three rows",
+  crewRows.filter((k) => !CREW_SETTINGS.includes(k)).join(", ") ||
+    `${crewRows.length} rows`);
+
+// The tier directly above, so "Crew sees three" is not achieved by breaking the
+// person whose job needs the price book. Estimator is the SAME ROLE with
+// showPricing on — which is exactly why these four rows are grid rules and not
+// role capabilities.
+const estimatorRows = rowsFor("estimator");
+for (const key of ["app.settings.products", "app.settings.services", "app.settings.instantQuotes"]) {
+  ok(estimatorRows.includes(key),
+    `an Estimator — same role, showPricing on — still sees ${key}`);
+  ok(!crewRows.includes(key), `…and Crew does not`);
+}
 
 console.log("\nHiding is not the gate — every hidden row's route enforces it too\n");
 
@@ -409,16 +567,32 @@ function pageFileFor(href) {
 
 console.log("\nEvery row that is SHOWN opens for the person it is shown to\n");
 
+// ── "Shown" is a question about a MEMBER, not about a missing map entry ────
+//
+// This used to read `if (SETTINGS_ROW_CAPABILITY[row.key])` — absence meant
+// shown. Under deny-by-default absence means the opposite, so the split is made
+// by running the predicate: is this row drawn for a plain employee? That is the
+// same set as before for every row that had no rule, plus the rows now marked
+// "everyone", and it keeps working whatever the map says next.
+//
+// Evaluated with NO grid, deliberately, because that is the widest audience a
+// role-shaped scan can talk about — a grid rule falls open without a member, so
+// this examines the price book and friends even though the grid hides them from
+// Crew. Those four are the allow-list below; see its header in
+// settingsAccess.js for why the seam exists and what would close it.
+const shownToAPlainMember = (key) => canSee(EMPLOYEE, SETTINGS_ROW_CAPABILITY[key]);
+
 // The allow-list is only honest if it points at real, still-refusing rows.
 for (const key of Object.keys(SETTINGS_ROWS_VISIBLE_WITH_PARTIAL_ACCESS)) {
   ok(rowKeys.includes(key), `${key}: allow-listed row exists in the sidebar`);
-  ok(!SETTINGS_ROW_CAPABILITY[key],
-    `${key}: allow-listed and hidden are exclusive — a row cannot be both`);
+  ok(shownToAPlainMember(key),
+    `${key}: allow-listed and role-hidden are exclusive — excusing a row nobody is shown would be dead text`,
+    SETTINGS_ROW_CAPABILITY[key]);
 }
 
 let examined = 0;
 for (const row of rows) {
-  if (SETTINGS_ROW_CAPABILITY[row.key]) continue; // hidden; covered by 2 and 2c
+  if (!shownToAPlainMember(row.key)) continue; // hidden; covered by 2 and 2c
 
   const pageFile = pageFileFor(row.href);
   ok(!!pageFile, `${row.key}: the row points at a page that exists`, row.href);
@@ -445,8 +619,17 @@ for (const row of rows) {
     refusing.map((r) => `${r.file} — ${r.evidence}`).join(" | "));
 }
 
-ok(examined >= 15,
-  "…and that examined a real number of rows, not an empty list",
+// Tied to the set rather than to a number. The floor used to be a hardcoded 15,
+// which was true when fifteen rows were ungated and would have quietly become
+// meaningless the moment the ungated set shrank — a threshold that passes by
+// being stale is worse than none. `employeeRows` is the same set computed by
+// the real filter, so this asserts the loop covered exactly what an employee
+// sees, and separately that an employee sees anything at all.
+ok(examined === employeeRows.length,
+  "…and that examined exactly the rows an employee is shown",
+  `${examined} of ${employeeRows.length}`);
+ok(examined > 0,
+  "…which is not an empty list — an employee still has a settings surface",
   `${examined} visible rows`);
 
 // ── 3. Impersonation: view everything, edit nothing ────────────────────────
@@ -513,7 +696,7 @@ const IMPERSONATION_STILL_REFUSED = [
 const stillRefused = new Set();
 
 for (const row of rows) {
-  if (!SETTINGS_ROW_CAPABILITY[row.key]) continue; // shown to everyone: 2b
+  if (shownToAPlainMember(row.key)) continue; // shown to everyone: 2b
   const pageFile = pageFileFor(row.href);
   if (!pageFile) continue;
 

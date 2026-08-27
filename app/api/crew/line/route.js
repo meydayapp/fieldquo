@@ -43,7 +43,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { canSetUpCrewTexting, CREW_SETUP_DENIAL } from "@/lib/crew/access";
 import { recordActivity } from "@/lib/activity/log";
 import { getAppOrigin } from "@/lib/appUrl";
 import { sendSms, toE164, twilioConfigured } from "@/lib/sms/twilioClient";
@@ -77,15 +78,31 @@ import {
  *              everything and edits nothing. Same shape as the voice settings
  *              gate, deliberately: two adjacent setup screens with different
  *              admin rules is a bug waiting to be found by a customer.
+ *
+ * ── Why this stopped being a bare role check ───────────────────────────────
+ *
+ * It asked `requirePermission(role, "user:manage")`, which a supervisor holds —
+ * and Manager and Dispatcher are BOTH `supervisor`. So the gate admitted the
+ * dispatcher the spec excludes, while its refusal sentence named "owner or
+ * admin" and excluded the manager the spec includes: wrong in both directions,
+ * and unfixable at the role level because the role cannot tell the two apart.
+ * canSetUpCrewTexting reads the grid instead; the whole argument, and why
+ * `jobCosting` is the honest discriminator for a screen that spends credit,
+ * is in lib/crew/access.js.
+ *
+ * The grid has to be LOADED — getCurrentMember returns a session shape without
+ * `permissions`. A null grid (the platform viewer, the demo sandbox owner, a
+ * member who predates the grid) falls back to the coarse role, which is what
+ * hasToggle does everywhere else.
  */
 async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
   if (read && member.impersonation) return { member };
-  try {
-    requirePermission(member.role, "user:manage");
-  } catch {
-    return { error: "Only an owner or admin can set up crew texting.", status: 403 };
+
+  const full = member.id ? await loadEnforceableMember(db, member.id) : null;
+  if (!canSetUpCrewTexting({ ...member, permissions: full?.permissions ?? null })) {
+    return { error: CREW_SETUP_DENIAL, status: 403 };
   }
   return { member };
 }

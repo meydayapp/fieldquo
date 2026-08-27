@@ -28,6 +28,13 @@ import {
   SMS_SEGMENT_CHARS,
 } from "@/lib/crew/messaging";
 import { APP_MESSAGES } from "@/app/i18n/appMessages.js";
+import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
+import {
+  canSetUpCrewTexting,
+  crewMessageScope,
+  seesAllCrewMessages,
+  CREW_SETUP_DENIAL,
+} from "@/lib/crew/access";
 
 let pass = 0, fail = 0;
 const ok = (n, c, got) => {
@@ -742,6 +749,151 @@ ok(
 );
 ok("...and the matcher it feeds is the roster phone", /toE164\(w\.phone\) === fromE164/.test(inboxSrc2));
 
+
+// ══ Who may SET UP crew texting, and whose messages each person reads ══════
+//
+// Both rules are executed against the REAL preset grids rather than a copy of
+// them, because the whole failure being repaired is that a role check could not
+// see the difference between two presets sharing one role.
+//
+// What was wrong:
+//
+//   * The gate was `requirePermission(role, "user:manage")`. Manager AND
+//     Dispatcher both map to `supervisor`, and supervisor holds user:manage, so
+//     the dispatcher the spec excludes was admitted.
+//   * The refusal said "Only an owner or admin can set up crew texting" — false
+//     in both directions at once. It excluded the manager the spec includes and
+//     the dispatcher the code was letting through.
+//   * GET /api/crew/messages listed the whole company's inbox to anyone signed
+//     in, and PATCH would file any of those rows, so the lowest tier read and
+//     re-filed every other crew member's photos.
+//
+// Mutation-verified when written: swapping `jobCosting` for `payments` in
+// canSetUpCrewTexting still passes (the two presets differ on both), so the
+// assertion below pins the toggle by NAME as well as by outcome; dropping the
+// `hasToggle` half entirely fails the Dispatcher assertions, and dropping the
+// `can(...)` half fails the Crew ones.
+
+console.log("\nWho may set up crew texting");
+
+const gridFor = (presetKey) => ({
+  id: `m-${presetKey}`,
+  userId: `u-${presetKey}`,
+  role: PRESET_TO_ROLE[presetKey],
+  permissions: PERMISSION_PRESETS[presetKey].values,
+});
+// owner and admin have no preset — the grid never applies to them.
+const tierMember = (role) => ({ id: `m-${role}`, userId: `u-${role}`, role, permissions: null });
+
+ok("a Manager can set up crew texting", canSetUpCrewTexting(gridFor("manager")));
+ok("an owner can", canSetUpCrewTexting(tierMember("owner")));
+ok("an admin can", canSetUpCrewTexting(tierMember("admin")));
+ok("a Dispatcher CANNOT — same role as the Manager, different grid", !canSetUpCrewTexting(gridFor("dispatcher")));
+ok("...and they really do share one role", PRESET_TO_ROLE.manager === PRESET_TO_ROLE.dispatcher);
+ok("Crew cannot", !canSetUpCrewTexting(gridFor("worker")));
+ok("an Estimator cannot", !canSetUpCrewTexting(gridFor("estimator")));
+ok("the platform console's read-only viewer cannot", !canSetUpCrewTexting(tierMember("viewer")));
+ok("nobody at all is not somebody", !canSetUpCrewTexting(null) && !canSetUpCrewTexting(undefined));
+
+// The set, stated as a set: of the five presets an owner can hand out, exactly
+// one passes. A sixth preset appearing on the manager side of the line has to
+// be a deliberate edit here, not a silent widening.
+const passingPresets = Object.keys(PERMISSION_PRESETS).filter((k) => canSetUpCrewTexting(gridFor(k)));
+ok("exactly one preset passes, and it is Manager", passingPresets.length === 1 && passingPresets[0] === "manager", passingPresets);
+
+// The discriminator, pinned by name. Outcome alone can't pin it: manager and
+// dispatcher differ on `jobCosting` AND `payments`, so either would pass every
+// assertion above while meaning something different on screen.
+const mgr = PERMISSION_PRESETS.manager.values;
+const dsp = PERMISSION_PRESETS.dispatcher.values;
+ok("jobCosting is what separates them", mgr.jobCosting === true && dsp.jobCosting === false);
+ok(
+  "...and the predicate is the one reading it",
+  /hasToggle\(member, "jobCosting"\)/.test(readFileSync(new URL("../lib/crew/access.js", import.meta.url), "utf8")),
+);
+// A Manager granted the toggle but demoted below user:manage is not a manager.
+ok(
+  "jobCosting alone is not enough — the authority half still holds",
+  !canSetUpCrewTexting({ role: "employee", permissions: { ...mgr, jobCosting: true } }),
+);
+// And a supervisor whose grid predates the toggle falls back to the coarse
+// role, the same as everywhere else in enforce.js. ROLE_LABELS.supervisor is
+// "Manager", so the sentence below is true of them too.
+ok("a supervisor with no grid stored falls back to the role", canSetUpCrewTexting(tierMember("supervisor")));
+
+console.log("\nThe refusal names the set it actually enforces");
+ok("it names the owner", /owner/i.test(CREW_SETUP_DENIAL));
+ok("...the admin", /admin/i.test(CREW_SETUP_DENIAL));
+ok("...and the manager, who the old sentence left out", /manager/i.test(CREW_SETUP_DENIAL));
+ok("it does not name the dispatcher it now refuses", !/dispatcher/i.test(CREW_SETUP_DENIAL));
+ok("the old, false sentence is gone from the route", !lineRoute.includes("Only an owner or admin can set up crew texting"));
+ok("...and the route refuses with the shared constant", lineRoute.includes("CREW_SETUP_DENIAL"));
+ok("...through the shared predicate, not a bare role check", lineRoute.includes("canSetUpCrewTexting("));
+ok(
+  "...with the grid loaded, since the session shape carries none",
+  lineRoute.includes("loadEnforceableMember(db, member.id)"),
+);
+ok("no user:manage check survives in the route", !/requirePermission\(\s*member\.role/.test(lineRoute));
+// Setup, buy/claim/test and release are one authority, not three.
+ok("GET, POST and DELETE all pass through the one gate", (lineRoute.match(/await requireAdmin\(request/g) || []).length === 3);
+
+// ══ "Only the messages pertinent to them" ══════════════════════════════════
+//
+// What a message is associated WITH, established from the schema rather than
+// assumed: CrewInboundMessage.senderUserId, resolved from the sender's phone
+// against the Worker roster. It is the only per-person handle there is —
+// CrewInboxNumber is keyed `companyId @unique`, one line per COMPANY, so
+// "the number assigned to them" is not a filter that exists.
+
+console.log("\nA crew message is associated with a person, and that is what scopes it");
+const schema = readFileSync(new URL("../prisma/schema.prisma", import.meta.url), "utf8");
+const inboundModel = schema.slice(schema.indexOf("model CrewInboundMessage {"));
+ok("CrewInboundMessage carries a senderUserId", /senderUserId String\?/.test(inboundModel.slice(0, 2000)));
+const numberModel = schema.slice(schema.indexOf("model CrewInboxNumber {"), schema.indexOf("model CrewInboundMessage {"));
+ok("the crew LINE is per company, not per worker", /companyId String  @unique/.test(numberModel));
+ok("...so there is no per-worker number to scope by", !/workerId|userId/.test(numberModel));
+
+console.log("\nWhose messages each tier reads");
+const scopeOf = (m) => crewMessageScope(m);
+ok("Crew see only their own", scopeOf(gridFor("worker")).senderUserId === "u-worker", scopeOf(gridFor("worker")));
+ok("an Estimator likewise — their schedule dial says 'their own' too", scopeOf(gridFor("estimator")).senderUserId === "u-estimator");
+ok("a Dispatcher sees everyone's", seesAllCrewMessages(gridFor("dispatcher")), scopeOf(gridFor("dispatcher")));
+ok("a Manager sees everyone's", seesAllCrewMessages(gridFor("manager")));
+ok("an owner sees everyone's", seesAllCrewMessages(tierMember("owner")));
+ok("an admin sees everyone's", seesAllCrewMessages(tierMember("admin")));
+// Non-negotiable #3: the platform console views everything and edits nothing.
+ok(
+  "the platform console is never narrowed",
+  seesAllCrewMessages({ id: null, userId: null, role: "viewer", permissions: null, impersonation: true }),
+);
+// The dial that decides it is the one already on the screen, not a new one.
+ok(
+  "the schedule dial is what moves the line",
+  seesAllCrewMessages({ role: "employee", userId: "u1", permissions: { ...PERMISSION_PRESETS.worker.values, schedule: "edit_all" } }) &&
+    !seesAllCrewMessages({ role: "supervisor", userId: "u1", permissions: { ...PERMISSION_PRESETS.manager.values, schedule: "view_own" } }),
+);
+// Absence of an identity is not an identity. `{ senderUserId: null }` is a
+// POSITIVE match on every message from a number that isn't on the roster —
+// exactly the unknown-sender queue a scoped member must not see.
+const orphanScope = scopeOf({ role: "employee", userId: null, permissions: PERMISSION_PRESETS.worker.values });
+ok("a scoped member with no userId matches nothing, not the unknown senders", orphanScope.senderUserId === "__none__", orphanScope);
+ok("...and neither does nobody", scopeOf(null).senderUserId === "__none__");
+
+console.log("\nThe read scope and the manual-file write are the same scope");
+const messagesRoute = readFileSync(new URL("../app/api/crew/messages/route.js", import.meta.url), "utf8");
+ok("the list applies it", /companyId: member\.companyId, \.\.\.scope/.test(messagesRoute));
+ok("...and it is computed, not assumed", messagesRoute.includes("crewMessageScope(await graded(member))"));
+ok("...off a loaded grid", messagesRoute.includes("loadEnforceableMember(db, member.id)"));
+ok("the PATCH passes the same scope through", /scope: crewMessageScope\(await graded\(member\)\)/.test(messagesRoute));
+const inboxSrc3 = readFileSync(new URL("../lib/crew/inbox.js", import.meta.url), "utf8");
+ok(
+  "...and fileHeldMessage narrows its lookup with it",
+  /where: \{ id: messageId, companyId, \.\.\.scope \}/.test(inboxSrc3),
+);
+ok(
+  "an out-of-scope id is 'no such message', not a 403 that confirms it exists",
+  /if \(!msg\) return \{ ok: false, reason: "No such message\.", status: 404 \}/.test(inboxSrc3),
+);
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

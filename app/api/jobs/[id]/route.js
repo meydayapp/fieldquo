@@ -10,6 +10,7 @@ import {
   requireLevel,
   permissionErrorResponse,
   redactClient,
+  assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import {
   taskForCompletedJob,
@@ -31,8 +32,15 @@ export async function GET(request, { params }) {
   );
   if (denied) return denied;
 
+  // ── Not theirs reads as not there ───────────────────────────────────────
+  //
+  // The scope is part of the QUERY rather than a check after it, so a crew
+  // member asking for somebody else's job falls into the existing `!job` 404
+  // below. That is deliberate: 403 would confirm the id is real and only says
+  // "not yours", which is the same leak one step removed — an id enumerated
+  // off a shared screen would still tell them how many jobs the company has.
   const job = await db.job.findFirst({
-    where: { id: id, companyId: member.companyId },
+    where: { id: id, companyId: member.companyId, ...assignedJobWhere(full) },
     include: {
       client: true,
       quote: { select: { id: true, quoteNumber: true } },
@@ -75,8 +83,13 @@ export async function PATCH(request, { params }) {
     return NextResponse.json(body, { status });
   }
 
+  // Unreachable for a scoped member today — seesOnlyAssignedJobs only scopes
+  // people who CANNOT edit jobs, so the gate above has already refused them.
+  // Spread anyway: it costs one line, and the day the scope grows to cover an
+  // editing tier, the write path is already narrowed instead of being the one
+  // door left open.
   const existing = await db.job.findFirst({
-    where: { id, companyId: member.companyId },
+    where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -169,16 +182,18 @@ export async function DELETE(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  let full = null;
   try {
-    const full = await loadEnforceableMember(db, member.id);
+    full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "jobs", "view_create_edit_delete", "delete jobs");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
 
+  // Same no-op-by-construction spread as PATCH above, for the same reason.
   const existing = await db.job.findFirst({
-    where: { id, companyId: member.companyId },
+    where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });

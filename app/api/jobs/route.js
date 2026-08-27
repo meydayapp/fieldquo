@@ -10,6 +10,7 @@ import {
   loadEnforceableMember,
   requireLevel,
   permissionErrorResponse,
+  assignedJobWhere,
 } from "@/lib/permissions/enforce";
 import { createJob } from "@/lib/jobs/createJob";
 
@@ -17,13 +18,10 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  // The floor of this ladder used to be view_only, so the job list was open to
-  // everyone the route could reach. A member at jobs:none is refused.
-  //
-  // NOTE what this does NOT do: it does not narrow the list to the jobs this
-  // member is assigned to. There is no such filter here and never has been —
-  // see the report accompanying this change.
-  const { response: denied } = await levelOrRefusal(
+  // Two different questions, in order. The level says whether jobs exist for
+  // this member at all; the scope says WHICH. A member at jobs:none is refused
+  // outright — there is no narrowed list that means anything to them.
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_only",
@@ -44,6 +42,10 @@ export async function GET(request) {
       companyId: member.companyId,
       ...(status && { status }),
       archivedAt: archived ? { not: null } : null,
+      // Crew see the jobs they have a visit on and no others. One definition,
+      // in enforce.js, spread into every job read — a filter copied per route
+      // is a filter that rots into a leak on the route nobody looks at.
+      ...assignedJobWhere(full),
     },
     include: {
       client: { select: { id: true, name: true } },

@@ -13,6 +13,8 @@ import { Check, Loader2, Globe } from "lucide-react";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { appCoverage, appReviewed } from "@/app/i18n/appMessages";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
+import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
 
 /**
  * How much of the interface this language covers.
@@ -51,6 +53,18 @@ function Coverage({ code, t }) {
 
 export default function LanguageSettingsPage() {
   const { t, changeLanguage } = useTranslation();
+  // ── Why this screen is one of the three Crew keeps ────────────────────────
+  //
+  // "Your language" is a PERSONAL setting: PATCH /api/settings/language with
+  // { language } writes User.language for the caller and is open to any member,
+  // which is what makes this row correct for a crew member.
+  //
+  // "Company default" on the same screen is not. It writes
+  // Company.defaultLanguage behind requirePermission(member.role, "user:manage")
+  // — and the card drew a live button per language for everyone, every one of
+  // which answered 403 for the member this row exists to serve. Rendered as a
+  // fact now, with the notice that names who can change it.
+  const canSetDefault = useSettingsAccess().canChange("user:manage");
 
   const [personal, setPersonal] = useState(null); // null = inherit
   const [companyDefault, setCompanyDefault] = useState("en");
@@ -205,26 +219,45 @@ export default function LanguageSettingsPage() {
           {t("app.langSettings.companyDefaultHint", "Used for team members who haven't picked a language, and for quotes and invoices to clients who don't have one set. Owners and admins only.")}
         </p>
 
-        <div className="flex flex-wrap gap-2">
-          {LANGUAGES.map((l) => (
-            <button
-              key={l.code}
-              onClick={() => save({ defaultLanguage: l.code })}
-              disabled={saving}
-              className={`px-4 py-2 rounded-full border text-sm ${
-                companyDefault === l.code
-                  ? "border-inverted bg-inverted text-inverted-foreground"
-                  : "border-border text-foreground hover:bg-muted"
-              }`}
-            >
-              {l.nativeName}
-            </button>
-          ))}
-        </div>
+        {canSetDefault ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => save({ defaultLanguage: l.code })}
+                  disabled={saving}
+                  className={`px-4 py-2 rounded-full border text-sm ${
+                    companyDefault === l.code
+                      ? "border-inverted bg-inverted text-inverted-foreground"
+                      : "border-border text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {l.nativeName}
+                </button>
+              ))}
+            </div>
 
-        <p className="text-xs text-muted-foreground mt-4">
-          {t("app.langSettings.companyDefaultNote", "Changing this moves everyone who hasn't set their own language. It does not change quotes already sent — those keep the language they were sent in.")}
-        </p>
+            <p className="text-xs text-muted-foreground mt-4">
+              {t("app.langSettings.companyDefaultNote", "Changing this moves everyone who hasn't set their own language. It does not change quotes already sent — those keep the language they were sent in.")}
+            </p>
+          </>
+        ) : (
+          // The value, then who can change it — not a row of disabled pills. A
+          // greyed-out button still says "this is where you'd change it" and
+          // gives no clue who can; see PermissionNotice.js, which exists to
+          // stop twelve screens inventing twelve answers to that.
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-foreground">
+              {LANGUAGES.find((l) => l.code === companyDefault)?.nativeName ||
+                companyDefault}
+            </p>
+            <ReadOnlyNotice
+              capability="user:manage"
+              what={t("app.langSettings.companyDefaultReadOnlyWhat")}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-sm">

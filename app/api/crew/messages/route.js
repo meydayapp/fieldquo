@@ -7,19 +7,47 @@
 //
 // PATCH resolves a pending message by hand — the owner picks the job the crew
 // never chose, and it files exactly as an SMS reply would have.
+//
+// ══ Whose messages ═════════════════════════════════════════════════════════
+//
+// This listed the whole company's inbox to every member, with no check beyond
+// "you are signed in" — so a crew member on the lowest tier read every other
+// crew member's photos and site notes, and could hand-file any of them to any
+// job. Narrowed by crewMessageScope: someone whose schedule dial says "their
+// own" gets their own messages, matched on CrewInboundMessage.senderUserId. The
+// reasoning, and why the schedule ladder is the right dial, is in
+// lib/crew/access.js.
+//
+// The SAME scope goes into the PATCH. A write that lands on a row whose read
+// would 403 is the worse half of this bug — the photo moves onto a job and its
+// author cannot see that it did.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { loadEnforceableMember } from "@/lib/permissions/enforce";
+import { crewMessageScope } from "@/lib/crew/access";
 import { fileHeldMessage } from "@/lib/crew/inbox";
+
+/**
+ * The member with their grid attached. getCurrentMember's session shape has no
+ * `permissions`, and a scope decided without it silently widens to "everyone's".
+ * A null grid falls back to the coarse role, as it does everywhere else.
+ */
+async function graded(member) {
+  const full = member.id ? await loadEnforceableMember(db, member.id) : null;
+  return { ...member, permissions: full?.permissions ?? null };
+}
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  const scope = crewMessageScope(await graded(member));
+
   const messages = await db.crewInboundMessage.findMany({
-    where: { companyId: member.companyId },
+    where: { companyId: member.companyId, ...scope },
     orderBy: { createdAt: "desc" },
     take: 100,
     select: {
@@ -99,7 +127,15 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "id and jobId are required." }, { status: 400 });
   }
 
-  const result = await fileHeldMessage({ companyId: member.companyId, messageId: id, jobId });
+  // Out-of-scope ids come back as "No such message." rather than a 403: the
+  // list this id could only have come from doesn't contain it, and confirming a
+  // stranger's message exists is a fact worth nothing to the caller.
+  const result = await fileHeldMessage({
+    companyId: member.companyId,
+    messageId: id,
+    jobId,
+    scope: crewMessageScope(await graded(member)),
+  });
   if (!result.ok) {
     return NextResponse.json({ error: result.reason }, { status: result.status || 400 });
   }

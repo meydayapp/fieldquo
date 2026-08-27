@@ -19,6 +19,22 @@ export async function GET() {
       maxUsers: true,
       maxQuotesPerMonth: true,
       aiCopilotEnabled: true,
+      // ── What the signup plan step needs to price honestly ────────────────
+      //
+      // The ladder exists once per currency (8 rows, CAD and USD), carrying the
+      // SAME NUMBER rather than a conversion. Without `currency` on this
+      // payload the signup page could only render all of them at once, where
+      // picking the wrong card is not a currency choice — it is a Canadian
+      // volunteering to pay about 38% more. `tierKey` separates the four
+      // current rungs from the legacy per-headcount rows that predate them.
+      //
+      // `priceAnnual` is what the "1 year commitment" option costs. Null on a
+      // row means that tier has no annual option, which is why it is sent as-is
+      // rather than defaulted to twelve times the monthly figure — inventing it
+      // here would put a price on screen that checkout then refuses.
+      currency: true,
+      tierKey: true,
+      priceAnnual: true,
       // Both selected only to decide whether the plan may be OFFERED, and
       // both stripped before the response — a price id is an internal
       // identifier and this endpoint is public.

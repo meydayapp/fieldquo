@@ -16,6 +16,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
+import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { suggestTasksForJob } from "@/lib/tasks/suggestFromJob";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
 
@@ -39,7 +40,7 @@ export async function POST(request, { params }) {
 
   // …and gated on the job as well, because this reads the job's notes and
   // visits and spends the company's AI quota doing it.
-  const { response: denied } = await levelOrRefusal(
+  const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
     "view_only",
@@ -47,10 +48,17 @@ export async function POST(request, { params }) {
   );
   if (denied) return denied;
 
-  // Scoped read before spending anything: a job id from another tenant must
-  // 404 without ever reaching the model.
+  // Scoped read before spending anything: a job id from another tenant — or a
+  // job in this company that this member is not on — must 404 without ever
+  // reaching the model. The suggestions are built from the job's NOTES, which
+  // include the client's private notes, so an unscoped read here would hand
+  // over in prose what the job route hides in JSON.
   const job = await db.job.findFirst({
-    where: { id: _params.id, companyId: member.companyId },
+    where: {
+      id: _params.id,
+      companyId: member.companyId,
+      ...assignedJobWhere(full),
+    },
     select: { id: true },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });

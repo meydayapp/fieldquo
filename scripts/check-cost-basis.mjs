@@ -218,6 +218,10 @@ const {
   canWriteCostBasis,
 } = await import("@/lib/permissions/costBasis");
 const { copilotToolsFor } = await import("@/lib/ai/copilotTools");
+// The job scope, asserted alongside the tool list: getUpcomingWork is granted
+// on the LEVEL and made safe by the SCOPE, and a check that saw only the first
+// half would pass on the exact code this pair was written to prevent.
+const { seesOnlyAssignedJobs } = await import("@/lib/permissions/enforce");
 const {
   SETTINGS_ROW_REQUIREMENTS,
   canSeeSettingsRow,
@@ -773,15 +777,24 @@ for (const { name, member } of FIXTURES) {
 // The document tools, asserted against the grid directly.
 {
   const worker = toolNamesFor(byName.worker);
-  // Crew hold jobs:none, and getUpcomingWork is the COMPANY's calendar rather
-  // than the caller's own — its query has no assignee filter (see the note on
-  // TOOL_ACCESS in lib/ai/copilotTools.js). So it goes away for them, which is
-  // the safe direction: the alternative is handing every visit in the company
-  // to the tier that may not open a single job.
-  ok(!worker.includes("getUpcomingWork"),
-    "Crew is not handed the company-wide schedule tool");
+  // This used to assert the opposite, and the reason it flipped matters.
+  // getUpcomingWork queried `job: { companyId }` with no assignee filter, so at
+  // jobs:view_only it returned the COMPANY's calendar — and Crew were denied
+  // the tool rather than the query being fixed, which was the safe direction
+  // available at the time.
+  //
+  // The filter now exists in one place (assignedJobWhere in
+  // lib/permissions/enforce.js) and the implementation spreads it, so Crew get
+  // their own week and nobody else's. The tool comes back on the level alone,
+  // which is the point of gating on the grid rather than on a preset name.
+  ok(worker.includes("getUpcomingWork"),
+    "Crew are handed the schedule tool again, now that it is scoped");
+  ok(seesOnlyAssignedJobs(byName.worker) === true,
+    "…and scoped is what they are — their own jobs, not the company's");
   ok(toolNamesFor(byName.estimator).includes("getUpcomingWork"),
-    "…while a Worker at jobs:view_only still is");
+    "…while an Estimator at jobs:view_only still sees the whole board");
+  ok(seesOnlyAssignedJobs(byName.estimator) === false,
+    "…which is the difference the scope draws at the same level");
   ok(!worker.includes("findQuote"), "…and is not handed quote lookups");
   ok(!worker.includes("findInvoice"), "…nor invoice lookups");
   const dispatcher = toolNamesFor(byName.dispatcher);
@@ -803,7 +816,22 @@ console.log("\n7. The sidebar and the pages agree with the routes\n");
 
 const access = (role) => ({ role, impersonation: false });
 
-for (const key of Object.keys(SETTINGS_ROW_REQUIREMENTS)) {
+// The two cost-basis rows, named rather than taken as "every key in
+// SETTINGS_ROW_REQUIREMENTS". That map is the general grid-rule map for the
+// settings sidebar and has since grown rules about the price book and the
+// expense roll-up — rows a Dispatcher legitimately sees, which would fail the
+// "a Dispatcher does not" assertion below. This section is about the two
+// screens that carry the company's cost basis, and now says so.
+//
+// Asserted to still BE cost-basis rows: if one loses its jobCosting rule, this
+// list is describing something that stopped being true.
+const COST_BASIS_ROWS = ["app.settings.overhead", "app.settings.materialCosts"];
+
+for (const key of COST_BASIS_ROWS) {
+  ok(
+    SETTINGS_ROW_REQUIREMENTS[key]?.toggle === "jobCosting",
+    `${key}: still gated on the jobCosting toggle`,
+  );
   ok(
     canSeeSettingsRow(access("supervisor"), key, byName.manager),
     `${key}: a Manager still sees the row`,

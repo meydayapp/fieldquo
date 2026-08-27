@@ -890,6 +890,84 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The settings sidebar is deny-by-default, and a build fails when a row has
+  no rule. `lib/permissions/settingsAccess.js`,
+  `scripts/check-settings-access.mjs`.**
+
+  `SETTINGS_ROW_CAPABILITY` was a deny-LIST: sixteen rows had a rule and
+  `canSeeSettingsRow` ended `return true`, so the other twenty reached every
+  member of every company — not as a decision, as an omission, and nothing in
+  the code could tell the two apart. Patching twenty rules would have fixed
+  today and left row 37 open the day somebody added it, which is exactly how
+  the twenty accumulated.
+
+  So the default is inverted: an unlisted row is HIDDEN, and "everyone" is a
+  capability you write down rather than something you omit. That alone would
+  trade an open row for an invisible one — a screen that silently never appears
+  reads as a broken product and is harder to notice — so the two halves ship
+  together: `check:settings-access` parses `SettingsSidebar` and FAILS when a
+  row carries no entry. It also rejects a typo'd capability, which would fall
+  open through `holdsCapability`, and reconciles the sidebar's
+  `app.settings.*` literals so a row written some other way cannot slip past
+  the parse. `app.settings.title` and `app.settings.search` are declared chrome
+  (the `<h1>` and the filter placeholder) and asserted to have no href.
+
+  The owner's rule for Crew — the `worker` preset, the people in the van — is
+  three rows: Product Updates, Language, Availability. Crew is a PRESET and not
+  a role (`worker` and `estimator` both map to `employee`), so the four priced
+  rows are grid rules (`showPricing`, `expenses:view_record_edit_all`) rather
+  than role capabilities, which is what keeps the price book for the Estimator
+  whose job it is. Manage Team was hidden because the main rail already hid the
+  same page under `app.nav.team` and the two menus disagreeing about one page
+  is its own bug.
+
+  Every write behind every newly hidden row was already gated server-side — no
+  route needed a new check. What did need fixing were two dead controls on the
+  rows Crew *keeps*: the Language screen drew a company-default button per
+  language for a member whose PATCH answers 403, and Availability drew a
+  "whose hours" picker to anyone on a roster of two or more, because its
+  comment claimed `/api/settings/members` refuses a non-manager when in fact it
+  redacts. Verified by mutation: removing one row from the map, and adding a
+  row to the sidebar without one, each fail the check by name.
+
+- **Crew get their own jobs back — a SCOPE, not a rung on the levels ladder.
+  `lib/permissions/enforce.js` (`seesOnlyAssignedJobs`, `assignedJobWhere`),
+  `lib/permissions.js`, `app/api/jobs/**`, `lib/ai/copilotTools.js`,
+  `scripts/check-crew-access.mjs`.**
+
+  The Crew preset sat at `jobs: none`, which was the safe landing after
+  view_only was found to mean "every job in the company" — and it made the tier
+  unusable, because the person driving to the address could not see the
+  address. The owner's rule is neither rung: "jobs only the ones assigned to
+  them, without any prices".
+
+  `Job` has no assignee column; the only link between a person and a job is
+  `JobVisit.assignedToId`. So the predicate is "has a visit assigned to me",
+  and it lives in ONE place as a Prisma `where` fragment that every job read
+  spreads — the list, the detail, materials, photos, visits, suggested-tasks,
+  costing, and the two copilot tools that read jobs. A job the caller is not on
+  answers **404, not 403**: the scope is part of the query, so "not yours"
+  never becomes "yes, that id is real".
+
+  Who is scoped is DERIVED rather than a new dial: a member who may not edit
+  jobs *and* may not open the client book (`clientsProperties` below
+  `full_view`). That is what separates Crew from Estimator, who also sits at
+  jobs:view_only and must keep the whole board. A job with no visits yet is
+  assigned to nobody and is hidden. Owners, admins, and anyone with no grid
+  fall open, exactly as `hasLevel` does.
+
+  No `redactJobMoney` was needed and none was added: `Job` carries no money
+  column, the nested quote is selected down to `{ id, quoteNumber }`, and both
+  cost surfaces (the sourcing list's costs, `/api/jobs/[id]/costing`) were
+  already gated on `jobCosting`, which Crew hold as false. `check:crew-access`
+  proves that by walking the real payload rather than by trusting the select.
+
+  The check now EXECUTES the handlers against a scripted database (the
+  `check-feature-flags.mjs` stubbing technique). Verified by mutation: dropping
+  the assignee clause fails 11 assertions, removing `userId` from
+  `loadEnforceableMember`'s select fails 11, and deleting the spread from a
+  single route fails 4.
+
 - **The plans editor was live and being silently reverted, and its upsert had
   stopped working. `lib/billing/customPlan.js`, `lib/billing/planFields.js`,
   `lib/billing/promotionFields.js`, `lib/pricing/promotionStatus.js`,

@@ -22,6 +22,7 @@ import { useSession } from "@/lib/auth-client";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 
 const DEFAULTS = { startTime: "08:00", endTime: "16:00" };
 
@@ -96,6 +97,7 @@ export default function AvailabilityPage() {
   const { t } = useTranslation();
   const { weekStartsOn } = useCompanyPreferences();
   const { data: session } = useSession();
+  const access = useSettingsAccess();
   const [bookable, setBookable] = useState([]);
   const [working, setWorking] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,9 +108,21 @@ export default function AvailabilityPage() {
   //
   // This page only ever edited your own, which meant an owner could not set
   // their crew's hours from anywhere in the product — and someone who never
-  // signs in never became bookable. The team list only loads for a manager
-  // (the request 403s otherwise), so the picker appears exactly when it works
-  // rather than being shown and then failing.
+  // signs in never became bookable.
+  //
+  // The comment here used to say "the team list only loads for a manager (the
+  // request 403s otherwise), so the picker appears exactly when it works". That
+  // was wrong, and it was load-bearing: GET /api/settings/members answers EVERY
+  // member — it redacts the payload down to ROSTER_SELECT for anyone without
+  // "user:view" rather than refusing — so `team.length > 1` was true for a crew
+  // member in any company with two people on the roster. They got a picker,
+  // and choosing a colleague answered 403 three times over (GET
+  // /api/availability?userId= and the PATCH both resolve the target through
+  // "user:manage"; GET /api/working-hours?userId= needs "user:view").
+  //
+  // Availability is one of the three settings rows Crew keeps, so this was the
+  // dead control on the screen they DO reach. See SETTINGS_ROW_CAPABILITY in
+  // lib/permissions/settingsAccess.js.
   const [team, setTeam] = useState([]);
   const [meId, setMeId] = useState(null);
   const [targetId, setTargetId] = useState(null);
@@ -175,11 +189,20 @@ export default function AvailabilityPage() {
 
   const anyInvalid = [...bookable, ...working].some((r) => r.endTime <= r.startTime);
 
-  // A manager sees the picker; everyone else doesn't, because for them it would
-  // list one name and do nothing. `team.length > 1` rather than a role check:
-  // the members endpoint is the thing that actually gates this, so agreeing with
-  // it means the control can't appear where the save would 403.
-  const canPickPerson = team.length > 1;
+  // A manager sees the picker; everyone else doesn't, because for them every
+  // name in it but their own answers 403.
+  //
+  // canChange, not canSee, and both halves matter. canChange asks the same
+  // question the routes ask — does this ROLE hold "user:manage" — and it also
+  // returns false for a read-only support session, which is the right answer
+  // here for once: /api/availability resolves a `?userId=` through
+  // can(member.role, "user:manage") with no impersonation carve-out, so role
+  // "viewer" is refused like anybody else. A picker the console cannot use is
+  // worse than no picker.
+  //
+  // `team.length > 1` stays as well: with one person on the roster the control
+  // would work and list a single name, which is noise rather than a lie.
+  const canPickPerson = team.length > 1 && access.canChange("user:manage");
   const editingSomeoneElse = Boolean(targetId && targetId !== meId);
   const targetName =
     team.find((m) => m.userId === targetId)?.user?.name ||

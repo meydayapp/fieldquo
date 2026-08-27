@@ -36,7 +36,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import { hasLevel, hasToggle } from "@/lib/permissions/enforce";
+import { hasLevel, hasToggle, seesOnlyAssignedJobs } from "@/lib/permissions/enforce";
 
 const PermissionContext = createContext(null);
 
@@ -82,4 +82,21 @@ export function useHasLevel(category, level) {
 
 export function useHasToggle(toggle) {
   return hasToggle(useContext(PermissionContext), toggle);
+}
+
+/**
+ * Is this member narrowed to the jobs they are actually on?
+ *
+ * Calls the SERVER's predicate rather than re-deriving the rule from two
+ * hooks. The rule is not obvious — it is "cannot edit jobs AND cannot open the
+ * client book", because an Estimator also sits at jobs:view_only and must keep
+ * the whole board — and a screen that worked it out independently would drift
+ * from the query the moment either half moved. The screen would then say "not
+ * on any jobs" over a list the API had scoped differently, or vice versa.
+ *
+ * The context is already the member shape hasLevel reads, so it can be handed
+ * straight to it.
+ */
+export function useSeesOnlyAssignedJobs() {
+  return seesOnlyAssignedJobs(useContext(PermissionContext));
 }
