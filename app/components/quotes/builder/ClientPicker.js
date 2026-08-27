@@ -16,6 +16,7 @@
 "use client";
 
 import { Plus, Search, X } from "lucide-react";
+import LanguagePicker from "@/app/components/LanguagePicker";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { formatPhoneInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -35,6 +36,7 @@ export default function ClientPicker({
   newClient,
   onNewClientChange,
   onCreateClient,
+  companyLanguage = "en",
   creating,
   error,
   // Once a quote exists its client is settled: PATCH /api/quotes/[id] takes no
@@ -207,6 +209,22 @@ export default function ClientPicker({
                   onNewClientChange({ phone: formatPhoneInput(e.target.value) })
                 }
                 className={inputClass}
+              />
+
+              {/* The language this client is written to, asked at the moment
+                  they are created rather than left for somebody to remember
+                  later. The full client form has always had this; the quick-add
+                  on the fastest path in the product did not, so every client
+                  born here was silently on the company default.
+
+                  Placed above the address on purpose: the address decides tax,
+                  the language decides what the person can read, and the second
+                  is the one somebody notices while they are looking at a name
+                  they just typed. */}
+              <LanguagePicker
+                value={newClient.language ?? null}
+                onChange={(v) => onNewClientChange({ language: v })}
+                companyDefault={companyLanguage}
               />
 
               <AddressAutocomplete

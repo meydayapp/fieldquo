@@ -53,6 +53,7 @@ import SendConfirmModal from "@/app/components/SendConfirmModal";
 import { fetchJson } from "@/lib/fetchJson";
 import { startComposeTimer } from "@/lib/analytics/composeTimer";
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasToggle } from "@/lib/permissions/enforce";
 
@@ -631,6 +632,7 @@ export function QuoteBuilderForm({
   const isEdit = mode === "edit";
 
   const boot = bootstrap || {};
+  const settingsAccess = useSettingsAccess();
   const start = initial || initialStateFromQuote(null);
 
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
@@ -676,6 +678,17 @@ export function QuoteBuilderForm({
   const [newClient, setNewClient] = useState({
     type: "individual",
     name: "",
+    // Null = follow the company default, and null is DELIBERATE rather than
+    // seeded with companyLanguage: writing the current default onto the row
+    // freezes this client to it, so a company that later switches its default
+    // keeps sending them the old language for ever. See LanguagePicker.
+    //
+    // It was absent entirely, which is why a client quick-added from the
+    // builder had no language at all — the quote language bar's "this client
+    // receives documents in X" warning could never fire for them, and every
+    // document they ever got came out in the company default by omission
+    // rather than by choice. The full client form has always asked.
+    language: null,
     contactName: "",
     email: "",
     phone: "",
@@ -1272,6 +1285,48 @@ export function QuoteBuilderForm({
   // lands in the console, the spinner never stops, and the contractor watches a
   // button do nothing. The whole point of naming the bad field is that somebody
   // gets to READ the name.
+  const [savingProcessDefault, setSavingProcessDefault] = useState(false);
+  const [processDefaultSaved, setProcessDefaultSaved] = useState(false);
+  // Held in state, not by mutating `boot`. Writing back onto the bootstrap
+  // object would not re-render, so the button would go on offering to save text
+  // it had just saved.
+  const [savedProcessDefault, setSavedProcessDefault] = useState(
+    boot.defaultProcessNotes || "",
+  );
+
+  // The same capability the route enforces — `user:manage`, which SUPERVISORS
+  // hold, not owner/admin. My first version checked ["owner","admin"] against a
+  // `boot.memberRole` that does not exist, so the control would never have
+  // rendered for anyone: a dead control with the polarity reversed, offering
+  // nothing to everybody rather than something to the wrong people.
+  //
+  // This only decides whether to OFFER it. The route is the access control.
+  const canSaveProcessDefault = settingsAccess.canChange("user:manage");
+
+  async function saveProcessNotesDefault() {
+    setSavingProcessDefault(true);
+    setProcessDefaultSaved(false);
+    setError("");
+    try {
+      const res = await fetch("/api/settings/business-info", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: jsonBody({ defaultProcessNotes: processNotes }, "default wording"),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || t("app.quoteEdit.saveError"));
+        return;
+      }
+      setSavedProcessDefault(processNotes);
+      setProcessDefaultSaved(true);
+    } catch {
+      setError(t("app.quoteEdit.saveError"));
+    } finally {
+      setSavingProcessDefault(false);
+    }
+  }
+
   async function handleSave(action, opts) {
     try {
       await runSave(action, opts);
@@ -1953,6 +2008,47 @@ export function QuoteBuilderForm({
           placeholder={t("app.quoteEdit.processNotesPlaceholder")}
           className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
         />
+
+        {/* ── Save it once, never type it again ─────────────────────────────
+            Company.defaultProcessNotes has always existed and the builder has
+            always seeded from it — but the only place to SET it was Settings >
+            Company, three screens from where anybody actually writes the words.
+            So this box sat empty on quote after quote: the owner's point was
+            that it lives below the totals and never gets filled, and the fix he
+            reached for was a preset.
+
+            Offered here, where the text already is. It is the same text either
+            way, so the only thing the trip to Settings ever added was the
+            chance to forget.
+
+            Owner-and-admin only, because it writes a COMPANY setting: the
+            business-info PATCH refuses anyone below user:manage, and a button
+            that 403s is worse than no button. */}
+        {canSaveProcessDefault && processNotes.trim() && (
+          <div className="mt-2 flex items-center gap-3 flex-wrap">
+            {processNotes.trim() !== savedProcessDefault.trim() ? (
+              <button
+                type="button"
+                onClick={saveProcessNotesDefault}
+                disabled={savingProcessDefault}
+                className="text-xs font-medium text-foreground underline underline-offset-2 disabled:opacity-50"
+              >
+                {savingProcessDefault
+                  ? t("app.quoteEdit.savingDefault")
+                  : t("app.quoteEdit.saveAsDefault")}
+              </button>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                {t("app.quoteEdit.isYourDefault")}
+              </span>
+            )}
+            {processDefaultSaved && (
+              <span className="text-xs text-green-700 dark:text-green-400">
+                {t("app.quoteEdit.defaultSaved")}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* The AI review and the optional extras. Needs a saved quote — the review
