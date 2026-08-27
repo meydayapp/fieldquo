@@ -42,6 +42,37 @@ export const INTAKE_FIELDS = {
         "other",
       ],
     },
+    // ── The three answers the labour estimate cannot guess ────────────────
+    //
+    // Added because lib/pricing/cabinetLabour.js reads them and NOTHING could
+    // set them — an input the model consults and no form can write is the dead
+    // control with the polarity reversed, and every quote would have silently
+    // taken the default forever.
+    //
+    // Each one is a judgement made standing in the kitchen, and each moves the
+    // hours by an amount worth asking about: degreasing doubles, reinstall
+    // gains an hour, a coat adds spraying AND an hour of drying.
+    {
+      // 3 minutes a piece in normal condition, 6 with real build-up — on 32
+      // pieces that is an hour and a half of difference.
+      key: "condition",
+      label: "Cabinet condition",
+      type: "select",
+      options: ["normal", "heavy"],
+    },
+    {
+      // Frame-mounted hinges are aligned by hand; an IKEA-style clip locks in.
+      key: "hingeType",
+      label: "Hinge type",
+      type: "select",
+      options: ["clip", "legacy"],
+    },
+    // Coats are NOT asked here. The wood species above already decides them —
+    // porous species get 3 primer coats automatically — and asking a second
+    // time invites the two to disagree on the same quote. The per-quote
+    // override lives in the cost panel, where the estimator can see what it
+    // does to the hours and the paint at once.
+
     // There is deliberately no "new hardware" question here. Hardware is
     // SOLD, not merely recorded: handleHoles, softCloseHinges and
     // drawerSlides are flags on the scope group itself, priced per door or

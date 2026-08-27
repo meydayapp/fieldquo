@@ -12,6 +12,7 @@
 // imports are rewritten off the @/ alias by the npm script.
 
 import { estimateScopeGroupCost } from "../lib/costing/estimateJobCost.js";
+import { cabinetRunLabour } from "@/lib/pricing/cabinetLabour";
 import {
   quoteCostSummary,
   FALLBACK_LABOUR_RATE,
@@ -64,8 +65,29 @@ const derived = estimateScopeGroupCost({
 });
 ok("recipe returns labour hours", derived && derived.labourHours > 0, String(derived?.labourHours));
 ok("recipe returns materials", derived && derived.materialTotal > 0, String(derived?.materialTotal));
-// 32×45min + 3×20min = 1500min = 25h, plus 3h setup.
-ok("hours match the recipe arithmetic (25h work + 3h setup)", derived.labourHours === 28, String(derived.labourHours));
+// ── The hours are ITEMISED now, and this asserts the composition ─────────
+//
+// This used to read `32×45min + 3×20min = 25h, plus 3h setup` — the blended
+// per-piece figure that costed a greasy 1980s kitchen at three primer coats
+// exactly like a two-year-old IKEA install at one. lib/pricing/cabinetLabour.js
+// replaced it with the owner's measured timings, so a single magic total is no
+// longer the thing worth pinning: it would pass for the wrong reasons the first
+// time somebody changed one step.
+//
+// Asserted as the sum of the named steps plus the recipe's own setup, which
+// fails loudly if a step is dropped, duplicated, or silently renamed.
+const steps = cabinetRunLabour(
+  { ...payload.intakeValues, doors: 32, drawers: 3, primerCoats: 3, topCoats: 2 },
+  null,
+);
+ok("the recipe's hours ARE the itemised steps plus setup",
+   Math.abs(derived.labourHours - (steps.hours + 3)) < 0.05,
+   `${derived.labourHours} vs ${steps.hours} + 3`);
+// Named individually, because "the total matches" is exactly what the blended
+// version could also have said.
+for (const key of ["prep", "sanding", "degreasing", "spraying", "drying", "install"]) {
+  ok(`  …including ${key}`, steps.steps.some((st) => st.key === key));
+}
 // Thermofoil is in threeCoatSpecies, so 3 primer coats, not 2.
 const primerLine = derived.materials.find((m) => m.name.startsWith("Primer"));
 ok("thermofoil gets 3 primer coats", /3 coats/.test(primerLine?.name || ""), primerLine?.name);
