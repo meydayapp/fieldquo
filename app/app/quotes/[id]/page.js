@@ -52,6 +52,7 @@ import { usePermissions } from "@/app/providers/PermissionProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
+import { jsonBody } from "@/lib/jsonBody";
 import { taxStatement } from "@/lib/tax/documentTax";
 import TaxUnresolvedModal from "@/app/components/tax/TaxUnresolvedModal";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -324,7 +325,20 @@ export default function QuoteDetailPage() {
   }
 
   async function doSend(kindOverride) {
-    const kind = kindOverride || pendingSend?.kind;
+    // ── Why this is not `kindOverride || pendingSend?.kind` ─────────────────
+    //
+    // Because SendConfirmModal wires its button as `onClick={onConfirm}`, and
+    // this function was handed to it as `onConfirm={doSend}` — so React passed
+    // the CLICK EVENT as kindOverride. An event is truthy, so it won the `||`,
+    // and `JSON.stringify({ kind })` two lines down then tried to serialise a
+    // React synthetic event: "JSON.stringify cannot serialize cyclic
+    // structures", which is what the owner saw every time he pressed Send.
+    //
+    // The call site is fixed too. This guard stays because the next person to
+    // wire a handler straight to onConfirm will make exactly the same mistake,
+    // and the failure it produces names nothing about where it came from.
+    const kind =
+      typeof kindOverride === "string" ? kindOverride : pendingSend?.kind;
     if (!kind) return;
     setPendingSend(null);
 
@@ -334,7 +348,7 @@ export default function QuoteDetailPage() {
       const res = await fetch(`/api/quotes/${id}/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind }),
+        body: jsonBody({ kind }, "quote send"),
       });
       const data = await res.json().catch(() => null);
       if (res.status === 409 && data?.code === "tax_unresolved") {
@@ -373,7 +387,7 @@ export default function QuoteDetailPage() {
     const res = await fetch(`/api/quotes/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: jsonBody({ status }, "status change"),
     });
     if (res.ok) {
       setQuote(await res.json());
@@ -573,7 +587,9 @@ export default function QuoteDetailPage() {
         isOpen={Boolean(pendingSend)}
         busy={Boolean(sending)}
         onClose={() => setPendingSend(null)}
-        onConfirm={doSend}
+        // Wrapped, not passed. `onConfirm={doSend}` handed doSend the click
+        // event as its first argument — see the note in doSend.
+        onConfirm={() => doSend()}
         recipient={pendingSend?.to}
         title={
           pendingSend?.kind === "follow_up"
