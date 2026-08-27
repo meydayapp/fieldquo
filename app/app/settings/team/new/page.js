@@ -147,6 +147,28 @@ function NewUserForm() {
     setPermissionValues({ ...PERMISSION_PRESETS[key].values });
   }
 
+  // ── Which door they came through ─────────────────────────────────────────
+  //
+  // Manage Team offers "Add crew — free" and "Add a seat" as two buttons,
+  // because they cost different money and that is the entire reason the
+  // distinction exists. Two buttons landing on an identical form would be the
+  // dead control with the polarity reversed: honest labels that change nothing.
+  //
+  // So `?kind=crew` opens on the Crew preset and `?kind=seat` on Dispatcher —
+  // the cheapest thing that is actually a seat. Both remain fully editable; the
+  // parameter chooses the starting point, never the outcome, and an unknown or
+  // absent value leaves the form exactly as it was.
+  //
+  // Read once on mount rather than watched. Someone who picks a different
+  // preset and then hits back would otherwise have their choice overwritten by
+  // a URL they are no longer reading.
+  useEffect(() => {
+    const kind = new URLSearchParams(window.location.search).get("kind");
+    if (kind === "crew") applyPreset("worker");
+    else if (kind === "seat") applyPreset("dispatcher");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function setPermission(key, value) {
     setActivePreset(null); // any manual edit means it's no longer exactly a named preset
     setPermissionValues((prev) => ({ ...prev, [key]: value }));

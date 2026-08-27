@@ -20,6 +20,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { countSeats } from "@/lib/pricing/ladder";
+import { describeAccess } from "@/lib/permissions/accessPresets";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
@@ -55,23 +57,82 @@ export async function GET(request) {
   // would see less than the customer does.
   const seesFullRecord = member.impersonation || can(member.role, "user:view");
 
-  const [pending, activeCount, limitCheck] = await Promise.all([
+  const [pending, activeMembers, limitCheck] = await Promise.all([
     db.pendingTeamProfile.findMany({
       where: { companyId: member.companyId },
       orderBy: { createdAt: "desc" },
       ...(seesFullRecord ? {} : { select: PENDING_ROSTER_SELECT }),
     }),
-    db.member.count({ where: { companyId: member.companyId, active: true } }),
+    // The grid, not a count. A seat is what somebody can DO — see
+    // isBillableSeat — and counting rows would bill the crew.
+    db.member.findMany({
+      where: { companyId: member.companyId, active: true },
+      select: { role: true, permissions: true },
+    }),
     checkUserLimit(member.companyId),
   ]);
 
   // Seat usage is not restricted — /app/settings/team/new reads it to warn
   // before someone fills in a form they can't submit, and it says nothing
-  // about any individual. The row count is the same either way, so the two
+  // about any individual. The roster is the same either way, so the two
   // branches can't disagree about how many licences are in use.
+  //
+  // ── Seats and crew are counted apart, because they are billed apart ───────
+  //
+  // This was `activeCount + pending.length` — every row a seat, crew included.
+  // Under the seat ladder crew are free, so that number billed a shop for the
+  // whole van, and would have told an owner they were out of licences while
+  // every person supposedly consuming one cost nothing.
+  //
+  // Pending invitations count on the side they will land on: an invitation
+  // carries the role and grid it was issued with, so an owner who invites three
+  // estimators sees three seats go before anybody accepts, which is the only
+  // reason to show the number in advance.
+  //
+  // Note the narrow branch above drops `permissions` from pending rows on
+  // purpose. isBillableSeat falls back to the ROLE when a grid is absent, which
+  // is exactly right here and is why this needs no widening of that select.
+  const roster = [
+    ...activeMembers,
+    ...pending.map((p) => ({ role: p.role, permissions: p.permissions ?? null })),
+  ];
+  const counted = countSeats(roster);
+
+  // What people actually ARE, so "3 of 3 seats" reads as an owner, a manager
+  // and a dispatcher rather than leaving somebody to count the list by hand.
+  const breakdown = {
+    administrator: 0,
+    manager: 0,
+    dispatcher: 0,
+    worker: 0,
+    crew: 0,
+    custom: 0,
+  };
+  for (const m of roster) {
+    const a = describeAccess(m);
+    const kind = a?.presetKey || a?.kind || "custom";
+    const bucket =
+      kind === "administrator"
+        ? "administrator"
+        : kind === "manager"
+          ? "manager"
+          : kind === "dispatcher"
+            ? "dispatcher"
+            : kind === "workerFullView"
+              ? "worker"
+              : kind === "worker"
+                ? "crew"
+                : "custom";
+    breakdown[bucket] += 1;
+  }
+
   const seats = {
-    used: activeCount + pending.length,
+    used: counted.seats,
     limit: limitCheck.limit ?? null,
+    // Crew carry no limit here. How many crew a tier allows is a PLAN question
+    // and belongs with the plan; this is a roster count that predates it.
+    crew: counted.crew,
+    breakdown,
   };
 
   if (!seesFullRecord) {

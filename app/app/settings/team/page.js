@@ -379,17 +379,89 @@ export default function TeamOverviewPage() {
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">
-          {seats.used}
-          {seats.limit ? ` / ${seats.limit}` : ""}
-        </span>{" "}
-        {t("app.setTeam.activeUsers")}{" "}
-        {seats.limit ? t("app.setTeam.unallocatedLicenses") : ""}
-        {seats.limit && seats.used >= seats.limit && (
-          <span className="text-amber-600 dark:text-amber-400 font-medium">
-            {t("app.setTeam.atPlanLimit")}
-          </span>
+      {/* ── Seats and crew, counted apart ──────────────────────────────────
+          This line used to read one number: every active member plus every
+          pending invitation, crew included. Under the seat ladder crew are
+          free, so it billed a shop for its whole van and could tell an owner
+          they were out of licences while the people supposedly using them cost
+          nothing.
+
+          The breakdown is here because "3 of 3 seats" without it leaves
+          somebody counting the list by hand to find out WHICH three, which is
+          the question they actually have when they are deciding whether to
+          upgrade or to demote somebody. */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          <div>
+            <span className="text-2xl font-semibold text-foreground tabular-nums">
+              {seats.used}
+              {seats.limit ? (
+                <span className="text-muted-foreground">{` / ${seats.limit}`}</span>
+              ) : null}
+            </span>
+            <span className="ml-2 text-sm text-muted-foreground">
+              {t("app.setTeam.seatsUsed")}
+            </span>
+          </div>
+          <div>
+            <span className="text-2xl font-semibold text-foreground tabular-nums">
+              {seats.crew ?? 0}
+            </span>
+            <span className="ml-2 text-sm text-muted-foreground">
+              {t("app.setTeam.crewIncluded")}
+            </span>
+          </div>
+          {seats.limit && seats.used >= seats.limit && (
+            <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
+              {t("app.setTeam.atPlanLimit")}
+            </span>
+          )}
+        </div>
+
+        {/* Only the kinds that exist. A row of zeroes for roles this company
+            has never used is noise, and it makes the ones they DO have harder
+            to find. */}
+        {seats.breakdown && (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {[
+              ["administrator", t("app.setTeam.countAdministrators")],
+              ["manager", t("app.setTeam.countManagers")],
+              ["dispatcher", t("app.setTeam.countDispatchers")],
+              ["worker", t("app.setTeam.countWorkers")],
+              ["crew", t("app.setTeam.countCrew")],
+              ["custom", t("app.setTeam.countCustom")],
+            ]
+              .filter(([key]) => (seats.breakdown[key] || 0) > 0)
+              .map(([key, label]) => (
+                <span key={key}>
+                  <span className="font-medium text-foreground tabular-nums">
+                    {seats.breakdown[key]}
+                  </span>{" "}
+                  {label}
+                </span>
+              ))}
+          </div>
+        )}
+
+        {/* Two doors, because they cost different money and that is the whole
+            point of the distinction. Both land on the same form — the preset
+            is preselected, so nobody has to know that "Crew" is the free one
+            and everything else is not. */}
+        {canAdd && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="/app/settings/team/new?kind=crew"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+            >
+              <Plus size={14} /> {t("app.setTeam.addCrew")}
+            </Link>
+            <Link
+              href="/app/settings/team/new?kind=seat"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background"
+            >
+              <Plus size={14} /> {t("app.setTeam.addSeat")}
+            </Link>
+          </div>
         )}
       </div>
 
