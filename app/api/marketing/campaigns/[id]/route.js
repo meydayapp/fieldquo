@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { requirePermission } from "@/lib/permissions";
+import { can, requirePermission } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 async function loadOwned(companyId, id) {
@@ -15,6 +15,28 @@ async function loadOwned(companyId, id) {
 
 // Full campaign incl. stops already in route order (sortOrder is maintained by
 // the stops route's nearest-neighbor pass on every add).
+//
+// ── Redacted, not refused — and that is not the same answer as the list ────
+//
+// The list route now REFUSES a member without `user:manage`, because the hub
+// is every campaign's budget at once and nobody below a supervisor needs it.
+// Doing the same here would contradict a decision the neighbouring file states
+// outright: app/api/marketing/stops/[id]/route.js PATCH is "deliberately open
+// to any active member: distribution is fieldwork, and the person walking the
+// route is often an employee without user:manage". Refusing this read takes
+// the addresses away from the person at the door — enforce.js's own rule, that
+// a gate can be a 403 and a read restriction cannot.
+//
+// So the money goes and the route stays. `budget` is the ad spend the list
+// gate exists to withhold; `notes` is the manager's private brief on the
+// campaign, which travels with it.
+//
+// What this does NOT do is give a crew member a way to REACH this page — the
+// list is their only entry point and it now refuses them. Whether the product
+// wants a "my pamphlet routes" surface is a product decision, not one to make
+// inside a redaction.
+const CAMPAIGN_MANAGER_FIELDS = ["budget", "notes"];
+
 export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
@@ -37,6 +59,19 @@ export async function GET(request, { params }) {
 
   if (!campaign || campaign.companyId !== member.companyId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // The platform console reads the whole row — same carve-out, same reason
+  // as the list route. Redacting the budget from FieldQuo's own support view
+  // would hide the number support is usually being asked about.
+  if (!member.impersonation && !can(member.role, "user:manage")) {
+    const shaped = { ...campaign };
+    for (const field of CAMPAIGN_MANAGER_FIELDS) delete shaped[field];
+    // Marked so a UI can say "hidden by your access level" rather than render
+    // an empty budget, which reads as a campaign nobody has funded yet.
+    // Absence and restriction are different statements — see redactClient.
+    shaped.restricted = true;
+    return NextResponse.json(shaped);
   }
 
   return NextResponse.json(campaign);

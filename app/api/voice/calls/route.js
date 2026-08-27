@@ -16,10 +16,46 @@ import { costForSeconds } from "@/lib/voice/credits";
 import { isAiConfigured } from "@/lib/ai/provider";
 import { voiceConfigured } from "@/lib/voice/retell";
 import { can } from "@/lib/permissions";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
+
+// ── Why the client dial and not `user:manage` ──────────────────────────────
+//
+// Everything else under /api/voice and /api/settings/voice gates on
+// `user:manage`, because those routes BUY a number, change the agent's script
+// or spend credit. This one hands over a hundred callers' phone numbers, what
+// they said, and a link to the recording of them saying it. That is not a
+// billing decision, it is the client book arriving by another door.
+//
+// `clientsProperties` at `full_view` is the dial that already draws exactly
+// this line. It is the level lib/permissions/enforce.js strips a lead's
+// `phone` below, and the level lib/permissions/nav.js hides the Clients row
+// below, for the reason stated there: a crew member gets the address of the
+// job they are driving to, not the company's customer list.
+//
+// It also keeps the person whose job this is. An Estimator (role `employee`,
+// so `user:manage` would refuse them) sits at clientsProperties full_edit and
+// is precisely who rings a missed call back. Gating on the coarse role would
+// have hidden the inbox from its main user to protect it from Crew.
+const CALLS_LEVEL = ["clientsProperties", "full_view"];
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Non-negotiable #3 again. loadEnforceableMember returns null for a support
+  // session (it has no Member row and therefore no id), and hasLevel denies a
+  // null member — correctly, for a real caller it cannot identify. Here that
+  // would newly blind the console to a screen it could read yesterday, so the
+  // read opts out explicitly. The PATCH below does NOT, and does not need to:
+  // getCurrentMember refuses every write from an impersonation session.
+  if (!member.impersonation) {
+    const { response: denied } = await levelOrRefusal(
+      member,
+      ...CALLS_LEVEL,
+      "see who has called",
+    );
+    if (denied) return denied;
+  }
 
   const params = new URL(request.url).searchParams;
   const onlyReview = params.get("needsReview") === "1";
@@ -182,6 +218,18 @@ export async function GET(request) {
 export async function PATCH(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The same gate as the read, deliberately, rather than a stricter one.
+  // "I've looked at this" is triage ON the list — somebody allowed to see the
+  // call and ring the person back is the somebody who clears the flag, and a
+  // review queue only the owner can empty is a queue that never empties. What
+  // it must not be is open to a member who cannot see the row it clears.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    ...CALLS_LEVEL,
+    "mark a call reviewed",
+  );
+  if (denied) return denied;
 
   const body = await request.json().catch(() => ({}));
   const id = String(body.id || "");

@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { requirePermission } from "@/lib/permissions";
 
 // Per-step drop-off + conversion for one funnel. "60% quit at the budget
 // question" is the whole reason funnels beat a static form, so this counts
@@ -13,6 +14,24 @@ import { memberOrRefusal } from "@/lib/apiMember";
 export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The same gate the funnel list and detail now carry. It was left off because
+  // this route is only reachable with an id, and the id comes from a list that
+  // is refused — but "you would have to know the id" is not a permission, it is
+  // an obstacle, and the ids are cuids that appear in a public funnel URL.
+  //
+  // Carved out for impersonation on this read only, matching the sibling
+  // routes: non-negotiable #3, the console views everything and edits nothing.
+  if (!member.impersonation) {
+    try {
+      requirePermission(member.role, "user:manage");
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Only owners, admins, or supervisors can see funnel analytics" },
+        { status: err.status || 403 },
+      );
+    }
+  }
 
   const { id } = await params;
   const funnel = await db.funnel.findFirst({

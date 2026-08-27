@@ -3,15 +3,21 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { memberOrRefusal, memberOrRefusalPlain } from "@/lib/apiMember";
+import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps, funnelHasForm } from "@/app/data/funnelBlocks";
 import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
 
-async function requireAdmin(request) {
+/**
+ * @param read  the platform console's carve-out on GET only — see the fuller
+ *              note on the same helper in app/api/funnels/route.js. PATCH and
+ *              DELETE below call this with no options and stay closed.
+ */
+async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
+  if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -20,9 +26,15 @@ async function requireAdmin(request) {
   return { member };
 }
 
+// Same defect and the same fix as the list — see the note on GET in
+// app/api/funnels/route.js. This one is worse in degree: it returns the whole
+// row, which is the funnel's every step and question, its theme, and the Meta,
+// TikTok and GA4 pixel ids the company advertises through.
 export async function GET(request, { params }) {
-  const { member, response } = await memberOrRefusal(request);
-  if (response) return response;
+  const gate = await requireAdmin(request, { read: true });
+  if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { member } = gate;
+
   const { id } = await params;
   const funnel = await db.funnel.findFirst({
     where: { id, companyId: member.companyId },

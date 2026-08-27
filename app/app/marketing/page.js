@@ -16,6 +16,8 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+import { can } from "@/lib/permissions";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 
 const TYPE_LABELS = {
   pamphlet: "Pamphlet distribution",
@@ -50,6 +52,18 @@ const ELIGIBLE_TEMPLATE_TYPES = ["marketing_email", "custom_email"];
 
 export default function MarketingPage() {
   const { t } = useTranslation();
+  // ── The create control could only ever 403 ───────────────────────────────
+  //
+  // POST /api/marketing/campaigns requires `user:manage`, and so do the send,
+  // the stop-add, the PATCH and the DELETE beside it — and the list GET does
+  // now too. So "New campaign" opened a modal with a name, a type, a budget
+  // and an assignee in it, and threw the lot away on save.
+  //
+  // The coarse role, because every route under /api/marketing gates on that
+  // axis; the grid has no marketing category to ask instead. Falls OPEN when
+  // the provider has not resolved — PermissionProvider's rule.
+  const caller = usePermissions();
+  const canManageMarketing = !caller?.role || can(caller.role, "user:manage");
   // null until the server answers — see lib/loadState.js.
   const [campaigns, setCampaigns] = useState(null);
   const [members, setMembers] = useState([]);
@@ -140,13 +154,15 @@ export default function MarketingPage() {
           >
             <Contact size={14} /> {t("app.marketing.subscribers")}
           </Link>
-          <button
-            data-tour="marketing-new"
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-          >
-            <Plus size={14} /> {t("app.marketing.newCampaign")}
-          </button>
+          {canManageMarketing && (
+            <button
+              data-tour="marketing-new"
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+            >
+              <Plus size={14} /> {t("app.marketing.newCampaign")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -266,7 +282,10 @@ export default function MarketingPage() {
         </div>
       </ListState>
 
-      {showModal && (
+      {/* The modal answers the question itself. It is the half that costs
+          somebody the campaign they just typed out, so it does not rely on the
+          single button that opens it staying hidden. */}
+      {canManageMarketing && showModal && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
           onClick={() => setShowModal(false)}

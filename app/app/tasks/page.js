@@ -24,6 +24,8 @@ import {
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+import { can } from "@/lib/permissions";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 
 const PRIORITY_STYLES = {
   urgent: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200 dark:border-red-900",
@@ -42,6 +44,28 @@ function startOfToday() {
 
 export default function TasksPage() {
   const { t } = useTranslation();
+  // ── The compose form that ended in a 403 ─────────────────────────────────
+  //
+  // POST /api/tasks requires `task:create`, which PERMISSIONS.employee does
+  // NOT hold — so Crew got a "+ New task" button, a form, an assignee
+  // dropdown and a Save that refused. That is the worst shape of this failure:
+  // it costs the person the thing they typed, not just a click.
+  //
+  // The coarse role is the right question because it is the one the server
+  // asks. The grid says nothing about tasks at all, so asking a level here
+  // would be asking a different question than the endpoint — which is how a UI
+  // ends up offering what the API refuses, one rename later.
+  //
+  // Unresolved provider falls OPEN, which is PermissionProvider's own rule: a
+  // supervisor must not lose their button because a lookup was slow, and the
+  // server refuses regardless of what this renders.
+  //
+  // The LIST is deliberately untouched. GET /api/tasks scopes a crew member to
+  // their own to-dos and orphans they may claim, and those are genuinely
+  // theirs to read — hiding the page would take away work rather than a
+  // temptation.
+  const caller = usePermissions();
+  const canCreateTask = !caller?.role || can(caller.role, "task:create");
   // null until the server answers — see lib/loadState.js. This page had the
   // worst variant of the bug: `r.ok ? r.json() : []` swallowed a 401 into an
   // empty array before any catch ran, so a refused load rendered "Nothing
@@ -184,21 +208,29 @@ export default function TasksPage() {
             </p>
           )}
         </div>
-        <button
-          data-tour="tasks-new"
-          onClick={() =>
-            setDraft({
-              title: "",
-              description: "",
-              dueDate: "",
-              priority: "normal",
-              assignedToId: "",
-            })
-          }
-          className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full"
-        >
-          <Plus size={14} /> {t("app.tasks.new")}
-        </button>
+        {/* Absent, not replaced by an apology. lib/permissions/nav.js takes the
+            same line on a row somebody cannot use — and it drops a group that
+            loses all its items for the reason that applies here too: a notice
+            where a control used to be announces that something was taken away,
+            which is a worse thing to read than a page that simply does not
+            offer it. */}
+        {canCreateTask && (
+          <button
+            data-tour="tasks-new"
+            onClick={() =>
+              setDraft({
+                title: "",
+                description: "",
+                dueDate: "",
+                priority: "normal",
+                assignedToId: "",
+              })
+            }
+            className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full"
+          >
+            <Plus size={14} /> {t("app.tasks.new")}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -208,7 +240,11 @@ export default function TasksPage() {
         </div>
       )}
 
-      {draft && (
+      {/* Belt and braces: today `draft` is only ever set by the button above,
+          but the form is the thing that costs somebody their typing, so it
+          answers the permission question itself rather than trusting that the
+          only door to it stays shut. */}
+      {canCreateTask && draft && (
         <div className="bg-card border border-inverted rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-foreground">{t("app.tasks.new")}</h2>

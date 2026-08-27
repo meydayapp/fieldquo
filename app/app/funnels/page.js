@@ -19,6 +19,8 @@ import { reportResponseError } from "@/lib/clientErrors";
 import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import { FUNNEL_TEMPLATES } from "@/lib/funnels/templates";
+import { can } from "@/lib/permissions";
+import { usePermissions } from "@/app/providers/PermissionProvider";
 
 const CHANNEL_LABEL = {
   web: "Web",
@@ -29,6 +31,22 @@ const CHANNEL_LABEL = {
 
 export default function FunnelsPage() {
   const router = useRouter();
+  // ── Every control on this page is a manager's control ────────────────────
+  //
+  // POST /api/funnels, POST /api/funnels/generate and DELETE
+  // /api/funnels/[id] all require `user:manage` (see requireAdmin in
+  // app/api/funnels/route.js), and the list GET does now too. So "New funnel",
+  // the AI generator and the per-row bin were three refusals dressed as
+  // buttons — and the AI one is the worst of them, because a crew member could
+  // describe a whole funnel, wait through the spinner, and get a 403.
+  //
+  // The coarse role, because that is the axis this feature area gates on. The
+  // grid has no funnels category, so asking a level here would be asking a
+  // different question than the endpoint.
+  //
+  // Falls OPEN when the provider has not resolved — PermissionProvider's rule.
+  const caller = usePermissions();
+  const canManageFunnels = !caller?.role || can(caller.role, "user:manage");
   // null until the server answers — see lib/loadState.js.
   const [funnels, setFunnels] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -110,13 +128,15 @@ export default function FunnelsPage() {
             one qualifies visitors and drops a scored lead straight into your pipeline.
           </p>
         </div>
-        <button
-          onClick={() => setShowNew((v) => !v)}
-          className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold shrink-0"
-          data-tour="funnels-new"
-        >
-          <Plus size={15} /> New funnel
-        </button>
+        {canManageFunnels && (
+          <button
+            onClick={() => setShowNew((v) => !v)}
+            className="inline-flex items-center gap-1.5 bg-inverted text-inverted-foreground px-4 py-2 rounded-full text-sm font-semibold shrink-0"
+            data-tour="funnels-new"
+          >
+            <Plus size={15} /> New funnel
+          </button>
+        )}
       </div>
 
       {error && (
@@ -126,7 +146,10 @@ export default function FunnelsPage() {
         </div>
       )}
 
-      {showNew && (
+      {/* The panel asks the question itself rather than trusting that the one
+          button which opens it stays hidden — it is the half that costs
+          somebody a typed-out AI prompt. */}
+      {canManageFunnels && showNew && (
         <div className="bg-card border border-border rounded-xl p-5 space-y-5">
           {/* AI */}
           <div>
@@ -227,13 +250,15 @@ export default function FunnelsPage() {
                   updated {new Date(f.updatedAt).toLocaleDateString()}
                 </div>
               </button>
-              <button
-                onClick={() => remove(f.id)}
-                className="text-muted-foreground hover:text-red-600"
-                title="Delete"
-              >
-                <Trash2 size={16} />
-              </button>
+              {canManageFunnels && (
+                <button
+                  onClick={() => remove(f.id)}
+                  className="text-muted-foreground hover:text-red-600"
+                  title="Delete"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           ))}
         </div>

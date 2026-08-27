@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { memberOrRefusal, memberOrRefusalPlain } from "@/lib/apiMember";
+import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { sanitiseFunnelSteps } from "@/app/data/funnelBlocks";
@@ -11,9 +11,22 @@ import { buildFunnelFromTemplate } from "@/lib/funnels/templates";
 import { slugifyFunnel, uniqueFunnelSlug } from "@/lib/funnels/slug";
 
 // Same gate as the website builder — a funnel is a public marketing surface.
-async function requireAdmin(request) {
+/**
+ * @param read  true only on GET, and it is the platform console's carve-out.
+ *              Non-negotiable #3: FieldQuo views everything and edits nothing.
+ *              A support session's role is "viewer", which holds no permission
+ *              at all, so gating the read on user:manage would blind the
+ *              console to the funnel it is being asked about. Copied in shape
+ *              from app/api/settings/website/route.js, including the reason it
+ *              is an ARGUMENT the read opts into rather than a line inside the
+ *              gate: a write must not be able to acquire it by editing one
+ *              place. POST here and PATCH/DELETE on [id] call this with no
+ *              options and stay closed to impersonation.
+ */
+async function requireAdmin(request, { read = false } = {}) {
   const { member, refusal } = await memberOrRefusalPlain(request);
   if (refusal) return refusal;
+  if (read && member.impersonation) return { member };
   try {
     requirePermission(member.role, "user:manage");
   } catch {
@@ -22,9 +35,22 @@ async function requireAdmin(request) {
   return { member };
 }
 
+// ── The read was open, and a funnel is the lead machine ───────────────────
+//
+// POST here and PATCH/DELETE on [id] all go through requireAdmin above. This
+// GET had no gate at all, so every member — Crew included — could enumerate
+// the company's lead funnels: what campaigns exist, which are live, and how
+// many leads each has captured (`_count.responses`). That is the sales
+// pipeline's shape, and it is the one thing an employee about to leave for a
+// competitor would most want to copy.
+//
+// Same gate as the writes, through the same helper — reusing it rather than
+// restating the check is what keeps the read and the write from drifting, and
+// it is what gives the read the impersonation carve-out documented above.
 export async function GET(request) {
-  const { member, response } = await memberOrRefusal(request);
-  if (response) return response;
+  const gate = await requireAdmin(request, { read: true });
+  if (gate.error) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { member } = gate;
 
   const funnels = await db.funnel.findMany({
     where: { companyId: member.companyId },

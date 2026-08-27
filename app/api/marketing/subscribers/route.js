@@ -10,6 +10,27 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Every subscriber's email, name, phone and address, to anybody with a login.
+  // POST below has required user:manage since it was written, so the list was
+  // the one door left open on the same table — and a mailing list is the
+  // exportable-customer-list exposure that redactClient exists to prevent,
+  // handed over whole.
+  //
+  // A gate rather than a redactor: strip the email off a mailing list and what
+  // remains is a row count. There is nothing here a crew member needs a shaped
+  // version of. Impersonation carved out on the read, as with the campaigns
+  // beside it.
+  if (!member.impersonation) {
+    try {
+      requirePermission(member.role, "user:manage");
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Only owners, admins, or supervisors can see marketing subscribers" },
+        { status: err.status || 403 },
+      );
+    }
+  }
+
   const subscribers = await db.marketingSubscriber.findMany({
     where: { companyId: member.companyId },
     orderBy: { createdAt: "desc" },

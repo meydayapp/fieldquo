@@ -10,9 +10,39 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 // List this company's marketing campaigns with a lightweight stop summary
 // (counts by status) for the hub cards — the full stop list is only loaded on
 // the campaign detail page.
+//
+// ── The read was open and the payload is the ad budget ─────────────────────
+//
+// POST below, PATCH and DELETE on [id], the stop-add route and the send route
+// all gate on `user:manage`. This GET gated on nothing but "is a member of
+// this company", and it returns `budget` and `recipientCount` for EVERY
+// campaign — what the company spends on advertising and how wide it reaches.
+// That is the owner's number, and Crew (role `employee`) read all of it.
+//
+// The coarse axis rather than the grid, because that is the axis this whole
+// feature area already uses — the marketing routes ask `can(role, …)`, not
+// hasLevel, and inventing a second answer for the read half of a file whose
+// writes ask the first one is how the two drift apart.
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Non-negotiable #3: the platform console views everything and edits
+  // nothing. A support session's role is "viewer", which holds no permission at
+  // all, so gating this read on user:manage alone would blind the console to a
+  // campaign it is being asked about — and this route ANSWERED it before today.
+  // Deliberately on the GET only: POST below has no such branch, and
+  // getCurrentMember refuses every write from an impersonation session anyway.
+  if (!member.impersonation) {
+    try {
+      requirePermission(member.role, "user:manage");
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Only owners, admins, or supervisors can see marketing campaigns" },
+        { status: err.status || 403 },
+      );
+    }
+  }
 
   const campaigns = await db.marketingCampaign.findMany({
     where: { companyId: member.companyId },
