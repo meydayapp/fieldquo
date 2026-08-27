@@ -23,6 +23,8 @@ import {
   clampPermissions,
   validateRoleChange,
 } from "@/lib/permissions/roleManagement";
+import { seatCheck, seatLimitMessage } from "@/lib/pricing/seatLimit";
+import { isBillableSeat } from "@/lib/pricing/ladder";
 
 export async function PATCH(request, { params }) {
   const { id } = await params;
@@ -104,6 +106,46 @@ export async function PATCH(request, { params }) {
           actorMember.permissions,
           requestedPermissions,
         );
+
+  // ── Promoting into a seat is buying a seat ───────────────────────────────
+  //
+  // The invite route is not the only door. Changing an existing Crew member to
+  // Dispatcher adds a billable seat just as surely as inviting one, and gating
+  // only the invite would leave the cap enforced on the slow path and open on
+  // the fast one.
+  //
+  // Asked with the member's state AFTER the change, and only when the change
+  // actually crosses the line: a Dispatcher edited into a Manager was already a
+  // seat and stays one, so it must not be refused for a seat they already hold.
+  const afterChange = {
+    role: nextRole ?? target.role,
+    permissions: permissions ?? target.permissions,
+  };
+  if (isBillableSeat(afterChange) && !isBillableSeat(target)) {
+    const roster = await db.member.findMany({
+      where: { companyId: actor.companyId, active: true, id: { not: id } },
+      select: { role: true, permissions: true },
+    });
+    const pending = await db.pendingTeamProfile.findMany({
+      where: { companyId: actor.companyId },
+      select: { role: true, permissions: true },
+    });
+    const sub = await db.subscription.findUnique({
+      where: { companyId: actor.companyId },
+      select: { plan: { select: { seats: true, crewSeats: true, tierKey: true } } },
+    });
+    const seats = seatCheck({
+      roster: [...roster, ...pending],
+      plan: sub?.plan || null,
+      incoming: afterChange,
+    });
+    if (!seats.allowed) {
+      return NextResponse.json(
+        { error: seatLimitMessage(seats), code: "seat_limit", seats },
+        { status: 402 },
+      );
+    }
+  }
 
   const updated = await db.member.update({
     where: { id },

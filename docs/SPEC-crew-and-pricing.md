@@ -72,8 +72,8 @@ capabilities.
 | 2.5 | **Estimator** replaces "Worker (full view)" — writes quotes, paid seat, role stays `employee` | DONE |
 | 2.6 | Seat counter split seats / crew, with a per-kind breakdown | DONE |
 | 2.7 | "Add crew — free" and "Add a seat" as separate buttons | DONE |
-| 2.8 | A button to increase their licence | PARTIAL — `SeatUpgradePanel` shows only at the limit |
-| 2.9 | Seat **enforcement** (blocking or auto-adding at the limit) | **OPEN** — nothing enforces the tier's seat count yet |
+| 2.8 | A button to increase their licence | DONE | at the cap the disabled button carries the reason and an Upgrade link naming the next tier |
+| 2.9 | Seat **and crew** enforcement at the cap | DONE | blocks, never auto-charges (owner's call); both caps close independently; the two server doors are gated, not just the button |
 
 ---
 
@@ -116,5 +116,4 @@ capabilities.
 ## Needs a decision from the owner
 
 1. **1.28** — "no AI buttons, unless it's empty, then it can read it so it can be filled."
-3. **2.9** — at the seat limit: block the save, or auto-add a seat at the extra-seat price? (Blocking mid-job is how software gets uninstalled.)
 4. A 1-seat owner with 9 crew fits neither Solo (5 crew) nor Crew (8 crew) and lands on Shop at 289. Correct, or should crew overflow into paid seats?

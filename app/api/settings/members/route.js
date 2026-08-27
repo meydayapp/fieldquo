@@ -33,6 +33,7 @@ import {
   hasLevel,
 } from "@/lib/permissions/enforce";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
+import { seatCheck, seatLimitMessage } from "@/lib/pricing/seatLimit";
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { recordError } from "@/lib/platform/errorLog";
 import { auth } from "@/lib/auth";
@@ -268,6 +269,45 @@ export async function POST(request) {
   }
   const safePermissions = vetted.permissions;
   const safeLaborCost = vetted.laborCostPerHour;
+
+  // ── The seat cap ─────────────────────────────────────────────────────────
+  //
+  // Checked AFTER clamping, against the permissions this invitation will
+  // actually carry — an invite requested as a Manager and clamped down to a
+  // Worker consumes no seat, and refusing it on what was asked for rather than
+  // on what was granted would block a hire nobody is being charged for.
+  //
+  // Crew are never blocked. Only a person who can create or change quotes,
+  // jobs or invoices costs anything, so the Add-crew door stays open at the
+  // cap. That is the whole point of the pricing and it has to be true here,
+  // not only on the screen.
+  //
+  // Pending invitations count. An owner who sends three invites has committed
+  // to three seats whether or not anybody has accepted, and letting the fourth
+  // through because nobody clicked yet just moves the refusal to a worse moment.
+  const seatRoster = await db.member.findMany({
+    where: { companyId: member.companyId, active: true },
+    select: { role: true, permissions: true },
+  });
+  const seatPending = await db.pendingTeamProfile.findMany({
+    where: { companyId: member.companyId },
+    select: { role: true, permissions: true },
+  });
+  const seatPlan = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    select: { plan: { select: { seats: true, crewSeats: true, tierKey: true } } },
+  });
+  const seats = seatCheck({
+    roster: [...seatRoster, ...seatPending],
+    plan: seatPlan?.plan || null,
+    incoming: { role, permissions: safePermissions },
+  });
+  if (!seats.allowed) {
+    return NextResponse.json(
+      { error: seatLimitMessage(seats), code: "seat_limit", seats },
+      { status: 402 },
+    );
+  }
 
   const cleanEmail = String(email).trim().toLowerCase();
 

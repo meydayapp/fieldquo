@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { countSeats } from "@/lib/pricing/ladder";
+import { seatCheck } from "@/lib/pricing/seatLimit";
 import { describeAccess } from "@/lib/permissions/accessPresets";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
@@ -126,9 +127,24 @@ export async function GET(request) {
     breakdown[bucket] += 1;
   }
 
+  // What the plan allows, so the screen can close the door at the cap rather
+  // than letting somebody fill in a form the server will refuse.
+  const seatPlan = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    select: { plan: { select: { seats: true, crewSeats: true, tierKey: true } } },
+  });
+  const cap = seatCheck({ roster, plan: seatPlan?.plan || null });
+
   const seats = {
     used: counted.seats,
     limit: limitCheck.limit ?? null,
+    // The seat ladder's own caps, separate from the legacy licence limit above.
+    seatCap: cap.seatsAllowed,
+    crewCap: cap.crewAllowed,
+    tier: cap.tier?.label ?? null,
+    nextTier: cap.nextTier
+      ? { label: cap.nextTier.label, seats: cap.nextTier.seats, crewSeats: cap.nextTier.crewSeats }
+      : null,
     // Crew carry no limit here. How many crew a tier allows is a PLAN question
     // and belongs with the plan; this is a roster count that predates it.
     crew: counted.crew,

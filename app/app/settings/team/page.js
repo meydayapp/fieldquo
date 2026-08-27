@@ -51,6 +51,11 @@ export default function TeamOverviewPage() {
   const [unlinkedWorkers, setUnlinkedWorkers] = useState([]);
   const [pending, setPending] = useState([]);
   const [seats, setSeats] = useState({ used: 0, limit: null });
+  // Null cap = a plan that states no limit (every legacy row). Never full.
+  const seatCap = seats.seatCap ?? null;
+  const crewCap = seats.crewCap ?? null;
+  const seatsFull = seatCap != null && seats.used >= seatCap;
+  const crewFull = crewCap != null && (seats.crew ?? 0) >= crewCap;
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
   const [error, setError] = useState("");
@@ -395,7 +400,9 @@ export default function TeamOverviewPage() {
           <div>
             <span className="text-2xl font-semibold text-foreground tabular-nums">
               {seats.used}
-              {seats.limit ? (
+              {seatCap != null ? (
+                <span className="text-muted-foreground">{` / ${seatCap}`}</span>
+              ) : seats.limit ? (
                 <span className="text-muted-foreground">{` / ${seats.limit}`}</span>
               ) : null}
             </span>
@@ -406,6 +413,9 @@ export default function TeamOverviewPage() {
           <div>
             <span className="text-2xl font-semibold text-foreground tabular-nums">
               {seats.crew ?? 0}
+              {crewCap != null ? (
+                <span className="text-muted-foreground">{` / ${crewCap}`}</span>
+              ) : null}
             </span>
             <span className="ml-2 text-sm text-muted-foreground">
               {t("app.setTeam.crewIncluded")}
@@ -447,20 +457,73 @@ export default function TeamOverviewPage() {
             point of the distinction. Both land on the same form — the preset
             is preselected, so nobody has to know that "Crew" is the free one
             and everything else is not. */}
+        {/* ── The doors close independently ────────────────────────────────
+            Seats and crew have separate caps, so hitting one must not shut the
+            other: a Solo owner with five crew can still not add a manager, and
+            a Solo owner with a full seat can still add crew. One disabled
+            button and one live one is the honest picture.
+
+            Disabled rather than hidden. A button that vanishes leaves somebody
+            hunting for a feature they used yesterday; a disabled one with the
+            reason beside it answers the question and offers the way out. The
+            server refuses either way — this only saves them filling in a form
+            that was never going to be accepted. */}
         {canAdd && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/app/settings/team/new?kind=crew"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
-            >
-              <Plus size={14} /> {t("app.setTeam.addCrew")}
-            </Link>
-            <Link
-              href="/app/settings/team/new?kind=seat"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background"
-            >
-              <Plus size={14} /> {t("app.setTeam.addSeat")}
-            </Link>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {crewFull ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground opacity-60 cursor-not-allowed"
+                title={t("app.setTeam.crewCapReached")}
+              >
+                <Plus size={14} /> {t("app.setTeam.addCrew")}
+              </span>
+            ) : (
+              <Link
+                href="/app/settings/team/new?kind=crew"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                <Plus size={14} /> {t("app.setTeam.addCrew")}
+              </Link>
+            )}
+
+            {seatsFull ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground cursor-not-allowed"
+                title={t("app.setTeam.seatCapReached")}
+              >
+                <Plus size={14} /> {t("app.setTeam.addSeat")}
+              </span>
+            ) : (
+              <Link
+                href="/app/settings/team/new?kind=seat"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background"
+              >
+                <Plus size={14} /> {t("app.setTeam.addSeat")}
+              </Link>
+            )}
+
+            {(seatsFull || crewFull) && (
+              <span className="text-sm text-muted-foreground">
+                {seats.nextTier
+                  ? t("app.setTeam.capUpgrade", {
+                      what: seatsFull
+                        ? t("app.setTeam.capSeats")
+                        : t("app.setTeam.capCrew"),
+                      tier: seats.nextTier.label,
+                      seats: seats.nextTier.seats,
+                      crew: seats.nextTier.crewSeats,
+                    })
+                  : t("app.setTeam.capTalkToUs")}{" "}
+                {["owner", "admin"].includes(grants.yourRole) && (
+                  <Link
+                    href="/app/settings/account-billing"
+                    className="font-medium text-foreground underline underline-offset-2"
+                  >
+                    {t("app.setTeam.capUpgradeCta")}
+                  </Link>
+                )}
+              </span>
+            )}
           </div>
         )}
       </div>
