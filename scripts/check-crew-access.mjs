@@ -1050,6 +1050,9 @@ globalThis.__FQ_ROWS.task = [
     title: "Pick up the keys",
     assignedToId: "u_crew",
     assignedTo: { id: "u_crew", name: "Dani" },
+    // On the job they ARE on, so the panel on the job page has a row to show.
+    jobId: MINE,
+    job: { id: MINE, title: "Repaint, 12 Elm St", status: "scheduled" },
   }),
   // Assigned to somebody else but RAISED by the crew member. The PATCH counts
   // this as theirs, so the list has to as well or they cannot see what they
@@ -1142,6 +1145,40 @@ ok(
     idsOf(dispProbe).includes(T_I_MADE),
 );
 
+// ── ?jobId=, the filter the job page's to-do panel calls with ──────────────
+//
+// The panel is the last piece of what the owner asked a crew member to get on
+// a job they are assigned to — "the visits, materials to buy, tasks from the
+// notes". The address, visits and buy list were already on that page; the
+// to-dos existed only in a company-wide list a person in a driveway will never
+// think to open.
+//
+// It is a FILTER, and the assertions below are about it composing the same way
+// `?assignedToId=` does. Naming a job you are not on must return nothing, not
+// that job's work — otherwise the panel becomes a sixth door onto exactly the
+// rows sections 10 and 11 spent their length closing.
+asMember("m_crew");
+const crewJobTasks = await tasksList.GET(taskReq(`?jobId=${MINE}`));
+ok(
+  "the job panel gets the crew member's to-do for THEIR job",
+  idsOf(crewJobTasks).includes(T_MINE),
+);
+ok(
+  "…and nothing else — the orphan belongs to no job",
+  crewJobTasks.body.length === 1,
+);
+const crewOtherJob = await tasksList.GET(taskReq(`?jobId=${THEIRS}`));
+ok(
+  "naming a job they are not on returns nothing, not that job's to-dos",
+  crewOtherJob.body.length === 0,
+);
+// The same string section 11 walks the payload for, one model over.
+ok(
+  "…so no client name arrives through the jobId filter either",
+  !JSON.stringify(crewOtherJob.body).includes("Bea Nolan"),
+);
+
+asMember("m_disp");
 const dispTasks = await tasksList.GET(taskReq());
 ok(
   "a supervisor is NOT narrowed — they hold task:assign",

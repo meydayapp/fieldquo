@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import { JOB_STATUSES, jobStatusLabel } from "@/lib/jobs/statusLabels";
 import JobCosting from "@/app/components/jobs/JobCosting";
 import JobMaterials from "@/app/components/jobs/JobMaterials";
+import JobTasks from "@/app/components/jobs/JobTasks";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
@@ -428,6 +429,12 @@ export default function JobDetail({ jobId }) {
           the quote's takeoff — seen from the other end: the cost panel asks
           whether the price covers it, this asks whether it has been bought. */}
       <JobMaterials jobId={job.id} />
+
+      {/* And what has to be DONE on it. Sits beside the buy list because the
+          owner named them in one breath — "materials to buy, tasks from the
+          notes" — and because they answer the two halves of the same question
+          somebody asks in the van. */}
+      <JobTasks jobId={job.id} />
 
       <div
         data-tour="job-visits"

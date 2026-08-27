@@ -13,6 +13,11 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const assignedToId = searchParams.get("assignedToId");
+  // One job's to-dos, for the panel on the job page. A filter, NOT a gate — it
+  // narrows within whatever the scope below already allows, so a crew member
+  // naming somebody else's job id gets an empty list rather than that job's
+  // work. The job page itself is separately narrowed by assignedJobWhere.
+  const jobId = searchParams.get("jobId");
 
   // ── The write side was scoped and the read was not ─────────────────────────
   //
@@ -71,6 +76,7 @@ export async function GET(request) {
       companyId: member.companyId,
       ...(status && { status }),
       ...(assignedToId && { assignedToId }),
+      ...(jobId && { jobId }),
       ...scope,
     },
     include: {
