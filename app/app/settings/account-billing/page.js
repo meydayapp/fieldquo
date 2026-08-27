@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { CheckCircle2, ExternalLink, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -70,6 +71,9 @@ function AccountBillingScreen() {
       .catch(() => {});
   }, []);
 
+  // undefined = not asked yet; null = asked, and we have no country for them.
+  const [planCurrency, setPlanCurrency] = useState(undefined);
+
   function load() {
     return Promise.all([
       fetch("/api/settings/subscription"),
@@ -87,8 +91,18 @@ function AccountBillingScreen() {
         return;
       }
       setSubscription(await subRes.json());
-      const planList = planRes.ok ? await planRes.json() : [];
+      // { plans, currency } since the ladder shipped — the route now filters to
+      // the company's own currency rather than listing both, because the two
+      // rows of a tier carry the same NUMBER and picking between them is not a
+      // currency choice, it is a discount. The array form is still accepted so
+      // a cached older response does not empty the page.
+      const body = planRes.ok ? await planRes.json() : null;
+      const planList = Array.isArray(body) ? body : body?.plans;
       setPlans(Array.isArray(planList) ? planList : []);
+      // null means we do not hold their country, so no ladder was returned.
+      // Reported so the screen can ask for an address instead of rendering an
+      // empty list, which reads as an outage.
+      setPlanCurrency(Array.isArray(body) ? undefined : (body?.currency ?? null));
     });
   }
 
@@ -416,7 +430,24 @@ function AccountBillingScreen() {
               </div>
             );
           })}
-          {plans.length === 0 && (
+          {/* Two different empty states, because they have two different
+              causes and only one of them is actionable by the person reading
+              it. "No plans configured yet" in front of somebody whose address
+              we simply never captured is a lie that looks like an outage —
+              they would contact support about a form field they could have
+              filled in themselves. */}
+          {plans.length === 0 && planCurrency === null && (
+            <div className="col-span-3 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-foreground">
+              <p>{t("app.billing.needCountry")}</p>
+              <Link
+                href="/app/settings/company"
+                className="mt-2 inline-block font-medium underline underline-offset-2"
+              >
+                {t("app.billing.needCountryCta")}
+              </Link>
+            </div>
+          )}
+          {plans.length === 0 && planCurrency !== null && (
             <p className="text-sm text-muted-foreground col-span-3">
               {t("app.billing.noPlans", "No plans configured yet.")}
             </p>

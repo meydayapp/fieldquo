@@ -14,6 +14,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { currencyForCountry } from "@/lib/pricing/ladder";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
@@ -42,11 +43,42 @@ export async function GET(request) {
     select: { planId: true },
   });
 
+  // ── One currency, decided by the address ────────────────────────────────
+  //
+  // The ladder exists twice, once per currency, and the two rows carry the SAME
+  // NUMBER rather than a conversion. So showing both put "Solo (CAD) $129" next
+  // to "Solo (USD) $129" in one list, where picking the wrong one is not a
+  // currency choice — it is a Canadian volunteering to pay about 38% more, or an
+  // American paying about 27% less. lib/pricing/ladder.js refuses to make that
+  // selectable and this is the screen that would have made it selectable anyway.
+  //
+  // A company whose country we do not hold sees the ladder in neither currency
+  // rather than in CAD by default: three of the companies here have no country,
+  // and defaulting them would be padding absent data with a price. They are
+  // shown the same "tell us where you are" state the checkout uses.
+  const company = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { country: true },
+  });
+  const currency = currencyForCountry(company?.country);
+
   const plans = await db.plan.findMany({
-    where: subscription?.planId
-      ? { OR: [{ isPublic: true }, { id: subscription.planId }] }
-      : { isPublic: true },
+    where: {
+      // Their own plan is always visible, whatever its currency or visibility —
+      // a billing page that cannot name the plan you are paying for is broken in
+      // a more obvious way than one showing a row it should not sell.
+      OR: [
+        {
+          isPublic: true,
+          ...(currency ? { OR: [{ currency }, { currency: null }] } : {}),
+        },
+        ...(subscription?.planId ? [{ id: subscription.planId }] : []),
+      ],
+    },
     orderBy: { priceMonthly: "asc" },
   });
-  return NextResponse.json(plans);
+
+  // `currency: null` is reported so the screen can say WHY the ladder is
+  // missing instead of rendering an empty list, which reads as an outage.
+  return NextResponse.json({ plans, currency });
 }
