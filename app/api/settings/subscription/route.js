@@ -55,7 +55,17 @@ export async function GET(request) {
       trialEndsAt: true,
       currentPeriodEnd: true,
       plan: {
-        select: { id: true, name: true, priceMonthly: true, maxUsers: true },
+        // seats and crewSeats, not just maxUsers — the card describes the plan as
+        // "1 seat · 5 crew", and a field the screen reads but the route never
+        // sent is how "up to 6 users" survived the first fix.
+        select: {
+          id: true,
+          name: true,
+          priceMonthly: true,
+          maxUsers: true,
+          seats: true,
+          crewSeats: true,
+        },
       },
     },
   });

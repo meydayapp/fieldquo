@@ -15,6 +15,33 @@ function money(n) {
   return `$${Number(n || 0).toLocaleString()}`;
 }
 
+// ── What a plan actually gets you, in one line ─────────────────────────────
+//
+// `maxUsers` is seats PLUS crew, so a Solo plan that bills for one seat was
+// describing itself as "up to 6 users". The owner read that, created an
+// Administrator, and was surprised when I told him it should have cost a seat
+// — the sentence had told him he had six.
+//
+// One helper because the current-subscription line and the plan cards both say
+// this, and the first attempt fixed only the cards. Legacy per-headcount plans
+// have no crew concept and keep the old wording: they were sold as a headcount
+// and inventing a zero-crew ladder tier for them would misdescribe what they
+// bought.
+function seatLine(plan, t) {
+  if (!plan) return null;
+  if (plan.crewSeats != null) {
+    return plan.seats === 1
+      ? t("app.billing.seatsOneWithCrew", { crew: plan.crewSeats })
+      : t("app.billing.seatsWithCrew", { seats: plan.seats, crew: plan.crewSeats });
+  }
+  if (!plan.maxUsers) return null;
+  // Singular and plural are separate strings rather than a stripped "s",
+  // because the six languages here don't agree on how plurals work.
+  return plan.maxUsers === 1
+    ? t("app.billing.upToUsersCapOne", "Up to 1 user")
+    : t("app.billing.upToUsersCap", "Up to {count} users", { count: plan.maxUsers });
+}
+
 function daysLeft(date) {
   if (!date) return null;
   return Math.max(
@@ -299,9 +326,7 @@ function AccountBillingScreen() {
             {subscription?.plan && (
               <p className="text-sm text-muted-foreground mt-1">
                 {money(subscription.plan.priceMonthly)}{t("app.billing.perMonth", "/month")}
-                {subscription.plan.maxUsers
-                  ? ` · ${t("app.billing.upToUsers", "up to {count} users", { count: subscription.plan.maxUsers })}`
-                  : ""}
+                {seatLine(subscription.plan, t) ? ` · ${seatLine(subscription.plan, t)}` : ""}
               </p>
             )}
             {isTrialing && trialDays !== null && (
@@ -408,33 +433,8 @@ function AccountBillingScreen() {
                   {money(plan.priceMonthly)}
                   <span className="text-sm font-normal text-muted-foreground">{t("app.billing.perMonthShort", "/mo")}</span>
                 </p>
-                {/* A ladder plan states seats and crew apart; `maxUsers` is
-                    their SUM and saying "up to 6 users" of a plan that bills
-                    for one is the confusion the owner named. A legacy plan has
-                    no crew concept, so it keeps the old wording rather than
-                    being handed an invented zero. */}
-                {plan.crewSeats != null ? (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {plan.seats === 1
-                      ? t("app.billing.seatsOneWithCrew", { crew: plan.crewSeats })
-                      : t("app.billing.seatsWithCrew", {
-                          seats: plan.seats,
-                          crew: plan.crewSeats,
-                        })}
-                  </p>
-                ) : (
-                  plan.maxUsers && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {/* Singular and plural are separate strings rather than a
-                          stripped "s", because the six languages here don't
-                          agree on how plurals work. */}
-                      {plan.maxUsers === 1
-                        ? t("app.billing.upToUsersCapOne", "Up to 1 user")
-                        : t("app.billing.upToUsersCap", "Up to {count} users", {
-                            count: plan.maxUsers,
-                          })}
-                    </p>
-                  )
+                {seatLine(plan, t) && (
+                  <p className="text-xs text-muted-foreground mt-1">{seatLine(plan, t)}</p>
                 )}
                 {plan.aiCopilotEnabled && (
                   <p className="text-xs text-muted-foreground mt-0.5">

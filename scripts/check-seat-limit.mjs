@@ -126,6 +126,29 @@ ok("both refuse with 402 rather than a generic 400",
 ok("the invite is checked AFTER the permissions are clamped",
   invite.indexOf("vetted.permissions") < invite.indexOf("seatCheck("));
 
+console.log("\nThe plan describes itself in seats, not in the sum");
+const billing = readFileSync("app/app/settings/account-billing/page.js", "utf8");
+const subRoute = readFileSync("app/api/settings/subscription/route.js", "utf8");
+// "Solo · $99/month · up to 6 users" is what the owner read before he created
+// an Administrator he wasn't entitled to. maxUsers is seats PLUS crew.
+ok("the current-plan line no longer prints maxUsers", !/subscription\.plan\.maxUsers/.test(billing));
+ok("both surfaces go through one helper", (billing.match(/seatLine\(/g) || []).length >= 3);
+// The first fix changed the cards and left this line alone; it read a field the
+// route had never sent, so even the corrected wording would have printed nothing.
+ok("...and the route actually sends seats and crewSeats",
+  /seats: true/.test(subRoute) && /crewSeats: true/.test(subRoute));
+
+console.log("\nA flat tier is not offered a licence reduction");
+const retention = readFileSync("lib/billing/retention.js", "utf8");
+const retRoute = readFileSync("app/api/settings/subscription/retention/route.js", "utf8");
+// Solo is $99 whether one seat is filled or none, so "removing 3 cuts the bill"
+// is false, and the apply path would set a quantity on an item priced once.
+ok("the reduce offer is gated on per-seat billing", /perSeat \? Math\.max\(0, seats/.test(retention));
+ok("a crew allowance is what marks a flat tier", /perSeat = sub\?\.plan\?\.crewSeats == null/.test(retRoute));
+ok("the seat fallback is plan.seats, not maxUsers",
+  /let seats = sub\?\.plan\?\.seats \?\? sub\?\.plan\?\.maxUsers/.test(retRoute));
+ok("both offersFor calls pass it", (retRoute.match(/perSeat, reason/g) || []).length === 2);
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}`

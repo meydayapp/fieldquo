@@ -50,7 +50,7 @@ async function seatUsage(companyId) {
   const [sub, activeMembers] = await Promise.all([
     db.subscription.findUnique({
       where: { companyId },
-      include: { plan: { select: { maxUsers: true } } },
+      include: { plan: { select: { maxUsers: true, seats: true, crewSeats: true } } },
     }),
     db.member.count({ where: { companyId, active: true } }),
   ]);
@@ -58,7 +58,14 @@ async function seatUsage(companyId) {
   // Seats come from STRIPE's quantity where we have it, not from the plan's
   // maxUsers — the plan is a ceiling, the quantity is what they're billed for,
   // and offering to reduce the wrong one produces a promise we can't keep.
-  let seats = sub?.plan?.maxUsers || activeMembers;
+  //
+  // The fallback is the plan's SEAT count, not maxUsers: on a ladder tier
+  // maxUsers is seats plus crew, so a Crew company with eight people looked
+  // like eleven paid licences with three going spare, and we'd have offered to
+  // remove licences that were never billed. `perSeat` then withholds that offer
+  // on a flat tier entirely — see offersFor.
+  const perSeat = sub?.plan?.crewSeats == null;
+  let seats = sub?.plan?.seats ?? sub?.plan?.maxUsers ?? activeMembers;
   if (sub?.stripeSubscriptionId) {
     try {
       const live = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
@@ -69,7 +76,7 @@ async function seatUsage(companyId) {
       // unavailable to somebody with their finger on the cancel button.
     }
   }
-  return { sub, seats, activeMembers };
+  return { sub, seats, activeMembers, perSeat };
 }
 
 export async function GET(request) {
@@ -77,10 +84,10 @@ export async function GET(request) {
   if (error) return NextResponse.json({ error }, { status });
 
   const reason = new URL(request.url).searchParams.get("reason") || null;
-  const { sub, seats, activeMembers } = await seatUsage(member.companyId);
+  const { sub, seats, activeMembers, perSeat } = await seatUsage(member.companyId);
 
   return NextResponse.json({
-    offers: offersFor({ subscription: sub, seats, activeMembers, reason }),
+    offers: offersFor({ subscription: sub, seats, activeMembers, perSeat, reason }),
     // Said rather than silently omitted — "you used one in March" is a fact
     // someone can understand; a button that simply isn't there reads as broken.
     cooldown: cooldownMessage(sub),
@@ -97,7 +104,7 @@ export async function POST(request) {
   const offer = String(body.offer || "");
   const reason = isValidReason(body.reason) ? body.reason : null;
 
-  const { sub, seats, activeMembers } = await seatUsage(member.companyId);
+  const { sub, seats, activeMembers, perSeat } = await seatUsage(member.companyId);
   if (!sub?.stripeSubscriptionId) {
     return NextResponse.json(
       { error: "There's no active subscription to change." },
@@ -107,7 +114,7 @@ export async function POST(request) {
 
   // Re-derived on the SERVER. The browser told us which button was pressed; it
   // doesn't get to tell us what the company is entitled to.
-  const allowed = offersFor({ subscription: sub, seats, activeMembers, reason });
+  const allowed = offersFor({ subscription: sub, seats, activeMembers, perSeat, reason });
   const chosen = allowed.find((o) => o.key === offer);
   if (!chosen) {
     return NextResponse.json(
