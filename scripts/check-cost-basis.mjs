@@ -773,7 +773,15 @@ for (const { name, member } of FIXTURES) {
 // The document tools, asserted against the grid directly.
 {
   const worker = toolNamesFor(byName.worker);
-  ok(worker.includes("getUpcomingWork"), "a Worker keeps their own schedule");
+  // Crew hold jobs:none, and getUpcomingWork is the COMPANY's calendar rather
+  // than the caller's own — its query has no assignee filter (see the note on
+  // TOOL_ACCESS in lib/ai/copilotTools.js). So it goes away for them, which is
+  // the safe direction: the alternative is handing every visit in the company
+  // to the tier that may not open a single job.
+  ok(!worker.includes("getUpcomingWork"),
+    "Crew is not handed the company-wide schedule tool");
+  ok(toolNamesFor(byName.workerFullView).includes("getUpcomingWork"),
+    "…while a Worker at jobs:view_only still is");
   ok(!worker.includes("findQuote"), "…and is not handed quote lookups");
   ok(!worker.includes("findInvoice"), "…nor invoice lookups");
   const dispatcher = toolNamesFor(byName.dispatcher);

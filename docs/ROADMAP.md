@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 26 August 2026. **Update this file when you finish something.**
+Last updated: 27 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -889,6 +889,41 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **The plans editor was live and being silently reverted, and its upsert had
+  stopped working. `lib/billing/customPlan.js`, `lib/billing/planFields.js`,
+  `lib/billing/promotionFields.js`, `lib/pricing/promotionStatus.js`,
+  `app/api/platform/billing/promotions/`, `app/platform/billing/promotions/`,
+  `scripts/seed-seat-ladder.mjs`, `scripts/check-platform-pricing-console.mjs`.**
+
+  `/platform/billing/plans` has always had a working price editor. The seat
+  upgrade route then did `db.plan.upsert({ update: { priceMonthly:
+  calculatePricing(n).monthlyTotal } })`, so any price an operator typed was
+  written back to the constant by the next stranger who signed up at that
+  headcount. It saved, re-rendered with the new number, and was undone hours
+  later by somebody else's action — which is worse than a dead button, because
+  it works long enough to be believed.
+
+  Fixed as find-or-create, not by teaching `calculatePricing` to read rows: it
+  is a pure synchronous function imported by two `"use client"` components, and
+  giving it a database would have made them async to render a number they
+  already hold. **Once the row exists, the row is the price.** The same rule is
+  why the seeder's update clause is empty.
+
+  Found while fixing it: `where: { name }` was no longer a legal upsert target
+  — `Plan.name` lost its `@unique` when uniqueness moved to
+  `(tierKey, currency)` — so BOTH call sites (custom-headcount signup and every
+  "Add licenses" upgrade) were throwing at runtime, not just overwriting.
+  Verified against the real database. Also: neither creator set `isPublic`, so
+  the next bespoke row would have reappeared in every company's plan picker
+  with a live Choose plan button.
+
+  `npm run seed:seat-ladder` mints the 8 ladder rows (4 tiers × CAD/USD) and is
+  idempotent; the 4 legacy rows and their 10 Subscriptions are untouched.
+  Promotions live at `/platform/billing/promotions` — `endsAt` required and a
+  past `endsAt` refused on create, both on the server; every price shown comes
+  from `priceFor()` and every "is it running" from `promotionIsLive()`, so the
+  console cannot disagree with checkout.
 
 - **Every client in production had a country of `null`, so no quote could
   charge tax. `app/components/AddressAutocomplete.js` (consumers),

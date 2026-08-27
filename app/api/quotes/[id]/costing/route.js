@@ -30,7 +30,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { hasToggle } from "@/lib/permissions/enforce";
 import { shapeSavedQuoteCosting } from "@/lib/costing/quoteCosting";
 import {
   deriveQuoteCosting,
@@ -44,7 +45,17 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const full = await loadEnforceableMember(db, member.id);
+  // Two gates, in this order: may they see the QUOTE at all, and then may they
+  // see what it cost. jobCosting alone would have answered "yes" to a member
+  // who is not allowed the document the costing belongs to.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
+
   // The same gate as the job's and the invoice's cost panels. 403, not a
   // redacted body of zeroes: someone who may not see what a job costs must be
   // told they may not, because a panel full of zeroes reads as a job that cost

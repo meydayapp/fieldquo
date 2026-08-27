@@ -4,9 +4,9 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import {
-  loadEnforceableMember,
   requireToggle,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
@@ -105,6 +105,15 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // The credit state is an amount owed on an invoice.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
+
   const { id } = await params;
   const invoice = await loadInvoice(id, member.companyId);
   if (!invoice)
@@ -117,9 +126,19 @@ export async function POST(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Two gates. The invoice level answers "is this document yours to touch",
+  // the payments toggle answers "may you move money on it" — the same pairing
+  // /api/invoices/[id]/checkout-link makes, and this route had only the second.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_create_edit",
+    "credit a visit fee",
+  );
+  if (denied) return denied;
+
   // Same gate as recording a payment — this moves money on the invoice.
   try {
-    const full = await loadEnforceableMember(db, member.id);
     requireToggle(full, "payments", "credit a visit fee");
   } catch (err) {
     const { body: errBody, status } = permissionErrorResponse(err);

@@ -8,16 +8,23 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
-import {
-  loadEnforceableMember,
-  redactClient,
-  redactQuoteMoney,
-} from "@/lib/permissions/enforce";
+import { redactClient, redactQuoteMoney } from "@/lib/permissions/enforce";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // A queue of quotes is still quotes. The nav row has been role-gated for a
+  // while, which hid the screen from an employee and left the endpoint open.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const quotes = await db.quote.findMany({
     where: { companyId: member.companyId, autoEstimated: true, needsReview: true },
@@ -56,7 +63,6 @@ export async function GET(request) {
   // redactQuoteMoney rather than a hand-written delete: this route's select is
   // a subset of a Quote, and the next column added to that select should not
   // need a second person to remember this line exists.
-  const full = await loadEnforceableMember(db, member.id);
   const redacted = quotes.map((q) => ({
     ...redactQuoteMoney(full, q),
     client: redactClient(full, q.client),

@@ -4,10 +4,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import {
-  loadEnforceableMember,
-  redactQuotes,
-} from "@/lib/permissions/enforce";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { redactQuotes } from "@/lib/permissions/enforce";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -30,6 +28,14 @@ export async function GET(request, { params }) {
   //
   // Refusing a missing id rather than defaulting: without it, a caller that
   // gets the key wrong is handed the whole table again.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
+
   const tierGroupId = _params["tier-group"];
   if (!tierGroupId) {
     return NextResponse.json(
@@ -48,6 +54,5 @@ export async function GET(request, { params }) {
   // group, so it has no business being more generous. `client: true` is the
   // whole row here (email, phone, notes, portalToken) and each quote carries
   // its own shareToken; three tiers means three public links, not one.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactQuotes(full, quotes));
 }

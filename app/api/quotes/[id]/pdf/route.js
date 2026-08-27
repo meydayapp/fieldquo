@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { renderDocumentPdfBuffer } from "@/app/admin/lib/pdf/renderDocumentPdf";
 import { getDefaultSections } from "@/app/admin/lib/pdf/defaultSections";
 import { usableSections } from "@/lib/documents/templateKind";
@@ -12,7 +13,6 @@ import { resolveDocumentLanguage } from "@/lib/i18n/resolveLanguage";
 import { uploadBuffer } from "@/lib/cloudinary";
 import { hashQuote } from "@/lib/documents/signatureAudit";
 import {
-  loadEnforceableMember,
   requireMoney,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
@@ -33,8 +33,15 @@ export async function POST(request, { params }) {
   // It was reachable by direct URL with nothing but a session and a company
   // match — no category level, no toggle — which made every other pricing
   // restriction in the product one POST away from irrelevant.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
+
   try {
-    const full = await loadEnforceableMember(db, member.id);
     requireMoney(full, "download priced documents");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);

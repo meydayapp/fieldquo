@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import {
   loadEnforceableMember,
@@ -15,6 +16,20 @@ import { createJob } from "@/lib/jobs/createJob";
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The floor of this ladder used to be view_only, so the job list was open to
+  // everyone the route could reach. A member at jobs:none is refused.
+  //
+  // NOTE what this does NOT do: it does not narrow the list to the jobs this
+  // member is assigned to. There is no such filter here and never has been —
+  // see the report accompanying this change.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");

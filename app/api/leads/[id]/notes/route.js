@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 
 // A lead's call-back log. Kept separate from the lead's own `message` (the
 // homeowner's words) so "left a voicemail, trying Tue" can't be confused with
@@ -11,6 +12,16 @@ import { memberOrRefusal } from "@/lib/apiMember";
 export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // A lead's notes are the lead: "spoke to the owner, budget is soft" is the
+  // same record one field over.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_only",
+    "see requests",
+  );
+  if (denied) return denied;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({
@@ -31,6 +42,15 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Writing on a lead is the same level PATCH /api/leads/[id] requires.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_create_edit",
+    "change a request",
+  );
+  if (denied) return denied;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({

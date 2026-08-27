@@ -12,6 +12,7 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -31,6 +32,17 @@ export async function GET(request, { params }) {
 
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // redactShareToken already withholds the token from anyone below
+  // view_create_edit on the quote payloads; this endpoint hands back the same
+  // token directly, so it cannot be more generous than the redactor.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "share quotes",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },

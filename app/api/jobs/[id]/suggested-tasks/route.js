@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { suggestTasksForJob } from "@/lib/tasks/suggestFromJob";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -35,6 +36,16 @@ export async function POST(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // …and gated on the job as well, because this reads the job's notes and
+  // visits and spends the company's AI quota doing it.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   // Scoped read before spending anything: a job id from another tenant must
   // 404 without ever reaching the model.

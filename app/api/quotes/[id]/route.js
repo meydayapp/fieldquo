@@ -12,6 +12,7 @@ import {
   permissionErrorResponse,
   redactQuote,
 } from "@/lib/permissions/enforce";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   reconcileScopeGroups,
   reconcileImportsForQuote,
@@ -35,6 +36,17 @@ export async function GET(request, { params }) {
 
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Refused before the row is read, not redacted after it. The list route is
+  // gated the same way; a detail endpoint that answers what the list refuses is
+  // the side door this sweep keeps finding.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },
@@ -70,7 +82,6 @@ export async function GET(request, { params }) {
   // restriction cosmetic: the token and the client's email were one click away
   // on the detail endpoint. Redacting after the spread rather than before it so
   // importedGroupIds can't reintroduce a key the redactor just removed.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactQuote(full, { ...quote, importedGroupIds }));
 }
 

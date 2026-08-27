@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -24,6 +25,16 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Refused before the row is read. The list route is gated the same way, and
+  // a detail endpoint that answers what the list refuses is a side door.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
 
   const invoice = await db.invoice.findFirst({
     where: { id: id, companyId: member.companyId },
@@ -55,7 +66,6 @@ export async function GET(request, { params }) {
   // from. redactInvoice does client, quote and money in one call for exactly
   // the reason this comment gives about the share token: three routes each
   // remembering three rules is two routes that forget one.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactInvoice(full, invoice));
 }
 

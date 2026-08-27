@@ -21,6 +21,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { ratesForCompany } from "@/lib/kitchen/rates";
@@ -45,6 +46,16 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // A kitchen design IS the quote's scope, and this hands back its share token
+  // as well — the credential-free public page showing the price.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const quote = await loadQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
@@ -83,6 +94,18 @@ export async function PUT(request, { params }) {
       { status: 403 },
     );
   }
+
+  // The coarse role is not enough on its own: PERMISSIONS.employee carries
+  // "quote:create" because the Dispatcher preset needs it, so this write was
+  // open to every employee whatever their grid said. Saving a design rewrites
+  // the quote's scope and its total, which is a quote edit by any other name.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "edit quotes",
+  );
+  if (denied) return denied;
 
   const quote = await loadQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });

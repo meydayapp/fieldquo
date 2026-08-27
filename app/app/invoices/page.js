@@ -8,6 +8,8 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -17,6 +19,8 @@ const STATUS_STYLES = {
 
 export default function InvoicesPage() {
   const { t } = useTranslation();
+  // The bottom rung — GET /api/invoices refuses below it. See the quotes list.
+  const canView = useHasLevel("invoices", "view_only");
   // null until the server answers — see lib/loadState.js. The money tiles below
   // are the sharpest case for this: "$0.00 outstanding" on a failed load tells
   // a contractor everyone has paid them.
@@ -36,8 +40,8 @@ export default function InvoicesPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (canView) load();
+  }, [load, canView]);
 
   const filtered = (invoices ?? []).filter((inv) => {
     const s = search.toLowerCase();
@@ -80,6 +84,11 @@ export default function InvoicesPage() {
     value === null || value === undefined
       ? "—"
       : `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+  // Rendered INSTEAD of the screen, not around it: nothing loads, and the
+  // panel names who to ask. A list that is empty because the server refused it
+  // reads as "you have none", which is a different and untrue statement.
+  if (!canView) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">

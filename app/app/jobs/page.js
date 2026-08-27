@@ -10,6 +10,7 @@ import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 const STATUS_STYLES = {
   // Purple/attention — an unscheduled job (usually auto-created from an
   // accepted quote) is a to-do: it needs a date.
@@ -32,6 +33,8 @@ export default function JobsPage() {
   // whose save answers 403, and the sidebar's quick-add entry has been hidden
   // at this exact level since NAV_REQUIREMENTS was written.
   const canCreate = useHasLevel("jobs", "view_create_edit");
+  // The bottom rung — GET /api/jobs refuses below it. See the quotes list.
+  const canView = useHasLevel("jobs", "view_only");
   // null until the server answers — see lib/loadState.js.
   const [jobs, setJobs] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -54,8 +57,8 @@ export default function JobsPage() {
   }, [showArchived]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (canView) load();
+  }, [load, canView]);
 
   const statusLabel = (s) => {
     const k = STATUS_LABEL_KEYS[s];
@@ -75,6 +78,11 @@ export default function JobsPage() {
       j.client?.name?.toLowerCase().includes(s)
     );
   });
+
+  // Rendered INSTEAD of the screen, not around it: nothing loads, and the
+  // panel names who to ask. A list that is empty because the server refused it
+  // reads as "you have none", which is a different and untrue statement.
+  if (!canView) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">

@@ -128,7 +128,7 @@ export default function TeamOverviewPage() {
   // ── Editing an existing member's access ────────────────────────────────
   //
   // Manage Team could change a member's ROLE and nothing else, so the
-  // permission grid was write-once: a "Worker (limited access)" could never
+  // permission grid was write-once: a Crew member could never
   // become a full-view Worker, a Dispatcher and a Manager were
   // indistinguishable afterwards, and "Custom" was unreachable for anyone
   // already on the team. The New User page offered all of it; this one offered

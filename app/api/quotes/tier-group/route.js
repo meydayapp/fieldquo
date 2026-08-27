@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 
 // Creates three linked quote variants at once — Good/Better/Best — sharing a
@@ -12,6 +13,17 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Three quotes, and until now no grid check of any kind — POST /api/quotes
+  // has required view_create_edit for a long time and this sibling, which
+  // creates three at once, asked nothing at all.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "create quotes",
+  );
+  if (denied) return denied;
 
   const { clientId, tiers } = await request.json(); // tiers: { good: {...}, better: {...}, best: {...} }
   if (!clientId || !tiers?.good || !tiers?.better || !tiers?.best) {

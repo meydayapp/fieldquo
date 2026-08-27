@@ -8,12 +8,13 @@
 //
 // ── The inconsistency this closes ──────────────────────────────────────────
 //
-// New User offered five presets: Worker (limited access), Worker, Dispatcher,
-// Manager, Custom, plus the full 10-category grid and three toggles.
+// New User offered five presets: Crew (then called "Worker (limited access)"),
+// Worker, Dispatcher, Manager, Custom, plus the full 10-category grid and
+// three toggles.
 //
 // Manage Team offered a role dropdown. Nothing else. Which meant permissions
-// were WRITE-ONCE: you could create a "Worker (limited access)" and then never
-// change anyone to or from limited access; you could create a Dispatcher and
+// were WRITE-ONCE: you could create a Crew member and then never change anyone
+// to or from that level; you could create a Dispatcher and
 // afterwards see only "Manager", with no way to tell which grid they carried
 // or to alter it; and "Custom" was unreachable for anyone already on the team.
 //

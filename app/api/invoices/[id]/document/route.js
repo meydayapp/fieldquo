@@ -37,6 +37,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { attachServiceSettings } from "@/lib/documents/loadServiceSettings";
 import {
   resolveServiceContent,
@@ -45,7 +46,6 @@ import {
 } from "@/lib/documents/serviceContent";
 import { parsePaymentSchedule } from "@/lib/documents/paymentSchedule";
 import {
-  loadEnforceableMember,
   requireMoney,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
@@ -62,8 +62,15 @@ export async function GET(request, { params }) {
   // as JSON. Gated identically: hiding the download and serving its contents
   // through the sibling endpoint would be the side door this sweep exists to
   // close.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
+
   try {
-    const full = await loadEnforceableMember(db, member.id);
     requireMoney(full, "see priced documents");
   } catch (err) {
     const { body, status } = permissionErrorResponse(err);

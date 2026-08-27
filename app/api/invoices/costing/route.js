@@ -25,11 +25,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
-import {
-  loadEnforceableMember,
-  hasToggle,
-  redactPayList,
-} from "@/lib/permissions/enforce";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { hasToggle, redactPayList } from "@/lib/permissions/enforce";
 import { crewFromTimeEntries } from "@/lib/costing/actualJobCost";
 import { resolveInvoiceJob } from "@/lib/invoices/jobLink";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
@@ -38,7 +35,16 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const full = await loadEnforceableMember(db, member.id);
+  // Two gates: the invoice first, then what it cost. jobCosting on its own
+  // would answer for a member who may not hold the document at all.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
+
   // Same gate as the job's cost panel. Someone who may not see what a job cost
   // must not see it on the invoice for the same job, or the gate is decorative.
   if (!hasToggle(full, "jobCosting")) {

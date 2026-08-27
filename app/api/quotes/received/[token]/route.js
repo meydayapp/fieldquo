@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
+import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
 import { sourceCostAmount } from "@/lib/quotes/importQuote";
 
 export async function GET(request, { params }) {
@@ -42,7 +43,15 @@ export async function GET(request, { params }) {
   // Read-only impersonation (userId null) must not be offered a write action.
   const authenticated = Boolean(member && member.userId);
   const isOwnQuote = Boolean(member && member.companyId === source.companyId);
-  const canImport = authenticated && !isOwnQuote;
+  // ── And the grid, which this route never asked ──────────────────────────
+  //
+  // `canImport` gates a WRITE onto one of the viewer's own quotes, and the
+  // branch below hands back that company's open quotes and their totals to
+  // whoever holds the share link. Asked at the same level as the import itself
+  // so the panel is offered to exactly the people the POST will accept.
+  const full = authenticated ? await loadEnforceableMember(db, member.id) : null;
+  const canImport =
+    authenticated && !isOwnQuote && hasLevel(full, "quotes", "view_create_edit");
 
   // Recognition hint for the signed-OUT call to action, and nothing more. Scoped
   // strictly to the address the sub already ADDRESSED this quote to — never a

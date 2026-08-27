@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { reviewQuote } from "@/lib/ai/quoteReview";
 import { checkAiQuota, recordAiUsage } from "@/lib/ai/usage";
@@ -20,6 +21,15 @@ export async function GET(request, { params }) {
   const _params = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The stored review talks about this quote's pricing and its gaps.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -47,6 +57,17 @@ export async function POST(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // The coarse role alone let anybody with a session spend the company's AI
+  // quota reviewing a quote they may not be allowed to open. Asked of the grid
+  // BEFORE the quota check, so a refusal costs nothing.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "edit quotes",
+  );
+  if (denied) return denied;
 
   // Checked before spending, same as the copilot. Note this route is only
   // PARTLY metered work — the completeness and pricing checks cost nothing —

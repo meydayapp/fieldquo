@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { TAKEOFF_ADD_ON_SOURCE } from "@/lib/quotes/takeoffAddOns";
 
@@ -25,6 +26,14 @@ export async function GET(request, { params }) {
   const _params = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -55,6 +64,17 @@ export async function PUT(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // The coarse role is the floor, not the answer: every employee carries
+  // "quote:create", so this write was open to a member whose grid said view
+  // only. An add-on is a priced row on the offer the client ticks.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "edit quotes",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id: _params.id, companyId: member.companyId },

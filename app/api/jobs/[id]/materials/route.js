@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -103,9 +104,19 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+  // The shopping list belongs to a job, so it follows the job's own level.
+  // Every write below already required view_create_edit; the read required
+  // nothing at all.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
+
   if (!(await ownJob(id, member.companyId)))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(await listFor(id, full));
 }
 

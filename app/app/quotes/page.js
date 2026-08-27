@@ -9,6 +9,7 @@ import ListState from "@/app/components/ListState";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 const STATUS_STYLES = {
   draft: "bg-muted text-muted-foreground",
   sent: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300",
@@ -32,6 +33,9 @@ export default function QuotesPage() {
   // entry at this exact level since NAV_REQUIREMENTS was written; the two
   // buttons on this page were never given the same rule.
   const canCreate = useHasLevel("quotes", "view_create_edit");
+  // The bottom rung. GET /api/quotes refuses at exactly this level, so without
+  // it this screen is a list that can never fill and four tiles reading zero.
+  const canView = useHasLevel("quotes", "view_only");
   // null until the server answers — see lib/loadState.js. The stat tiles below
   // read this, and four tiles reading "0" is a much more convincing lie than
   // any red banner is a correction.
@@ -51,8 +55,8 @@ export default function QuotesPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (canView) load();
+  }, [load, canView]);
 
   const filtered = (quotes ?? []).filter((q) => {
     const s = search.toLowerCase();
@@ -71,6 +75,11 @@ export default function QuotesPage() {
     sent: quotes.filter((q) => q.status === "sent").length,
     accepted: quotes.filter((q) => q.status === "accepted").length,
   };
+
+  // Rendered INSTEAD of the screen, not around it: nothing loads, and the
+  // panel names who to ask. A list that is empty because the server refused it
+  // reads as "you have none", which is a different and untrue statement.
+  if (!canView) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-6">

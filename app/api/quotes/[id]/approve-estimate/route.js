@@ -13,6 +13,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import { can } from "@/lib/permissions";
 import { onQuoteApproved } from "@/lib/voice/triggers";
@@ -29,6 +30,17 @@ export async function POST(request, { params }) {
       { status: 403 },
     );
   }
+
+  // Approving can also SET the total, so it is a quote edit as well as a
+  // supervisor's sign-off. The role gate above answers "is this person senior
+  // enough"; the grid answers "do they hold quotes at all".
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "approve estimates",
+  );
+  if (denied) return denied;
 
   const quote = await db.quote.findFirst({
     where: { id, companyId: member.companyId },

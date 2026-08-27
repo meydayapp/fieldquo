@@ -26,6 +26,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import {
   loadEnforceableMember,
@@ -97,14 +98,22 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // Everything this returns — the document, its versions, its payments and the
+  // job it belongs to — is the invoice.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
+
   const invoice = await db.invoice.findFirst({
     where: { id, companyId: member.companyId },
     select: INVOICE_SELECT,
   });
   if (!invoice)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const full = await loadEnforceableMember(db, member.id);
 
   // ── Sibling versions, not children ──────────────────────────────────────
   //

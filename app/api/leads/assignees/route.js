@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 
 // The company's people, for the "assign lead" dropdown. Deliberately lighter
 // than /api/settings/members (which is admin-gated and returns roles/seats):
@@ -12,6 +13,15 @@ import { memberOrRefusal } from "@/lib/apiMember";
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Only useful to somebody who can open the board it assigns from.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_only",
+    "see requests",
+  );
+  if (denied) return denied;
 
   const members = await db.member.findMany({
     where: { companyId: member.companyId },

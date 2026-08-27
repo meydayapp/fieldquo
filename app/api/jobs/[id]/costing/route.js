@@ -11,7 +11,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { quotedCostFor } from "@/lib/costing/quoteCostEstimate";
 import { memberOrRefusal } from "@/lib/apiMember";
-import { loadEnforceableMember, hasToggle } from "@/lib/permissions/enforce";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { hasToggle } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
 
 export async function GET(request, { params }) {
@@ -20,7 +21,16 @@ export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  const full = await loadEnforceableMember(db, member.id);
+  // Two gates: the job first, then what it cost. jobCosting on its own would
+  // answer for somebody not allowed the record the costing belongs to.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
+
   if (!hasToggle(full, "jobCosting")) {
     return NextResponse.json(
       { error: "You don't have access to job costing." },

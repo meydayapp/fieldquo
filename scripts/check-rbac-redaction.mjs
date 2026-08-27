@@ -32,7 +32,7 @@ import {
   requireMoney,
 } from "../lib/permissions/enforce.js";
 import { readFileSync } from "node:fs";
-import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "../lib/permissions.js";
+import { PERMISSION_PRESETS, PRESET_TO_ROLE, can } from "../lib/permissions.js";
 import { summarisePlan } from "../lib/servicePlans/summary.js";
 
 let pass = 0;
@@ -152,10 +152,44 @@ check("worker cannot see prices", worker.permissions.showPricing === false);
 check("workerFullView can", workerFull.permissions.showPricing === true);
 check("neither has job costing", !worker.permissions.jobCosting && !workerFull.permissions.jobCosting);
 check("neither has payments", !worker.permissions.payments && !workerFull.permissions.payments);
+// ── The two presets no longer agree here, and that IS the change ─────────
+//
+// They were both view_only on all four, which made "Worker (limited access)"
+// a name for a tier that could read every quote, invoice, job and lead in the
+// company. The lower one is now Crew and holds `none`; workerFullView is
+// unchanged and still reads all four. Asserted as two different values rather
+// than one shared one, because a preset edit that quietly re-merged them is
+// exactly what this file exists to catch.
 for (const cat of ["quotes", "jobs", "invoices", "requests"]) {
-  check(`both are view_only on ${cat}`,
-    worker.permissions[cat] === "view_only" && workerFull.permissions[cat] === "view_only");
+  check(`Crew holds NO access to ${cat}`, worker.permissions[cat] === "none");
+  check(`workerFullView still reads ${cat}`, workerFull.permissions[cat] === "view_only");
 }
+
+// The persona the REDACTORS are about: somebody who may open the documents and
+// may not see the money or the client's contact details. That used to be the
+// worker preset itself; now it is a deliberate configuration an owner makes —
+// Crew plus read access — and it is Daniel's real production grid either way.
+// The redaction assertions below run as HIM, because a member refused at the
+// door proves nothing about what the payload would have carried.
+const viewOnly = {
+  role: "employee",
+  permissions: {
+    ...worker.permissions,
+    quotes: "view_only", jobs: "view_only",
+    invoices: "view_only", requests: "view_only",
+  },
+};
+// And the rung between "record" and "edit", which Crew has moved OFF: crew
+// correct their own forgotten clock-out now (the correction goes back to
+// pending — see the route). Somebody stored at view_record_own still cannot,
+// and that rung is what the C6 block below is testing, so it gets its own
+// fixture rather than borrowing whichever preset happens to sit on it.
+const recordOnly = {
+  role: "employee",
+  permissions: { ...worker.permissions, timeTracking: "view_record_own" },
+};
+check("Crew may correct their own timesheet",
+  worker.permissions.timeTracking === "view_record_edit_own");
 
 // ── Refusals are 403, never 500 ────────────────────────────────────────────
 //
@@ -380,11 +414,18 @@ check("the invoices list does not sum absent totals into $0.00",
 console.log("\nCLAIM 3 — view_only is enforced on writes, and the UI agrees\n");
 
 check("the employee ROLE does grant quote:create (the floor is permissive)",
-  PERMISSION_PRESETS.worker.values.quotes === "view_only" && PRESET_TO_ROLE.worker === "employee");
+  can("employee", "quote:create") && PRESET_TO_ROLE.worker === "employee");
 check("...and the GRID refuses this employee anyway (the narrower layer wins)",
   !hasLevel(worker, "quotes", "view_create_edit"));
+// Asked of the persona that HOLDS view_only. It used to be the worker preset;
+// Crew now holds `none`, and asserting "view_only satisfies view_only" against
+// a member who is not on view_only would be a check that passes for the wrong
+// reason — which is the failure mode this whole file was written to avoid.
 check("view_only still satisfies view_only — reading is a real grant, not a nothing",
-  hasLevel(worker, "quotes", "view_only") && hasLevel(worker, "invoices", "view_only"));
+  hasLevel(viewOnly, "quotes", "view_only") && hasLevel(viewOnly, "invoices", "view_only") &&
+  hasLevel(workerFull, "quotes", "view_only"));
+check("…and `none` is below it — Crew reads neither",
+  !hasLevel(worker, "quotes", "view_only") && !hasLevel(worker, "invoices", "view_only"));
 check("a dispatcher, same code path, IS allowed to create",
   hasLevel(dispatcher, "quotes", "view_create_edit"));
 check("nobody at view_only can delete either",
@@ -712,7 +753,7 @@ console.log("\nC2 — GET /api/leads, executed at both worker presets\n");
 
 const leads = await route("@/app/api/leads/route");
 
-become(worker);
+become(viewOnly);
 const workerLeads = (await leads.GET(req("http://x/api/leads"))).body;
 check("the list still arrives — a lead board is a screen a crew member may open",
   Array.isArray(workerLeads) && workerLeads.length === 1);
@@ -740,7 +781,7 @@ check("…and the budget band", fullLeads[0].budgetBand === "15k_plus");
 check("…and is NOT marked restricted", fullLeads[0].restricted === undefined);
 
 const leadDetail = await route("@/app/api/leads/[id]/route");
-become(worker);
+become(viewOnly);
 const oneLead = (await leadDetail.GET(req("http://x/api/leads/lead1"), { params: params({ id: "lead1" }) })).body;
 check("the DETAIL door is closed too — enumerating ids off the board gets nothing more",
   oneLead.email === undefined && oneLead.phone === undefined && oneLead.budgetBand === undefined);
@@ -756,7 +797,7 @@ const patchEntry = async (body) =>
   timeEntry.PATCH(req("http://x/api/time-entries/te", body), { params: params({ id: timeEntryRow.id }) });
 
 timeEntryRow = PENDING_ENTRY;
-become(worker);
+become(recordOnly);
 const workerEditsOwn = await patchEntry({ clockOut: "2026-08-20T10:00" });
 check("view_record_own may NOT edit its own entry — 'record' is not 'edit'",
   workerEditsOwn.status === 403);
@@ -852,7 +893,7 @@ check("…and nothing is marked hidden", shownQuote.pricingHidden === undefined)
 
 console.log("\nGET /api/quotes/estimate-reviews, executed\n");
 const reviews = await route("@/app/api/quotes/estimate-reviews/route");
-become(worker);
+become(viewOnly);
 const workerReviews = (await reviews.GET(req("http://x/api/quotes/estimate-reviews"))).body;
 const wr = workerReviews.quotes[0];
 check("the queue's own `total` is absent", wr.total === undefined);
@@ -891,7 +932,7 @@ const fullClient = (await clientDetail.GET(req("http://x/api/clients/c1"), { par
 check("workerFullView still reads the invoice totals", fullClient.invoices[0].total === "7645");
 
 const lifecycle = await route("@/app/api/invoices/[id]/lifecycle/route");
-become(worker);
+become(viewOnly);
 const workerLife = (await lifecycle.GET(req("http://x/api/invoices/i9/lifecycle"), { params: params({ id: "i9" }) })).body;
 const paidBanner = workerLife.banners.find((b) => b.id === "paid");
 check("the paid banner still appears — the STATE is not the amount", !!paidBanner);
@@ -1029,7 +1070,7 @@ await mutant(
   "app/api/leads/route.js",
   [["redactLeads(\n      full,", "((_m, rows) => rows)(\n      full,"]],
   async (mod) => {
-    become(worker);
+    become(viewOnly);
     const leaked = (await mod.GET(req("http://x/api/leads"))).body[0];
     check("without redactLeads, a name_address_only member reads the email again",
       leaked.email === LEAD.email);
@@ -1069,6 +1110,34 @@ const shipped = await timeEntry.PATCH(
   { params: params({ id: "te1" }) },
 );
 check("…while the shipped route refuses it", shipped.status === 403);
+
+// ── The door itself, for the tier that is not allowed through it ──────────
+//
+// Everything above this line is about SHAPING a payload for somebody who may
+// read the document. Crew may not, and that is a different mechanism: the
+// route refuses before it reads a row. Executed against the same handlers, as
+// the Crew preset, because "the redactor would have caught it anyway" is only
+// true while somebody is allowed the endpoint at all.
+console.log("\nCrew is refused at the door, not redacted at the till\n");
+
+become(worker);
+const crewLeads = await leads.GET(req("http://x/api/leads"));
+check("GET /api/leads refuses Crew", crewLeads.status === 403);
+check("…with a sentence naming the access level, not a permission string",
+  /access level for Requests/.test(crewLeads.body?.error || ""));
+const crewLead = await leadDetail.GET(req("http://x/api/leads/lead1"), { params: params({ id: "lead1" }) });
+check("…and so does the detail endpoint beside it", crewLead.status === 403);
+const crewReviews = await reviews.GET(req("http://x/api/quotes/estimate-reviews"));
+check("GET /api/quotes/estimate-reviews refuses Crew", crewReviews.status === 403);
+const crewLife = await lifecycle.GET(req("http://x/api/invoices/i9/lifecycle"), { params: params({ id: "i9" }) });
+check("GET /api/invoices/[id]/lifecycle refuses Crew", crewLife.status === 403);
+
+// And the control: the same requests, one rung up, still answer.
+become(viewOnly);
+check("a member at view_only still gets the lead board",
+  Array.isArray((await leads.GET(req("http://x/api/leads"))).body));
+check("…and the estimate queue",
+  Array.isArray((await reviews.GET(req("http://x/api/quotes/estimate-reviews"))).body?.quotes));
 
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);

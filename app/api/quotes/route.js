@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMediaList } from "@/lib/media/validate";
@@ -28,6 +29,19 @@ export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
+  // The floor of this ladder used to BE view_only, so reading was open to
+  // everyone the route could reach. It no longer is: a member at quotes:none is
+  // refused here rather than handed a redacted list, because the grid says they
+  // may not see the documents at all — an empty list would be a lie about how
+  // many quotes the company has.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const clientId = searchParams.get("clientId");
@@ -50,7 +64,6 @@ export async function GET(request) {
   // route now hides) and shareToken, which resolves to a credential-free
   // public page showing the price. QA read that token as an employee with
   // showPricing:false and opened the priced document logged out.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactQuotes(full, quotes));
 }
 

@@ -31,6 +31,8 @@ import {
 } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
+import { NoAccessPanel } from "@/app/components/settings/PermissionNotice";
 import ClientMediaTile from "@/app/components/ClientMediaTile";
 import { countMediaKinds } from "@/lib/media/validate";
 import { reportResponseError } from "@/lib/clientErrors";
@@ -92,6 +94,9 @@ function initials(name) {
 
 export default function LeadsPage() {
   const { t } = useTranslation();
+  // The bottom rung — GET /api/leads refuses below it. Leads ARE the requests
+  // category; see lib/permissions/nav.js.
+  const canView = useHasLevel("requests", "view_only");
   // null until the server answers — see lib/loadState.js. The board below
   // renders four columns whose headers are counts; on a refused load they all
   // read 0 and every column says "nothing here".
@@ -120,11 +125,13 @@ export default function LeadsPage() {
   }, [q, temp, sort]);
 
   useEffect(() => {
+    if (!canView) return undefined;
     const id = setTimeout(load, q ? 250 : 0); // debounce typing
     return () => clearTimeout(id);
-  }, [load, q]);
+  }, [load, q, canView]);
 
   useEffect(() => {
+    if (!canView) return;
     fetch("/api/leads/assignees")
       .then((r) => (r.ok ? r.json() : []))
       .then(setAssignees)
@@ -148,6 +155,11 @@ export default function LeadsPage() {
     if (l.temperature) a[l.temperature] = (a[l.temperature] || 0) + 1;
     return a;
   }, {});
+
+  // Rendered INSTEAD of the screen, not around it: nothing loads, and the
+  // panel names who to ask. A list that is empty because the server refused it
+  // reads as "you have none", which is a different and untrue statement.
+  if (!canView) return <NoAccessPanel capability="accessLevel" />;
 
   return (
     <div className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">

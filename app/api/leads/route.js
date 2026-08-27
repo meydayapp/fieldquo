@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -15,6 +16,18 @@ import {
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Leads ARE the requests grid. The board used to be a screen every crew
+  // member was shown, redacted rather than refused, because view_only was the
+  // bottom of the ladder. It no longer is: somebody set to No access is
+  // refused the board entirely.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_only",
+    "see requests",
+  );
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -87,7 +100,6 @@ export async function GET(request) {
   // Note the ORDER: doNotCall is derived from the phone first, then
   // redactLead drops both together. Deriving it after the redaction would
   // silently mark every restricted lead as callable.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(
     redactLeads(
       full,

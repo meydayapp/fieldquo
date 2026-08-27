@@ -26,6 +26,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { recordActivity } from "@/lib/activity/log";
 import {
   loadEnforceableMember,
@@ -110,6 +111,15 @@ export async function GET(request, { params }) {
 
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Reading what a quote's covering email says is reading the quote.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   const { quote, company } = await load(member, id);
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });

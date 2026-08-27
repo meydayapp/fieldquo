@@ -13,12 +13,21 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
 
 export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   const job = await db.job.findFirst({
     where: { id, companyId: member.companyId },
@@ -44,6 +53,17 @@ export async function PATCH(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Featuring lifts a photo onto the company's public website, and this route
+  // asked for nothing but a session and a company match. It sits at the same
+  // level as the job's other edits — materials, status, the job itself.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_create_edit",
+    "curate a job's photos",
+  );
+  if (denied) return denied;
 
   const body = await request.json().catch(() => ({}));
   const photoId = String(body.photoId || "");

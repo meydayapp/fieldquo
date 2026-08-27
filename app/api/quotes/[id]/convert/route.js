@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { ensureInvoiceForQuote } from "@/lib/invoices/createInvoiceFromQuote";
 
@@ -25,6 +26,24 @@ export async function POST(request, { params }) {
       { status: err.status || 403 },
     );
   }
+
+  // The coarse "quote:convert" is a supervisor-and-up rule about the ACT. The
+  // grid decides whether this particular supervisor holds the two documents
+  // involved: it reads an accepted quote and raises an invoice from it.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "convert quotes",
+  );
+  if (denied) return denied;
+  const { response: deniedInvoice } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_create_edit",
+    "create invoices",
+  );
+  if (deniedInvoice) return deniedInvoice;
 
   // Company-scope the quote before doing anything (tenant boundary).
   const quote = await db.quote.findFirst({

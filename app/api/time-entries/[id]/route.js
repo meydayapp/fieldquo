@@ -146,10 +146,38 @@ export async function PATCH(request, { params }) {
   const selfApproved =
     status === "approved" && existing.worker?.userId === member.userId;
 
+  // ── A corrected timesheet goes back in the queue ─────────────────────────
+  //
+  // Crew now hold timeTracking:view_record_edit_own — they fix their own
+  // forgotten clock-out rather than asking someone to do it for them. What
+  // must not happen is the fix inheriting the sign-off of the figure it
+  // replaced: an entry that was reviewed at 6.5h and is now 9h has not been
+  // reviewed at all, and `hours` is what a pay run multiplies by a rate.
+  //
+  // Only when the person editing is the person whose hours these are, and only
+  // when they didn't say what the status should be. A supervisor correcting
+  // somebody else's entry is doing the reviewing, so their edit stands.
+  // Self-approval is allowed elsewhere (a sole trader has nobody else), which
+  // is exactly why this applies to owners and supervisors editing their own
+  // rows too — the ONE thing this closes is an approved figure changing under
+  // an approval nobody re-gave.
+  //
+  // Note the guard above already refuses a non-supervisor editing an APPROVED
+  // entry outright, so in practice this reopens two cases: a rejected entry the
+  // worker has corrected, and an approver amending their own approved hours.
+  const timesChanged = clockOut !== undefined;
+  const selfEdited = existing.worker?.userId === member.userId;
+  const reopen =
+    timesChanged &&
+    selfEdited &&
+    status === undefined &&
+    existing.status !== "pending";
+
   const updated = await db.timeEntry.update({
     where: { id: _params.id },
     data: {
       ...(clockOut !== undefined && { clockOut: resolvedClockOut, hours }),
+      ...(reopen && { status: "pending", approvedById: null }),
       ...(status !== undefined && {
         status,
         approvedById:
@@ -181,12 +209,20 @@ export async function PATCH(request, { params }) {
       metadata: { hours: updated.hours ?? null, status, selfApproved },
     });
   } else if (clockOut !== undefined) {
+    // A reopen is logged as its own action rather than as a clock-out: the
+    // reviewable fact is that an already-decided entry went back to pending,
+    // and burying that inside "Clocked out — 9h" is how it stops being visible.
     await recordActivity(member, {
-      action: "timeEntry.clockedOut",
+      action: reopen ? "timeEntry.reopenedBySelfEdit" : "timeEntry.clockedOut",
       entityType: "timeEntry",
       entityId: updated.id,
-      summary: `Clocked out ${updated.worker?.name || "a worker"} — ${updated.hours ?? "?"}h`,
-      metadata: { hours: updated.hours ?? null },
+      summary: reopen
+        ? `Edited their own hours — ${updated.hours ?? "?"}h, back to pending from ${existing.status}`
+        : `Clocked out ${updated.worker?.name || "a worker"} — ${updated.hours ?? "?"}h`,
+      metadata: {
+        hours: updated.hours ?? null,
+        ...(reopen && { previousStatus: existing.status, reopened: true }),
+      },
     });
   }
 

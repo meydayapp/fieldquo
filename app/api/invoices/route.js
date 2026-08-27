@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { allocateInvoiceNumber } from "@/lib/invoices/invoiceNumber";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requireWithinLimit } from "@/lib/platform/planLimits";
 import { normaliseMediaList } from "@/lib/media/validate";
 import {
@@ -26,6 +27,18 @@ import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // The bottom of this ladder used to be view_only, so reading was open to
+  // anyone the route could reach. A member at invoices:none is refused rather
+  // than handed an empty list — "you have no invoices" is a different statement
+  // from "these are not yours to read".
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "invoices",
+    "view_only",
+    "see invoices",
+  );
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -58,7 +71,6 @@ export async function GET(request) {
   // `invoices: view_only` is a real grant, so this is a redaction rather than a
   // 403: a crew member may see that invoice 1042 for the Tremblay job is
   // overdue without seeing what it is for.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactInvoices(full, invoices));
 }
 

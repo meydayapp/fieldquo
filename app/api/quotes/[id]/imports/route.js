@@ -12,17 +12,25 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { deriveCommitStatus, sourceView, importerView } from "@/lib/quotes/importedStatus";
-import {
-  loadEnforceableMember,
-  hasToggle,
-} from "@/lib/permissions/enforce";
+import { hasToggle } from "@/lib/permissions/enforce";
 
 export async function GET(request, { params }) {
   const { id } = await params;
 
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Both halves of this response are quote data — the sub's price and the GC's
+  // marked-up line — so it sits behind the same read gate as the quote itself.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_only",
+    "see quotes",
+  );
+  if (denied) return denied;
 
   // The quote must be the viewer's own. A given quote can be either side of an
   // import: the SOURCE (someone imported it — the sub's view) or the TARGET
@@ -91,7 +99,6 @@ export async function GET(request, { params }) {
   //
   // The source half stays open: it carries no price by construction, and it is
   // how a subcontractor sees whether their own bid was taken up.
-  const full = await loadEnforceableMember(db, member.id);
   const asImporter = hasToggle(full, "showPricing")
     ? asImporterRows.map((r) => importerView(r, { commitStatus: importerStatus }))
     : [];

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { resolveTaskBySource } from "@/lib/tasks/autoCreate";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
@@ -14,6 +15,14 @@ export async function GET(request, { params }) {
   const _params = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   const job = await db.job.findFirst({
     where: { id: _params.id, companyId: member.companyId },
@@ -34,6 +43,19 @@ export async function POST(request, { params }) {
   const _params = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  // Deliberately view_only rather than view_create_edit. Scheduling a visit is
+  // governed by the SCHEDULE category and the job:assign permission below, and
+  // a member at jobs:view_only has always been able to book one from the job
+  // page. This gate exists to close jobs:none, not to take that away — raising
+  // it is a product decision, not a cleanup.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   const job = await db.job.findFirst({
     where: { id: _params.id, companyId: member.companyId },

@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { performImport, ImportError } from "@/lib/quotes/importQuote";
 import { deriveCommitStatus, importerView } from "@/lib/quotes/importedStatus";
 import { recordActivity } from "@/lib/activity/log";
@@ -25,6 +26,16 @@ export async function POST(request, { params }) {
       { error: "Sign in to add this to your project." },
       { status: 401 },
     );
+
+  // Writes a marked-up cost line onto one of the viewer's own quotes, which is
+  // a quote edit — and had no grid check at all, only a session.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "quotes",
+    "view_create_edit",
+    "edit quotes",
+  );
+  if (denied) return denied;
 
   const body = await request.json().catch(() => ({}));
   const { targetQuoteId, markupPercent, display, label } = body;

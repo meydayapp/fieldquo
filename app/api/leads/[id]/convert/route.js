@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { convertLeadToQuote } from "@/lib/leads/convertLead";
 import { recordActivity } from "@/lib/activity/log";
 import {
@@ -25,6 +26,16 @@ export async function POST(request, { params }) {
     const { body, status } = permissionErrorResponse(err);
     return NextResponse.json(body, { status });
   }
+
+  // …and on the lead as well: this reads the request in full to build the
+  // quote from it, so someone refused the board must not reach one through here.
+  const { response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_only",
+    "see requests",
+  );
+  if (denied) return denied;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({

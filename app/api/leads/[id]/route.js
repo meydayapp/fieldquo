@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { rescoreLead } from "@/lib/leads/createLead";
 import { cleanBudgetBand, cleanTimeline } from "@/lib/leads/qualifiers";
 import {
@@ -17,6 +18,14 @@ import {
 export async function GET(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "requests",
+    "view_only",
+    "see requests",
+  );
+  if (denied) return denied;
 
   const { id } = await params;
   const lead = await db.leadRequest.findFirst({
@@ -48,7 +57,6 @@ export async function GET(request, { params }) {
   // board and pulling each detail is precisely how the client leak was
   // reached before it — see the note in app/api/clients/[id]/route.js — so the
   // detail door closes at the same time as the list.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json(redactLead(full, { ...lead, doNotCall }));
 }
 

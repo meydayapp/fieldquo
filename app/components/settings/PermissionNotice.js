@@ -60,7 +60,16 @@ export function NoAccessPanel({ capability = "user:manage", children }) {
           </h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          {t("app.perm.noAccessBody", { who: whoLabel(t, capability) })}
+          {/* Two bodies, because there are two reasons a screen refuses.
+              "Only an owner or admin can open this" is true of billing and
+              payroll — the screen belongs to a tier. It is false of the quotes
+              list, which a Dispatcher opens all day: that one is refused
+              because THIS member's access level does not include it, and
+              saying "only an owner or admin" would misdescribe the rule and
+              send them to the wrong person. */}
+          {capability === "accessLevel"
+            ? t("app.perm.noAccessLevelBody")
+            : t("app.perm.noAccessBody", { who: whoLabel(t, capability) })}
         </p>
         {children}
         <Link

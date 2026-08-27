@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import {
   loadEnforceableMember,
   requireLevel,
@@ -21,6 +22,14 @@ export async function GET(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
+
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_only",
+    "see jobs",
+  );
+  if (denied) return denied;
 
   const job = await db.job.findFirst({
     where: { id: id, companyId: member.companyId },
@@ -46,7 +55,6 @@ export async function GET(request, { params }) {
   // GET /api/jobs (the list) selects { id, name } and was never exposed. The
   // detail route is the one that had no `select` at all, which is the same
   // shape as the /api/clients leak this redactor was written for.
-  const full = await loadEnforceableMember(db, member.id);
   return NextResponse.json({ ...job, client: redactClient(full, job.client) });
 }
 
