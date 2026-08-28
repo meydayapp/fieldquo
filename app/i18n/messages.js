@@ -170,6 +170,9 @@ const en = {
   "pricing.seatsMany": "{count} employee accounts",
   "pricing.rbacSeats": "1 master account + {count} RBAC seats",
   "pricing.crewIncluded": "{count} crew members included — free",
+  "pricing.seatsOneIncluded": "1 seat — quoting, jobs and invoicing",
+  "pricing.seatsManyIncluded": "{count} seats — quoting, jobs and invoicing",
+  "pricingPage.currencyBasis": "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, US companies in US dollars — the same number either way, not a converted one.",
   "pricing.fullAccess":
     "Full access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Up to {count} quotes per month",
@@ -403,6 +406,9 @@ const fr = {
   "pricing.seatsMany": "{count} comptes employés",
   "pricing.rbacSeats": "1 compte principal + {count} accès par rôle",
   "pricing.crewIncluded": "{count} équipiers inclus — gratuitement",
+  "pricing.seatsOneIncluded": "1 siège — soumissions, contrats et facturation",
+  "pricing.seatsManyIncluded": "{count} sièges — soumissions, contrats et facturation",
+  "pricingPage.currencyBasis": "Un seul jeu de prix. La devise facturée découle de l'adresse d'entreprise fournie à l'inscription : les entreprises canadiennes sont facturées en dollars canadiens, les américaines en dollars américains — le même montant, pas une conversion.",
   "pricing.fullAccess":
     "Accès complet — soumissions, facturation, planification, analytique",
   "pricing.quoteLimit": "Jusqu'à {count} soumissions par mois",
@@ -621,6 +627,9 @@ const es = {
   "pricing.seatsMany": "{count} cuentas de empleado",
   "pricing.rbacSeats": "1 cuenta principal + {count} accesos por rol",
   "pricing.crewIncluded": "{count} miembros de cuadrilla incluidos — gratis",
+  "pricing.seatsOneIncluded": "1 puesto — presupuestos, trabajos y facturación",
+  "pricing.seatsManyIncluded": "{count} puestos — presupuestos, trabajos y facturación",
+  "pricingPage.currencyBasis": "Un solo conjunto de precios. La moneda que se te cobra depende de la dirección comercial que indiques al registrarte: a las empresas canadienses se les cobra en dólares canadienses y a las estadounidenses en dólares estadounidenses — la misma cifra, no una conversión.",
   "pricing.fullAccess":
     "Acceso completo — presupuestos, facturación, agenda, analítica",
   "pricing.quoteLimit": "Hasta {count} presupuestos por mes",
@@ -806,6 +815,9 @@ const uk = {
   "pricing.seatsMany": "Облікових записів працівників: {count}",
   "pricing.rbacSeats": "1 головний обліковий запис + {count} доступів за ролями",
   "pricing.crewIncluded": "{count} членів бригади включено — безкоштовно",
+  "pricing.seatsOneIncluded": "1 місце — кошториси, роботи та рахунки",
+  "pricing.seatsManyIncluded": "{count} місць — кошториси, роботи та рахунки",
+  "pricingPage.currencyBasis": "Один набір цін. Валюта оплати визначається адресою бізнесу, яку ви вкажете під час реєстрації: канадські компанії оплачують у канадських доларах, американські — у доларах США. Та сама сума, не конвертація.",
   "pricing.fullAccess":
     "Повний доступ — кошториси, рахунки, планування, аналітика",
   "pricing.quoteLimit": "До {count} кошторисів на місяць",
@@ -1024,6 +1036,9 @@ const pa = {
   "pricing.seatsMany": "{count} ਕਰਮਚਾਰੀ ਖਾਤੇ",
   "pricing.rbacSeats": "1 ਮੁੱਖ ਖਾਤਾ + {count} ਭੂਮਿਕਾ-ਆਧਾਰਿਤ ਪਹੁੰਚਾਂ",
   "pricing.crewIncluded": "{count} ਕਰੂ ਮੈਂਬਰ ਸ਼ਾਮਲ — ਮੁਫ਼ਤ",
+  "pricing.seatsOneIncluded": "1 ਸੀਟ — ਹਵਾਲੇ, ਕੰਮ ਅਤੇ ਬਿਲਿੰਗ",
+  "pricing.seatsManyIncluded": "{count} ਸੀਟਾਂ — ਹਵਾਲੇ, ਕੰਮ ਅਤੇ ਬਿਲਿੰਗ",
+  "pricingPage.currencyBasis": "ਕੀਮਤਾਂ ਦਾ ਇੱਕੋ ਸੈੱਟ। ਤੁਹਾਨੂੰ ਕਿਸ ਮੁਦਰਾ ਵਿੱਚ ਬਿੱਲ ਕੀਤਾ ਜਾਵੇਗਾ, ਇਹ ਸਾਈਨ ਅੱਪ ਵੇਲੇ ਦਿੱਤੇ ਕਾਰੋਬਾਰੀ ਪਤੇ ਤੋਂ ਤੈਅ ਹੁੰਦਾ ਹੈ: ਕੈਨੇਡੀਅਨ ਕੰਪਨੀਆਂ ਨੂੰ ਕੈਨੇਡੀਅਨ ਡਾਲਰ ਵਿੱਚ ਅਤੇ ਅਮਰੀਕੀ ਕੰਪਨੀਆਂ ਨੂੰ ਅਮਰੀਕੀ ਡਾਲਰ ਵਿੱਚ — ਰਕਮ ਓਹੀ ਰਹਿੰਦੀ ਹੈ, ਕੋਈ ਬਦਲੀ ਨਹੀਂ।",
   "pricing.fullAccess":
     "ਪੂਰੀ ਪਹੁੰਚ — ਕੋਟ, ਇਨਵੌਇਸਿੰਗ, ਸ਼ਡਿਊਲਿੰਗ, ਵਿਸ਼ਲੇਸ਼ਣ",
   "pricing.quoteLimit": "ਹਰ ਮਹੀਨੇ {count} ਕੋਟ ਤੱਕ",
@@ -1244,6 +1259,9 @@ const tl = {
   "pricing.seatsMany": "{count} na employee account",
   "pricing.rbacSeats": "1 master account + {count} na RBAC seat",
   "pricing.crewIncluded": "{count} miyembro ng crew kasama — libre",
+  "pricing.seatsOneIncluded": "1 seat — quoting, trabaho at invoicing",
+  "pricing.seatsManyIncluded": "{count} seats — quoting, trabaho at invoicing",
+  "pricingPage.currencyBasis": "Iisang set ng presyo. Ang pera na sisingilin sa iyo ay batay sa business address na ibibigay mo sa pag-sign up: ang mga kumpanyang Canadian ay sinisingil sa Canadian dollars, ang mga US sa US dollars — parehong halaga, hindi kinonvert.",
   "pricing.fullAccess":
     "Buong access — quotes, invoicing, scheduling, analytics",
   "pricing.quoteLimit": "Hanggang {count} na quote bawat buwan",

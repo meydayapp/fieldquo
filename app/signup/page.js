@@ -258,6 +258,76 @@ function CompanyFields({ form, setForm, fieldErrors }) {
   );
 }
 
+/**
+ * Which plan row should be selected, given what the link asked for and which
+ * rows this visitor's currency actually offers.
+ *
+ * ══ A tier is portable; a plan id is not ═══════════════════════════════════
+ *
+ * Every rung of the ladder exists twice in the Plan table, once per currency,
+ * carrying the same number. So `?plan=<id>` names a row AND a currency, and the
+ * pricing page had to pick one of the two to build each link — which meant half
+ * the buttons on the public page handed a US visitor the CAD row, on a funnel
+ * whose entire design is that the ADDRESS decides the currency.
+ *
+ * `?tier=<tierKey>` is what those buttons carry now, and it says nothing about
+ * money. `?plan=<id>` is still honoured because links carrying it are already
+ * in the wild — but it is read as a wish for that row's TIER, resolved through
+ * `all` (which holds both currencies) and then re-found in `visible` (which
+ * holds only the one this visitor will be billed in). A stale CAD link
+ * therefore lands an American on the US row of the same rung, rather than on a
+ * selection with no card next to it and a 400 four steps later.
+ *
+ * ══ Why it is safe to run this on every change ═════════════════════════════
+ *
+ * The first rule is that a selection already on screen wins. So the query's
+ * wish only applies while nothing valid is selected, which is why this can be a
+ * live effect rather than a once-at-load assignment — it re-resolves when the
+ * address changes the currency, and it never fights somebody clicking a card.
+ *
+ * @param all       every plan the API returned, both currencies
+ * @param visible   the rows this step is actually rendering
+ * @param wantedTier   ?tier=<tierKey>, or null
+ * @param wantedPlanId ?plan=<id> from an older link, or null
+ * @param current   what is selected now (from state, or restored from a draft)
+ */
+export function resolvePlanSelection({
+  all = [],
+  visible = [],
+  wantedTier = null,
+  wantedPlanId = null,
+  current = null,
+} = {}) {
+  const rows = Array.isArray(all) ? all : [];
+  const shown = Array.isArray(visible) ? visible : [];
+
+  // Still buyable exactly as it stands. Leave it alone.
+  if (current && shown.some((p) => p.id === current)) return current;
+
+  const tierOf = (id) => (id ? rows.find((p) => p.id === id)?.tierKey || null : null);
+  const inCurrency = (tierKey) =>
+    tierKey ? shown.find((p) => p.tierKey === tierKey) : null;
+
+  // In order of how directly each states a tier: the query's tier, the tier
+  // behind an old link's row, then the tier behind whatever the draft carried
+  // across a change of address.
+  const wished =
+    inCurrency(wantedTier) ||
+    inCurrency(tierOf(wantedPlanId)) ||
+    inCurrency(tierOf(current));
+  if (wished) return wished.id;
+
+  // A legacy per-headcount row has no tier to translate through. It is a single
+  // row rather than a currency pair, so an id that is genuinely on the page
+  // still counts — that is what keeps an old link to one of them working.
+  if (wantedPlanId && shown.some((p) => p.id === wantedPlanId)) return wantedPlanId;
+
+  // Nothing matched: a withdrawn plan, or a tier this currency doesn't carry.
+  // Null rather than the nearest thing — picking a rung for somebody is picking
+  // what they pay, and the step is perfectly able to ask.
+  return null;
+}
+
 export default function SignupPage() {
   // Signed-out is the common case, so the funnel opens on "account". A visitor
   // who turns out to have a login is moved to "business" by the resume effect
@@ -359,6 +429,12 @@ export default function SignupPage() {
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
+
+  // What the link that sent them here asked for: { tier, planId }. A ref rather
+  // than state because it is read, never rendered, and re-rendering the funnel
+  // when the query string is parsed would be a render for nothing. Filled in by
+  // the plans effect below and constant afterwards.
+  const wantedRef = useRef({ tier: null, planId: null });
 
   const [isCustom, setIsCustom] = useState(false);
   const [customCount, setCustomCount] = useState(25);
@@ -709,16 +785,17 @@ export default function SignupPage() {
   }, [form]);
 
   useEffect(() => {
-    // ?plan=<id> is what the pricing page's "Start Free Trial" buttons carry.
-    // It was never read, so choosing a tier on /pricing landed here with
-    // nothing selected and the Continue button disabled.
+    // ── What the link asked for ─────────────────────────────────────────────
     //
-    // Applied inside this .then rather than in a separate effect keyed on
-    // `plans`, so it runs exactly once at load: an effect would re-assert the
-    // query's plan every time the list changed and fight anyone clicking a
-    // different card. Unknown ids are ignored rather than errored — a stale
-    // link should still let you pick.
-    const wantedPlanId = new URLSearchParams(window.location.search).get("plan");
+    // ?tier=<tierKey> is what the /pricing cards carry. ?plan=<id> is the older
+    // form and is still read, because those links are in the wild — but it is
+    // treated as a wish for that row's TIER rather than for the row itself, so
+    // a CAD link doesn't put an American on the CAD plan. Both are stashed
+    // rather than applied here: the currency that decides which row answers the
+    // wish comes from an address collected three steps later, so the resolution
+    // has to be a live effect. See resolvePlanSelection above.
+    const query = new URLSearchParams(window.location.search);
+    wantedRef.current = { tier: query.get("tier"), planId: query.get("plan") };
 
     fetch("/api/marketing/plans")
       .then((r) => r.json())
@@ -733,18 +810,11 @@ export default function SignupPage() {
           : Array.isArray(data?.plans)
             ? data.plans
             : [];
+        // No selection is made here any more. Both the query's wish and the
+        // draft's leftover are resolved by the effect below, which is the only
+        // place that knows the billing currency — and a withdrawn plan is
+        // dropped there by the same rule that drops a wrong-currency one.
         setPlans(list);
-        setSelectedPlanId((current) => {
-          if (wantedPlanId && list.some((p) => p.id === wantedPlanId)) {
-            return wantedPlanId;
-          }
-          // A plan id restored from the draft is only trustworthy if the tier
-          // still exists. One withdrawn since they last looked would otherwise
-          // survive as a filled-in "Selected plan" and an enabled Continue
-          // button that 400s with "Selected plan not found" four steps later.
-          if (current && !list.some((p) => p.id === current)) return null;
-          return current;
-        });
       })
       .catch(() => setPlans([]))
       .finally(() => setPlansLoading(false));
@@ -755,21 +825,37 @@ export default function SignupPage() {
       .catch(() => setCategories([]));
   }, []);
 
-  // ── A plan from the other currency can't stay selected ──────────────────
+  // ── One place decides what is selected ──────────────────────────────────
   //
-  // The draft survives a change of address, and `selectedPlanId` in it may be
-  // the CAD row of a tier for someone who has since told us they're in Texas.
-  // Left alone it would show as a filled-in "Selected plan" with no card
-  // matching it and an enabled Continue button, and the server would refuse the
-  // mismatch four steps later. Same shape as the withdrawn-plan guard in the
-  // fetch below, for the same reason.
+  // This used to only NULL a selection that had fallen out of the visible list
+  // — the CAD row of a tier, held in a draft by somebody who has since told us
+  // they're in Texas. Nulling was right as far as it went and threw away the
+  // one thing worth keeping: which rung they had picked. Now the same event
+  // re-resolves it, so changing the address moves the selection across to the
+  // other currency's row of the same tier instead of clearing the step.
+  //
+  // Skipped entirely while "Custom" is chosen — that is a selection too, and
+  // re-asserting a ladder row underneath it would quietly change what gets
+  // posted.
   useEffect(() => {
-    if (plansLoading || !selectedPlanId) return;
-    if (visiblePlans.some((p) => p.id === selectedPlanId)) return;
-    setSelectedPlanId(null);
+    if (plansLoading || isCustom) return;
+    const next = resolvePlanSelection({
+      all: plans,
+      visible: visiblePlans,
+      wantedTier: wantedRef.current.tier,
+      wantedPlanId: wantedRef.current.planId,
+      current: selectedPlanId,
+    });
+    if (next !== selectedPlanId) setSelectedPlanId(next);
     // Depending on the id list rather than the array, which is rebuilt every
     // render and would make this an infinite loop.
-  }, [plansLoading, selectedPlanId, visiblePlans.map((p) => p.id).join(",")]);
+  }, [
+    plansLoading,
+    isCustom,
+    plans,
+    selectedPlanId,
+    visiblePlans.map((p) => p.id).join(","),
+  ]);
 
   function selectPlan(plan) {
     setSelectedPlanId(plan.id);

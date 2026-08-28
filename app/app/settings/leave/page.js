@@ -10,6 +10,21 @@
 //   • A fixed number of days each year — the whole allowance is available now.
 //   • Accrues each pay period — earned gradually, so it's lower in January.
 //   • Vacation pay as % of gross — accrues MONEY, not days (Canada's 4% model).
+//
+// ══ The starter sets lead with the company's own country ═══════════════════
+//
+// This screen used to list Canada, the United States and the United Kingdom as
+// three equal choices, to a company whose address we have held since signup.
+// The server now says which country the record states (see the GET route) and
+// the picker leads with that one.
+//
+// Led with, NOT applied. Seeding writes LeavePolicy rows and accrues balances
+// against every worker immediately — those are employment terms, and a company
+// that opened a settings page must not come back to find them set. It is the
+// same call the owner made on seats: no auto add, because anything that moves a
+// customer's position without a press comes back as a support thread about what
+// the software did on its own. The country picks the default answer; the human
+// still presses the button.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -25,6 +40,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+import { COUNTRIES } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 const METHOD_LABEL = {
@@ -187,43 +203,17 @@ export default function LeaveSettingsPage() {
         </div>
       )}
 
-      {!active.length && (
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center gap-2 font-semibold text-foreground">
-            <Sparkles size={16} /> {t("app.setLeave.startTemplate")}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t("app.setLeave.templateDesc")}
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {data.templates.map((tpl) => (
-              <button
-                key={tpl.key}
-                onClick={() => seed(tpl.key)}
-                disabled={Boolean(busy)}
-                className="rounded-lg border border-border p-3 text-left hover:bg-muted disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">{tpl.label}</span>
-                  {busy === `seed-${tpl.key}` ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <ArrowRight size={14} className="text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {t("app.setLeave.templateMeta", {
-                    count: tpl.policies.length,
-                    year: tpl.sourceYear,
-                  })}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
-                  {tpl.note}
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Only when the templates actually arrived. A failed load leaves
+          `templates` empty, and an empty picker saying "we don't know which
+          country your business is in" would turn a server error into a question
+          about the customer's address — the mistake the billing page made. */}
+      {!active.length && data.templates.length > 0 && (
+        <TemplatePicker
+          templates={data.templates}
+          home={data.home}
+          busy={busy}
+          onSeed={seed}
+        />
       )}
 
       <section className="space-y-3">
@@ -315,6 +305,199 @@ export default function LeaveSettingsPage() {
         {t("app.setLeave.statutoryNote")}
       </p>
     </div>
+  );
+}
+
+/**
+ * The starter sets, with the company's own country first.
+ *
+ * Three states, because there are genuinely three answers and flattening them
+ * loses the honest one:
+ *
+ *   country known, set exists   lead with it, say where we read it, keep the
+ *                               others one line below for a company hiring
+ *                               abroad.
+ *   country known, no set       say plainly that there is no starter for
+ *                               Australia, then offer the three as borrowed
+ *                               starting points rather than a list that looks
+ *                               chosen for them.
+ *   country unknown             exactly what this screen did before, plus where
+ *                               to fill the address in. NOT Canada by default:
+ *                               absence of a statement is not a statement, and
+ *                               a company nudged into another country's leave
+ *                               terms would have no idea why.
+ */
+function TemplatePicker({ templates, home, busy, onSeed }) {
+  const { t } = useTranslation();
+
+  const homeTemplate =
+    (home?.templateKey &&
+      templates.find((tpl) => tpl.key === home.templateKey)) ||
+    null;
+  const others = templates.filter((tpl) => tpl !== homeTemplate);
+  // The same lookup Company Settings and the signup funnel use for this, so a
+  // country reads as "Australia" and not as "AU". Falls back to the code rather
+  // than to nothing — an unmapped code is still an answer we were given.
+  const countryName = home?.country
+    ? COUNTRIES.find((c) => c.code === home.country)?.name || home.country
+    : null;
+
+  // Which field answered it. Shown because a company being led towards one
+  // country's employment terms should be able to see why, and disagree.
+  const sourceLine = {
+    column: t(
+      "app.setLeave.templateFromCountry",
+      "Chosen from the country on your company profile.",
+    ),
+    address: t(
+      "app.setLeave.templateFromAddress",
+      "Chosen from your business address.",
+    ),
+    province: t(
+      "app.setLeave.templateFromProvince",
+      "Chosen from your business province.",
+    ),
+  }[home?.source];
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+      <div className="flex items-center gap-2 font-semibold text-foreground">
+        <Sparkles size={16} />
+        {homeTemplate
+          ? t("app.setLeave.startTemplateHome", "Start from the {country} set", {
+              country: homeTemplate.label,
+            })
+          : t("app.setLeave.startTemplate")}
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {t("app.setLeave.templateDesc")}
+      </p>
+
+      {homeTemplate ? (
+        <>
+          <TemplateButton
+            tpl={homeTemplate}
+            isHome
+            busy={busy}
+            onSeed={onSeed}
+          />
+          {sourceLine && (
+            <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+              <Info size={12} className="mt-0.5 shrink-0" />
+              <span>
+                {sourceLine}{" "}
+                <Link href="/app/settings/company" className="underline">
+                  {t(
+                    "app.setLeave.templateChangeCountry",
+                    "Change it in Company settings",
+                  )}
+                </Link>
+              </span>
+            </p>
+          )}
+          {others.length > 0 && (
+            <div className="pt-1 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  "app.setLeave.templateElsewhere",
+                  "Hiring in another country? These are here too.",
+                )}
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {others.map((tpl) => (
+                  <TemplateButton
+                    key={tpl.key}
+                    tpl={tpl}
+                    busy={busy}
+                    onSeed={onSeed}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-foreground rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+            {countryName
+              ? t(
+                  "app.setLeave.templateNoneForCountry",
+                  "We don't have a starter set for {country} yet. These are the ones we do have — borrow one as a starting point and check the rules where you are.",
+                  { country: countryName },
+                )
+              : t(
+                  "app.setLeave.templateNoCountry",
+                  "We don't know which country your business is in, so none of these is chosen for you.",
+                )}
+            {!countryName && (
+              <>
+                {" "}
+                <Link href="/app/settings/company" className="underline">
+                  {t(
+                    "app.setLeave.templateNoCountryCta",
+                    "Add your business address in Company settings",
+                  )}
+                </Link>
+              </>
+            )}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {templates.map((tpl) => (
+              <TemplateButton
+                key={tpl.key}
+                tpl={tpl}
+                busy={busy}
+                onSeed={onSeed}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One starter set. Shared by the leading card and the rest deliberately: the
+ * note under each ("28 days INCLUDES bank holidays…") is the honesty of this
+ * feature, and a second copy of this markup is the one that would eventually
+ * lose it.
+ */
+function TemplateButton({ tpl, isHome = false, busy, onSeed }) {
+  const { t } = useTranslation();
+  return (
+    <button
+      onClick={() => onSeed(tpl.key)}
+      disabled={Boolean(busy)}
+      className={`w-full rounded-lg border p-3 text-left hover:bg-muted disabled:opacity-60 ${
+        isHome ? "border-foreground bg-muted/40" : "border-border"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium text-foreground">
+          {tpl.label}
+          {isHome && (
+            <span className="ml-2 rounded-full bg-background border border-border px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
+              {t("app.setLeave.templateHomeBadge", "Your country")}
+            </span>
+          )}
+        </span>
+        {busy === `seed-${tpl.key}` ? (
+          <Loader2 size={14} className="animate-spin shrink-0" />
+        ) : (
+          <ArrowRight size={14} className="text-muted-foreground shrink-0" />
+        )}
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-1">
+        {t("app.setLeave.templateMeta", {
+          count: tpl.policies.length,
+          year: tpl.sourceYear,
+        })}
+      </p>
+      <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+        {tpl.note}
+      </p>
+    </button>
   );
 }
 

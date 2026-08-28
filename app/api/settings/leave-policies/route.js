@@ -3,7 +3,8 @@
 // The company's leave policies — what kinds of time off exist, how entitlement
 // builds up, and how much rolls into next year.
 //
-// GET    — policies + regional templates to seed from + a year-end roll preview
+// GET    — policies + regional templates to seed from, with the company's OWN
+//          country marked + a year-end roll preview
 // POST   — create one, or seed a region's set, or roll the year
 // PATCH  — update one
 // DELETE — deactivate one (never hard-delete: past requests point at it)
@@ -20,6 +21,7 @@ import {
   templatePoliciesFor,
 } from "@/lib/leave/policyTemplates";
 import { refreshAccruals, rollYear } from "@/lib/leave/balances";
+import { statedCountry, countryKeyIn } from "@/lib/company/resolveCountry";
 
 function isLeaveAdmin(role) {
   return role === "owner" || role === "admin";
@@ -69,19 +71,58 @@ export async function GET(request) {
   }
 
   const year = new Date().getUTCFullYear();
-  const [policies, workerCount] = await Promise.all([
+  const [policies, workerCount, company] = await Promise.all([
     db.leavePolicy.findMany({
       where: { companyId: member.companyId },
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: { _count: { select: { requests: true } } },
     }),
     db.worker.count({ where: { companyId: member.companyId, active: true } }),
+    // ── We already know where they are ───────────────────────────────────
+    //
+    // The screen listed Canada, the United States and the United Kingdom as
+    // three equal choices, each with its own caveat, to a company whose address
+    // has been on file since signup. The owner's words: "we know the address of
+    // the company from sign up and company settings, we know which country they
+    // live. so this should be done automatically."
+    //
+    // This is the second screen to be reported for it — app/api/settings/plans
+    // asked a Canadian company with a Canadian address where its business was —
+    // so it is answered the same way and by the same reader. The ADDRESS, not
+    // just the column: companies that signed up before AddressAutocomplete's
+    // country component reached the server have a null `country` and a complete
+    // "1039 Bank St, Ottawa, ON K1X 1H4, Canada" in the columns beside it.
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { country: true, address: true, province: true },
+    }),
   ]);
+
+  // statedCountry rather than resolveCountry: this is not a pricing question, so
+  // an answer we cannot bill in — GB, AU — is still an answer worth having. See
+  // the note on both functions.
+  const where = statedCountry(company);
 
   return NextResponse.json({
     policies,
     workerCount,
     year,
+    // Reported, never acted on. `country` null means nothing on the record
+    // states one and the screen must ASK rather than lead with Canada; a
+    // `country` with a null `templateKey` is a company in a country we have no
+    // starter set for, which is a different sentence again. `source` travels
+    // with the answer so the screen can say WHERE it read it — a company being
+    // led towards one country's employment terms deserves to see that, and to
+    // disagree.
+    home: {
+      country: where.country,
+      source: where.source,
+      templateKey: countryKeyIn(where.country, LEAVE_REGIONS),
+    },
+    // All three, still. A Canadian company can legitimately hire in the US, and
+    // seeding stays a press either way — see the POST below, which takes any
+    // region and does not consult `home`. What changed is which one is offered
+    // first, not which ones exist.
     templates: LEAVE_REGIONS.map((key) => ({
       key,
       label: LEAVE_TEMPLATES[key].label,

@@ -5,7 +5,9 @@
 // export have to stay on the server. Same shape as /industries/[slug].
 //
 // Before this split the whole page was hardcoded English on an otherwise
-// six-language site, and it printed "$45" with no currency anywhere on it.
+// six-language site, and it printed "$45" with nothing anywhere on the page
+// saying what money that was. The note under the grid is now what answers
+// that, and it answers it with the address rule rather than with a geo guess.
 "use client";
 
 import Link from "next/link";
@@ -23,7 +25,9 @@ import { numberLocaleFor } from "@/app/i18n/numberLocale";
  *
  * Rule: up to four plans go on one row; beyond that, pick the widest layout
  * whose LAST row is fullest, so the orphan is never a single card. Pure, and
- * exercised over 1..12 by check-pricing-grid.mjs.
+ * exercised over 1..12 by scripts/check-pricing-page.mjs. (It named
+ * check-pricing-grid.mjs, which has never existed in this repo — so the
+ * comment was the only thing exercising it.)
  */
 export function pricingColumns(count) {
   const n = Math.max(0, Math.floor(Number(count) || 0));
@@ -51,10 +55,104 @@ const COLUMN_CLASS = {
   4: "sm:grid-cols-2 lg:grid-cols-4",
 };
 
-export default function PricingPlans({ plans, currency }) {
+/**
+ * What the buy button points at.
+ *
+ * ══ The tier, never the row ════════════════════════════════════════════════
+ *
+ * Every rung exists twice in the Plan table, once per currency, and the ids
+ * differ. `/signup?plan=<id>` therefore hard-binds the link to whichever row
+ * this page happened to render — so a visitor in Buffalo clicking the card
+ * we built from the CAD row arrived at signup with the CAD row selected, on a
+ * page whose whole design is that the address decides the currency.
+ *
+ * `?tier=<tierKey>` names the rung and says nothing about money. Signup
+ * resolves it against the currency it works out from the business address,
+ * three steps before the plan step (see resolvePlanSelection in
+ * app/signup/page.js).
+ *
+ * A legacy per-headcount row has no tierKey — there is no tier to name — so it
+ * keeps the id form. Those rows are currency-agnostic in practice (one row, not
+ * a pair), which is exactly the case the id form is safe for.
+ */
+export function signupHref(plan) {
+  return plan?.tierKey
+    ? `/signup?tier=${encodeURIComponent(plan.tierKey)}`
+    : `/signup?plan=${encodeURIComponent(plan?.id ?? "")}`;
+}
+
+/**
+ * What a plan says about people — as two separate statements, or one legacy one.
+ *
+ * ══ "6 employee accounts" was the wrong number ═════════════════════════════
+ *
+ * The cards printed `maxUsers`, which is seats PLUS crew: Solo showed "6
+ * employee accounts" for a plan that bills ONE seat and throws in five crew.
+ * The owner read that same sum on the in-app billing screen and created an
+ * Administrator he was not entitled to; seatLine() in
+ * app/app/settings/account-billing/page.js is where it was fixed there, and
+ * this is the marketing surface that still said it.
+ *
+ * Returns t() descriptors rather than finished strings so the rule is pure and
+ * executable — the thing being asserted is which numbers are stated, not how
+ * they were rendered.
+ *
+ * A row with `crewSeats == null` is a legacy per-headcount plan that has no
+ * crew concept at all. It keeps the old wording rather than being handed an
+ * invented zero: "0 crew included" is a statement nobody made about it.
+ */
+export function peopleLines(plan) {
+  if (!plan) return [];
+
+  if (plan.crewSeats == null) {
+    const count = Number(plan.maxUsers) || 0;
+    if (count <= 0) return [];
+    // Separate keys, not an appended "s" — see the note at the call site.
+    return [
+      count === 1
+        ? { key: "pricing.seatsOne", fallback: "1 employee account" }
+        : {
+            key: "pricing.seatsMany",
+            fallback: "{count} employee accounts",
+            values: { count },
+          },
+    ];
+  }
+
+  const lines = [];
+  const seats = Number(plan.seats) || 0;
+  if (seats > 0) {
+    lines.push(
+      seats === 1
+        ? {
+            key: "pricing.seatsOneIncluded",
+            fallback: "1 seat — quoting, jobs and invoicing",
+          }
+        : {
+            key: "pricing.seatsManyIncluded",
+            fallback: "{count} seats — quoting, jobs and invoicing",
+            values: { count: seats },
+          },
+    );
+  }
+
+  const crew = Number(plan.crewSeats) || 0;
+  // Only when there are some. A tier with zero crew has nothing to say here,
+  // and "0 crew members included — free" reads as a taunt.
+  if (crew > 0) {
+    lines.push({
+      key: "pricing.crewIncluded",
+      fallback: "{count} crew members included — free",
+      values: { count: crew },
+    });
+  }
+
+  return lines;
+}
+
+export default function PricingPlans({ plans }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
-  const meta = currencyMeta(currency);
 
   const columns = pricingColumns(plans.length);
 
@@ -94,38 +192,45 @@ export default function PricingPlans({ plans, currency }) {
                   </h3>
                   <div className="mt-3 flex items-baseline flex-wrap gap-x-1.5">
                     <span className="text-3xl font-bold text-foreground">
-                      {meta.symbol}
+                      {currencyMeta(plan.currency).symbol}
                       {price(plan.priceMonthly)}
                     </span>
-                    {/* The currency code, every single time. A Plan row holds
-                        ONE number and Stripe bills it in the company's own
-                        currency, so "$700" is $700 CAD to a Toronto contractor
-                        and $700 USD to one in Buffalo — roughly $250/month
-                        apart. The symbol alone does not distinguish them. */}
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {meta.code}
-                    </span>
+                    {/* ── No currency CODE, and that is the point ──────────
+                        This printed one, chosen from an IP geo guess, so the
+                        page told a visitor "All prices are in CAD" on the
+                        strength of where their traffic happened to enter the
+                        network. The earlier argument for printing it — that
+                        $700 CAD and $700 USD are $250 apart — was an argument
+                        about the BILLING currency, and this page cannot know
+                        it. The two rows of a tier carry the same number, so
+                        there is nothing here to disambiguate; the note under
+                        the grid says where the currency is actually decided.
+                        The symbol comes from the row's own currency column,
+                        which is a fact about the row, not about the reader. */}
                     <span className="text-sm text-muted-foreground">
                       {t("pricingPage.perMonth")}
                     </span>
                   </div>
 
                   <ul className="mt-6 space-y-2.5 flex-1">
-                    {plan.maxUsers ? (
-                      <li className="flex items-center gap-2 text-sm text-foreground">
+                    {/* Seats and crew as separate statements — never their sum.
+                        Singular and plural are separate keys rather than an
+                        appended "s": this once read "Up to 1 team members" in
+                        English, and most of the other five languages don't
+                        pluralise by suffixing at all — Ukrainian has three
+                        plural forms. */}
+                    {peopleLines(plan).map((line) => (
+                      <li
+                        key={line.key}
+                        className="flex items-center gap-2 text-sm text-foreground"
+                      >
                         <CheckCircle2
                           size={16}
                           className="text-green-600 shrink-0"
                         />
-                        {/* Separate keys, not an appended "s". This read
-                            "Up to 1 team members" in English, and most of the
-                            other five languages don't pluralise by suffixing
-                            at all — Ukrainian has three plural forms. */}
-                        {plan.maxUsers === 1
-                          ? t("pricing.seatsOne")
-                          : t("pricing.seatsMany", { count: plan.maxUsers })}
+                        {t(line.key, line.fallback, line.values)}
                       </li>
-                    ) : null}
+                    ))}
 
                     {plan.maxQuotesPerMonth ? (
                       <li className="flex items-center gap-2 text-sm text-foreground">
@@ -169,7 +274,7 @@ export default function PricingPlans({ plans, currency }) {
                   </ul>
 
                   <Link
-                    href={`/signup?plan=${plan.id}`}
+                    href={signupHref(plan)}
                     className="mt-8 text-center bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary"
                   >
                     {t("nav.signup")}
@@ -179,11 +284,24 @@ export default function PricingPlans({ plans, currency }) {
             })}
           </div>
 
-          {/* Two things a contractor cannot work out from the cards alone:
-              which currency they'd be charged in, and whether the number is
-              what leaves their account. Ontario adds 13% HST on top. */}
+          {/* ── What this note may and may not claim ──────────────────────
+              It used to open "All prices are in CAD", with the code filled in
+              from an IP geo guess. The owner's objection, and he is right: you
+              cannot tell whether a visitor is in Canada, the USA or Europe
+              until they sign up, so that sentence was a guess wearing a
+              statement's clothes.
+
+              What IS true from here: the numbers are one set, not two; the
+              billing currency is decided by the business address at signup;
+              and the two supported currencies carry the same number rather
+              than a converted one (SUPPORTED_CURRENCIES — CAD and USD, and
+              nothing implies a third). Tax stays a second sentence because it
+              is a second fact — Ontario adds 13% HST on top of whichever. */}
           <p className="mt-8 text-center text-sm text-muted-foreground max-w-2xl mx-auto">
-            {t("pricingPage.currencyNote", { currency: meta.code })}{" "}
+            {t(
+              "pricingPage.currencyBasis",
+              "One set of prices. Which money you're billed in comes from the business address you give when you sign up: Canadian companies are billed in Canadian dollars, US companies in US dollars — the same number either way, not a converted one.",
+            )}{" "}
             {t("pricingPage.taxNote")}
           </p>
         </>
