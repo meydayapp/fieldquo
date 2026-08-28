@@ -898,9 +898,9 @@ const PAGES = [
     label: "Client financing",
     headline: "Let the homeowner spread the cost of the big job",
     oneLine:
-      "Pay-over-time offered at checkout through Affirm, on top of card, on the jobs homeowners otherwise postpone.",
+      "Your clients can pay monthly through Affirm. You are paid in full, up front, on the jobs they would otherwise put off another year.",
     description:
-      "Offer homeowners pay-over-time at checkout through Affirm, via your own Stripe account — with the honest limits on who lends and what qualifies.",
+      "Offer your clients pay-over-time through Affirm and get paid in full up front — included, with nothing extra to sign up for.",
     pains: [
       {
         pain:
@@ -910,9 +910,9 @@ const PAGES = [
       },
       {
         pain:
-          "Signing up with a finance company is its own project, with its own paperwork.",
+          "Every finance company wants its own application, its own contract and its own portal.",
         fix:
-          "It rides on the payment account you already connected. There is nothing separate to integrate.",
+          "It rides on the Stripe account you already connected. One switch in Settings, and it is on your pay page.",
       },
       {
         pain:
@@ -925,17 +925,17 @@ const PAGES = [
       {
         step: "Affirm at checkout, through your own account",
         body:
-          "When you switch financing on, the pay page offers Affirm alongside card. It rides on the Stripe account your payments already settle into; Affirm has to be switched on in that account before it can appear.",
+          "Switch financing on and your pay page offers Affirm beside card. It runs on the Stripe account your money already lands in, so there is no second application, no new contract, and no separate finance provider to onboard with.",
       },
       {
-        step: "It only appears where it can actually work",
+        step: "You get the whole job, today",
         body:
-          "Affirm is offered on amounts between $50 and $30,000 in Canadian or US dollars. Outside that, the page shows card only — a pay link that works beats one that names an option and then fails.",
+          "Affirm pays you the full amount and carries the instalments themselves — you are not waiting on your client and you are not financing them out of your own float. It covers jobs from $50 up to $30,000, in Canadian or US dollars.",
       },
       {
-        step: "The lender decides, and says so in its own words",
+        step: "No rates for you to quote, and no risk you carry",
         body:
-          "Affirm quotes its own terms on its own page and makes its own decision. FieldQuo does not lend, does not approve anyone, and never states terms on a lender's behalf.",
+          "Affirm shows the client their own terms and makes their own decision. You never quote a rate, never chase an instalment, and never carry the credit risk. And FieldQuo will not print a monthly figure on your quote unless you typed the rate and term in yourself.",
       },
     ],
     features: ["financing"],
