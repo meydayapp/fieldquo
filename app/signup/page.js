@@ -23,6 +23,16 @@ import { INDUSTRIES } from "@/app/data/industries";
 import { categoryKeysForIndustries } from "@/app/data/industryCategories";
 import PricingCard from "@/app/components/marketing/PricingCard";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+import AuthShell from "@/app/components/auth/AuthShell";
+import AuthAside from "@/app/components/auth/AuthAside";
+import SignupSteps from "@/app/components/auth/SignupSteps";
+import {
+  fieldClass,
+  READONLY_FIELD,
+  FIELD_LABEL,
+  FIELD_ERROR,
+  PRIMARY_BUTTON,
+} from "@/app/components/auth/fieldStyles";
 
 // add to imports at top of app/signup/page.js
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
@@ -30,6 +40,7 @@ import { formatPhoneInput, isValidPhone, isValidEmail } from "@/lib/validation";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { COUNTRIES } from "@/lib/currency";
 import { isInternalPath } from "@/lib/appUrl";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 // "1 month free" / "3 months free". The banner hardcoded the plural and read
 // "1 months free" for the whole life of the current one-month offer. Same
@@ -115,45 +126,50 @@ function CompanyFields({ form, setForm, fieldErrors }) {
   return (
     <>
       <div>
-        <label className="text-sm font-medium text-foreground">
+        {/* htmlFor/id throughout, which none of these fields had. Tapping a
+            label on a phone did nothing and a screen reader read eleven
+            unlabelled boxes. The ids are prefixed because the account step
+            renders this component inside a form that has its own fields. */}
+        <label htmlFor="signup-companyName" className={FIELD_LABEL}>
           Company name
         </label>
         <input
+          id="signup-companyName"
+          autoComplete="organization"
           value={form.companyName}
           onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-            fieldErrors.companyName ? "border-red-400" : "border-border"
-          }`}
+          className={fieldClass(Boolean(fieldErrors.companyName))}
         />
         {fieldErrors.companyName && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-            {fieldErrors.companyName}
-          </p>
+          <p className={FIELD_ERROR}>{fieldErrors.companyName}</p>
         )}
       </div>
 
       <div>
-        <label className="text-sm font-medium text-foreground">Phone</label>
+        <label htmlFor="signup-phone" className={FIELD_LABEL}>
+          Phone
+        </label>
         <input
+          id="signup-phone"
           type="tel"
+          autoComplete="tel"
           value={form.phone}
           onChange={(e) =>
             setForm({ ...form, phone: formatPhoneInput(e.target.value) })
           }
           placeholder="555-123-4567"
-          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-            fieldErrors.phone ? "border-red-400" : "border-border"
-          }`}
+          className={fieldClass(Boolean(fieldErrors.phone))}
         />
-        {fieldErrors.phone && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-            {fieldErrors.phone}
-          </p>
-        )}
+        {fieldErrors.phone && <p className={FIELD_ERROR}>{fieldErrors.phone}</p>}
       </div>
 
       <div>
-        <label className="text-sm font-medium text-foreground">Address</label>
+        {/* No htmlFor here, alone among these fields. AddressAutocomplete does
+            not take an `id` — it renders Google's own input — and a label
+            pointing at an id nothing carries is a control that looks wired and
+            is not. The fix belongs in that component, which this change does
+            not own. */}
+        <label className={FIELD_LABEL}>Address</label>
         <AddressAutocomplete
           value={form.address}
           onChange={(val) => setForm((f) => ({ ...f, address: val }))}
@@ -179,45 +195,50 @@ function CompanyFields({ form, setForm, fieldErrors }) {
             }))
           }
           placeholder="Start typing your address..."
-          className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-            fieldErrors.address ? "border-red-400" : "border-border"
-          }`}
+          className={fieldClass(Boolean(fieldErrors.address))}
         />
         {fieldErrors.address && (
-          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-            {fieldErrors.address}
-          </p>
+          <p className={FIELD_ERROR}>{fieldErrors.address}</p>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-sm font-medium text-foreground">City</label>
+          <label htmlFor="signup-city" className={FIELD_LABEL}>
+            City
+          </label>
           <input
+            id="signup-city"
             value={form.city}
             readOnly
             placeholder="Auto-filled from address"
-            className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
+            className={READONLY_FIELD}
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-foreground">Province</label>
+          <label htmlFor="signup-province" className={FIELD_LABEL}>
+            Province
+          </label>
           <input
+            id="signup-province"
             value={form.province}
             readOnly
             placeholder="Auto-filled from address"
-            className="w-full mt-1 border border-border bg-muted rounded-lg px-4 py-2.5 text-sm text-muted-foreground"
+            className={READONLY_FIELD}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-sm font-medium text-foreground">Country</label>
+          <label htmlFor="signup-country" className={FIELD_LABEL}>
+            Country
+          </label>
           <select
+            id="signup-country"
             value={form.country}
             onChange={(e) => setForm({ ...form, country: e.target.value })}
-            className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+            className={fieldClass(false)}
           >
             {/* An explicit empty option, because the form no longer seeds "CA".
                 Without it the select would DISPLAY Canada while the value was
@@ -237,11 +258,14 @@ function CompanyFields({ form, setForm, fieldErrors }) {
           </p>
         </div>
         <div>
-          <label className="text-sm font-medium text-foreground">Language</label>
+          <label htmlFor="signup-language" className={FIELD_LABEL}>
+            Language
+          </label>
           <select
+            id="signup-language"
             value={form.language}
             onChange={(e) => setForm({ ...form, language: e.target.value })}
-            className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm bg-background"
+            className={fieldClass(false)}
           >
             {LANGUAGES.map((l) => (
               <option key={l.code} value={l.code}>
@@ -253,6 +277,102 @@ function CompanyFields({ form, setForm, fieldErrors }) {
             Your default in the app.
           </p>
         </div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Everything the "account" step asks for, in the order it has always asked.
+ *
+ * ══ Extracted so it can be EXECUTED ════════════════════════════════════════
+ *
+ * This was inline JSX inside a 1,700-line component whose first render is the
+ * "Getting things ready..." panel — the entry check has not answered yet — so
+ * no check could reach it. scripts/check-auth-pages.mjs walks the tree this
+ * returns and fires every onChange, which is what proves that the eleven fields
+ * are still here and still bound to the same eleven keys of `form` after a
+ * redesign that moved every one of them.
+ *
+ * Module scope, like CompanyFields and for the same reason: declared inside
+ * SignupPage it would be a new component type on every render, remounting
+ * AddressAutocomplete and losing focus mid-keystroke.
+ *
+ * Presentational only. The submit handler, the validators and the step machine
+ * all stay in SignupPage, so nothing about what gets POSTed passes through here.
+ */
+export function AccountFields({ form, setForm, fieldErrors }) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="signup-firstName" className={FIELD_LABEL}>
+            First name
+          </label>
+          <input
+            id="signup-firstName"
+            autoComplete="given-name"
+            value={form.firstName}
+            onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            className={fieldClass(Boolean(fieldErrors.firstName))}
+          />
+          {fieldErrors.firstName && (
+            <p className={FIELD_ERROR}>{fieldErrors.firstName}</p>
+          )}
+        </div>
+        <div>
+          <label htmlFor="signup-lastName" className={FIELD_LABEL}>
+            Last name
+          </label>
+          <input
+            id="signup-lastName"
+            autoComplete="family-name"
+            value={form.lastName}
+            onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            className={fieldClass(Boolean(fieldErrors.lastName))}
+          />
+          {fieldErrors.lastName && (
+            <p className={FIELD_ERROR}>{fieldErrors.lastName}</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="signup-email" className={FIELD_LABEL}>
+          Email
+        </label>
+        <input
+          id="signup-email"
+          type="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          placeholder="you@company.com"
+          className={fieldClass(Boolean(fieldErrors.email))}
+        />
+        {fieldErrors.email && <p className={FIELD_ERROR}>{fieldErrors.email}</p>}
+      </div>
+
+      <CompanyFields form={form} setForm={setForm} fieldErrors={fieldErrors} />
+
+      <div>
+        <label htmlFor="signup-password" className={FIELD_LABEL}>
+          Password
+        </label>
+        <input
+          id="signup-password"
+          type="password"
+          // new-password, not password: this field CREATES one, and the token is
+          // what makes a password manager offer to generate and store it rather
+          // than trying to fill the last one it saw.
+          autoComplete="new-password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className={fieldClass(Boolean(fieldErrors.password))}
+        />
+        {fieldErrors.password && (
+          <p className={FIELD_ERROR}>{fieldErrors.password}</p>
+        )}
       </div>
     </>
   );
@@ -329,6 +449,11 @@ export function resolvePlanSelection({
 }
 
 export default function SignupPage() {
+  // Only the copy this redesign ADDED goes through t(). The rest of the funnel
+  // is English throughout (see the note on money()), and converting it wholesale
+  // would be a translation change wearing a layout change's clothes.
+  const { t } = useTranslation();
+
   // Signed-out is the common case, so the funnel opens on "account". A visitor
   // who turns out to have a login is moved to "business" by the resume effect
   // below, and nothing renders until that answer is in — see `entryChecked`.
@@ -1026,19 +1151,43 @@ export default function SignupPage() {
   return (
     <>
       <MarketingHeader />
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted px-4 py-12">
-      <div className="w-full max-w-5xl">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Start your free trial
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
+      {/* ── The frame, and the one step that does without it ────────────────
+          Every step but the last gets the two-column shell: a form column and
+          a panel saying what is being set up, the same shape as /features and
+          /compare. The PLAN step drops the panel and goes full width, because
+          its own content is four plan cards plus a Custom card — five columns
+          of decision that cannot be squeezed into 26rem — and because a
+          visitor on the last step has already been persuaded. A persuasion
+          panel there would be arguing with somebody holding a card.
+
+          `step` is only read here. Nothing about the funnel, the draft, the
+          currency or the payload passes through this layout. */}
+      <AuthShell
+        eyebrow={
+          entryChecked && alreadyOnFieldquo
+            ? t("auth.signup.eyebrowExisting", "Add a business")
+            : t("auth.signup.eyebrow", "Start your free month")
+        }
+        title="Start your free trial"
+        subtitle={
+          <>
             {/* Off the trialLabel helper, never a hardcoded number — this line
                 had drifted to "$1" while the system actually charges $0. */}
             {trialLabel()}
-          </p>
-        </div>
-
+            {" — "}
+            {t(
+              "auth.signup.subtitle",
+              "set up your business, pick your trades, then choose a plan.",
+            )}
+          </>
+        }
+        rail={
+          entryChecked ? (
+            <SignupSteps current={step} accountExists={accountExists} />
+          ) : null
+        }
+        aside={step === "plan" ? null : <AuthAside variant="signup" />}
+      >
         {/* Already signed in. Redirect would be wrong — they may genuinely be
             setting up a second business — but they need to know the referral
             can't apply, and the useful thing to offer is their OWN link. */}
@@ -1117,20 +1266,20 @@ export default function SignupPage() {
             reads as the product having forgotten them — the same complaint the
             resumed-signup banner below exists to answer. */}
         {!entryChecked && (
-          <div className="max-w-lg mx-auto bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
+          <div className="bg-card border border-border rounded-xl shadow-sm p-8 text-center text-sm text-muted-foreground">
             Getting things ready...
           </div>
         )}
         {entryChecked && step === "account" && (
           <form
             onSubmit={handleAccountSubmit}
-            className="max-w-lg mx-auto bg-card border border-border rounded-xl p-6 space-y-4"
+            className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
           >
             {/* No plan summary here any more. The plan is chosen on the LAST
                 step now, so a box naming one would either be empty or be
                 describing a choice that hasn't been made. */}
             <div>
-              <h2 className="font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 Your account and business
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -1139,96 +1288,19 @@ export default function SignupPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  First name
-                </label>
-                <input
-                  value={form.firstName}
-                  onChange={(e) =>
-                    setForm({ ...form, firstName: e.target.value })
-                  }
-                  className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.firstName ? "border-red-400" : "border-border"
-                  }`}
-                />
-                {fieldErrors.firstName && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {fieldErrors.firstName}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">
-                  Last name
-                </label>
-                <input
-                  value={form.lastName}
-                  onChange={(e) =>
-                    setForm({ ...form, lastName: e.target.value })
-                  }
-                  className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                    fieldErrors.lastName ? "border-red-400" : "border-border"
-                  }`}
-                />
-                {fieldErrors.lastName && (
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                    {fieldErrors.lastName}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground">
-                Email
-              </label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="you@company.com"
-                className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.email ? "border-red-400" : "border-border"
-                }`}
-              />
-              {fieldErrors.email && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {fieldErrors.email}
-                </p>
-              )}
-            </div>
-
-            <CompanyFields
+            {/* The eleven fields, lifted to module scope so a check can execute
+                them. Same fields, same order, same keys of `form` — see the
+                note on AccountFields. */}
+            <AccountFields
               form={form}
               setForm={setForm}
               fieldErrors={fieldErrors}
             />
 
-            <div>
-              <label className="text-sm font-medium text-foreground">
-                Password
-              </label>
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className={`w-full mt-1 border rounded-lg px-4 py-2.5 text-sm ${
-                  fieldErrors.password ? "border-red-400" : "border-border"
-                }`}
-              />
-              {fieldErrors.password && (
-                <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {fieldErrors.password}
-                </p>
-              )}
-            </div>
-
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
+              className={PRIMARY_BUTTON}
             >
               {submitting ? "Creating your account..." : "Continue"}
             </button>
@@ -1240,7 +1312,7 @@ export default function SignupPage() {
         {entryChecked && step === "business" && (
           <form
             onSubmit={handleBusinessSubmit}
-            className="max-w-lg mx-auto bg-card border border-border rounded-xl p-6 space-y-4"
+            className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
           >
             {/* Two audiences reach this step. Someone ADDING a business needs
                 to be told the existing one is untouched; someone RESUMING has
@@ -1248,7 +1320,7 @@ export default function SignupPage() {
                 from  — nothing there changes", pointing at a company that
                 doesn't exist. */}
             <div>
-              <h2 className="font-semibold text-foreground">
+              <h2 className="text-lg font-semibold text-foreground">
                 {alreadyOnFieldquo ? "Your new business" : "Your business"}
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -1272,17 +1344,14 @@ export default function SignupPage() {
               fieldErrors={fieldErrors}
             />
 
-            <button
-              type="submit"
-              className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold"
-            >
+            <button type="submit" className={PRIMARY_BUTTON}>
               Continue
             </button>
           </form>
         )}
         {entryChecked && step === "industry" && (
-          <div className="max-w-md mx-auto">
-            <h2 className="font-semibold text-foreground mb-1">
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
               What trades does your company work in?
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -1325,7 +1394,7 @@ export default function SignupPage() {
                 goToStep(nextStep("industry", { accountExists }));
               }}
               disabled={selectedIndustries.length === 0}
-              className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+              className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
             >
               Continue
             </button>
@@ -1333,15 +1402,15 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => goBackToStep(previousStep("industry", { accountExists }))}
-              className="w-full mt-2 text-sm text-muted-foreground"
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back
             </button>
           </div>
         )}
         {entryChecked && step === "services" && (
-          <div className="max-w-md mx-auto">
-            <h2 className="font-semibold text-foreground mb-1">
+          <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
               Which services do you offer?
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -1398,7 +1467,7 @@ export default function SignupPage() {
               type="button"
               onClick={() => goToStep(nextStep("services", { accountExists }))}
               disabled={selectedCategoryIds.length === 0}
-              className="w-full mt-6 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+              className={`${PRIMARY_BUTTON} mt-6 disabled:opacity-40`}
             >
               Continue
             </button>
@@ -1406,7 +1475,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => goBackToStep(previousStep("services", { accountExists }))}
-              className="w-full mt-2 text-sm text-muted-foreground"
+              className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
             >
               ← Back
             </button>
@@ -1419,10 +1488,12 @@ export default function SignupPage() {
             asked where he was. */}
         {entryChecked && step === "plan" && (
           <div>
-            <div className="mb-6 text-center">
-              <h1 className="text-2xl font-bold text-foreground">
+            {/* h2, not a second h1. The shell above already carries the
+                page's heading, and two h1s is one page claiming to be two. */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-foreground">
                 Choose your plan
-              </h1>
+              </h2>
               <p className="text-sm text-muted-foreground mt-2">
                 Last step — then we'll take you to checkout.
                 {currencyName ? ` Prices in ${currencyName}.` : ""}
@@ -1693,7 +1764,7 @@ export default function SignupPage() {
                     !charge ||
                     (isCustom && pricing.contactSalesRequired)
                   }
-                  className="w-full mt-4 bg-inverted text-inverted-foreground py-2.5 rounded-full text-sm font-semibold disabled:opacity-40"
+                  className={`${PRIMARY_BUTTON} mt-4 disabled:opacity-40`}
                 >
                   {submitting ? "Setting up..." : "Continue to Payment"}
                 </button>
@@ -1703,7 +1774,7 @@ export default function SignupPage() {
                   onClick={() =>
                     goBackToStep(previousStep("plan", { accountExists }))
                   }
-                  className="w-full mt-2 text-sm text-muted-foreground"
+                  className="w-full mt-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   ← Back
                 </button>
@@ -1711,14 +1782,13 @@ export default function SignupPage() {
             )}
           </div>
         )}
-        <p className="text-center text-sm text-muted-foreground mt-6">
+        <p className="text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-foreground underline">
             Log in
           </Link>
         </p>
-      </div>
-      </div>
+      </AuthShell>
     </>
   );
 }

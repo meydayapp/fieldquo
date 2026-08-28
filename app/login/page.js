@@ -1,4 +1,4 @@
-// app/app/login/page.js
+// app/login/page.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
 import MarketingHeader from "@/app/components/marketing/MarketingHeader";
+import AuthShell from "@/app/components/auth/AuthShell";
+import AuthAside from "@/app/components/auth/AuthAside";
+import {
+  fieldClass,
+  FIELD_LABEL,
+  PRIMARY_BUTTON,
+} from "@/app/components/auth/fieldStyles";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { isInternalPath } from "@/lib/appUrl";
 
@@ -55,18 +62,18 @@ export default function LoginPage() {
   return (
     <>
       <MarketingHeader />
-      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-muted px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Welcome back
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">Log in to your account</p>
-        </div>
-
+      <AuthShell
+        eyebrow={t("auth.login.eyebrow", "Log in")}
+        title={t("auth.login.title", "Welcome back")}
+        subtitle={t(
+          "auth.login.subtitle",
+          "Pick up where you left off — quotes to send, jobs to schedule, invoices to chase.",
+        )}
+        aside={<AuthAside variant="login" />}
+      >
         <form
           onSubmit={handleSubmit}
-          className="bg-card border border-border rounded-xl p-6 space-y-4"
+          className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
         >
           {error && (
             <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
@@ -75,60 +82,68 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-foreground">Email</label>
+            {/* htmlFor/id, which no field on this page had: tapping the word
+                "Email" on a phone did nothing, and a screen reader read the
+                inputs as unlabelled. */}
+            <label htmlFor="login-email" className={FIELD_LABEL}>
+              {t("auth.login.email", "Email")}
+            </label>
             <input
+              id="login-email"
               required
               type="email"
+              // Password managers fill this pair by autocomplete tokens. Without
+              // them a returning contractor types their address every morning.
+              autoComplete="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm"
+              className={fieldClass(false)}
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">
-                Password
+              <label htmlFor="login-password" className={FIELD_LABEL}>
+                {t("auth.login.password", "Password")}
               </label>
               {/* The only route into the reset flow. Without a link here the
                   three pages behind it are reachable only by typing the URL,
                   which is the same as not shipping them. */}
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-muted-foreground underline"
+                className="text-xs font-medium text-muted-foreground underline hover:text-foreground"
               >
                 {t("app.auth.forgotLink")}
               </Link>
             </div>
             <input
+              id="login-password"
               required
               type="password"
+              autoComplete="current-password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
-              className="w-full mt-1 border border-border rounded-lg px-4 py-2.5 text-sm"
+              className={fieldClass(false)}
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold disabled:opacity-60"
-          >
-            {submitting ? "Logging in..." : "Log In"}
+          <button type="submit" disabled={submitting} className={PRIMARY_BUTTON}>
+            {submitting
+              ? t("auth.login.submitting", "Logging in...")
+              : t("auth.login.submit", "Log In")}
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Don't have an account?{" "}
+        <p className="text-sm text-muted-foreground mt-6">
+          {t("auth.login.noAccount", "Don't have an account?")}{" "}
           <Link
             href={next !== "/app" ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
             className="font-medium text-foreground underline"
           >
-            Start your free trial
+            {t("auth.login.startTrial", "Start your free trial")}
           </Link>
         </p>
-      </div>
-      </div>
+      </AuthShell>
     </>
   );
 }
