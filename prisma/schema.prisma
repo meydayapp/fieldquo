@@ -953,6 +953,7 @@ model Company {
   marketingSpends       MarketingSpend[]
   salaries              Salary[]
   debts                 Debt[]
+  assets                Asset[]
   forecastSettings      ForecastSettings?
   workers               Worker[]
   shifts                Shift[]
@@ -3627,9 +3628,46 @@ model Expense {
   createdById String?
   createdAt   DateTime         @default(now())
 
+  // ── Bills due: the state a cost has BEFORE it is paid ────────────────────
+  //
+  // The owner, on why this is smaller than "accounts payable" sounds: "i don't
+  // think hydro ottawa or other companies take payments through quickbook but
+  // either credit card payments or payments through a bank... i would assume
+  // that they log the information like we do in overhead."
+  //
+  // He is right. There is no payment rail to build. What was missing is only
+  // the state a cost has between arriving and being settled — owed, due on a
+  // date, not yet paid — so the month's outgoings can be seen before they
+  // leave rather than reconstructed afterwards.
+  //
+  // ── Why two columns here and not a Bill model ────────────────────────────
+  //
+  // A bill IS an expense; the only thing a separate model would add is a
+  // second table holding the same category and amount, and a contractor who
+  // recorded the hydro bill in both would double their own price floor with
+  // nothing on the way telling them so. That is precisely the argument
+  // app/api/overhead/fixed-costs/route.js already makes for not inventing a
+  // FixedCost model, and it applies unchanged.
+  //
+  // ── Why a dueDate is what MAKES a row a bill ─────────────────────────────
+  //
+  // Every Expense that predates these columns has dueDate null, and null must
+  // not read as "overdue since forever". So the bills list selects on
+  // `dueDate != null`: a row becomes a bill when somebody says when it is due,
+  // and a receipt for fuel already paid stays a receipt. Absence of a
+  // statement is not a statement.
+  dueDate DateTime?
+
+  // When it was actually settled. Null means outstanding — but only for a row
+  // that has a dueDate; see above. A timestamp rather than a boolean because
+  // "paid" without "when" cannot answer the one question the screen is for.
+  paidAt DateTime?
+
   priceEntries MaterialPriceEntry[]
 
   @@index([companyId, createdById])
+  // The bills query: this company's dated, unsettled rows, oldest first.
+  @@index([companyId, dueDate])
 }
 
 model MarketingSpend {
@@ -3940,6 +3978,96 @@ model Debt {
   startDate      DateTime @default(now())
   active         Boolean  @default(true)
   createdAt      DateTime @default(now())
+
+  // The capital items this loan bought. Populated, this is what stops the
+  // truck being charged twice — see the Asset model below.
+  assets         Asset[]
+}
+
+// ── A capital item that wears out ───────────────────────────────────────────
+//
+// The owner's sentence: "i have a truck i still pay it is an overhead but it's
+// also an asset that depreciates." Three facts about one truck, and the
+// product could only hold one of them.
+//
+// ── Why this is not another Expense row ────────────────────────────────────
+//
+// An Expense is money that LEFT. A $60,000 truck is money that turned into a
+// thing, and the cost lands over the years it is used — $12,000 a year for
+// five years, whether or not the loan is still running. Recorded as an
+// Expense it is either one $60,000 month (a price floor nobody could quote
+// against) or a $1,000 recurring row that keeps charging forever, long after
+// the truck is worth nothing. Neither is the number.
+//
+// The failure this exists to stop is the quiet one: a contractor counts the
+// loan payment as overhead, the loan ends, they drop it — and the truck is
+// still wearing out and still needs replacing. Their break-even price falls
+// below the truth with nothing anywhere saying so.
+//
+// ── Why straight-line only, and no method column ───────────────────────────
+//
+// Declining-balance and units-of-production are real methods and neither
+// belongs here. A trades business wants one number it can defend to itself
+// and its accountant, and a method picker is a dial whose two extra positions
+// change the price floor for reasons the person choosing cannot evaluate.
+// A method column that only ever holds one value is a feature flag for a
+// feature that does not exist (AGENTS.md failure class #8). If an accountant
+// ever needs declining balance for the tax return, that is a tax-return
+// concern; this number exists to price work.
+//
+// ── Why months rather than years ───────────────────────────────────────────
+//
+// Vehicle finance and useful life are both quoted in months in the trade
+// ("60 months"), the charge this feeds is monthly, and an integer year count
+// forced to a monthly figure re-introduces the rounding it was meant to avoid.
+model Asset {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name String
+
+  // What it cost to put into service. Not what it is worth now — book value is
+  // derived (lib/accounting/depreciation.js), never stored, because a stored
+  // one goes stale the day after it is written and nothing would update it.
+  cost Decimal @db.Decimal(12, 2)
+
+  // What it will still be worth at the end of its life. Optional in practice
+  // (most contractors leave it at zero) but load-bearing when it is set: the
+  // depreciable base is cost MINUS salvage, so a $60k truck worth $10k at
+  // trade-in charges $50k over its life, not $60k.
+  salvageValue Decimal @default(0) @db.Decimal(12, 2)
+
+  // When it started being used, which is when the charge starts — not the
+  // purchase date and not the date this row was typed. A truck bought in
+  // December and put on the road in March has three months of no charge.
+  inServiceDate DateTime @default(now())
+
+  usefulLifeMonths Int
+
+  // Sold, written off or traded in. Nullable and never defaulted: an absent
+  // disposal date means "still ours", which is a fact, whereas a defaulted one
+  // would be an invented disposal (AGENTS.md failure class #5).
+  disposedOn DateTime?
+
+  active Boolean @default(true)
+
+  // The loan that bought it, if there is one. THIS is the double-count guard:
+  // linked, the loan contributes its INTEREST to the price floor and the
+  // depreciation carries the capital cost. Unlinked, the loan contributes its
+  // whole payment, because nothing else is carrying that cost.
+  //
+  // SetNull, not Cascade: paying a truck off deletes nothing about the truck.
+  // Cascading would delete the ASSET when the debt row goes, which is the
+  // exact moment the depreciation charge matters most.
+  debtId String?
+  debt   Debt?   @relation(fields: [debtId], references: [id], onDelete: SetNull)
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, active])
+  @@index([debtId])
 }
 
 // ── Twelve of these thirteen columns are unused ─────────────────────────────

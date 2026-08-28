@@ -691,6 +691,17 @@ const IMPERSONATION_STILL_REFUSED = [
   "app/api/salaries/route.js", // gated on the payroll grid, which "viewer" fails
   "app/api/overhead/fixed-costs/route.js",
   "app/api/analytics/minimum-price/route.js",
+  // The two panels added to the same screen, refusing support for the same
+  // reason as the three lines above them rather than for a new one. The asset
+  // register shares the "fixedCosts" cost-basis gate with the fixed-cost route
+  // beside it — it is the same class of data, on the same screen, feeding the
+  // same price floor — so a support session that is dark to one is dark to the
+  // other. Widening either is one decision, taken in
+  // lib/permissions/costBasis.js, not two taken here.
+  "app/api/assets/route.js",
+  // Bills are company-wide payables, gated on the expenses grid, which
+  // "viewer" fails for the same reason it fails /api/salaries.
+  "app/api/bills/route.js",
 ];
 
 const stillRefused = new Set();

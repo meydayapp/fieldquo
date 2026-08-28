@@ -55,12 +55,26 @@ export default function BenchmarkPage() {
             other half of this page — this one is "how do I compare", that one
             is "what changed this week" — so it belongs here rather than
             needing its own nav slot for a page you read occasionally. */}
-        <Link
-          href="/app/analytics/digest"
-          className="inline-flex items-center gap-1.5 text-sm text-foreground underline mt-2"
-        >
-          {t("app.benchmark.weeklyDigests", "Weekly digests")}
-        </Link>
+        <div className="flex flex-wrap gap-4 mt-2">
+          <Link
+            href="/app/analytics/digest"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.benchmark.weeklyDigests", "Weekly digests")}
+          </Link>
+          {/* Same reasoning as the digest link above it: /app/analytics/statements
+              is the third page in this group and the sidebar has one row for all
+              of them ("Insights" → this page). A working page nothing links to
+              is a page nobody finds — the failure /app/tasks and the digest were
+              both fixed for. The page gates itself; this is the door, not the
+              lock. */}
+          <Link
+            href="/app/analytics/statements"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.benchmark.financialStatements", "Financial statements")}
+          </Link>
+        </div>
       </div>
 
       {error && (
