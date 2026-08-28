@@ -50,6 +50,31 @@ const inputClass =
 // while the helpers themselves live in a JSX-free module a guard can load.
 export { emptyPermissionValues, presetForValues };
 
+// ── Crew is a shape, not a starting point ──────────────────────────────────
+//
+// Every preset here was a starting point: pick one, then move any dial. The
+// owner found what that does to the free tier. He picked Crew, moved Schedule
+// to "edit everyone's schedule", and the invite saved and sent — because
+// touching a dial only clears the preset LABEL, and the form then falls back to
+// role `employee` with whatever grid is on screen.
+//
+// His fix, and it is the right one: lock it the way Make administrator is
+// locked. Administrator hides the grid entirely and posts
+// `{ isAdministrator: true }` — the tier IS the answer, so there is nothing to
+// fit. Crew is the same kind of thing from the other end.
+//
+// Only Crew. The paid presets stay editable, because a company that buys a seat
+// may shape it however it likes; that is what they are paying for. What may not
+// be shaped is the row that costs nothing.
+//
+// This is the honest label, NOT the enforcement. Hiding a dial is not access
+// control, and somebody posting a hand-written body still gets whatever grid
+// they send. What stops that is lib/pricing/ladder.js: free now means at or
+// below the Crew ceiling, so an elevated grid is a SEAT however it arrived and
+// the seat cap answers it. The two land together or the loophole is only
+// invisible.
+const FIXED_PRESET = "worker";
+
 export default function AccessEditor({
   grants,
   isAdministrator,
@@ -178,6 +203,18 @@ export default function AccessEditor({
             </div>
           )}
 
+          {/* Fixed preset: say what they get, and show no dials. A disabled
+              grid would be worse than none — twenty greyed selects invite the
+              reader to hunt for the one that will let them through. */}
+          {activePreset === FIXED_PRESET ? (
+            <p className="text-sm text-muted-foreground pt-2 border-t border-border">
+              {t(
+                "app.setTeamNew.crewFixed",
+                "Crew access is fixed: their own schedule, the jobs they're assigned to, what to buy for those jobs, and their own hours. No prices, quotes, invoices or requests. Crew don't use a seat — to give someone more than this, pick another level.",
+              )}
+            </p>
+          ) : (
+          <>
           <div className="grid sm:grid-cols-2 gap-4 pt-2">
             {Object.entries(PERMISSION_CATEGORIES).map(([key, cat]) => (
               <div key={key}>
@@ -220,6 +257,8 @@ export default function AccessEditor({
                 </label>
               ))}
           </div>
+          </>
+          )}
         </>
       )}
     </div>

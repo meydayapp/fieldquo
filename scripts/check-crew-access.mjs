@@ -279,13 +279,23 @@ console.log("\n6. Billing did not move — Crew was already free\n");
 // nothing, and this is cheaper to assert than to argue.
 
 ok("Crew is not a billable seat", isBillableSeat(crew) === false);
-// A member sitting at view_only on all four is still free — that is the rung
-// this file is really about, and adding `none` beneath it must not disturb it.
-// Written as an explicit grid rather than as a preset: the preset that used to
-// hold this shape is Estimator now and CREATES quotes, so naming it here would
-// assert the opposite of what this line means.
+// ── This assertion has been INVERTED, deliberately ─────────────────────────
+//
+// It used to say a member at view_only on all four was free, because
+// isBillableSeat asked about four named categories at view_create_edit and
+// view_only sits below that.
+//
+// The line above it, in this same file, is the argument against itself: the
+// tier that held exactly this shape was deleted for being a hole — "a company
+// could seat forty of them for free and hand forty people the whole rate
+// card", which is non-negotiable #4 with a login attached. The assertion was
+// pinning the hole open.
+//
+// isBillableSeat is a ceiling now: free means at or below CREW, and Crew is
+// `quotes: none`. Somebody who can read every quote in the company is doing
+// back-office work, whatever the row is called, and back-office work is a seat.
 ok(
-  "…nor is a member at view_only on all four",
+  "…and a member at view_only on all four IS billed — reading the rate card is a seat",
   isBillableSeat(
     member("employee", {
       quotes: "view_only",
@@ -293,7 +303,14 @@ ok(
       invoices: "view_only",
       requests: "view_only",
     }),
-  ) === false,
+  ) === true,
+);
+// The rung Crew actually sits on stays free, which is the thing that must not
+// move: jobs at view_only is what lets the person in the van open the job they
+// are driving to.
+ok(
+  "…while Crew's own jobs:view_only is still free",
+  isBillableSeat(member("employee", { ...PERMISSION_PRESETS.worker.values })) === false,
 );
 // And Estimator, which sits just above it, IS billed — because it writes.
 ok(
