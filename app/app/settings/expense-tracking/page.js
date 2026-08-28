@@ -12,10 +12,15 @@ import {
   ArrowRight,
   TrendingDown,
   TrendingUp,
+  Download,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
+// The same two questions GET /api/export/accounting asks of the same grid —
+// see the note on BookkeepingExportCard for why the row's own gate can't
+// answer them.
+import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 
 // Curated presets so the category select is useful out of the box, but this
 // is still a free-text field underneath (matching your existing Expense.category
@@ -133,6 +138,224 @@ function TrendChart({ trend }) {
           <span className="text-[11px] text-muted-foreground">{t.month}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Bookkeeping export ─────────────────────────────────────────────────────
+//
+// Why it lives on THIS screen and not on Payments or Company Settings: this is
+// the one settings page that is already a record of a PERIOD of money rather
+// than a form of settings, and it is already read by the person who handles
+// the company's books. Payments configures the Stripe connection; Company
+// Settings holds the company's identity. The export is a period of records,
+// and it belongs beside the other one.
+//
+// ── The gate ───────────────────────────────────────────────────────────────
+//
+// The same two questions GET /api/export/accounting asks, asked of the same
+// grid through the same helpers: showPricing, and invoices at view_only or
+// better. Hiding the card is not the gate — the route is — but a card that
+// 403s for the person looking at it is the dead control AGENTS.md names first,
+// and the row that leads here is gated on the expenses grid, which is a
+// different question entirely: a member can legitimately hold every expense in
+// the company and hold no access to a single invoice.
+//
+// An unresolved PermissionProvider falls open, which is its own documented
+// rule; the route refuses regardless.
+//
+// ── Why the limits are restated here ───────────────────────────────────────
+//
+// The summary sheet inside the ZIP states them too, and it is the authority —
+// it travels with the numbers to whoever the file is forwarded to. This list
+// is the warning BEFORE the download, for the contractor who is about to tell
+// their accountant they have sent them the books. A bookkeeper who imports
+// this expecting a ledger and finds it is not one blames us, and the honest
+// place to prevent that is in front of the button.
+//
+// docs/INTEGRATIONS-ASSESSMENT.md enumerates ten schema gaps. The seven below
+// are the ones a reader of this file would otherwise assume away; the other
+// three (external ids, deposit-account mapping, the missing issue-date column)
+// are stated in the file itself and mean nothing to somebody who has not
+// opened it yet.
+function BookkeepingExportCard() {
+  const { t } = useTranslation();
+  const canSeePricing = useHasToggle("showPricing");
+  const canReadInvoices = useHasLevel("invoices", "view_only");
+
+  // Last COMPLETE calendar month, in UTC — which is how the export groups its
+  // days, and how /app/analytics/statements builds its presets. Deriving it
+  // from the browser's local clock would put the boundary a day out for
+  // anybody west of Greenwich, and two screens would then disagree about which
+  // month an invoice fell in.
+  const [range, setRange] = useState(() => {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const iso = (d) => d.toISOString().slice(0, 10);
+    return {
+      from: iso(new Date(Date.UTC(y, m - 1, 1))),
+      to: iso(new Date(Date.UTC(y, m, 0))),
+    };
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!canSeePricing || !canReadInvoices) return null;
+
+  async function handleDownload() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/export/accounting?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
+      );
+      if (!res.ok) {
+        // The route's own sentence when it has one — it explains a backwards
+        // range or a missing billing currency far better than a generic
+        // failure could, and those are the two refusals a contractor will
+        // actually meet.
+        await reportResponseError(
+          res,
+          setError,
+          t("app.setExpenses.exportFailed", "Couldn't build that export."),
+        );
+        return;
+      }
+      // A blob and a synthetic click rather than a plain link, so a refusal is
+      // a message on this card instead of a page of raw JSON in a new tab.
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `bookkeeping-${range.from}-to-${range.to}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(t("app.setExpenses.exportFailed", "Couldn't build that export."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const limits = [
+    t(
+      "app.setExpenses.exportLimitFiling",
+      "It is an export, not a filing. Nothing in it has been remitted to any tax authority.",
+    ),
+    t(
+      "app.setExpenses.exportLimitTaxCodes",
+      "It cannot produce a sales-tax return. Invoice tax is one amount per invoice, with no tax codes and no per-line tax.",
+    ),
+    t(
+      "app.setExpenses.exportLimitExpenseTax",
+      "Expenses carry no tax and no supplier, so input tax credits and recoverable VAT are not in it.",
+    ),
+    t(
+      "app.setExpenses.exportLimitRefunds",
+      "FieldQuo records no refunds and no credit notes. If money went back to a client, it is not in this file.",
+    ),
+    t(
+      "app.setExpenses.exportLimitAccounts",
+      "There is no chart of accounts. Nothing here is mapped to a GL account — your bookkeeper does that once, on import.",
+    ),
+    t(
+      "app.setExpenses.exportLimitStripeFee",
+      "Card payments are listed at face value. Stripe's fee is not recorded, so this will not reconcile against a bank feed line for line.",
+    ),
+    t(
+      "app.setExpenses.exportLimitDates",
+      "Days are grouped in UTC, and there is no invoice issue-date field — every invoice states which column its date came from.",
+    ),
+  ];
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5">
+      <div className="flex items-center gap-2">
+        <Download size={16} className="text-muted-foreground" />
+        <h2 className="text-base font-semibold text-foreground">
+          {t("app.setExpenses.exportTitle", "Bookkeeping export")}
+        </h2>
+      </div>
+      <p className="text-sm text-muted-foreground mt-1">
+        {t(
+          "app.setExpenses.exportSubtitle",
+          "A date range of invoices, payments and expenses as four CSV files in one ZIP — a summary sheet plus one file each — for handing to an accountant or importing into their software.",
+        )}
+      </p>
+
+      <div className="flex flex-wrap items-end gap-3 mt-4">
+        <div>
+          <label
+            htmlFor="bookkeeping-from"
+            className="text-sm font-medium text-foreground block mb-1"
+          >
+            {t("app.setExpenses.exportFrom", "From")}
+          </label>
+          <input
+            id="bookkeeping-from"
+            type="date"
+            className={inputClass}
+            value={range.from}
+            onChange={(e) => setRange({ ...range, from: e.target.value })}
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="bookkeeping-to"
+            className="text-sm font-medium text-foreground block mb-1"
+          >
+            {t("app.setExpenses.exportTo", "To")}
+          </label>
+          <input
+            id="bookkeeping-to"
+            type="date"
+            className={inputClass}
+            value={range.to}
+            onChange={(e) => setRange({ ...range, to: e.target.value })}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={busy}
+          className="bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold disabled:opacity-60"
+        >
+          {busy
+            ? t("app.setExpenses.exportBuilding", "Building…")
+            : t("app.setExpenses.exportDownload", "Download the range")}
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400 mt-3">{error}</p>
+      )}
+
+      <p className="text-xs text-muted-foreground mt-4">
+        {t(
+          "app.setExpenses.exportCurrencyNote",
+          "Amounts are in your company's billing currency, which is set on Company Settings. Without one the export refuses rather than guessing a currency.",
+        )}
+      </p>
+
+      <div className="mt-4 border-t border-border pt-4">
+        <h3 className="text-sm font-semibold text-foreground">
+          {t("app.setExpenses.exportLimitsTitle", "What this file does not contain")}
+        </h3>
+        <p className="text-xs text-muted-foreground mt-1">
+          {t(
+            "app.setExpenses.exportLimitsIntro",
+            "This is a clean set of records, not a general ledger and not a QuickBooks sync. The summary sheet inside the ZIP repeats the list below, so it travels with the numbers.",
+          )}
+        </p>
+        <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1 mt-2">
+          {limits.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -507,6 +730,8 @@ export default function ExpenseTrackingPage() {
           ))}
         </div>
       </div>
+
+      <BookkeepingExportCard />
 
       {/* Add Expense modal */}
       {showAddModal && (
