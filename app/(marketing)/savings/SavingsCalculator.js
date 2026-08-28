@@ -28,7 +28,9 @@ import Link from "next/link";
 import {
   INPUT_FIELDS,
   ASSUMPTIONS,
+  LINE_BUILDERS,
   NOT_COUNTED,
+  AI_WITHOUT_AN_UPGRADE,
   SAVINGS_DISCLOSURE,
   LADDER_CEILING,
   estimateSavings,
@@ -37,20 +39,27 @@ import {
 
 const EMPTY = Object.fromEntries(INPUT_FIELDS.map((f) => [f.key, ""]));
 
+// Counted, never typed. A header that says "seven answers" beside eight boxes
+// is the smallest possible version of a control that lies, and it is the one
+// that survives longest because nobody re-counts a sentence.
+const QUESTION_COUNT = INPUT_FIELDS.filter((f) => f.required).length;
+const LINE_COUNT = LINE_BUILDERS.length;
+
 const PLACEHOLDERS = {
   seats: "e.g. 2",
   crew: "e.g. 4",
+  quotesPerMonth: "e.g. 16",
   projectsPerMonth: "e.g. 8",
   averageProjectValue: "e.g. 5000",
-  adminHoursPerWeek: "e.g. 6",
+  adminHoursPerWeek: "e.g. 4",
   hourlyCost: "e.g. 45",
-  quotesPerMonth: "e.g. 14",
 };
 
 const BASIS_NOTE = {
   arithmetic: "A definition",
   product: "Read off our own price list",
-  estimate: "Our estimate, biased low",
+  reported: "Contractors' own reported figures",
+  estimate: "Our estimate",
 };
 
 function Field({ field, value, invalid, onChange }) {
@@ -133,9 +142,10 @@ export default function SavingsCalculator() {
           What would FieldQuo be worth to you?
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          Seven answers, three line items, and every coefficient behind them published
-          further down the page. We have deliberately left out the things we cannot put
-          an honest number on, and they are listed too.
+          {QUESTION_COUNT} answers, {LINE_COUNT} line items, and every coefficient behind
+          them published further down the page — including where each one came from and
+          which end of a range we took. We have deliberately left out the things we cannot
+          put an honest number on, and they are listed too.
         </p>
       </header>
 
@@ -285,6 +295,21 @@ export default function SavingsCalculator() {
                   .
                 </p>
               )}
+            </div>
+
+            {/* Not a line item, deliberately — there is no honest way to price
+                it without guessing how many calls a business takes. It sits
+                here because "included" and "included if you pay more" is the
+                distinction a buyer is actually shopping on, and this one is a
+                fact about our own price list rather than a claim about
+                anybody's saving. */}
+            <div className="mt-6 rounded-2xl border border-border bg-muted p-6 sm:p-8">
+              <p className="text-foreground font-medium">
+                {AI_WITHOUT_AN_UPGRADE.headline}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {AI_WITHOUT_AN_UPGRADE.body}
+              </p>
             </div>
           </>
         )}

@@ -11,8 +11,18 @@
 // savings calculator is an argument: it is the thing a contractor weighs
 // against a price before handing over a card, and it is checked months later
 // against his own books by somebody who has already paid us. There is no way
-// to look at "13,060 a year" and see that it is wrong. So the honesty of this
+// to look at "25,894 a year" and see that it is wrong. So the honesty of this
 // page cannot live in review; it has to be executable.
+//
+// ══ The page is allowed to argue. It is not allowed to drift ═══════════════
+//
+// This calculator makes our case, deliberately — the competitor's makes theirs.
+// That is a product decision and this file does not second-guess it. What this
+// file exists to stop is the thing that happens AFTER such a decision: every
+// coefficient creeping upward, one plausible edit at a time, until a page that
+// was arguing is a page that is wrong. So each judgement is pinned between a
+// ceiling and, where a smaller number would make the total bigger, a FLOOR.
+// Tuning stays possible in both directions. Inflating fails here.
 //
 // What this file therefore refuses to let happen:
 //
@@ -21,22 +31,24 @@
 //      value. The builders are read as source and any numeric literal in them
 //      fails — a magic number in a total is an assertion nobody can argue
 //      with, and the point of the table is to be argued with.
-//   2. A COEFFICIENT THAT DRIFTS UPWARD. "Conservative" is a promise that
-//      decays the first time somebody wants the total to look better, so the
-//      ceilings are asserted here rather than remembered. Raising the admin
-//      share to 60% fails this file; it does not fail review.
-//   3. A LINE ITEM FOR SOMETHING WE DO NOT SHIP. The page this one's SHAPE was
-//      taken from prices two mechanisms FieldQuo does not have — change orders
-//      and a QuickBooks sync. Porting the formula would have advertised both,
-//      at a precise annual figure, to a buyer. Every string this page can
-//      render is scanned for them, and every line item has to name files that
-//      exist.
+//   2. A COEFFICIENT THAT DRIFTS THE WAY THAT FLATTERS US. Ceilings on the
+//      ones that multiply upward, floors on the ones that multiply downward.
+//      Raising the office-time share to 60% fails this file; quietly deciding
+//      a quote takes five minutes with a price book fails it too, and that is
+//      the direction review never catches.
+//   3. A LINE ITEM FOR SOMETHING WE DO NOT SHIP. An accounting-package sync is
+//      one of the competitor's four lines and is not ours. Every string this
+//      page can render is scanned for it, and every line item has to name
+//      files that exist and still contain the mechanism.
 //   4. A TOTAL LARGER THAN THE BUSINESS. Held to the revenue the visitor
 //      typed, and proved so against inputs chosen to break it.
 //   5. AN INVENTED ANSWER. AGENTS.md failure class 5. A blank, a word, a
 //      negative or an absurd number must produce NO figure and a printed
 //      reason — never a default quietly substituted and multiplied.
-//   6. A RETYPED PRICE. The cost side reads SEAT_LADDER through tierFor. A
+//   6. THE SAME HOUR COUNTED TWICE. Writing quotes is its own line now, so the
+//      office-hours question had to stop including it. The two builders are
+//      required to read disjoint answers, and the question has to say so.
+//   7. A RETYPED PRICE. The cost side reads SEAT_LADDER through tierFor. A
 //      repricing that updated the price list and left 99 hardcoded in a
 //      marketing page would go unnoticed, because the saving is the number
 //      people argue about and the price is the number they trust.
@@ -48,11 +60,9 @@
 // is the part that matters and it is the part that is proved.
 //
 // The page is a React component with JSX and nothing in an alias-loader run
-// can parse JSX, so the two assertions about it are made against its SOURCE
-// and are honestly weaker: they prove the component imports the real function
-// and renders the fields the estimate returns, not that a browser shows them.
-// They are written positionally so that deleting a call fails rather than
-// passing on a leftover comment.
+// can parse JSX, so the assertions about it are made against its SOURCE and
+// are honestly weaker: they prove the component imports the real function and
+// renders the fields the estimate returns, not that a browser shows them.
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
@@ -64,6 +74,7 @@ import {
   INPUT_FIELDS,
   LINE_BUILDERS,
   NOT_COUNTED,
+  AI_WITHOUT_AN_UPGRADE,
   SAVINGS_DISCLOSURE,
   LADDER_CEILING,
   assumptionRow,
@@ -89,15 +100,19 @@ const ok = (label, cond, detail) =>
 
 const section = (title) => console.log(`\n── ${title} ${"─".repeat(Math.max(0, 62 - title.length))}\n`);
 
+const builderFor = (key) => LINE_BUILDERS.find((b) => b.key === key);
+
 /* ═══════════════════════════════════════════════════════════════════════════
    1. Every coefficient is a named assumption with a reason
    ═══════════════════════════════════════════════════════════════════════════
 
    The table validates itself at import (a share whose label has drifted from
-   its value throws), so the first assertion here is really "that validation
-   still runs". The rest are the things a self-check inside the module cannot
-   fairly assert about itself: that the reasons are reasons rather than
-   restatements, and that nobody has quietly moved a number up. */
+   its value throws, and so now does "45 minutes" against a value of 30), so
+   the first assertion here is really "that validation still runs". The rest
+   are the things a self-check inside the module cannot fairly assert about
+   itself: that the reasons are reasons rather than restatements, that a figure
+   attributed to contractors actually cites the range it came from, and that
+   nobody has quietly moved a number the way that flatters us. */
 section("The assumption table");
 
 ok("the table validates clean", validateAssumptions().length === 0, validateAssumptions().join("; "));
@@ -118,26 +133,62 @@ for (const row of ASSUMPTIONS) {
   );
 }
 
-// ── Nothing is positive-by-accident, and nothing has crept up ──────────────
+// ── A figure we say came from contractors has to show its range ────────────
 //
-// Ceilings, not values, so tuning stays possible and inflating does not. Each
-// one is set where the claim would stop being conservative: an admin saving of
-// more than a third of a reported week, a chase that recovers one quote in ten,
-// or a trades margin over a half are all numbers somebody would have to defend
-// to a contractor, and none of them should arrive without this file failing.
+// "Contractors report 45 minutes" is a citation-shaped sentence with no
+// citation in it, and it is the most tempting thing on this page to write: it
+// borrows the authority of a survey nobody ran. A row marked `reported` has to
+// print the actual span it came from and say which end was taken, so a reader
+// can see the number was chosen out of a range rather than handed down.
+for (const row of ASSUMPTIONS.filter((r) => r.basis === "reported")) {
+  ok(
+    `${row.key}: cites the range it came from`,
+    /\d+\s*[–—-]\s*\d+/.test(row.reasoning),
+    row.reasoning.slice(0, 80),
+  );
+  ok(
+    `${row.key}: says whose figures they are, not ours`,
+    /contractor|painter|reported/i.test(row.reasoning),
+  );
+  ok(
+    `${row.key}: says which end of the range was taken`,
+    /\b(top|bottom|end|below|middle)\b/i.test(row.reasoning),
+  );
+}
+
+// ── Nothing has crept the way that flatters us ─────────────────────────────
+//
+// CEILINGS are for coefficients that multiply the total UP. Each is set where
+// the claim would stop being defensible against the mechanism underneath it.
+//
+// The two revenue shares are pinned to the competitor's own published
+// coefficients — 1.8% and 0.9% for under-billing, 2% and 1.25% for extras. We
+// may sit under the figure the comparison rests on. We may not sit above a
+// figure we did not measure and cannot check.
 const CEILINGS = {
-  tools_paper_admin_share: 0.35,
-  tools_apps_admin_share: 0.25,
+  // Raised from 0.35/0.25 with the question underneath them: writing quotes
+  // moved out of the office-hours answer into its own line, so this share now
+  // applies to a smaller base made mostly of the re-keying we remove outright.
+  tools_paper_admin_share: 0.4,
+  tools_apps_admin_share: 0.3,
+  // The competitor's own numbers, used as the ceiling rather than as the value.
+  under_billing_paper_share: 0.018,
+  under_billing_apps_share: 0.009,
+  change_order_paper_share: 0.02,
+  change_order_apps_share: 0.0125,
   tools_paper_invoice_days: 10,
   tools_apps_invoice_days: 7,
   cost_of_money: 0.12,
   quote_recovery_share: 0.1,
   gross_margin: 0.5,
+  // An hour of pure desk work on an average estimate is the top of what the
+  // reported ranges support without a survey of our own.
+  quote_desk_minutes_today: 60,
 };
 for (const [key, ceiling] of Object.entries(CEILINGS)) {
   const row = assumptionRow(key);
   ok(
-    `${key}: positive and at or under its conservative ceiling (${ceiling})`,
+    `${key}: positive and at or under its ceiling (${ceiling})`,
     row.value > 0 && row.value <= ceiling,
     row.value,
   );
@@ -146,13 +197,68 @@ ok(
   "every ceiling names a real assumption",
   Object.keys(CEILINGS).every((k) => ASSUMPTIONS.some((r) => r.key === k)),
 );
+
+// FLOORS are the other direction, and they are the ones review never catches.
+// A coefficient that is SUBTRACTED inflates the total by getting smaller:
+// deciding a quote takes five minutes with a price book instead of fifteen
+// triples that line, and reads on the page as a more confident product claim
+// rather than as a bigger number.
+const FLOORS = {
+  // The bottom of the reported with-templates range. Claiming a quote takes
+  // less time than the fastest contractor who reported one is not a product
+  // claim, it is a different product.
+  quote_desk_minutes_fieldquo: 10,
+};
+for (const [key, floor] of Object.entries(FLOORS)) {
+  const row = assumptionRow(key);
+  ok(
+    `${key}: at or above its floor (${floor}) — shrinking it would inflate the total`,
+    row.value >= floor,
+    row.value,
+  );
+}
+ok(
+  "every floor names a real assumption",
+  Object.keys(FLOORS).every((k) => ASSUMPTIONS.some((r) => r.key === k)),
+);
+
+// And the pair has to stay a saving rather than becoming one: the SPREAD is
+// what multiplies, so it is pinned directly as well as at each end.
+{
+  const today = assumptionRow("quote_desk_minutes_today").value;
+  const after = assumptionRow("quote_desk_minutes_fieldquo").value;
+  ok("a quote takes less desk time with us than without", after < today, `${after} vs ${today}`);
+  ok(
+    "and the minutes claimed back stay inside half an hour",
+    today - after <= 30,
+    today - after,
+  );
+}
+
+// A business already on apps must never be quoted a bigger saving than one on
+// paper. It is arithmetically possible — two independent rows — and it would
+// be nonsense: they have already bought back part of what we are selling.
+for (const [paper, apps] of [
+  ["tools_paper_admin_share", "tools_apps_admin_share"],
+  ["under_billing_paper_share", "under_billing_apps_share"],
+  ["change_order_paper_share", "change_order_apps_share"],
+  ["tools_paper_invoice_days", "tools_apps_invoice_days"],
+]) {
+  ok(
+    `${apps} claims less than ${paper}, because they have already bought back some of it`,
+    assumptionRow(apps).value < assumptionRow(paper).value,
+    `${assumptionRow(apps).value} vs ${assumptionRow(paper).value}`,
+  );
+}
+
 // The arithmetic rows are definitions and must stay definitions.
 ok("52 weeks", assumptionRow("weeks_per_year").value === 52);
 ok("12 months", assumptionRow("months_per_year").value === 12);
 ok("365 days", assumptionRow("days_per_year").value === 365);
+ok("60 minutes", assumptionRow("minutes_per_hour").value === 60);
 ok(
-  "the three definitions are marked as definitions, not as estimates",
-  ["weeks_per_year", "months_per_year", "days_per_year"].every(
+  "the definitions are marked as definitions, not as estimates",
+  ["weeks_per_year", "months_per_year", "days_per_year", "minutes_per_hour"].every(
     (k) => assumptionRow(k).basis === "arithmetic",
   ),
 );
@@ -169,14 +275,17 @@ ok(
 );
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   2. No magic numbers in the formulas
+   2. No magic numbers in the formulas, and no orphan rows in the table
    ═══════════════════════════════════════════════════════════════════════════
 
-   Read off the builders' own source. Two directions, and the second is the one
-   that catches a real edit: a coefficient used without being declared is
-   invisible on the page, and a coefficient declared without being used is a
-   row in a table that explains a number the total does not contain. */
+   Read off the builders' own source. Three directions now, and the third is
+   new: a coefficient used without being declared is invisible on the page, a
+   coefficient declared without being used is a row explaining a number the
+   total does not contain, and a row in the table that NO builder reads is the
+   same offence one level up — a published assumption the arithmetic ignores. */
 section("The formulas contain no numbers");
+
+const referencedAnywhere = new Set();
 
 for (const builder of LINE_BUILDERS) {
   const src = String(builder.build);
@@ -188,6 +297,7 @@ for (const builder of LINE_BUILDERS) {
   const used = [...src.matchAll(/A\("([a-zA-Z0-9_]+)"\)/g)].map((m) => m[1]);
   const shown = [...src.matchAll(/assumptionRow\("([a-zA-Z0-9_]+)"\)/g)].map((m) => m[1]);
   const referenced = new Set([...used, ...shown]);
+  for (const k of referenced) referencedAnywhere.add(k);
   const declared = new Set(builder.assumptions);
 
   ok(
@@ -206,14 +316,115 @@ for (const builder of LINE_BUILDERS) {
   );
 }
 
+ok(
+  "no row in the table explains a number the total does not contain",
+  ASSUMPTIONS.every((r) => referencedAnywhere.has(r.key)),
+  ASSUMPTIONS.filter((r) => !referencedAnywhere.has(r.key)).map((r) => r.key).join(","),
+);
+
 /* ═══════════════════════════════════════════════════════════════════════════
-   3. Every line item traces to a mechanism that exists
+   3. Which lines are discounted to margin, and which are not
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The distinction the module argues for, asserted rather than remembered.
+   Work not yet won has to be counted at margin, because doing it costs money.
+   Work already DONE and never billed is recovered whole, because the labour
+   and the materials are already spent — discounting that to margin would not
+   be conservative, it would be wrong. Somebody tidying for consistency would
+   break one or the other, and both directions are caught here. */
+section("Margin is applied where it belongs and nowhere else");
+
+ok(
+  "work not yet won is counted at margin",
+  builderFor("quotes_chased").assumptions.includes("gross_margin"),
+);
+for (const key of ["under_billing", "change_orders"]) {
+  ok(
+    `${key}: work already done is recovered whole, not discounted to margin`,
+    !builderFor(key).assumptions.includes("gross_margin"),
+  );
+  ok(
+    `${key}: and the workings say why`,
+    /already spent|never charged|never added to the bill/.test(
+      String(builderFor(key).build),
+    ),
+  );
+}
+
+// The two revenue-share lines are different claims and must stay different
+// claims: one is work that was inside the job and fell off the invoice, the
+// other is work the job did not originally contain. Merged, they would be the
+// same percentage counted twice.
+ok(
+  "under-billing and extras are described as different things",
+  /not the row above|scope grew|ASKED FOR/.test(assumptionRow("change_order_paper_share").reasoning) &&
+    /inside the job|dropped|never made it onto/i.test(
+      assumptionRow("under_billing_paper_share").represents,
+    ),
+);
+
+// Both revenue shares have to keep BOTH ends of the tools question. A single
+// flat coefficient would quote a business already on apps the paper figure.
+for (const [key, paper, apps] of [
+  ["under_billing", "under_billing_paper_share", "under_billing_apps_share"],
+  ["change_orders", "change_order_paper_share", "change_order_apps_share"],
+  ["admin_time", "tools_paper_admin_share", "tools_apps_admin_share"],
+  ["invoice_sooner", "tools_paper_invoice_days", "tools_apps_invoice_days"],
+]) {
+  const declared = builderFor(key).assumptions;
+  ok(
+    `${key}: prices paper and apps separately`,
+    declared.includes(paper) && declared.includes(apps),
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. The same hour is not counted twice
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Writing quotes used to be inside the office-hours answer and is now its own
+   line. If the question had been left saying "quoting, scheduling and
+   invoicing" the page would charge the same hour to two line items and the
+   total would be wrong in the direction that is hardest to notice, because
+   both lines look right on their own. */
+section("Quote time and office time are different hours");
+
+{
+  const quoteSrc = String(builderFor("quote_writing").build);
+  const adminSrc = String(builderFor("admin_time").build);
+  ok(
+    "the quote line does not read the office-hours answer",
+    !quoteSrc.includes("adminHoursPerWeek"),
+  );
+  ok("the office line does not read the quotes answer", !adminSrc.includes("quotesPerMonth"));
+
+  const adminField = INPUT_FIELDS.find((f) => f.key === "adminHoursPerWeek");
+  ok(
+    "the office-hours question no longer asks for quoting time",
+    !/quoting/i.test(adminField.label),
+    adminField.label,
+  );
+  ok(
+    "and says out loud that quote writing is asked separately",
+    /not the time spent writing quotes|counted twice|same hour twice/i.test(adminField.help),
+    adminField.help,
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5. Every line item traces to a mechanism that exists
    ═══════════════════════════════════════════════════════════════════════════
 
    featureMatrix.js's argument, applied one page over: a claim carries the file
    that makes it true, and the file is checked rather than remembered. A saving
    attributed to something we do not ship is a lie with arithmetic on top. */
 section("Each line item names files that exist");
+
+ok(
+  "the strongest line leads",
+  LINE_BUILDERS[0].key === "quote_writing",
+  LINE_BUILDERS[0].key,
+);
 
 for (const builder of LINE_BUILDERS) {
   ok(`${builder.key}: names at least one file`, builder.proof.length > 0);
@@ -226,34 +437,118 @@ for (const builder of LINE_BUILDERS) {
   );
 }
 
-// The follow-up line rests on the cron finder actually being able to find a
-// quote nobody answered and an invoice past its date. Naming the file is not
-// enough; the file has to still contain the triggers.
+// Naming a file is not enough; the file has to still contain the mechanism the
+// line is charging for.
 {
   const cron = read("app/api/cron/follow-ups/route.js");
-  ok("the quote chase still exists in the finder table", cron.includes("quote_no_response"));
-  ok("the overdue-invoice chase still exists", cron.includes("invoice_overdue"));
+  ok("the quote chase still exists in the finder table", /\bquote_no_response:\s*\{/.test(cron));
+  ok("the overdue-invoice chase still exists", /\binvoice_overdue:\s*\{/.test(cron));
+
   const invoiceFromQuote = read("lib/invoices/createInvoiceFromQuote.js");
   ok(
     "an approved quote still becomes the invoice",
-    invoiceFromQuote.includes("export async function ensureInvoiceForQuote"),
+    /export async function ensureInvoiceForQuote\s*\(/.test(invoiceFromQuote),
+  );
+
+  // ── The extras line ──────────────────────────────────────────────────────
+  //
+  // The claim is not merely that an invoice can be edited. It is that amending
+  // a SENT one keeps the original, records the reason and the person, and
+  // therefore settles what was agreed. If that ever became an in-place
+  // overwrite, the mechanism would still exist and the claim would not.
+  // ── Matched on the WRITE, not on the word ────────────────────────────────
+  //
+  // These were substring checks and two mutations walked straight through
+  // them: `parentInvoiceId` appears three times in this route, twice in the
+  // lookup that FINDS the previous version, so deleting it from the row being
+  // created left the check passing. `changeLog` survived being renamed to
+  // `changeLogGONE` for the plainest reason of all — it is still a substring
+  // of it. A marker that appears anywhere in a file proves nothing about the
+  // line that does the work.
+  const invoiceRoute = read("app/api/invoices/[id]/route.js");
+  // Anchored to the CREATE payload by the field that follows it. `parentInvoiceId:
+  // rootId` also appears in the `where` clause that finds the previous version,
+  // so on its own it stays true after the write is deleted — which is exactly
+  // what a mutation proved. The version line is the neighbour that is only ever
+  // in the row being written.
+  ok(
+    "amending a sent invoice still writes the new row against the original",
+    /parentInvoiceId:\s*rootId,\s*\n\s*version:/.test(invoiceRoute),
+  );
+  ok("with an incremented version number", /version:\s*\(latestVersion/.test(invoiceRoute));
+  ok("carrying a change record", /changeLog:\s*\{/.test(invoiceRoute));
+  ok("that says why it changed", /reason:\s*changeReason/.test(invoiceRoute));
+  ok("and who changed it", /changedBy:\s*member\.userId/.test(invoiceRoute));
+  ok(
+    "the earlier version is created alongside, not overwritten",
+    /db\.invoice\.create\(/.test(invoiceRoute),
+  );
+  ok(
+    "and every version is still readable back",
+    /export async function GET\s*\(/.test(read("app/api/invoices/[id]/lifecycle/route.js")),
+  );
+
+  // ── The under-billing line ───────────────────────────────────────────────
+  //
+  // Four separate places work falls off an invoice, and the line charges for
+  // all four, so all four are checked.
+  ok(
+    "what a job cost is still set against what was quoted",
+    /export async function GET\s*\(/.test(read("app/api/jobs/[id]/costing/route.js")),
+  );
+  ok(
+    "materials are still recorded against the job",
+    /export async function POST\s*\(/.test(read("app/api/jobs/[id]/materials/route.js")),
+  );
+  ok(
+    "hours are still tied to a job before they can be billed",
+    /export async function PATCH\s*\(/.test(read("app/api/time-entries/[id]/route.js")),
+  );
+  ok(
+    "tax is still computed rather than typed",
+    /export function resolveDocumentTax\s*\(/.test(read("lib/tax/documentTax.js")),
+  );
+
+  // ── The quote line ───────────────────────────────────────────────────────
+  ok(
+    "the price book is still importable rather than retyped per quote",
+    /export async function POST\s*\(/.test(read("app/api/products/import/route.js")),
+  );
+  ok(
+    "material recipes still exist",
+    /export async function PUT\s*\(/.test(read("app/api/settings/material-recipes/route.js")),
+  );
+  ok(
+    "three price options still come off one build",
+    /export async function POST\s*\(/.test(read("app/api/quotes/tier-group/route.js")),
+  );
+  ok(
+    "a roof can still be measured without going out there",
+    /await measureRoof\s*\(/.test(read("app/api/measure/roof/route.js")),
+  );
+  ok(
+    "and one button still sends the quote",
+    /await sendEmail\s*\(/.test(read("app/api/quotes/[id]/send/route.js")),
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   4. Nothing here prices a mechanism we do not have
+   6. Nothing here prices a mechanism we do not have
    ═══════════════════════════════════════════════════════════════════════════
 
-   The two line items that were NOT ported. Scanned across every string the
-   page can render and across the whole source of all three files — comments
-   included, because the cheapest way for one of these to come back is somebody
-   reading a comment that mentions it as an idea and implementing it. */
-section("Two mechanisms we do not have, and do not sell");
+   One of the competitor's four line items was NOT ported and stays out. It is
+   scanned across every string the page can render and across the whole source
+   of all three files — comments included, because the cheapest way for it to
+   come back is somebody reading a comment that mentions it as an idea and
+   implementing it.
 
-const ABSENT = [
-  { name: "change orders", re: /change[\s_-]?orders?/i },
-  { name: "a QuickBooks sync", re: /quick\s?books|\bqbo\b/i },
-];
+   Change orders used to be on this list and are not any more: the mechanism
+   turned out to exist under a different name, and section 5 above proves it
+   still does. That is the only acceptable way for something to leave this
+   list. */
+section("The mechanism we do not have, and do not sell");
+
+const ABSENT = [{ name: "an accounting sync", re: /quick\s?books|\bqbo\b/i }];
 
 for (const { name, re } of ABSENT) {
   for (const file of [MODULE, PAGE, VIEW]) {
@@ -268,6 +563,7 @@ for (const { name, re } of ABSENT) {
     LINE_BUILDERS.map((b) => [b.label, b.mechanism]),
     ASSUMPTIONS.map((r) => [r.label, r.represents, r.reasoning]),
     NOT_COUNTED,
+    AI_WITHOUT_AN_UPGRADE,
     INPUT_FIELDS,
     SAVINGS_DISCLOSURE,
   ]);
@@ -286,7 +582,43 @@ for (const { name, re } of ABSENT) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   5. The price comes from the ladder, never from a keyboard
+   7. What is said beside the total but not counted in it
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The AI note is the one claim on this page that is not a line item, and it is
+   the one most likely to be quietly made flattering: "AI included" is true and
+   incomplete, because talk time is bought by the minute. The honest half is
+   asserted so it cannot be dropped for length. */
+section("The AI note stays honest");
+
+{
+  ok(
+    "it says the included AI needs no bigger plan",
+    /every plan/i.test(AI_WITHOUT_AN_UPGRADE.body) &&
+      /no tier to move up to|without.*upgrad|not a bigger plan/i.test(
+        `${AI_WITHOUT_AN_UPGRADE.headline} ${AI_WITHOUT_AN_UPGRADE.body}`,
+      ),
+    AI_WITHOUT_AN_UPGRADE.body,
+  );
+  ok(
+    "and says in the same breath that talk time is paid for by the minute",
+    /by the minute/i.test(AI_WITHOUT_AN_UPGRADE.body),
+  );
+  ok(
+    "and that none of it is inside the total",
+    /not in the figures above|none of that is in/i.test(AI_WITHOUT_AN_UPGRADE.body),
+  );
+  for (const path of AI_WITHOUT_AN_UPGRADE.proof) {
+    ok(`the AI note's ${path} exists`, existsSync(join(ROOT, path)));
+  }
+  ok(
+    "quote review is still on every plan in our own price list, not a tier above",
+    read("lib/marketing/featureMatrix.js").includes('key: "ai_quote_review"'),
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. The price comes from the ladder, never from a keyboard
    ═══════════════════════════════════════════════════════════════════════════ */
 section("The cost side reads SEAT_LADDER");
 
@@ -337,6 +669,7 @@ for (const tier of SEAT_LADDER) {
   );
   const result = estimateSavings({
     ...over,
+    quotesPerMonth: 20,
     projectsPerMonth: 10,
     averageProjectValue: 5000,
     adminHoursPerWeek: 10,
@@ -377,11 +710,11 @@ for (const tier of SEAT_LADDER) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   6. Hostile input
+   9. Hostile input
    ═══════════════════════════════════════════════════════════════════════════
 
    The guarantees, stated as one predicate and then run over everything nasty
-   that can be typed into seven boxes. Most of the real bugs in this repo were
+   that can be typed into eight boxes. Most of the real bugs in this repo were
    found by executing a pure function against input nobody would demo. */
 section("Hostile input");
 
@@ -411,6 +744,15 @@ function invariants(label, raw) {
   if (summed !== result.total) bad.push(`lines sum to ${summed}, total says ${result.total}`);
   if (!result.ready && result.total !== 0) bad.push("a figure without an answer");
   if (formatAmount(result.total).includes("NaN")) bad.push("NaN on screen");
+  // Every line the page can render has to carry the sentence that lets a
+  // contractor reproduce it. A blank workings string is a figure on faith.
+  if (result.lines.some((l) => !l.workings || l.workings.length < 10)) {
+    bad.push("a line with no workings");
+  }
+  // And every line NOT rendered has to say why it is not there.
+  if (result.omitted.some((o) => !o.reason || o.reason.length < 20)) {
+    bad.push("a silent omission");
+  }
 
   if (bad.length) fails.push(`${label}: ${bad.join("; ")}`);
   return bad.length ? null : result;
@@ -419,12 +761,12 @@ function invariants(label, raw) {
 const SANE = {
   seats: 3,
   crew: 5,
+  quotesPerMonth: 16,
   projectsPerMonth: 8,
   averageProjectValue: 5000,
-  adminHoursPerWeek: 6,
+  adminHoursPerWeek: 4,
   hourlyCost: 45,
   tools: "paper",
-  quotesPerMonth: 14,
 };
 
 const HOSTILE = [
@@ -433,9 +775,18 @@ const HOSTILE = [
   ["a string", "8 projects"],
   ["an array", []],
   ["every field blank", Object.fromEntries(INPUT_FIELDS.map((f) => [f.key, ""]))],
-  ["zero everything", { ...SANE, seats: 0, crew: 0, projectsPerMonth: 0, averageProjectValue: 0, adminHoursPerWeek: 0, hourlyCost: 0, quotesPerMonth: 0 }],
+  ["zero everything", { ...SANE, seats: 0, crew: 0, quotesPerMonth: 0, projectsPerMonth: 0, averageProjectValue: 0, adminHoursPerWeek: 0, hourlyCost: 0 }],
   ["no employees at all", { ...SANE, seats: 0, crew: 0 }],
   ["no projects", { ...SANE, projectsPerMonth: 0 }],
+  ["no quotes at all", { ...SANE, quotesPerMonth: 0 }],
+  ["no quotes and no jobs", { ...SANE, quotesPerMonth: 0, projectsPerMonth: 0 }],
+  ["a quote factory that finishes nothing", { ...SANE, quotesPerMonth: 5000, projectsPerMonth: 0 }],
+  ["absurd quotes against one small job", { ...SANE, quotesPerMonth: 5000, projectsPerMonth: 1, averageProjectValue: 100 }],
+  ["more quotes than there are hours", { ...SANE, quotesPerMonth: 5000 }],
+  ["fewer quotes than jobs", { ...SANE, quotesPerMonth: 2 }],
+  ["exactly as many quotes as jobs", { ...SANE, quotesPerMonth: SANE.projectsPerMonth }],
+  ["negative quotes", { ...SANE, quotesPerMonth: -14 }],
+  ["quotes as a word", { ...SANE, quotesPerMonth: "lots" }],
   ["negative projects", { ...SANE, projectsPerMonth: -8 }],
   ["negative money", { ...SANE, averageProjectValue: -5000, hourlyCost: -45 }],
   ["negative hours", { ...SANE, adminHoursPerWeek: -4 }],
@@ -454,9 +805,7 @@ const HOSTILE = [
   ["whitespace", { ...SANE, hourlyCost: "  45  " }],
   ["a tools answer we do not offer", { ...SANE, tools: "carrier pigeon" }],
   ["tools left blank", { ...SANE, tools: "" }],
-  ["one job a year, a full-time office", { seats: 1, crew: 0, projectsPerMonth: 1, averageProjectValue: 100, adminHoursPerWeek: 40, hourlyCost: 60, tools: "paper" }],
-  ["more quotes than there are hours", { ...SANE, quotesPerMonth: 5000 }],
-  ["fewer quotes than jobs", { ...SANE, quotesPerMonth: 2 }],
+  ["one job a year, a full-time office", { seats: 1, crew: 0, quotesPerMonth: 1, projectsPerMonth: 1, averageProjectValue: 100, adminHoursPerWeek: 40, hourlyCost: 60, tools: "paper" }],
   ["a prototype-polluting key", { ...SANE, __proto__: { total: 9999999 } }],
 ];
 
@@ -490,36 +839,46 @@ for (const [label, raw] of HOSTILE) {
 
   const noTools = estimateSavings({ ...SANE, tools: "" });
   ok(
-    "how they work today is never assumed — it moves two coefficients",
+    "how they work today is never assumed — it moves four coefficients",
     noTools.ready === false && noTools.missing.includes("tools"),
   );
 
-  const noQuotes = estimateSavings({ ...SANE, quotesPerMonth: "" });
-  ok("the optional question does not block the estimate", noQuotes.ready === true);
-  // ── The two silences are DIFFERENT silences ──────────────────────────────
+  // ── The question that used to be optional ────────────────────────────────
   //
-  // "You did not tell us" and "you win everything you quote" are opposite
-  // statements about the business, and a blank box read as a zero turns the
-  // first into the second — the page then tells a contractor something about
-  // his own win rate that he never said. So the reason is asserted, not just
-  // the omission.
-  const blankReason = noQuotes.omitted.find((o) => o.key === "quotes_chased")?.reason || "";
+  // Quotes a month drives the largest line on the page. Leaving it optional
+  // meant most totals were missing the biggest true thing we can claim; making
+  // it required means a blank has to STOP the estimate rather than read as a
+  // zero, because a zero here would silently delete that line and print a
+  // confident smaller number with no sentence saying why.
+  const noQuotes = estimateSavings({ ...SANE, quotesPerMonth: "" });
   ok(
-    "a blank answer is reported as a blank answer",
-    /have not told us/.test(blankReason),
-    blankReason,
+    "a blank quotes answer stops the estimate rather than deleting the biggest line",
+    noQuotes.ready === false && noQuotes.missing.includes("quotesPerMonth"),
+  );
+  ok(
+    "quotes a month is asked, not assumed",
+    INPUT_FIELDS.find((f) => f.key === "quotesPerMonth").required === true,
+  );
+
+  // Zero quotes IS an answer, and gets a sentence rather than a zero row.
+  const zeroQuotes = estimateSavings({ ...SANE, quotesPerMonth: 0 });
+  const zeroReason = zeroQuotes.omitted.find((o) => o.key === "quote_writing")?.reason || "";
+  ok(
+    "telling us you send no quotes is reported as that, not priced at nothing",
+    zeroQuotes.ready === true && /send no quotes/.test(zeroReason),
+    zeroReason,
   );
 
   const winsAll = estimateSavings({ ...SANE, quotesPerMonth: SANE.projectsPerMonth });
   const winsAllReason = winsAll.omitted.find((o) => o.key === "quotes_chased")?.reason || "";
   ok(
-    "and winning everything you quote is reported as that, not as a blank",
+    "winning everything you quote is reported as that, not chased",
     /win everything/.test(winsAllReason),
     winsAllReason,
   );
 
-  // The same confusion on a REQUIRED box would be worse: it would put a zero
-  // into a multiplication and print a total from it.
+  // A blank on any required box must stop the estimate rather than putting a
+  // zero into a multiplication and printing a total from it.
   for (const field of INPUT_FIELDS.filter((f) => f.required && f.kind === "number")) {
     const blanked = estimateSavings({ ...SANE, [field.key]: "" });
     ok(
@@ -537,6 +896,7 @@ for (const [label, raw] of HOSTILE) {
   const tiny = estimateSavings({
     seats: 1,
     crew: 0,
+    quotesPerMonth: 1,
     projectsPerMonth: 1,
     averageProjectValue: 100,
     adminHoursPerWeek: 40,
@@ -544,7 +904,7 @@ for (const [label, raw] of HOSTILE) {
     tools: "paper",
   });
   ok(
-    "an admin bill bigger than the whole business is held to the business",
+    "an office bill bigger than the whole business is held to the business",
     // Never above the revenue, and never more than a dollar per line below it:
     // each line is floored after the cap is applied, so the rounding loss is
     // bounded and always downward.
@@ -558,11 +918,12 @@ for (const [label, raw] of HOSTILE) {
   //
   // A calculator that cannot print a negative comparison is an advertisement
   // with a form on it. This shape — a one-man band with an hour of paperwork a
-  // week and small jobs — genuinely does not get its money back, and the page
-  // says so.
+  // week, two small jobs and two quotes — genuinely does not get its money
+  // back, and the page says so.
   const notWorthIt = estimateSavings({
     seats: 1,
     crew: 0,
+    quotesPerMonth: 2,
     projectsPerMonth: 2,
     averageProjectValue: 200,
     adminHoursPerWeek: 1,
@@ -575,6 +936,17 @@ for (const [label, raw] of HOSTILE) {
       notWorthIt.paysForItself === false &&
       notWorthIt.netAfterCost < 0,
     JSON.stringify({ total: notWorthIt.total, net: notWorthIt.netAfterCost }),
+  );
+
+  // A business already on apps must be quoted less than the same business on
+  // paper. Every paired coefficient says so individually above; this proves it
+  // survives the whole pipeline including the cap.
+  const onPaper = estimateSavings({ ...SANE, tools: "paper" });
+  const onApps = estimateSavings({ ...SANE, tools: "separate_apps" });
+  ok(
+    "the same business is quoted less if it already runs apps",
+    onApps.total < onPaper.total,
+    `${onApps.total} vs ${onPaper.total}`,
   );
 }
 
@@ -611,33 +983,45 @@ for (const [label, raw] of HOSTILE) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   7. The arithmetic is the arithmetic the page prints
+   10. The arithmetic is the arithmetic the page prints
    ═══════════════════════════════════════════════════════════════════════════
 
    Worked by hand from the table, so that a coefficient changing changes this
-   number too and somebody has to look at it. */
+   number too and somebody has to look at it. These are the owner's own
+   answers: three people, sixteen quotes and eight jobs a month at five
+   thousand, four office hours a week at forty-five an hour, on paper. */
 section("Worked example");
 
 {
   const r = estimateSavings(SANE);
-  const admin = Math.floor(6 * 0.25 * 52 * 45); // 3,510
   const revenue = 8 * 12 * 5000; // 480,000
+
+  const quoteWriting = Math.floor((16 * 12 * (45 - 15) * 45) / 60); // 4,320
+  const underBilling = Math.floor(revenue * 0.012); // 5,760
+  const changeOrders = Math.floor(revenue * 0.014); // 6,720
+  const chased = Math.floor((16 - 8) * 12 * 5000 * 0.04 * 0.3); // 5,760
+  const admin = Math.floor(4 * 0.3 * 52 * 45); // 2,808
   const sooner = Math.floor(revenue * (5 / 365) * 0.08); // 526
-  const chased = Math.floor((14 - 8) * 12 * 5000 * 0.03 * 0.3); // 3,240
 
   const line = (key) => r.lines.find((l) => l.key === key)?.amount;
-  ok("office hours back: 6 h × 25% × 52 × 45", line("admin_time") === admin, line("admin_time"));
+  ok("pricing a job: 16 quotes × 12 × 30 min × 45/h", line("quote_writing") === quoteWriting, line("quote_writing"));
+  ok("under-billing: 480,000 × 1.2%", line("under_billing") === underBilling, line("under_billing"));
+  ok("extras never billed: 480,000 × 1.4%", line("change_orders") === changeOrders, line("change_orders"));
+  ok("quotes chased: 480,000 unwon × 4% × 30% margin", line("quotes_chased") === chased, line("quotes_chased"));
+  ok("office hours back: 4 h × 30% × 52 × 45", line("admin_time") === admin, line("admin_time"));
   ok("invoice sooner: 480,000 × 5/365 × 8%", line("invoice_sooner") === sooner, line("invoice_sooner"));
-  ok("quotes chased: 360,000 unwon × 3% × 30% margin", line("quotes_chased") === chased, line("quotes_chased"));
-  ok("the total is the three of them", r.total === admin + sooner + chased, r.total);
-  ok("and it is a long way under the revenue it came from", r.total < revenue * 0.05, r.total);
+
+  const expected = quoteWriting + underBilling + changeOrders + chased + admin + sooner;
+  ok("the total is the six of them", r.total === expected, r.total);
+  ok("every line the builders produced is printed", r.lines.length === LINE_BUILDERS.length, r.lines.length);
+  ok("and it is still a small fraction of the revenue it came from", r.total < revenue * 0.1, r.total);
 
   // The point of the margin coefficient, stated as a number: counting a
   // recovered job at its invoice rather than at what it leaves you would more
   // than triple that line.
   ok(
     "a recovered job is counted at margin, not at its invoice",
-    line("quotes_chased") < Math.floor((14 - 8) * 12 * 5000 * 0.03),
+    line("quotes_chased") < Math.floor((16 - 8) * 12 * 5000 * 0.04),
   );
 
   // Same for the cash-flow line: the money is not the saving, the wait is.
@@ -645,10 +1029,18 @@ section("Worked example");
     "money arriving sooner is worth the wait, not the money",
     line("invoice_sooner") < revenue * 0.01,
   );
+
+  // And the cost side, on the same answers.
+  ok("three seats and five crew fit a real rung", r.cost.fits === true);
+  ok("it pays for itself on these answers", r.paysForItself === true, r.netAfterCost);
+  ok(
+    "the comparison uses the monthly rate, not the committed one",
+    r.netAfterCost === r.total - r.cost.yearAtMonthly,
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   8. The page renders what the estimate returns
+   11. The page renders what the estimate returns
    ═══════════════════════════════════════════════════════════════════════════
 
    Source-level, and weaker than the rest of this file — see the header. What
@@ -671,17 +1063,70 @@ section("The page prints the honest parts");
   ok("it prints the whole assumption table", view.includes("ASSUMPTIONS.map"));
   ok("with every reason in it", view.includes("row.reasoning"));
   ok("it prints what we chose not to count", view.includes("NOT_COUNTED.map"));
+  // Both halves, not just the identifier. The first version of this assertion
+  // asked only whether the name appeared anywhere in the file, and a mutation
+  // that replaced the headline with a hardcoded string sailed past it — the
+  // body still mentioned the import, so the check agreed with itself. The
+  // honest half of this note lives in the BODY, which is exactly the half a
+  // "tighten the copy" edit would drop.
+  ok("it prints the AI note's headline", view.includes("AI_WITHOUT_AN_UPGRADE.headline"));
+  ok("and the honest half of it", view.includes("AI_WITHOUT_AN_UPGRADE.body"));
   ok("it prints the note saying these are estimates", view.includes("SAVINGS_DISCLOSURE"));
   ok("it compares against what a plan costs", view.includes("result.cost"));
   ok("nothing is pre-filled", view.includes("INPUT_FIELDS.map((f) => [f.key, \"\"])"));
 
+  // ── The counts in the header are counted ─────────────────────────────────
+  //
+  // "Seven answers, three line items" was true when it was written and stopped
+  // being true the moment a question and three lines were added. A sentence
+  // that states a number about the page it is on has to derive it, because
+  // nobody re-counts prose.
+  ok(
+    "the header counts the questions rather than asserting a number",
+    /INPUT_FIELDS\.filter\(\(f\) => f\.required\)\.length/.test(view) &&
+      /\{QUESTION_COUNT\}/.test(view),
+  );
+  ok(
+    "and counts the line items the same way",
+    /LINE_BUILDERS\.length/.test(view) && /\{LINE_COUNT\}/.test(view),
+  );
+  {
+    // Comments stripped, as with the currency scan: the comment beside the
+    // derived counts explains the bug by quoting the sentence that had it, and
+    // a scan that counted the explanation as the offence would force the
+    // explanation to be deleted.
+    const rendered = view
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+    const written = rendered.match(/\b(three|four|five|six|seven|eight) (answers|line items)\b/i);
+    ok("no written-out count survives in the header", !written, written?.[0]);
+  }
+
+  // Every basis the table can carry needs a label on the page, or a row
+  // renders with a blank cell where its provenance should be.
+  for (const basis of ASSUMPTION_BASIS) {
+    ok(`the table can label a "${basis}" row`, new RegExp(`${basis}:`).test(view));
+  }
+
   ok(
     "the disclosure says which way the estimates are biased",
-    /downward|downwards/.test(SAVINGS_DISCLOSURE.body),
+    /downward|downwards|conservative|less than they look/.test(SAVINGS_DISCLOSURE.body),
+  );
+  ok(
+    "the disclosure explains why some lines are margin and some are not",
+    /margin/.test(SAVINGS_DISCLOSURE.body) && /already/.test(SAVINGS_DISCLOSURE.body),
   );
   ok(
     "every excluded subject carries the reason it is excluded",
     NOT_COUNTED.length >= 3 && NOT_COUNTED.every((n) => n.reason.length > 80),
+  );
+  // The drive and the walkthrough are the specific thing a contractor will
+  // check the quote line against. They are not removed and must be named as
+  // not removed, or the quote line reads as a claim about the whole visit.
+  ok(
+    "the drive and the walkthrough are named as not counted",
+    NOT_COUNTED.some((n) => /drive/i.test(n.subject) && /walk/i.test(`${n.subject}${n.reason}`)),
   );
 }
 
