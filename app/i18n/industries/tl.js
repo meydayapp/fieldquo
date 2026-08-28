@@ -9,7 +9,7 @@ const tl = {
   chrome: {
     startTrial: "Simulan ang libreng subok",
     talkToUs: "Kausapin kami",
-    noCard: "Walang kailangang credit card.",
+    noCard: "Libre ang unang buwan mo — hindi sisingilin ang card mo hangga't hindi ito natatapos.",
     videoSoon: "Malapit nang mailabas ang product walkthrough",
     videoDemoPrefix: "Gusto mo ba ng live na demo?",
     videoDemoLink: "Mag-book ng demo",

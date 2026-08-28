@@ -16,7 +16,7 @@ const en = {
   chrome: {
     startTrial: "Start free trial",
     talkToUs: "Talk to us",
-    noCard: "No credit card required.",
+    noCard: "Your first month is free — your card isn't charged until it ends.",
     videoSoon: "Product walkthrough coming soon",
     videoDemoPrefix: "Want a live one instead?",
     videoDemoLink: "Book a demo",

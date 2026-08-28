@@ -4,7 +4,7 @@ const es = {
   chrome: {
     startTrial: "Prueba gratis",
     talkToUs: "Hablemos",
-    noCard: "No se requiere tarjeta de crédito.",
+    noCard: "Tu primer mes es gratis: no se cobra tu tarjeta hasta que termine.",
     videoSoon: "Demostración del producto próximamente",
     videoDemoPrefix: "¿Prefieres una en vivo?",
     videoDemoLink: "Agenda una demo",
