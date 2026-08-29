@@ -274,73 +274,6 @@ export default function ComparisonPage({ slug, asOf }) {
         </div>
       </div>
 
-      {/* ── The concession, before anything flattering ─────────────────────
-          Deliberately the first section after the hero and styled like every
-          other one. A comparison made only of our wins sells a subscription
-          somebody asks their money back for, and burying the gaps in a footer
-          is the same lie told more quietly. */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <SectionHeading
-          id="what-we-do-not-do"
-          title={COMPARE_CHROME.concessionTitle}
-          intro={page.concessionLede}
-        />
-        <p className="mt-3 text-sm text-muted-foreground max-w-3xl">
-          {COMPARE_CHROME.concessionIntro}
-        </p>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {/* Driven by FIELDQUO_LACKS, which is derived from the capability
-              ledger rather than typed out — so the day we ship a phone app,
-              this panel loses a card on its own instead of being remembered.
-              These are statements about US, which is why they are safe to make
-              on every page whatever we did or did not verify about them. */}
-          {FIELDQUO_LACKS.map((capability) => {
-            const cap = FIELDQUO_CAPABILITIES[capability];
-            const theirs = both.theyHaveWeDont.find((c) => c.capability === capability);
-            return (
-              <div
-                key={capability}
-                data-lacks={capability}
-                className="bg-card border border-border rounded-xl p-5"
-              >
-                <div className="flex items-start gap-2">
-                  <XIcon size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
-                  <span className="font-semibold text-foreground">{cap.label}</span>
-                </div>
-
-                {/* The competitor half is attached only when somebody actually
-                    read it off their page. Jobber's mobile-app entry is
-                    UNVERIFIED and almost certainly true, and "almost certainly"
-                    is not a standard this page publishes at — so it says what
-                    it does not know instead. */}
-                {theirs && theirs.publishable ? (
-                  <p
-                    className="mt-3 text-sm text-muted-foreground"
-                    data-direction="they-have-we-dont"
-                    data-capability={capability}
-                  >
-                    {competitor.name} says: “{theirs.claim}”.{" "}
-                    <SourceLink href={theirs.source}>
-                      Read on their site {theirs.checked}
-                    </SourceLink>
-                  </p>
-                ) : (
-                  <p
-                    className="mt-3 text-sm text-muted-foreground"
-                    data-direction="they-have-we-dont"
-                    data-capability={capability}
-                    data-unverified="true"
-                  >
-                    {COMPARE_CHROME.unverifiedConcessionNote}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── Price ─────────────────────────────────────────────────────────── */}
       <div className="bg-muted border-y border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -697,6 +630,83 @@ export default function ComparisonPage({ slug, asOf }) {
                     Where it stops: {entry.limits}
                   </p>
                 ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── The concession, kept and moved ─────────────────────────────────
+          This block used to open the page. The owner: "the first thing i see
+          is the things that we don't do.. what the fuck is that." He is right,
+          and it was my call to defend.
+
+          The reasoning was sound about INCLUDING them — a table of only our
+          wins is an advertisement, and somebody who buys on it and then goes
+          looking for the app is a refund plus a review. It was wrong about
+          ORDER. A comparison page opening with our weaknesses argues the
+          other company's case in our own hero.
+
+          So it sits after the price, the add-ons, the receptionist and where
+          we are ahead: still on the page, still findable, still driven by
+          FIELDQUO_LACKS so a gap cannot be quietly dropped — but it is no
+          longer the first thing a stranger reads. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <SectionHeading
+          id="what-we-do-not-do"
+          title={COMPARE_CHROME.concessionTitle}
+          intro={page.concessionLede}
+        />
+        <p className="mt-3 text-sm text-muted-foreground max-w-3xl">
+          {COMPARE_CHROME.concessionIntro}
+        </p>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {/* Driven by FIELDQUO_LACKS, which is derived from the capability
+              ledger rather than typed out — so the day we ship a phone app,
+              this panel loses a card on its own instead of being remembered.
+              These are statements about US, which is why they are safe to make
+              on every page whatever we did or did not verify about them. */}
+          {FIELDQUO_LACKS.map((capability) => {
+            const cap = FIELDQUO_CAPABILITIES[capability];
+            const theirs = both.theyHaveWeDont.find((c) => c.capability === capability);
+            return (
+              <div
+                key={capability}
+                data-lacks={capability}
+                className="bg-card border border-border rounded-xl p-5"
+              >
+                <div className="flex items-start gap-2">
+                  <XIcon size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span className="font-semibold text-foreground">{cap.label}</span>
+                </div>
+
+                {/* The competitor half is attached only when somebody actually
+                    read it off their page. Jobber's mobile-app entry is
+                    UNVERIFIED and almost certainly true, and "almost certainly"
+                    is not a standard this page publishes at — so it says what
+                    it does not know instead. */}
+                {theirs && theirs.publishable ? (
+                  <p
+                    className="mt-3 text-sm text-muted-foreground"
+                    data-direction="they-have-we-dont"
+                    data-capability={capability}
+                  >
+                    {competitor.name} says: “{theirs.claim}”.{" "}
+                    <SourceLink href={theirs.source}>
+                      Read on their site {theirs.checked}
+                    </SourceLink>
+                  </p>
+                ) : (
+                  <p
+                    className="mt-3 text-sm text-muted-foreground"
+                    data-direction="they-have-we-dont"
+                    data-capability={capability}
+                    data-unverified="true"
+                  >
+                    {COMPARE_CHROME.unverifiedConcessionNote}
+                  </p>
+                )}
               </div>
             );
           })}

@@ -356,13 +356,27 @@ async function main() {
     );
     ok(`${p.slug}: at least one verified advantage of ours`, wins.length > 0);
 
-    // Position, not just presence. A concession under the closing CTA is a
-    // concession nobody reads, so it is asserted to come BEFORE the section
-    // where we look good.
-    ok(`${p.slug}: the concessions come before the advantages`,
-      p.html.indexOf('data-lacks="') < p.html.indexOf('data-direction="we-have-they-dont"'));
-    ok(`${p.slug}: ...and before the price comparison`,
-      p.html.indexOf('data-lacks="') < p.html.indexOf('data-figure-id="'));
+    // ── Position, and this assertion was INVERTED on purpose ──────────────
+    //
+    // It used to demand the concessions come FIRST, on the reasoning that a
+    // concession under the closing CTA is a concession nobody reads. The
+    // owner opened /compare and got our weaknesses as the first thing on the
+    // page: "what the fuck is that.. we should focus on what we do best."
+    //
+    // He is right, and the original reasoning conflated two things. Including
+    // the gaps is what keeps this a comparison rather than an advertisement.
+    // Leading with them argues the other company's case in our own hero.
+    //
+    // So the rule is now a SANDWICH: after the price and after our advantages,
+    // and still before the closing call to action — read by somebody who has
+    // seen the case, not met by a stranger who has seen nothing.
+    ok(`${p.slug}: the concessions come AFTER the advantages`,
+      p.html.indexOf('data-lacks="') > p.html.indexOf('data-direction="we-have-they-dont"'));
+    ok(`${p.slug}: ...and after the price comparison`,
+      p.html.indexOf('data-lacks="') > p.html.indexOf('data-figure-id="'));
+    // But still present, and still above the fold of the ending — a gap moved
+    // into the footer is a gap deleted.
+    ok(`${p.slug}: ...and still on the page`, p.html.includes('data-lacks="'));
   }
   ok("the index carries the concessions too",
     JSON.stringify(elementsWith(indexHtml, "data-lacks").map((e) => e.value).sort()) ===

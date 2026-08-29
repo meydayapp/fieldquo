@@ -112,30 +112,6 @@ export default function CompareIndexPage() {
         </div>
       </div>
 
-      {/* The concessions, before the comparisons rather than under them. */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-          {COMPARE_CHROME.concessionTitle}
-        </h2>
-        <p className="mt-3 text-muted-foreground max-w-3xl">
-          {COMPARE_CHROME.concessionIntro}
-        </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          {FIELDQUO_LACKS.map((capability) => (
-            <div
-              key={capability}
-              data-lacks={capability}
-              className="bg-card border border-border rounded-xl p-5 flex items-start gap-2"
-            >
-              <XIcon size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
-              <span className="font-semibold text-foreground">
-                {FIELDQUO_CAPABILITIES[capability].label}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div className="bg-muted border-y border-border">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -162,6 +138,43 @@ export default function CompareIndexPage() {
               </Link>
             ))}
           </div>
+
+      {/* ── The concessions, kept and moved below the comparisons ──────────
+          This opened the index. The owner read it and said so: the first thing
+          on a comparison page should not be what we do not do.
+
+          Including them is still right — a page of only our wins is an
+          advertisement, and a contractor who buys on it and then goes looking
+          for the phone app is a refund plus a review. Leading with them was
+          not. They sit under the four comparisons now: a reader who has seen
+          the case gets the caveat, rather than a stranger meeting our
+          weaknesses first.
+
+          Still driven by FIELDQUO_LACKS, so a gap cannot be quietly dropped
+          from the page to make it read better. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+          {COMPARE_CHROME.concessionTitle}
+        </h2>
+        <p className="mt-3 text-muted-foreground max-w-3xl">
+          {COMPARE_CHROME.concessionIntro}
+        </p>
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+          {FIELDQUO_LACKS.map((capability) => (
+            <div
+              key={capability}
+              data-lacks={capability}
+              className="bg-card border border-border rounded-xl p-5 flex items-start gap-2"
+            >
+              <XIcon size={18} className="text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+              <span className="font-semibold text-foreground">
+                {FIELDQUO_CAPABILITIES[capability].label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
 
           <div className="mt-10 rounded-xl border border-border bg-card p-5 max-w-3xl">
             <h2 className="text-sm font-semibold text-foreground">
