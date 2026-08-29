@@ -15,6 +15,7 @@ import { CheckCircle2 } from "lucide-react";
 import { currencyMeta } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
+import { matrixEntry } from "@/lib/marketing/featureMatrix";
 
 /**
  * How many columns the plan grid gets, given how many plans exist.
@@ -48,6 +49,137 @@ export function pricingColumns(count) {
 
 // Tailwind scans source for complete class names, so these cannot be built by
 // string concatenation — `lg:grid-cols-${n}` produces no CSS at all.
+// ── What $99 actually buys, said on the page that asks for it ─────────────
+//
+// The cards said "6 employee accounts · AI copilot included" and nothing else.
+// The owner read that back as a customer would: "oh i'm paying $100 for what,
+// access to 9 employees and ai copilot? what is that?" He is right. A seat
+// count describes what you are LIMITED to; it does not name one thing the
+// product does.
+//
+// The competitor stacks six named features per tier and makes you climb for
+// the good ones — job costing and two-way SMS are three tiers up. We cannot
+// copy that ladder because our tiers are identical in features, and that is
+// the stronger position rather than the weaker one: everything below is in
+// Solo at $99, not four rungs above it.
+//
+// KEYS ONLY. Every label is read from lib/marketing/featureMatrix.js at render
+// time, where each entry carries the file paths that implement it and a check
+// asserts those paths still contain what they claim. A pricing page cannot
+// name a feature this product does not ship, and cannot drift from the wording
+// on /features/<slug> either. matrixEntry() throws on an unknown key, so a
+// typo here fails the build rather than printing a blank bullet.
+const HEADLINE_FEATURES = [
+  {
+    titleKey: "pricing.group.winning",
+    fallback: "Winning the work",
+    keys: [
+      "quotes",
+      "ai_quote_review",
+      "voice_receptionist",
+      "call_to_quote",
+      "instant_quotes",
+      "add_on_upsell",
+      "follow_ups",
+      "booking_page",
+      "website_builder",
+    ],
+  },
+  {
+    titleKey: "pricing.group.doing",
+    fallback: "Doing the job",
+    keys: [
+      "scheduling",
+      "jobs",
+      "job_costing",
+      "materials",
+      "job_photos",
+      "time_clock",
+      "crew_inbox",
+    ],
+  },
+  {
+    titleKey: "pricing.group.paid",
+    fallback: "Getting paid",
+    keys: [
+      "invoices",
+      "card_payments",
+      "financing",
+      "invoice_changes",
+      "client_portal",
+      "sales_tax",
+    ],
+  },
+  {
+    titleKey: "pricing.group.running",
+    fallback: "Running the business",
+    keys: [
+      "payroll",
+      "break_even",
+      "price_book",
+      "expenses",
+      "ai_copilot",
+      "white_label",
+      "team_access",
+    ],
+  },
+];
+
+function IncludedEverywhere({ t }) {
+  return (
+    <div className="mt-14">
+      <div className="text-center max-w-2xl mx-auto">
+        <h2 className="text-2xl font-bold text-foreground">
+          {t("pricing.includedTitle", "All of it is in every plan")}
+        </h2>
+        <p className="mt-2 text-muted-foreground">
+          {t(
+            "pricing.includedBody",
+            "There is no tier that unlocks job costing, no upgrade for the AI, no add-on for taking payment. The plans differ by how many people work in them — nothing else.",
+          )}
+        </p>
+      </div>
+
+      <div className="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        {HEADLINE_FEATURES.map((group) => (
+          <div key={group.titleKey}>
+            <h3 className="font-semibold text-foreground">
+              {t(group.titleKey, group.fallback)}
+            </h3>
+            <ul className="mt-3 space-y-2">
+              {group.keys.map((key) => {
+                const entry = matrixEntry(key);
+                return (
+                  <li
+                    key={key}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <CheckCircle2
+                      size={15}
+                      className="text-green-600 shrink-0 mt-0.5"
+                    />
+                    <span className="text-foreground">{entry.name}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-8 text-center text-sm text-muted-foreground">
+        {t(
+          "pricing.includedMore",
+          "That is the short list. See everything FieldQuo does →",
+        )}{" "}
+        <Link href="/features" className="underline font-medium text-foreground">
+          /features
+        </Link>
+      </p>
+    </div>
+  );
+}
+
 const COLUMN_CLASS = {
   1: "sm:grid-cols-1 lg:grid-cols-1 max-w-sm mx-auto",
   2: "sm:grid-cols-2 lg:grid-cols-2 max-w-3xl mx-auto",
@@ -280,9 +412,12 @@ export default function PricingPlans({ plans }) {
                     {t("nav.signup")}
                   </Link>
                 </div>
+
               );
             })}
           </div>
+
+          <IncludedEverywhere t={t} />
 
           {/* ── What this note may and may not claim ──────────────────────
               It used to open "All prices are in CAD", with the code filled in

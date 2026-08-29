@@ -51,6 +51,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { db } from "@/lib/db";
 import { partitionPlans } from "@/lib/platform/sellablePlans";
+import { matrixEntry } from "@/lib/marketing/featureMatrix";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import PricingPage, { oneRowPerTier } from "@/app/(marketing)/pricing/page";
@@ -439,6 +440,63 @@ async function main() {
   ok("...nor imports the geo currency helper", !/currencyForCountry/.test(pageCode));
   ok("...nor calls headers()", !/headers\(\)/.test(pageCode));
   ok("the old key is not rendered any more", !/pricingPage\.currencyNote/.test(code(GRID)));
+
+  // ── The page has to say what the money buys ────────────────────────────────
+  //
+  // The cards printed a seat count and "AI copilot included" and nothing else.
+  // The owner read it back the way a stranger would: "i'm paying $100 for what?"
+  //
+  // Every label in the new block is read from featureMatrix at render time, so a
+  // pricing card cannot name a feature this product does not ship and cannot
+  // drift from the wording on /features. These assertions pin the keys the owner
+  // named specifically, because they are the ones that answer the question.
+  console.log("\n── What the money buys ─────────────────────────────────────────\n");
+
+  const plansSrc = readFileSync("app/(marketing)/pricing/PricingPlans.js", "utf8");
+  const HEADLINE = [...plansSrc.matchAll(/^\s{6}"([a-z_]+)",$/gm)].map((m) => m[1]);
+
+  ok("the pricing page lists real features at all", HEADLINE.length >= 24, HEADLINE.length);
+  // matrixEntry throws on an unknown key, so this is what stops a typo shipping
+  // as a blank bullet on the page that asks for money.
+  ok("...and every one resolves to a matrix entry", HEADLINE.every((k) => {
+    try { return !!matrixEntry(k).name; } catch { return false; }
+  }));
+  ok("...read at render time, not retyped", /matrixEntry\(key\)/.test(plansSrc));
+  // Asserted on the RENDER, not on a quoted string: the first version looked
+  // for `"Job costing"` and a mutation that hardcoded it as JSX text — no
+  // quotes — walked straight past. The label must come out of the entry.
+  ok("...and the label is printed FROM the entry, not typed beside it",
+    /\{entry\.name\}/.test(plansSrc));
+  ok("...with no matrix name appearing as literal text in the file",
+    !HEADLINE.some((k) => {
+      const entry = (() => { try { return matrixEntry(k); } catch { return null; } })();
+      if (!entry) return false;
+      // Strip the data module's own keys list before searching, or every key
+      // would match its own name in a comment.
+      return new RegExp(`>\\s*${entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*<`).test(plansSrc);
+    }));
+
+  // The seven the owner named. If any drops off the page, this fails.
+  for (const [key, why] of [
+    ["ai_quote_review", "AI quote review"],
+    ["voice_receptionist", "the AI receptionist"],
+    ["call_to_quote", "a quote drafted from the call"],
+    ["instant_quotes", "instant online estimates"],
+    ["card_payments", "getting paid by card"],
+    ["payroll", "payroll"],
+    ["job_costing", "job costing — three tiers up at the competitor"],
+  ]) {
+    ok(`the page names ${why}`, HEADLINE.includes(key));
+  }
+
+  // The tiers are identical in features, so the honest claim is the strong one.
+  // If tier differentiation is ever introduced, this sentence becomes false and
+  // somebody has to come back here — which is the point.
+  ok("it says everything is in every plan",
+    /pricing\.includedTitle/.test(plansSrc) && /pricing\.includedBody/.test(plansSrc));
+  ok("...and routes to the full list rather than printing 76 bullets",
+    /href="\/features"/.test(plansSrc));
+
 
   console.log(
     fails.length
