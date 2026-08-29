@@ -43,6 +43,16 @@ import {
   QUOTE_CALL_SCOPE_VALUES,
   normaliseQuoteCallScope,
 } from "@/lib/voice/quoteCallScope";
+// How it sounds: four choices in the owner's words, and everything else set for
+// them. See lib/voice/agentTuning.js — the codes and the copy live there
+// because the settings card is a client component and this route imports Prisma.
+import {
+  TUNING_SETTINGS,
+  TUNING_FIELDS,
+  normaliseTuning,
+  validateTuning,
+  tuningColumn,
+} from "@/lib/voice/agentTuning";
 import {
   spendVerdict,
   checkSpend,
@@ -248,6 +258,22 @@ export async function GET(request) {
           greetingNamesOther: greetingNamesAnotherBusiness(agent.greeting, company?.name),
         }
       : null,
+    // ── How it sounds ─────────────────────────────────────────────────────
+    //
+    // OUTSIDE `agent`, on purpose. A company that has never opened this screen
+    // has no VoiceAgent row at all, and nesting these inside a null object
+    // would render the card empty — four settings with no selection, which is
+    // not what the phone would actually do. `normaliseTuning(null)` returns the
+    // four defaults, which IS what it would do.
+    //
+    // The options travel as codes with no copy: the labels and the hints live
+    // in lib/voice/agentTuning.js and are translated on the page, so this route
+    // stays language-free like the callback-scope one above it.
+    tuning: {
+      values: normaliseTuning(agent),
+      settings: TUNING_SETTINGS,
+      fields: TUNING_FIELDS,
+    },
     number: number
       ? {
           e164: number.e164,
@@ -429,6 +455,31 @@ export async function PUT(request) {
   if (typeof body.instructions === "string")
     data.instructions = body.instructions.trim().slice(0, 4000) || null;
   if (typeof body.transferTo === "string") data.transferTo = body.transferTo.trim().slice(0, 40) || null;
+
+  // ── How it sounds ────────────────────────────────────────────────────────
+  //
+  // REFUSED rather than coerced. A value we don't recognise resolves back to
+  // the default at read time (normaliseTuning), so silently storing one would
+  // show the owner a choice on screen that the phone is not applying — the same
+  // dead control `outboundQuoteCallScope` is validated against, and the reason
+  // the validator hands back what was wrong rather than a bare boolean.
+  //
+  // Only fields actually PRESENT in the body are touched, so the card can post
+  // one setting at a time without the other three collapsing to defaults.
+  const tuning = validateTuning(body);
+  if (tuning.invalid.length) {
+    return NextResponse.json(
+      {
+        error: `That isn't one of the options for “${tuning.invalid[0].field}”.`,
+        errorKey: "app.setVoice.tune.rejected",
+        errorParams: { field: tuning.invalid[0].field },
+      },
+      { status: 400 },
+    );
+  }
+  for (const [field, value] of Object.entries(tuning.values)) {
+    data[tuningColumn(field)] = value;
+  }
 
   if (typeof body.enabled === "boolean") {
     // ── Turning it ON is gated ──────────────────────────────────────────

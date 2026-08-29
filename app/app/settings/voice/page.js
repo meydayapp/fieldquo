@@ -64,6 +64,20 @@ import {
   callbackReasonKey,
   CALLBACK_REASON_TEXT,
 } from "@/lib/voice/quoteCallScope";
+// Third file with the same split and the same reason. lib/voice/agentTuning.js
+// imports NOTHING at all, so the four option lists and their English copy can be
+// read here without dragging Prisma — then pg, then node's `dns` — into the
+// browser bundle. The provider values these codes map to never come here: the
+// browser posts "patient", never `interruption_sensitivity: 0.3`.
+import {
+  TUNING_FIELDS,
+  tuningTitleKey,
+  tuningLabelKey,
+  tuningHintKey,
+  TUNING_TITLE_TEXT,
+  TUNING_LABEL_TEXT,
+  TUNING_HINT_TEXT,
+} from "@/lib/voice/agentTuning";
 import {
   READINESS_LINKS,
   LINK_LABEL,
@@ -110,7 +124,19 @@ export default function VoiceSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState({ greeting: "", instructions: "", transferTo: "" });
+  // The four sound choices live in the SAME form object as the greeting and the
+  // note, so one Save pushes all of them and one provisionAgent call carries
+  // them to Retell. Splitting them into their own saving control would mean two
+  // pushes for one visit to this screen, and two chances for half of it to land.
+  const [form, setForm] = useState({
+    greeting: "",
+    instructions: "",
+    transferTo: "",
+    interruptions: "",
+    background: "",
+    pace: "",
+    manner: "",
+  });
   const [copied, setCopied] = useState(null);
   const [liveWarning, setLiveWarning] = useState(false);
   // What just happened, in a sentence. Sticky rather than a 2-second toast: the
@@ -188,6 +214,12 @@ export default function VoiceSettingsPage() {
       greeting: d.agent?.greeting || "",
       instructions: d.agent?.instructions || "",
       transferTo: d.agent?.transferTo || "",
+      // `d.tuning.values` is never null and never partial — the server
+      // normalises it, so a company with no VoiceAgent row at all still gets
+      // the four defaults rather than four unselected pickers. `|| ""` is not
+      // enough here: an empty string would render a card with nothing chosen,
+      // which is a lie about what the phone is doing.
+      ...(d.tuning?.values || {}),
     });
     return d;
   }, []);
@@ -1666,6 +1698,20 @@ export default function VoiceSettingsPage() {
             )}
           </div>
 
+          {/* Held in `form` and committed by the Save button below, exactly
+              like the greeting. Not saved on click: one visit to this card
+              should be one push to the provider, and a control that saved
+              itself would leave a half-applied agent every time somebody
+              changed their mind twice. */}
+          <SoundPicker
+            settings={data?.tuning?.settings}
+            fields={data?.tuning?.fields}
+            values={form}
+            busy={busy}
+            onPick={(field, value) => setForm({ ...form, [field]: value })}
+            t={t}
+          />
+
           {liveWarning && (
             <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -2366,6 +2412,123 @@ function BlockedReason({ show, message }) {
       <AlertTriangle size={13} className="shrink-0 mt-0.5" />
       {message}
     </p>
+  );
+}
+
+/**
+ * How the receptionist SOUNDS — four choices, in the owner's words.
+ *
+ * ── Why four, and not the twenty Retell offers ────────────────────────────
+ *
+ * Retell exposes interruption sensitivity, responsiveness, denoising, ASR
+ * vendor, transcription mode, backchannel frequency, voice temperature, model,
+ * model temperature, priority tier, and a dozen more. Every one of them is a
+ * number or a vendor name, and a one-van painter cannot evaluate any of them.
+ * A screen of that is a screen nobody touches, or one somebody breaks their own
+ * phone with — the same defect as a feature flag for a feature that doesn't
+ * exist, wearing a number instead of a name.
+ *
+ * So the four here are the four a contractor has a genuine opinion about,
+ * because they are four facts about THEIR callers and THEIR trade, not four
+ * facts about a speech pipeline. Everything else is set in
+ * lib/voice/agentTuning.js with the reasoning written down beside it.
+ *
+ * ── And the trade is in the words ─────────────────────────────────────────
+ *
+ * Three of the four buy quality with latency or the reverse. The hint under
+ * each option says which, in the sentence, because "0.6" tells the person
+ * paying for it nothing at all.
+ *
+ * `fields` and the option lists come from the SERVER, not from a list typed
+ * here: an option the PUT route would refuse with a 400 must not be renderable
+ * as a button.
+ */
+function SoundPicker({ settings, fields, values, busy, onPick, t }) {
+  if (!settings || !Array.isArray(fields) || !fields.length) return null;
+  // Belt and braces on the import: a field the server sent that this bundle
+  // has no copy for would render a heading with no fallback text.
+  const known = fields.filter((f) => TUNING_FIELDS.includes(f) && settings[f]?.values?.length);
+  if (!known.length) return null;
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-4">
+      <p className="text-sm font-medium text-foreground">
+        {t("app.setVoice.tune.title", "How it sounds")}
+      </p>
+      <p className="text-xs text-muted-foreground mt-0.5">
+        {t(
+          "app.setVoice.tune.hint",
+          "The defaults suit most people. Change these if your callers keep getting cut off, or if it keeps talking over them.",
+        )}
+      </p>
+
+      <div className="mt-4 space-y-4">
+        {known.map((field) => (
+          <div key={field}>
+            <p className="text-xs font-semibold text-foreground">
+              {t(tuningTitleKey(field), TUNING_TITLE_TEXT[tuningTitleKey(field)] || field)}
+            </p>
+            <div
+              className={`mt-2 grid gap-2 ${
+                settings[field].values.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"
+              }`}
+            >
+              {settings[field].values.map((value) => {
+                const active = value === values?.[field];
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={busy || active}
+                    aria-pressed={active}
+                    onClick={() => onPick(field, value)}
+                    // One opacity utility per state — see QuoteCallScope below
+                    // for why `disabled:opacity-50` and `disabled:opacity-100`
+                    // together do not resolve by class order.
+                    className={`text-left rounded-lg border p-3 transition-colors ${
+                      active
+                        ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                        : busy
+                          ? "border-border bg-card opacity-50"
+                          : "border-border bg-card hover:border-foreground/30"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      {active && (
+                        <Check size={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />
+                      )}
+                      {t(
+                        tuningLabelKey(field, value),
+                        TUNING_LABEL_TEXT[tuningLabelKey(field, value)] || value,
+                      )}
+                    </span>
+                    <span className="block text-xs text-muted-foreground mt-1">
+                      {t(
+                        tuningHintKey(field, value),
+                        TUNING_HINT_TEXT[tuningHintKey(field, value)] || "",
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* The one thing none of these can touch, said where somebody is about to
+          change how the receptionist behaves. SYSTEM_RULES sits above anything
+          a company types AND above anything set here — agentTuning.js sends no
+          prompt text at all — and the refusal held under direct pressure on two
+          real calls. Worth stating on the screen that looks most like it might
+          loosen it. */}
+      <p className="text-xs text-muted-foreground mt-4">
+        {t(
+          "app.setVoice.tune.unchanged",
+          "None of these change what it's allowed to say. It still never gives a price, never promises a time it hasn't checked, and never claims to be a person.",
+        )}
+      </p>
+    </div>
   );
 }
 
