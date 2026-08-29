@@ -463,8 +463,14 @@ async function main() {
     ok("...and every feature key it names resolves",
       COMPARE_PAGES.every((p) => p.features.every((k) => MATRIX_KEYS.includes(k))),
       COMPARE_PAGES.flatMap((p) => p.features).filter((k) => !MATRIX_KEYS.includes(k)).join(","));
+    // Through lib/marketing/featureLabels.js since the six-language sweep.
+    // /compare is a server component with no translation context, so it passes
+    // no `t` and the layer hands back the matrix's proved English — the same
+    // strings this page has always printed. Asserted at both ends so a layer
+    // that stopped consulting the matrix would fail here too.
     ok("...and the renderer reads the matrix rather than the copy for them",
-      /matrixEntry\(key\)/.test(source(RENDERER)));
+      /featureEntry\(key\)/.test(source(RENDERER)) &&
+        /matrixEntry\(key\)/.test(readFileSync("lib/marketing/featureLabels.js", "utf8")));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

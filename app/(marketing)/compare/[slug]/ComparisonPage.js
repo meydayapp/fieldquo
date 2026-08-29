@@ -62,7 +62,7 @@ import {
   competitor as findCompetitor,
   withholdReason,
 } from "@/lib/marketing/competitors";
-import { matrixEntry } from "@/lib/marketing/featureMatrix";
+import { featureEntry } from "@/lib/marketing/featureLabels";
 
 import AddOnStack from "../AddOnStack";
 import { coordinateLabel } from "../addOns";
@@ -599,7 +599,13 @@ export default function ComparisonPage({ slug, asOf }) {
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {page.features.map((key) => {
-            const entry = matrixEntry(key);
+            // No `t` here on purpose. This is a server component with no
+            // translation context — see the header — so featureEntry returns
+            // the matrix's proved English, exactly what this page rendered
+            // before the label layer existed. The day these pages gain a
+            // language, it is one argument at this one call site rather than a
+            // hunt for every place a feature name is printed.
+            const entry = featureEntry(key);
             // A key with no matrix entry renders nothing at all. The check
             // script fails on it separately, but a page in production must not
             // improvise a feature name to fill a card.

@@ -15,7 +15,7 @@ import { CheckCircle2 } from "lucide-react";
 import { currencyMeta } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
-import { matrixEntry } from "@/lib/marketing/featureMatrix";
+import { featureEntry } from "@/lib/marketing/featureLabels";
 import { COMPETITORS } from "@/lib/marketing/competitors";
 import AddOnStack from "../compare/AddOnStack";
 import { addOnStack } from "../compare/addOns";
@@ -67,12 +67,19 @@ export function pricingColumns(count) {
 // the stronger position rather than the weaker one: everything below is in
 // Solo at $99, not four rungs above it.
 //
-// KEYS ONLY. Every label is read from lib/marketing/featureMatrix.js at render
-// time, where each entry carries the file paths that implement it and a check
-// asserts those paths still contain what they claim. A pricing page cannot
-// name a feature this product does not ship, and cannot drift from the wording
-// on /features/<slug> either. matrixEntry() throws on an unknown key, so a
-// typo here fails the build rather than printing a blank bullet.
+// KEYS ONLY. Every label is read at render time through
+// lib/marketing/featureLabels.js, which resolves the key against the message
+// catalogue in the visitor's language and falls back to
+// lib/marketing/featureMatrix.js — where each entry carries the file paths that
+// implement it and a check asserts those paths still contain what they claim.
+// So a pricing page cannot name a feature this product does not ship, and
+// cannot drift from the wording on /features/<slug> either. featureEntry()
+// returns undefined for an unknown key, so a typo here fails the build rather
+// than printing a blank bullet.
+//
+// The `t` handed to featureEntry is what fixes the reported bug: these headings
+// were translating and the bullets under them were not, because the headings
+// came from t() and the names came straight off the English matrix.
 const HEADLINE_FEATURES = [
   {
     titleKey: "pricing.group.winning",
@@ -152,7 +159,7 @@ function IncludedEverywhere({ t }) {
             </h3>
             <ul className="mt-3 space-y-2">
               {group.keys.map((key) => {
-                const entry = matrixEntry(key);
+                const entry = featureEntry(key, t);
                 return (
                   <li
                     key={key}

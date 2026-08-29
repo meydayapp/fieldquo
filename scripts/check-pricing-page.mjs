@@ -470,7 +470,20 @@ async function main() {
   ok("...and every one resolves to a matrix entry", HEADLINE.every((k) => {
     try { return !!matrixEntry(k).name; } catch { return false; }
   }));
-  ok("...read at render time, not retyped", /matrixEntry\(key\)/.test(plansSrc));
+  // Read at render time, through the label layer. The call used to be
+  // matrixEntry(key) and the assertion looked for exactly that; it now goes
+  // through lib/marketing/featureLabels.js, which resolves the key against the
+  // message catalogue and falls back to the matrix. Both halves are asserted —
+  // the call site, and that the layer really does read the matrix — because
+  // "reads a function called featureEntry" would be satisfied by a layer that
+  // invented names.
+  ok("...read at render time, not retyped", /featureEntry\(key, t\)/.test(plansSrc));
+  ok("...and the layer it reads through goes to the matrix",
+    /matrixEntry\(key\)/.test(read("lib/marketing/featureLabels.js")));
+  // The `t` is the fix for the half-translated page: without it the bullets
+  // print English under headings that translated.
+  ok("...in the visitor's language, not only in English",
+    /featureEntry\(key, t\)/.test(plansSrc));
   // Asserted on the RENDER, not on a quoted string: the first version looked
   // for `"Job costing"` and a mutation that hardcoded it as JSX text — no
   // quotes — walked straight past. The label must come out of the entry.

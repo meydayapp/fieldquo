@@ -13,8 +13,13 @@
 //   • their add-on's LABEL and PRICE, because both were read off their own
 //     pricing page and carry a source, a date and a vantage point;
 //   • the total, when ./addOnStack says a total is honest — never otherwise;
-//   • our own features, by matrix KEY, printed from the matrix's own name and
-//     summary, with `limits` attached to anything partly built.
+//   • our own features, by matrix KEY, printed through
+//     lib/marketing/featureLabels.js — the matrix's own name and summary, said
+//     in the reader's language where there is one, with `limits` attached to
+//     anything partly built. On /compare the default `t` below resolves each
+//     key to its English fallback, which is the matrix's own string; on
+//     /pricing the real t() is passed and the block speaks the page's
+//     language.
 //
 // ══ What it may never say ══════════════════════════════════════════════════
 //
@@ -40,6 +45,7 @@
 import { Check, ExternalLink, Info } from "lucide-react";
 
 import { FIELDQUO_CAPABILITIES } from "@/lib/marketing/competitors";
+import { featureEntry } from "@/lib/marketing/featureLabels";
 import { addOnStack, counterpartsFor } from "./addOns";
 
 /**
@@ -119,7 +125,9 @@ export default function AddOnStack({
 
       <div className="mt-8 space-y-4">
         {stack.items.map((addOn) => {
-          const counterparts = counterpartsFor(addOn.id);
+          const counterparts = counterpartsFor(addOn.id).map((c) =>
+            featureEntry(c.key, t),
+          );
           return (
             <div
               key={addOn.id}
