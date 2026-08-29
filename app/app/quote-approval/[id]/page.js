@@ -43,6 +43,13 @@ export default function QuoteApprovalPage() {
   const [busy, setBusy] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  // "They declined" opens a box before it commits. Until this existed, the
+  // back office had NOWHERE to type why — PATCH /api/quotes/[id] has always
+  // accepted `declineReason` and this page posted `{ status }` alone, so the
+  // only door to the field was the public link, which does not ask either.
+  // A column written by nobody is the same as a column nobody reads.
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -97,13 +104,23 @@ export default function QuoteApprovalPage() {
     setBusy(status);
     setError("");
     try {
+      // Blank stays blank. An empty box is somebody who did not ask or was not
+      // told, and quoteLifecycle writes the column only when a reason is
+      // truthy — so silence lands as null and the win/loss report counts it as
+      // unexplained instead of inventing a category for it.
+      const trimmed = reason.trim();
       const res = await fetch(`/api/quotes/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({
+          status,
+          ...(status === "declined" && trimmed ? { declineReason: trimmed } : {}),
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error || t("app.quoteApproval.updateError"));
+      setDeclining(false);
+      setReason("");
       await load();
     } catch (err) {
       setError(err.message);
@@ -271,10 +288,81 @@ export default function QuoteApprovalPage() {
         </p>
 
         {decided ? (
-          <div className="mt-4 text-sm text-muted-foreground">
-            {t("app.quoteApproval.alreadyMarked")}{" "}
-            <span className="font-semibold text-foreground">{quote.status}</span>.{" "}
-            {t("app.quoteApproval.changeIfWrong")}
+          <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+            <div>
+              {t("app.quoteApproval.alreadyMarked")}{" "}
+              <span className="font-semibold text-foreground">{quote.status}</span>.{" "}
+              {t("app.quoteApproval.changeIfWrong")}
+            </div>
+            {/* Written and READ. The reason was collected on both doors and
+                shown only in FieldQuo's own console; the least this screen can
+                do is show the person who typed it that it landed. */}
+            {quote.status === "declined" && quote.declineReason && (
+              <div className="rounded-lg bg-muted px-3 py-2">
+                <div className="text-xs uppercase tracking-wide">
+                  {t("app.quoteApproval.reasonRecorded", "Reason recorded")}
+                </div>
+                <p className="mt-1 text-foreground whitespace-pre-wrap">
+                  {quote.declineReason}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : declining ? (
+          // ── The box, before the button commits ────────────────────────────
+          //
+          // Optional and free text, for the reason the schema field gives: a
+          // required dropdown collects whatever is nearest the cursor, which is
+          // worse than no data at all. So there is no list to pick from, and
+          // "Record it" works with the box empty.
+          <div className="mt-4 space-y-3">
+            <label
+              htmlFor="decline-reason"
+              className="block text-sm font-medium text-foreground"
+            >
+              {t("app.quoteApproval.whyLost", "Did they say why? (optional)")}
+            </label>
+            <textarea
+              id="decline-reason"
+              rows={3}
+              maxLength={500}
+              autoFocus
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={t(
+                "app.quoteApproval.whyLostPlaceholder",
+                "Went with a cheaper bid — about $800 under us.",
+              )}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card text-foreground"
+            />
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.quoteApproval.whyLostHint",
+                "Their words, not a category. Leave it blank if they didn't say — a guess here is worse than nothing, and your win/loss report counts an empty one as “nobody said” rather than inventing a reason.",
+              )}
+            </p>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => record("declined")}
+                disabled={Boolean(busy)}
+                className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                {busy === "declined" && (
+                  <Loader2 size={14} className="animate-spin" />
+                )}
+                {t("app.quoteApproval.recordAsLost", "Record as lost")}
+              </button>
+              <button
+                onClick={() => {
+                  setDeclining(false);
+                  setReason("");
+                }}
+                disabled={Boolean(busy)}
+                className="inline-flex items-center gap-2 border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                {t("app.action.cancel", "Cancel")}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="mt-4 flex gap-3 flex-wrap">
@@ -289,13 +377,10 @@ export default function QuoteApprovalPage() {
               {t("app.quoteApproval.theyApproved")}
             </button>
             <button
-              onClick={() => record("declined")}
+              onClick={() => setDeclining(true)}
               disabled={Boolean(busy) || quote.status === "draft"}
               className="inline-flex items-center gap-2 border border-border text-foreground px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
             >
-              {busy === "declined" && (
-                <Loader2 size={14} className="animate-spin" />
-              )}
               {t("app.quoteApproval.theyDeclined")}
             </button>
           </div>

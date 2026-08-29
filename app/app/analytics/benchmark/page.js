@@ -74,6 +74,24 @@ export default function BenchmarkPage() {
           >
             {t("app.benchmark.financialStatements", "Financial statements")}
           </Link>
+          {/* Fourth page in the group, same reasoning as the two above: the
+              sidebar has one "Insights" row for all of them, and a page nothing
+              links to is a page nobody finds. It gates itself. */}
+          <Link
+            href="/app/analytics/win-loss"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.benchmark.winLoss", "Won and lost")}
+          </Link>
+          {/* And the fifth, on the same argument. This one is the pair to the
+              statements link: that says what the business earned, this says
+              whether the estimates it was earned against were any good. */}
+          <Link
+            href="/app/analytics/estimate-accuracy"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.benchmark.estimateAccuracy", "Estimate accuracy")}
+          </Link>
         </div>
       </div>
 

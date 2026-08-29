@@ -23,46 +23,13 @@ import Link from "next/link";
 import { AlertTriangle, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { formatAppMoney } from "@/lib/format/money";
+import { presetRange, PERIOD_PRESETS } from "@/lib/analytics/periodPresets";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
-// ── Periods ────────────────────────────────────────────────────────────────
-//
-// Built in UTC to match the server, which decides range membership on UTC
-// calendar days (lib/export/accountingExport.js says why). Building "this
-// month" from the browser's local clock would put an invoice on the wrong side
-// of a boundary for anyone west of Greenwich, and the two screens would then
-// disagree about the same month.
-const iso = (d) => d.toISOString().slice(0, 10);
-const utc = (y, m, day) => new Date(Date.UTC(y, m, day));
-
-function presetRange(key, now = new Date()) {
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth();
-  switch (key) {
-    case "thisMonth":
-      return { from: iso(utc(y, m, 1)), to: iso(utc(y, m + 1, 0)) };
-    case "lastMonth":
-      return { from: iso(utc(y, m - 1, 1)), to: iso(utc(y, m, 0)) };
-    case "thisQuarter": {
-      const q = Math.floor(m / 3) * 3;
-      return { from: iso(utc(y, q, 1)), to: iso(utc(y, q + 3, 0)) };
-    }
-    case "yearToDate":
-      return { from: iso(utc(y, 0, 1)), to: iso(utc(y, m, now.getUTCDate())) };
-    case "lastYear":
-      return { from: iso(utc(y - 1, 0, 1)), to: iso(utc(y - 1, 11, 31)) };
-    default:
-      return { from: iso(utc(y, m, 1)), to: iso(utc(y, m + 1, 0)) };
-  }
-}
-
-const PRESETS = [
-  ["thisMonth", "This month"],
-  ["lastMonth", "Last month"],
-  ["thisQuarter", "This quarter"],
-  ["yearToDate", "Year to date"],
-  ["lastYear", "Last year"],
-];
+// The six period buttons and their UTC maths moved to
+// lib/analytics/periodPresets.js when the win/loss screen needed the same ones
+// — one implementation rather than two that drift.
+const PRESETS = PERIOD_PRESETS;
 
 // The API's `reason` codes, turned into a sentence. Anything unmapped falls
 // through to the code itself rather than to a generic "unavailable" — an

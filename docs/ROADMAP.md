@@ -890,6 +890,39 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Win/loss: the contractor can finally see WHY they lose, and finally has
+  somewhere to type it. `lib/analytics/winLoss.js`,
+  `app/api/analytics/win-loss/route.js`, `app/app/analytics/win-loss/page.js`,
+  `scripts/check-win-loss.mjs`.**
+
+  `Quote.declineReason` was written on every decline through both doors and
+  read only by FieldQuo's own console (`app/platform/TenantBoard.js`,
+  `lib/analytics/tenantData.js`). We collected why a contractor loses work,
+  showed it to ourselves, and showed them a bare win rate — the exact number
+  the field's schema comment says is not enough.
+
+  It was worse than a missing report. The back office had NOWHERE to type one:
+  `PATCH /api/quotes/[id]` has always accepted `declineReason` and
+  `app/app/quote-approval/[id]/page.js` posted `{ status }` alone. "They
+  declined" now opens an optional free-text box before it commits, and reads
+  what was typed back on the same screen.
+
+  **Still open, and a product decision rather than an oversight:** the
+  client-facing decline path (`app/q/[token]/QuoteApproval.js`) does not ask
+  either, so until reasons start being collected the report will honestly say
+  100% unexplained on most companies. Asking a homeowner why they said no is a
+  change to a client-facing surface and was not made unilaterally.
+
+  The rules the report is built on, all executed by the check: `null` is never
+  a category and unexplained losses are their own number; percentages appear
+  only at ten decided quotes (at ten, one flip moves the rate by ten points);
+  free text is shown verbatim, newest first, never clustered; a missing
+  decision stamp is dropped from the average, never counted as nought days; a
+  quote still out is neither won nor lost; an empty period reports emptiness
+  rather than 0%. A Good/Better/Best trio collapses to one opportunity — three
+  rows and one homeowner. No AI: every sentence it can honestly produce is a
+  function of six integers, so they are produced in code as note codes.
+
 - **The $177 a month Jobber charges on top of the plan is now on /pricing and
   on /compare/fieldquo-vs-jobber. `app/(marketing)/compare/addOns.js`,
   `AddOnStack.js`.**
