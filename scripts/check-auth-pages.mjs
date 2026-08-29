@@ -689,6 +689,50 @@ for (const file of ["app/login/page.js", "app/signup/page.js"]) {
   ok(`...and hand-rolls no input border of its own`, !/border rounded-lg px-4 py-2\.5 text-sm/.test(src));
 }
 
+// ── Signed in with a business means no signup form ────────────────────────
+//
+// /signup used to detect an existing membership and carry on, with a banner
+// saying that continuing would set up an ADDITIONAL business. The owner ruled
+// against it twice — "i cannot sign up if i'm already logged in" — so the form
+// is not offered and POST /api/companies refuses.
+//
+// Asserted at BOTH ends deliberately. A screen that hides a form while the
+// route still accepts the post is the hidden-path failure this codebase is
+// swept for; a route that refuses while the screen still offers the form is
+// the dead-control failure. Either alone is worse than neither.
+console.log("\n── One business to a login ─────────────────────────────────────\n");
+
+const companiesSrc = code("app/api/companies/route.js");
+
+// Every step, not just the first: a resumed draft would otherwise render the
+// business step underneath the refusal panel.
+const guarded = (signupSrc.match(/entryChecked && !alreadyOnFieldquo && step ===/g) || []).length;
+ok("no signup step renders for a member", guarded >= 5, guarded);
+ok("...nor the loading state that precedes them",
+  /\{!entryChecked && !alreadyOnFieldquo && \(/.test(signupSrc));
+ok("...and the panel that replaces it names their business",
+  /auth\.signup\.alreadyIn/.test(signupSrc) && /alreadyOnFieldquo\.name/.test(signupSrc));
+// Not a redirect: somebody who typed the URL gets a sentence, and the two
+// things they probably meant are one click away.
+ok("...offering the dashboard and the team page rather than bouncing",
+  /href="\/app"/.test(signupSrc) && /href="\/app\/settings\/team"/.test(signupSrc));
+
+ok("the route refuses a second company", /code: "already_has_company"/.test(companiesSrc));
+ok("...with a 409, not a 403 — it is a conflict, not a permission",
+  /already_has_company[\s\S]{0,120}status: 409/.test(companiesSrc));
+// The distinction the whole gate turns on. A session with NO membership is the
+// abandoned signup, and refusing that strands somebody permanently.
+// Anchored to the ASSIGNMENT, not to the call appearing somewhere in the
+// expression. The first version matched a ternary that short-circuited on the
+// session and only reached findFirst on the other branch — the query was still
+// in the source, so the regex was satisfied while the behaviour was inverted.
+ok("...on MEMBERSHIP, never on the session alone",
+  /const existingMembership = await db\.member\.findFirst\(\{/.test(companiesSrc));
+ok("...with nothing standing between the assignment and the query",
+  !/const existingMembership = [^a]*session/.test(companiesSrc));
+ok("...so an account with no company can still finish signing up",
+  companiesSrc.indexOf("existingMembership") > companiesSrc.indexOf('status: 401'));
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails

@@ -220,11 +220,29 @@ ok("...and the real Crew preset grid for the field half",
 ok("...and the tier comes from tierFor, not from a table here",
   /tierFor\(\{ seats: counted\.seats, crew: counted\.crew \}\)/.test(moduleSource));
 
-// A roster that fits no rung is a conversation, not the top tier. The ladder's
-// own comment: seating twelve people on a plan for ten bills them for ten and
-// locks two out.
-ok("a business past the ladder gets no price at all",
-  fieldquoCost({ officeSeats: 2, fieldCrew: 20 }).fits === false);
+// ── This assertion was INVERTED: it was pinning a bug ─────────────────────
+//
+// It asserted that two office and twenty in the field fits no rung. That was
+// true of the code and false of the product, and the owner caught the
+// arithmetic: "we also have the 10 seats. 10 seats and 15 crews is equal to 25."
+//
+// tierFor was asking two separate questions — do the billable people fit the
+// seats, AND do the crew fit the crew allowance — as if they were sealed
+// buckets. A seat holds a person: putting a field worker in a spare seat gives
+// them more access than they need, which is over-provisioning and never a
+// breach. Scale is twenty-five slots and twenty-two people fit in it.
+//
+// So: two office and twenty in the field IS Scale, and the case that genuinely
+// fits nothing has to be a real one.
+ok("two office and twenty in the field fits Scale",
+  fieldquoCost({ officeSeats: 2, fieldCrew: 20 }).fits === true);
+ok("...at the Scale price, not an invented one",
+  fieldquoCost({ officeSeats: 2, fieldCrew: 20 }).tierKey === "scale");
+// Twenty-six people is past the whole allowance, and twelve billable people is
+// past the seats however few crew there are. Both are still a conversation.
+ok("twenty-six people fits no rung", fieldquoCost({ officeSeats: 3, fieldCrew: 23 }).fits === false);
+ok("...and so does a twelfth BILLABLE person, whatever the headcount",
+  fieldquoCost({ officeSeats: 12, fieldCrew: 0 }).fits === false);
 ok("...and the ceiling it names is read off SEAT_LADDER",
   LADDER_CEILING.crew === Math.max(...SEAT_LADDER.map((t) => t.crewSeats)));
 
@@ -269,16 +287,18 @@ for (const term of COMPETITORS.find((c) => c.id === "servicetitan").reportedTerm
 ok("...and says the figures are reported rather than published",
   st.caveats.some((c) => /reported/i.test(c) && /not published by ServiceTitan/i.test(c)));
 
-// And the half of this the owner has not seen: at twenty technicians our own
-// ladder has no price. Twenty crew is past Scale's fifteen.
-ok("FieldQuo has NO published price for twenty in the field", twenty.fieldquo.fits === false);
-ok("...so no saving is computed against a plan we do not sell",
-  savingAgainst(st, twenty.fieldquo.annualAtMonthly) === null);
+// And the half that makes the comparison worth printing: our own side. Twenty
+// technicians and two in the office is twenty-two people, which Scale covers —
+// two office and eight field take seats, the other twelve take crew slots.
+ok("FieldQuo prices twenty in the field", twenty.fieldquo.fits === true);
+ok("...on Scale", twenty.fieldquo.tierKey === "scale");
+// The saving is the whole point of the page, and it was being suppressed
+// because the plan was thought not to exist.
+ok("...so a saving IS computed against ServiceTitan",
+  savingAgainst(st, twenty.fieldquo.annualAtMonthly) !== null);
 const twentyHtml = render(twenty);
-ok("...and the page says so rather than showing a figure",
-  /data-cost-row="fieldquo"[^>]*data-cost-status="not_established"/.test(twentyHtml));
-ok("...naming the ceiling it read off the ladder",
-  twentyHtml.includes(`${LADDER_CEILING.people} people in total`), "ceiling sentence missing");
+ok("...and the page prints our figure rather than a refusal",
+  /data-cost-row="fieldquo"[^>]*data-cost-status="priced"/.test(twentyHtml));
 
 /* ═══════════════════════════════════════════════════════════════════════════
    5. A reported band never becomes one number

@@ -1188,45 +1188,67 @@ export default function SignupPage() {
         }
         aside={step === "plan" ? null : <AuthAside variant="signup" />}
       >
-        {/* Already signed in. Redirect would be wrong — they may genuinely be
-            setting up a second business — but they need to know the referral
-            can't apply, and the useful thing to offer is their OWN link. */}
+        {/* ── Already signed in with a business: the form does not render ──
+            This used to show a banner explaining that carrying on would set up
+            an ADDITIONAL business, on the reasoning that a redirect would be
+            wrong because somebody might genuinely want a second one.
+
+            The owner ruled otherwise, twice: "i cannot sign up if i'm already
+            logged in." So the form is not offered at all, and POST
+            /api/companies refuses with 409 — the screen and the route agree,
+            rather than the screen hiding something the URL would still reach.
+
+            Not a redirect. Somebody who typed /signup deliberately deserves a
+            sentence saying why they are not getting it, and the two things
+            they might actually have wanted are right here. A silent bounce to
+            the dashboard reads as the link being broken.
+
+            `alreadyOnFieldquo` means a MEMBERSHIP, not a session. A session
+            with no company is the abandoned signup and still gets the whole
+            form — see the entry check above. */}
         {alreadyOnFieldquo && (
-          <div className="max-w-md mx-auto mb-6 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl px-4 py-3 text-sm text-blue-900 dark:text-blue-200">
-            <p>
-              You&apos;re signed in as <strong>{alreadyOnFieldquo.name}</strong>.
-              {" "}Carrying on here sets up an <strong>additional business</strong>
-              {" "}on your existing login — it won&apos;t create a second account
-              or change the business you already have.
-              {referrer
-                ? " Referral offers are for businesses new to FieldQuo, so this link won't apply to your account."
-                : ""}
-            </p>
-            <p className="mt-2">
-              <a href="/app" className="underline font-semibold">
-                Go to your dashboard
-              </a>
-              {referrer && (
-                <>
-                  {" · "}
-                  <a
-                    href="/app/settings/refer"
-                    className="underline font-semibold"
-                  >
-                    Share your own referral link
-                  </a>
-                </>
+          <div className="max-w-md mx-auto bg-card border border-border rounded-2xl px-6 py-8 text-center">
+            <h1 className="text-xl font-bold text-foreground">
+              {t("auth.signup.alreadyIn", "You already have a business here")}
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {t(
+                "auth.signup.alreadyInBody",
+                "You're signed in as {name}. FieldQuo gives one business to a login, so there is nothing to set up on this page.",
+                { name: alreadyOnFieldquo.name },
               )}
             </p>
+            <div className="mt-6 flex flex-col gap-3">
+              <a
+                href="/app"
+                className="bg-inverted text-inverted-foreground rounded-full px-6 py-3 text-sm font-semibold"
+              >
+                {t("auth.signup.goToDashboard", "Go to your dashboard")}
+              </a>
+              {/* The two real reasons somebody signed-in lands here: they meant
+                  to invite a colleague, or they followed a referral link. Both
+                  are a click away rather than a dead end. */}
+              <a
+                href="/app/settings/team"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                {t("auth.signup.inviteInstead", "Add someone to your team instead")}
+              </a>
+              {referrer && (
+                <a
+                  href="/app/settings/refer"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {t(
+                    "auth.signup.yourOwnReferral",
+                    "Referral offers are for businesses new to FieldQuo — here is your own link",
+                  )}
+                </a>
+              )}
+            </div>
           </div>
         )}
 
-        {/* The abandoned-signup state, said plainly. They have a login and
-            nothing to log in to, /app has just sent them back here, and the
-            worst thing this page could do is act as though they were a
-            stranger. The invitation line is there because an invited employee
-            whose acceptance failed lands in exactly this state, and creating
-            their own company is emphatically not the fix for that. */}
         {resumedSignup && !alreadyOnFieldquo && (
           <div className="max-w-md mx-auto mb-6 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
             <p>
@@ -1265,12 +1287,12 @@ export default function SignupPage() {
             create-a-password form at somebody who is already signed in, which
             reads as the product having forgotten them — the same complaint the
             resumed-signup banner below exists to answer. */}
-        {!entryChecked && (
+        {!entryChecked && !alreadyOnFieldquo && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-8 text-center text-sm text-muted-foreground">
             Getting things ready...
           </div>
         )}
-        {entryChecked && step === "account" && (
+        {entryChecked && !alreadyOnFieldquo && step === "account" && (
           <form
             onSubmit={handleAccountSubmit}
             className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
@@ -1309,7 +1331,7 @@ export default function SignupPage() {
         {/* The signed-in path. Everything the account step collects about the
             BUSINESS, nothing it collects about the person — they already have a
             login, and /api/companies needs a name or it 400s. */}
-        {entryChecked && step === "business" && (
+        {entryChecked && !alreadyOnFieldquo && step === "business" && (
           <form
             onSubmit={handleBusinessSubmit}
             className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8 space-y-5"
@@ -1349,7 +1371,7 @@ export default function SignupPage() {
             </button>
           </form>
         )}
-        {entryChecked && step === "industry" && (
+        {entryChecked && !alreadyOnFieldquo && step === "industry" && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-1">
               What trades does your company work in?
@@ -1408,7 +1430,7 @@ export default function SignupPage() {
             </button>
           </div>
         )}
-        {entryChecked && step === "services" && (
+        {entryChecked && !alreadyOnFieldquo && step === "services" && (
           <div className="bg-card border border-border rounded-xl shadow-sm p-6 sm:p-8">
             <h2 className="text-lg font-semibold text-foreground mb-1">
               Which services do you offer?
@@ -1486,7 +1508,7 @@ export default function SignupPage() {
             prices are in. It used to be FIRST, priced off a hardcoded "CA",
             so a contractor in Texas was shown Canadian money before anybody
             asked where he was. */}
-        {entryChecked && step === "plan" && (
+        {entryChecked && !alreadyOnFieldquo && step === "plan" && (
           <div>
             {/* h2, not a second h1. The shell above already carries the
                 page's heading, and two h1s is one page claiming to be two. */}

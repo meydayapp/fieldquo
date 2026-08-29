@@ -31,6 +31,37 @@ export async function POST(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // ── One business per login ───────────────────────────────────────────────
+  //
+  // This route used to create a second company for anybody with a session, and
+  // /signup carried a banner explaining that carrying on would "set up an
+  // additional business". The owner's ruling, twice: "i cannot sign up if i'm
+  // already logged in."
+  //
+  // Gated here and not only on the screen, because hiding the form is not the
+  // rule — somebody with the URL and a session would still have posted.
+  //
+  // The distinction that matters, and the reason this is a MEMBERSHIP check
+  // rather than a session check: a session with NO membership is the abandoned
+  // signup — an account created, the tab closed, the company never posted.
+  // Refusing that would strand them permanently with no way to finish and no
+  // way to start again. They are exactly who this route still has to serve.
+  const existingMembership = await db.member.findFirst({
+    where: { userId: session.user.id },
+    select: { companyId: true, company: { select: { name: true } } },
+  });
+  if (existingMembership) {
+    return NextResponse.json(
+      {
+        error:
+          `You're already signed in to ${existingMembership.company?.name || "a business"} on FieldQuo. ` +
+          `Sign out first if you're setting up a different business on a separate login.`,
+        code: "already_has_company",
+      },
+      { status: 409 },
+    );
+  }
+
   const {
     name,
     phone,
