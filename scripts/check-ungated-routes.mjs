@@ -490,6 +490,9 @@ globalThis.__FQ_ROWS.voiceCall = [
   },
 ];
 globalThis.__FQ_ROWS.booking = [];
+// Scripted empty rather than omitted: the db stub is a strict allowlist, and
+// GET now joins Quote.sourceCallId to work out which calls already became one.
+globalThis.__FQ_ROWS.quote = [];
 globalThis.__FQ_ROWS.voicePhoneNumber = [{ id: "n1", companyId: CO, status: "active" }];
 globalThis.__FQ_ROWS.voiceAgent = [{ companyId: CO, enabled: true }];
 
@@ -519,6 +522,68 @@ for (const who of [estimator, dispatcher, owner]) {
   ok(
     "estimator: …scoped to their own company in the WHERE",
     globalThis.__FQ_WRITES[0]?.where?.companyId === CO,
+  );
+}
+
+/* ── The working list: archived is a different verb from reviewed ───────── */
+//
+// The receptionist screen was flagged-vs-everything-else, and "everything else"
+// was a reverse-chronological log. An ordinary call that should have become a
+// quote and never did sank down it, indistinguishable from a call about opening
+// hours — nothing was wrong with it, so nothing flagged it, and the only person
+// who noticed was the customer who never heard back.
+//
+// So PATCH carries two verbs on one row and they must not be confused: clearing
+// the FLAG, and clearing it off the WORKING LIST.
+{
+  globalThis.__FQ_WRITES = [];
+  const res = await as(estimator, voiceCalls.PATCH, { body: { id: "vc_1", archived: true } });
+  const wrote = globalThis.__FQ_WRITES[0]?.data || {};
+  ok("archiving is allowed for the person who works the list", res.status === 200);
+  ok("archiving sets archivedAt", wrote.archivedAt instanceof Date);
+  ok(
+    "and does NOT touch reviewedAt — a flag nobody looked at must not be cleared by tidying",
+    wrote.reviewedAt === undefined,
+  );
+  ok("it records who did it", wrote.archivedById === estimator.userId);
+}
+{
+  globalThis.__FQ_WRITES = [];
+  await as(estimator, voiceCalls.PATCH, { body: { id: "vc_1", archived: false } });
+  const wrote = globalThis.__FQ_WRITES[0]?.data || {};
+  ok(
+    "un-archiving clears it, because triage is wrong sometimes",
+    wrote.archivedAt === null && wrote.archivedById === null,
+  );
+}
+{
+  globalThis.__FQ_WRITES = [];
+  await as(estimator, voiceCalls.PATCH, { body: { id: "vc_1" } });
+  const wrote = globalThis.__FQ_WRITES[0]?.data || {};
+  ok(
+    "and with no `archived` in the body it is still the old verb: mark reviewed",
+    wrote.reviewedAt instanceof Date && wrote.archivedAt === undefined,
+  );
+}
+{
+  // Derived, never stored. A copy on the call would outlive a deleted quote and
+  // keep a call archived by a quote that no longer exists.
+  globalThis.__FQ_ROWS.quote = [
+    { id: "q_1", companyId: CO, sourceCallId: "vc_1", quoteNumber: 1042, needsReview: true, createdAt: new Date() },
+  ];
+  const res = await as(estimator, voiceCalls.GET, { url: "http://x/api/voice/calls" });
+  const row = res.body?.calls?.[0];
+  ok("a call whose quote exists is archived without anything being written to it", row?.archived === true);
+  ok("and it carries the quote so the row can LINK rather than just claim", row?.quote?.number === 1042);
+  ok(
+    "with archivedAt still null, so the screen knows nobody can un-archive it by hand",
+    row?.archivedAt == null,
+  );
+  globalThis.__FQ_ROWS.quote = [];
+  const back = await as(estimator, voiceCalls.GET, { url: "http://x/api/voice/calls" });
+  ok(
+    "delete the quote and the call comes back onto the working list",
+    back.body?.calls?.[0]?.archived === false,
   );
 }
 

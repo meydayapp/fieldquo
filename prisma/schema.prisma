@@ -4976,6 +4976,21 @@ model VoiceCall {
   needsReview Boolean @default(false)
   reviewedAt  DateTime?
 
+  /// Dealt with, and off the working list.
+  ///
+  /// A DIFFERENT axis from needsReview, which flags a PROBLEM — an emergency,
+  /// a failed call. This one answers "is there anything left to do with this?",
+  /// which is the question the receptionist screen is actually a queue for: a
+  /// perfectly ordinary call that should have become a quote and hasn't is not
+  /// flagged, not urgent, and the easiest thing in the product to forget.
+  ///
+  /// Set by hand from that screen. A call whose quote already exists is archived
+  /// WITHOUT this being set — that is derived from Quote.sourceCallId, because
+  /// storing it here would be a second copy of a fact the quote already carries,
+  /// and the copy is the one that goes stale when the quote is deleted.
+  archivedAt   DateTime?
+  archivedById String?
+
   /// When this call was RECOVERED rather than delivered.
   ///
   /// Retell's signature check rejected every delivery for months, so calls that
@@ -5016,6 +5031,19 @@ model VoiceCall {
   /// back to what the caller actually said is one the contractor cannot check.
   /// Null is the normal case: most calls are wrong numbers.
   quoteDraft   Json?
+
+  /// Why no quote was drafted from this call automatically.
+  ///
+  /// Null means a draft exists, or nothing has run yet. Anything else is a
+  /// REASON, and it is stored rather than inferred because the most likely one
+  /// is fixable and invisible: nothing in the caller's words matched anything in
+  /// the company's service list. A contractor who has not added "water heaters"
+  /// sees no draft and concludes the AI is useless, when the truth is that the
+  /// call mentioned work the system has never been told they do.
+  ///
+  /// Written by lib/voice/autoDraft.js and read on the receptionist screen, so
+  /// a skip says what it was rather than looking like nothing happened.
+  quoteDraftSkipped String?
   quoteDraftAt DateTime?
 
   createdAt DateTime @default(now())

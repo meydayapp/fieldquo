@@ -890,6 +890,51 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The call drafts its own quote now, and the screen became a queue.
+  `lib/voice/autoDraft.js`, `lib/ai/callQuoteDraft.js`,
+  `app/api/voice/webhook/route.js`, `app/api/voice/calls/route.js`,
+  `app/app/receptionist/page.js`.**
+
+  `draftQuoteFromCall` already did the whole job — the caller's words against
+  the company's own priced catalogue, an existing client or a new one, add-ons,
+  the verbatim notes, the recording, and a real `needsReview` Quote via
+  `draftEstimateFromForm` when the trade is priceable. It ran on a BUTTON, so
+  the contractor who never opened the receptionist screen got nothing. Which is
+  most of them: the point of a receptionist that answers at eleven at night is
+  that nobody is watching. It runs on `call_analyzed` now.
+
+  **The gate is the feature, and the obvious version of it was wrong in both
+  directions.** The first cut ran `matchOfferings` over the caller's words and
+  skipped anything matching no offering. Executed against a real cabinet shop's
+  catalogue it matched *"what time do you close today?"* to *"Soft-close
+  hinges"* — paying for an opening-hours call — and matched *"do you guys do
+  kitchens?"* and *"do you install water heaters?"* to nothing at all, binning
+  a real job and the single most useful call a contractor can receive: work
+  they were asked for that is not in their service list. `matchOfferings` maps
+  a described item onto an offering; it was never an "is this a job?" detector,
+  and the tokens that make it good at the first make it useless at the second.
+
+  So the gate screens for SUBSTANCE, not subject — did the caller say enough to
+  describe anything? A hang-up and a wrong number are cheap to spot. Everything
+  else goes to the model, which is the only thing that can read a call, and an
+  off-topic call costs one small completion and comes back NOTHING_QUOTABLE.
+
+  Every refusal is WRITTEN DOWN, in `VoiceCall.quoteDraftSkipped`. A silent
+  skip reads as the AI being broken, and the likeliest cause — a service they
+  never added — is fixable only by somebody who is told.
+
+  **The screen is a working list rather than a log.** It was flagged-vs-
+  everything-else, and "everything else" was reverse-chronological: an ordinary
+  call that should have become a quote and never did sank down it,
+  indistinguishable from a call about opening hours. Nothing was wrong with it,
+  so nothing flagged it. Three groups now — flagged, open, archived — and a
+  call leaves the open list either because somebody archived it or because its
+  quote exists. That second one is DERIVED from `Quote.sourceCallId` and never
+  stored: a copy on the call would outlive a deleted quote and keep it archived
+  by something that no longer exists. `archivedAt` is a different axis from
+  `reviewedAt`, and PATCH keeps them apart — tidying a list must not clear a
+  flag nobody looked at.
+
 - **The receptionist said it had booked him, and never called the tool.
   `lib/voice/prompt.js`, `tools.js`, `visitPath.js`, `availability.js`,
   `transcript.js`, `app/api/voice/webhook/route.js`,

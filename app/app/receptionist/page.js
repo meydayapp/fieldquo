@@ -24,6 +24,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings, History,
+  ChevronDown, ChevronRight, Archive, ArchiveRestore, FileText,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
@@ -46,6 +47,8 @@ export default function ReceptionistPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  // Collapsed on arrival: the archive is the log and it grows forever.
+  const [showArchived, setShowArchived] = useState(false);
   // The outcome of a "recover missed calls" press, as a { tone, text } the
   // panel below renders. Held rather than toast-ed because "nothing was
   // missing" and "four calls came back" are both answers the person wants to
@@ -80,6 +83,27 @@ export default function ReceptionistPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        await reportResponseError(res, t("app.receptionist.updateError"));
+        return;
+      }
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Reversible, and the same endpoint: archiving is triage and triage is wrong
+  // sometimes. `archived` present is what tells PATCH this is the archive verb
+  // rather than the "I've looked at the flag" one.
+  async function setArchived(id, archived) {
+    setBusy(id);
+    try {
+      const res = await fetch("/api/voice/calls", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, archived }),
       });
       if (!res.ok) {
         await reportResponseError(res, t("app.receptionist.updateError"));
@@ -167,8 +191,21 @@ export default function ReceptionistPage() {
       : setup.answering
         ? "answering"
         : "switched_off";
+  // ── Three groups, because "seen it" and "done with it" are different ────
+  //
+  // The page used to be flagged-vs-everything-else, and "everything else" was
+  // a reverse-chronological log: a call that should have become a quote and
+  // never did sank down it, indistinguishable from a call about opening hours.
+  // Nothing was wrong with it, so nothing flagged it, and the only person who
+  // would notice was the customer who never heard back.
+  //
+  // So the middle group is a WORKING LIST — calls with no quote and nobody
+  // saying they are finished — and the log becomes an archive underneath it.
+  // A call leaves the working list two ways: its quote exists (derived from
+  // Quote.sourceCallId by the API), or somebody archived it by hand.
   const flagged = calls.filter((c) => c.needsReview);
-  const rest = calls.filter((c) => !c.needsReview);
+  const open = calls.filter((c) => !c.needsReview && !c.archived);
+  const archived = calls.filter((c) => !c.needsReview && c.archived);
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -297,21 +334,59 @@ export default function ReceptionistPage() {
         </section>
       )}
 
-      {rest.length > 0 && (
+      {open.length > 0 && (
         <section>
-          {flagged.length > 0 && (
-            <h2 className="text-sm font-bold text-foreground mb-2">{t("app.receptionist.everythingElse")}</h2>
-          )}
+          <h2 className="text-sm font-bold text-foreground mb-2">
+            {t("app.receptionist.openTitle", { count: open.length })}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-2">
+            {t("app.receptionist.openHint")}
+          </p>
           <div className="space-y-2">
-            {rest.map((c) => (
+            {open.map((c) => (
               <CallRow
                 key={c.id}
                 call={c}
+                busy={busy === c.id}
+                onArchive={() => setArchived(c.id, true)}
                 formatDateTime={formatDateTime}
                 aiAvailable={aiAvailable}
               />
             ))}
           </div>
+        </section>
+      )}
+
+      {archived.length > 0 && (
+        <section>
+          {/* Collapsed by default. It is the log, and it grows forever — open
+              on arrival it would bury the working list it exists to protect. */}
+          <button
+            type="button"
+            onClick={() => setShowArchived((v) => !v)}
+            className="text-sm font-bold text-muted-foreground flex items-center gap-1.5 mb-2"
+          >
+            {showArchived ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+            {t("app.receptionist.archivedTitle", { count: archived.length })}
+          </button>
+          {showArchived && (
+            <div className="space-y-2">
+              {archived.map((c) => (
+                <CallRow
+                  key={c.id}
+                  call={c}
+                  busy={busy === c.id}
+                  // Only the ones a person archived can be un-archived. A call
+                  // whose quote exists is archived BY that quote, and a button
+                  // that appeared to undo it would do nothing — the next load
+                  // derives the same answer from the quote all over again.
+                  onUnarchive={c.archivedAt ? () => setArchived(c.id, false) : null}
+                  formatDateTime={formatDateTime}
+                  aiAvailable={aiAvailable}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
         </div>
@@ -320,7 +395,7 @@ export default function ReceptionistPage() {
   );
 }
 
-function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
+function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDateTime, aiAvailable }) {
   const { t } = useTranslation();
   return (
     <div
@@ -422,10 +497,62 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
           </a>
         )}
 
+        {/* The quote this call became. A link, not a tick: "a quote exists"
+            without a way to reach it is a fact the reader then has to go and
+            look up by hand. */}
+        {call.quote && (
+          <Link
+            href={`/app/quotes/${call.quote.id}`}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
+          >
+            <FileText size={13} />
+            {call.quote.needsReview
+              ? t("app.receptionist.quoteNeedsReview", { number: call.quote.number })
+              : t("app.receptionist.quoteMade", { number: call.quote.number })}
+          </Link>
+        )}
+
         {/* Reading the call as quote scope. Deliberately here and not on the
             phone: the receptionist may never say a price, and this happens
             afterwards, in front of a person who sets one. */}
         <CallQuoteDraft call={call} aiAvailable={aiAvailable} />
+
+        {/* ── Why no draft, when there is no draft ────────────────────────
+            A skip that renders as nothing reads as the AI being broken, and
+            the likeliest cause is fixable and invisible: the caller asked for
+            work that is not in this company's service list. Only the reasons a
+            person can act on are shown — a hang-up needs no explanation. */}
+        {!call.quoteDraftedAt && call.quoteDraftSkipped && (
+          <span className="text-xs text-muted-foreground">
+            {t(
+              `app.receptionist.noDraft.${call.quoteDraftSkipped}`,
+              t("app.receptionist.noDraft.other", ""),
+            )}
+          </span>
+        )}
+
+        {onArchive && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onArchive}
+            className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+            {t("app.receptionist.archive")}
+          </button>
+        )}
+        {onUnarchive && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onUnarchive}
+            className="ml-auto inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-muted-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <ArchiveRestore size={13} />}
+            {t("app.receptionist.unarchive")}
+          </button>
+        )}
 
         {urgent && (
           <button

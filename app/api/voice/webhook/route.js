@@ -261,6 +261,35 @@ export async function POST(request) {
       // value is a no-op at the provider.
       await pushCallCeiling(number.companyId).catch(() => {});
 
+      // ── The quote the call was already enough to write ──────────────────
+      //
+      // Only on call_analyzed: call_ended arrives first and can carry a partial
+      // transcript and no summary, and drafting off that pays for a worse read
+      // of the same call. By the time this event lands the words are final.
+      //
+      // Never awaited for its result and never allowed to throw. This call has
+      // already been recorded and billed; a drafting failure turning that into
+      // a 500 would have Retell retry the whole webhook, which re-runs the
+      // billing idempotency and the attachment logic for nothing.
+      //
+      // It refuses far more often than it drafts, and every refusal is free —
+      // no lead, nothing in the caller's words that this company sells, already
+      // drafted, over the AI cap. See lib/voice/autoDraft.js.
+      if (type === "call_analyzed") {
+        try {
+          const { autoDraftAfterCall } = await import("@/lib/voice/autoDraft");
+          const row = await db.voiceCall.findFirst({
+            where: { providerCallId, companyId: number.companyId },
+            select: { id: true },
+          });
+          if (row) {
+            await autoDraftAfterCall({ companyId: number.companyId, callId: row.id });
+          }
+        } catch (err) {
+          console.error("[voice/webhook] auto draft failed:", err?.message);
+        }
+      }
+
       return NextResponse.json({ ok: true, billedSeconds: seconds });
     }
 

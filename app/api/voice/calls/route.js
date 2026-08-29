@@ -79,6 +79,12 @@ export async function GET(request) {
       // hundred call recordings to render a button.
       transcript: true,
       quoteDraftAt: true,
+      // ...and why one wasn't, when one wasn't. A skip that shows as nothing
+      // reads as the AI not working, and the likeliest cause — a service the
+      // company has never added — is only fixable by somebody who is told.
+      quoteDraftSkipped: true,
+      // Whether this one is off the working list, and who put it there.
+      archivedAt: true,
       number: { select: { numberType: true } },
     },
   });
@@ -102,6 +108,28 @@ export async function GET(request) {
       })
     : [];
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
+
+  // ── The quote this call became, if it became one ────────────────────────
+  //
+  // Derived from Quote.sourceCallId rather than stored on the call. The quote
+  // already carries the link; a second copy here would be the one that lies
+  // after somebody deletes the quote, and "this call was dealt with" would then
+  // point at nothing.
+  //
+  // Scoped by companyId as well as the id list, for the same reason the booking
+  // join above is: a source id on a row is only as trustworthy as the row.
+  const callIds = calls.map((c) => c.id);
+  const quotes = callIds.length
+    ? await db.quote.findMany({
+        where: { companyId: member.companyId, sourceCallId: { in: callIds } },
+        select: { id: true, quoteNumber: true, needsReview: true, sourceCallId: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  // First wins, and the list is newest-first: a call re-drafted after its first
+  // quote was deleted shows the quote that still exists.
+  const quoteByCall = new Map();
+  for (const q of quotes) if (!quoteByCall.has(q.sourceCallId)) quoteByCall.set(q.sourceCallId, q);
 
   const pending = await db.voiceCall.count({
     where: { companyId: member.companyId, needsReview: true, reviewedAt: null },
@@ -202,6 +230,20 @@ export async function GET(request) {
         : null,
       hasTranscript: Boolean(c.transcript),
       quoteDraftedAt: c.quoteDraftAt,
+      quoteDraftSkipped: c.quoteDraftSkipped || null,
+      // What the call turned into, so the row can link to it rather than
+      // announcing that a quote exists somewhere and leaving them to find it.
+      quote: quoteByCall.get(c.id)
+        ? {
+            id: quoteByCall.get(c.id).id,
+            number: quoteByCall.get(c.id).quoteNumber,
+            needsReview: quoteByCall.get(c.id).needsReview,
+          }
+        : null,
+      // Archived because somebody said so, or because it became a quote. Both
+      // are reported; the screen does not have to know the rule.
+      archivedAt: c.archivedAt,
+      archived: Boolean(c.archivedAt) || quoteByCall.has(c.id),
       recoveredAt: c.recoveredAt,
       // The lead on this call was read back off the recording rather than
       // taken by the agent on the line. Shown beside the lead link, because
@@ -225,7 +267,7 @@ export async function PATCH(request) {
   const { response: denied } = await levelOrRefusal(
     member,
     ...CALLS_LEVEL,
-    "mark a call reviewed",
+    "update a call",
   );
   if (denied) return denied;
 
@@ -233,11 +275,33 @@ export async function PATCH(request) {
   const id = String(body.id || "");
   if (!id) return NextResponse.json({ error: "No call" }, { status: 400 });
 
+  // ── Two different verbs on one row, and they are not the same act ────────
+  //
+  // `reviewed` clears the FLAG: the agent marked something wrong — an
+  // emergency, a failed call — and somebody has looked.
+  //
+  // `archived` clears it off the WORKING LIST: there is nothing left to do with
+  // this call. Most calls are never flagged and still need this, because the
+  // ordinary call that should have become a quote and didn't is the one nobody
+  // remembers. Reversible on purpose: archiving is triage, and triage is wrong
+  // sometimes.
+  //
+  // A call whose quote already exists is archived without either being set —
+  // see the Quote.sourceCallId join in GET. Nothing writes that here, because a
+  // stored copy would outlive a deleted quote.
+  const data =
+    body.archived === undefined
+      ? { reviewedAt: new Date() }
+      : {
+          archivedAt: body.archived ? new Date() : null,
+          archivedById: body.archived ? member.userId : null,
+        };
+
   // Scoped by company in the WHERE, not checked after fetching — a call id from
   // another tenant must not be markable from here.
   const updated = await db.voiceCall.updateMany({
     where: { id, companyId: member.companyId },
-    data: { reviewedAt: new Date() },
+    data,
   });
 
   if (updated.count === 0) {

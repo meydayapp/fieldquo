@@ -178,6 +178,9 @@ globalThis.__FQ_MEMBER = null;
 globalThis.__FQ_LEVEL_OK = true;
 // What the model "said" about the call, for the one path that calls a model.
 globalThis.__FQ_AI = "";
+// The AI cap, and what the automatic drafter recorded against it.
+globalThis.__FQ_QUOTA = { allowed: true };
+globalThis.__FQ_USAGE = [];
 
 const HOOKS = `
 const STUBS = {
@@ -190,6 +193,8 @@ const STUBS = {
   "@/lib/platform/errorLog": "fq:errlog",
   "@/lib/leads/createLead": "fq:lead",
   "@/lib/voice/outbound": "fq:consent",
+  "@/lib/ai/usage": "fq:usage",
+  "@/lib/ai/provider": "fq:ai",
 };
 export async function resolve(specifier, context, nextResolve) {
   if (STUBS[specifier]) return { url: STUBS[specifier], shortCircuit: true };
@@ -216,6 +221,8 @@ export async function load(url, context, nextLoad) {
     return mod("export const recordError = async () => {}; export const errorDetail = (e) => ({ message: e?.message });");
   if (url === "fq:lead")
     return mod("export const createScoredLead = async (d) => globalThis.__FQ_DB.leadRequest.create({ data: d });");
+  if (url === "fq:usage")
+    return mod("export const checkAiQuota = async () => globalThis.__FQ_QUOTA; export const recordAiUsage = async (u) => { globalThis.__FQ_USAGE.push(u); };");
   if (url === "fq:consent")
     return mod("export const recordConsent = async () => {};");
   if (url === "fq:ai")
@@ -238,6 +245,7 @@ const {
   draftQuoteFromCall,
 } = await import("@/lib/ai/callQuoteDraft");
 const { cleanPhone, normaliseEmail, toolDefinitions } = await import("@/lib/voice/tools");
+const { autoDraftAfterCall, SKIPPED } = await import("@/lib/voice/autoDraft");
 const {
   replyVerdict,
   agentConfirmations,
@@ -1435,6 +1443,154 @@ section("18. The price refusal is untouched");
     "and a plain transcript with no tool calls is unchanged",
     json(transcriptTurns([{ role: "agent", content: "Hi" }, { role: "user", content: "Hello" }])) ===
       json([{ role: "agent", text: "Hi" }, { role: "caller", text: "Hello" }]),
+  );
+}
+
+/* ═══════ The draft that writes itself, and the four ways it refuses ═══════
+ *
+ * draftQuoteFromCall did the whole job already — caller's words against the
+ * company's own priced catalogue, existing client or a new one, add-ons, the
+ * notes, the recording — and it ran on a BUTTON. The contractor who never opens
+ * the receptionist screen got nothing, which is most of them: the point of a
+ * receptionist that answers at eleven at night is that nobody is watching.
+ *
+ * Automatic means it runs on every finished call, and every model call is
+ * metered against the company's cap. So the gates are the feature, and each one
+ * has to refuse for free.
+ */
+
+// Barely anything said: a hang-up, a wrong number. This is what the gate is
+// for, and it is the ONLY thing it is for.
+const HANG_UP = [
+  { role: "agent", text: "Thanks for calling Northline, how can I help?" },
+  { role: "caller", text: "Sorry, wrong number." },
+];
+
+// A real job phrased as a question, with no lead taken. The keyword gate this
+// replaced matched NOTHING here and threw the call away.
+const KITCHEN_QUESTION = [
+  { role: "agent", text: "Thanks for calling Northline, how can I help?" },
+  { role: "caller", text: "Hi there, do you guys do kitchens? I have about thirty cabinet doors." },
+];
+
+async function autoFor({ lead = null, transcript = DOOR_CALL, quoteDraft = null, fromE164 = "+15145550000" } = {}) {
+  await draftFor({ lead: lead || undefined });
+  globalThis.__FQ_ROWS.voiceCall[0].transcript = transcript;
+  globalThis.__FQ_ROWS.voiceCall[0].quoteDraft = quoteDraft;
+  globalThis.__FQ_ROWS.voiceCall[0].fromE164 = fromE164;
+  globalThis.__FQ_ROWS.voiceCall[0].leadId = lead ? "lead_1" : null;
+  if (!lead) globalThis.__FQ_ROWS.leadRequest = [];
+  globalThis.__FQ_USAGE = [];
+  globalThis.__FQ_WRITES = [];
+  return autoDraftAfterCall({ companyId: "co_1", callId: "vc_1" });
+}
+
+const LEAD = { name: "Marc Tremblay", phone: "+18192387263", email: null, language: "en" };
+const skipWritten = () =>
+  globalThis.__FQ_WRITES.filter((w) => w.data?.quoteDraftSkipped !== undefined)
+    .map((w) => w.data.quoteDraftSkipped);
+
+{
+  const r = await autoFor({ lead: LEAD });
+  ok("a call about work the company sells drafts on its own", r.drafted === true, json(r));
+  ok(
+    "and it is charged to its own feature name, so automatic spend is legible beside what was asked for",
+    globalThis.__FQ_USAGE.every((u) => u.feature === "call_quote_draft_auto"),
+    json(globalThis.__FQ_USAGE.map((u) => u.feature)),
+  );
+  ok(
+    "the skip marker is cleared on success, so a call that drafts later stops explaining why it didn't",
+    globalThis.__FQ_WRITES.some((w) => w.data?.quoteDraft && w.data?.quoteDraftSkipped === null),
+    json(globalThis.__FQ_WRITES.filter((w) => w.data?.quoteDraft).map((w) => Object.keys(w.data))),
+  );
+}
+
+{
+  // The case the first cut of this got wrong. "Do you guys do kitchens?" is a
+  // real job phrased as a question, and the agent often answers it without ever
+  // reaching for save_caller — so gating on a lead threw the call away.
+  const r = await autoFor({ lead: null });
+  ok(
+    "a real job with no lead still drafts, because caller ID is a way to reach them",
+    r.drafted === true,
+    json(r),
+  );
+}
+
+{
+  const r = await autoFor({ lead: null, fromE164: null });
+  ok(
+    "but with no lead AND no number there is nobody to draft for",
+    r.drafted === false && r.reason === SKIPPED.NO_LEAD,
+    json(r),
+  );
+}
+
+{
+  // ── The gate screens for SUBSTANCE, never for subject ──────────────────
+  //
+  // The first version matched the caller's words against the catalogue and
+  // skipped anything that matched no offering. Executed against a real cabinet
+  // shop it matched "what time do you close today?" to "Soft-close hinges" and
+  // matched "do you guys do kitchens?" to nothing at all — paying for the
+  // opening-hours call and binning the job. Both directions wrong at once.
+  const r = await autoFor({ lead: LEAD, transcript: HANG_UP });
+  ok(
+    "a wrong number never reaches the model",
+    r.drafted === false && r.reason === "nothing_said",
+    json(r),
+  );
+  ok("and nothing is charged for it", globalThis.__FQ_USAGE.length === 0, json(globalThis.__FQ_USAGE));
+  ok(
+    "the reason is WRITTEN DOWN — a silent skip reads as the AI not working",
+    skipWritten().includes("nothing_said"),
+    json(skipWritten()),
+  );
+}
+
+{
+  const r = await autoFor({ lead: null, transcript: KITCHEN_QUESTION });
+  ok(
+    '"do you guys do kitchens?" reaches the model — the keyword gate binned this exact call',
+    r.reason !== "nothing_said",
+    json(r),
+  );
+}
+
+{
+  const r = await autoFor({ lead: LEAD, quoteDraft: { groups: [] } });
+  ok(
+    "call_analyzed is retried, so an existing draft is never redrawn or paid for twice",
+    r.drafted === false && r.reason === SKIPPED.ALREADY_DRAFTED,
+    json(r),
+  );
+  ok("and nothing is charged", globalThis.__FQ_USAGE.length === 0);
+}
+
+{
+  globalThis.__FQ_QUOTA = { allowed: false, reason: "cap" };
+  const r = await autoFor({ lead: LEAD });
+  ok(
+    "a company over its AI cap simply gets no automatic draft",
+    r.drafted === false && r.reason === SKIPPED.QUOTA,
+    json(r),
+  );
+  ok("and the model is never reached", globalThis.__FQ_USAGE.length === 0);
+  globalThis.__FQ_QUOTA = { allowed: true };
+}
+
+{
+  // The manual button must NOT inherit the gate. A contractor who presses
+  // "draft a quote from this call" has decided it is worth looking at, and
+  // second-guessing them with a keyword match refuses the call where somebody
+  // described a whole kitchen without ever naming the trade.
+  await draftFor({ lead: LEAD });
+  globalThis.__FQ_ROWS.voiceCall[0].transcript = HANG_UP;
+  const manual = await draftQuoteFromCall({ companyId: "co_1", callId: "vc_1" });
+  ok(
+    "the button still sends a call the automatic path would have skipped",
+    manual.reason !== "nothing_said",
+    json(manual.reason),
   );
 }
 
