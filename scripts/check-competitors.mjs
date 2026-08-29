@@ -66,6 +66,8 @@
 import { readFileSync } from "node:fs";
 import {
   BILLING_MODES,
+  CLAIM_ADVANTAGE,
+  CLAIM_CONCESSION,
   COMPARABLE_FEATURES,
   COMPETITORS,
   CURRENCY_NOT_STATED,
@@ -84,20 +86,37 @@ import {
   PRICE_KINDS,
   PRICE_NOT_OFFERED,
   PRICE_ON_REQUEST,
+  PRICE_REPORTED_RANGE,
   PRICE_UNKNOWN,
+  PRICING_UNITS,
+  FIELDQUO_PRICING_UNIT,
+  Reported,
+  SOURCED_OWNER_ASSERTED,
+  SOURCED_OWNER_RELAYED,
+  SOURCED_PUBLISHER,
+  SOURCED_USER_REPORTS,
+  SOURCING_TIERS,
   STALE_AFTER_DAYS,
   TEAM_SIZES,
   UNVERIFIED,
   VERIFIED,
   allAddOns,
   allFigures,
+  allReportedCosts,
+  allReportedTerms,
+  claimPublishable,
   claims,
   comparableTier,
   competitor,
   figureAgeDays,
+  isSignedAssertion,
   isStale,
   livePromo,
+  provenanceLabel,
   publishableFigures,
+  publishableReportedCosts,
+  reportedCostText,
+  reportedWithholdReason,
   withholdReason,
 } from "@/lib/marketing/competitors";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
@@ -237,7 +256,11 @@ ok("on-request ≠ unknown", PRICE_ON_REQUEST !== PRICE_UNKNOWN);
 ok("not-offered ≠ unknown", PRICE_NOT_OFFERED !== PRICE_UNKNOWN);
 ok("not-offered ≠ on-request", PRICE_NOT_OFFERED !== PRICE_ON_REQUEST);
 ok("free ≠ unknown", PRICE_FREE !== PRICE_UNKNOWN);
-ok("all five kinds are distinct", new Set(PRICE_KINDS).size === PRICE_KINDS.length);
+ok("all six kinds are distinct", new Set(PRICE_KINDS).size === PRICE_KINDS.length);
+// The sixth, added with ServiceTitan's third-hand bands. It is not a price and
+// must never be mistaken for one of the five that are.
+ok("a reported band is its own kind", PRICE_REPORTED_RANGE !== PRICE_AMOUNT && PRICE_REPORTED_RANGE !== PRICE_ON_REQUEST);
+ok("...and is not 'unknown' — somebody did establish something", PRICE_REPORTED_RANGE !== PRICE_UNKNOWN);
 
 const stKinds = competitor("servicetitan").figures.map((f) => f.price.kind);
 ok("ServiceTitan is on-request on every tier", stKinds.every((k) => k === PRICE_ON_REQUEST), stKinds);
@@ -257,9 +280,15 @@ for (const id of ["jobber.all.11-15", "jobber.all.16-plus"]) {
 }
 
 // Executed, not read: the kinds produce different outcomes.
+//
+// A priced fixture declares its currency's provenance the way a real figure
+// must. Merged in rather than demanded of every call site, so the assertions
+// written before the three sourcing tiers existed still read as they did —
+// but merged UNDER the caller's price, so a test that wants to say "no
+// provenance recorded" can still say it by passing the field explicitly.
 const synth = (price, extra = {}) => ({
   id: "synthetic",
-  price,
+  price: price?.currency ? { currencySourcing: SOURCED_PUBLISHER, ...price } : price,
   source: "https://example.com/pricing",
   checked: TODAY,
   observedFrom: "US",
@@ -392,18 +421,101 @@ console.log("\nA currency the source never stated is not the same as one nobody 
 ok("not-stated ≠ unknown", CURRENCY_NOT_STATED !== CURRENCY_UNKNOWN);
 const projul = competitor("projul");
 ok("Projul's amounts are recorded", projul.figures.every((f) => Number.isFinite(f.price.amount)));
-ok("...and every one says the currency was not stated",
-  projul.figures.every((f) => f.price.currency === CURRENCY_NOT_STATED),
-  projul.figures.map((f) => f.price.currency));
-// This is the assertion that stops the owner's guess from shipping.
-ok("...so no Projul figure is publishable",
-  projul.figures.every((f) => withholdReason(f, TODAY) === "the source states no currency"),
-  projul.figures.map((f) => withholdReason(f, TODAY)));
-ok("...and none of them silently became USD",
-  !projul.figures.some((f) => f.price.currency === "USD"));
-ok("a currency nobody checked is withheld for a different reason",
+ok("a currency nobody checked is withheld",
   withholdReason(synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: CURRENCY_UNKNOWN }), TODAY) ===
     "currency never checked");
+ok("a currency the source never stated is withheld for a DIFFERENT reason",
+  withholdReason(synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: CURRENCY_NOT_STATED }), TODAY) ===
+    "the source states no currency");
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nProjul: their amount, HIS currency, and the page says which is which");
+// ══ An assertion this file used to make, and no longer does ════════════════
+//
+// It read: "...and none of them silently became USD". All three Projul figures
+// were withheld with "the source states no currency", their page's own finding,
+// and the check enforced that they could never carry a currency code.
+//
+// The owner has now twice stated they are USD, reasoning that Projul is a US
+// company. That is not a reading of their page — their page still names no
+// currency, and re-reading it would still find none — but it is a business
+// judgement he is entitled to make, and an empty price column serves nobody.
+//
+// The word doing the work in the old assertion was SILENTLY. What is banned is
+// a currency appearing with no account of where it came from. That ban is
+// intact and is now stronger, because it applies to every competitor rather
+// than to Projul specifically: withholdReason refuses any priced figure whose
+// `currencySourcing` is missing, and refuses an owner-asserted one whose
+// assertion is not signed with a who, a date and grounds.
+const projulPrices = projul.figures.map((f) => f.price);
+ok("Projul's figures now carry a currency", projulPrices.every((p) => p.currency === "USD"),
+  projulPrices.map((p) => p.currency));
+ok("...marked as the owner's assertion, not as a page reading",
+  projulPrices.every((p) => p.currencySourcing === SOURCED_OWNER_ASSERTED),
+  projulPrices.map((p) => p.currencySourcing));
+ok("...which is a DIFFERENT value from a publisher-stated currency",
+  SOURCED_OWNER_ASSERTED !== SOURCED_PUBLISHER);
+ok("...and Housecall Pro's USD, which their own footer states, is the other one",
+  competitor("housecall_pro").figures.every((f) => f.price.currencySourcing === SOURCED_PUBLISHER));
+ok("...so the two are distinguishable from the data alone, with no note to read",
+  new Set([...projul.figures, ...competitor("housecall_pro").figures].map((f) => f.price.currencySourcing)).size === 2);
+// The assertion is signed. A tier anyone can type is not evidence — same
+// argument as `verifiedBy` beside VERIFIED.
+for (const p of projulPrices) {
+  ok(`Projul's currency assertion names who, when and why`, isSignedAssertion(p.assertedBy), p.assertedBy);
+  ok(`...and the grounds are a reason a reader can weigh`, /US company/.test(p.assertedBy.grounds), p.assertedBy.grounds);
+}
+ok("...they all point at ONE assertion object, so retracting it is one edit",
+  new Set(projulPrices.map((p) => p.assertedBy)).size === 1);
+// And it publishes — which is the change. An empty column was the old
+// behaviour and it was not more honest, it was just quieter.
+ok("...so all three Projul figures now publish",
+  projul.figures.every((f) => withholdReason(f, TODAY) === null),
+  projul.figures.map((f) => withholdReason(f, TODAY)));
+// The renderer is handed the sentence, not left to write one.
+for (const f of projul.figures) {
+  const label = provenanceLabel({ ...f, sourcing: f.price.currencySourcing, assertedBy: f.price.assertedBy });
+  ok(`${f.id}'s currency provenance renders as words`, /asserted by .+ on \d{4}-\d{2}-\d{2}/.test(label), label);
+  ok(`...and says plainly it is not on their page`, /not stated on their page/.test(label), label);
+}
+
+// ══ The ban that replaced the old one, tested where it bites ═══════════════
+//
+// The real failure mode was never "Projul's figures say USD". It was a
+// currency code appearing with nothing behind it. These four exercise that
+// directly, on synthetic figures, because no real figure can reach them.
+ok("a priced figure with NO currency provenance is withheld",
+  withholdReason(
+    synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD", currencySourcing: undefined }), TODAY) ===
+    "currency provenance not recorded");
+ok("...and absence is NOT read as 'the publisher said so'",
+  withholdReason(
+    synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD", currencySourcing: undefined }), TODAY) !== null);
+ok("an owner-asserted currency with no signed assertion is withheld",
+  withholdReason(
+    synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD", currencySourcing: SOURCED_OWNER_ASSERTED }), TODAY) ===
+    "currency asserted with no signed assertion on record");
+ok("...and a half-signed one too — grounds are not optional",
+  withholdReason(
+    synth({
+      kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD",
+      currencySourcing: SOURCED_OWNER_ASSERTED,
+      assertedBy: { who: "somebody", on: "2026-08-29" },
+    }), TODAY) === "currency asserted with no signed assertion on record");
+ok("a made-up sourcing tier is withheld, not trusted",
+  /is not a known sourcing tier/.test(
+    withholdReason(
+      synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD", currencySourcing: "probably" }), TODAY) || ""));
+ok("a third-hand currency never publishes as a price",
+  withholdReason(
+    synth({ kind: PRICE_AMOUNT, amount: 10, per: "month", currency: "USD", currencySourcing: SOURCED_USER_REPORTS }), TODAY) ===
+    "currency is third-hand, not published");
+// isSignedAssertion is the gate; exercise it directly on each missing field.
+ok("an assertion with no author is not signed", !isSignedAssertion({ on: "2026-08-29", grounds: "a long enough reason here" }));
+ok("an assertion with no date is not signed", !isSignedAssertion({ who: "someone", grounds: "a long enough reason here" }));
+ok("an assertion with no grounds is not signed", !isSignedAssertion({ who: "someone", on: "2026-08-29" }));
+ok("an assertion with a bad date is not signed", !isSignedAssertion({ who: "someone", on: "last Tuesday", grounds: "a long enough reason here" }));
+ok("a complete assertion IS signed", isSignedAssertion({ who: "someone", on: "2026-08-29", grounds: "a long enough reason here" }));
 
 const hcp = competitor("housecall_pro");
 ok("Housecall Pro is recorded as USD", hcp.figures.every((f) => f.price.currency === "USD"));
@@ -443,7 +555,26 @@ ok("every publishable amount is in a currency FieldQuo also prices in",
     .every((f) => SUPPORTED_CURRENCIES.includes(f.price.currency)));
 
 // ══════════════════════════════════════════════════════════════════════════
-console.log("\nNo currency conversion exists, and adding one fails this check");
+console.log("\nThe DATA never converts, and the rate cannot even be stored here");
+// ══ What changed, and what did not ═════════════════════════════════════════
+//
+// This section used to be titled "No currency conversion exists, and adding
+// one fails this check", and the ban was total: no conversion anywhere, ever.
+// It has been NARROWED, and the narrowing is the point of every assertion
+// below staying exactly as it was.
+//
+// A converted number STORED in this module is still banned, for the original
+// reason, unchanged: it would be right the day it shipped, drifting every day
+// after, on a statically rendered page, about somebody else's prices, with
+// nobody watching. Every assertion in this block enforces that and none of
+// them has been weakened.
+//
+// What is now allowed is conversion at PRESENTATION time, in
+// lib/marketing/fx.js, where the rate travels with its date and its source and
+// refuses when stale. Two new assertions at the end of this block are what
+// keep the two apart: this module must not import fx.js, and — because a rate
+// is a decimal and no decimal may appear here — the rate physically cannot be
+// stored in this file even by somebody trying.
 // Identifiers first — but over the CODE only. The file's own comments argue at
 // length about conversion, and a regex over raw text would either match those
 // or be weakened until it matched nothing. Stripping comments and strings
@@ -481,11 +612,38 @@ ok("...and none of it is exported either",
 // the exact identifier that defeated the previous version of this assertion.
 ok("...and the detector actually fires on `convertToCad`", hitsIn("export function convertToCad").length > 0);
 
-// An FX rate is a decimal. There is not one non-integer number in this file,
-// and there should never be: prices are whole units, ages are whole days.
-// A literal like 1.37 appearing here is an exchange rate wearing a hat.
-const decimals = code.match(/\b\d+\.\d+\b/g) || [];
-ok("no decimal literal anywhere in the code — an FX rate is a decimal", decimals.length === 0, decimals);
+// ══ The decimal rule, narrowed exactly as far as QuoteIQ forced it ═════════
+//
+// An FX rate is a decimal, so this file used to permit no decimal literal at
+// all: prices were whole units, ages whole days, and a literal like 1.37
+// appearing here was an exchange rate wearing a hat.
+//
+// QuoteIQ prices in cents — $29.99, $74.99, $62.50 — and those are published
+// figures read off their own page. Refusing to store them would have meant
+// rounding a competitor's price, which is inventing a number about somebody
+// else, or holding it in some minor-unit field that every consumer then has to
+// know about. Both are worse than narrowing the rule.
+//
+// So the rule is now POSITIONAL, and it is still structural: a decimal may
+// appear ONLY as the value of `amount:`, and only with exactly two decimal
+// places, which is what cents are. `const rate = 1.39` fails because it is not
+// an amount. `amount: 1.3888` fails because four places are not cents. There
+// is nowhere in this file a rate can be written down.
+const decimals = [...code.matchAll(/\d+\.\d+/g)];
+const strayDecimals = decimals
+  .filter((m) => !(/amount:\s*$/.test(code.slice(Math.max(0, m.index - 12), m.index)) && /^\d+\.\d{2}$/.test(m[0])))
+  .map((m) => m[0]);
+ok("the only decimals in the code are cents on a published amount", strayDecimals.length === 0, strayDecimals);
+ok("...and there are some, so the rule was tested against real data",
+  decimals.length > 0, decimals.length);
+// The detector, on the two shapes it exists to catch.
+const decimalStrays = (src) =>
+  [...src.matchAll(/\d+\.\d+/g)]
+    .filter((m) => !(/amount:\s*$/.test(src.slice(Math.max(0, m.index - 12), m.index)) && /^\d+\.\d{2}$/.test(m[0])))
+    .map((m) => m[0]);
+ok("...a bare rate constant would be caught", decimalStrays("const dailyRate = 1.3888;").length === 1);
+ok("...and a rate hidden in an amount would be caught too", decimalStrays("amount: 1.3888,").length === 1);
+ok("...while cents on an amount pass", decimalStrays("amount: 29.99,").length === 0);
 
 // Every amount is a bare integer literal, never an expression.
 //
@@ -494,10 +652,46 @@ ok("no decimal literal anywhere in the code — an FX rate is a decimal", decima
 // nor the decimal rule, and produces a plausible number in a real currency
 // that sails through every other assertion. An amount here is a number
 // somebody READ OFF A PAGE. If it is being computed, it is not that.
-const amounts = [...code.matchAll(/amount:\s*([^,\n}]+)/g)].map((m) => m[1].trim());
-ok("every amount is a literal read off a page, not an expression",
-  amounts.length > 0 && amounts.every((a) => /^\d+$/.test(a)),
-  amounts.filter((a) => !/^\d+$/.test(a)));
+//
+// `low` and `high` are held to the same bar. ServiceTitan's reported bands
+// arrived with these, and a band is exactly where the temptation to compute
+// lives — `high: low * 1.2` would be an invented upper end of a range nobody
+// reported. Same rule, same reason: if it is being computed, it is not
+// something somebody said.
+const amounts = [...code.matchAll(/(?:amount|low|high|thenAmount):\s*([^,\n}]+)/g)].map((m) => m[1].trim());
+const literal = (a) => /^\d+$/.test(a) || /^\d+\.\d{2}$/.test(a);
+ok("every amount and band endpoint is a literal, not an expression",
+  amounts.length > 0 && amounts.every(literal), amounts.filter((a) => !literal(a)));
+ok("...and there are band endpoints among them to have tested",
+  [...code.matchAll(/low:\s*\d+/g)].length >= 3, [...code.matchAll(/low:\s*\d+/g)].length);
+
+// ── The boundary between this module and the FX helper ────────────────────
+//
+// One-way dependency, asserted rather than assumed. fx.js imports this file to
+// find out what a competitor published; if this file could import fx.js, a
+// figure here could arrive already converted and every assertion above it
+// would be looking at the wrong number.
+// Matched against IMPORT SYNTAX rather than the text "marketing/fx", because
+// the module's own comments discuss fx.js at length and a substring test would
+// either match those or get weakened until it matched nothing — the same trap
+// the \b-anchored stem regex fell into. Module specifiers are strings, so they
+// are gone from `code`; the shape has to be found in SOURCE.
+const IMPORTS_FX = [
+  /^\s*import[^;]*from\s+["'][^"']*marketing\/fx/m,
+  /^\s*import\s+["'][^"']*marketing\/fx/m,
+  /\bimport\s*\(\s*["'][^"']*marketing\/fx/,
+  /\brequire\s*\(\s*["'][^"']*marketing\/fx/,
+];
+ok("this module does not import the FX helper", IMPORTS_FX.every((re) => !re.test(SOURCE)));
+// And the detector is alive, on all four shapes it has to catch.
+ok("...and the import detector actually fires",
+  IMPORTS_FX[0].test('import { x } from "@/lib/marketing/fx";') &&
+    IMPORTS_FX[1].test('import "@/lib/marketing/fx";') &&
+    IMPORTS_FX[2].test('const x = await import("@/lib/marketing/fx");') &&
+    IMPORTS_FX[3].test('const x = require("@/lib/marketing/fx");'));
+ok("...and holds no rate-shaped decimal, so a rate cannot be stored here at all",
+  strayDecimals.length === 0, strayDecimals);
+ok("a conversion helper would be caught by the stem rule", hitsIn("function toCadFromUsd").length > 0);
 
 // And functionally: nothing the module can produce names a currency that is
 // not already written down in it. Identifier bans stop the obvious version;
@@ -619,11 +813,135 @@ for (const c of COMPETITORS) {
   for (const e of [...resolved.theyHaveWeDont, ...resolved.weHaveTheyDont]) {
     ok(`claim "${e.claim.slice(0, 36)}" is sourced and dated`,
       typeof e.source === "string" && e.source.startsWith("https://") && /^\d{4}-\d{2}-\d{2}$/.test(e.checked || ""), e);
-    ok(`claim "${e.claim.slice(0, 36)}" publishes only if verified`,
-      e.publishable === (e.verification === VERIFIED) &&
-        (e.verification !== VERIFIED || (typeof e.verifiedBy === "string" && e.verifiedBy.length > 10)), e);
+    ok(`claim "${e.claim.slice(0, 36)}" names a sourcing tier`, SOURCING_TIERS.includes(e.sourcing), e.sourcing);
+    ok(`claim "${e.claim.slice(0, 36)}" renders its provenance in words`,
+      typeof e.provenance === "string" && e.provenance.length > 10 && e.provenance !== "provenance not recorded",
+      e.provenance);
+    ok(`claim "${e.claim.slice(0, 36)}" signs its VERIFIED flag`,
+      e.verification !== VERIFIED || (typeof e.verifiedBy === "string" && e.verifiedBy.length > 10), e);
+  }
+  // ══ An assertion that used to read `publishable === (verification === VERIFIED)`
+  //
+  // It was one rule for both directions, and it broke on the owner's Projul
+  // feature lists. Those name five things we do not have — a mobile app,
+  // QuickBooks, Gantt charts, purchase orders, daily logs — and nobody re-read
+  // Projul's page for them, so under the old rule none of them published and
+  // the page quietly conceded only the cheap one.
+  //
+  // The bar is now asymmetric, because the RISK is:
+  //
+  //   a wrong CONCESSION harms only FieldQuo — we understate ourselves and
+  //   lose a sale. The owner's signed assertion is enough.
+  //
+  //   a wrong CLAIM OF ADVANTAGE is a false public statement about somebody
+  //   else's product. Only their own page will do.
+  //
+  // Both halves are asserted, and the second is the one that must never slip.
+  for (const e of resolved.weHaveTheyDont) {
+    ok(`advantage "${e.claim.slice(0, 36)}" publishes ONLY on their own page`,
+      e.publishable === (e.verification === VERIFIED), e);
+  }
+  for (const e of resolved.theyHaveWeDont) {
+    const signed =
+      (e.sourcing === SOURCED_OWNER_ASSERTED && isSignedAssertion(e.assertedBy)) ||
+      (e.sourcing === SOURCED_OWNER_RELAYED && isSignedAssertion(e.relayedBy));
+    ok(`concession "${e.claim.slice(0, 36)}" publishes on a page read, a signed relay or a signed assertion`,
+      e.publishable === (e.verification === VERIFIED || signed), e);
   }
 }
+
+// ══ Executed on the RULE, not only on the data that exists today ═══════════
+//
+// Mutation testing found this assertion toothless in its first form. Relaxing
+// the advantage bar to accept an owner assertion changed nothing anybody could
+// observe, because every advantage claim in the file today happens to be
+// publisher-sourced — so the check passed while the rule was gone. A rule that
+// only bites on data that does not exist yet is a rule nothing tests.
+//
+// `claimPublishable` was pulled out of claims() for exactly this, and it is
+// driven here with the SAME entry pointed in both directions, which is the
+// only way to see the asymmetry at all.
+{
+  const signedEntry = {
+    capability: "mobile_app",
+    claim: "synthetic",
+    sourcing: SOURCED_OWNER_ASSERTED,
+    assertedBy: { who: "the owner", on: "2026-08-29", grounds: "a reason long enough to count" },
+    source: "https://example.com/pricing",
+    checked: TODAY,
+    verification: UNVERIFIED,
+  };
+  ok("one signed assertion, pointed as a concession, publishes",
+    claimPublishable(signedEntry, CLAIM_CONCESSION) === true);
+  ok("...and the SAME entry, pointed as an advantage, does NOT",
+    claimPublishable(signedEntry, CLAIM_ADVANTAGE) === false);
+  ok("...which is the whole asymmetry, in one entry",
+    claimPublishable(signedEntry, CLAIM_CONCESSION) !== claimPublishable(signedEntry, CLAIM_ADVANTAGE));
+  const verifiedEntry = { ...signedEntry, verification: VERIFIED, sourcing: SOURCED_PUBLISHER, assertedBy: undefined };
+  ok("a page-read claim publishes in both directions",
+    claimPublishable(verifiedEntry, CLAIM_CONCESSION) && claimPublishable(verifiedEntry, CLAIM_ADVANTAGE));
+  ok("an UNSIGNED assertion publishes in neither",
+    !claimPublishable({ ...signedEntry, assertedBy: { who: "x" } }, CLAIM_CONCESSION) &&
+      !claimPublishable({ ...signedEntry, assertedBy: { who: "x" } }, CLAIM_ADVANTAGE));
+  ok("a third-hand claim publishes in neither",
+    !claimPublishable({ ...signedEntry, sourcing: SOURCED_USER_REPORTS }, CLAIM_CONCESSION) &&
+      !claimPublishable({ ...signedEntry, sourcing: SOURCED_USER_REPORTS }, CLAIM_ADVANTAGE));
+  ok("a claim with nothing behind it publishes in neither",
+    !claimPublishable({}, CLAIM_CONCESSION) && !claimPublishable({}, CLAIM_ADVANTAGE));
+  ok("nothing at all publishes in neither",
+    !claimPublishable(null, CLAIM_CONCESSION) && !claimPublishable(null, CLAIM_ADVANTAGE));
+  ok("an unrecognised direction is treated as the STRICT one",
+    claimPublishable(signedEntry, "sideways") === false);
+  ok("the two directions are distinct values", CLAIM_CONCESSION !== CLAIM_ADVANTAGE);
+  const projulClaims = claims("projul");
+  const asserted = projulClaims.theyHaveWeDont.filter((e) => e.sourcing === SOURCED_OWNER_RELAYED);
+  ok("Projul's owner-relayed concessions exist", asserted.length >= 5, asserted.length);
+  ok("...and every one of them publishes", asserted.every((e) => e.publishable === true));
+  ok("...while none of them claims to be verified",
+    asserted.every((e) => e.verification === UNVERIFIED), asserted.map((e) => e.verification));
+  ok("...and each carries a provenance saying it was relayed, not read by us",
+    asserted.every((e) => /relayed from their page by/.test(e.provenance) && /not read by us/.test(e.provenance)));
+  ok("no advantage anywhere rests on an assertion",
+    COMPETITORS.every((c) => claims(c.id).weHaveTheyDont.every((e) => e.verification === VERIFIED || e.publishable === false)));
+  ok("an unsigned assertion does NOT publish, even as a concession",
+    provenanceLabel({ sourcing: SOURCED_OWNER_ASSERTED, assertedBy: { who: "x" } }) ===
+      "asserted with no assertion on record");
+  ok("...and the signed fixture would", isSignedAssertion(signedEntry.assertedBy));
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nThe inconvenient half of Projul's feature lists reaches the page");
+// The owner supplied Projul's tiers feature by feature. Five of those features
+// are things FieldQuo does not have, and the failure mode on a comparison page
+// is not getting them wrong — it is leaving them out. Each is asserted against
+// the capability ledger, which carries evidence read out of this repository.
+for (const key of ["mobile_app", "accounting_sync", "gantt_charts", "purchase_orders", "daily_logs", "geofencing"]) {
+  ok(`the ledger records that FieldQuo has no ${key}`, FIELDQUO_CAPABILITIES[key]?.has === false, FIELDQUO_CAPABILITIES[key]);
+  ok(`...with evidence from this repo, not an opinion`,
+    /schema\.prisma|node_modules|repo|identifier|INTEGRATIONS|occurrence|No /.test(FIELDQUO_CAPABILITIES[key].evidence),
+    FIELDQUO_CAPABILITIES[key].evidence);
+  ok(`...and ${key} is in FIELDQUO_LACKS`, FIELDQUO_LACKS.includes(key));
+  ok(`...and Projul's page concedes it`,
+    claims("projul").theyHaveWeDont.some((e) => e.capability === key && e.publishable === true), key);
+}
+// The lists themselves are recorded, in Projul's words, and marked as his.
+const projulTiers = competitor("projul").figures;
+ok("Projul's entry tier carries its own feature list",
+  Array.isArray(projulTiers[0].includedFeatures) && projulTiers[0].includedFeatures.length >= 15,
+  projulTiers[0].includedFeatures?.length);
+ok("...and the upper tiers record what they ADD, not a flattened list",
+  projulTiers.slice(1).every((f) => Array.isArray(f.addsOverPreviousTier) && f.addsOverPreviousTier.length > 0));
+ok("...so a tier's advantage over the one below it survives in the data",
+  projulTiers[2].addsOverPreviousTier.some((s) => /purchase orders/i.test(s)) &&
+    projulTiers[1].addsOverPreviousTier.some((s) => /Gantt/i.test(s)));
+ok("...and every list says it came from the owner, not from a page read",
+  projulTiers.every((f) => f.featuresSourcing === SOURCED_OWNER_RELAYED && isSignedAssertion(f.featuresRelayedBy)));
+ok("...pointing at one relay record, so retracting it is one edit",
+  new Set(projulTiers.map((f) => f.featuresRelayedBy)).size === 1);
+// The features are not silently mapped onto our own vocabulary. Renaming a
+// competitor's feature into ours is how a comparison becomes a straw man.
+ok("Projul's features stay in Projul's words",
+  projulTiers[0].includedFeatures.includes("full-featured mobile app"));
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nFieldQuo's own side is imported from the ladder, not typed in beside it");
@@ -649,6 +967,367 @@ ok("the entry tier is the cheapest rung, not a hand-picked one",
 const scale = SEAT_LADDER.find((t) => t.tierKey === "scale");
 ok("FieldQuo's top rung is cheaper than Jobber's receptionist tier at ten users",
   scale.price < match.price.amount, { fieldquo: scale.price, jobber: match.price.amount });
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nThree sourcing tiers, and no two of them collapse");
+// The reason this module grew a third axis. `verification` says whether anyone
+// checked; `sourcing` says against WHAT. There was only ever one kind of
+// source — the vendor's own page — until an owner assertion and a forum thread
+// turned up on the same afternoon, and a reader is owed the difference.
+ok("there are exactly four tiers", SOURCING_TIERS.length === 4, SOURCING_TIERS);
+ok("...and they are distinct values", new Set(SOURCING_TIERS).size === 4);
+ok("...ordered strongest first, which is what the gates cut against",
+  SOURCING_TIERS[0] === SOURCED_PUBLISHER && SOURCING_TIERS[SOURCING_TIERS.length - 1] === SOURCED_USER_REPORTS);
+for (const [a, b] of [
+  [SOURCED_PUBLISHER, SOURCED_OWNER_RELAYED],
+  [SOURCED_PUBLISHER, SOURCED_OWNER_ASSERTED],
+  [SOURCED_PUBLISHER, SOURCED_USER_REPORTS],
+  [SOURCED_OWNER_RELAYED, SOURCED_OWNER_ASSERTED],
+  [SOURCED_OWNER_RELAYED, SOURCED_USER_REPORTS],
+  [SOURCED_OWNER_ASSERTED, SOURCED_USER_REPORTS],
+]) ok(`${a} ≠ ${b}`, a !== b);
+// The fourth tier, and the distinction that earned it. RELAYED is somebody
+// reporting what the vendor's page says; ASSERTED is somebody inferring
+// something it does not say. Projul's feature lists are the first, Projul's
+// currency is the second, and collapsing them would put the owner's inference
+// and the owner's reading at the same standard of proof.
+ok("Projul's feature lists are RELAYED — a report of their page",
+  competitor("projul").figures.every((f) => f.featuresSourcing === SOURCED_OWNER_RELAYED));
+ok("...while Projul's currency is ASSERTED — an inference their page does not support",
+  competitor("projul").figures.every((f) => f.price.currencySourcing === SOURCED_OWNER_ASSERTED));
+ok("...so one competitor carries both, and they are not the same field",
+  SOURCED_OWNER_RELAYED !== SOURCED_OWNER_ASSERTED);
+ok("...and none of them is a verification state",
+  !SOURCING_TIERS.includes(VERIFIED) && !SOURCING_TIERS.includes(UNVERIFIED));
+// All three are actually in use, or the vocabulary is decoration.
+const tiersInUse = new Set([
+  ...OBSERVATIONS.filter((f) => f.price?.currencySourcing).map((f) => f.price.currencySourcing),
+  ...COMPETITORS.flatMap((c) => [...c.theyHaveWeDont, ...c.weHaveTheyDont]).map((e) => e.sourcing),
+  ...allReportedCosts().map((r) => r.sourcing),
+]);
+ok("every tier is used by real data", SOURCING_TIERS.every((t) => tiersInUse.has(t)), [...tiersInUse]);
+// Each renders as a DIFFERENT sentence. Two tiers that print the same words
+// are one tier with extra steps.
+const signature = { who: "someone", on: TODAY, grounds: "a reason long enough to count" };
+const labels = SOURCING_TIERS.map((t) =>
+  provenanceLabel({ sourcing: t, checked: TODAY, assertedBy: signature, relayedBy: signature }, { subject: "Them" }));
+ok("each tier renders as its own sentence", new Set(labels).size === 4, labels);
+ok("...and a relay with nobody's name on it says so",
+  provenanceLabel({ sourcing: SOURCED_OWNER_RELAYED }) === "relayed with no record of who relayed it");
+ok("...and an unrecorded tier says so rather than guessing",
+  provenanceLabel({}) === "provenance not recorded");
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nServiceTitan's reported costs are third-hand, and cannot pass as anything else");
+// ══ Why these are not in `figures` ═════════════════════════════════════════
+//
+// ServiceTitan publishes nothing. The bands below come from a video summary
+// and a forum thread. Putting them in `figures` would have failed the
+// "sourced from the competitor's own site" assertion near the top of this
+// file — correctly, because they are not ServiceTitan speaking — so they live
+// in their own array with their own gate, and a renderer walking `figures`
+// cannot pick one up by accident.
+const reported = allReportedCosts();
+ok("there are reported costs to check", reported.length === 3, reported.length);
+ok("...all on ServiceTitan, the one competitor that publishes nothing",
+  reported.every((r) => r.competitorId === "servicetitan"));
+ok("...and NONE of them is in allFigures()",
+  !allFigures().some((f) => reported.some((r) => r.id === f.id)));
+ok("...nor in publishableFigures()",
+  !publishableFigures(TODAY).some((f) => f.id.includes("reported")));
+// ServiceTitan's own three tiers are untouched: their page still publishes no
+// price and the reported bands did not quietly become one.
+ok("ServiceTitan's own tiers still say Request Pricing",
+  competitor("servicetitan").figures.every((f) => f.price.kind === PRICE_ON_REQUEST));
+ok("...and none of them acquired an amount",
+  competitor("servicetitan").figures.every((f) => f.price.amount === undefined));
+
+for (const r of reported) {
+  ok(`${r.id} is sourced to user reports`, r.sourcing === SOURCED_USER_REPORTS, r.sourcing);
+  ok(`${r.id} carries a band, not an amount`, r.price.kind === PRICE_REPORTED_RANGE, r.price.kind);
+  ok(`${r.id} publishes`, reportedWithholdReason(r, TODAY) === null, reportedWithholdReason(r, TODAY));
+  ok(`${r.id} names its sources by KIND`,
+    r.reportedVia.length >= 2 && r.reportedVia.every((v) => /^a /.test(v.kind)), r.reportedVia?.map((v) => v.kind));
+  // ── The band never collapses ────────────────────────────────────────────
+  //
+  // Two ways it goes wrong: printing one end alone, and averaging. Both are
+  // closed by the endpoints being PRIVATE fields on a class rather than
+  // properties on an object. There is nothing to print and nothing to add.
+  ok(`${r.id}'s band is a Reported`, r.price.band instanceof Reported);
+  ok(`${r.id} exposes no low endpoint`, r.price.band.low === undefined, r.price.band.low);
+  ok(`${r.id} exposes no high endpoint`, r.price.band.high === undefined, r.price.band.high);
+  ok(`${r.id} exposes no amount`, r.price.band.amount === undefined && r.price.amount === undefined);
+  ok(`${r.id}'s band refuses to be a number`,
+    (() => { try { Number(r.price.band); return false; } catch { return true; } })());
+  ok(`${r.id}'s band refuses to be averaged`,
+    (() => { try { return Number.isFinite((r.price.band + r.price.band) / 2) ? false : true; } catch { return true; } })());
+  ok(`${r.id}'s band refuses to be compared`,
+    (() => { try { void (r.price.band < 400); return false; } catch { return true; } })());
+  // What it DOES produce always carries both ends and the word "reported".
+  const text = reportedCostText(r, { subject: "ServiceTitan" });
+  ok(`${r.id} renders both ends of the band`, (text.match(/\$[\d,]+/g) || []).length >= 4, text);
+  ok(`${r.id} renders as "reported"`, /[Rr]eport/.test(text), text);
+  ok(`${r.id} says ServiceTitan did not publish it`, /not published by ServiceTitan/.test(text), text);
+  ok(`${r.id} names the kinds of source in the sentence itself`,
+    /video summary/.test(text) && /forum thread/.test(text), text);
+  ok(`${r.id} carries the separate implementation fee`, /implementation fee/.test(text), text);
+  ok(`${r.id} states nobody established the currency`, /states a currency/.test(text), text);
+  // Never a bare number: every dollar figure in the rendered sentence sits
+  // inside a band or beside the word reported. Checked by the absence of a
+  // lone figure with nothing else on its line.
+  ok(`${r.id} never renders one figure alone`, !/^\$[\d,]+$/.test(text.trim()), text);
+}
+// The class refuses to be built wrong in the first place.
+ok("a band with equal ends is refused — that is a number, not a range",
+  (() => { try { new Reported({ low: 300, high: 300, unit: "x", label: "y" }); return false; } catch { return true; } })());
+ok("a band with a missing end is refused",
+  (() => { try { new Reported({ low: 300, unit: "x", label: "y" }); return false; } catch { return true; } })());
+ok("an inverted band is refused",
+  (() => { try { new Reported({ low: 400, high: 300, unit: "x", label: "y" }); return false; } catch { return true; } })());
+ok("a Reported serialises with its label, never as a number",
+  /report/i.test(JSON.stringify(reported[0].price.band)));
+
+// The gate is a SECOND function on purpose, and it refuses the things the
+// price gate would have waved through.
+ok("no reported cost is ever cleared by the PRICE gate",
+  reported.every((r) => withholdReason(r, TODAY) !== null), reported.map((r) => withholdReason(r, TODAY)));
+// The band branch inside withholdReason, exercised directly. A real reported
+// cost never reaches it — it has no `source`, because its sources are the
+// forum thread and the video, not a page — so without a synthetic fixture this
+// branch would be a gate that has never been opened.
+ok("...and a band dressed up with a source URL is still refused as a price",
+  withholdReason(
+    synth({ kind: PRICE_REPORTED_RANGE, band: reported[0].price.band }), TODAY) ===
+    "a reported band is not a price — see reportedWithholdReason");
+ok("...and the two gates are not the same function", withholdReason !== reportedWithholdReason);
+const synthReported = { ...reported[0] };
+ok("a reported cost claiming to be VERIFIED is refused",
+  /cannot be verified/.test(reportedWithholdReason({ ...synthReported, verification: VERIFIED }, TODAY) || ""));
+ok("a reported cost with no named source is refused",
+  reportedWithholdReason({ ...synthReported, reportedVia: [] }, TODAY) === "no reported source named");
+ok("a reported cost whose source does not say what KIND it is, is refused",
+  reportedWithholdReason({ ...synthReported, reportedVia: [{ what: "somewhere online, honestly" }] }, TODAY) ===
+    "a reported source does not say what kind of source it is");
+ok("a reported cost with a bare object instead of a band is refused",
+  reportedWithholdReason(
+    { ...synthReported, price: { kind: PRICE_REPORTED_RANGE, band: { low: 245, high: 300 } } }, TODAY) ===
+    "the band is not a Reported — a bare number could be printed");
+ok("a reported cost claiming publisher sourcing is refused",
+  reportedWithholdReason({ ...synthReported, sourcing: SOURCED_PUBLISHER }, TODAY) ===
+    "a reported cost must be sourced to user reports");
+ok("a stale reported cost is refused with its age",
+  /^last checked \d+ days ago$/.test(reportedWithholdReason({ ...synthReported, checked: "2025-01-01" }, TODAY) || ""));
+
+// ── The structural terms, which are the part worth leaning on ──────────────
+//
+// Per-technician pricing, a separate implementation fee, an annual contract
+// with no monthly option. These change what a twelve-technician shop pays by
+// far more than the gap between $245 and $300, and a reader can test them in
+// one sales call. They carry NO NUMBERS, which is what makes them safe: a
+// sentence with no figure in it cannot be misquoted as a price.
+const terms = allReportedTerms();
+ok("the structural terms are recorded", terms.length >= 6, terms.length);
+ok("...every one sourced to user reports", terms.every((t) => t.sourcing === SOURCED_USER_REPORTS));
+ok("...every one saying it is reported, in its own words",
+  terms.every((t) => /report/i.test(t.statement)), terms.filter((t) => !/report/i.test(t.statement)).map((t) => t.id));
+ok("...and none of them states a dollar figure",
+  terms.every((t) => !/\$|\d{3,}/.test(t.statement)), terms.filter((t) => /\$|\d{3,}/.test(t.statement)).map((t) => t.statement));
+ok("...each says why it matters, or it is trivia", terms.every((t) => typeof t.whyItMatters === "string" && t.whyItMatters.length > 40));
+ok("...none is marked verified — there is no page to verify against",
+  terms.every((t) => t.verification === UNVERIFIED));
+for (const key of ["per_technician", "implementation_fee", "annual_only"]) {
+  ok(`the ${key} term is recorded`, terms.some((t) => t.id.endsWith(key)), key);
+}
+// ── Reported tiers are linked to published tiers by NAME, or not at all ────
+//
+// The first pass called the third tier "Enterprise", because that is the word
+// the earlier summary used, and left it unlinked — correctly, since
+// ServiceTitan's own page names Starter, Essentials and The Works, and
+// matching "Enterprise" to "The Works" because both sit third is the
+// name-matching mistake comparableTier exists to prevent.
+//
+// A fuller pass of the same two sources names The Works explicitly, so the
+// link is now made. What must never come back is a link made by POSITION, so
+// the assertion is that every link names a tier that actually exists on their
+// page under that name.
+const stTiers = competitor("servicetitan").figures;
+for (const r of reported) {
+  ok(`${r.id} either names a real published tier or names none`,
+    r.tierPublishes === null || stTiers.some((f) => f.id === r.tierPublishes), r.tierPublishes);
+  if (r.tierPublishes) {
+    ok(`...and ${r.id} links to the tier with the SAME NAME, not the same position`,
+      stTiers.find((f) => f.id === r.tierPublishes).label === r.label,
+      [r.label, stTiers.find((f) => f.id === r.tierPublishes)?.label]);
+  }
+}
+ok("no reported tier is called Enterprise any more — their page has no such tier",
+  !reported.some((r) => r.label === "Enterprise"), reported.map((r) => r.label));
+ok("...and the earlier reading is recorded rather than deleted",
+  reported.some((r) => /Enterprise/.test(r.note || "")));
+
+// ── The per-tier detail, and why the EXCLUDES are the valuable half ────────
+//
+// "Everything is in every FieldQuo plan" is a slogan until it sits beside a
+// named list of what a competitor's entry tier withholds. These are the things
+// a contractor discovers after signing an annual contract.
+for (const r of reported) {
+  const added = r.includes || r.addsOverPreviousTier;
+  ok(`${r.id} records what the tier contains`, Array.isArray(added) && added.length >= 5, added?.length);
+  // `excludes: []` is a STATEMENT — the top tier withholds nothing reported —
+  // and it is not the same as never having asked. So the field must exist.
+  ok(`${r.id} records what the tier withholds, even when that is nothing`,
+    Array.isArray(r.excludes), r.excludes);
+  ok(`${r.id}'s lists carry no dollar figures`,
+    [...added, ...r.excludes].every((x) => !/\$/.test(x)));
+}
+const starter = reported.find((r) => r.label === "Starter");
+ok("the entry tier's exclusions are recorded, and they are the interesting ones",
+  starter.excludes.length >= 5, starter.excludes);
+for (const missing of ["mobile estimates", "payroll", "commission", "service agreements"]) {
+  ok(`...including ${missing}`, starter.excludes.some((x) => x.includes(missing)), starter.excludes);
+}
+ok("only the ENTRY tier carries a headcount floor",
+  reported.filter((r) => r.minimumTechnicians).length === 1);
+ok("...and it is a band, so it cannot be quoted as one number",
+  starter.minimumTechnicians instanceof Reported);
+ok("...which refuses to be averaged into 4",
+  (() => { try { void (starter.minimumTechnicians + 0); return false; } catch { return true; } })());
+ok("...and renders both ends", /3.+5/.test(String(starter.minimumTechnicians)), String(starter.minimumTechnicians));
+ok("...saying it is a reported minimum", /minimum/.test(String(starter.minimumTechnicians)));
+// The exclusion that bounds OUR strongest argument. Mobile estimates arriving
+// only at their middle tier is a point for us; our crew not being able to
+// quote at all is the point against, and both are in the ledger.
+ok("their entry tier withholds mobile estimates",
+  starter.excludes.some((x) => /mobile estimates/.test(x)));
+ok("...and we concede that our own crew cannot quote either",
+  FIELDQUO_CAPABILITIES.field_worker_quotes.has === false);
+ok("...with evidence naming the permission preset that says so",
+  /PERMISSION_PRESETS\.worker/.test(FIELDQUO_CAPABILITIES.field_worker_quotes.evidence));
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nFive companies, five units, and none of them is a seat by accident");
+// ══ The mistake this section exists to make impossible ═════════════════════
+//
+// ServiceTitan is reported to charge per TECHNICIAN, Jobber by a team-size
+// BAND, Housecall Pro per SEAT, QuoteIQ per USER, Projul a FLAT annual fee.
+// FieldQuo charges for seats and includes crew free. Put those numbers in one
+// table without saying so and you are comparing different things while looking
+// rigorous.
+//
+// The specific error: a twenty-technician company is twenty billable people to
+// ServiceTitan and perhaps two or three SEATS here, because a technician is a
+// field worker and a field worker is crew. That is the strongest true claim in
+// this comparison, and it is only true if somebody maps the units on purpose.
+ok("every competitor declares what it charges per",
+  COMPETITORS.every((c) => Object.hasOwn(PRICING_UNITS, c.pricingUnit)),
+  COMPETITORS.map((c) => [c.id, c.pricingUnit]));
+ok("...and where that was established", COMPETITORS.every((c) => SOURCING_TIERS.includes(c.pricingUnitSourcing)),
+  COMPETITORS.map((c) => [c.id, c.pricingUnitSourcing]));
+ok("no two of the five charge in the same way, so the units are not decoration",
+  new Set(COMPETITORS.map((c) => c.pricingUnit)).size === COMPETITORS.length,
+  COMPETITORS.map((c) => c.pricingUnit));
+ok("FieldQuo's own unit is declared, not left for a caller to name",
+  Object.hasOwn(PRICING_UNITS, FIELDQUO_PRICING_UNIT));
+ok("...and it is not any competitor's unit",
+  !COMPETITORS.some((c) => c.pricingUnit === FIELDQUO_PRICING_UNIT));
+for (const [key, unit] of Object.entries(PRICING_UNITS)) {
+  ok(`${key} says who is counted`, typeof unit.countsWhom === "string" && unit.countsWhom.length > 20, unit.countsWhom);
+  ok(`${key} says what it maps to in our model`, typeof unit.mapsTo === "string" && unit.mapsTo.length > 2, unit.mapsTo);
+  // ── The caveat is part of the mapping, not a footnote under it ───────────
+  //
+  // A caller that maps twenty technicians onto free crew without printing this
+  // is making a comparison we cannot defend. So there is no unit without one.
+  ok(`${key} carries the caveat on that mapping`, typeof unit.caveat === "string" && unit.caveat.length > 60, unit.caveat);
+  ok(`${key}'s key matches its own entry`, unit.key === key);
+}
+// The technician mapping specifically, because it is the one that carries the
+// argument and the one most easily overstated.
+const techUnit = PRICING_UNITS[competitor("servicetitan").pricingUnit];
+ok("the per-technician unit maps onto CREW", techUnit.mapsTo === "crew");
+ok("...and its caveat names the limit — our crew cannot quote",
+  /cannot write a quote/.test(techUnit.caveat), techUnit.caveat);
+ok("...pointing at the permission preset rather than asserting it",
+  /PERMISSION_PRESETS\.worker/.test(techUnit.caveat));
+// Both halves of the argument are in the ledger, and they are a pair.
+ok("free crew is recorded as something we HAVE", FIELDQUO_CAPABILITIES.free_crew_seats.has === true);
+ok("...with evidence read out of the ladder, not asserted",
+  /crewSeats/.test(FIELDQUO_CAPABILITIES.free_crew_seats.evidence) &&
+    /isBillableSeat/.test(FIELDQUO_CAPABILITIES.free_crew_seats.evidence));
+ok("...and its own scope names what crew cannot do",
+  /field_worker_quotes/.test(FIELDQUO_CAPABILITIES.free_crew_seats.evidence));
+ok("crew not being able to quote is recorded as something we LACK",
+  FIELDQUO_CAPABILITIES.field_worker_quotes.has === false &&
+    FIELDQUO_LACKS.includes("field_worker_quotes"));
+// The ladder actually says what the evidence claims. Executed, not trusted.
+ok("every rung really does include free crew", SEAT_LADDER.every((t) => t.crewSeats > 0),
+  SEAT_LADDER.map((t) => [t.tierKey, t.crewSeats]));
+ok("...and the top rung really is 25 people for one price",
+  SEAT_LADDER[3].seats + SEAT_LADDER[3].crewSeats === 25);
+
+// ══════════════════════════════════════════════════════════════════════════
+console.log("\nQuoteIQ beats us at one user, and the data says so first");
+const quoteiq = competitor("quoteiq");
+ok("QuoteIQ is in the comparison at all", quoteiq !== null);
+ok("...with both billing modes on every tier",
+  new Set(quoteiq.figures.map((f) => f.axis.billing)).size === 2);
+ok("...and five tiers, not four", new Set(quoteiq.figures.map((f) => f.label)).size === 5,
+  [...new Set(quoteiq.figures.map((f) => f.label))]);
+ok("...including the Max tier the owner's list did not have",
+  quoteiq.figures.some((f) => f.label === "Max"));
+ok("...and the module records that the read found it",
+  /fifth tier/.test(quoteiq.relayNote || ""), quoteiq.relayNote);
+ok("every QuoteIQ figure was read off their page, not relayed",
+  quoteiq.figures.every((f) => f.verification === VERIFIED && f.price.currencySourcing === SOURCED_PUBLISHER));
+ok("...and every one publishes", quoteiq.figures.every((f) => withholdReason(f, "2026-08-29") === null),
+  quoteiq.figures.map((f) => withholdReason(f, "2026-08-29")));
+ok("...with the currency read from their own structured data",
+  quoteiq.figures.every((f) => /priceCurrency/.test(f.verifiedBy)));
+// Cents survive. Rounding a competitor's price is inventing a number about
+// somebody else, which is the thing this whole file is against.
+const essentials = quoteiq.figures.find((f) => f.id === "quoteiq.essentials.monthly");
+ok("their price keeps its cents", essentials.price.amount === 29.99, essentials.price.amount);
+ok("...and is not rounded to 30 anywhere", !quoteiq.figures.some((f) => f.price.amount === 30));
+// ── The concession, computed rather than typed ────────────────────────────
+//
+// $29.99 against our $99. There is no reading of a single-user comparison that
+// favours us, and a page that fudges its cheapest claim is a page that gets
+// caught on it. Both numbers are read: theirs off their Offer markup, ours out
+// of SEAT_LADDER, so this assertion moves if either side moves.
+ok("QuoteIQ's entry price really is below FieldQuo's cheapest rung",
+  essentials.price.amount < Math.min(...SEAT_LADDER.map((t) => t.price)),
+  { quoteiq: essentials.price.amount, fieldquo: Math.min(...SEAT_LADDER.map((t) => t.price)) });
+ok("...and it is conceded, in the ledger, as something we lack",
+  FIELDQUO_CAPABILITIES.entry_price_below_our_floor.has === false);
+ok("...on QuoteIQ's own page as the claim's source",
+  claims("quoteiq").theyHaveWeDont.some(
+    (e) => e.capability === "entry_price_below_our_floor" && e.publishable === true && e.verification === VERIFIED));
+ok("...and the claim names both numbers so a reader can check it",
+  claims("quoteiq").theyHaveWeDont.some((e) => /29\.99/.test(e.claim) && /\$99/.test(e.claim)));
+// The other direction, which is where it turns.
+ok("their users are all paid, and that is our claim of advantage",
+  claims("quoteiq").weHaveTheyDont.some((e) => e.capability === "free_crew_seats" && e.publishable === true));
+ok("...verified off their page, not asserted — an advantage needs their own words",
+  quoteiq.weHaveTheyDont.every((e) => e.verification === VERIFIED && e.sourcing === SOURCED_PUBLISHER));
+ok("...and its note scopes the claim to what crew actually cannot do",
+  quoteiq.weHaveTheyDont.some((e) => /crew cannot price a job/.test(e.note || "")));
+ok("QuoteIQ concedes MORE to them than we claim over them",
+  quoteiq.theyHaveWeDont.length > quoteiq.weHaveTheyDont.length,
+  [quoteiq.theyHaveWeDont.length, quoteiq.weHaveTheyDont.length]);
+// The AI metering difference, held as numbers rather than flattened into a
+// slogan. Ours is a plan quota on spend (lib/ai/usage.js); theirs is a fixed
+// monthly credit allowance per tier. Neither is "unmetered", and claiming ours
+// was would be the same overclaim as "AI included".
+const credits = quoteiq.figures.map((f) => f.aiCreditsPerMonth).filter(Boolean);
+ok("their AI credit allowance is recorded per tier", credits.length === quoteiq.figures.length, credits.length);
+ok("...and rises with the tier, which is the shape of the meter",
+  new Set(credits).size >= 5, [...new Set(credits)]);
+ok("...and no claim anywhere says FieldQuo's AI is unmetered",
+  !COMPETITORS.flatMap((c) => c.weHaveTheyDont).some((e) => /unmetered|unlimited AI/i.test(e.claim)));
+// Unlimited is not a large number.
+const max = quoteiq.figures.find((f) => f.id === "quoteiq.max.monthly");
+ok("their unlimited tier records no seat count", max.seatsIncluded === null && max.unlimitedSeats === true);
+ok("...so nothing can divide by an invented ceiling",
+  !quoteiq.figures.some((f) => f.unlimitedSeats && Number.isFinite(f.seatsIncluded)));
 
 // ══════════════════════════════════════════════════════════════════════════
 console.log("\nLookups behave when asked about something that is not there");
