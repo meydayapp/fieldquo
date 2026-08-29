@@ -2,9 +2,11 @@
 //
 //   npm run check:compare-pages
 //
-// Five public pages that name four real companies and argue we are the better
-// buy. This is the check that stands between them and a false statement about
-// somebody else's prices.
+// Six public pages that name five real companies and argue we are the better
+// buy — one of which is cheaper than us at the size a solo contractor starts
+// at. This is the check that stands between them and a false statement about
+// somebody else's prices, and between the one unflattering page and the
+// arrangements that would quietly make it flattering.
 //
 // ══ Why this is not the same job as check-competitors.mjs ══════════════════
 //
@@ -63,12 +65,16 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import {
+  COMPARABLE_FEATURES,
   COMPETITORS,
   FIELDQUO_CAPABILITIES,
   FIELDQUO_LACKS,
   FIELDQUO_REFERENCE,
   PRICE_AMOUNT,
+  SOURCED_OWNER_ASSERTED,
+  SOURCED_PUBLISHER,
   UNVERIFIED,
+  VERIFIED,
   allAddOns,
   claims,
   comparableTier,
@@ -87,7 +93,8 @@ import {
   counterpartsFor,
   totalOf,
 } from "@/app/(marketing)/compare/addOns";
-import { COMPARE_PAGES, comparePage } from "@/app/(marketing)/compare/compareCopy";
+import { COMPARE_CHROME, COMPARE_PAGES, comparePage } from "@/app/(marketing)/compare/compareCopy";
+import { entryGapOf, entryPriceGap } from "@/app/(marketing)/compare/entryPrice";
 import CompareIndexPage, { comparisonSummary } from "@/app/(marketing)/compare/page";
 import CompareSlugPage from "@/app/(marketing)/compare/[slug]/page";
 import ComparisonPage, { redactAmounts } from "@/app/(marketing)/compare/[slug]/ComparisonPage";
@@ -210,6 +217,7 @@ async function main() {
   const AS_OF = "app/(marketing)/compare/asOf.js";
   const ADDONS = "app/(marketing)/compare/addOns.js";
   const ADDON_BLOCK = "app/(marketing)/compare/AddOnStack.js";
+  const ENTRY_PRICE = "app/(marketing)/compare/entryPrice.js";
 
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("\n1. Every page rendered at all, through its own route");
@@ -510,10 +518,33 @@ async function main() {
       ...elementsWith(p.html, "data-addon-id"),
       ...elementsWith(p.html, "data-addon-total"),
       ...elementsWith(p.html, "data-fieldquo-tier"),
+      // The rows added with the QuoteIQ page. Every one of them prints an
+      // amount, so every one of them is somewhere a conversion could appear.
+      ...elementsWith(p.html, "data-their-tier"),
+      ...elementsWith(p.html, "data-entry-price-gap"),
+      ...elementsWith(p.html, "data-ai-metering"),
     ];
+    // ── One narrowing, for the same reason the two tiers exist at all ──────
+    //
+    // The blunt version of this list already went red once, on the rules panel
+    // that exists to explain that we never convert. It went red a second time
+    // the day their own tier lists reached the page: Projul's Core+ tier adds
+    // "convert estimates to tasks", quoted verbatim from their own page
+    // because renaming a competitor's feature is how a comparison becomes a
+    // straw man. A checker that forbids QUOTING a competitor forces us to
+    // paraphrase them, which is worse and not one byte safer.
+    //
+    // So their quoted words are lifted out and OUR prose around the figure is
+    // what the vocabulary applies to. The words removed are only ever theirs:
+    // both attributes render a string straight out of competitors.js, which
+    // check-competitors.mjs guards, and neither can contain a number — the
+    // amount-level assertions above still cover every row in full.
+    const oursOnly = (row) =>
+      row.text.replace(/<li[^>]*data-(?:their|entry-price)-feature="[^"]*"[\s\S]*?<\/li>/g, " ");
     for (const word of CONVERSION_VOCABULARY) {
       ok(`${p.slug}: no figure row talks about "${word}"`,
-        rows.every((r) => !r.text.toLowerCase().includes(word)));
+        rows.every((r) => !oursOnly(r).toLowerCase().includes(word)),
+        rows.filter((r) => oursOnly(r).toLowerCase().includes(word)).map((r) => r.value).join(","));
     }
   }
   for (const p of pages) {
@@ -563,7 +594,7 @@ async function main() {
       pages.every((p) => SUPPORTED_CURRENCIES.every((c) => p.html.includes(c))));
   // Source-level: no arithmetic that could only be a rate. The conversion ban
   // covers every file on these pages including the two add-on ones.
-  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDONS, ADDON_BLOCK]) {
+  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDONS, ADDON_BLOCK, ENTRY_PRICE]) {
     ok(`${path}: defines no currency-conversion helper`,
       !/\b(fxRate|exchangeRate|convertCurrency|toCad|toUsd|inCad|inUsd)\b/i.test(source(path)));
   }
@@ -575,7 +606,11 @@ async function main() {
   // would be worthless on its own, so section 11 below EXECUTES the refusals
   // instead — two currencies, two billing periods, two coordinates and a
   // missing amount all have to come back as a refusal rather than a sum.
-  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDON_BLOCK]) {
+  // entryPrice.js is IN this list, unlike addOns.js: it sets two prices side by
+  // side and does not add, subtract or multiply either of them. "Three times
+  // the price" is a sentence for a human who can see both figures, not a number
+  // for a static page to derive and then be wrong about after a reprice.
+  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDON_BLOCK, ENTRY_PRICE]) {
     ok(`${path}: does no arithmetic on an amount`,
       !/(price\.amount|\.amount)\s*[*/+-]/.test(source(path)) &&
         !/[*/]\s*(rate|fx)\b/i.test(source(path)));
@@ -616,6 +651,52 @@ async function main() {
     // The section that would otherwise quietly become an advertisement.
     ok("...while still conceding everything we lack",
       FIELDQUO_LACKS.every((k) => stale.includes(`data-lacks="${k}"`)));
+  }
+
+  console.log("\n   ...and a CLAIM's prose goes stale the same way a price does");
+  //
+  // ══ A leak this page had from the day it was written ═══════════════════════
+  //
+  // Found by the assertion three sections down, not by reading. withholdReason
+  // gates a figure on its age; claimPublishable asks who verified an entry and
+  // never asks when. Several claims quote the amount they are about — "a $29/mo
+  // add-on at one user, and otherwise sits in the $599/mo Plus tier" — so a
+  // page rendered ninety-five days on emptied every price row and went on
+  // printing $29, $599 and $29.99 inside sentences. A competitor's price on a
+  // static page with no reading behind it, arriving through the one door the
+  // data module does not guard.
+  {
+    const staleClaims = ["fieldquo-vs-jobber", "fieldquo-vs-quoteiq", "fieldquo-vs-housecall-pro"].map(
+      (slug) => ({ slug, html: renderAtDate(slug, "2026-12-01") }),
+    );
+    for (const p of staleClaims) {
+      ok(`${p.slug}: ninety-five days on, no amount of theirs survives anywhere on the page`,
+        amountsIn(p.html).every((n) => SEAT_LADDER.some((t) => t.price === n)),
+        amountsIn(p.html).filter((n) => !SEAT_LADDER.some((t) => t.price === n)).join(","));
+    }
+    const jobberStale = decode(staleClaims[0].html);
+    const receptionistClaim = findCompetitor("jobber").weHaveTheyDont.find(
+      (c) => c.capability === "ai_receptionist_no_monthly_floor",
+    );
+    ok("the claim that quotes two of their prices no longer quotes them",
+      !jobberStale.includes(receptionistClaim.claim));
+    ok("...but still says what it says, with the amounts marked as held back",
+      jobberStale.includes(redactAmounts(receptionistClaim.claim)));
+    ok("...and the card says the reading expired",
+      /data-claim-stale=/.test(staleClaims[0].html) &&
+        jobberStale.includes(COMPARE_CHROME.staleClaimNote));
+    // The two sentences must not collapse: one means nobody looked, the other
+    // means somebody looked and it was too long ago.
+    ok("...which is not the same sentence as 'we never checked'",
+      COMPARE_CHROME.staleClaimNote !== COMPARE_CHROME.unverifiedConcessionNote &&
+        !COMPARE_CHROME.staleClaimNote.includes("not checked"));
+    // And nothing is redacted while the reading is fresh — a redactor that
+    // fires on everything protects nothing and deletes the argument.
+    {
+      const jobber = pages.find((p) => p.competitorId === "jobber");
+      ok("a fresh claim keeps its numbers", jobber.text.includes(receptionistClaim.claim));
+      ok("...and carries no expiry note", !/data-claim-stale=/.test(jobber.html));
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -676,10 +757,41 @@ async function main() {
     ok("ServiceTitan's card says they publish no amount", /publish no amount/.test(st));
     ok("...and does not claim a comparable price", !/set beside ours/.test(st));
 
+    // ══ Two assertions CORRECTED, with the reasoning kept ══════════════════
+    //
+    // These read "Projul's card says nothing of theirs can be compared" and
+    // "...and names how many figures are being held back" — the second
+    // matching "3 further figures are held back". Both passed for months and
+    // both are now FALSE, and neither was a rendering bug: the DATA moved.
+    // Projul's page prints three annual amounts and names no currency, so
+    // every one of them was withheld for "the source states no currency". The
+    // owner then asserted the currency on stated grounds and signed it
+    // (PROJUL_CURRENCY_ASSERTION); withholdReason accepts a signed assertion;
+    // all three publish.
+    //
+    // Deleting the pair would have left the most delicate figures on the whole
+    // site — a competitor's amounts under a currency of our own choosing —
+    // with nothing asserted about them at all. So they are REPLACED, pointing
+    // where the data now points, and the guarantee the old pair stood in for
+    // is not lost but MOVED and strengthened: section 12 asserts that no
+    // published Projul figure reaches the page without saying whose judgement
+    // its currency is.
     const projul = comparisonSummary(findCompetitor("projul"), TODAY).join(" ");
-    ok("Projul's card says nothing of theirs can be compared",
-      /Nothing they publish can be compared/.test(projul));
-    ok("...and names how many figures are being held back", /3 further figures are held back/.test(projul));
+    ok("Projul's card counts the three prices that now publish",
+      /^3 of their published prices can be set beside ours/.test(projul), projul);
+    ok("...and says their page names no currency for them, rather than claiming it does",
+      /name no currency on their own page/.test(projul) &&
+        !/in the currency they print it in/.test(projul), projul);
+    ok("...and holds nothing back any more, because nothing is left to withhold",
+      !/held back/.test(projul) &&
+        findCompetitor("projul").figures.every((f) => withholdReason(f, TODAY) === null),
+      projul);
+    // The clause is conditional, not deleted: a competitor whose own page
+    // states the currency must still get the stronger sentence.
+    ok("...while a competitor who does print their currency still gets that said",
+      /in the currency they print it in/.test(
+        comparisonSummary(findCompetitor("housecall_pro"), TODAY).join(" "),
+      ));
 
     const hcp = comparisonSummary(findCompetitor("housecall_pro"), TODAY).join(" ");
     ok("Housecall Pro's card counts their comparable prices", /^4 of their published prices/.test(hcp));
@@ -894,6 +1006,359 @@ async function main() {
       ok("...while the concessions stay",
         FIELDQUO_LACKS.every((k) => stale.includes(`data-lacks="${k}"`)));
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.log("\n12. The page we lose the top of");
+  //
+  // QuoteIQ's entry tier is a third of FieldQuo's cheapest rung. Everything in
+  // this section exists because that is the one comparison on the site where
+  // the temptation is not to shade a number but to arrange the page so the
+  // question never comes up — start at ten users, lead with the crew argument,
+  // leave the concession to a card among nine others. Each assertion below is
+  // one of those arrangements, refused.
+  {
+    const quoteiq = pages.find((p) => p.competitorId === "quoteiq");
+    ok("the QuoteIQ page exists at all", Boolean(quoteiq));
+
+    // ── The concession, and that it was COMPUTED ──────────────────────────
+    const gap = entryPriceGap("quoteiq", TODAY);
+    ok("the module finds a QuoteIQ plan below our floor", gap.refusal === null, String(gap.refusal));
+    ok("...and it is their cheapest no-commitment monthly tier, not their annual one",
+      gap.theirs.id === "quoteiq.essentials.monthly", gap.theirs?.id);
+    ok("...compared against SEAT_LADDER's first rung, whatever that rung costs",
+      gap.ours === FIELDQUO_REFERENCE.entryTier && gap.ours.price === SEAT_LADDER[0].price);
+    const gapEl = elementsWith(quoteiq.html, "data-entry-price-gap")[0];
+    ok("the concession renders on the page", Boolean(gapEl), String(gapEl));
+    ok("...naming their figure and our rung by id, not by prose",
+      gapEl.outer.includes(`data-entry-price-theirs="${gap.theirs.id}"`) &&
+        gapEl.outer.includes(`data-entry-price-ours="${gap.ours.tierKey}"`));
+    ok("...and printing both amounts, theirs and ours",
+      gapEl.outer.includes(`$${gap.theirs.price.amount}`) &&
+        gapEl.outer.includes(`$${gap.ours.price}`),
+      amountsIn(gapEl.outer).join(","));
+    ok("...with their own currency beside theirs and no other",
+      (() => {
+        const codes = SUPPORTED_CURRENCIES.filter((c) => gapEl.outer.includes(c));
+        return codes.length === 1 && codes[0] === gap.theirs.price.currency;
+      })());
+    ok("...and the day and country their figure was read",
+      gapEl.text.includes(gap.theirs.checked) && gapEl.text.includes(gap.theirs.observedFrom));
+    // The half that makes it a concession rather than a hedge.
+    ok("...and it tells the reader to buy theirs if that is what they need",
+      /buy theirs/i.test(gapEl.text));
+    ok("...quoting their own entry tier's list, in their words",
+      gap.theirs.includedFeatures.every((f) => gapEl.text.includes(f)),
+      gap.theirs.includedFeatures.filter((f) => !gapEl.text.includes(f)).join(","));
+    // Neither number is typed anywhere in the directory that renders them. This
+    // is the assertion that makes "computed" mean something: an agent who
+    // wrote "$29.99" into the copy would pass every other line in this section.
+    for (const path of [RENDERER, COPY, INDEX_PAGE, ENTRY_PRICE, SLUG_PAGE, AS_OF]) {
+      const body = source(path).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+      ok(`${path}: does not carry either entry price as a literal`,
+        !new RegExp(`\\b${gap.theirs.price.amount}\\b`).test(body) &&
+          !new RegExp(`\\b${gap.ours.price}\\b`).test(body));
+    }
+    // And the concession is where the owner's rule puts it — after the price
+    // and after our advantages, before the closing CTA. The same sandwich the
+    // gap cards keep, asserted for this panel separately because it is the one
+    // most likely to be "moved up where people see it" and thereby back into
+    // the hero.
+    ok("the concession sits after the price comparison",
+      quoteiq.html.indexOf('data-entry-price-gap=') > quoteiq.html.indexOf('data-figure-id='));
+    ok("...and after our advantages",
+      quoteiq.html.indexOf('data-entry-price-gap=') >
+        quoteiq.html.indexOf('data-direction="we-have-they-dont"'));
+    ok("...and before the closing call to action",
+      quoteiq.html.indexOf('data-entry-price-gap=') < quoteiq.html.lastIndexOf(COMPARE_CHROME.ctaTitle));
+    // Not buried either: their cheapest row is in the price section itself, so
+    // the page does not "start the comparison at a size where we happen to win".
+    ok("their cheapest tier is also in the price section, not only in the concession",
+      elementsWith(quoteiq.html, "data-figure-id").some(
+        (r) => /data-published="true"/.test(r.outer) && r.value === gap.theirs.id,
+      ));
+
+    // ── The refusals, executed ────────────────────────────────────────────
+    //
+    // Every comparison entryGapOf must NOT make. None of these arrangements
+    // exists in the live data, which is why they are driven here rather than
+    // left to the data staying convenient.
+    {
+      const ours = { tierKey: "solo", label: "Solo", seats: 1, crewSeats: 5, price: 99 };
+      const fig = (over) => ({
+        id: "synthetic",
+        seatsIncluded: 1,
+        axis: { billing: "monthly_none" },
+        price: {
+          kind: PRICE_AMOUNT,
+          amount: 29,
+          per: "month",
+          currency: "USD",
+          currencySourcing: SOURCED_PUBLISHER,
+        },
+        source: "https://example.com/pricing",
+        checked: TODAY,
+        observedFrom: "US",
+        verification: VERIFIED,
+        verifiedBy: "the check script",
+        ...over,
+      });
+      const run = (figures, over = {}) =>
+        entryGapOf({
+          figures,
+          axes: ["billing"],
+          ours,
+          currencies: SUPPORTED_CURRENCIES,
+          sameNumberBothCurrencies: true,
+          asOf: TODAY,
+          ...over,
+        });
+      ok("a cheaper monthly tier with a stated seat count IS a gap",
+        run([fig()]).refusal === null && run([fig()]).theirs.price.amount === 29);
+      ok("...and the cheapest of several is the one taken",
+        run([fig({ id: "a" }), fig({ id: "b", price: { ...fig().price, amount: 19 } })]).theirs.id === "b");
+      ok("a tier priced by the year is not compared against a monthly rung", (() => {
+        const r = run([fig({ price: { ...fig().price, per: "year", amount: 300 } })]);
+        return r.refusal !== null && /monthly price/.test(r.refusal);
+      })());
+      ok("an annual-prepaid figure is not compared against our no-commitment rung",
+        run([fig({ axis: { billing: "annual_prepaid" } })]).refusal !== null);
+      ok("...but a competitor who declares no billing axis is still comparable",
+        run([fig({ axis: {} })], { axes: [] }).refusal === null);
+      ok("a tier with no stated seat count is not an entry-price comparison",
+        run([fig({ seatsIncluded: null, unlimitedSeats: true })]).refusal !== null);
+      ok("a figure the module withholds is never the cheapest one",
+        run([fig({ verification: UNVERIFIED })]).refusal !== null);
+      ok("...and a stale reading empties it the way the price rows empty",
+        run([fig()], { asOf: "2027-06-01" }).refusal !== null);
+      ok("a price in a currency our ladder has no row for is refused",
+        run([fig({ price: { ...fig().price, currency: "GBP" } })]).refusal !== null);
+      ok("a price at or above our rung is not a gap",
+        run([fig({ price: { ...fig().price, amount: 99 } })]).refusal !== null &&
+          run([fig({ price: { ...fig().price, amount: 149 } })]).refusal !== null);
+      ok("...and the comparison stops entirely if our own rungs stop agreeing across currencies",
+        run([fig()], { sameNumberBothCurrencies: false }).refusal !== null);
+      ok("no rung of ours to compare against refuses rather than throwing",
+        run([fig()], { ours: null }).refusal !== null);
+      ok("and it demands a date, like everything else that judges freshness", (() => {
+        try {
+          entryGapOf({ figures: [fig()], axes: [], ours, currencies: SUPPORTED_CURRENCIES, sameNumberBothCurrencies: true });
+          return false;
+        } catch (e) {
+          return /asOf is required/.test(e.message);
+        }
+      })());
+      ok("an unknown competitor refuses rather than throwing",
+        entryPriceGap("nobody", TODAY).refusal !== null);
+    }
+
+    // ── The capability match nobody established ───────────────────────────
+    //
+    // The task this page could not do honestly, recorded as a fact about the
+    // DATA rather than as a rendering choice: COMPARABLE_FEATURES carries one
+    // key and only Jobber's figures carry a structured `features` map, so
+    // comparableTier cannot resolve a QuoteIQ tier for anything. The wrong fix
+    // is text-matching their prose into our vocabulary; the right one is
+    // saying so.
+    ok("QuoteIQ's figures carry no structured feature map, so no tier can be matched",
+      findCompetitor("quoteiq").figures.every((f) => !f.features));
+    ok("...and comparableTier says so rather than guessing",
+      comparableTier("quoteiq", { feature: "ai_receptionist" }, TODAY) === null);
+    ok("...so the page names no tier of theirs for it",
+      !/data-receptionist-figure/.test(quoteiq.html));
+    ok("...and says nobody established which one carries it, rather than going quiet",
+      /data-capability-established="false"/.test(quoteiq.html) &&
+        /Nobody has established which of their tiers carries this/.test(quoteiq.text));
+    ok("...while still not claiming they lack it",
+      /not a claim that they lack it/.test(quoteiq.text));
+    // The same statement is owed on every page where the match is unresolved,
+    // and must never appear on one where it IS resolved.
+    for (const p of pages) {
+      const resolved = comparableTier(p.competitorId, { feature: "ai_receptionist" }, TODAY);
+      ok(`${p.slug}: says which of the two it is, and only one of them`,
+        Boolean(resolved) === /data-receptionist-figure/.test(p.html) &&
+          Boolean(resolved) !== /data-capability-established="false"/.test(p.html));
+    }
+    ok("the vocabulary is still one key, which is why this section exists",
+      Object.keys(COMPARABLE_FEATURES).length === 1 &&
+        Object.keys(COMPARABLE_FEATURES)[0] === "ai_receptionist",
+      Object.keys(COMPARABLE_FEATURES).join(","));
+
+    // ── Their tiers, in their words, and not translated ───────────────────
+    const elite = findCompetitor("quoteiq").figures.find((f) => f.id === "quoteiq.elite.monthly");
+    const eliteRow = elementsWith(quoteiq.html, "data-their-tier").find(
+      (r) => r.value === elite.id,
+    );
+    ok("their Elite tier's own list is on the page", Boolean(eliteRow));
+    for (const item of elite.addsOverPreviousTier) {
+      ok(`Elite's "${item}" is printed as theirs`,
+        eliteRow.text.includes(item) &&
+          /data-their-feature/.test(eliteRow.outer));
+    }
+    // The two the owner named specifically: things they have and we do not,
+    // which must appear on their side and never on ours.
+    for (const theirs of ["route optimisation", "pipelines and inventory"]) {
+      ok(`"${theirs}" is recorded as theirs`, elite.addsOverPreviousTier.includes(theirs));
+      ok(`...and appears on the page inside their tier row`, eliteRow.text.includes(theirs));
+      ok(`...and never inside a FieldQuo feature card`,
+        elementsWith(quoteiq.html, "data-matrix-key").every((c) => !c.text.includes(theirs)));
+    }
+    ok("no FieldQuo capability is claimed for route optimisation or inventory",
+      !Object.values(FIELDQUO_CAPABILITIES).some(
+        (c) => c.has === true && /route|inventory/i.test(c.label),
+      ));
+    // Every tier row is a PUBLISHED figure. A tier list attached to a figure
+    // withholdReason rejected would be a competitor's marketing surviving the
+    // gate its own price did not.
+    for (const row of elementsWith(quoteiq.html, "data-their-tier")) {
+      const figure = findCompetitor("quoteiq").figures.find((f) => f.id === row.value);
+      ok(`${row.value}: is a figure the module publishes`,
+        Boolean(figure) && withholdReason(figure, TODAY) === null);
+      ok(`${row.value}: prints its own amount and no other`,
+        JSON.stringify([...new Set(amountsIn(row.outer))]) ===
+          JSON.stringify([figure.price.amount]),
+        amountsIn(row.outer).join(","));
+    }
+    ok("and the page says it has matched none of it against our own list",
+      /data-no-tier-match="true"/.test(quoteiq.html) &&
+        /makes no matched claim in either direction/.test(quoteiq.text));
+
+    // ── Metered AI, both sides, including the half that flatters nobody ───
+    {
+      const metered = findCompetitor("quoteiq").figures.filter(
+        (f) => withholdReason(f, TODAY) === null && Number.isFinite(f.aiCreditsPerMonth),
+      );
+      const listed = elementsWith(quoteiq.html, "data-ai-metering-tier")
+        .map((e) => e.value)
+        .sort();
+      ok("every tier of theirs that states an allowance is listed with it",
+        JSON.stringify(listed) === JSON.stringify(metered.map((f) => f.id).sort()),
+        JSON.stringify(listed));
+      // Not just present — the right number against the right tier. Their
+      // allowance changes with the tier, which is the whole comparison.
+      ok("...and each one carries the number their page states for that tier",
+        elementsWith(quoteiq.html, "data-ai-credits").every((el) => {
+          const id = /data-(?:ai-metering-tier|ai-credits-tier)="([^"]+)"/.exec(el.outer)?.[1];
+          const f = metered.find((x) => x.id === id);
+          return Boolean(f) && String(f.aiCreditsPerMonth) === el.value;
+        }),
+        elementsWith(quoteiq.html, "data-ai-credits").map((e) => e.value).join(","));
+      ok("...printed, not only attached",
+        quoteiq.text.includes(`${metered[0].aiCreditsPerMonth.toLocaleString("en-US")} AI credits`));
+    }
+    // lib/ai/usage.js meters every model call against a per-company ceiling and
+    // refuses past it ("You've used this month's FieldQuo AI allowance"), so a
+    // page claiming ours is unmetered would be a false statement about our OWN
+    // product — the failure this whole directory is checked for, pointed
+    // inward. The panel has to carry both halves.
+    ok("our side says the receptionist has no monthly minimum",
+      /no monthly minimum/i.test(quoteiq.text));
+    ok("...and admits model use is metered against a ceiling of ours",
+      /metered per company against a ceiling/i.test(quoteiq.text));
+    ok("...and never claims our AI is unlimited",
+      !/unlimited AI|AI is unlimited|unmetered/i.test(quoteiq.text));
+
+    // ── Nothing here got past publishableFigures ──────────────────────────
+    {
+      const allowed = new Set(
+        publishableFigures(TODAY)
+          .filter((f) => f.competitorId === "quoteiq" && f.price?.kind === PRICE_AMOUNT)
+          .map((f) => f.price.amount),
+      );
+      const ladderPrices = new Set(SEAT_LADDER.map((t) => t.price));
+      const strays = [...new Set(amountsIn(quoteiq.html))].filter(
+        (n) => !allowed.has(n) && !ladderPrices.has(n),
+      );
+      ok("every amount on the QuoteIQ page is one of theirs that publishes, or one of ours",
+        strays.length === 0, strays.join(","));
+      const withheldQ = findCompetitor("quoteiq").figures.filter(
+        (f) => withholdReason(f, TODAY) !== null,
+      );
+      ok("...and the module withholds none of theirs today, so the set is the whole ladder",
+        withheldQ.length === 0 && allowed.size > 0, withheldQ.map((f) => f.id).join(","));
+    }
+
+    // ── And all of it leaves when the reading goes stale ──────────────────
+    //
+    // The rule that "only a published figure may carry a tier list" is not
+    // testable against today's data — nothing withheld happens to have one —
+    // and a rule that only bites on data which does not exist is a rule
+    // nothing tests. So it is driven at a date instead: ninety-five days on,
+    // withholdReason rejects every QuoteIQ figure, and everything built on
+    // them has to go with them. A tier list or a concession left standing over
+    // an expired price is a claim about a competitor with no reading behind it.
+    {
+      const stale = renderAtDate("fieldquo-vs-quoteiq", "2026-12-01");
+      ok("ninety-five days on, their tier lists leave with their prices",
+        !/data-their-tier/.test(stale));
+      ok("...and the entry-price concession does not stand on an expired figure",
+        !/data-entry-price-gap/.test(stale));
+      ok("...and their credit allowances go too", !/data-ai-credits/.test(stale));
+      ok("...and not one amount of theirs is left on the page",
+        amountsIn(stale).every((n) => SEAT_LADDER.some((t) => t.price === n)),
+        amountsIn(stale).filter((n) => !SEAT_LADDER.some((t) => t.price === n)).join(","));
+      ok("...while every concession stays",
+        FIELDQUO_LACKS.every((k) => stale.includes(`data-lacks="${k}"`)));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.log("\n13. An amount is theirs; the currency beside it may not be");
+  //
+  // The guarantee the two corrected Projul assertions in section 9 used to
+  // stand in for. Their three amounts publish now, on the owner's signed
+  // assertion about the currency — and "$4,788 USD per year" rendered with
+  // nothing beside it says their page stated USD. Their page contains the two
+  // dollar codes and the word "dollars" zero times. That sentence would be a
+  // false public statement about a competitor's published prices, produced by
+  // a renderer rather than by the data.
+  {
+    for (const p of pages) {
+      for (const row of elementsWith(p.html, "data-published").filter((e) => e.value === "true")) {
+        const id = /data-figure-id="([^"]+)"/.exec(row.outer)?.[1];
+        const figure = p.competitor.figures.find((f) => f.id === id);
+        if (figure?.price?.kind !== PRICE_AMOUNT) continue;
+        const from = figure.price.currencySourcing;
+        if (from === SOURCED_PUBLISHER) {
+          // The other direction, and it is what keeps the disclosure meaningful:
+          // a figure whose currency IS off their page must not carry the
+          // caveat, or the caveat becomes decoration nobody reads.
+          ok(`${id}: their own currency is printed without an excuse attached`,
+            !/data-currency-sourcing/.test(row.outer));
+          continue;
+        }
+        ok(`${id}: says its currency did not come from their page`,
+          new RegExp(`data-currency-sourcing="${from}"`).test(row.outer));
+        ok(`${id}: ...and names who said so, when, and on what grounds`,
+          row.text.includes(figure.price.assertedBy.who) &&
+            row.text.includes(figure.price.assertedBy.on) &&
+            row.text.includes(figure.price.assertedBy.grounds));
+        ok(`${id}: ...in words that do not read as their statement`,
+          /not stated on their page/.test(row.text));
+      }
+    }
+    // Projul is the live case and the whole reason this section exists.
+    const projulPage = pages.find((p) => p.competitorId === "projul");
+    const asserted = findCompetitor("projul").figures.filter(
+      (f) => f.price?.currencySourcing === SOURCED_OWNER_ASSERTED,
+    );
+    ok("all three Projul figures publish, and all three are owner-asserted currency",
+      asserted.length === 3 &&
+        asserted.every((f) => withholdReason(f, TODAY) === null),
+      asserted.length);
+    ok("...and the page carries three of the disclosures, one per figure",
+      elementsWith(projulPage.html, "data-currency-sourcing").length === 3,
+      elementsWith(projulPage.html, "data-currency-sourcing").length);
+    ok("...and its lede no longer says the comparison cannot be made",
+      !/no honest way to set them beside a FieldQuo price/.test(projulPage.text) &&
+        !/the comparison we cannot complete/i.test(projulPage.text));
+    // The copy module's own stale comment, which claimed the amounts were
+    // withheld figures. A wrong comment beside a right implementation is how
+    // the next agent reintroduces the bug.
+    ok("the copy module no longer describes those amounts as withheld",
+      !/is a withheld figure \(their page states/.test(source(COPY)));
+    ok("...and still refuses to hold a number itself, for the stronger reason",
+      /bypasses withholdReason/.test(source(COPY)));
   }
 
   console.log(

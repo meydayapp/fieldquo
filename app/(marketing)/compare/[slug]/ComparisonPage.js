@@ -33,6 +33,13 @@
 //   • print an amount from a figure withholdReason() rejected — the withheld
 //     list renders labels and reasons, never `price.amount`;
 //   • convert a currency, or set two currencies beside one amount;
+//   • print a currency as though the competitor stated it when they did not.
+//     Projul's three amounts are theirs and the currency beside them is the
+//     owner's assertion; currencyProvenance below is what keeps those two
+//     facts apart on the page as they are kept apart in the data;
+//   • match one of their tiers against one of ours on anything but a
+//     structured feature map. Their prose is quoted, never translated — see
+//     the receptionist block, which now says so out loud rather than vanishing;
 //   • name a FieldQuo feature. Feature rows are keys into the matrix and the
 //     matrix's own `name` and `summary` are what get printed;
 //   • say the AI receptionist is "included". It is on every plan and the talk
@@ -56,10 +63,13 @@ import {
   PRICE_NOT_OFFERED,
   PRICE_ON_REQUEST,
   PRICE_UNKNOWN,
+  SOURCED_PUBLISHER,
   allAddOns,
   claims,
   comparableTier,
   competitor as findCompetitor,
+  isStale,
+  provenanceLabel,
   withholdReason,
 } from "@/lib/marketing/competitors";
 import { featureEntry } from "@/lib/marketing/featureLabels";
@@ -67,6 +77,7 @@ import { featureEntry } from "@/lib/marketing/featureLabels";
 import AddOnStack from "../AddOnStack";
 import { coordinateLabel } from "../addOns";
 import { COMPARE_CHROME, COMPARE_PAGES, comparePage, counterpointFor } from "../compareCopy";
+import { entryPriceGap } from "../entryPrice";
 
 // ── How a price kind reads in a sentence ───────────────────────────────────
 //
@@ -145,9 +156,78 @@ export function redactAmounts(reason) {
   return String(reason ?? "").replace(/\$\s?\d[\d,]*(?:\.\d+)?/g, "[amount withheld]");
 }
 
+/**
+ * A claim's own words, with the money taken out once its reading has expired.
+ *
+ * ══ A leak this page had from the day it was written ═══════════════════════
+ *
+ * withholdReason stops a stale FIGURE from publishing, and the price rows
+ * empty ninety days after they were last read. Claims had no such gate:
+ * claimPublishable asks who verified an entry and never asks when. So the
+ * prose kept printing, and several claims QUOTE the amount they are about —
+ * "Jobber's AI receptionist is a $29/mo add-on at one user, and otherwise sits
+ * in the $599/mo Plus tier". Rendered at ninety-five days, the Jobber page
+ * emptied every price row and went on printing $29 and $599 inside a sentence;
+ * the QuoteIQ page did the same with $29.99. A competitor's price, on a static
+ * page, with no reading behind it and nobody watching — the exact failure the
+ * data module was built to make impossible, arriving through the one door it
+ * does not guard.
+ *
+ * The claim itself survives, because what it SAYS is still worth reading and
+ * the source link and date are right there. Only the numbers go, through the
+ * same redactor the withheld rows use, and the card says why rather than
+ * leaving a reader to wonder what the brackets mean. Dropping the claim
+ * outright was the other option and it is worse in the concession direction:
+ * "we have not checked" would be a lie about research that was done and went
+ * out of date.
+ */
+function claimProse(entry, asOf) {
+  const stale = isStale(entry, asOf);
+  return { text: stale ? redactAmounts(entry.claim) : entry.claim, stale };
+}
+
 /** Where and when a figure was read. Never omitted from a published figure. */
 function provenanceLine(figure) {
   return `Read from a ${figure.observedFrom} connection on ${figure.checked}`;
+}
+
+/**
+ * Where the CURRENCY came from, when it did not come from their page.
+ *
+ * ══ Why an amount and its currency need separate provenance ════════════════
+ *
+ * Projul is the case that forced this and it is now live. Their served HTML
+ * prints "$4,788 Annually" and names no currency anywhere — the two dollar
+ * codes and the word "dollars" appear zero times. The amount is theirs, read
+ * off their own page. The currency is FieldQuo's owner asserting it because
+ * Projul is a US company, which is a business judgement he is entitled to make
+ * and is NOT a reading of their page.
+ *
+ * withholdReason accepts that assertion, so all three amounts publish. But
+ * "$4,788 USD per year" rendered with nothing beside it says their page stated
+ * the currency, and their page did not. That sentence is a false statement
+ * about a competitor's published prices, made by a renderer rather than by the
+ * data — exactly the gap between an immaculate module and a page that lies,
+ * which is what this whole directory is checked for.
+ *
+ * So a figure whose currency is not SOURCED_PUBLISHER prints where the
+ * currency came from, in provenanceLabel's own words — who asserted it, when,
+ * and on what grounds. Absence of `currencySourcing` is never read as "off
+ * their page": withholdReason already refuses to publish a figure that does
+ * not record one, so this returning null means the currency IS theirs.
+ */
+function currencyProvenance(figure, subject) {
+  const from = figure?.price?.currencySourcing;
+  if (!from || from === SOURCED_PUBLISHER) return null;
+  return provenanceLabel(
+    {
+      sourcing: from,
+      assertedBy: figure.price.assertedBy,
+      relayedBy: figure.price.relayedBy,
+      checked: figure.checked,
+    },
+    { subject },
+  );
 }
 
 /**
@@ -232,6 +312,25 @@ export default function ComparisonPage({ slug, asOf }) {
       a.feature === receptionistFeature.key &&
       withholdReason(a, asOf) === null,
   );
+
+  // Do they sell something below our cheapest rung? Answered in ../entryPrice.js
+  // from their published figure and our own ladder, so the concession cannot be
+  // typed, softened or left behind when either side reprices. It refuses far
+  // more often than it answers — see that module for every comparison it will
+  // not make.
+  const entryGap = entryPriceGap(competitor.id, asOf);
+
+  // Their own descriptions of their own tiers. Only from figures that PUBLISH:
+  // a tier list attached to a figure withholdReason rejected would be a
+  // competitor's marketing surviving the gate its price did not.
+  const theirTiers = published.filter(
+    (f) =>
+      (Array.isArray(f.includedFeatures) && f.includedFeatures.length > 0) ||
+      (Array.isArray(f.addsOverPreviousTier) && f.addsOverPreviousTier.length > 0),
+  );
+  // Their AI allowance, where their page states one per tier. A number they
+  // print, not a description of it: "they have AI limits" compares to nothing.
+  const meteredTiers = published.filter((f) => Number.isFinite(f.aiCreditsPerMonth));
 
   const ladder = FIELDQUO_REFERENCE.ladder;
   const otherPages = COMPARE_PAGES.filter((p) => p.slug !== slug);
@@ -391,10 +490,33 @@ export default function ComparisonPage({ slug, asOf }) {
                             {figure.seatsIncluded === 1 ? "user" : "users"} included
                           </div>
                         ) : null}
+                        {/* "Unlimited" is a different fact from a seat count,
+                            not a large one. QuoteIQ's top tier records
+                            seatsIncluded: null beside unlimitedSeats so nobody
+                            invents a ceiling to divide by; printing their own
+                            word is the only honest rendering of it. */}
+                        {figure.unlimitedSeats ? (
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Unlimited users, so there is no seat count to compare
+                          </div>
+                        ) : null}
                         <div className="mt-2 text-xs text-muted-foreground">
                           {provenanceLine(figure)} ·{" "}
                           <SourceLink href={figure.source}>their pricing page</SourceLink>
                         </div>
+                        {/* The amount is theirs and the currency may not be.
+                            See currencyProvenance — this is the line that stops
+                            an owner-asserted currency reading as their page's
+                            own statement. */}
+                        {currencyProvenance(figure, competitor.name) ? (
+                          <div
+                            className="mt-2 text-xs text-muted-foreground border-l-2 border-border pl-3"
+                            data-currency-sourcing={figure.price.currencySourcing}
+                          >
+                            The amount is theirs, off their own page. The currency is
+                            not: {currencyProvenance(figure, competitor.name)}
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -458,14 +580,179 @@ export default function ComparisonPage({ slug, asOf }) {
         />
       </div>
 
+      {/* ── Their ladder, in their own words ───────────────────────────────
+          The half of a QuoteIQ comparison that cannot be made any other way.
+          Their entry tier is cheaper than our cheapest; what a reader needs in
+          order to decide is what climbing their ladder costs, and their own
+          page answers that tier by tier.
+
+          Every word here is theirs, quoted as competitors.js records it —
+          "Kept in their words, not translated into our feature vocabulary,
+          because renaming a competitor's feature is how a comparison quietly
+          becomes a straw man". So this section deliberately makes NO match
+          against our own list, and says so: COMPARABLE_FEATURES carries one
+          key and only one competitor's figures carry a structured feature map,
+          which means there is no tier-by-tier answer in the data for anybody
+          else. Inventing one by matching their prose against our feature names
+          is precisely the thing the data model forbids. */}
+      {theirTiers.length > 0 ? (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <SectionHeading
+            id="their-tiers"
+            title={COMPARE_CHROME.theirTiersTitle}
+            intro={COMPARE_CHROME.theirTiersIntro}
+          />
+          <div className="mt-8 space-y-4 max-w-3xl">
+            {theirTiers.map((figure) => {
+              const items = (figure.addsOverPreviousTier || figure.includedFeatures) ?? [];
+              const adds = Array.isArray(figure.addsOverPreviousTier);
+              // Their feature list has its own provenance where the data
+              // records one — Projul's tier contents were relayed by the owner
+              // rather than read by us, and that is a weaker standard than the
+              // amount beside them. Printed rather than flattened into the
+              // figure's own read.
+              const featuresFrom = figure.featuresSourcing
+                ? provenanceLabel(
+                    {
+                      sourcing: figure.featuresSourcing,
+                      relayedBy: figure.featuresRelayedBy,
+                      assertedBy: figure.featuresAssertedBy,
+                      checked: figure.checked,
+                    },
+                    { subject: competitor.name },
+                  )
+                : null;
+              return (
+                <div
+                  key={figure.id}
+                  data-their-tier={figure.id}
+                  className="bg-card border border-border rounded-xl p-5"
+                >
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <div className="font-semibold text-foreground">
+                      {competitor.name} {figure.label}
+                    </div>
+                    <div className="text-foreground font-semibold whitespace-nowrap">
+                      {priceLine(figure.price)}
+                    </div>
+                  </div>
+                  {coordinateLine(figure) ? (
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {coordinateLine(figure)}
+                    </div>
+                  ) : null}
+                  <div className="mt-3 text-sm font-medium text-foreground">
+                    {adds ? "Adds over the tier below it:" : "On this tier:"}
+                  </div>
+                  <ul className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                    {items.map((item) => (
+                      <li
+                        key={item}
+                        data-their-feature={item}
+                        className="text-sm text-muted-foreground flex gap-2"
+                      >
+                        <Minus size={13} className="shrink-0 mt-1.5" aria-hidden="true" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {Number.isFinite(figure.aiCreditsPerMonth) ? (
+                    <div
+                      className="mt-3 text-sm text-muted-foreground"
+                      data-ai-credits-tier={figure.id}
+                      data-ai-credits={figure.aiCreditsPerMonth}
+                    >
+                      Their page states {figure.aiCreditsPerMonth.toLocaleString("en-US")} AI
+                      credits a month on this tier.
+                    </div>
+                  ) : null}
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    {featuresFrom
+                      ? `This list ${featuresFrom}`
+                      : provenanceLine(figure)}{" "}
+                    · <SourceLink href={figure.source}>their pricing page</SourceLink>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p
+            className="mt-6 max-w-3xl text-sm text-muted-foreground border-l-2 border-border pl-4"
+            data-no-tier-match="true"
+          >
+            {COMPARE_CHROME.theirTiersNoMatchNote}
+          </p>
+        </div>
+      ) : null}
+
+      {/* ── Metered AI, both sides, and the unflattering half of ours ──────
+          Their allowance is a number they print and it moves with the tier.
+          Ours is not sold that way — and the sentence stops being true if it
+          stops there, because lib/ai/usage.js meters every model call against
+          a per-company ceiling (checkAiQuota, "You've used this month's
+          FieldQuo AI allowance"). "Ours is not metered" would have been a
+          false claim about our own product on a page whose whole argument is
+          that we do not make those. So the panel says both halves. */}
+      {meteredTiers.length > 0 ? (
+        <div className="bg-muted border-y border-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <SectionHeading
+              id="ai-metering"
+              title={COMPARE_CHROME.aiMeteringTitle}
+              intro={COMPARE_CHROME.aiMeteringIntro}
+            />
+            <div className="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl">
+              <div
+                className="bg-card border border-border rounded-xl p-5"
+                data-ai-metering={competitor.id}
+              >
+                <div className="font-semibold text-foreground">{competitor.name}</div>
+                <ul className="mt-3 space-y-1">
+                  {meteredTiers.map((figure) => (
+                    <li
+                      key={figure.id}
+                      data-ai-metering-tier={figure.id}
+                      data-ai-credits={figure.aiCreditsPerMonth}
+                      className="text-sm text-muted-foreground flex justify-between gap-4"
+                    >
+                      <span>
+                        {figure.label}
+                        {coordinateLine(figure) ? ` — ${coordinateLine(figure)}` : ""}
+                      </span>
+                      <span className="whitespace-nowrap">
+                        {figure.aiCreditsPerMonth.toLocaleString("en-US")} credits a month
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-5" data-ai-metering="fieldquo">
+                <div className="font-semibold text-foreground">FieldQuo</div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {COMPARE_CHROME.aiMeteringOurs}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* ── The receptionist, where there is a real answer ─────────────────
           Rendered only when comparableTier finds a tier of theirs that ACTUALLY
           carries the feature. Matching by table position instead would set our
           Scale against Jobber Grow at $399 — a plan with no receptionist —
           understating us by $200 and crediting Grow with something it lacks.
-          For a competitor whose tiers were never inspected for this feature,
-          the function returns null and this whole section does not exist,
-          which is the correct amount to say about a thing nobody checked. */}
+
+          When the function returns null the section still renders, and says
+          that nobody established it. That is a CHANGE and the old behaviour
+          was wrong in a way worth writing down: this block used to disappear
+          entirely, on the reasoning that saying nothing is the correct amount
+          to say about a thing nobody checked. It is not — a reader cannot tell
+          an omission from an absence, and four of the five competitors here
+          have tiers described in prose that no structured feature map covers.
+          Silence on all four reads as "they do not have it", which is a claim
+          about somebody else's product that nobody made. FEATURE_UNKNOWN is
+          not FEATURE_ABSENT, and the page now says which one this is. */}
       {receptionistTier ? (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <SectionHeading
@@ -528,7 +815,45 @@ export default function ComparisonPage({ slug, asOf }) {
             </div>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <SectionHeading
+            id="receptionist"
+            title={`${receptionistFeature.label}: what it costs on each side`}
+            intro={`We cannot answer this one for ${competitor.name}.`}
+          />
+          <div className="mt-8 grid md:grid-cols-2 gap-4">
+            <div
+              className="bg-card border border-border rounded-xl p-5"
+              data-capability-match={receptionistFeature.key}
+              data-capability-established="false"
+            >
+              <div className="font-semibold text-foreground">{competitor.name}</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {COMPARE_CHROME.matchUnknownIntro}
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Their plans are described on their page in their own words, and this
+                comparison will not read those words as ours. Their list is above,
+                unedited, and it is the thing to check on their own site.
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="font-semibold text-foreground">FieldQuo</div>
+              <div className="mt-1 text-foreground">
+                {FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor.label}
+              </div>
+              <div
+                className="mt-2 text-sm text-muted-foreground"
+                data-fieldquo-availability={receptionistFeature.fieldquo}
+              >
+                It is {AVAILABILITY_WORDS[receptionistFeature.fieldquo]}. A month with no
+                calls costs nothing for it.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Where we are ahead ────────────────────────────────────────────── */}
       {both.weHaveTheyDont.length > 0 ? (
@@ -564,7 +889,17 @@ export default function ComparisonPage({ slug, asOf }) {
                           {cap ? cap.label : claim.capability}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-muted-foreground">{claim.claim}.</p>
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        {claimProse(claim, asOf).text}.
+                      </p>
+                      {claimProse(claim, asOf).stale ? (
+                        <p
+                          className="mt-2 text-sm text-muted-foreground"
+                          data-claim-stale={claim.capability}
+                        >
+                          {COMPARE_CHROME.staleClaimNote}
+                        </p>
+                      ) : null}
                       {/* Their own page's answer, where it has one. Quoting
                           half a sentence because the other half is
                           inconvenient is the same failure as printing a stale
@@ -667,6 +1002,98 @@ export default function ComparisonPage({ slug, asOf }) {
           {COMPARE_CHROME.concessionIntro}
         </p>
 
+        {/* ── The price we lose on, computed rather than written ────────────
+            QuoteIQ's entry tier is a third of our cheapest rung. The two
+            numbers below are their published figure and SEAT_LADDER's first
+            rung, resolved in ../entryPrice.js — neither is typed anywhere in
+            this directory, so this panel cannot drift from either side's real
+            price and cannot be softened without deleting it outright.
+
+            It sits HERE, with the other concessions, rather than in the hero:
+            the price section above already prints their cheapest row in full,
+            so the fact is not hidden, and the owner's rule about not opening a
+            comparison page with our own weaknesses is kept. It is above the
+            gap cards rather than below them because it is the one a reader
+            came to check.
+
+            The advice at the end is deliberate and is not a rhetorical
+            concession. If somebody needs what their entry tier lists, they
+            should buy it: a contractor sold more software than he uses churns,
+            and the comparison that hid it is the advertisement this module was
+            written to prevent. */}
+        {entryGap.refusal === null ? (
+          <div
+            className="mt-8 rounded-xl border border-border bg-card p-5 max-w-3xl"
+            data-entry-price-gap={competitor.id}
+            data-entry-price-theirs={entryGap.theirs.id}
+            data-entry-price-ours={entryGap.ours.tierKey}
+          >
+            <h3 className="text-lg font-semibold text-foreground">
+              {COMPARE_CHROME.entryGapTitle}
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {COMPARE_CHROME.entryGapIntro}
+            </p>
+            <div className="mt-4 grid sm:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border p-4">
+                <div className="font-semibold text-foreground">
+                  {competitor.name} {entryGap.theirs.label}
+                </div>
+                <div className="mt-1 text-foreground">{priceLine(entryGap.theirs.price)}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {entryGap.theirs.seatsIncluded}{" "}
+                  {entryGap.theirs.seatsIncluded === 1 ? "user" : "users"} included
+                  {coordinateLine(entryGap.theirs)
+                    ? ` · ${coordinateLine(entryGap.theirs)}`
+                    : ""}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {provenanceLine(entryGap.theirs)} ·{" "}
+                  <SourceLink href={entryGap.theirs.source}>their pricing page</SourceLink>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border p-4">
+                <div className="font-semibold text-foreground">
+                  FieldQuo {entryGap.ours.label}
+                </div>
+                <div className="mt-1 text-foreground">
+                  ${entryGap.ours.price} per month
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {entryGap.ours.seats} {entryGap.ours.seats === 1 ? "seat" : "seats"}, plus{" "}
+                  {entryGap.ours.crewSeats} crew at no charge. There is nothing below it.
+                </div>
+              </div>
+            </div>
+            {/* Their own list, on their own cheapest tier, quoted as their page
+                presents it. It is what makes the advice below actionable: a
+                reader can see exactly what the cheaper thing does. */}
+            {Array.isArray(entryGap.theirs.includedFeatures) &&
+            entryGap.theirs.includedFeatures.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-medium text-foreground">
+                  {COMPARE_CHROME.entryGapTheirListIntro}
+                </div>
+                <ul className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-1">
+                  {entryGap.theirs.includedFeatures.map((item) => (
+                    <li
+                      key={item}
+                      data-entry-price-feature={item}
+                      className="text-sm text-muted-foreground flex gap-2"
+                    >
+                      <Minus size={13} className="shrink-0 mt-1.5" aria-hidden="true" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <p className="mt-4 text-sm text-muted-foreground">
+              {COMPARE_CHROME.entryGapAdvice}
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {/* Driven by FIELDQUO_LACKS, which is derived from the capability
               ledger rather than typed out — so the day we ship a phone app,
@@ -698,10 +1125,15 @@ export default function ComparisonPage({ slug, asOf }) {
                     data-direction="they-have-we-dont"
                     data-capability={capability}
                   >
-                    {competitor.name} says: “{theirs.claim}”.{" "}
+                    {competitor.name} says: “{claimProse(theirs, asOf).text}”.{" "}
                     <SourceLink href={theirs.source}>
                       Read on their site {theirs.checked}
                     </SourceLink>
+                    {claimProse(theirs, asOf).stale ? (
+                      <span className="block mt-2" data-claim-stale={capability}>
+                        {COMPARE_CHROME.staleClaimNote}
+                      </span>
+                    ) : null}
                   </p>
                 ) : (
                   <p

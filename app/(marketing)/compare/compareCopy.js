@@ -50,8 +50,16 @@
  * the counterweight is copy we commit to rendering, keyed by the capability
  * whose claim it sits beside, and the check script asserts it reaches the page.
  *
- * Deliberately not a number: "$4,788" is a withheld figure (their page states
- * no currency) and printing it here would smuggle it past withholdReason.
+ * Deliberately not a number, and the reason has CHANGED — the old one said
+ * Projul's annual figures were withheld because their page states no currency.
+ * That was true when it was written and is not true now: the owner asserted
+ * the currency on stated grounds, withholdReason accepts a signed assertion,
+ * and all three amounts publish through the renderer with whose judgement the
+ * currency is printed beside them. The rule that survives is the stronger one
+ * and it never depended on the figure being withheld: a number typed into this
+ * file bypasses withholdReason ENTIRELY. It would still be printed on the day
+ * the assertion is retracted, or the reading goes stale, or their page moves.
+ * Every figure on these pages goes through the gate; nothing here is a figure.
  */
 const COUNTERPOINTS = {
   projul: {
@@ -69,11 +77,7 @@ const COUNTERPOINTS = {
  * check script asserts it, so a page cannot exist for a company we hold no
  * verified research on.
  *
- * ══ Why all four, including the two with no usable prices ══════════════════
- *
- * ServiceTitan publishes no price at all and Projul publishes three without a
- * currency, so both pages have a price section that reports an absence. Both
- * are built anyway, for different reasons:
+ * ══ Why all five, including the one with no prices at all ══════════════════
  *
  *   ServiceTitan — the absence IS the comparison. "Every tier says Request
  *   Pricing" is the safest comparative claim in the whole data model, because
@@ -81,14 +85,25 @@ const COUNTERPOINTS = {
  *   number, and a reader can check it in one click. A visitor searching for
  *   what ServiceTitan costs is exactly the visitor this page is for.
  *
- *   Projul — competitors.js states the preference outright: showing "Projul
- *   does not state a currency" is better comparative advertising than showing
- *   nothing, and much better than showing a number. The page also carries two
- *   claims verified off their page in both directions, so it is not a stub
- *   wrapped around an apology. What it must never do is print the amounts, and
- *   there is no mechanism here that could.
+ *   Projul — this page used to be the one where the comparison could not be
+ *   completed, because their three annual figures name no currency and every
+ *   one of them was withheld. That is no longer the state of the data: the
+ *   owner asserted the currency on stated grounds, withholdReason accepts a
+ *   signed assertion, and all three amounts now publish with whose judgement
+ *   the currency is stated beside each one. The copy below was rewritten to
+ *   match — a lede describing a comparison this page can now make is not a
+ *   stylistic preference, it is the page telling a visitor something false.
  *
- * A fifth page for a company nobody has read a pricing page for would be the
+ *   QuoteIQ — the page we lose the top of. Their entry tier is a third of our
+ *   cheapest rung, and a comparison that opened at a size where we win would
+ *   be the advertisement this whole module exists to prevent. It says so
+ *   plainly, in a panel assembled from their published figure and our own
+ *   ladder, and it goes further than conceding: if what somebody needs is what
+ *   their entry tier lists, they should buy it. A contractor sold three times
+ *   the price for software he does not use churns, and the refund is worse
+ *   than the sale was good.
+ *
+ * A sixth page for a company nobody has read a pricing page for would be the
  * thing to refuse, and there is no way to add one without adding the research
  * first.
  */
@@ -180,15 +195,18 @@ export const COMPARE_PAGES = [
   {
     slug: "fieldquo-vs-projul",
     competitorId: "projul",
-    title: "FieldQuo vs Projul — the comparison we cannot complete",
+    title: "FieldQuo vs Projul — their figures, and whose dollar they are",
     description:
-      "Projul prints three annual figures and names no currency for any of them, so there is nothing here we can honestly line up against a FieldQuo price. What we can compare, we do.",
+      "Projul prints three annual figures and names no currency for any of them. The amounts here are theirs, read off their own page; the currency beside each one is FieldQuo's owner asserting it, and every figure says which half is which.",
     lede:
-      "This is the page where the price comparison does not work, and we " +
-      "would rather say so than guess. Projul's pricing page prints three " +
-      "annual figures and never names a currency for one of them, so there " +
-      "is no honest way to set them beside a FieldQuo price. What we could " +
-      "verify on their page — in both directions — is below.",
+      "Projul's pricing page prints three annual figures and never names a " +
+      "currency for one of them. That used to keep the whole price " +
+      "comparison off this page. It no longer does, and the reason is worth " +
+      "reading before the numbers: the amounts below were read off their own " +
+      "page, and the currency beside each one is FieldQuo's owner asserting " +
+      "it on stated grounds rather than anything Projul says. Every figure " +
+      "carries that split, because their number and our judgement are not " +
+      "the same kind of fact.",
     concessionLede:
       "Before the rest: FieldQuo has no phone app, does not work without a " +
       "signal, and has nobody who will demonstrate it to you. Projul will " +
@@ -202,6 +220,41 @@ export const COMPARE_PAGES = [
       "subcontractor_bids",
       "invoices",
       "white_label",
+    ],
+  },
+  {
+    slug: "fieldquo-vs-quoteiq",
+    competitorId: "quoteiq",
+    title: "FieldQuo vs QuoteIQ — they are cheaper to start, and here is where that turns",
+    description:
+      "QuoteIQ's entry plan costs a fraction of FieldQuo's cheapest, for one user. This page says so first, says who should buy it, and then says what changes once there is a crew.",
+    // The one page whose lede has to concede before it argues. Everything else
+    // on this site can lead with the case; a comparison against a competitor
+    // who is genuinely cheaper at the size a solo contractor starts at cannot,
+    // because the visitor already knows and will stop reading a page that
+    // pretends otherwise.
+    lede:
+      "QuoteIQ is cheaper than FieldQuo at one person, and it is not close. " +
+      "Their entry plan is a fraction of our cheapest rung, they print both " +
+      "prices openly, and if what you need is what that plan lists, you " +
+      "should buy it rather than us. What this page is for is the part after " +
+      "that: their plans count every login as a paid user, ours bill only " +
+      "the people who price work and put field crew on for nothing, and that " +
+      "is where the arithmetic turns.",
+    concessionLede:
+      "The price first, because it is the thing you came to check. QuoteIQ " +
+      "starts below our cheapest plan, ships phone apps we do not have, and " +
+      "will book you a walkthrough. FieldQuo is a web application with no " +
+      "salesperson attached.",
+    features: [
+      "priced_options",
+      "ai_quote_review",
+      "instant_quotes",
+      "voice_receptionist",
+      "job_costing",
+      "team_access",
+      "white_label",
+      "languages",
     ],
   },
 ];
@@ -225,14 +278,15 @@ export const COMPARE_CHROME = {
   eyebrow: "Comparison",
 
   indexTitle: "Compare FieldQuo",
-  indexMetaTitle: "Compare FieldQuo with Jobber, Housecall Pro, ServiceTitan and Projul",
+  indexMetaTitle: "Compare FieldQuo with Jobber, Housecall Pro, ServiceTitan, Projul and QuoteIQ",
   indexMetaDescription:
     "Side-by-side comparisons built only from what each company publishes on its own site, with every figure we could not verify named rather than filled in.",
   indexLede:
-    "Four comparisons, each built from what the other company publishes on " +
+    "Five comparisons, each built from what the other company publishes on " +
     "its own website. Nothing here is converted between currencies, nothing " +
     "is a promotional rate, and anything we could not settle is named rather " +
-    "than guessed.",
+    "than guessed. One of the five starts cheaper than we do, and that page " +
+    "says so before it says anything else.",
 
   // The rules panel. These are statements about how the page is built, so
   // they are safe to write as prose — none of them is a claim about anybody
@@ -245,6 +299,65 @@ export const COMPARE_CHROME = {
     "Each figure carries the date it was read and the country it was read from, because a price can differ by both.",
   ],
 
+  // ── The entry-price panel ────────────────────────────────────────────────
+  //
+  // Copy only. Which competitor gets this panel, and both numbers in it, come
+  // from ./entryPrice.js — their published figure and our own ladder rung —
+  // so there is nowhere here to soften it and nowhere to let it rot.
+  entryGapTitle: "They start cheaper than we do",
+  entryGapIntro:
+    "Not every comparison on this site goes our way and this one does not. " +
+    "The two prices below are their published figure and our own cheapest " +
+    "rung, both read out of the same records the rest of this page uses.",
+  entryGapTheirListIntro:
+    "What their own page lists on that plan, in their words:",
+  entryGapAdvice:
+    "If that is the work you need doing, buy theirs. We would rather write " +
+    "that here than sell somebody more software than they use and meet them " +
+    "again at the refund. What changes the answer is a crew: their plans " +
+    "count every login as a paid user, and ours do not.",
+
+  // ── Their ladder, in their own words ─────────────────────────────────────
+  theirTiersTitle: "What each of their plans adds, in their words",
+  theirTiersIntro:
+    "Their own descriptions of their own tiers, quoted as their page presents " +
+    "them and set beside the price each one arrives at. We have not " +
+    "translated any of it into our vocabulary: renaming a competitor's " +
+    "feature to match one of ours is how a comparison quietly becomes a straw " +
+    "man, so the words below are theirs and the list of ours is further down " +
+    "this page, separately.",
+  theirTiersNoMatchNote:
+    "Nobody has established, feature by feature, which of their tiers carries " +
+    "which of the capabilities we sell. Their page describes its plans in " +
+    "prose and our research records no tier-by-tier answer, so this page " +
+    "makes no matched claim in either direction — read their list, read " +
+    "ours, and decide.",
+
+  // ── The capability match, when there isn't one ───────────────────────────
+  //
+  // The section that exists to say nothing was established. Silence would read
+  // as "they don't have it", and not having checked is a different fact.
+  matchUnknownIntro:
+    "Nobody has established which of their tiers carries this, so this page " +
+    "does not name one. That is not a claim that they lack it — we did not " +
+    "check, and a page that treats what it did not check as an absence is a " +
+    "page making things up.",
+
+  // ── Metered AI ───────────────────────────────────────────────────────────
+  aiMeteringTitle: "How each side meters its AI",
+  aiMeteringIntro:
+    "Theirs is sold as a monthly allowance that changes with the tier, " +
+    "printed on their own page. Ours is not sold that way, and the honest " +
+    "version of that sentence has two halves.",
+  aiMeteringOurs:
+    "FieldQuo does not sell AI by the credit: there is no per-plan allowance " +
+    "on our pricing page to run out of and no larger bundle to move up for. " +
+    "The receptionist is on every plan with the talk time bought separately " +
+    "as prepaid credit and no monthly minimum, so a month with no calls " +
+    "costs nothing for it. The other half, which belongs here too: model use " +
+    "is metered per company against a ceiling we set internally, so nothing " +
+    "on this page is claiming it is unlimited.",
+
   concessionTitle: "What FieldQuo does not do",
   concessionIntro:
     "This section is on every one of these pages, in the same place, above " +
@@ -252,6 +365,14 @@ export const COMPARE_CHROME = {
     "sells somebody a subscription they ask for their money back on.",
   unverifiedConcessionNote:
     "We have not checked whether this company offers it, so we are not saying they do.",
+  // Not the same sentence as the one above and it must never become it. That
+  // one means nobody looked; this one means somebody looked and it was long
+  // enough ago that we will not stand behind the figures any more. The claim
+  // still says what it says — only the amounts inside it are held back.
+  staleClaimNote:
+    "That reading is more than three months old, so any amount inside it is " +
+    "held back until somebody checks their page again. Follow the link and " +
+    "see what it says today.",
 
   advantageTitle: "Where FieldQuo is ahead",
   advantageIntro:
