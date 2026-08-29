@@ -16,6 +16,10 @@ import { currencyMeta } from "@/lib/currency";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { numberLocaleFor } from "@/app/i18n/numberLocale";
 import { matrixEntry } from "@/lib/marketing/featureMatrix";
+import { COMPETITORS } from "@/lib/marketing/competitors";
+import AddOnStack from "../compare/AddOnStack";
+import { addOnStack } from "../compare/addOns";
+import { renderAsOf } from "../compare/asOf";
 
 /**
  * How many columns the plan grid gets, given how many plans exist.
@@ -180,6 +184,54 @@ function IncludedEverywhere({ t }) {
   );
 }
 
+/**
+ * "…and here is what the other lot bills you separately for."
+ *
+ * ══ Why this belongs on /pricing and not only on /compare ══════════════════
+ *
+ * The block above says everything is in every plan. That is true and it is
+ * abstract: a visitor has no way to price the sentence. The competitor's own
+ * pricing page does it for us — three functions sold as monthly add-ons on top
+ * of a plan, each with a price they publish themselves. Set beside "all of it
+ * is in every plan", the sentence acquires a number.
+ *
+ * Every figure goes through withholdReason() and the total through the same
+ * module the comparison pages use, so this page cannot print an amount
+ * /compare would refuse, and the two cannot come to disagree. The whole block
+ * is derived: a competitor whose add-on prices nobody has read renders nothing.
+ *
+ * ══ Why the date is taken at render ════════════════════════════════════════
+ *
+ * withholdReason needs an `asOf` and refuses to guess one — the argument is in
+ * ../compare/asOf.js and the short version is that a pinned date switches off
+ * the 90-day staleness rule while leaving its label on. This is a client
+ * component, but /pricing is `force-dynamic`, so the server renders it per
+ * request and the browser hydrates seconds later. The only thing the date
+ * decides here is whether the block exists at all, which changes on one day in
+ * ninety, so the two renders cannot show a visitor different prices.
+ */
+function AddOnComparison({ t, asOf }) {
+  const stacks = COMPETITORS.filter((c) => addOnStack(c.id, asOf).refusal === null);
+  if (stacks.length === 0) return null;
+
+  return (
+    <>
+      {stacks.map((c) => (
+        <AddOnStack key={c.id} competitorId={c.id} competitorName={c.name} asOf={asOf} t={t} />
+      ))}
+      <p className="mt-6 text-center text-sm text-muted-foreground">
+        {t(
+          "pricing.addOnsCompare",
+          "Every figure above was read off their own pricing page, on the date shown. The full side-by-side, including what FieldQuo does not do, is here →",
+        )}{" "}
+        <Link href="/compare" className="underline font-medium text-foreground">
+          /compare
+        </Link>
+      </p>
+    </>
+  );
+}
+
 const COLUMN_CLASS = {
   1: "sm:grid-cols-1 lg:grid-cols-1 max-w-sm mx-auto",
   2: "sm:grid-cols-2 lg:grid-cols-2 max-w-3xl mx-auto",
@@ -282,7 +334,7 @@ export function peopleLines(plan) {
   return lines;
 }
 
-export default function PricingPlans({ plans }) {
+export default function PricingPlans({ plans, asOf = renderAsOf() }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
 
@@ -418,6 +470,8 @@ export default function PricingPlans({ plans }) {
           </div>
 
           <IncludedEverywhere t={t} />
+
+          <AddOnComparison t={t} asOf={asOf} />
 
           {/* ── What this note may and may not claim ──────────────────────
               It used to open "All prices are in CAD", with the code filled in

@@ -51,11 +51,20 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { db } from "@/lib/db";
 import { partitionPlans } from "@/lib/platform/sellablePlans";
-import { matrixEntry } from "@/lib/marketing/featureMatrix";
+import { matrixEntry, MATRIX_KEYS } from "@/lib/marketing/featureMatrix";
+import {
+  COMPETITORS,
+  FIELDQUO_CAPABILITIES,
+  PRICE_AMOUNT,
+  allAddOns,
+  withholdReason,
+} from "@/lib/marketing/competitors";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
+import { addOnStack } from "@/app/(marketing)/compare/addOns";
+import { renderAsOf } from "@/app/(marketing)/compare/asOf";
 import PricingPage, { oneRowPerTier } from "@/app/(marketing)/pricing/page";
-import {
+import PricingPlans, {
   pricingColumns,
   peopleLines,
   signupHref,
@@ -497,6 +506,152 @@ async function main() {
   ok("...and routes to the full list rather than printing 76 bullets",
     /href="\/features"/.test(plansSrc));
 
+  // ── And what the other lot bills separately ────────────────────────────────
+  //
+  // "Everything is in every plan" is true and abstract until somebody else's
+  // pricing page puts a number on it. Three functions Jobber sells as monthly
+  // add-ons ON TOP of a plan are the number, and they are the most expensive
+  // sentence on this page to get wrong: a false statement about a competitor's
+  // prices, on a static-feeling marketing page, with nobody watching it.
+  //
+  // The guarantee is that this page cannot print an amount /compare would
+  // refuse. Same modules, same withholdReason, same derived total — asserted
+  // here on the RENDER rather than trusted from the import.
+  console.log("\n── What the competition charges extra for ──────────────────────\n");
+
+  const TODAY = renderAsOf();
+  const ADDON_BLOCK = "app/(marketing)/compare/AddOnStack.js";
+  const ADDONS = "app/(marketing)/compare/addOns.js";
+  const amountsIn = (blob) =>
+    [...blob.matchAll(/\$\s?(\d[\d,]*(?:\.\d+)?)/g)].map((m) => Number(m[1].replace(/,/g, "")));
+  const decoded = html
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&");
+
+  const stack = addOnStack("jobber", TODAY);
+  ok("their add-ons are publishable and totallable today", stack.refusal === null, String(stack.refusal));
+  ok("the pricing page carries the block", html.includes('data-addon-stack="jobber"'));
+  ok(
+    "...with one row per publishable add-on",
+    stack.items.every((a) => html.includes(`data-addon-id="${a.id}"`)) &&
+      (html.split("data-addon-id=").length - 1) === stack.items.length,
+    html.split("data-addon-id=").length - 1,
+  );
+  ok(
+    "...and none the module withholds",
+    allAddOns()
+      .filter((a) => withholdReason(a, TODAY) !== null)
+      .every((a) => !html.includes(`data-addon-id="${a.id}"`)),
+  );
+  ok(
+    "the total is the module's number, not a typed one",
+    html.includes(`data-addon-total="${stack.total}"`) && decoded.includes(`$${stack.total}`),
+    stack.total,
+  );
+  ok(
+    "...and it is the sum of the amounts the rows actually printed",
+    stack.items.reduce((sum, a) => sum + a.price.amount, 0) === stack.total,
+  );
+  for (const path of [ADDON_BLOCK, ADDONS, GRID]) {
+    const body = code(path);
+    ok(`${path}: does not carry the total as a literal`,
+      !new RegExp(`\\b${stack.total}\\b`).test(body));
+  }
+
+  // The whole page, not just the block: every dollar figure on /pricing has to
+  // trace to our own ladder or to a competitor figure the module publishes.
+  // This is the net that catches a hand-typed comparison anywhere on the page.
+  {
+    const allowed = new Set([
+      ...SEAT_LADDER.map((t) => t.price),
+      ...allAddOns()
+        .filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT)
+        .map((a) => a.price.amount),
+      ...COMPETITORS.map((c) => addOnStack(c.id, TODAY).total).filter((n) => n !== null),
+    ]);
+    const strays = [...new Set(amountsIn(html))].filter((n) => !allowed.has(n));
+    ok("every amount printed on /pricing is publishable", strays.length === 0, strays.join(","));
+  }
+
+  // No conversion, and no figure quoted in two currencies. Same two tiers the
+  // comparison pages use: the SHAPE of an approximation nowhere on the page,
+  // and the vocabulary of a conversion nowhere near an amount.
+  for (const word of ["≈", "approx", "equivalent", "roughly $", "about $", "exchange rate", "converted to"]) {
+    ok(`/pricing prints no approximated money ("${word}")`,
+      !decoded.toLowerCase().includes(word.toLowerCase()));
+  }
+  {
+    const doubled = [...html.matchAll(/\$\s?\d[\d,]*(?:\.\d+)?[^<]{0,60}/g)].filter(
+      (m) => SUPPORTED_CURRENCIES.filter((c) => m[0].includes(c)).length > 1,
+    );
+    ok("no amount on /pricing is quoted in two currencies at once", doubled.length === 0,
+      doubled.map((m) => m[0]).join(" | "));
+  }
+
+  // Our three claims, and the discipline the rest of this page already keeps:
+  // a feature named on a public page is a matrix key, and the label is READ
+  // from the entry rather than typed beside it.
+  {
+    const blockSrc = readFileSync(ADDON_BLOCK, "utf8");
+    const keys = [...html.matchAll(/data-addon-counterpart="([^"]+)"/g)].map((m) => m[1]);
+    ok("the block names FieldQuo features at all", keys.length > 0, keys.length);
+    ok("...every one a matrix entry", keys.every((k) => MATRIX_KEYS.includes(k)),
+      keys.filter((k) => !MATRIX_KEYS.includes(k)).join(","));
+    for (const key of ["email_campaigns", "door_hanger_routes", "review_requests",
+      "voice_receptionist", "call_to_quote", "leads", "funnels"]) {
+      ok(`/pricing sets ${key} against their add-on`, keys.includes(key));
+    }
+    ok("...printed from the entry, not typed beside it",
+      /\{entry\.name\}/.test(blockSrc) && /\{entry\.summary\}/.test(blockSrc));
+    ok("...with no matrix name written into the block as literal text",
+      !keys.some((k) => {
+        const entry = matrixEntry(k);
+        return entry && blockSrc.includes(`>${entry.name}<`);
+      }));
+    // door-hanger routes is `partial`. A bare tick beside a half-built feature
+    // is the dead control AGENTS.md forbids, moved onto the page that asks for
+    // money — so the limit has to be in the markup, in full.
+    for (const key of keys) {
+      const entry = matrixEntry(key);
+      if (entry?.readiness === "partial") {
+        ok(`${key} is only partly built, and /pricing says where it stops`,
+          decoded.includes(entry.limits) && html.includes(`data-addon-limits="${key}"`));
+      }
+    }
+  }
+
+  // The receptionist sentence. "Included minutes" would describe a product we
+  // do not sell — lib/voice/credits.js is explicit that the talk time is
+  // prepaid credit and is NOT bundled as a number of conversations — and it is
+  // one tidy-up edit away from being written.
+  ok("/pricing makes the no-monthly-minimum claim",
+    decoded.includes(FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor.label));
+  ok("...in those words", /no monthly minimum/i.test(decoded));
+  ok("...and still says the talk time is prepaid credit", /prepaid credit/i.test(decoded));
+  for (const phrase of [/included minutes/i, /minutes included/i, /conversations included/i,
+    /included conversations/i, /free minutes/i, /unlimited (calls|minutes)/i]) {
+    ok(`/pricing never says ${phrase}`, !phrase.test(decoded));
+  }
+  ok("...and never that our AI is included in the price", !/AI (receptionist )?included/i.test(decoded));
+
+  // Staleness reaches this page too. A competitor's price nobody has re-read in
+  // three months stops being printed here exactly as it stops being printed on
+  // /compare — the block leaves rather than going quietly out of date.
+  {
+    const stale = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        { initialLanguage: "en" },
+        createElement(PricingPlans, { plans: ladderCards, asOf: "2026-12-01" }),
+      ),
+    );
+    ok("ninety-five days after the read, the block is gone", !/data-addon-stack/.test(stale));
+    ok("...and no competitor amount survives on the page",
+      !stale.includes(`$${stack.total}`) &&
+        stack.items.every((a) => !stale.includes(`data-addon-id="${a.id}"`)));
+    ok("...while the plan cards are untouched", stale.split("rounded-2xl").length - 1 === 4);
+  }
 
   console.log(
     fails.length

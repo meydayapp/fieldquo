@@ -42,7 +42,6 @@ import Link from "next/link";
 import { ArrowRight, Check, ExternalLink, Info, Minus, X as XIcon } from "lucide-react";
 
 import {
-  BILLING_MODES,
   COMPARABLE_FEATURES,
   FEATURE_ABSENT,
   FEATURE_ADD_ON,
@@ -57,7 +56,6 @@ import {
   PRICE_NOT_OFFERED,
   PRICE_ON_REQUEST,
   PRICE_UNKNOWN,
-  TEAM_SIZES,
   allAddOns,
   claims,
   comparableTier,
@@ -66,6 +64,8 @@ import {
 } from "@/lib/marketing/competitors";
 import { matrixEntry } from "@/lib/marketing/featureMatrix";
 
+import AddOnStack from "../AddOnStack";
+import { coordinateLabel } from "../addOns";
 import { COMPARE_CHROME, COMPARE_PAGES, comparePage, counterpointFor } from "../compareCopy";
 
 // ── How a price kind reads in a sentence ───────────────────────────────────
@@ -150,22 +150,17 @@ function provenanceLine(figure) {
   return `Read from a ${figure.observedFrom} connection on ${figure.checked}`;
 }
 
-/** The point on a competitor's own selectors that a figure was read at. */
+/**
+ * The point on a competitor's own selectors that a figure was read at.
+ *
+ * The mapping itself moved to ../addOns.js so the add-on block prints a
+ * coordinate in exactly the same words this page does — one figure labelled
+ * "6-10 people" here and "6 to 10" there is two readings of one price.
+ * A competitor with no axes has nothing to locate — ServiceTitan declares none
+ * — and gets nothing rather than an invented "all sizes".
+ */
 function coordinateLine(figure) {
-  const parts = [];
-  if (figure.axis?.teamSize) {
-    const size = TEAM_SIZES[figure.axis.teamSize];
-    parts.push(size ? size.label : figure.axis.teamSize);
-  }
-  if (figure.axis?.billing) {
-    const mode = BILLING_MODES[figure.axis.billing];
-    parts.push(mode ? mode.label : figure.axis.billing);
-  }
-  // A competitor with no axes has nothing to locate — ServiceTitan declares
-  // none, and an invented coordinate would be worse than a missing one. So an
-  // empty coordinate renders as nothing rather than as "all sizes".
-  if (parts.length === 0) return null;
-  return parts.join(" · ");
+  return coordinateLabel(figure.axis);
 }
 
 function SectionHeading({ title, intro, id }) {
@@ -513,6 +508,21 @@ export default function ComparisonPage({ slug, asOf }) {
             </div>
           ) : null}
         </div>
+      </div>
+
+      {/* ── What they sell ON TOP of the plan ──────────────────────────────
+          Renders itself, or renders nothing. AddOnStack returns null unless
+          the module says the add-ons may be published AND may honestly be
+          totalled — same currency, same billing period, same point on their
+          own selectors — so a competitor nobody has read add-on prices for
+          gets no section rather than an empty one, and a stale read empties it
+          the same way the price rows above empty. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <AddOnStack
+          competitorId={competitor.id}
+          competitorName={competitor.name}
+          asOf={asOf}
+        />
       </div>
 
       {/* ── The receptionist, where there is a real answer ─────────────────

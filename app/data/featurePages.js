@@ -178,7 +178,7 @@ const PAGES = [
         pain:
           "You spend Saturday morning driving to the tyre-kicker and never get to the kitchen that was ready to sign.",
         fix:
-          "Each lead is scored on what it looks like, so the list is already in the order worth working.",
+          "Each lead arrives hot, warm or cold with the handful of reasons that put it there, so the list is already in the order worth working and you can disagree with it in five seconds.",
       },
       {
         pain:
@@ -193,6 +193,40 @@ const PAGES = [
         body:
           "Drop the lead form on the website you already have. What comes back is a lead in the list with a score on it, not an email you will read on Sunday.",
       },
+      // ── Triage, described as what it is ──────────────────────────────────
+      //
+      // The owner asked for a page explaining "using AI to assess the Hot,
+      // cold, warm". It is NOT AI, and saying it is would be the cheapest lie
+      // on the site and the easiest to catch: lib/leads/score.js is a fixed
+      // weighted sum whose header says why it is deliberately not a model —
+      // "a black-box number nobody trusts gets ignored, and an ignored score
+      // is a dead control".
+      //
+      // That is the better story anyway, so it is the one told here: what is
+      // weighed, in the order the code weighs it, and the fact that the reasons
+      // are printed beside the lead with their points. The ORDER below is not
+      // decoration — scripts/check-feature-pages.mjs runs the real scorer and
+      // fails if the code stops agreeing with these sentences.
+      {
+        step: "Hot, warm or cold — and it shows its working",
+        body:
+          "Every enquiry lands with a temperature and the short list of reasons that produced it, each with the points it added. You can read why this one is hot and that one is not without asking anybody.",
+      },
+      {
+        step: "What it weighs, and in what order",
+        body:
+          "How soon they want to start counts for more than anything else: somebody who wants it now beats a bigger budget that is just looking. Then the budget they gave, then whether the job is an emergency, then how you can reach them — a phone number is worth more to a trade than an email address. Last comes effort, because effort predicts intent: photos of the wall, a plan they exported, a kitchen they laid out, a description they took the trouble to write. None of those can make a lead hot on its own.",
+      },
+      {
+        step: "It is arithmetic, and you can move it",
+        body:
+          "There is no model here and nothing is learning about you in the background. It is a fixed set of weights you could add up on paper — which is the point, because a number nobody can argue with is a number nobody uses. If they told you on the phone that the budget was really fifteen thousand, change the answer on the lead and the temperature follows it.",
+      },
+      {
+        step: "Everything is triaged the same way",
+        body:
+          "The form on your site, an instant estimate, a kitchen somebody drew, a multi-step funnel, a call the receptionist took, and the list you import in your first week all go through the same triage. One list, one meaning for hot.",
+      },
       {
         step: "One click turns it into a quote",
         body:
@@ -205,7 +239,72 @@ const PAGES = [
       },
     ],
     features: ["leads", "lead_form", "clients", "follow_ups"],
-    related: ["quotes", "marketing", "ai-receptionist"],
+    related: ["quotes", "lead-funnels", "marketing", "ai-receptionist"],
+  },
+  {
+    // ── Why funnels get their own page rather than a bullet on /marketing ──
+    //
+    // They were one line in a list of six on the marketing page, which is the
+    // wrong weight for the thing a contractor points an advert at. The owner
+    // asked for it by name. What earns the page is the part nobody advertises:
+    // the per-step numbers, which are the only reason a funnel beats a form.
+    slug: "lead-funnels",
+    group: "winning_work",
+    label: "Lead funnels",
+    headline: "One question a screen, and you find out exactly where they leave",
+    oneLine:
+      "A landing page for an advert or a flyer: one question at a time on a phone, a real price partway through, and a count of how many people got that far.",
+    description:
+      "Multi-step lead funnels for contractors: one question per screen on a phone, an optional price from your own rates halfway through, and per-step numbers showing where people drop out.",
+    pains: [
+      {
+        pain:
+          "You pay for the click, they land on a page with a twelve-box form, and you never hear from them again.",
+        fix:
+          "One question a screen, answers big enough for a thumb, and the contact details asked for last — after they have already put five taps in.",
+      },
+      {
+        pain:
+          "Something on that page is losing people and you have no idea which thing it is.",
+        fix:
+          "Every screen carries how many reached it and what share of the screen before came through, so the one that loses half of them is the one with the number under it.",
+      },
+      {
+        pain:
+          "The people who do fill it in are half tyre-kickers, and you find that out on the phone on Saturday.",
+        fix:
+          "What they tapped is what the triage weighs, so the enquiry arrives hot, warm or cold with its reasons already on it.",
+      },
+    ],
+    how: [
+      {
+        step: "It is built out of steps, not out of a blank page",
+        body:
+          "A funnel is an ordered set of screens: an opening hook, questions with one answer or several, an optional price, a place to attach photos, the contact form, and a closing screen. There is nothing else to put on one, which is why a funnel cannot end up as a layout that falls apart on a phone.",
+      },
+      {
+        step: "An answer can decide what comes next",
+        body:
+          "A single-choice question can send somebody straight to a different screen, so a bathroom enquiry never has to read four questions about kitchens. Leave the branch off and it simply runs in order.",
+      },
+      {
+        step: "A real price, halfway through",
+        body:
+          "One of the steps can show what the job would cost, worked out from your own rates. You write the size bands in your own words — a single room, about 200 square feet — and they tap one. The price is worked out on our side from your rates; nothing typed into the page decides it, and no figure is ever taken from the visitor.",
+      },
+      {
+        step: "The numbers are per screen, not one rate",
+        body:
+          "How many started, how many became leads, the share that made it through overall, and then each screen with the share that carried on from the one before. A single conversion rate tells you something is wrong. A per-screen number tells you which screen.",
+      },
+      {
+        step: "What comes out is a lead, not a separate inbox",
+        body:
+          "The end of the funnel creates the same lead the form on your website creates, triaged the same way, one click from a quote. Their answers to the budget and timing questions are the same answers the triage reads.",
+      },
+    ],
+    features: ["funnels", "instant_quotes", "leads", "marketing_spend"],
+    related: ["leads", "marketing", "instant-estimates"],
   },
   {
     slug: "ai-receptionist",
@@ -511,7 +610,7 @@ const PAGES = [
       "referrals",
       "marketing_spend",
     ],
-    related: ["website", "leads", "reporting"],
+    related: ["website", "leads", "lead-funnels", "reporting"],
   },
   {
     slug: "subcontractors",

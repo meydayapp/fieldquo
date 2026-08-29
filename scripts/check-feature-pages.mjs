@@ -58,6 +58,9 @@ import {
   featuresOnPage,
 } from "@/app/data/featurePages";
 import { LANGUAGES } from "@/app/i18n/languages";
+import { scoreLead, TEMPERATURES } from "@/lib/leads/score";
+import { BUDGET_BANDS, TIMELINES } from "@/lib/leads/qualifiers";
+import { FUNNEL_STEP_KINDS } from "@/app/data/funnelBlocks";
 import FeaturePage, {
   generateStaticParams,
   generateMetadata,
@@ -549,6 +552,242 @@ const FILLER = [/streamline your workflow/i, /take your business to the next lev
     for (const pattern of FILLER) if (pattern.test(body)) hits.push(`${where}: ${pattern}`);
   }
   ok("no page falls back on filler", hits.length === 0, hits.join(" | "));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   9. Lead triage is described as what it is
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The owner asked for a page that explains "using AI to assess the Hot, cold,
+   warm". It is not AI. lib/leads/score.js is a hand-tuned weighted sum whose
+   own header says why it is deliberately NOT a model: "a black-box number
+   nobody trusts gets ignored, and an ignored score is a dead control".
+
+   Calling it AI on a public page would be the cheapest false claim on the site
+   and the easiest one to catch, so half of this section is a ban. The other
+   half is more interesting: the page states what the scorer weighs and IN WHAT
+   ORDER, and every one of those sentences is checked by RUNNING the real
+   scorer. Re-tune a weight so timing stops beating budget and this goes red —
+   which is the only thing that keeps an explanation honest as the code moves.
+
+   Nothing here asserts a specific number, and neither does the page: a point
+   value printed in marketing copy is a figure nobody will re-check when the
+   weight moves. The ORDER is the claim, and the order is executable. */
+
+console.log("\n── Lead triage: an explanation the code still agrees with ──────\n");
+
+{
+  const { text } = rendered.get("leads");
+
+  // ── What the scorer actually does, established by running it ─────────────
+  const only = (lead) => scoreLead(lead).score;
+  const soonest = TIMELINES[0].key;                       // "asap"
+  const biggestBudget = BUDGET_BANDS[BUDGET_BANDS.length - 1].key; // "15k_plus"
+
+  ok("the soonest timeline is the first one declared", soonest === "asap", soonest);
+  ok("the biggest budget band is the last one declared", biggestBudget === "15k_plus", biggestBudget);
+
+  const timing = only({ timeline: soonest });
+  const budget = only({ budgetBand: biggestBudget });
+  const emergency = only({ intake: { isEmergency: true } });
+  const phone = only({ phone: "+15550000000" });
+  const email = only({ email: "someone@example.com" });
+
+  ok("timing outweighs the biggest stated budget", timing > budget, `${timing} vs ${budget}`);
+  ok("...the budget outweighs the emergency flag", budget > emergency, `${budget} vs ${emergency}`);
+  ok("...the emergency flag outweighs a phone number", emergency > phone, `${emergency} vs ${phone}`);
+  ok("...and a phone number outweighs an email address", phone > email, `${phone} vs ${email}`);
+
+  // And the page says the same four things, in the same order. Position, not
+  // just presence: a list that named the right five signals in the wrong order
+  // would be a different and wrong explanation.
+  const at = (needle) => text.indexOf(needle);
+  const sequence = [
+    "How soon they want to start counts for more than anything else",
+    "Then the budget they gave",
+    "then whether the job is an emergency",
+    "a phone number is worth more to a trade than an email address",
+    "Last comes effort",
+  ];
+  for (const phrase of sequence) ok(`the page says "${phrase.slice(0, 40)}…"`, at(phrase) >= 0);
+  ok(
+    "...and in the order the scorer actually weighs them",
+    sequence.every((p, i) => i === 0 || (at(p) > at(sequence[i - 1]) && at(p) > 0)),
+    sequence.map(at).join(","),
+  );
+
+  // "None of those can make a lead hot on its own" — the one quantitative
+  // claim on the page, and it is stated without a number precisely so it does
+  // not rot. Executed against every effort signal the scorer reads.
+  {
+    const effort = [
+      { clientPhotos: [{ url: "a.jpg" }, { url: "b.jpg" }, { url: "c.jpg" }, { url: "d.jpg" }] },
+      { clientPhotos: [{ url: "plan.pdf" }] },
+      { kitchenDesign: { walls: [] } },
+      { message: "x".repeat(400) },
+    ];
+    const hottest = effort.map((l) => scoreLead(l));
+    ok(
+      "no single effort signal reaches hot on its own",
+      hottest.every((r) => r.temperature !== "hot"),
+      hottest.map((r) => `${r.temperature}:${r.score}`).join(","),
+    );
+    // ...and each of them is genuinely counted, or the sentence above would be
+    // true for the boring reason.
+    ok("...while each of them still counts for something",
+      hottest.every((r) => r.score > 0), hottest.map((r) => r.score).join(","));
+  }
+
+  // ── The reasons are readable, which is the whole argument ────────────────
+  {
+    const rich = scoreLead({
+      timeline: soonest,
+      budgetBand: biggestBudget,
+      phone: "+15550000000",
+      email: "someone@example.com",
+      message: "x".repeat(200),
+    });
+    ok("a scored lead comes back with its reasons", rich.reasons.length >= 4, rich.reasons.length);
+    ok(
+      "...every one a sentence a person can read, not a key",
+      rich.reasons.every(
+        (r) => typeof r.label === "string" && /\s/.test(r.label) && !/_/.test(r.label),
+      ),
+      rich.reasons.map((r) => r.label).join(" | "),
+    );
+    ok("...each carrying the points it added", rich.reasons.every((r) => typeof r.weight === "number"));
+    ok("...heaviest first, so the top line is the reason that decided it",
+      rich.reasons.every((r, i) => i === 0 || r.weight <= rich.reasons[i - 1].weight));
+    // Pure, and pure is what lets the same lead be re-scored later with the
+    // same answer — which is what "change the answer and the temperature
+    // follows" depends on.
+    ok("scoring the same lead twice gives the same answer",
+      JSON.stringify(scoreLead({ timeline: soonest, phone: "1" })) ===
+        JSON.stringify(scoreLead({ timeline: soonest, phone: "1" })));
+    ok("the page says the reasons are shown with their points",
+      /the points it added/i.test(text));
+    ok("...and that changing the answer moves the temperature",
+      /change the answer on the lead and the temperature follows/i.test(text));
+  }
+
+  ok(`there are three bands and the page names all of them (${TEMPERATURES.join("/")})`,
+    TEMPERATURES.length === 3 && TEMPERATURES.every((t) => new RegExp(`\\b${t}\\b`, "i").test(text)));
+
+  // ── The ban ──────────────────────────────────────────────────────────────
+  //
+  // These forbid ASSERTIONS, not the words. The page is allowed — required,
+  // in fact — to say "there is no model here", and a checker that banned the
+  // noun outright would force the honest sentence out of the copy.
+  const NOT_A_MODEL = [
+    [/machine learning/i, "machine learning"],
+    [/\bneural\b/i, "a neural anything"],
+    [/trained on/i, "training"],
+    [/training data/i, "training data"],
+    [/predictive model/i, "a predictive model"],
+    [/our model\b/i, "a model of ours"],
+    [/the model (scores|decides|predicts|learns)/i, "a model doing the deciding"],
+    [/\bAI[- ]?(scored?|scoring|score)\b/i, "an AI score"],
+    [/scored by (the |our )?AI/i, "scoring by AI"],
+    [/AI (decides|works out|assesses|ranks)/i, "AI making the call"],
+    [/learns (from|about) (your|you)/i, "something that learns"],
+    [/gets smarter/i, "something that gets smarter"],
+  ];
+  for (const [pattern, what] of NOT_A_MODEL) {
+    const hits = surfaces.filter(([, body]) => pattern.test(body)).map(([where]) => where);
+    ok(`nothing describes the triage as ${what}`, hits.length === 0, hits.join(" "));
+  }
+  ok("...and the leads page says outright that there is no model",
+    /no model|not a model/i.test(text));
+  // No point value in the copy. A weight printed on a marketing page is a
+  // number nobody re-checks when the weight moves.
+  ok("no point value is printed on the page", !/\b\d+\s*points?\b/i.test(text), text.match(/\b\d+\s*points?\b/i)?.[0]);
+
+  // ── "Everything is triaged the same way" ─────────────────────────────────
+  //
+  // The claim is that one function triages every inbound path, so "hot" means
+  // the same thing whatever door the enquiry came through. lib/leads/createLead
+  // exists for exactly that reason; this asserts every door named on the page
+  // actually goes through it.
+  const DOORS = [
+    ["the form on your site", "app/api/leads/public/route.js"],
+    ["an instant estimate", "app/api/instant-quote/[companySlug]/request/route.js"],
+    ["a kitchen somebody drew", "app/api/self-quote/kitchen/route.js"],
+    ["a multi-step funnel", "app/api/funnels/public/[companySlug]/[funnelSlug]/submit/route.js"],
+    ["a call the receptionist took", "app/api/voice/tools/[tool]/route.js"],
+    ["the list you import", "app/api/leads/import/route.js"],
+  ];
+  for (const [what, path] of DOORS) {
+    ok(`"${what}" really goes through the one triage`,
+      /\bcreateScoredLead\b/.test(readFileSync(path, "utf8")), path);
+  }
+  // Case-insensitive: one of them opens the sentence and is capitalised.
+  const lower = text.toLowerCase();
+  ok("...and the page claims exactly those doors",
+    DOORS.every(([what]) => lower.includes(what.toLowerCase())),
+    DOORS.filter(([what]) => !lower.includes(what.toLowerCase())).map(([w]) => w).join(" | "));
+  ok("createLead is what does the scoring, not each door for itself",
+    /\bscoreLead\b/.test(readFileSync("lib/leads/createLead.js", "utf8")));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10. The funnels page, against the funnel
+   ═══════════════════════════════════════════════════════════════════════════
+
+   Two claims on that page are worth more than the rest of it and both are
+   checkable: that a funnel is built from a CLOSED set of screen kinds, and
+   that the numbers are per step rather than one conversion rate. The third is
+   a rule rather than a feature — non-negotiable #5, the browser never sends a
+   measurement or a price — and the estimate endpoint's body reads are what
+   make it true. */
+
+console.log("\n── Funnels: a closed set of screens, and per-step numbers ──────\n");
+
+{
+  const { text } = rendered.get("lead-funnels");
+  const analytics = readFileSync("app/api/funnels/[id]/analytics/route.js", "utf8");
+  const screen = readFileSync("app/app/funnels/[id]/page.js", "utf8");
+  const blocks = readFileSync("app/data/funnelBlocks.js", "utf8");
+  const estimate = readFileSync(
+    "app/api/funnels/public/[companySlug]/[funnelSlug]/estimate/route.js",
+    "utf8",
+  );
+
+  // The sentence "there is nothing else to put on one" is only true while the
+  // list is closed and is the length the copy enumerates. Add a kind and this
+  // fails, which is the prompt to update the sentence.
+  ok(`a funnel is built from a closed set of screens (${FUNNEL_STEP_KINDS.length})`,
+    FUNNEL_STEP_KINDS.length === 7, FUNNEL_STEP_KINDS.join(","));
+  ok("...and the page says the list is closed", /nothing else to put on one/i.test(text));
+
+  // Branching, which the page promises.
+  ok("an answer can name the screen that comes next", /next:/.test(blocks));
+  ok("...and the funnel actually follows it", /goNext\(answer\?\.next\)/.test(
+    readFileSync("app/f/[companySlug]/[funnelSlug]/FunnelRunner.js", "utf8")));
+  ok("...as the page says", /send somebody straight to a different screen/i.test(text));
+
+  // The numbers. Four of them, and the per-step one is the point.
+  for (const key of ["starts", "completions", "conversionRate", "retention"]) {
+    ok(`the funnel report carries ${key}`, new RegExp(`${key}:`).test(analytics));
+  }
+  ok("retention is measured against the PREVIOUS step, not the first",
+    /views \/ prev/.test(analytics));
+  ok("...and the screen the contractor opens draws it per step",
+    /analytics\.steps\.map/.test(screen) && /s\.retention/.test(screen));
+  ok("the page promises per-screen numbers rather than one rate",
+    /A per-screen number tells you which screen/i.test(text));
+
+  // Non-negotiable #5, on the one public endpoint that prices anything here.
+  // The body is allowed to carry two ids and nothing else — no measurement, no
+  // money — and the measurement behind a band is read from the stored funnel.
+  {
+    const reads = [...new Set([...estimate.matchAll(/\bbody\.([A-Za-z0-9_]+)/g)].map((m) => m[1]))].sort();
+    ok("the estimate endpoint reads only a step id and a band id from the visitor",
+      JSON.stringify(reads) === JSON.stringify(["bandId", "stepId"]), reads.join(","));
+    ok("...and looks the size up in the company's own stored funnel",
+      /resolveEstimateBand\(step, body\.bandId\)/.test(estimate));
+    ok("...which is what the page tells the reader",
+      /nothing typed into the page decides it/i.test(text));
+  }
 }
 
 console.log(

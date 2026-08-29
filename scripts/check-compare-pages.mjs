@@ -80,6 +80,13 @@ import { MATRIX_KEYS, matrixEntry } from "@/lib/marketing/featureMatrix";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 
 import { renderAsOf } from "@/app/(marketing)/compare/asOf";
+import {
+  ADD_ON_COUNTERPARTS,
+  addOnStack,
+  coordinateLabel,
+  counterpartsFor,
+  totalOf,
+} from "@/app/(marketing)/compare/addOns";
 import { COMPARE_PAGES, comparePage } from "@/app/(marketing)/compare/compareCopy";
 import CompareIndexPage, { comparisonSummary } from "@/app/(marketing)/compare/page";
 import CompareSlugPage from "@/app/(marketing)/compare/[slug]/page";
@@ -201,6 +208,8 @@ async function main() {
   const COPY = "app/(marketing)/compare/compareCopy.js";
   const INDEX_PAGE = "app/(marketing)/compare/page.js";
   const AS_OF = "app/(marketing)/compare/asOf.js";
+  const ADDONS = "app/(marketing)/compare/addOns.js";
+  const ADDON_BLOCK = "app/(marketing)/compare/AddOnStack.js";
 
   // ═══════════════════════════════════════════════════════════════════════════
   console.log("\n1. Every page rendered at all, through its own route");
@@ -265,10 +274,17 @@ async function main() {
   // applies to them", and withholdReason is what decides, exactly as for a plan
   // figure. FieldQuo's own ladder is the third source and is imported, never
   // typed — a rung repriced in lib/pricing/ladder.js moves this set with it.
+  //
+  // The add-on TOTAL is the fourth source and it is DERIVED here, by calling
+  // the same function the page calls, rather than being written into this set
+  // as a number. Typing 177 into the allowlist would make this assertion agree
+  // with a page that had the total hardcoded — which is precisely the failure
+  // section 11 exists to catch.
   const allowedAmounts = new Set([
     ...publishableFigures(TODAY).filter((f) => f.price?.kind === PRICE_AMOUNT).map((f) => f.price.amount),
     ...allAddOns().filter((a) => withholdReason(a, TODAY) === null && a.price?.kind === PRICE_AMOUNT).map((a) => a.price.amount),
     ...SEAT_LADDER.map((t) => t.price),
+    ...COMPETITORS.map((c) => addOnStack(c.id, TODAY).total).filter((n) => n !== null),
   ]);
   for (const p of [{ slug: "/compare (index)", html: indexHtml }, ...pages]) {
     const strays = [...new Set(amountsIn(p.html))].filter((n) => !allowedAmounts.has(n));
@@ -471,6 +487,8 @@ async function main() {
       ...elementsWith(p.html, "data-figure-id"),
       ...elementsWith(p.html, "data-receptionist-figure"),
       ...elementsWith(p.html, "data-receptionist-addon"),
+      ...elementsWith(p.html, "data-addon-id"),
+      ...elementsWith(p.html, "data-addon-total"),
       ...elementsWith(p.html, "data-fieldquo-tier"),
     ];
     for (const word of CONVERSION_VOCABULARY) {
@@ -523,12 +541,21 @@ async function main() {
   ok("the pages explain why no conversion is needed rather than doing one",
     FIELDQUO_REFERENCE.sameNumberBothCurrencies &&
       pages.every((p) => SUPPORTED_CURRENCIES.every((c) => p.html.includes(c))));
-  // Source-level: no arithmetic that could only be a rate.
-  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE]) {
+  // Source-level: no arithmetic that could only be a rate. The conversion ban
+  // covers every file on these pages including the two add-on ones.
+  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDONS, ADDON_BLOCK]) {
     ok(`${path}: defines no currency-conversion helper`,
       !/\b(fxRate|exchangeRate|convertCurrency|toCad|toUsd|inCad|inUsd)\b/i.test(source(path)));
-    // The other half: no arithmetic is applied to a competitor's amount. A
-    // conversion does not have to be named to be one.
+  }
+  // The arithmetic ban is narrower by ONE FILE, on purpose and with the reason
+  // written down in both places. addOns.js adds three of a competitor's own
+  // monthly add-on prices together, and its header argues why that is not the
+  // thing this ban exists for: a conversion imports a number from outside their
+  // pricing page and this imports nothing. Exempting it from a source regex
+  // would be worthless on its own, so section 11 below EXECUTES the refusals
+  // instead — two currencies, two billing periods, two coordinates and a
+  // missing amount all have to come back as a refusal rather than a sum.
+  for (const path of [RENDERER, INDEX_PAGE, COPY, AS_OF, SLUG_PAGE, ADDON_BLOCK]) {
     ok(`${path}: does no arithmetic on an amount`,
       !/(price\.amount|\.amount)\s*[*/+-]/.test(source(path)) &&
         !/[*/]\s*(rate|fx)\b/i.test(source(path)));
@@ -661,6 +688,192 @@ async function main() {
     // The translation debt, on the record rather than in a commit message.
     ok("the copy module records that these pages are English-only",
       /English-only|English, in a plain module/.test(copy));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  console.log("\n11. What they sell ON TOP of the plan");
+  //
+  // Three add-ons, one total, and a mapping onto features we actually ship.
+  // The total is the dangerous part: it is the sentence a visitor remembers,
+  // it is arithmetic on somebody else's prices, and the obvious way to write it
+  // is to type it. So it is asserted three ways — equal to the module's answer,
+  // equal to an independent sum of the amounts actually RENDERED, and absent as
+  // a literal from every file that could have typed it.
+  {
+    const jobber = pages.find((p) => p.competitorId === "jobber");
+    const stack = addOnStack("jobber", TODAY);
+
+    ok("Jobber's add-ons publish and may honestly be totalled", stack.refusal === null,
+      String(stack.refusal));
+    ok("...all three of them", stack.items.length === 3, stack.items.length);
+    ok("the block is on the Jobber page", /data-addon-stack="jobber"/.test(jobber.html));
+
+    const renderedIds = elementsWith(jobber.html, "data-addon-id").map((e) => e.value).sort();
+    const expectedIds = stack.items.map((a) => a.id).sort();
+    ok("...rendering exactly the add-ons the module publishes",
+      JSON.stringify(renderedIds) === JSON.stringify(expectedIds), JSON.stringify(renderedIds));
+    // Both directions again: an add-on the module withholds must not appear.
+    {
+      const withheldAddOns = allAddOns()
+        .filter((a) => withholdReason(a, TODAY) !== null)
+        .map((a) => a.id);
+      ok("...and none the module withholds",
+        withheldAddOns.every((id) => !jobber.html.includes(`data-addon-id="${id}"`)),
+        withheldAddOns.join(","));
+    }
+
+    for (const addOn of stack.items) {
+      const row = elementsWith(jobber.html, "data-addon-id").find((e) => e.value === addOn.id);
+      ok(`${addOn.id}: names the add-on as their page does`, row.text.includes(addOn.label));
+      ok(`${addOn.id}: prints the amount the module holds`,
+        row.outer.includes(`$${addOn.price.amount.toLocaleString("en-US")}`));
+      ok(`${addOn.id}: names its own currency and no other`, (() => {
+        const codes = SUPPORTED_CURRENCIES.filter((c) => row.outer.includes(c));
+        return codes.length === 1 && codes[0] === addOn.price.currency;
+      })());
+      ok(`${addOn.id}: carries the day and the country it was read`,
+        row.text.includes(addOn.checked) && row.text.includes(addOn.observedFrom));
+      ok(`${addOn.id}: links their own page`, row.outer.includes(addOn.source));
+      // Their own product name, not one we assembled. One of the three already
+      // carries the company name, and prefixing it unconditionally produced
+      // "Jobber Jobber AI Receptionist" — a name they have never used.
+      ok(`${addOn.id}: is not named twice over`,
+        !new RegExp(`${jobber.competitor.name}\\s+${jobber.competitor.name}`, "i").test(row.text));
+      // The coordinate, in the same words the figure rows above use. Their
+      // prices move with two selectors; a price quoted out of them is a
+      // different number to a different reader.
+      ok(`${addOn.id}: is placed on their own selectors`,
+        jobber.text.includes(coordinateLabel(addOn.axis)));
+    }
+
+    // ── The total ──────────────────────────────────────────────────────────
+    const totalAttr = elementsWith(jobber.html, "data-addon-total")[0];
+    ok("the total is on the page", Boolean(totalAttr), String(totalAttr));
+    ok("...and it is the module's number", Number(totalAttr.value) === stack.total,
+      `${totalAttr.value} vs ${stack.total}`);
+    ok("...and it is printed, not only attached", totalAttr.text.includes(`$${stack.total}`));
+    // Independent of the module: add up what the ROWS actually printed.
+    {
+      const rowAmounts = elementsWith(jobber.html, "data-addon-id").flatMap((r) => amountsIn(r.outer));
+      const summed = rowAmounts.reduce((a, b) => a + b, 0);
+      ok("...and it equals the sum of the amounts the page printed", summed === stack.total,
+        `${summed} vs ${stack.total}`);
+    }
+    // The mutation this is really guarding: somebody typing the number.
+    for (const path of [ADDONS, ADDON_BLOCK, "app/(marketing)/pricing/PricingPlans.js"]) {
+      const body = source(path).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+      ok(`${path}: does not carry the total as a literal`,
+        !new RegExp(`\\b${stack.total}\\b`).test(body));
+    }
+    ok("...and the currency beside it is the one every item was published in",
+      totalAttr.outer.includes(`data-addon-currency="${stack.currency}"`) &&
+        totalAttr.text.includes(stack.currency));
+
+    // ── Refusals, executed against input the live data does not contain ────
+    //
+    // Every one of these is a total that must not be produced. None of them can
+    // happen today, which is exactly why they are checked here rather than left
+    // to the data staying convenient.
+    {
+      const usd = (amount, axis) => ({ price: { kind: PRICE_AMOUNT, amount, per: "month", currency: "USD" }, axis });
+      const axis = { teamSize: "solo", billing: "annual_prepaid" };
+      ok("two of the same shape do total", totalOf([usd(10, axis), usd(5, axis)]).total === 15);
+      ok("...and nothing else is invented with it",
+        totalOf([usd(10, axis), usd(5, axis)]).currency === "USD");
+      ok("a single add-on is not dressed up as a total",
+        totalOf([usd(10, axis)]).total === null && /nothing to total/.test(totalOf([usd(10, axis)]).refusal));
+      ok("an empty set totals nothing", totalOf([]).total === null);
+      ok("...and a non-list too", totalOf(undefined).total === null);
+      ok("two currencies refuse, and say it would be a conversion", (() => {
+        const r = totalOf([usd(10, axis), { price: { kind: PRICE_AMOUNT, amount: 5, per: "month", currency: "CAD" }, axis }]);
+        return r.total === null && /conversion/.test(r.refusal);
+      })());
+      ok("two billing periods refuse", (() => {
+        const r = totalOf([usd(10, axis), { price: { kind: PRICE_AMOUNT, amount: 5, per: "year", currency: "USD" }, axis }]);
+        return r.total === null && /cannot be added/.test(r.refusal);
+      })());
+      ok("two points on their selectors refuse", (() => {
+        const r = totalOf([usd(10, axis), usd(5, { teamSize: "6-10", billing: "monthly_none" })]);
+        return r.total === null && /different points/.test(r.refusal);
+      })());
+      ok("a price with no amount refuses rather than counting as zero", (() => {
+        const r = totalOf([usd(10, axis), { price: { kind: "on_request", ask: "Contact Sales" }, axis }]);
+        return r.total === null && /absent price is not zero/.test(r.refusal);
+      })());
+      ok("...and so does a missing price altogether", totalOf([usd(10, axis), { axis }]).total === null);
+    }
+
+    // ── Our side of it ─────────────────────────────────────────────────────
+    const counterpartKeys = elementsWith(jobber.html, "data-addon-counterpart").map((e) => e.value);
+    ok("every FieldQuo counterpart names a matrix entry",
+      counterpartKeys.length > 0 && counterpartKeys.every((k) => MATRIX_KEYS.includes(k)),
+      counterpartKeys.filter((k) => !MATRIX_KEYS.includes(k)).join(","));
+    ok("...and exactly the ones the mapping declares",
+      JSON.stringify([...counterpartKeys].sort()) ===
+        JSON.stringify(stack.items.flatMap((a) => [...ADD_ON_COUNTERPARTS[a.id]]).sort()),
+      counterpartKeys.join(","));
+    // The seven the owner named, resolved through the mapping rather than
+    // listed here twice.
+    for (const key of ["email_campaigns", "door_hanger_routes", "review_requests",
+      "voice_receptionist", "call_to_quote", "leads", "funnels"]) {
+      ok(`the mapping covers ${key}`, counterpartKeys.includes(key));
+    }
+    for (const key of counterpartKeys) {
+      const entry = matrixEntry(key);
+      const card = elementsWith(jobber.html, "data-addon-counterpart").find((e) => e.value === key);
+      ok(`${key}: prints the matrix's own name and proved sentence`,
+        card.text.includes(entry.name) && card.text.includes(entry.summary));
+      // A partly-built feature is never a bare tick. door_hanger_routes is the
+      // live case: we plan and track the walk and print nothing.
+      if (entry.readiness === "partial") {
+        ok(`${key}: is partial, so its limit is on the page`,
+          card.text.includes(entry.limits) && /data-addon-limits/.test(card.outer));
+      }
+    }
+    ok("at least one counterpart is only partly built, and says so",
+      counterpartsFor("jobber.addon.marketing_suite").some((e) => e.readiness === "partial") &&
+        /data-addon-limits="door_hanger_routes"/.test(jobber.html));
+    // The block says what it did NOT establish. We read a label and a price.
+    ok("the block says what is inside their add-on was not checked",
+      /is not something we have checked/i.test(jobber.text));
+
+    // ── The receptionist sentence, word for word ───────────────────────────
+    //
+    // The one claim in this block that is easy to make false by tidying it.
+    // "Included minutes" or "N conversations included" would describe a product
+    // we do not sell: lib/voice/credits.js is explicit that the talk time is
+    // prepaid credit and is NOT bundled as a number of conversations.
+    ok("the block makes the no-monthly-minimum claim",
+      jobber.text.includes(FIELDQUO_CAPABILITIES.ai_receptionist_no_monthly_floor.label));
+    ok("...in those words, not paraphrased", /no monthly minimum/i.test(jobber.text));
+    ok("...and says their floor is charged when the phone never rings",
+      /never rings/i.test(jobber.text));
+    for (const phrase of [
+      /included minutes/i,
+      /minutes included/i,
+      /conversations included/i,
+      /included conversations/i,
+      /free minutes/i,
+      /unlimited (calls|minutes)/i,
+    ]) {
+      ok(`the block never says ${phrase}`, !phrase.test(jobber.text));
+    }
+    ok("...and still says the talk time is prepaid credit", /prepaid credit/i.test(jobber.text));
+
+    // ── Nobody else gets one ───────────────────────────────────────────────
+    for (const p of pages.filter((x) => x.competitorId !== "jobber")) {
+      ok(`${p.slug}: no add-on block, because no add-on prices were read`,
+        !/data-addon-stack/.test(p.html) && !/data-addon-total/.test(p.html));
+    }
+    // And the whole block leaves with the prices when the reading goes stale —
+    // the same degradation the figure rows have, asserted rather than assumed.
+    {
+      const stale = renderAtDate("fieldquo-vs-jobber", "2026-12-01");
+      ok("ninety-five days on, the add-on block is gone", !/data-addon-stack/.test(stale));
+      ok("...and its total with it", !stale.includes(`$${stack.total}`));
+      ok("...while the concessions stay",
+        FIELDQUO_LACKS.every((k) => stale.includes(`data-lacks="${k}"`)));
+    }
   }
 
   console.log(

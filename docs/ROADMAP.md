@@ -890,6 +890,64 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The $177 a month Jobber charges on top of the plan is now on /pricing and
+  on /compare/fieldquo-vs-jobber. `app/(marketing)/compare/addOns.js`,
+  `AddOnStack.js`.**
+
+  Marketing Suite $99, AI Receptionist $29 and Sales Pipeline $49 — all three
+  already verified in `lib/marketing/competitors.js` under `addOns`, which is a
+  SEPARATE array from `figures` and is why a naive read of that module finds
+  nothing. FieldQuo does all three inside the plan, so the comparison is worth
+  more on the page that asks for money than on the page nobody visits.
+
+  Two things carry the honesty. The TOTAL is computed by `totalOf`, which is
+  pure and REFUSES rather than sums whenever the items are not the same kind of
+  thing — two currencies (that is a conversion), two billing periods, two
+  points on the competitor's own selectors, or one add-on with no stated
+  amount. None of those refusals can happen in today's data, which is exactly
+  why they are executed against fixtures rather than left to the data staying
+  convenient. And our side is `ADD_ON_COUNTERPARTS`: matrix KEYS, validated at
+  module load, printed from the matrix's own name and summary — so the block
+  cannot name a feature we do not ship, and `door_hanger_routes` renders its
+  `limits` rather than a tick.
+
+  The receptionist claim is the narrow one and must stay narrow: **no monthly
+  minimum**, never "included". Their $29 is a floor charged in a month when the
+  phone never rings; our talk time is prepaid credit (`lib/voice/credits.js`).
+  `check:compare-pages` and `check:pricing-page` both fail on "included
+  minutes", on a converted figure, on an amount `withholdReason` refused, and on
+  the total appearing as a literal in any of the three files that could type it.
+  The block empties itself 90 days after the reading, like every other figure.
+
+- **Lead triage is explained as what it is, and funnels have their own page.
+  `/features/leads`, `/features/lead-funnels`.**
+
+  The owner asked for a page showing "our AI" assessing hot/warm/cold. It is
+  not AI — `lib/leads/score.js` is a transparent weighted sum, deliberately, and
+  its header says why: "a black-box number nobody trusts gets ignored, and an
+  ignored score is a dead control". That is the better story, so the page tells
+  it: what is weighed and in what order, that the reasons are printed beside the
+  lead with their points, and that changing an answer moves the temperature.
+
+  The order is not decoration. `check:feature-pages` RUNS the real scorer and
+  fails if timing stops beating the biggest budget, if budget stops beating the
+  emergency flag, if a phone stops beating an email, or if the page lists them
+  in a different order than the code weighs them. No point value is printed on
+  the page — a weight in marketing copy is a number nobody re-checks — and a
+  bank of patterns fails the build on "our AI scores", "learns about you",
+  "gets smarter" and the rest, while still requiring the page to say outright
+  that there is no model.
+
+  `/features/lead-funnels` covers the part nobody advertises: per-STEP drop-off,
+  measured against the previous screen rather than the first. The closed set of
+  seven screen kinds, the branch an answer can name, and the fact that the
+  public estimate endpoint reads only a step id and a band id from the visitor
+  (non-negotiable #5) are all asserted against the shipped code.
+
+  **Left alone deliberately:** the header of `scripts/check-lead-scoring.mjs`
+  says "ASAP timeline 25". `TIMELINE_POINTS.asap` is 35. The comment is stale,
+  not the code.
+
 - **The settings sidebar is deny-by-default, and a build fails when a row has
   no rule. `lib/permissions/settingsAccess.js`,
   `scripts/check-settings-access.mjs`.**
