@@ -806,8 +806,26 @@ section("Structure");
   );
   ok(
     "the visit belongs to a client record",
-    avail.includes("db.client.create") && avail.includes("db.client.findFirst"),
+    avail.includes("db.client.create") && avail.includes("matchCallerToClient"),
     "",
+  );
+  // ── And it is found the way the rest of the product finds people ────────
+  //
+  // This used to assert `db.client.findFirst` was present, which is exactly the
+  // line that had to go: `where: { companyId, phone }` is an EXACT string
+  // compare, so a caller ringing from +18192387263 never matched their own
+  // record reading "819-238-7263" and a new client was minted on every booking.
+  // Four rows for one man then made him ambiguous to the drafter, which
+  // correctly refuses to guess — so the next call attached to nobody and the
+  // quote opened with no client and the wrong province's tax.
+  //
+  // Inverted, so the old line cannot come back: the assertion is now that the
+  // raw compare is ABSENT and the shared normalising matcher is used.
+  ok(
+    "...found by the shared matcher, never by comparing phone strings raw",
+    !/findFirst\(\{\s*where:\s*\{\s*companyId,\s*phone\s*\}/.test(avail) &&
+      avail.includes("clientCandidates("),
+    "toE164 normalisation is the whole point — see matchCallerToClient",
   );
   ok(
     "and it goes through the shared finalise step",

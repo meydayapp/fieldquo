@@ -559,5 +559,66 @@ ok(
   "and the reason parameter says who reads it, because that is what makes a model write a useful one",
 );
 
+/* ═══════ What a quote call has to come away with ═════════════════════════
+ *
+ * A real quote call: the agent took a name, a number, an address, thirty doors,
+ * five drawers and a colour — and never asked for an email. It only got one
+ * because the caller volunteered it after the booking was already made. Nobody
+ * can SEND a quote to a phone number, so the single fact that decides whether
+ * the quote can be delivered was the one nothing asked for.
+ *
+ * The same call never called save_caller either: leadId null, so the address,
+ * the door count and the email were written down nowhere at all. The prompt
+ * only ever named save_caller on the path where booking FAILED — an agent that
+ * successfully booked was never told to save anybody.
+ */
+const quotePrompt = buildAgentPrompt({
+  company,
+  services: ["Cabinet refinishing"],
+  visit: free,
+  quoteTopics: [{ label: "Cabinet refinishing", asks: ["how many doors there are"] }],
+  upsells: [{ service: "Cabinet refinishing", offers: ["New handles — supply & install"] }],
+});
+
+ok(
+  /GET ALL FOUR OF THESE/.test(quotePrompt),
+  "a quote call is told the four contact facts are required, not hoped for",
+);
+ok(
+  /Their EMAIL/.test(quotePrompt) && /quote nobody can send is not a quote/.test(quotePrompt),
+  "and the email is called out by name, with the reason — it is the one that gets forgotten",
+);
+ok(
+  /AND YOU MUST CALL save_caller/.test(quotePrompt),
+  "save_caller is unconditional, not something only the failed-booking path mentions",
+);
+ok(
+  /Booking somebody in is NOT saving them/.test(quotePrompt),
+  "and the specific confusion is named: a call that books and never saves leaves a time belonging to nobody",
+);
+ok(
+  /call save_caller with callback_requested set/.test(promptFor(none)),
+  "the old callback instruction still stands on the path that cannot book",
+);
+
+// Selling, on the one call where it is the job rather than an intrusion.
+ok(
+  /WHEN THEY ARE ASKING FOR A QUOTE, RAISE ONE/.test(quotePrompt),
+  "an extra is raised on a quote call — the moment they describe the work is the only moment anyone can ask",
+);
+ok(
+  /an extra nobody wrote down is one nobody sells/.test(quotePrompt),
+  "and whatever they answer goes to save_caller, because the person ringing back quotes what was written down",
+);
+ok(
+  /Never if they said no, never if they sound in a hurry/.test(quotePrompt),
+  "while the anti-badgering rules survive intact",
+);
+// Rule one is absolute and this section is the likeliest place to erode it.
+ok(
+  !/[$€£]\s?\d/.test(quotePrompt),
+  "and none of it puts a figure in the agent's mouth",
+);
+
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

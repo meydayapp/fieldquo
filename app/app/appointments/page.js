@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Headset,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
@@ -562,6 +563,30 @@ export default function AppointmentsPage() {
                   {appt.requiresSupervisor && (
                     <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 shrink-0">
                       <ShieldAlert size={12} />{t("app.appts.supervisorRequired")}</span>
+                  )}
+                  {/* ── Who arranged this: a person, or the robot ───────────
+                      Booking.source is "phone_assistant" when the AI
+                      receptionist took the booking on a call, and null for the
+                      overwhelming majority a client made themselves — which is
+                      why this is a quiet qualifier in the muted colour rather
+                      than another coloured pill. Somebody driving to a job is
+                      entitled to know that nobody in the company ever spoke to
+                      this customer.
+
+                      Read off `appt.booking`, which is the one shape both
+                      calendar sources share: an Appointment carries its
+                      Booking through a relation, and an unconverted Booking
+                      gets the same sub-object from bookingToCalendarEntry.
+
+                      Both feeds carry it: the appointment route selects
+                      `source` beside `endTime`, and bookingToCalendarEntry
+                      passes it through in the same shape — deliberately the
+                      same shape, because a badge that showed on converted
+                      bookings and vanished on identical unconverted ones would
+                      read as a data problem rather than a rendering one. */}
+                  {appt.booking?.source === "phone_assistant" && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <Headset size={12} />{t("app.schedule.bookedByAssistant")}</span>
                   )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1">

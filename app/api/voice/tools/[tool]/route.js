@@ -334,6 +334,9 @@ async function book(ctx, args) {
 
   const result = await bookSlot({
     companyId: ctx.companyId,
+    // So the client the appointment lands on is the client the quote drafted
+    // from this same call lands on.
+    callId: ctx.id,
     slotId: String(args.slot || ""),
     name,
     phone: toE164(phone),

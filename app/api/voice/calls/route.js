@@ -104,7 +104,7 @@ export async function GET(request) {
           id: { in: bookingIds },
           eventType: { companyId: member.companyId },
         },
-        select: { id: true, startTime: true, status: true, appointmentId: true },
+        select: { id: true, startTime: true, status: true, appointmentId: true, mode: true },
       })
     : [];
   const bookingById = new Map(bookings.map((b) => [b.id, b]));
@@ -224,7 +224,16 @@ export async function GET(request) {
         ? (() => {
             const b = bookingById.get(c.bookingId);
             return b
-              ? { at: b.startTime, status: b.status, onCalendar: Boolean(b.appointmentId) }
+              ? {
+                  at: b.startTime,
+                  status: b.status,
+                  onCalendar: Boolean(b.appointmentId),
+                  // What was actually arranged. The badge read "Booked a visit"
+                  // for every one of these, including the callbacks — a caller
+                  // who agreed to a phone call at three appeared on the screen
+                  // as somebody expecting a van.
+                  mode: b.mode || "visit",
+                }
               : null;
           })()
         : null,

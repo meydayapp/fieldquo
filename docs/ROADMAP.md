@@ -890,6 +890,51 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Six Emilios, one bad string compare. `lib/voice/availability.js`,
+  `lib/voice/prompt.js`, `lib/voice/tools.js`, `lib/ai/callQuoteDraft.js`.**
+
+  A quote call came in and the back office showed: no client attached, no lead,
+  no email, Ontario tax on a job in Gatineau, and a sixth duplicate client row
+  for a man who already had five.
+
+  **The root cause is one line.** `bookSlot` matched clients with
+  `where: { companyId, phone }` — an exact string compare. The caller rings from
+  `+18192387263`; their record says `819-238-7263`; nothing matches; a new
+  client is created. Every booking from that number minted another one. Four
+  records for one man then made him AMBIGUOUS to `matchCallerToClient`, which
+  correctly refuses to guess — so the next call attached to nobody, the quote
+  builder opened with no client, and with no client there is no address, so tax
+  fell back to the company's own province. One comparison, three screens of
+  consequences. It uses `clientCandidates` + `matchCallerToClient` now, the
+  matcher that already normalised through `toE164`; on a genuine tie it takes
+  the OLDEST record and writes the reason into the appointment notes, because a
+  booking cannot decline to attach the way a draft can — somebody is expected at
+  three o'clock.
+
+  **`save_caller` was never called on that call.** `leadId` was null, so the
+  address, the door count and the email were written down nowhere. The prompt
+  named `save_caller` only on the path where booking FAILED: an agent that
+  successfully booked was never told to save anybody. It is unconditional now,
+  and says the specific confusion out loud — booking somebody in is not saving
+  them.
+
+  **Nothing ever asked for an email.** The agent collected a name, a number, an
+  address, thirty doors, five drawers and a colour, and got an email only
+  because the caller volunteered it after the booking. Nobody can send a quote
+  to a phone number. A quote call now has four required facts — name, phone,
+  email, address — stated separately from the trade questions, which stay
+  optional: the door count can be filled in by whoever rings back, and the
+  address the quote is sent to cannot.
+
+  **And it sells.** The upsell section was written against badgering, which is
+  right for someone ringing to ask when you open and wrong for someone in the
+  middle of deciding what to buy. On a quote call it now raises the one extra
+  that fits and asks whether to include it — the caller on this call volunteered
+  "I might want to change the handles as well" unprompted, which is what this
+  looks like when it works. Whatever they answer goes to `save_caller`: the
+  person ringing back quotes what was written down, and an extra nobody wrote
+  down is one nobody sells.
+
 - **The call drafts its own quote now, and the screen became a queue.
   `lib/voice/autoDraft.js`, `lib/ai/callQuoteDraft.js`,
   `app/api/voice/webhook/route.js`, `app/api/voice/calls/route.js`,

@@ -1251,7 +1251,7 @@ ok("...and read naturally when there are two", modePhrase(["call", "visit"]) ===
 
 section("17. Booking one, executed");
 
-async function book({ modes, mode, address }) {
+async function book({ modes, mode, address, clients = [] }) {
   resetDb();
   globalThis.__FQ_ROWS.company = [
     { id: "co_1", bookingModes: modes, stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto" },
@@ -1261,10 +1261,12 @@ async function book({ modes, mode, address }) {
   ];
   globalThis.__FQ_ROWS.booking = [];
   globalThis.__FQ_ROWS.appointment = [];
-  globalThis.__FQ_ROWS.client = [];
+  globalThis.__FQ_ROWS.client = clients;
+  globalThis.__FQ_ROWS.voiceCall = [{ id: "vc_1", companyId: "co_1" }];
   const when = Date.now() + 86400000;
   const res = await bookSlot({
     companyId: "co_1",
+    callId: "vc_1",
     slotId: `freeXX_${when}`,
     name: "Marc Tremblay",
     phone: "+18192387263",
@@ -1297,6 +1299,65 @@ async function book({ modes, mode, address }) {
   // The model asking for something the company does not do.
   const { booking } = await book({ modes: ["visit"], mode: "call", address: "12 Rue Principale" });
   ok("a mode the company does not offer is not honoured", booking?.mode === "visit", json(booking?.mode));
+}
+
+/* ─────── The raw string compare that made six Emilios ─────────────────── */
+//
+// bookSlot matched `where: { companyId, phone }` — an EXACT string compare. The
+// caller rings from +18192387263, their client record says "819-238-7263", so
+// nothing matched and a new client was created. Every booking from that number
+// minted another one. By the time anybody looked there were four records for
+// one man, which made him AMBIGUOUS to the quote drafter — so the next call
+// attached to nobody, and the quote opened with no client, no address, and
+// Ontario tax on a job in Gatineau. One bad comparison, three screens of
+// consequences.
+{
+  const existing = [
+    { id: "cl_old", companyId: "co_1", name: "Marc Tremblay", phone: "819-238-7263", email: null, createdAt: new Date("2026-01-01") },
+  ];
+  const { res } = await book({ modes: ["call"], mode: "call", clients: existing });
+  ok("a number stored in human format still matches the E.164 the phone gives us", res.ok === true);
+  ok(
+    "...and NO second client is created",
+    globalThis.__FQ_ROWS.client.length === 1,
+    json(globalThis.__FQ_ROWS.client.map((c) => c.phone)),
+  );
+  ok(
+    "...the appointment lands on the record that already had their history",
+    globalThis.__FQ_ROWS.appointment[0]?.clientId === "cl_old",
+    json(globalThis.__FQ_ROWS.appointment[0]?.clientId),
+  );
+  ok(
+    "...and the client is written back onto the call, so the quote drafts onto the same person",
+    globalThis.__FQ_WRITES.some((w) => w.model === "voiceCall" && w.data?.clientId === "cl_old"),
+    json(globalThis.__FQ_WRITES.filter((w) => w.model === "voiceCall").map((w) => w.data)),
+  );
+}
+{
+  // Several match. A booking cannot decline to attach — somebody is expected at
+  // three o'clock — so it takes the oldest and SAYS so, rather than minting the
+  // duplicate that caused the ambiguity in the first place.
+  const dupes = [
+    { id: "cl_a", companyId: "co_1", name: "Marc", phone: "819-238-7263", email: null, createdAt: new Date("2026-01-01") },
+    { id: "cl_b", companyId: "co_1", name: "Marc T", phone: "+18192387263", email: null, createdAt: new Date("2026-06-01") },
+  ];
+  const { appointment } = await book({ modes: ["call"], mode: "call", clients: dupes });
+  ok(
+    "with several matches it does not create a seventh",
+    globalThis.__FQ_ROWS.client.length === 2,
+    json(globalThis.__FQ_ROWS.client.length),
+  );
+  ok("...it takes the oldest record", appointment?.clientId === "cl_a", json(appointment?.clientId));
+  ok(
+    "...and the guess is written where the person ringing back will read it",
+    /More than one client/.test(appointment?.notes || ""),
+    json(appointment?.notes),
+  );
+}
+{
+  // Nobody on file: still creates, as it always did.
+  const { res } = await book({ modes: ["call"], mode: "call", clients: [] });
+  ok("a genuinely new caller still gets a client record", res.ok === true && globalThis.__FQ_ROWS.client.length === 1);
 }
 // The sentence the caller actually hears.
 {

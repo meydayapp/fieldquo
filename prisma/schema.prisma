@@ -3409,6 +3409,15 @@ model Booking {
   // Stored because it changes what the crew does that morning — driving to an
   // address or ringing a number — and the confirmation email has to say which.
   mode          String        @default("visit")
+  /// Who took this booking. null = the client booked it themselves on the web,
+  /// which is the overwhelming majority and needs no badge. "phone_assistant"
+  /// means the AI receptionist took it on a call.
+  ///
+  /// Stored rather than derived from VoiceCall.bookingId: the calendar renders
+  /// appointments, reaches a booking through one relation already, and would
+  /// need a third query per row to answer "did a robot arrange this?" — which
+  /// is a question the person driving there is entitled to have answered.
+  source        String?
   status        BookingStatus @default(confirmed)
   // The estimate that prompted this visit, when there was one. An instant
   // estimate ends with "book a visit"; without this the booking and the quote

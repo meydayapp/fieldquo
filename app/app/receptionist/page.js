@@ -35,6 +35,32 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 
 const money = (c) => `$${(Number(c || 0) / 100).toFixed(2)}`;
 
+// What the booking badge says, per mode.
+//
+// The receptionist arranges callbacks and video calls as well as visits (see
+// phoneBookableModes in lib/voice/visitPath.js — a callback is the DEFAULT for
+// a company that charges for consultations), and this badge said "Booked a
+// visit" for all three. A caller who agreed to a phone call at three appeared
+// on this screen as somebody expecting a van.
+//
+// The canonical wording table is MODE_WORDS in lib/voice/visitPath.js, and this
+// is deliberately not an import of it. Nothing in that module is server-only —
+// it pulls in lib/booking/fee.js and lib/currency.js, both dependency-free and
+// safe in a browser bundle — so the reason is not reachability. It is that
+// MODE_WORDS holds untranslated English the agent SPEAKS aloud ("someone will
+// come out to you"), while this badge is read by contractors in six languages
+// and has to go through t(). One table cannot be both, so the distinction — not
+// the strings — is mirrored, in app/i18n/appMessages.js next to bookedVisit.
+//
+// `mode` is one of call | visit | video and defaults to "visit" server-side
+// (app/api/voice/calls/route.js); the fallbacks here cover an older row or a
+// mode this build doesn't know, which reads as a visit rather than as nothing.
+const BOOKED_KEYS = {
+  visit: { at: "app.receptionist.bookedVisitAt", plain: "app.receptionist.bookedVisit" },
+  call: { at: "app.receptionist.bookedCallAt", plain: "app.receptionist.bookedCall" },
+  video: { at: "app.receptionist.bookedVideoAt", plain: "app.receptionist.bookedVideo" },
+};
+
 function duration(sec) {
   const s = Math.max(0, Number(sec) || 0);
   const m = Math.floor(s / 60);
@@ -465,11 +491,12 @@ function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDat
             <History size={13} /> {t("app.receptionist.recoveredLead")}
           </span>
         )}
-        {/* The visit, WHEN it is, and a way to reach it. This was a green pill
-            with no time, no name and no href — the contractor was told a visit
-            had been booked and given nothing to find it with. It now goes to
-            the calendar, where the appointment created alongside the booking
-            actually appears (see lib/voice/availability.js). */}
+        {/* What was arranged, WHEN it is, and a way to reach it. This was a
+            green pill with no time, no name and no href — the contractor was
+            told a visit had been booked and given nothing to find it with. It
+            now goes to the calendar, where the appointment created alongside
+            the booking actually appears (see lib/voice/availability.js).
+            The wording follows the booking's mode; see BOOKED_KEYS. */}
         {call.bookingId && (
           <Link
             href="/app/appointments"
@@ -477,10 +504,10 @@ function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDat
           >
             <CalendarCheck size={13} />
             {call.booking?.at
-              ? t("app.receptionist.bookedVisitAt", {
+              ? t(BOOKED_KEYS[call.booking?.mode]?.at || BOOKED_KEYS.visit.at, {
                   when: formatDateTime(call.booking.at),
                 })
-              : t("app.receptionist.bookedVisit")}
+              : t(BOOKED_KEYS[call.booking?.mode]?.plain || BOOKED_KEYS.visit.plain)}
           </Link>
         )}
         {/* The gated proxy, not the provider's URL — see

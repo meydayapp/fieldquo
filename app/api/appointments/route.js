@@ -53,7 +53,11 @@ export async function GET(request) {
       // so one created from a booking is the only kind we can say anything
       // definite about — and the travel check stays silent rather than
       // assuming an hour for the rest. See lib/booking/travel.js travelLegs.
-      booking: { select: { endTime: true } },
+      // `source` rides along with the end time: the calendar badges a booking
+      // the AI receptionist took, and somebody driving to a job is entitled to
+      // know a robot arranged it. Selected here rather than derived from
+      // VoiceCall.bookingId, which would be a third query per row.
+      booking: { select: { endTime: true, source: true } },
     },
     orderBy: { scheduledAt: "asc" },
   });
