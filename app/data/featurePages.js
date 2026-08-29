@@ -31,14 +31,107 @@
 // and change orders (there is no such object anywhere in the product).
 // scripts/check-feature-pages.mjs renders every page and fails on all three.
 //
-// ══ English only, on purpose, and the debt that creates ════════════════════
+// ══ One page per subject, playing one of two roles ═════════════════════════
+//
+// /pricing names 29 features (PRICING_FEATURES below). Each one gets a page,
+// and a page says which of the 29 it is by carrying `feature`.
+//
+// 17 of those 29 pages already existed under this route — /features/invoicing
+// IS the invoices page, /features/team IS the team-access page — so they were
+// declared rather than duplicated. Minting /features/invoices beside
+// /features/invoicing would have put two pages about one subject on one site:
+// they compete for the same search, they drift the first time one is edited,
+// and whichever a visitor lands on is a coin toss. That is the marketing form
+// of shipping two controls that look like they do the same thing.
+//
+// So the two levels are roles, not routes:
+//
+//   feature   set  → this page is THE page for that one of the 29, and owes
+//                    the reader `details`: specifics read out of the very files
+//                    that entry names in `proof`.
+//   features       → everything the page claims. A canonical page whose list
+//                    runs past its own `feature` is ALSO a hub, and the
+//                    renderer derives a "More in this area" strip from the
+//                    extra keys — so a page cannot list a feature and then
+//                    fail to point at the page about it.
+//
+// A page with no `feature` (leads, marketing, crew, reporting, languages…) is a
+// pure hub: it sells the area and hands off. Nothing was orphaned and no
+// redirect was needed, because no slug moved.
+//
+// `image` is rare on purpose. public/marketing holds four real product
+// screenshots and no more can be made — the app is behind a login — so an image
+// goes only where the picture shows THAT page's subject. Two of the four are
+// misnamed and their own alt text says so: hero-scheduling.webp is the client's
+// booking page, hero-invoicing.webp is a quote with an Approve button. Every
+// other page is built to work without one; `details` is the device that carries
+// it, rather than a borrowed screenshot or a gradient block pretending to be a
+// product shot.
+//
+// ══ English prose, translatable claims, and the debt that leaves ═══════════
 //
 // Following app/data/productFeatures.js: a plain English data module, not the
-// t() catalogue. The site is six languages elsewhere, so this is a real debt
-// and it is written down here rather than discovered later — see the header of
-// app/(marketing)/features/[slug]/page.js for the shape the fix would take.
+// t() catalogue. `headline`, `oneLine`, `description`, `pains`, `how` and
+// `details` therefore render in English in all six languages, and that is a
+// real debt written down here rather than discovered later.
+//
+// What is NOT in that debt is the part a visitor reads as a claim. Every
+// feature name and summary comes from the matrix, every `Where this stops`
+// limit comes from the matrix, and every image `alt` carries `altKey` — an
+// existing catalogue key that is already translated into all six. Those move
+// the day lib/marketing/featureLabels.js lands, without this file changing.
+// See the header of app/(marketing)/features/[slug]/page.js for the seam.
 
 import { MATRIX_KEYS, matrixEntry } from "@/lib/marketing/featureMatrix";
+
+/**
+ * The features /pricing names, in the order /pricing names them.
+ *
+ * The pricing page holds the same list (HEADLINE_FEATURES in PricingPlans.js)
+ * and that file belongs to the pricing surface, so this is a second copy and it
+ * is the one that would rot. scripts/check-feature-pages.mjs therefore reads
+ * the pricing page and fails when the two lists disagree — the duplication is
+ * allowed to exist only because something asserts it away.
+ *
+ * The contract this list creates: every key on it has exactly one page whose
+ * `feature` is that key. A visitor who reads a name on the pricing page can
+ * always get to the page about it.
+ */
+export const PRICING_FEATURES = Object.freeze([
+  // Winning the work
+  "quotes",
+  "ai_quote_review",
+  "voice_receptionist",
+  "call_to_quote",
+  "instant_quotes",
+  "add_on_upsell",
+  "follow_ups",
+  "booking_page",
+  "website_builder",
+  // Doing the job
+  "scheduling",
+  "jobs",
+  "job_costing",
+  "materials",
+  "job_photos",
+  "time_clock",
+  "crew_inbox",
+  // Getting paid
+  "invoices",
+  "card_payments",
+  "financing",
+  "invoice_changes",
+  "client_portal",
+  "sales_tax",
+  // Running the business
+  "payroll",
+  "break_even",
+  "price_book",
+  "expenses",
+  "ai_copilot",
+  "white_label",
+  "team_access",
+]);
 
 /**
  * The pages, in the order the index renders them within their group.
@@ -55,6 +148,59 @@ const PAGES = [
     slug: "quotes",
     group: "winning_work",
     label: "Quotes and estimates",
+    image: {
+      src: "/marketing/hero-quotes.webp",
+      alt:
+        "A contractor building a quote on a tablet outside a client's home while she reviews it on her phone",
+      altKey: "hero.tabs.quotes.alt",
+      width: 1400,
+      height: 1050,
+      caption:
+        "A quote being built at the house, off the contractor's own service list and their own rates.",
+    },
+    inlineImage: {
+      src: "/marketing/hero-invoicing.webp",
+      alt:
+        "A client reading a quote on their phone, with an Approve button at the bottom",
+      altKey: "hero.tabs.invoicing.alt",
+      width: 1400,
+      height: 1050,
+      caption:
+        "The same quote as the client gets it: the contractor's logo, the contractor's colour, and an Approve button at the bottom. What they saw at the moment they signed is recorded with the signature.",
+    },
+    feature: "quotes",
+    details: [
+      {
+        label: "One builder, two doors",
+        body:
+          "Creating a quote and editing one are the same screen. They were once two, and they taxed differently — one on the gross subtotal, the other after the discount — so the same quote had two totals depending on which screen saved it last.",
+      },
+      {
+        label: "Saved first, sent second",
+        body:
+          "A quote is always written down as a draft before anything is emailed. A send that fails leaves you a draft to retry, never a quote marked as sent that nobody received.",
+      },
+      {
+        label: "Your wording is copied onto the document",
+        body:
+          "Your terms and your what-happens-next are stored on the quote itself, so changing your defaults in March does not rewrite what you sent in February.",
+      },
+      {
+        label: "Thirty days, unless you say otherwise",
+        body:
+          "Expiry defaults to thirty days, worked out from the calendar rather than from a clock so the change of hour never moves the date. Clearing the box means no expiry, and that is honoured rather than quietly refilled.",
+      },
+      {
+        label: "The discount stored is the one that applied",
+        body:
+          "A discount bigger than the quote is clamped before it is saved, so a stored figure can never contradict the total printed beside it.",
+      },
+      {
+        label: "Lines freeze when the quote is decided",
+        body:
+          "Once a quote is past draft or sent, its line items are locked.",
+      },
+    ],
     headline: "Price the job once, and send it before you leave the driveway",
     oneLine:
       "Build a quote from your own rates, send it as a PDF in your colours, and let the client sign it online.",
@@ -113,6 +259,39 @@ const PAGES = [
     slug: "ai-quote-review",
     group: "winning_work",
     label: "AI quote review",
+    feature: "ai_quote_review",
+    details: [
+      {
+        label: "Most of it is arithmetic",
+        body:
+          "The completeness checks and the price comparison are computed, not written by a model. If the model is unavailable the computed half still comes back — you lose the wording suggestions, not the review.",
+      },
+      {
+        label: "Compared against your own won work",
+        body:
+          "Prices are compared with your own accepted and declined quotes and nobody else's. With fewer than five comparable jobs it says it has not got enough to go on, rather than judging you against four.",
+      },
+      {
+        label: "The middle, not the average",
+        body:
+          "One enormous job does not drag the comparison. High means above your own upper quartile and more than a quarter over the middle; low means under seventy per cent of it.",
+      },
+      {
+        label: "What it counts as missing",
+        body:
+          "No expiry, an expired one, no client email, no line items, the whole job as a single line, vague descriptions, no terms, no photos. Each carries a weight and the readiness score is what is left of a hundred.",
+      },
+      {
+        label: "It reads photos for you, not for the client",
+        body:
+          "Only actual photographs go to the model, the number of them is stated so it cannot invent more, and it is forbidden to state a measurement, a material or a brand from a picture. The notes come back for the estimator.",
+      },
+      {
+        label: "It never rewrites what you wrote",
+        body:
+          "Suggested terms and wording are offered only when the quote has none of its own. It will not rewrite a paragraph you already wrote, so a review never quietly changes a sentence you meant to send.",
+      },
+    ],
     headline: "A second read of the quote before the client gets it",
     oneLine:
       "It reads the quote you just built and tells you what is missing, where the price sits against the ones you have won, and which sentences a homeowner will not understand.",
@@ -310,6 +489,39 @@ const PAGES = [
     slug: "ai-receptionist",
     group: "winning_work",
     label: "AI receptionist",
+    feature: "voice_receptionist",
+    details: [
+      {
+        label: "Seven rules that override anything you type into it",
+        body:
+          "Never give a price, not even a range. Never promise a time it has not offered. Never agree scope or a warranty. Say it is an assistant if the caller asks. Send gas, fire, flooding and sewage to emergency services and take a callback. Never guess your services or your hours. Never take card details.",
+      },
+      {
+        label: "The company is decided by the number dialled",
+        body:
+          "Which company a caller has reached is worked out from the number they rang and from nothing else in the call, so nothing a caller says can put them through to another company’s diary.",
+      },
+      {
+        label: "Three times, at most",
+        body:
+          "When it offers appointments it offers up to three, because a longer list read out loud is not a list.",
+      },
+      {
+        label: "It will not take money on the phone",
+        body:
+          "A visit that carries a fee is not booked on the call. It points at your booking link rather than inventing a figure.",
+      },
+      {
+        label: "What it costs, in the open",
+        body:
+          "Thirty-five cents a minute. A local number is four dollars a month with no per-minute surcharge; a toll-free one is nine dollars and five cents a minute on top. Outbound calling is limited to the US and Canada, which is where those rates hold.",
+      },
+      {
+        label: "Money is added before the balance is checked",
+        body:
+          "When a call ends the charge is taken, any automatic top-up runs, and only then is the balance looked at again — so the phone does not go quiet in the gap.",
+      },
+    ],
     headline: "Your phone gets answered while you are up a ladder",
     oneLine:
       "A voice assistant on your own number takes the call, gets the details, books the visit, and leaves you the recording.",
@@ -359,6 +571,49 @@ const PAGES = [
     slug: "online-booking",
     group: "winning_work",
     label: "Online booking",
+    image: {
+      src: "/marketing/hero-scheduling.webp",
+      alt:
+        "A client picking an appointment time on a contractor's booking page on her phone",
+      altKey: "hero.tabs.scheduling.alt",
+      width: 1400,
+      height: 1120,
+      caption:
+        "The booking page as a homeowner sees it: real availability, the contractor's own name at the top, and no account to create.",
+    },
+    feature: "booking_page",
+    details: [
+      {
+        label: "A quarter-hour grid, in the worker's own timezone",
+        body:
+          "Times come off each person's availability with the appointment's own length and the buffers either side, and anything already in the past is gone.",
+      },
+      {
+        label: "Approved leave takes the whole day",
+        body:
+          "Including a half day. The request does not record which half, and inventing mornings would strand a homeowner in a driveway.",
+      },
+      {
+        label: "Travel is checked in both directions",
+        body:
+          "Can they reach this slot from the job before it, and reach the next one after it. Where the distance cannot be worked out the time is still offered — an unknown never hides a slot.",
+      },
+      {
+        label: "The address is looked up again on our side",
+        body:
+          "Coordinates that came from the browser are never trusted, because those coordinates decide which other times get offered.",
+      },
+      {
+        label: "Arrival windows are off unless you set one",
+        body:
+          "An exact time by default, capped at two hours, and shown to the client only — your crew keeps the exact time. The wording is written per language, because Punjabi puts the connector after the two times rather than between them.",
+      },
+      {
+        label: "A paid slot is held, not booked",
+        body:
+          "No appointment exists until the money lands. The hold lasts thirty minutes, and the payment can be confirmed three independent ways so a closed browser tab does not lose the booking.",
+      },
+    ],
     headline: "Let them book the estimate without ringing you",
     oneLine:
       "A booking page on your real availability, with travel time and arrival windows built in, and a deposit if you want one.",
@@ -413,6 +668,39 @@ const PAGES = [
     slug: "website",
     group: "winning_work",
     label: "Your own website",
+    feature: "website_builder",
+    details: [
+      {
+        label: "The model writes sentences and nothing else",
+        body:
+          "Section order, layout and style are picked from closed lists. It never emits a colour, a style rule or a piece of markup.",
+      },
+      {
+        label: "A list of things it may not invent",
+        body:
+          "Years in business, certifications, awards, insurance, guarantees, team size, warranty lengths, prices, payment plans and timelines. Your service names have to be reproduced exactly.",
+      },
+      {
+        label: "Generation is never load-bearing",
+        body:
+          "Every failure falls through to a site built from your own facts. The AI being down produces plainer writing, never a broken page.",
+      },
+      {
+        label: "Regenerating reads what is saved",
+        body:
+          "Not what is in your browser, so unsaved edits are not quietly published — and it carries your photos and the copy you wrote across.",
+      },
+      {
+        label: "Publishing is never a side effect",
+        body:
+          "Saving does not publish. It warns you before a placeholder picture goes live, and an unpublished site is visible to you and to nobody else.",
+      },
+      {
+        label: "Five questions, all optional",
+        body:
+          "How long you have been going, what makes you different, the job you would rather have, the area you cover, and the style you want. A style preset writes editable words into the box rather than setting something hidden.",
+      },
+    ],
     headline: "A website written from what you already told us",
     oneLine:
       "Your own site, on your own address, built from your services and your photos — and editable block by block when you disagree with it.",
@@ -462,6 +750,34 @@ const PAGES = [
     slug: "instant-estimates",
     group: "winning_work",
     label: "Instant estimates",
+    feature: "instant_quotes",
+    details: [
+      {
+        label: "The browser's figure is never the one kept",
+        body:
+          "Everything is measured and priced again on our side. The public page is never handed your rates — publishing a rate card openly hands it to every competitor in the city.",
+      },
+      {
+        label: "A budget answer is a position, not an amount",
+        body:
+          "The homeowner picks a band and the band is resolved against your own thresholds, so a cabinet shop's top band counts like a roofer's top band and neither one publishes a price.",
+      },
+      {
+        label: "A trade cannot be switched on until it prices",
+        body:
+          "Turning one on runs your rate card through the real pricer first. A hand-written copy of those rules once let a trade through on a price the pricer never read.",
+      },
+      {
+        label: "It arrives as a draft flagged for review",
+        body:
+          "Not as a quote to a client. You open it, correct it and send it.",
+      },
+      {
+        label: "The measurement kept is a fixed list",
+        body:
+          "Area, squares, pitch, tear-off layers, door and drawer counts and the like — not the whole imagery response.",
+      },
+    ],
     headline: "Give a number while they are still on your website",
     oneLine:
       "A visitor answers a few questions and gets a price range from rates you set — and you can measure the roof or the driveway without driving there.",
@@ -662,11 +978,280 @@ const PAGES = [
     related: ["quotes", "payroll", "job-costing"],
   },
 
+  {
+    slug: "quote-from-the-call",
+    group: "winning_work",
+    label: "A quote from the call",
+    feature: "call_to_quote",
+    details: [
+      {
+        label: "No price is ever said on the phone",
+        body:
+          "The rules the receptionist answers under sit above anything you type into it, and the first one is that it never gives a price — not even a range, not even when pushed.",
+      },
+      {
+        label: "The draft has no rates in it either",
+        body:
+          "What comes back is the work described, as scope. There is no path from a phone call to a priced document without an estimator opening it, so nothing reaches a client at a number nobody chose.",
+      },
+      {
+        label: "Reading it again is free",
+        body:
+          "The draft is kept against the call, so opening it a second time costs nothing. Only asking for a new one uses your AI allowance.",
+      },
+      {
+        label: "The quote itself is saved by a person",
+        body:
+          "The draft becomes a real quote only when somebody presses Save in the ordinary builder, through the ordinary checks.",
+      },
+      {
+        label: "Four named reasons instead of one shrug",
+        body:
+          "AI switched off, the service switched off, a call with no words in it, or nothing in the call that described work. And where there is no recording to read, the button is absent rather than present and broken.",
+      },
+      {
+        label: "Who can open the calls",
+        body:
+          "Calls open to the people who return calls. It is decided by the same access dial as the client list, so an estimator keeps them and crew do not.",
+      },
+    ],
+    headline: "The call becomes a draft quote, not a note you have to decipher",
+    oneLine:
+      "What the caller described comes back written up as scope you open, correct and price — from the words on the recording, with no prices in it.",
+    description:
+      "Turn a recorded call into a draft quote: the scope the caller described, written up for an estimator to correct and price. No price is ever quoted on the phone.",
+    pains: [
+      {
+        pain:
+          "You listen to a two-minute voicemail three times trying to work out which side of the house she meant.",
+        fix:
+          "The words on the call come back written up as scope, so you are correcting a draft rather than reconstructing one.",
+      },
+      {
+        pain:
+          "Somebody rings at four, and by the time you sit down at eight you have lost half of what they said.",
+        fix:
+          "The call is already a draft when you open the office. You edit it instead of starting it.",
+      },
+      {
+        pain:
+          "You would never let an answering service quote a number, and every one of them wants to.",
+        fix:
+          "This one cannot. There is no way for it to say a price out loud, and the draft it writes has no prices on it.",
+      },
+    ],
+    how: [
+      {
+        step: "It writes scope, never a price",
+        body:
+          "The draft is the work as the caller described it. Pricing is yours, done in the builder from your own price book, because a price given on the phone by something that has not seen the house is the fastest way to lose money on a job.",
+      },
+      {
+        step: "You ask for it, afterwards, in the office",
+        body:
+          "Drafting happens later and only when somebody with quoting access asks. The call itself does nothing but record what was said.",
+      },
+      {
+        step: "It tells you why when it cannot",
+        body:
+          "Four named answers rather than one error, so you know whether to turn something on, ring the caller back, or ignore it.",
+      },
+    ],
+    features: ["call_to_quote"],
+    related: ["ai-receptionist", "quotes", "online-booking"],
+  },
+  {
+    slug: "suggested-add-ons",
+    group: "winning_work",
+    label: "Suggested add-ons",
+    feature: "add_on_upsell",
+    details: [
+      {
+        label: "Eight, at most",
+        body:
+          "A quote carries up to eight optional extras. More than a handful is a second quote, and the cap says so rather than letting a list grow until nobody reads it.",
+      },
+      {
+        label: "Counted out of your own quotes",
+        body:
+          "The suggestions are the three things that most often appear alongside the work already on this quote, counted across your own recent sent and accepted quotes, each with the share of the time it turned up. There is no model involved and no other company's work in it.",
+      },
+      {
+        label: "Nothing free is offerable",
+        body:
+          "Saving an extra at zero or less is refused and the offending names are read back to you. The invoice is built from what the client ticked, so an unpriced tick would be an unpriced line on a bill.",
+      },
+      {
+        label: "Frozen once the quote is decided",
+        body:
+          "Editing extras on an accepted or declined quote is refused, because it would change what somebody is billed.",
+      },
+      {
+        label: "Measured extras look after themselves",
+        body:
+          "Extras derived from a measurement are worked out again every time you save and sit above the ones you wrote by hand, so an edit is never quietly overwritten.",
+      },
+    ],
+    headline: "The extras you meant to offer, at the bottom of the quote",
+    oneLine:
+      "Optional extras the client can tick, suggested from what you have actually sold alongside this work before, and priced by you rather than by a guess.",
+    description:
+      "Optional extras on a quote: suggested from your own accepted work, priced by you, ticked by the client, and carried onto the invoice exactly as they were chosen.",
+    pains: [
+      {
+        pain:
+          "You remember the handle upgrade on the drive home, and by then the quote has gone.",
+        fix:
+          "The extras that usually go with this work are proposed while you are still building it.",
+      },
+      {
+        pain:
+          "Upsell suggestions in other software are somebody else's catalogue with your name on the top.",
+        fix:
+          "The suggestion is counted out of your own quotes: what you sold beside this work, and how often.",
+      },
+      {
+        pain:
+          "A client ticks an extra and now the invoice and the quote disagree about the total.",
+        fix:
+          "Only the extras they ticked reach the invoice, and the invoice is built from those ticks rather than retyped.",
+      },
+    ],
+    how: [
+      {
+        step: "Counted, not guessed",
+        body:
+          "The suggestions come from counting what appears alongside this work across your last couple of hundred quotes, with the frequency stated so you can disagree with it.",
+      },
+      {
+        step: "You set the price, or there is no extra",
+        body:
+          "An extra with nothing on it is refused by name. A client cannot tick something that has no price.",
+      },
+      {
+        step: "It stops when the quote is decided",
+        body:
+          "Once the client has accepted or declined, the extras are fixed and the invoice is built from the ones they chose.",
+      },
+    ],
+    features: ["add_on_upsell"],
+    related: ["quotes", "ai-quote-review", "price-book"],
+  },
+  {
+    slug: "automatic-follow-ups",
+    group: "winning_work",
+    label: "Automatic follow-ups",
+    feature: "follow_ups",
+    details: [
+      {
+        label: "Three triggers, and only three",
+        body:
+          "A quote with no response, an invoice past its date, and a job just finished. Nothing else can be picked, because nothing else is wired to send.",
+      },
+      {
+        label: "Three days, five days, two days",
+        body:
+          "The defaults, in that order. Each rule sets its own number, in hours or in days.",
+      },
+      {
+        label: "Email, and the page says so",
+        body:
+          "There is one channel and it is declared once, so the diagram on your settings screen cannot draw a text-message branch that nothing would ever send. A build check fails if the drawing and the sending disagree.",
+      },
+      {
+        label: "It cannot double-send",
+        body:
+          "Each send is claimed before it goes out, so two runs overlapping cannot produce two copies of the same chase.",
+      },
+      {
+        label: "A job finished before we recorded finishing is left alone",
+        body:
+          "There is no date to count from, so it is skipped rather than chased on a guessed one.",
+      },
+      {
+        label: "A client with no email is counted, not chased",
+        body:
+          "Clients with no address, and rules with no wording, are reported as skipped rather than failing where nobody would see it.",
+      },
+    ],
+    headline: "The chase you keep meaning to do, done on a schedule",
+    oneLine:
+      "A quote that goes quiet, an invoice that goes past due and a job that has just finished each get a message on your timing, in your words.",
+    description:
+      "Automatic follow-up emails on three triggers: a quote with no answer, an overdue invoice and a finished job. Your wording, your delay, and the chase stops on its own.",
+    pains: [
+      {
+        pain:
+          "You ring them twice, they do not pick up, and three weeks later you hear they went with somebody else.",
+        fix:
+          "A quiet quote gets chased on your schedule, without you having to remember whose turn it is.",
+      },
+      {
+        pain:
+          "Chasing money makes you feel like a debt collector, so the invoice sits there instead.",
+        fix:
+          "The overdue note goes out in wording you wrote once, at the interval you set.",
+      },
+      {
+        pain:
+          "You send a chase and find out they paid last Tuesday.",
+        fix:
+          "Chasing stops because the quote or the invoice moved on. There is no separate switch to remember to flick.",
+      },
+    ],
+    how: [
+      {
+        step: "Three triggers, with your own delays",
+        body:
+          "A quote with no answer, an invoice past due, and a job just finished, each at the interval you choose in hours or days.",
+      },
+      {
+        step: "It stops by itself",
+        body:
+          "Nothing is marked as done chasing. A quote drops out because its status left sent, which means an answer, an acceptance or a payment ends the chase without anybody switching it off.",
+      },
+      {
+        step: "What it could not do, it tells you",
+        body:
+          "Clients with no email address and rules with no wording are counted and reported rather than silently passed over.",
+      },
+    ],
+    features: ["follow_ups"],
+    related: ["quotes", "invoicing", "leads"],
+  },
   // ── Doing the job ────────────────────────────────────────────────────────
   {
     slug: "scheduling",
     group: "doing_the_job",
     label: "Scheduling and dispatch",
+    feature: "scheduling",
+    details: [
+      {
+        label: "A visit moves the job forward, once",
+        body:
+          "Booking a visit moves a job from unscheduled to scheduled and no further, so a follow-up visit on a finished job does not drag it backwards.",
+      },
+      {
+        label: "Two weeks of the team, read three ways",
+        body:
+          "The team calendar covers fourteen days and merges appointments, job visits and bookings — with bookings already turned into appointments left out, so nobody is counted twice. Busiest person first.",
+      },
+      {
+        label: "Not allowed to see the team is not an error",
+        body:
+          "You get your own week and a plain statement that the team view is not yours. Asking after one particular person returns one deliberately generic sentence, so names cannot be fished out of the wording.",
+      },
+      {
+        label: "Assigning yourself is not assigning somebody else",
+        body:
+          "Putting yourself on a visit needs nothing special. Putting somebody else on one needs the right to assign, so a crew member can pick work up without being able to hand it out.",
+      },
+      {
+        label: "Shifts are drafted, then published",
+        body:
+          "An unpublished shift is invisible to the person on it. Scheduling somebody who is not available is refused with the reasons listed, and where the reason is approved leave there is no override button at all — not a greyed-out one.",
+      },
+    ],
     headline: "The whole crew's week on one screen",
     oneLine:
       "Put visits on the calendar, assign who is going, publish the rota, and let repeat work put itself back on.",
@@ -723,6 +1308,34 @@ const PAGES = [
     slug: "jobs",
     group: "doing_the_job",
     label: "Job management",
+    feature: "jobs",
+    details: [
+      {
+        label: "Archived and current are never mixed",
+        body:
+          "Asking for archived jobs returns archived jobs. No list quietly blends the two.",
+      },
+      {
+        label: "Crew see the jobs they are on",
+        body:
+          "Scoped by having a visit on the job, through one shared rule rather than a copy per screen. A job with no visits on it shows to nobody, which is deliberate.",
+      },
+      {
+        label: "Creating one is gated twice",
+        body:
+          "The coarse right to create a job, and then the level set on jobs itself.",
+      },
+      {
+        label: "One definition of what a job is",
+        body:
+          "The same creation path serves the quote route and the invoice route, so a job raised from either place is the same thing with the same checks.",
+      },
+      {
+        label: "Visits come back in the order they happen",
+        body:
+          "Each job carries its client and its visits sorted by date, so the list reads without a second lookup.",
+      },
+    ],
     headline: "The approved quote becomes the job, with the paperwork on it",
     oneLine:
       "Scope, address, tasks, checklists, materials and photos, in one place, for the person actually doing the work.",
@@ -835,6 +1448,44 @@ const PAGES = [
     slug: "job-costing",
     group: "doing_the_job",
     label: "Job costing",
+    feature: "job_costing",
+    details: [
+      {
+        label: "Only approved hours are a cost",
+        body:
+          "Hours still waiting on approval are reported separately and never folded into the total.",
+      },
+      {
+        label: "An unknown rate is not free labour",
+        body:
+          "Somebody with no hourly rate contributes hours and no money, and the total is marked as knowably short rather than quietly low.",
+      },
+      {
+        label: "Missing is not the same as nothing",
+        body:
+          "A job with no estimate has no variance and no margin figure at all — it is never reported as on budget.",
+      },
+      {
+        label: "The estimate is a snapshot",
+        body:
+          "Variance is measured against the costing saved when the quote was written, not against today's price book, and the date of that snapshot is shown beside it.",
+      },
+      {
+        label: "Nothing is recomputed while a quote sits still",
+        body:
+          "If a costing was saved it comes back exactly as saved — not one field refreshed — so no figure moves under you between one look and the next.",
+      },
+      {
+        label: "It is a separate read from the quote itself",
+        body:
+          "The quote's own response feeds the PDF and the client's link, so cost and margin cannot leak by accident.",
+      },
+      {
+        label: "Switched off means refused",
+        body:
+          "Not zeroes. A panel of zeroes reads as a job that cost nothing.",
+      },
+    ],
     headline: "Find out what the job made, while you can still do something about it",
     oneLine:
       "Labour, materials and expenses set against the price you quoted, job by job.",
@@ -887,11 +1538,362 @@ const PAGES = [
     related: ["jobs", "reporting", "price-book"],
   },
 
+  {
+    slug: "materials",
+    group: "doing_the_job",
+    label: "Materials on the job",
+    feature: "materials",
+    details: [
+      {
+        label: "The unit is part of what a material is",
+        body:
+          "The same material bought by the cubic yard and by the tonne is treated as two different purchases, because it is.",
+      },
+      {
+        label: "Untick it and the price history stays",
+        body:
+          "Unticking clears the cost, the supplier and who bought it. What was recorded about the price stays, because the purchase did happen.",
+      },
+      {
+        label: "Costs and counts are gated separately",
+        body:
+          "Somebody who may not see money still sees the list, the units and how much of it is bought. Only the amounts are removed, and the fact that they were removed is stated rather than left as a blank column.",
+      },
+      {
+        label: "Posting a cost you may not see is refused",
+        body:
+          "Refused outright, not accepted and dropped. Adding a line with no price on it still works.",
+      },
+      {
+        label: "Defaults when you add one by hand",
+        body:
+          "Quantity falls back to one and the unit to each. The line goes to the bottom and is marked as yours, so rebuilding the list leaves it alone.",
+      },
+    ],
+    headline: "What went on site, what it cost, and what is still to buy",
+    oneLine:
+      "A buy list derived from the scope you already quoted, ticked off as it is bought, with the real prices feeding back into what the next job is estimated at.",
+    description:
+      "A materials list built from the quote's own scope: what to buy, what it was estimated at, what it actually cost, and a price history that improves the next estimate.",
+    pains: [
+      {
+        pain:
+          "The list is on the back of a delivery note in the van and nobody else can see it.",
+        fix:
+          "The list is on the job, derived from the scope you already quoted, and anybody with access can see what is left.",
+      },
+      {
+        pain:
+          "You rebuild the list after a scope change and lose the three things you already bought.",
+        fix:
+          "Rebuilding keeps everything already bought and everything you typed in yourself. Only unbought derived lines are replaced.",
+      },
+      {
+        pain:
+          "You are still estimating gravel at last year's price because nobody wrote down what you paid.",
+        fix:
+          "The price you enter when you tick a line off becomes part of what the next estimate is built on.",
+      },
+    ],
+    how: [
+      {
+        step: "Derived from the scope, not typed twice",
+        body:
+          "Lines come from the same bill of materials the costing panel prices, using your own rate overrides where you have set them rather than a default nobody chose.",
+      },
+      {
+        step: "Rebuilding never destroys work",
+        body:
+          "Anything bought and anything added by hand survives, and it reports what was created, what was kept and what was removed rather than leaving you to notice.",
+      },
+      {
+        step: "Ticking it off teaches the price book",
+        body:
+          "A real cost entered on a purchase is recorded per unit and folded into a full average across every entry, so one mistyped receipt is diluted rather than becoming the new price.",
+      },
+    ],
+    features: ["materials"],
+    related: ["job-costing", "jobs", "price-book"],
+  },
+  {
+    slug: "job-photos",
+    group: "doing_the_job",
+    label: "Before and after photos",
+    feature: "job_photos",
+    details: [
+      {
+        label: "Four labels, not free text",
+        body:
+          "Start, progress, finish and problem. A closed list, so a gallery can be built out of it and no photo ends up in a category of one.",
+      },
+      {
+        label: "A problem photo cannot be featured",
+        body:
+          "Trying is refused with the reason and the fix — change the label first — rather than accepted and quietly skipped.",
+      },
+      {
+        label: "What a caption may be",
+        body:
+          "Up to two hundred characters. Clearing it stores nothing rather than an empty string, and a change with nothing in it is refused instead of counting as a save.",
+      },
+      {
+        label: "Looking and publishing are different rights",
+        body:
+          "Seeing the job's photos and choosing which appear on your website are separate levels, so a coordinator can look without publishing.",
+      },
+      {
+        label: "What may be sent up",
+        body:
+          "Photos to fifteen megabytes, video to a hundred, documents to twenty-five. Uploads are signed on our side and require you to be signed in — never an open door on the internet.",
+      },
+    ],
+    headline: "The photos your crew already takes, filed against the job",
+    oneLine:
+      "Crew text photos in, they land on the right job with a before or after label already on them, and the ones you pick go on your own website.",
+    description:
+      "Job photos filed from your crew's texts, sorted into start, progress, finish and problem, with the ones you choose shown on your own website and nothing else public.",
+    pains: [
+      {
+        pain:
+          "The before photos are on somebody's phone, and that somebody left in March.",
+        fix:
+          "Photos arrive against the job rather than into a personal camera roll, and they stay there.",
+      },
+      {
+        pain:
+          "You want a gallery on your site and rebuilding one out of four phones is a Sunday afternoon.",
+        fix:
+          "Tick the ones worth showing and they are on your site. Nothing is published for being recent.",
+      },
+      {
+        pain:
+          "Somebody puts a picture of a burst pipe on the website.",
+        fix:
+          "A photo marked as a problem cannot be featured, and the refusal tells you what to change.",
+      },
+    ],
+    how: [
+      {
+        step: "They arrive by text from the phone the crew already has",
+        body:
+          "A photo sent to your crew number is filed against the job that person is on, and whatever they typed with it is added to the visit rather than replacing the note that is already there.",
+      },
+      {
+        step: "Start, progress, finish or problem",
+        body:
+          "The label is inferred from the words in the message — problem words beat finish words, finish beats start, and anything unrecognised is progress. It is a starting point, and always yours to change.",
+      },
+      {
+        step: "You decide what a stranger sees",
+        body:
+          "Nothing is public until you feature it, and a problem photo is refused rather than silently dropped, so you never wonder why it did not appear.",
+      },
+    ],
+    features: ["job_photos"],
+    related: ["crew", "jobs", "website"],
+  },
+  {
+    slug: "time-clock",
+    group: "doing_the_job",
+    label: "Clock in and out",
+    feature: "time_clock",
+    details: [
+      {
+        label: "Record-keeping only",
+        body:
+          "No location, no boundary, no check-in photo, no break or overtime maths on this screen, and no money. What it does is record when somebody started and when they stopped.",
+      },
+      {
+        label: "One clock at a time",
+        body:
+          "Clocking in while already in is refused, and so is clocking out when nothing is running. Both say which it is.",
+      },
+      {
+        label: "The clock belongs to whoever is signed in",
+        body:
+          "There is no way to name somebody else, so nobody can be clocked in from the passenger seat.",
+      },
+      {
+        label: "No job is asked for here",
+        body:
+          "A punch from this screen is a record of the day rather than a line in one job's cost.",
+      },
+      {
+        label: "Entries start as pending",
+        body:
+          "Nothing counts until it is approved. Approved hours are what payroll and job costing read.",
+      },
+      {
+        label: "Somebody not yet on the roster",
+        body:
+          "Gets a card explaining it and the exact place an admin fixes it, rather than a button that does nothing.",
+      },
+    ],
+    headline: "Clock on from whatever phone they have, and nothing else",
+    oneLine:
+      "One button that starts and stops the clock, hours rounded the same way the office rounds them, and no tracking of where anybody is.",
+    description:
+      "A clock-in and clock-out screen for crew in a phone browser: one button, a live timer, hours in the rounding payroll reads, and no location tracking of any kind.",
+    pains: [
+      {
+        pain:
+          "Hours arrive on a scrap of paper on Friday and half of them are somebody's best recollection.",
+        fix:
+          "The clock is either running or it is not, and today's total is on the screen while it runs.",
+      },
+      {
+        pain:
+          "You do not want to tell your crew you are tracking where they are.",
+        fix:
+          "Nothing here records a location. There is no map, no boundary and no check-in photo.",
+      },
+      {
+        pain:
+          "Somebody clocks their mate on from the van.",
+        fix:
+          "The clock only ever belongs to whoever is signed in. There is no field for another person's name.",
+      },
+    ],
+    how: [
+      {
+        step: "One button, and a timer that agrees with it",
+        body:
+          "In and out are the same button. Today's total blends the hours already booked with the time still running, so the figure matches the timer above it instead of jumping when you stop.",
+      },
+      {
+        step: "Rounded once, the same way everywhere",
+        body:
+          "Hours are rounded when the clock stops, in exactly the rounding a hand-entered timesheet uses, so payroll reads one number whichever way the entry was made.",
+      },
+      {
+        step: "It says what is wrong instead of doing nothing",
+        body:
+          "Somebody who is not set up as a worker is told so, and told where an admin fixes it. Clocking in twice, or out when you were never in, is refused with the reason.",
+      },
+    ],
+    features: ["time_clock"],
+    related: ["crew", "payroll", "job-costing"],
+  },
+  {
+    slug: "crew-inbox",
+    group: "doing_the_job",
+    label: "Crew inbox",
+    feature: "crew_inbox",
+    details: [
+      {
+        label: "The company is decided by the number they texted",
+        body:
+          "Never by the sender. A sub who works for two companies has one phone, and a sender's number can be forged; the number they texted cannot.",
+      },
+      {
+        label: "Ten pictures a message",
+        body:
+          "A message claiming a hundred attachments still yields ten. The limit is ours, not the sender's.",
+      },
+      {
+        label: "Notes are added, never overwritten",
+        body:
+          "A note texted in is appended to what the visit already says.",
+      },
+      {
+        label: "Silence is never the answer during setup",
+        body:
+          "An unknown number gets one sentence naming the screen where an admin adds them, for the first few messages — because silence and a broken feature look identical from a job site.",
+      },
+      {
+        label: "The reply is what is withheld when credit runs out",
+        body:
+          "The message is still filed, because it has already been paid for. Only the courtesy reply is held back, and that is recorded rather than hidden.",
+      },
+      {
+        label: "Location is not used today",
+        body:
+          "A job visit carries no map point, and the client's billing address is deliberately not substituted for one. What the message says is what decides.",
+      },
+    ],
+    headline: "One number your crew texts, and the photos file themselves",
+    oneLine:
+      "Your crew send photos and updates to one number from the phone they already own, and they land on the right job — or you get asked which one.",
+    description:
+      "One texting number for your crew: photos and notes filed against the right job by what the message says, with a question asked rather than a guess made.",
+    pains: [
+      {
+        pain:
+          "Photos arrive in a group chat and nobody ever moves them anywhere.",
+        fix:
+          "They land on the job, in the visit, with whatever was typed alongside them.",
+      },
+      {
+        pain:
+          "You would have to buy everybody a phone to get them using anything you have to install.",
+        fix:
+          "There is nothing to install. It is a text message from the phone they already carry.",
+      },
+      {
+        pain:
+          "Software guesses which job a photo belongs to and is wrong twice a week.",
+        fix:
+          "When it is not sure it asks, with the day's jobs as buttons, and files the photo it was holding rather than the reply.",
+      },
+    ],
+    how: [
+      {
+        step: "It reads the message before it guesses",
+        body:
+          "A client's name, a job's title, even the street number in the text is enough to file it. Two matches is a narrower question, not an answer, so it asks.",
+      },
+      {
+        step: "One job today means one answer",
+        body:
+          "If the person texting has exactly one visit that day, that is where it goes. The day is worked out in your company's own timezone, using the next midnight rather than a flat twenty-four hours, so the clocks changing does not drag in yesterday.",
+      },
+      {
+        step: "The question has a shelf life",
+        body:
+          "An unanswered which-job can be answered by text for twelve hours. Before and after that, anybody in the office can file the held photo from the inbox.",
+      },
+    ],
+    features: ["crew_inbox"],
+    related: ["crew", "job-photos", "jobs"],
+  },
   // ── Getting paid ─────────────────────────────────────────────────────────
   {
     slug: "invoicing",
     group: "getting_paid",
     label: "Invoicing",
+    feature: "invoices",
+    details: [
+      {
+        label: "The invoice number mirrors the quote",
+        body:
+          "Quote Q-2026-0008 becomes invoice INV-2026-0008, so a client holding both can see they are the same job.",
+      },
+      {
+        label: "Which means the sequence has gaps",
+        body:
+          "Quotes nobody accepted take their number with them. That is right where a unique reference is what is required and wrong where an unbroken sequence is, and it is written down rather than left to be discovered.",
+      },
+      {
+        label: "Approving twice does not invoice twice",
+        body:
+          "Raising an invoice from a quote is keyed on the quote, so an automatic conversion and somebody pressing the button both end at one invoice.",
+      },
+      {
+        label: "Built from what they actually agreed",
+        body:
+          "Scope groups are flattened with their heading in front of each line, and the totals prefer the figures accepted on the page the client clicked.",
+      },
+      {
+        label: "Extras they declined never reach the bill",
+        body:
+          "An optional extra the client did not tick is simply not on the invoice. There is no line for it at zero and no note explaining what they turned down.",
+      },
+      {
+        label: "The balance starts at the total",
+        body:
+          "Which sounds obvious and was not: left to its own default it started at zero, which made every new invoice read as already paid.",
+      },
+    ],
     headline: "The invoice looks like the quote, because it was built from it",
     oneLine:
       "Turn an approved quote into an invoice, send it with a pay link, and keep the earlier version when it has to change.",
@@ -941,6 +1943,34 @@ const PAGES = [
     slug: "payments",
     group: "getting_paid",
     label: "Getting paid",
+    feature: "card_payments",
+    details: [
+      {
+        label: "The money goes to your account",
+        body:
+          "The charge is routed to your own connected account, and FieldQuo takes no cut of what your client pays.",
+      },
+      {
+        label: "Cash you already took comes off the card amount",
+        body:
+          "The client is charged the balance, not the total, so a deposit taken in cash or by transfer and written down by hand is not charged a second time.",
+      },
+      {
+        label: "A paid invoice refuses rather than errors",
+        body:
+          "Asking for a payment link on a zero balance is refused in plain words, instead of being handed to the card processor to fail in front of somebody.",
+      },
+      {
+        label: "A draft cannot be paid",
+        body:
+          "The client's link checks in the same read that the invoice is theirs and that it was actually issued, so a guessed number does not open a payment page.",
+      },
+      {
+        label: "Currency follows your company",
+        body:
+          "The checkout opens in your own company’s currency, taken from the country you signed up with, rather than in a default somebody else chose.",
+      },
+    ],
     headline: "They pay from the driveway, and it lands in your account",
     oneLine:
       "Card payment from the invoice or the client portal, settling into your own bank — not ours.",
@@ -995,6 +2025,34 @@ const PAGES = [
     slug: "financing",
     group: "getting_paid",
     label: "Client financing",
+    feature: "financing",
+    details: [
+      {
+        label: "Between fifty dollars and thirty thousand",
+        body:
+          "Pay-over-time is offered at checkout only inside those bounds, only in US or Canadian dollars, and only when you have switched it on.",
+      },
+      {
+        label: "Card only, unless you said otherwise",
+        body:
+          "The payment choices are pinned to card by default, so an account that switched a lender on in its own dashboard cannot surface it when you said no.",
+      },
+      {
+        label: "It falls back rather than breaking",
+        body:
+          "Whether the lender is live on your account cannot be checked from here, so it is attempted and quietly retried as card-only when it is not — never a link that fails in front of a client.",
+      },
+      {
+        label: "No terms means no monthly figure",
+        body:
+          "There is no assumed rate and no typical term. Unless you enter your own rate and your own term, no monthly figure appears anywhere on a quote.",
+      },
+      {
+        label: "A payment that rounds below half a cent is nothing",
+        body:
+          "Nothing is shown at all, rather than a confident zero — a monthly payment of nothing is a promise no lender would keep.",
+      },
+    ],
     headline: "Let the homeowner spread the cost of the big job",
     oneLine:
       "Your clients can pay monthly through Affirm. You are paid in full, up front, on the jobs they would otherwise put off another year.",
@@ -1041,6 +2099,242 @@ const PAGES = [
     related: ["payments", "quotes", "invoicing"],
   },
 
+  {
+    slug: "invoice-changes",
+    group: "getting_paid",
+    label: "Changed invoices, tracked",
+    feature: "invoice_changes",
+    details: [
+      {
+        label: "The reason is recorded",
+        body:
+          "A change carries the reason you give it, who made it and when. With no reason given it is recorded as an update rather than left blank.",
+      },
+      {
+        label: "Only a draft can be deleted",
+        body:
+          "Deleting anything issued is refused. There is no state in which a sent invoice disappears.",
+      },
+      {
+        label: "Attaching a job does not make a version",
+        body:
+          "Linking a job writes the link in place, deliberately — versioning it would mint a second copy of the invoice every time somebody tidied one up.",
+      },
+      {
+        label: "A job belonging to another client is refused",
+        body:
+          "Linking one would put somebody else's hours into this job's margin.",
+      },
+      {
+        label: "Banners are worked out, not stored",
+        body:
+          "Overdue, part paid and amended are derived when the invoice is read, so a stored flag can never disagree with the money.",
+      },
+    ],
+    headline: "Amend an issued invoice without losing the one they already have",
+    oneLine:
+      "An invoice that has left the building is never edited in place: the change makes a new version under the same number, and the earlier one stays exactly as it was.",
+    description:
+      "Amending an issued invoice creates a new version under the same invoice number, keeping the earlier one and the reason for the change, so what was agreed is never in doubt.",
+    pains: [
+      {
+        pain:
+          "You correct an invoice and now the client is reading a different document to the one you are.",
+        fix:
+          "The earlier version is kept. Both of you can see what changed, when, and why.",
+      },
+      {
+        pain:
+          "Somebody asks what the original said and the honest answer is a shrug.",
+        fix:
+          "Every version carries a reason, a name and a time.",
+      },
+      {
+        pain:
+          "Editing an invoice quietly renumbers it and now your accountant has two.",
+        fix:
+          "The number does not move. Version two of an invoice is still that invoice.",
+      },
+    ],
+    how: [
+      {
+        step: "Drafts are edited, issued invoices are versioned",
+        body:
+          "While it is a draft you change it in place. The moment it stops being one, a change writes a new version instead of overwriting what somebody is holding.",
+      },
+      {
+        step: "The number stays put",
+        body:
+          "A new version carries the same invoice number and a version count beside it, so whichever copy somebody has, it is the same bill.",
+      },
+      {
+        step: "Nothing is dropped in the copy",
+        body:
+          "Whether tax applies, the language it was written in, the photos on it and the costing behind it are all carried forward on purpose — dropping any one of them would silently change the document.",
+      },
+    ],
+    features: ["invoice_changes"],
+    related: ["invoicing", "payments", "client-portal"],
+  },
+  {
+    slug: "client-portal",
+    group: "getting_paid",
+    label: "Client portal",
+    feature: "client_portal",
+    details: [
+      {
+        label: "Nothing about your payment setup crosses to the browser",
+        body:
+          "The page is told whether a card can be taken and nothing else. Your payment account details never reach it.",
+      },
+      {
+        label: "Rounding dust does not create a debt",
+        body:
+          "A balance only counts as owed above half a cent, so a rounding remainder never shows a client a Pay button for nothing.",
+      },
+      {
+        label: "The tax sentence is fixed to the document's date",
+        body:
+          "An invoice explains its tax as at the day it was raised, so a rate change last month cannot re-explain an older bill.",
+      },
+      {
+        label: "Your tax settings stay yours",
+        body:
+          "The page carries the kind of tax charged and the region assumed. Your rate, your registration and your local-tax preference are not sent.",
+      },
+      {
+        label: "The rule about what they may see lives in one place",
+        body:
+          "It is decided on our side, once. A second copy of that rule in the browser is the copy that would rot.",
+      },
+    ],
+    headline: "One link where they can see everything you have sent them",
+    oneLine:
+      "Quotes, invoices and what is still owed, on one page in your colours, without the client ever making an account or remembering a password.",
+    description:
+      "A private link where a client sees their quotes, invoices and outstanding balance in your branding, with no account to create and nothing offered to search engines.",
+    pains: [
+      {
+        pain:
+          "Can you resend the invoice is half of your inbox.",
+        fix:
+          "They have a link, and it is always the current picture rather than the version you last attached.",
+      },
+      {
+        pain:
+          "Making a homeowner create a password to look at their own bill is how you lose the payment.",
+        fix:
+          "There is no account and no password. It is a link that works for them and nobody else.",
+      },
+      {
+        pain:
+          "A payment button that fails under your logo is worse than no button.",
+        fix:
+          "The Pay button appears only when a card can actually be taken. Otherwise the page tells them how to pay you instead.",
+      },
+    ],
+    how: [
+      {
+        step: "A link, not an account",
+        body:
+          "The address is long and random, and the page asks search engines to leave it alone. Nothing about it can be guessed from a client's name.",
+      },
+      {
+        step: "Only what you actually sent",
+        body:
+          "Draft quotes and unissued invoices are not on it, and an invoice counts as sent when the email was accepted for delivery rather than when a button was pressed.",
+      },
+      {
+        step: "Their language, your currency",
+        body:
+          "The page settles on the client's own language, then your company default, then English — and money is shown in your currency rather than a default one.",
+      },
+    ],
+    features: ["client_portal"],
+    related: ["invoicing", "payments", "branding"],
+  },
+  {
+    slug: "sales-tax",
+    group: "getting_paid",
+    label: "Sales tax by address",
+    feature: "sales_tax",
+    details: [
+      {
+        label: "Two letters, or nothing",
+        body:
+          "A country is a two-letter code. The word Canada typed into a box is rejected rather than half understood, because the field is filled from an address lookup or a picker.",
+      },
+      {
+        label: "Not registered is a statement; unknown is not",
+        body:
+          "A company that has said it is not registered charges zero as a stated position. A company that has never said charges its default and is marked unknown, because a zero rate is not a statement.",
+      },
+      {
+        label: "The provincial part is not silently dropped",
+        body:
+          "Where the provincial share may not apply to work on real property, the caution is shown rather than the rate quietly reduced. That is a fact about the job, not about the address.",
+      },
+      {
+        label: "Reduced construction rates are never inferred",
+        body:
+          "Where a country has a lower rate for renovation work, it applies only when the work is declared as renovation.",
+      },
+      {
+        label: "An assumption is labelled as one",
+        body:
+          "When the client's record cannot answer and your own province is used instead, the document says the region was assumed — and only when the assumption actually decided the number.",
+      },
+      {
+        label: "Tax on, nothing charged, no explanation",
+        body:
+          "Refused at the moment of sending, with the missing fields listed. There is no confirm-anyway.",
+      },
+    ],
+    headline: "The right tax for where the work is, or an honest refusal",
+    oneLine:
+      "Set your rates once and the correct one lands on the document for the address the job is at — and where nobody can be certain, it says so rather than inventing a number.",
+    description:
+      "Sales tax resolved from the job's address: your own named rates first, then the reference tables for Canada, the US and VAT countries, with a stated caution wherever the answer is incomplete.",
+    pains: [
+      {
+        pain:
+          "You work two provinces and the rate on the quote is whichever one you last typed.",
+        fix:
+          "The rate follows the address the work is at, not the last document you happened to write.",
+      },
+      {
+        pain:
+          "Tax software quietly assumes a rate and you find out at year end.",
+        fix:
+          "Where the answer is not certain it is labelled, in words, on the document — not in a footnote nobody reads.",
+      },
+      {
+        pain:
+          "A quote goes out with tax switched on and nothing charged, and nobody notices for a month.",
+        fix:
+          "That combination is refused at the point of sending, with the missing fields named.",
+      },
+    ],
+    how: [
+      {
+        step: "Your own rates win",
+        body:
+          "If you have named a rate that matches the client's province, that is the one used. The reference tables are the fallback, not the boss — and matching is done on whole words, so a rate named for one province does not attach itself to a city that happens to contain the letters.",
+      },
+      {
+        step: "Then the tables, in a fixed order",
+        body:
+          "For a VAT country your own country decides, because that is how supply to a homeowner works. Otherwise the client's country decides: Canada resolves to a real combined rate, while a US state's base rate is shown for information and your own default is what is applied — because district taxes are not in it, and saying so is the honest answer.",
+      },
+      {
+        step: "A date, not only a place",
+        body:
+          "Rates are stored with the dates they applied from, so a document raised last year is never re-priced with this year's rate.",
+      },
+    ],
+    features: ["sales_tax"],
+    related: ["invoicing", "quotes", "price-book"],
+  },
   // ── Running the business ─────────────────────────────────────────────────
   {
     slug: "reporting",
@@ -1103,6 +2397,39 @@ const PAGES = [
     slug: "payroll",
     group: "running_the_business",
     label: "Payroll and payouts",
+    feature: "payroll",
+    details: [
+      {
+        label: "Gross pay, and the labels for the rest",
+        body:
+          "There are no tax tables in here. The deduction names follow your country — income tax, CPP and EI, or federal tax, Social Security and Medicare — and every amount is one you or your accountant supplied.",
+      },
+      {
+        label: "Brackets are something you supply",
+        body:
+          "Progressive tax is worked out by annualising the period's gross, walking your accountant's bands and dividing back down. The bands are yours.",
+      },
+      {
+        label: "Overtime at time and a half",
+        body:
+          "Over forty hours a week by default, and the threshold scales with the period — eighty regular hours in a fortnight, not forty.",
+      },
+      {
+        label: "A payslip can never be negative",
+        body:
+          "Net is floored at zero and the line is flagged, and a run with any flagged line on it is refused until somebody has looked.",
+      },
+      {
+        label: "Paying the same fortnight twice is caught",
+        body:
+          "An overlapping run, and a period that does not match your pay cycle, are both reported before you approve and refused at approval — while a correction run is still deliberately allowed.",
+      },
+      {
+        label: "An empty cell is not a zero",
+        body:
+          "A worker with no value for a deduction column gets a blank, because we did not deduct this and we deducted nothing are different sentences.",
+      },
+    ],
     headline: "Approved hours become a pay run",
     oneLine:
       "Timesheets you have approved turn into gross pay, payslips and an export — and a roster contractor can be paid to their bank.",
@@ -1152,6 +2479,39 @@ const PAGES = [
     slug: "price-book",
     group: "running_the_business",
     label: "Your price book",
+    feature: "price_book",
+    details: [
+      {
+        label: "Prices hidden means refused, not blanked",
+        body:
+          "Somebody without the right to see prices is told no, rather than handed a catalogue of names with no numbers. A screen of blanks reads as broken.",
+      },
+      {
+        label: "Categories redact instead",
+        body:
+          "A service category keeps its unit when prices are hidden, because per square foot is how the work is counted, not what it costs.",
+      },
+      {
+        label: "Names translate on the way in",
+        body:
+          "A new service is translated into the languages you send documents in as it is created, and a translation failure never blocks the save.",
+      },
+      {
+        label: "The import is simple, and says so",
+        body:
+          "Comma-separated columns, no quoted fields. Rows with no name are dropped and the count of what came in is what you are told.",
+      },
+      {
+        label: "Overrides are sparse and whitelisted",
+        body:
+          "Only the fields a trade actually declares can be overridden, so everything you did not change keeps inheriting improvements to the defaults.",
+      },
+      {
+        label: "One setting that was offered and did nothing",
+        body:
+          "A pricing-model choice — flat, per unit or hourly — changed no price at all. It is no longer offered, rather than left on a screen looking meaningful.",
+      },
+    ],
     headline: "Your prices in one place, so every quote uses the same ones",
     oneLine:
       "Services, rates, material costs and how much of each a job eats — imported from a spreadsheet and exportable back out.",
@@ -1201,6 +2561,39 @@ const PAGES = [
     slug: "branding",
     group: "running_the_business",
     label: "Your name on everything",
+    feature: "white_label",
+    details: [
+      {
+        label: "One colour, measured everywhere",
+        body:
+          "Every surface on every document derives from your one brand colour, and the contrast is computed to the 4.5:1 standard rather than eyeballed.",
+      },
+      {
+        label: "Why the obvious rule was rejected",
+        body:
+          "Is it dark, use white fails on mid-tones: a mid-orange gets white text at around 3:1 and is unreadable in a driveway. Both candidates are measured and the better one wins.",
+      },
+      {
+        label: "When the text cannot move, the fill does",
+        body:
+          "On a solid band the background is stepped away from the text until it passes, rather than leaving the text where nobody can read it.",
+      },
+      {
+        label: "Grey is honest about its limit",
+        body:
+          "A mid-grey brand tops out at about 4.4:1 against white, which is under the target. The maths returns the best it managed and reports that it fell short, instead of pretending.",
+      },
+      {
+        label: "The same colour twice, on purpose",
+        body:
+          "Your brand colour used as a fill and the same colour used as text are two different values, because they are measured against different backgrounds.",
+      },
+      {
+        label: "Green and red are never derived",
+        body:
+          "Approved, overdue and warning keep fixed colours. Deriving green from a brand colour would make an approved quote look declined for a company whose brand is red.",
+      },
+    ],
     headline: "A homeowner should not be able to tell what you use",
     oneLine:
       "Your logo, your colour, your address in the From line, and your terms on every document a client sees.",
@@ -1307,6 +2700,39 @@ const PAGES = [
     slug: "fieldquo-ai",
     group: "running_the_business",
     label: "FieldQuo AI",
+    feature: "ai_copilot",
+    details: [
+      {
+        label: "Nine things it can look up, and none of them change anything",
+        body:
+          "Conversion rate, top clients, cash flow, profit by category, repeat-customer rate, upcoming work, and finding a quote, an invoice or a job. There is nothing that creates, edits or sends.",
+      },
+      {
+        label: "It is only told about what you may see",
+        body:
+          "The list is built per person. Somebody who may not see money is never told the money questions exist — rather than being told it found the invoice but is not allowed to show you the total.",
+      },
+      {
+        label: "Anything with no rule is withheld",
+        body:
+          "If nobody has said who may use something, nobody may. It fails closed and records that it did.",
+      },
+      {
+        label: "It cannot be talked into another company's data",
+        body:
+          "Which company it is answering about is fixed before the model runs and is never read from anything the model produces.",
+      },
+      {
+        label: "It declines the rest in one sentence",
+        body:
+          "Coding, recipes, essays, homework, general knowledge — declined, with what it can help with instead. And where there is no way for it to look something up it says so, rather than working it out from something adjacent.",
+      },
+      {
+        label: "The allowance is checked before the question is asked",
+        body:
+          "And the screen warns you at eighty per cent, rather than at the wall.",
+      },
+    ],
     headline: "Ask your own business a question and get an answer",
     oneLine:
       "Plain-English questions answered from your own numbers — plus the quote review, the monthly write-up and the tasks a job suggests.",
@@ -1362,6 +2788,39 @@ const PAGES = [
     slug: "team",
     group: "running_the_business",
     label: "Team and access",
+    feature: "team_access",
+    details: [
+      {
+        label: "Thirteen dials",
+        body:
+          "Ten ladders — schedule, time, payroll, notes, expenses, clients, requests, quotes, jobs and invoices — and three switches for prices, job costing and taking payment. Thirty-eight settings between them.",
+      },
+      {
+        label: "Two of them are not settings",
+        body:
+          "Client communications and reports are shown as consequences of the others rather than as dials of their own, because a dial that decides nothing is a control that does not work.",
+      },
+      {
+        label: "Position on the ladder, not a name match",
+        body:
+          "A level is compared by where it sits, so view and edit satisfies view without anybody listing the combinations.",
+      },
+      {
+        label: "You cannot grant what you do not hold",
+        body:
+          "What one person may give another is capped at their own level, on the server. The editor hides what they cannot offer so nothing fails on click, and the server clamps it again anyway.",
+      },
+      {
+        label: "The refusal direction is no",
+        body:
+          "A member who cannot be loaded fails every check. A stored level that is not on the ladder fails. Somebody scoped to their own records with no identity matches nothing rather than everything.",
+      },
+      {
+        label: "Role changes go through a different door",
+        body:
+          "Sending a role or a set of permissions to the ordinary member update is refused with the reason, rather than accepted and ignored.",
+      },
+    ],
     headline: "Give people what they need and nothing else",
     oneLine:
       "Decide dial by dial what each person can see and change, and keep a record of who changed what.",
@@ -1406,6 +2865,175 @@ const PAGES = [
     ],
     features: ["team_access", "activity_log", "time_off"],
     related: ["crew", "payroll", "scheduling"],
+  },
+  {
+    slug: "break-even",
+    group: "running_the_business",
+    label: "Your break-even price",
+    feature: "break_even",
+    image: {
+      src: "/marketing/hero-analytics.webp",
+      alt:
+        "A dashboard showing cost per job, minimum price and how your average prices compare to other shops in your trade",
+      altKey: "hero.tabs.analytics.alt",
+      width: 1400,
+      height: 1050,
+      caption:
+        "Cost per job and the minimum price it implies, built from your own overhead and your own accepted quotes.",
+    },
+    details: [
+      {
+        label: "A month is 4.33 weeks",
+        body:
+          "Weekly costs and weekly capacity are converted with the same figure, so the two sides of the division agree with each other.",
+      },
+      {
+        label: "The margin is clamped",
+        body:
+          "Target margin defaults to twenty per cent and is capped below a hundred, because a hundred per cent margin divides by zero — and an empty box is treated as absent rather than as zero, which would quote everything at break-even.",
+      },
+      {
+        label: "The hourly floor asks for billable hours",
+        body:
+          "Not hours worked. Driving, quoting and paperwork are deliberately excluded, and the per-person rate is the floor divided by the size of the crew.",
+      },
+      {
+        label: "Depreciation is in one total and not the other",
+        body:
+          "Cash burn has none of it. The cost figure carries depreciation and loan interest and drops the raw monthly loan payment, so the same truck is not charged twice.",
+      },
+      {
+        label: "An unknown frequency contributes nothing",
+        body:
+          "Rather than a wrong number. A salary with no hours behind it contributes nothing too, rather than being assumed to be full time.",
+      },
+      {
+        label: "It needs your cost basis switched on",
+        body:
+          "Both figures need job costing and the right to see prices. Without them it refuses rather than showing zeroes, because a panel of zeroes reads as a business that costs nothing to run.",
+      },
+    ],
+    headline: "What a day has to bring in before you make a cent",
+    oneLine:
+      "Your real overhead, divided by the work you can actually do, turned into the number a quote has to beat — and a refusal when nobody has told it enough to say.",
+    description:
+      "A price floor computed from your own overhead, salaries, debt and depreciation, divided by the capacity you stated: cost per job, a minimum price, and an hourly floor.",
+    pains: [
+      {
+        pain:
+          "You price off what the other lot charge and hope there is something left at the end.",
+        fix:
+          "The floor is your own numbers — your rent, your van, your salaries — rather than a rule of thumb.",
+      },
+      {
+        pain:
+          "You have a rough idea of overhead and no idea what it costs you just to turn up.",
+        fix:
+          "Cost per job is your monthly cost spread across the work you can actually do in a month.",
+      },
+      {
+        pain:
+          "A tool prints a minimum price without knowing how many jobs you do.",
+        fix:
+          "If you have not told it your capacity it refuses to print a figure, rather than defaulting to one and being confidently wrong.",
+      },
+    ],
+    how: [
+      {
+        step: "Two totals, because they answer different questions",
+        body:
+          "One is cash out of the door each month: overhead, salaries and the full loan payments. The other is what the work actually costs you: overhead, salaries, and depreciation and interest on what you bought with a loan.",
+      },
+      {
+        step: "The floor uses cost, not cash",
+        body:
+          "Cost per job is the second total divided by the jobs a month your stated capacity implies, and the minimum price is that grossed up for your target margin.",
+      },
+      {
+        step: "Nothing is invented to fill a gap",
+        body:
+          "With no capacity stated there is no figure at all. A defaulted price floor is the worst kind of padding: it is a number you would act on.",
+      },
+    ],
+    features: ["break_even"],
+    related: ["reporting", "expenses", "price-book"],
+  },
+  {
+    slug: "expenses",
+    group: "running_the_business",
+    label: "Expenses and overhead",
+    feature: "expenses",
+    details: [
+      {
+        label: "Weekly, monthly or yearly",
+        body:
+          "One-off is deliberately not offered for a fixed cost. It would be multiplied by nothing and change no figure — a row you can save that does nothing.",
+      },
+      {
+        label: "More than zero, not merely filled in",
+        body:
+          "A zero fixed cost changes nothing and a negative one would lower your own price floor, so both are refused.",
+      },
+      {
+        label: "Who entered it is recorded",
+        body:
+          "Stamped as the row is created, so a level that shows somebody only their own entries is something that can be enforced rather than a label on a screen.",
+      },
+      {
+        label: "Fixed costs are read company-wide",
+        body:
+          "Unlike the expense list, so the breakdown agrees with the total printed beside it.",
+      },
+      {
+        label: "A job-tagged expense cannot also be overhead",
+        body:
+          "Refused with the reason. They are answers to different questions, and counting it as both would double the money.",
+      },
+    ],
+    headline: "What you spend, kept apart from what a job costs you",
+    oneLine:
+      "Record what goes out, tag what belongs to a job, and let the rest become the overhead that your break-even price is built on.",
+    description:
+      "Expense tracking for contractors: job costs kept apart from overhead, recurring fixed costs that feed the price floor, and loans amortised rather than stored as a stale balance.",
+    pains: [
+      {
+        pain:
+          "Rent, insurance and the phone bill live in a spreadsheet that only affects your mood.",
+        fix:
+          "Recurring costs are what the break-even figure is built from, so entering them changes a number you actually use.",
+      },
+      {
+        pain:
+          "A receipt is either a job cost or overhead, and half of them get filed as both.",
+        fix:
+          "An expense tagged to a job cannot also be overhead. It is refused rather than counted twice.",
+      },
+      {
+        pain:
+          "Everybody in the office can see every expense in the company.",
+        fix:
+          "There is a level that shows a person their own entries and nothing else.",
+      },
+    ],
+    how: [
+      {
+        step: "One kind of row, not two",
+        body:
+          "A fixed cost is an ordinary expense marked as overhead and recurring — the same definition the break-even figure already reads. A separate list would let you enter rent twice and raise your own price floor by accident.",
+      },
+      {
+        step: "The name becomes the heading",
+        body:
+          "A fixed cost called Shop rent gets its own bar in the breakdown, rather than disappearing into a bucket labelled other.",
+      },
+      {
+        step: "Loans are worked out, not stored",
+        body:
+          "A balance written down is wrong the month after it is written, so what is kept is the principal, the rate and the start date, and the balance is worked out when it is needed.",
+      },
+    ],
+    features: ["expenses"],
+    related: ["reporting", "break-even", "job-costing"],
   },
 ];
 
@@ -1461,6 +3089,80 @@ export const PAGE_EXCLUSIONS = Object.freeze([]);
       throw new Error(`featurePages: excluded "${x.key}" has no reason`);
     }
   }
+
+  // ── The canonical-page contract ──────────────────────────────────────────
+  //
+  // Two failures worth taking the build down for. One: two pages both claiming
+  // to be THE page for a feature, which is the duplicate-subject problem this
+  // arrangement exists to prevent, arriving by accident instead of on purpose.
+  // Two: a name on /pricing with no page behind it — the row a visitor clicks
+  // and lands nowhere, which is the dead control one surface over.
+  const claimed = new Map();
+  for (const page of PAGES) {
+    if (page.feature === undefined) continue;
+    if (!known.has(page.feature)) {
+      throw new Error(
+        `featurePages: "${page.slug}" is canonical for "${page.feature}", which is not in the feature matrix`,
+      );
+    }
+    if (!page.features.includes(page.feature)) {
+      throw new Error(
+        `featurePages: "${page.slug}" is canonical for "${page.feature}" but does not claim it`,
+      );
+    }
+    if (claimed.has(page.feature)) {
+      throw new Error(
+        `featurePages: "${page.feature}" is claimed by both "${claimed.get(page.feature)}" and "${page.slug}"`,
+      );
+    }
+    claimed.set(page.feature, page.slug);
+    // A page that is the page for something owes the reader more than the
+    // matrix's one sentence, or it is a bullet with a URL.
+    if (!Array.isArray(page.details) || page.details.length < 3) {
+      throw new Error(
+        `featurePages: "${page.slug}" is canonical for "${page.feature}" and has fewer than three details`,
+      );
+    }
+    for (const d of page.details) {
+      if (!d?.label?.trim() || !d?.body?.trim()) {
+        throw new Error(`featurePages: "${page.slug}" has a detail with no label or no body`);
+      }
+    }
+  }
+  for (const key of PRICING_FEATURES) {
+    if (!known.has(key)) {
+      throw new Error(`featurePages: /pricing names "${key}", which is not in the feature matrix`);
+    }
+    if (!claimed.has(key)) {
+      throw new Error(`featurePages: /pricing names "${key}" and no page is the page for it`);
+    }
+  }
+  for (const [key, slug] of claimed) {
+    if (!PRICING_FEATURES.includes(key)) {
+      throw new Error(
+        `featurePages: "${slug}" claims to be the page for "${key}", which /pricing does not name`,
+      );
+    }
+  }
+
+  // Images: a src that is not a real file under public/ renders a broken
+  // picture on a page selling reliability. The path shape is checked here; that
+  // the file exists is asserted by scripts/check-feature-pages.mjs, which can
+  // read the filesystem where a bundled module should not.
+  for (const page of PAGES) {
+    for (const img of [page.image, page.inlineImage]) {
+      if (!img) continue;
+      if (!img.src?.startsWith("/") || !/\.(webp|png|jpg|jpeg|svg)$/i.test(img.src)) {
+        throw new Error(`featurePages: "${page.slug}" has an image src that is not a public path`);
+      }
+      if (!img.alt?.trim() || !img.altKey?.trim() || !img.caption?.trim()) {
+        throw new Error(`featurePages: "${page.slug}" has an image with no alt, key or caption`);
+      }
+      if (!Number.isFinite(img.width) || !Number.isFinite(img.height)) {
+        throw new Error(`featurePages: "${page.slug}" has an image with no intrinsic size`);
+      }
+    }
+  }
 }
 
 export const FEATURE_PAGES = Object.freeze(PAGES.map((p) => Object.freeze({ ...p })));
@@ -1477,6 +3179,42 @@ export function featurePage(slug) {
 /** The pages in one matrix group, in declaration order. */
 export function featurePagesForGroup(groupKey) {
   return FEATURE_PAGES.filter((p) => p.group === groupKey);
+}
+
+const BY_FEATURE = new Map(
+  FEATURE_PAGES.filter((p) => p.feature).map((p) => [p.feature, p]),
+);
+
+/** The page that IS the page for a feature key, or undefined. */
+export function canonicalPageFor(key) {
+  return BY_FEATURE.get(key);
+}
+
+/** The 29, resolved to {key, slug, entry}, in the order /pricing names them. */
+export function pricingFeatureIndex() {
+  return PRICING_FEATURES.map((key) => ({
+    key,
+    slug: BY_FEATURE.get(key)?.slug,
+    entry: matrixEntry(key),
+  }));
+}
+
+/**
+ * The hub half of a page: the features it claims that have a page of their own.
+ *
+ * Derived rather than listed beside the page, so a page cannot name a feature
+ * in its "What you get" list and then quietly fail to link the page about it —
+ * and adding a canonical page anywhere makes every page that mentions that
+ * feature start linking it, with nobody having to remember.
+ */
+export function moreInThisArea(slug) {
+  const page = BY_SLUG.get(slug);
+  if (!page) return [];
+  return page.features
+    .filter((key) => key !== page.feature)
+    .map((key) => ({ key, page: BY_FEATURE.get(key) }))
+    .filter((x) => x.page && x.page.slug !== slug)
+    .map((x) => ({ key: x.key, slug: x.page.slug, entry: matrixEntry(x.key) }));
 }
 
 /** The matrix entries a page claims, resolved. Order follows the page. */

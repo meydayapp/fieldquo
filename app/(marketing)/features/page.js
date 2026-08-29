@@ -11,11 +11,29 @@
 // Every card names how many of the matrix's proved claims sit behind it, which
 // is the one number on this page that cannot be written by hand — it is the
 // length of the page's own feature list.
+//
+// ══ Two ways in, because there are two visitors ════════════════════════════
+//
+// Somebody who has just read /pricing arrives holding a NAME — "sales tax that
+// matches the address" — and wants that page, not the area it lives in. The
+// directory at the top is that list, in the pricing page's own order, printed
+// from the matrix so the two cannot come to disagree about what anything is
+// called. Somebody who arrives cold is shopping for an area instead, and the
+// group cards below are for them.
+//
+// Both point into one set of pages. See the header of app/data/featurePages.js
+// for why there is no second URL for the same subject.
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
-import { FEATURE_PAGES, featurePagesForGroup } from "@/app/data/featurePages";
+import {
+  FEATURE_PAGES,
+  PRICING_FEATURES,
+  featurePagesForGroup,
+  pricingFeatureIndex,
+} from "@/app/data/featurePages";
+import { featureEntry } from "@/lib/marketing/featureLabels";
 import { marketingMetadata } from "@/lib/marketing/metadata";
 
 export const metadata = marketingMetadata({
@@ -34,9 +52,11 @@ export default function FeaturesIndexPage() {
             Everything FieldQuo does
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl">
-            Grouped the way the work happens: win it, do it, get paid for it,
-            and run the business that does all three. Where something is only
-            partly built, its page says so rather than showing you a tick.
+            Everything named on the pricing page has a page of its own, below,
+            and the rest is grouped the way the work happens: win it, do it, get
+            paid for it, and run the business that does all three. Where
+            something is only partly built, its page says so rather than showing
+            you a tick.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link
@@ -55,7 +75,57 @@ export default function FeaturesIndexPage() {
         </div>
       </div>
 
+      {/* The directory: everything the pricing page names, each with the page
+          about it. Printed from the matrix, in the pricing page's own order. */}
+      <div className="border-b border-border">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <h2 className="text-2xl font-bold text-foreground">
+            The {PRICING_FEATURES.length} on the pricing page, one page each
+          </h2>
+          <p className="mt-2 text-muted-foreground max-w-2xl">
+            Every feature listed with the price has a page explaining how it
+            works here, what it will not do, and which file makes it true.
+          </p>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            {pricingFeatureIndex().map(({ key, slug }) => {
+              // Through the label layer, never off the matrix entry directly.
+              const entry = featureEntry(key);
+              return (
+                <Link
+                  key={key}
+                  href={`/features/${slug}`}
+                  className="block border border-border rounded-xl p-4 bg-card hover:border-primary"
+                >
+                  <span className="font-semibold text-foreground">
+                    {entry.name}
+                  </span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    {entry.summary}
+                  </span>
+                  {entry.readiness === "partial" && (
+                    <span className="mt-2 inline-block text-xs font-semibold text-foreground border border-border rounded-full px-2 py-0.5">
+                      Partly built — the page says where it stops
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-14">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">
+            Or by the part of the job it belongs to
+          </h2>
+          <p className="mt-2 text-muted-foreground max-w-2xl">
+            The same pages, grouped. Each card is an area, and the wider ones
+            link on to the pages above.
+          </p>
+        </div>
+
         {MATRIX_GROUPS.map((group) => {
           const pages = featurePagesForGroup(group.key);
           if (!pages.length) return null;

@@ -38,7 +38,7 @@
 //     --alias:next/navigation=./scripts/stub-next-navigation.js \
 //     --outfile=.feature-pages.cjs && node .feature-pages.cjs
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
@@ -53,9 +53,12 @@ import {
   FEATURE_PAGES,
   FEATURE_PAGE_SLUGS,
   PAGE_EXCLUSIONS,
+  PRICING_FEATURES,
+  canonicalPageFor,
   coverage,
   featurePage,
   featuresOnPage,
+  moreInThisArea,
 } from "@/app/data/featurePages";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { scoreLead, TEMPERATURES } from "@/lib/leads/score";
@@ -787,6 +790,277 @@ console.log("\n── Funnels: a closed set of screens, and per-step numbers ─
       /resolveEstimateBand\(step, body\.bandId\)/.test(estimate));
     ok("...which is what the page tells the reader",
       /nothing typed into the page decides it/i.test(text));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   11. The 29 the pricing page names, and the page behind each one
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The failure this section exists to stop is the most expensive one on the
+   site and the least visible: /pricing lists a feature by name, somebody reads
+   the name, hands over a card, and there is nothing on the site that says what
+   that name actually gets them — or worse, the page saying it is not the page
+   the link goes to. A pricing row is what somebody buys on.
+
+   ══ Why a source read is allowed here ═════════════════════════════════════
+
+   PRICING_FEATURES in app/data/featurePages.js is a SECOND COPY of
+   HEADLINE_FEATURES in app/(marketing)/pricing/PricingPlans.js. Duplication is
+   the recurring failure class this repo keeps finding, and the copy is always
+   the one that rots — so the copy is only allowed to exist because the line
+   below reads the pricing page and fails when the two disagree, in order as
+   well as in content. The pricing surface belongs to another file; asserting
+   against it beats guessing at it.
+
+   Everything else in this section is asserted against RENDERED markup, the way
+   the rest of the file is: it is not enough for the data to say a page is the
+   page for a feature, the page has to actually say so where a visitor reads. */
+
+console.log("\n── The pricing page's 29, each with a page ─────────────────────\n");
+
+{
+  const pricingSrc = decomment(
+    readFileSync("app/(marketing)/pricing/PricingPlans.js", "utf8"),
+  );
+  const start = pricingSrc.indexOf("const HEADLINE_FEATURES");
+  const block = start < 0 ? "" : pricingSrc.slice(start, pricingSrc.indexOf("\n];", start));
+  const namedOnPricing = [...block.matchAll(/keys:\s*\[([^\]]*)\]/g)].flatMap((m) =>
+    [...m[1].matchAll(/"([a-z_]+)"/g)].map((x) => x[1]),
+  );
+
+  ok("the pricing page's own feature list can still be read", namedOnPricing.length > 0);
+  ok(
+    `/features carries the same list, in the same order (${namedOnPricing.length})`,
+    JSON.stringify(namedOnPricing) === JSON.stringify([...PRICING_FEATURES]),
+    `pricing=${namedOnPricing.join(",")} pages=${PRICING_FEATURES.join(",")}`,
+  );
+  ok(
+    "every name on the pricing page is a proved matrix claim",
+    namedOnPricing.every((k) => matrixEntry(k) !== undefined),
+    namedOnPricing.filter((k) => !matrixEntry(k)).join(" "),
+  );
+}
+
+// One page each, and the page says which one it is.
+for (const key of PRICING_FEATURES) {
+  const entry = matrixEntry(key);
+  const page = canonicalPageFor(key);
+  if (!ok(`"${entry?.name || key}" has a page`, !!page)) continue;
+
+  const { html, text } = rendered.get(page.slug) || {};
+  ok(`...at /features/${page.slug}, and it renders`, (text?.length || 0) > 800, `${text?.length}`);
+  // Quoted back in the matrix's own words, which is the string a translation
+  // layer will replace — not a hand-typed copy of it sitting in the page data.
+  ok(`...naming it as "${entry.name}"`, text.includes(entry.name));
+  // And naming it ABOVE THE HEADLINE, not somewhere down the page. The first
+  // draft of this assertion only asked whether the name appeared anywhere, and
+  // passed happily with the hero label deleted — the name was still in the
+  // "What you get" list further down. A visitor who arrived from a pricing row
+  // has to see the words they clicked before they see anything else.
+  ok(
+    `...in the line above the headline`,
+    textOf(html.slice(0, html.indexOf("<h1"))).includes(entry.name),
+    textOf(html.slice(0, html.indexOf("<h1"))).slice(-60),
+  );
+  ok(`...and claiming it`, page.features.includes(key));
+  ok(`...with its own summary on the page`, text.includes(entry.summary));
+}
+
+{
+  const canonical = FEATURE_PAGES.filter((p) => p.feature);
+  ok(
+    `exactly ${PRICING_FEATURES.length} pages are the page for something`,
+    canonical.length === PRICING_FEATURES.length,
+    `${canonical.length}`,
+  );
+  const doubles = canonical
+    .map((p) => p.feature)
+    .filter((k, i, a) => a.indexOf(k) !== i);
+  ok("no feature has two pages claiming to be its page", doubles.length === 0, doubles.join(" "));
+  ok(
+    "nothing is canonical for a feature the pricing page does not name",
+    canonical.every((p) => PRICING_FEATURES.includes(p.feature)),
+    canonical.filter((p) => !PRICING_FEATURES.includes(p.feature)).map((p) => p.slug).join(" "),
+  );
+  // The index is the second way in, and it has to reach all of them — from the
+  // DIRECTORY at the top, not merely from somewhere on the page. Deleting the
+  // directory left eighteen of these green, because eighteen of the twenty-nine
+  // names also read as an area card's label further down; the region is
+  // therefore narrowed to everything above the second heading.
+  const directory = indexHtml.slice(0, indexHtml.indexOf("Or by the part of the job"));
+  const directoryText = textOf(directory);
+  ok("the index opens with the directory of what /pricing names", directory.length > 500, `${directory.length}`);
+  for (const key of PRICING_FEATURES) {
+    const page = canonicalPageFor(key);
+    ok(
+      `the index lists "${matrixEntry(key).name}" and links its page`,
+      directoryText.includes(matrixEntry(key).name) &&
+        directory.includes(`href="/features/${page.slug}"`),
+    );
+  }
+}
+
+/* The specifics. A page that is THE page for a feature and says only what the
+   pricing row already said is a bullet with a URL — it is also the page that
+   has no picture, so this list is what carries it. Every line was read out of
+   the files that entry names in `proof`, and the point of asserting the RENDER
+   is that a details block nobody prints is worth nothing. */
+
+console.log("\n── Each of the 29 says more than its own pricing row ───────────\n");
+
+for (const key of PRICING_FEATURES) {
+  const page = canonicalPageFor(key);
+  if (!page) continue;
+  const { text } = rendered.get(page.slug);
+
+  ok(`/features/${page.slug} carries at least three specifics`, (page.details?.length || 0) >= 3, `${page.details?.length}`);
+  const labels = (page.details || []).map((d) => d.label);
+  ok(`...with no two the same`, new Set(labels).size === labels.length);
+  const unrendered = (page.details || []).filter(
+    (d) => !text.includes(d.label) || !text.includes(d.body),
+  );
+  ok(`...and every one of them printed`, unrendered.length === 0, unrendered.map((d) => d.label).join(" | "));
+  // Worth reading, not padding: a specific is a sentence, not a restatement of
+  // the label. 60 is the shortest real one on the page set today.
+  const thin = (page.details || []).filter((d) => d.body.trim().length < 60);
+  ok(`...each one an actual sentence`, thin.length === 0, thin.map((d) => d.label).join(" | "));
+}
+
+/* A partial feature's own page has to state where it stops — the generic
+   assertion in section 3 covers "somewhere on some page", and that is not the
+   same promise. The page a pricing row sends you to is the one that has to say
+   it, in the matrix's exact words, because the words are what a translation
+   layer replaces and a paraphrase would drift from them. */
+for (const entry of partialFeatures()) {
+  const page = canonicalPageFor(entry.key);
+  if (!page) continue; // not one of the 29; section 3 already covers it.
+  const { text } = rendered.get(page.slug);
+  ok(`/features/${page.slug} states where "${entry.name}" stops`, text.includes(entry.limits));
+  ok(`...and labels it as a limit rather than a feature`, /Where this stops/.test(text));
+}
+
+/* The hub half. A page that lists a feature and does not link the page about it
+   is a dead end for the visitor who wanted exactly that thing — and the strip
+   is derived, so this asserts the derivation actually reaches the markup. */
+
+console.log("\n── Group pages hand off to the pages under them ────────────────\n");
+
+{
+  const missed = [];
+  let linked = 0;
+  for (const page of FEATURE_PAGES) {
+    for (const sibling of moreInThisArea(page.slug)) {
+      linked++;
+      const { html, text } = rendered.get(page.slug);
+      if (!html.includes(`href="/features/${sibling.slug}"`)) {
+        missed.push(`${page.slug} → ${sibling.slug}`);
+      } else if (!text.includes(sibling.entry.name)) {
+        missed.push(`${page.slug} → ${sibling.slug} (unnamed)`);
+      }
+    }
+  }
+  ok(`every bundled feature links its own page (${linked} links)`, missed.length === 0, missed.join(" "));
+  ok("...and there are real hubs doing it", linked >= 10, `${linked}`);
+  // The pure hubs: pages that sell an area and are nobody's canonical page.
+  const hubs = FEATURE_PAGES.filter((p) => !p.feature);
+  ok("the older area pages are still here, not orphaned", hubs.length > 0, `${hubs.length}`);
+  for (const hub of hubs) {
+    ok(
+      `/features/${hub.slug} still renders and still links onward`,
+      rendered.get(hub.slug).text.length > 800 &&
+        rendered.get(hub.slug).html.includes('href="/features/'),
+    );
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12. Pictures of things that exist
+   ═══════════════════════════════════════════════════════════════════════════
+
+   public/marketing holds four product screenshots and no more can be made —
+   the back office is behind a login. So the risks here are not "is it pretty":
+   a src pointing at a file that is not there renders a broken frame on a page
+   selling reliability, and an image on the wrong page is a claim, because a
+   reader takes a screenshot as evidence of the thing described beside it.
+
+   Two of the four are misnamed and their own alt text in the catalogue says so,
+   which is why the alt is checked against a REAL catalogue key rather than
+   being written fresh here — the four alts are already translated into all six
+   languages, so an image is the one part of these pages that is not
+   English-only. */
+
+console.log("\n── Every picture is a file, and every alt a real key ───────────\n");
+
+{
+  const used = [];
+  for (const page of FEATURE_PAGES) {
+    for (const [where, img] of [["hero", page.image], ["inline", page.inlineImage]]) {
+      if (!img) continue;
+      used.push(`${page.slug}:${where}`);
+      const path = `public${img.src}`;
+      ok(`/features/${page.slug} ${where} image is a file that exists`, existsSync(path), path);
+      ok(`...with a caption`, !!img.caption?.trim());
+      ok(`...and alt text`, !!img.alt?.trim());
+      // next/image rewrites the src into its own URL, so look for either form.
+      const { html, text } = rendered.get(page.slug);
+      ok(
+        `...actually rendered on the page`,
+        html.includes(img.src) || html.includes(encodeURIComponent(img.src)),
+      );
+      ok(`...with the alt in the markup`, html.includes(img.alt.slice(0, 40)));
+      ok(`...and the caption where a reader can see it`, text.includes(img.caption));
+    }
+  }
+  ok("some page does carry a real screenshot", used.length >= 3, used.join(" "));
+
+  // Every alt hangs off a key that already exists in the English catalogue, so
+  // the day these pages get a translation context there is nothing to write.
+  const catalogue = readFileSync("app/i18n/messages.js", "utf8");
+  for (const page of FEATURE_PAGES) {
+    for (const img of [page.image, page.inlineImage]) {
+      if (!img) continue;
+      ok(
+        `${page.slug} alt hangs off the existing key ${img.altKey}`,
+        catalogue.includes(`"${img.altKey}":`),
+      );
+    }
+  }
+
+  // Nothing anywhere in the page set points at an image that is not on disk.
+  const srcs = [
+    ...new Set(
+      FEATURE_PAGE_SLUGS.flatMap((s) => [
+        ...rendered.get(s).html.matchAll(/url=([^&"]+)/g),
+      ].map((m) => decodeURIComponent(m[1]))),
+    ),
+  ].filter((s) => s.startsWith("/"));
+  const broken = srcs.filter((s) => !existsSync(`public${s}`));
+  ok("no rendered picture points at a missing file", broken.length === 0, broken.join(" "));
+}
+
+/* One colour rule, stated as an assertion rather than as an intention.
+
+   lib/documents/theme.js exists because contrast has to be measured, and it
+   measures a CONTRACTOR's brand colour. These pages are not branded by anybody
+   — they are FieldQuo's own marketing, painted from the design tokens, which
+   are already light-and-dark aware and already measured where they are
+   defined. The way these pages stay correct in both themes is therefore by
+   introducing no colour of their own, and that is the thing worth asserting:
+   a raw hex or an arbitrary colour value on one of these three files is a pair
+   nobody measured, in one theme only. */
+{
+  const owned = [
+    ["app/(marketing)/features/[slug]/page.js"],
+    ["app/(marketing)/features/page.js"],
+    ["app/data/featurePages.js"],
+  ].map(([p]) => [p, decomment(readFileSync(p, "utf8"))]);
+
+  for (const [where, body] of owned) {
+    const hexes = [...body.matchAll(/#[0-9a-fA-F]{3,8}\b/g)].map((m) => m[0]);
+    ok(`${where} introduces no colour of its own`, hexes.length === 0, hexes.join(" "));
+    const arbitrary = [...body.matchAll(/\b(?:text|bg|border)-\[[^\]]+\]/g)].map((m) => m[0]);
+    ok(`...and no hand-picked colour value`, arbitrary.length === 0, arbitrary.join(" "));
   }
 }
 
