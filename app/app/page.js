@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { countUpcoming } from "@/lib/schedule/jobVisits";
+import { formatDuration } from "@/lib/i18n/duration";
 import Link from "next/link";
 import {
   FileText,
@@ -671,10 +672,19 @@ export default function DashboardPage() {
                   {money.automaticReminder
                     ? t(
                         "app.dash.owed.autoReminder",
-                        "An automatic reminder goes out {value} {unit} after an invoice's due date.",
+                        "An automatic reminder goes out {delay} after an invoice's due date.",
                         {
-                          value: money.automaticReminder.delayValue,
-                          unit: money.automaticReminder.delayUnit,
+                          // formatDuration, not the raw column. delayUnit is a
+                          // database value — "days", "hours" — and passing it
+                          // straight through printed an English word inside a
+                          // translated sentence: "Автоматичне нагадування ... 3
+                          // days ...". lib/i18n/duration.js exists for exactly
+                          // this and already carries the six languages.
+                          delay: formatDuration(
+                            t,
+                            money.automaticReminder.delayValue,
+                            money.automaticReminder.delayUnit,
+                          ),
                         },
                       )
                     : t(
