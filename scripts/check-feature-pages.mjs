@@ -60,7 +60,25 @@ import {
   featuresOnPage,
   moreInThisArea,
 } from "@/app/data/featurePages";
-import { LANGUAGES } from "@/app/i18n/languages";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
+import { MESSAGES } from "@/app/i18n/messages";
+import { LanguageProvider } from "@/app/providers/LanguageProvider";
+import {
+  FEATURE_PAGE_TEXT_KEYS,
+  featurePageCopy,
+  featurePageKey,
+  featurePageLabel,
+  featurePageStrings,
+} from "@/app/data/featurePages";
+import {
+  FEATURE_GROUP_KEYS,
+  FEATURE_LIMIT_KEYS,
+  LIMIT_KEYS,
+  featureEntry,
+  featureGroup,
+  featureGroupKey,
+  featureLabelKey,
+} from "@/lib/marketing/featureLabels";
 import { scoreLead, TEMPERATURES } from "@/lib/leads/score";
 import { BUDGET_BANDS, TIMELINES } from "@/lib/leads/qualifiers";
 import { FUNNEL_STEP_KINDS } from "@/app/data/funnelBlocks";
@@ -117,13 +135,37 @@ const decomment = (src) =>
 // Wrapped in main() because the pages are async server components and esbuild's
 // cjs output has no top-level await. Called at the bottom.
 async function main() {
+// ── Rendered IN A LANGUAGE ────────────────────────────────────────────────
+//
+// These pages used to be server components with no translation context, so a
+// render took no language and there was nothing to pass. They are split now —
+// page.js keeps routing and metadata, FeaturePageContent renders — because the
+// owner opened /features/quotes and /features/quote-from-the-call and found
+// them untranslated. So every render here goes through LanguageProvider, and
+// the English renders below are the DEFAULT language rather than the only one:
+// every assertion in this file that was written against English prose still
+// reads `rendered`, and section 12 renders the same pages five more times and
+// looks for that English surviving where it should not.
+const renderPage = async (slug, language) => {
+  const element = await FeaturePage({ params: Promise.resolve({ slug }) });
+  if (element === undefined) return undefined;
+  return renderToStaticMarkup(
+    createElement(LanguageProvider, { initialLanguage: language }, element),
+  );
+};
+
 const rendered = new Map();
 for (const slug of FEATURE_PAGE_SLUGS) {
-  const element = await FeaturePage({ params: Promise.resolve({ slug }) });
-  const html = renderToStaticMarkup(element);
+  const html = await renderPage(slug, DEFAULT_LANGUAGE);
   rendered.set(slug, { html, text: textOf(html) });
 }
-const indexHtml = renderToStaticMarkup(createElement(FeaturesIndexPage));
+const indexHtml = renderToStaticMarkup(
+  createElement(
+    LanguageProvider,
+    { initialLanguage: DEFAULT_LANGUAGE },
+    createElement(FeaturesIndexPage),
+  ),
+);
 const indexText = textOf(indexHtml);
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1052,7 +1094,9 @@ console.log("\n── Every picture is a file, and every alt a real key ──�
 {
   const owned = [
     ["app/(marketing)/features/[slug]/page.js"],
+    ["app/(marketing)/features/[slug]/FeaturePageContent.js"],
     ["app/(marketing)/features/page.js"],
+    ["app/(marketing)/features/FeaturesIndexContent.js"],
     ["app/data/featurePages.js"],
   ].map(([p]) => [p, decomment(readFileSync(p, "utf8"))]);
 
@@ -1062,6 +1106,592 @@ console.log("\n── Every picture is a file, and every alt a real key ──�
     const arbitrary = [...body.matchAll(/\b(?:text|bg|border)-\[[^\]]+\]/g)].map((m) => m[0]);
     ok(`...and no hand-picked colour value`, arbitrary.length === 0, arbitrary.join(" "));
   }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   12. THE SIX LANGUAGES
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The owner opened https://www.fieldquo.com/features/quotes and
+   /features/quote-from-the-call and said they have no translations. He was
+   right. A previous pass translated feature NAMES and SUMMARIES through
+   lib/marketing/featureLabels.js and fixed /pricing; app/data/featurePages.js —
+   the headline, the one-liner, the pains, the how, and 164 details across 37
+   pages — stayed English, so a French visitor got a translated page title over
+   entirely English prose. That is the SAME bug the label layer was written to
+   fix, one route over, and half-translated reads as broken software rather than
+   as untranslated software.
+
+   Everything above this line is about English. Everything below is about the
+   other five, and the load-bearing part is section 12d: the real pages are
+   rendered in each language and searched for English that should not have
+   survived. A regex over source cannot see that failure — an agent in this
+   repo had seventy-five source assertions pass green while the page ignored the
+   function they all tested. So the pages are executed.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const OTHER = LANGUAGES.map((l) => l.code).filter((c) => c !== DEFAULT_LANGUAGE);
+const said_ = (language, key) => String(MESSAGES[language]?.[key] ?? "");
+
+/* ── The prose that is legitimately still English ──────────────────────────
+
+   Deliberately bounded, and bounded the way featureLabels.js already bounds
+   its own: by NAME, with the reason, and with an assertion that the exemption
+   is still describing the string it was written for. A one-word label whose
+   Tagalog IS the English word is honest — Filipino tradespeople say "dashboard"
+   and "payroll", and the shipped catalogue already writes them that way. A
+   whole SENTENCE left in English is a forgotten key wearing the loanword
+   argument, so no exemption may cover anything longer than a short label.
+
+   Three, all Tagalog, all page LABELS of one or two words, all named by the
+   translator rather than found by this check afterwards. Each is asserted below
+   to still be identical to the English it was written for, so it cannot quietly
+   outlive the string it excuses, and no exemption may cover anything longer
+   than thirty characters — a paragraph left in English is a forgotten key
+   wearing the loanword argument. */
+const KEPT_AS_ENGLISH = [
+  {
+    language: "tl",
+    key: "featurePage.fieldquo-ai.label",
+    reason:
+      "The value is 'FieldQuo AI' — a brand name and an acronym, both on the " +
+      "do-not-translate list. There is no Tagalog to write here that would not " +
+      "be renaming the product. The page's other 88 strings are Tagalog.",
+  },
+  {
+    language: "tl",
+    key: "featurePage.invoicing.label",
+    reason:
+      "'Invoicing' is what a Filipino tradesperson says, and the shipped " +
+      "catalogue already ships it untranslated (app/i18n/messages.js renders " +
+      "'Invoicing' in the Tagalog product menu). Translating it here would make " +
+      "this page disagree with the navigation above it.",
+  },
+  {
+    language: "tl",
+    key: "featurePage.marketing.label",
+    reason:
+      "Same argument. 'Marketing' is the word; the alternative is a coinage " +
+      "('pagmemerkado') that no contractor uses, which would be writing worse " +
+      "Tagalog to satisfy an assertion.",
+  },
+];
+const exemptProse = (language, key) =>
+  KEPT_AS_ENGLISH.some((x) => x.language === language && x.key === key);
+
+console.log("\n── 12a. Every string, every page, every language ───────────────\n");
+
+// The three lists of keys this file reasons about, each derived from the data
+// rather than typed here, so adding a page or a detail grows all three at once.
+const PROSE_KEYS = [...FEATURE_PAGE_TEXT_KEYS];
+const CHROME_KEYS = Object.keys(MESSAGES.en).filter(
+  (k) => k.startsWith("featurePage.chrome.") || k.startsWith("featuresIndex."),
+);
+const ALL_PAGE_KEYS = [
+  ...PROSE_KEYS,
+  ...CHROME_KEYS,
+  ...FEATURE_GROUP_KEYS,
+  ...FEATURE_LIMIT_KEYS,
+];
+
+ok(
+  `the pages carry prose to translate (${PROSE_KEYS.length} strings)`,
+  PROSE_KEYS.length > 900,
+  PROSE_KEYS.length,
+);
+ok(
+  "...and the key list is exactly what the pages hold",
+  PROSE_KEYS.length ===
+    FEATURE_PAGES.reduce((n, p) => n + featurePageStrings(p).length, 0),
+);
+ok(`...plus the page furniture (${CHROME_KEYS.length})`, CHROME_KEYS.length >= 25, CHROME_KEYS.length);
+ok(`...the four group headings (${FEATURE_GROUP_KEYS.length})`, FEATURE_GROUP_KEYS.length === 8);
+ok(
+  `...and the ${FEATURE_LIMIT_KEYS.length} caveats that used to be English under a translated name`,
+  FEATURE_LIMIT_KEYS.length === LIMIT_KEYS.length && FEATURE_LIMIT_KEYS.length >= 8,
+  FEATURE_LIMIT_KEYS.length,
+);
+ok("no key is claimed twice", new Set(ALL_PAGE_KEYS).size === ALL_PAGE_KEYS.length);
+
+for (const language of LANGUAGES.map((l) => l.code)) {
+  const dict = MESSAGES[language] || {};
+  const missing = ALL_PAGE_KEYS.filter(
+    (k) => typeof dict[k] !== "string" || !dict[k].trim(),
+  );
+  ok(
+    `${language}: all ${ALL_PAGE_KEYS.length} strings present`,
+    missing.length === 0,
+    `${missing.length} missing, e.g. ${missing.slice(0, 5).join(" ")}`,
+  );
+}
+
+console.log("\n── 12b. English is the data module, not a second opinion ───────\n");
+
+/* The English block in the catalogue exists only because
+   scripts/check-translations.mjs compares every language against the KEYS OF
+   ENGLISH — a key in Ukrainian and absent from English is reported as "not in
+   English" and fails the run. So it is a duplicate, and an unpinned duplicate is
+   worse than no duplicate: /features/quotes would say one thing and the 1043
+   assertions above would be proving another. Pinned character by character. */
+{
+  const drifted = [];
+  for (const page of FEATURE_PAGES) {
+    for (const { field, english } of featurePageStrings(page)) {
+      const key = featurePageKey(page.slug, field);
+      if (MESSAGES.en[key] !== english) drifted.push(key);
+    }
+  }
+  ok(
+    "every English page string is character-identical to app/data/featurePages.js",
+    drifted.length === 0,
+    `${drifted.length}: ${drifted.slice(0, 5).join(" ")}`,
+  );
+}
+{
+  const drifted = [];
+  for (const g of MATRIX_GROUPS) {
+    if (MESSAGES.en[featureGroupKey(g.key, "label")] !== g.label) drifted.push(`${g.key}.label`);
+    if (MESSAGES.en[featureGroupKey(g.key, "blurb")] !== g.blurb) drifted.push(`${g.key}.blurb`);
+  }
+  for (const key of LIMIT_KEYS) {
+    if (MESSAGES.en[featureLabelKey(key, "limits")] !== matrixEntry(key).limits) {
+      drifted.push(`${key}.limits`);
+    }
+  }
+  ok(
+    "every English heading and caveat is character-identical to the matrix",
+    drifted.length === 0,
+    drifted.slice(0, 5).join(" "),
+  );
+}
+
+/* Both directions. A page string with no catalogue key is 12a. This is the
+   other one: a `featurePage.*` key naming a page or a field that does not
+   exist. Left unchecked, deleting a detail from a page would strand six
+   translations of it, and renaming a slug would strand ninety — silently, in
+   five languages nobody in-house reads. */
+{
+  const legitimate = new Set(PROSE_KEYS);
+  const orphans = [];
+  for (const language of LANGUAGES.map((l) => l.code)) {
+    for (const key of Object.keys(MESSAGES[language])) {
+      if (!key.startsWith("featurePage.")) continue;
+      if (key.startsWith("featurePage.chrome.")) continue;
+      if (!legitimate.has(key)) orphans.push(`${language}/${key}`);
+    }
+  }
+  ok(
+    "no catalogue key names a page or a field that does not exist",
+    orphans.length === 0,
+    `${orphans.length}: ${orphans.slice(0, 5).join(" ")}`,
+  );
+  // And the shape of the key is decided in one place, so a call site that typed
+  // it by hand would work today and rot the first time the prefix moved.
+  ok(
+    "the key shape comes from featurePageKey()",
+    featurePageKey("quotes", "headline") === "featurePage.quotes.headline" &&
+      featurePageKey("ai-quote-review", "pain.2.fix") ===
+        "featurePage.ai-quote-review.pain.2.fix",
+  );
+}
+
+console.log("\n── 12c. Nothing was left in English, and the two alphabets ─────\n");
+
+{
+  const untranslated = [];
+  for (const language of OTHER) {
+    for (const key of ALL_PAGE_KEYS) {
+      const said = said_(language, key).trim();
+      if (said && said === String(MESSAGES.en[key]).trim() && !exemptProse(language, key)) {
+        untranslated.push(`${language}/${key}`);
+      }
+    }
+  }
+  ok(
+    "no string is still its English original",
+    untranslated.length === 0,
+    `${untranslated.length}: ${untranslated.slice(0, 8).join(" ")}`,
+  );
+}
+// A stale exemption is a hole with a comment on it.
+for (const x of KEPT_AS_ENGLISH) {
+  ok(
+    `the ${x.language}/${x.key} exemption is still the case`,
+    said_(x.language, x.key).trim() === String(MESSAGES.en[x.key]).trim(),
+    said_(x.language, x.key),
+  );
+  ok("...and says why in more than a word", x.reason.trim().length >= 40);
+  // Length is the discriminator. A loanword is a NAME; a paragraph left in
+  // English is a forgotten key, whatever reason is attached to it.
+  ok(
+    "...and covers a label, not a paragraph",
+    String(MESSAGES.en[x.key]).trim().length <= 30,
+    String(MESSAGES.en[x.key]).length,
+  );
+}
+ok("the exemption list is short enough to read", KEPT_AS_ENGLISH.length <= 8, KEPT_AS_ENGLISH.length);
+
+/* Ukrainian and Punjabi do not share an alphabet with English, so "is this
+   translated" is answerable without judgement: the string must carry its own
+   script. That is the cheap, total version of the assertion above for two of
+   the five — an English line copied into the Ukrainian block fails here even if
+   somebody changed one word so it no longer matches the original exactly. */
+const SCRIPTS = {
+  uk: { name: "Cyrillic", re: /[Ѐ-ӿ]/ },
+  pa: { name: "Gurmukhi", re: /[਀-੿]/ },
+};
+for (const [language, script] of Object.entries(SCRIPTS)) {
+  const wrong = ALL_PAGE_KEYS.filter((k) => !script.re.test(said_(language, k)));
+  ok(
+    `${language}: every string is written in ${script.name}`,
+    wrong.length === 0,
+    `${wrong.length}: ${wrong.slice(0, 5).join(" ")}`,
+  );
+}
+/* The Latin that IS allowed in those two blocks: product names, brands, file
+   formats and the tax acronyms this market actually uses. Anything else is an
+   English fragment that survived a paragraph. Bounded the same way
+   featureLabels.js bounds its own list — a fixed allowlist, asserted, so it
+   cannot grow into "any English word is fine". */
+{
+  const ALLOWED = new Set([
+    // Companies and products, ours and other people's.
+    "FieldQuo", "Stripe", "Affirm", "Instagram",
+    // File formats.
+    "PDF", "AI",
+    // Statutory programmes, which are proper names in every language. Nobody
+    // files their "ПФК" return; the form says CPP.
+    "CPP", "EI", "Social", "Security", "Medicare",
+    // The document-number prefixes the product itself prints. Translating the
+    // example would show a Ukrainian reader a number the software will never
+    // produce, which is worse than leaving it in Latin.
+    "Q", "INV",
+  ]);
+  const strays = [];
+  for (const language of Object.keys(SCRIPTS)) {
+    for (const key of ALL_PAGE_KEYS) {
+      // {count} is markup, not prose — scanning it would report the word
+      // "count" as surviving English in every language that has a plural.
+      const said = said_(language, key).replace(/\{\w+\}/g, " ");
+      for (const run of said.match(/[A-Za-z][A-Za-z']*/g) || []) {
+        if (!ALLOWED.has(run)) strays.push(`${language}/${key}: ${run}`);
+      }
+    }
+  }
+  ok(
+    "...and the only Latin left in them is a brand, a format or a statutory name",
+    strays.length === 0,
+    `${strays.length}: ${strays.slice(0, 8).join(" ")}`,
+  );
+  ok("the allowlist is short enough to read", ALLOWED.size <= 40, ALLOWED.size);
+  // And it cannot grow into fiction: every token on it has to be a word the
+  // ENGLISH pages actually contain. An allowlist that can be extended with
+  // anything is not a bound, it is a comment.
+  {
+    const words = new Set(
+      ALL_PAGE_KEYS.map((k) => String(MESSAGES.en[k] ?? "")).join(" ").match(/[A-Za-z][A-Za-z']*/g) || [],
+    );
+    const unused = [...ALLOWED].filter((w) => !words.has(w));
+    ok("every allowlisted word is one the English pages really use", unused.length === 0,
+      unused.join(" "));
+  }
+}
+
+console.log("\n── 12d. The resolution: catalogue, then English, never a key ───\n");
+
+{
+  // No translator at all — the path generateMetadata takes, because metadata is
+  // what a crawler indexes and a French <title> served because the last visitor
+  // switched languages is worse than an English one. Same strings as before any
+  // of this existed.
+  const bare = featurePageCopy("quotes");
+  const raw = featurePage("quotes");
+  ok("no translator at all is the English data module, unchanged",
+    bare.headline === raw.headline && bare.pains[0].pain === raw.pains[0].pain);
+
+  // The fallback, exercised rather than described. A t() that resolves nothing
+  // is exactly what a language with a hole in it does, and it must hand back
+  // the English sentence the 1043 assertions above proved — never the key.
+  const nothingResolves = (key, fallback) => fallback;
+  const holed = featurePageCopy("quotes", nothingResolves);
+  ok("a language with no entry gets the English prose",
+    holed.headline === raw.headline && holed.details[0].body === raw.details[0].body);
+  ok("...never the catalogue key itself",
+    !/^featurePage\./.test(holed.headline) && !/^featurePage\./.test(holed.oneLine));
+  ok("...for every field on every page",
+    FEATURE_PAGES.every((p) => {
+      const c = featurePageCopy(p.slug, nothingResolves);
+      return (
+        c.label === p.label &&
+        c.headline === p.headline &&
+        c.oneLine === p.oneLine &&
+        c.description === p.description &&
+        c.pains.every((x, i) => x.pain === p.pains[i].pain && x.fix === p.pains[i].fix) &&
+        c.how.every((x, i) => x.step === p.how[i].step && x.body === p.how[i].body) &&
+        (c.details || []).every(
+          (x, i) => x.label === p.details[i].label && x.body === p.details[i].body,
+        )
+      );
+    }));
+
+  // And with a t() that DOES resolve, the catalogue wins.
+  const uk = (key, fallback) => MESSAGES.uk[key] ?? fallback;
+  const said = featurePageCopy("quotes", uk);
+  ok("a language with an entry gets the entry",
+    said.headline === MESSAGES.uk["featurePage.quotes.headline"] &&
+      said.pains[1].fix === MESSAGES.uk["featurePage.quotes.pain.2.fix"]);
+  ok("featurePageLabel is the same resolution, not a second one",
+    featurePageLabel("quotes", uk) === said.label);
+
+  // The image alt was a field written and read by nothing: every image carries
+  // `altKey`, an existing catalogue key translated into all six, and the
+  // renderer printed the English `alt` beside it.
+  ok("an image alt resolves through its altKey",
+    said.image.alt === MESSAGES.uk[raw.image.altKey] && said.image.alt !== raw.image.alt);
+
+  ok("an unknown slug is refused, not improvised", featurePageCopy("not-a-feature", uk) === undefined);
+  ok("...and featurePageLabel refuses it too", featurePageLabel("not-a-feature", uk) === undefined);
+
+  // The limits gap featureLabels.js named and left open.
+  const financing = featureEntry("financing", uk);
+  ok("a partial feature's caveat is translated too",
+    financing.limits === MESSAGES.uk["feature.financing.limits"] &&
+      financing.limits !== matrixEntry("financing").limits);
+  // 68 of the 76 matrix entries carry `limits: null`. Resolved anyway, t()
+  // would hand back the KEY for a language that has no such entry — a page
+  // printing "Where this stops: feature.quotes.limits" under a feature that
+  // stops nowhere. Exercised with a t() that behaves the way the real one does
+  // on a miss (fallback, then the key), because a test double that returns the
+  // fallback would pass with the guard removed.
+  const keyish = (key, fallback) => MESSAGES.uk[key] ?? fallback ?? key;
+  ok("...and a feature with no caveat gains no empty one",
+    featureEntry("quotes", keyish).limits === matrixEntry("quotes").limits &&
+      !featureEntry("quotes", keyish).limits,
+    String(featureEntry("quotes", keyish).limits));
+  ok("a group heading resolves through the layer",
+    featureGroup("winning_work", uk).label === MESSAGES.uk["featureGroup.winning_work.label"]);
+  ok("...and with no translator is the matrix's own",
+    featureGroup("winning_work").label === MATRIX_GROUPS[0].label);
+}
+
+console.log("\n── 12e. THE RENDER — five languages, no English left standing ──\n");
+
+/* The assertion the bug report is about, and the only one that can see it.
+   Everything above is about strings in a file; the failure the owner saw was on
+   a page, because the RENDERER decides which of two sources it reads. So the
+   real pages are executed in each language and the output is searched for the
+   English that should not have survived. */
+
+// Rendered once per language, up front, so a page that throws in Punjabi fails
+// loudly here rather than thirty-seven times quietly.
+const byLanguage = new Map();
+for (const language of OTHER) {
+  const pages = new Map();
+  for (const slug of FEATURE_PAGE_SLUGS) {
+    pages.set(slug, textOf(await renderPage(slug, language)));
+  }
+  const index = textOf(
+    renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        { initialLanguage: language },
+        createElement(FeaturesIndexPage),
+      ),
+    ),
+  );
+  byLanguage.set(language, { pages, index });
+}
+
+/* What counts as "English prose that survived".
+
+   Short strings are useless as evidence — "Quotes" appears inside a French
+   sentence about a "soumission" for reasons that have nothing to do with a
+   missing translation, and a two-word detail label can legitimately coincide.
+   So the search is over the SUBSTANTIAL English on each page: every string of
+   40 characters or more. Those are the sentences, and a sentence appearing
+   verbatim in a French render is not a coincidence — it is the bug. */
+/* Whitespace, normalised on BOTH sides before comparing.
+
+   textOf() collapses runs of whitespace in the rendered markup, and a French
+   translation legitimately contains U+00A0 before a colon or inside guillemets
+   — which \s matches, so the render says " :" where the catalogue says
+   "\u00A0:". Comparing raw would fail on correct French and, worse, would never
+   match at all — and a check that never matches passes for the wrong reason the
+   moment somebody inverts it. */
+const flat = (x) => String(x).replace(/\s+/g, " ").trim();
+
+const substantial = (page) =>
+  featurePageStrings(page)
+    .map(({ field, english }) => ({ field, english }))
+    // `description` is the only prose field this page does NOT render: it feeds
+    // generateMetadata, which stays English on purpose — it is what a crawler
+    // indexes, and serving a French <title> because the last visitor switched
+    // languages is worse than an English one. Same decision as
+    // /industries/[slug]. It is translated in the catalogue anyway so that the
+    // day locale-prefixed routes land (docs/ROADMAP.md) nothing is outstanding,
+    // and 12a holds it to the same coverage bar as everything else. Asserting
+    // it appears in the markup would assert a thing that must not be true.
+    .filter((x) => x.field !== "description" && x.english.length >= 40);
+
+for (const language of OTHER) {
+  const { pages, index } = byLanguage.get(language);
+
+  // (a) Every page renders at all, and renders something.
+  {
+    const empty = FEATURE_PAGE_SLUGS.filter((s) => pages.get(s).length < 800);
+    ok(`${language}: all ${FEATURE_PAGE_SLUGS.length} pages render real content`,
+      empty.length === 0, empty.join(" "));
+  }
+
+  // (b) The translation is ON THE PAGE. Not "the catalogue has one" — this is
+  //     the half no source assertion can reach, and the half that caught a page
+  //     still importing the English module directly.
+  {
+    const absent = [];
+    for (const page of FEATURE_PAGES) {
+      const text = pages.get(page.slug);
+      for (const { field } of substantial(page)) {
+        const want = said_(language, featurePageKey(page.slug, field));
+        if (want && !text.includes(flat(want))) absent.push(`${page.slug}.${field}`);
+      }
+    }
+    ok(`${language}: every sentence on every page is printed in ${language}`,
+      absent.length === 0, `${absent.length}: ${absent.slice(0, 6).join(" ")}`);
+  }
+
+  // (c) And the English is gone. This is the reported bug, stated as an
+  //     assertion: a page whose title translated and whose body did not.
+  {
+    const survived = [];
+    for (const page of FEATURE_PAGES) {
+      const text = pages.get(page.slug);
+      for (const { field, english } of substantial(page)) {
+        if (exemptProse(language, featurePageKey(page.slug, field))) continue;
+        if (text.includes(flat(english))) survived.push(`${page.slug}.${field}`);
+      }
+    }
+    ok(`${language}: NO English page prose survives`,
+      survived.length === 0, `${survived.length}: ${survived.slice(0, 6).join(" ")}`);
+  }
+
+  // (d) The bug was a MIXTURE, so the furniture is checked beside the prose. A
+  //     page that translated its paragraphs and kept "What you get" in English
+  //     is the same defect facing the other way.
+  {
+    const survived = CHROME_KEYS.filter((k) => {
+      const en = String(MESSAGES.en[k]);
+      if (en.length < 12 || /\{\w+\}/.test(en)) return false;
+      return FEATURE_PAGE_SLUGS.some((s) => pages.get(s).includes(flat(en))) || index.includes(flat(en));
+    });
+    ok(`${language}: no English heading or button survives either`,
+      survived.length === 0, survived.slice(0, 6).join(" "));
+    const shown = ["painsTitle", "howTitle", "getTitle", "ctaTitle", "startTrial"].map(
+      (n) => `featurePage.chrome.${n}`,
+    );
+    ok(`${language}: ...and the ${language} ones are actually printed`,
+      shown.every((k) => FEATURE_PAGE_SLUGS.some((s) => pages.get(s).includes(flat(said_(language, k))))),
+      shown.filter((k) => !FEATURE_PAGE_SLUGS.some((s) => pages.get(s).includes(flat(said_(language, k))))).join(" "));
+  }
+
+  // (e) The group heading over the hero, and the matrix names and summaries
+  //     under "What you get" — the layer /pricing already proved, re-proved
+  //     here because these pages call it at three different call sites.
+  {
+    const survivedGroups = MATRIX_GROUPS.filter((g) =>
+      FEATURE_PAGE_SLUGS.some((s) => pages.get(s).includes(flat(g.blurb))) || index.includes(flat(g.blurb)),
+    );
+    ok(`${language}: no English group blurb survives`, survivedGroups.length === 0,
+      survivedGroups.map((g) => g.key).join(" "));
+    const survivedNames = [];
+    for (const page of FEATURE_PAGES) {
+      const text = pages.get(page.slug);
+      for (const key of page.features) {
+        if (text.includes(flat(matrixEntry(key).summary))) survivedNames.push(`${page.slug}/${key}`);
+      }
+    }
+    ok(`${language}: no English feature sentence survives`, survivedNames.length === 0,
+      survivedNames.slice(0, 6).join(" "));
+  }
+
+  // (f) The caveats. featureLabels.js named this gap in its own header —
+  //     "a Ukrainian visitor sees one English caveat under an otherwise
+  //     Ukrainian block" — and /features/financing is the page where it bites
+  //     hardest, because the sentence is "FieldQuo does not lend and does not
+  //     approve anyone". Asserted on the pages that actually carry a partial.
+  {
+    const withLimits = FEATURE_PAGES.filter((p) =>
+      p.features.some((k) => LIMIT_KEYS.includes(k)),
+    );
+    ok(`${language}: there are pages carrying a caveat (${withLimits.length})`,
+      withLimits.length >= 5, withLimits.length);
+    const survived = [];
+    const absent = [];
+    for (const page of withLimits) {
+      const text = pages.get(page.slug);
+      for (const key of page.features.filter((k) => LIMIT_KEYS.includes(k))) {
+        if (text.includes(flat(matrixEntry(key).limits))) survived.push(`${page.slug}/${key}`);
+        if (!text.includes(flat(said_(language, featureLabelKey(key, "limits"))))) {
+          absent.push(`${page.slug}/${key}`);
+        }
+      }
+    }
+    ok(`${language}: every caveat is printed in ${language}`, absent.length === 0,
+      absent.slice(0, 6).join(" "));
+    ok(`${language}: NO English caveat survives`, survived.length === 0,
+      survived.slice(0, 6).join(" "));
+  }
+
+  // (g) /features/financing by name, because it is the page the argument is
+  //     about and a list-driven assertion can pass while the one page that
+  //     matters is missing from the list.
+  {
+    const text = pages.get("financing");
+    const english = matrixEntry("financing").limits;
+    ok(`${language}: /features/financing does not say "${english.slice(0, 34)}…"`,
+      !text.includes(flat(english)));
+    ok(`${language}: ...and does carry the ${language} caveat`,
+      text.includes(flat(said_(language, "feature.financing.limits"))));
+    ok(`${language}: ...and its headline is not the English one`,
+      !text.includes(flat(featurePage("financing").headline)));
+  }
+
+  // (h) The index, which lists all 37 and every one of the 29 names. Left
+  //     English it would be the same half-and-half failure one level up.
+  {
+    const survived = FEATURE_PAGES.filter(
+      (p) => p.oneLine.length >= 40 && index.includes(flat(p.oneLine)),
+    );
+    ok(`${language}: /features lists nothing in English`, survived.length === 0,
+      survived.map((p) => p.slug).slice(0, 6).join(" "));
+    ok(`${language}: ...and lists the pages in ${language}`,
+      FEATURE_PAGES.every((p) => index.includes(flat(said_(language, featurePageKey(p.slug, "label"))))),
+      FEATURE_PAGES.filter((p) => !index.includes(flat(said_(language, featurePageKey(p.slug, "label")))))
+        .map((p) => p.slug).slice(0, 6).join(" "));
+  }
+}
+
+// The metadata half of the same decision, asserted rather than described: the
+// <title> and description a crawler sees are the English ones, and they are the
+// English ones no matter what language the page body is rendered in — because
+// generateMetadata has no React context and must not gain one.
+{
+  const meta = await generateMetadata({ params: Promise.resolve({ slug: "quotes" }) });
+  const page = featurePage("quotes");
+  ok("generateMetadata is still English", meta.title === `${page.headline} | FieldQuo`);
+  ok("...and its description is the data module's own", meta.description === page.description);
+  ok("...which is NOT what the pages render",
+    MESSAGES.fr["featurePage.quotes.description"] !== page.description);
+}
+
+// English is the control. If the pages stopped printing the proved English when
+// nobody asked for another language, every assertion above is measuring the
+// wrong thing — and the 1043 assertions before it would already have failed,
+// which is the point of leaving them reading `rendered`.
+{
+  const missing = FEATURE_PAGES.filter((p) => !rendered.get(p.slug).text.includes(flat(p.headline)));
+  ok("English still prints the data module's own headlines", missing.length === 0,
+    missing.map((p) => p.slug).join(" "));
 }
 
 console.log(

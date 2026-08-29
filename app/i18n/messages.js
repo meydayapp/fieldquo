@@ -17,6 +17,12 @@
 // resolver does not guess extensions — without it the coverage check dies at
 // import time, which is exactly how it came to be silently broken before.
 import { APP_MESSAGES, APP_MESSAGE_KEYS } from "./appMessages.js";
+// Same reasoning about the extension. The /features catalogue is 981 keys in
+// six languages — twice this file — and lives in its own directory for the
+// reason its header gives. It is merged into the MARKETING blocks below, NOT
+// alongside the app catalogue, because it is public copy and must be gated at
+// the marketing bar: every language, or check:translations fails.
+import { FEATURE_PAGE_MESSAGES } from "./featurePages/index.js";
 
 const en = {
   // Navigation
@@ -2890,7 +2896,18 @@ const tl = {
 //
 // App keys are namespaced "app.*", so a collision with a marketing key is
 // impossible by construction rather than by discipline.
-const MARKETING = { en, fr, es, uk, pa, tl };
+// The /features catalogue is merged into the MARKETING half rather than beside
+// the app one. That placement is the whole point: MESSAGE_KEYS is taken from
+// this object, and check:translations gates a deploy on full coverage of
+// MESSAGE_KEYS in all six languages. A feature page is read by a stranger with
+// no relationship to the product, which is the one surface where a missing
+// string is a lost sale rather than an awkward moment.
+const MARKETING = Object.fromEntries(
+  Object.entries({ en, fr, es, uk, pa, tl }).map(([code, dict]) => [
+    code,
+    { ...dict, ...(FEATURE_PAGE_MESSAGES[code] || {}) },
+  ]),
+);
 
 export const MESSAGES = Object.fromEntries(
   Object.keys(MARKETING).map((code) => [
@@ -2902,7 +2919,12 @@ export const MESSAGES = Object.fromEntries(
 // Every key that exists in English. Used by the coverage check in
 // scripts/check-translations.mjs so a missing translation is a caught
 // omission rather than something a customer discovers.
-export const MESSAGE_KEYS = Object.keys(en);
+//
+// Read off MARKETING.en, not the `en` literal above: the /features keys are
+// merged in and have to be gated too. Reading the literal would have shipped
+// 981 keys per language that no coverage check could see, which is exactly the
+// shape of hole this catalogue exists to close.
+export const MESSAGE_KEYS = Object.keys(MARKETING.en);
 
 // English keys across BOTH catalogues. Kept separate from MESSAGE_KEYS because
 // the coverage script gates a deploy on full marketing coverage in all six

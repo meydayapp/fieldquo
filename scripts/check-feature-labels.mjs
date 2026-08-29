@@ -53,12 +53,19 @@ import { LANGUAGES, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { MESSAGES } from "@/app/i18n/messages";
 import { FEATURE_MATRIX, MATRIX_KEYS, matrixEntry } from "@/lib/marketing/featureMatrix";
 import {
+  FEATURE_GROUP_KEYS,
   FEATURE_LABEL_KEYS,
+  FEATURE_LIMIT_KEYS,
+  GROUP_LABEL_FIELDS,
   LABEL_FIELDS,
+  LIMIT_KEYS,
   featureEntry,
+  featureGroup,
+  featureGroupKey,
   featureLabel,
   featureLabelKey,
 } from "@/lib/marketing/featureLabels";
+import { MATRIX_GROUPS } from "@/lib/marketing/featureMatrix";
 import { SEAT_LADDER, SUPPORTED_CURRENCIES } from "@/lib/pricing/ladder";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import PricingPage from "@/app/(marketing)/pricing/page";
@@ -269,9 +276,13 @@ console.log("\n6. The catalogue and the matrix cannot drift apart");
   const orphans = [];
   for (const language of LANGUAGES.map((l) => l.code)) {
     for (const key of Object.keys(MESSAGES[language])) {
-      const m = /^feature\.([a-z0-9_]+)\.(name|summary)$/.exec(key);
+      const m = /^feature\.([a-z0-9_]+)\.(name|summary|limits)$/.exec(key);
       if (!m) continue;
       if (!MATRIX_KEYS.includes(m[1])) orphans.push(`${language}/${key}`);
+      // A `limits` key for a feature that stops nowhere is a caveat with no
+      // claim behind it — an invented hedge, which is the mirror of an
+      // invented feature and just as wrong on a page selling honesty.
+      if (m[2] === "limits" && !LIMIT_KEYS.includes(m[1])) orphans.push(`${language}/${key}`);
     }
   }
   ok("no catalogue key names a feature the matrix does not carry", orphans.length === 0,
@@ -406,6 +417,229 @@ for (const language of OTHER) {
   ok(`${language}: the group headings speak ${language} too`,
     ["pricing.group.winning", "pricing.group.doing", "pricing.group.paid", "pricing.group.running"]
       .every((k) => text.includes(MESSAGES[language][k])));
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. THE CAVEATS, AND THE HEADINGS OVER THEM
+
+   The gap this file's own header used to name and leave open:
+
+     "`limits` is NOT translated here. That is a real gap and it is named
+      rather than hidden: eight entries carry one, and one of them
+      (door_hanger_routes) renders on /pricing, so a Ukrainian visitor sees one
+      English caveat under an otherwise Ukrainian block."
+
+   Eight sentences, and they are the eight on this site where a loose paraphrase
+   does the most damage — every one of them is the reason a page is not a lie.
+   "FieldQuo does not lend and does not approve anyone" is what keeps the
+   financing page legal to publish. So they are held to a HARDER bar than the
+   names above, not an equal one: present, in script, pinned to the matrix in
+   English, never the English original, and — the part that matters — actually
+   printed on /pricing in place of the English.
+   ═══════════════════════════════════════════════════════════════════════════ */
+console.log("\n8. Where a partly-built thing stops, said in six languages");
+
+ok(`the matrix carries caveats to translate (${LIMIT_KEYS.length})`, LIMIT_KEYS.length >= 8,
+  LIMIT_KEYS.length);
+ok("...and only for features that are partly built",
+  LIMIT_KEYS.every((k) => matrixEntry(k).readiness === "partial"),
+  LIMIT_KEYS.filter((k) => matrixEntry(k).readiness !== "partial").join(" "));
+ok("...one key each, no more",
+  FEATURE_LIMIT_KEYS.length === LIMIT_KEYS.length &&
+    new Set(FEATURE_LIMIT_KEYS).size === FEATURE_LIMIT_KEYS.length);
+// The list is derived, not typed. A ninth entry gaining a limit must fail the
+// coverage below until somebody writes the six sentences — the alternative is a
+// caveat shipping in English while nothing notices.
+ok("...and every partial with a limit is on it",
+  MATRIX_KEYS.filter((k) => matrixEntry(k).limits?.trim()).every((k) => LIMIT_KEYS.includes(k)));
+
+for (const language of LANGUAGES.map((l) => l.code)) {
+  const dict = MESSAGES[language] || {};
+  const missing = FEATURE_LIMIT_KEYS.filter(
+    (k) => typeof dict[k] !== "string" || !dict[k].trim(),
+  );
+  ok(`${language}: all ${FEATURE_LIMIT_KEYS.length} caveats present`, missing.length === 0,
+    missing.join(" "));
+}
+{
+  const drifted = LIMIT_KEYS.filter(
+    (k) => MESSAGES.en[featureLabelKey(k, "limits")] !== matrixEntry(k).limits,
+  );
+  ok("every English caveat is character-identical to the matrix", drifted.length === 0,
+    drifted.join(" "));
+}
+{
+  const untranslated = [];
+  for (const language of OTHER) {
+    for (const key of LIMIT_KEYS) {
+      if (said_(language, key, "limits").trim() === matrixEntry(key).limits.trim()) {
+        untranslated.push(`${language}/${key}`);
+      }
+    }
+  }
+  // No exemption list here on purpose. A caveat is a paragraph, never a
+  // one-word loanword, so the KEPT_AS_ENGLISH argument cannot reach it.
+  ok("no caveat is still its English original", untranslated.length === 0,
+    untranslated.join(" "));
+}
+for (const [language, script] of Object.entries(SCRIPTS)) {
+  const wrong = LIMIT_KEYS.filter((k) => !script.re.test(said_(language, k, "limits")));
+  ok(`${language}: every caveat is written in ${script.name}`, wrong.length === 0,
+    wrong.join(" "));
+}
+// A caveat is a NARROWING. One that has come back much shorter than the English
+// has almost certainly dropped a clause, and a dropped clause in a hedge is a
+// promise we did not make. Not a translation check — a length sanity check, and
+// deliberately loose, because Ukrainian and Punjabi are compact and a real
+// translation can legitimately be two-thirds the length.
+{
+  const short = [];
+  for (const language of OTHER) {
+    for (const key of LIMIT_KEYS) {
+      const en = matrixEntry(key).limits.trim();
+      const said = said_(language, key, "limits").trim();
+      if (said.length < en.length * 0.45) short.push(`${language}/${key}`);
+    }
+  }
+  ok("no caveat came back short enough to have lost a clause", short.length === 0,
+    short.join(" "));
+}
+// Sentence count is the structural half of the same argument: "FieldQuo does
+// not lend and does not approve anyone" is one of three sentences in the
+// financing caveat, and a translation that returned two has dropped one.
+{
+  const sentences = (x) => x.split(/[.。।!?]\s+|[.。।!?]$/).filter((y) => y.trim()).length;
+  const lost = [];
+  for (const language of OTHER) {
+    for (const key of LIMIT_KEYS) {
+      const want = sentences(matrixEntry(key).limits);
+      const got = sentences(said_(language, key, "limits"));
+      if (got < want) lost.push(`${language}/${key} (${got} of ${want})`);
+    }
+  }
+  ok("no caveat lost a sentence in translation", lost.length === 0, lost.slice(0, 8).join(" "));
+}
+{
+  const uk = (key, fallback) => MESSAGES.uk[key] ?? fallback;
+  const e = featureEntry("financing", uk);
+  ok("featureEntry resolves the caveat", e.limits === MESSAGES.uk["feature.financing.limits"]);
+  ok("...and it is not the English one", e.limits !== matrixEntry("financing").limits);
+  // 68 of the 76 have no limit. Resolving one anyway would print
+  // "Where this stops: feature.quotes.limits" under a feature that stops
+  // nowhere — a key rendered to a customer, which is the failure t()'s fallback
+  // chain exists to prevent.
+  // Exercised with a t() that behaves the way the real one does on a miss —
+  // fallback, then the key — because a double that returns the fallback would
+  // pass with the guard removed. 68 of the 76 entries carry `limits: null`, and
+  // resolving one anyway prints "Where it stops: feature.quotes.limits".
+  const keyish = (key, fallback) => MESSAGES.uk[key] ?? fallback ?? key;
+  ok("a feature with no caveat gains no empty one",
+    featureEntry("quotes", keyish).limits === matrixEntry("quotes").limits &&
+      !featureEntry("quotes", keyish).limits,
+    String(featureEntry("quotes", keyish).limits));
+  ok("...and with no translator the caveat is the matrix's own",
+    featureEntry("financing").limits === matrixEntry("financing").limits);
+  const nothingResolves = (key, fallback) => fallback;
+  ok("...and a language with no entry gets the matrix's English caveat",
+    featureEntry("financing", nothingResolves).limits === matrixEntry("financing").limits);
+}
+
+console.log("\n9. The four group headings the site is organised by");
+
+ok(`the layer names two keys per group (${FEATURE_GROUP_KEYS.length})`,
+  FEATURE_GROUP_KEYS.length === MATRIX_GROUPS.length * GROUP_LABEL_FIELDS.length);
+for (const language of LANGUAGES.map((l) => l.code)) {
+  const dict = MESSAGES[language] || {};
+  const missing = FEATURE_GROUP_KEYS.filter(
+    (k) => typeof dict[k] !== "string" || !dict[k].trim(),
+  );
+  ok(`${language}: all ${FEATURE_GROUP_KEYS.length} group strings present`, missing.length === 0,
+    missing.join(" "));
+}
+{
+  const drifted = [];
+  for (const g of MATRIX_GROUPS) {
+    for (const field of GROUP_LABEL_FIELDS) {
+      if (MESSAGES.en[featureGroupKey(g.key, field)] !== g[field]) drifted.push(`${g.key}.${field}`);
+    }
+  }
+  ok("every English group string is character-identical to the matrix", drifted.length === 0,
+    drifted.join(" "));
+}
+{
+  const untranslated = [];
+  for (const language of OTHER) {
+    for (const g of MATRIX_GROUPS) {
+      for (const field of GROUP_LABEL_FIELDS) {
+        if (String(MESSAGES[language]?.[featureGroupKey(g.key, field)] ?? "").trim() ===
+            g[field].trim()) {
+          untranslated.push(`${language}/${g.key}.${field}`);
+        }
+      }
+    }
+  }
+  ok("no group string is still its English original", untranslated.length === 0,
+    untranslated.join(" "));
+}
+{
+  const orphans = [];
+  for (const language of LANGUAGES.map((l) => l.code)) {
+    for (const key of Object.keys(MESSAGES[language])) {
+      const m = /^featureGroup\.([a-z0-9_]+)\.(label|blurb)$/.exec(key);
+      if (m && !MATRIX_GROUPS.some((g) => g.key === m[1])) orphans.push(`${language}/${key}`);
+    }
+  }
+  ok("no catalogue key names a group the matrix does not carry", orphans.length === 0,
+    orphans.join(" "));
+}
+{
+  const uk = (key, fallback) => MESSAGES.uk[key] ?? fallback;
+  ok("featureGroup resolves through the catalogue",
+    featureGroup("winning_work", uk).label === MESSAGES.uk["featureGroup.winning_work.label"]);
+  ok("...no translator is the matrix's own", featureGroup("winning_work").label === MATRIX_GROUPS[0].label);
+  const nothingResolves = (key, fallback) => fallback;
+  ok("...a language with no entry gets the matrix's English",
+    featureGroup("getting_paid", nothingResolves).blurb ===
+      MATRIX_GROUPS.find((g) => g.key === "getting_paid").blurb);
+  ok("an unknown group is refused, not improvised", featureGroup("no_such_group", uk) === undefined);
+  ok("the key shape comes from featureGroupKey()",
+    featureGroupKey("winning_work", "label") === "featureGroup.winning_work.label");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   10. THE CAVEAT ON THE PAGE — /pricing, rendered, in five languages
+
+   Section 8 proves the catalogue holds six phrasings. This proves the page
+   prints them, which is the only thing the Ukrainian visitor in the header
+   actually experiences. The add-on block on /pricing is where a limit surfaces
+   there, and it marks each one with data-addon-limits so the rendered set is
+   read off the page rather than guessed at here.
+   ═══════════════════════════════════════════════════════════════════════════ */
+console.log("\n10. The caveats as /pricing actually prints them");
+
+// Same whitespace normalisation as scripts/check-feature-pages.mjs, and for the
+// same reason: textOf() collapses whitespace in the markup, and French
+// legitimately writes U+00A0 before a colon.
+const flat_ = (x) => String(x).replace(/\s+/g, " ").trim();
+
+const limitKeysOnPage = [
+  ...new Set([...(await renderIn("en")).matchAll(/data-addon-limits="([^"]+)"/g)].map((m) => m[1])),
+].filter((k) => LIMIT_KEYS.includes(k));
+
+ok(`/pricing prints a caveat at all (${limitKeysOnPage.length})`, limitKeysOnPage.length > 0);
+{
+  const missing = limitKeysOnPage.filter((k) => !rendered.get("en").includes(flat_(matrixEntry(k).limits)));
+  ok("English still prints the matrix's own caveat", missing.length === 0, missing.join(" "));
+}
+for (const language of OTHER) {
+  const text = rendered.get(language);
+  const absent = limitKeysOnPage.filter((k) => !text.includes(flat_(said_(language, k, "limits"))));
+  ok(`${language}: the caveat on /pricing is written in ${language}`, absent.length === 0,
+    absent.join(" "));
+  const survived = limitKeysOnPage.filter((k) => text.includes(flat_(matrixEntry(k).limits)));
+  ok(`${language}: NO English caveat survives on /pricing`, survived.length === 0,
+    survived.join(" "));
 }
 
 console.log(

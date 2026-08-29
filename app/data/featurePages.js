@@ -3240,3 +3240,186 @@ export function coverage() {
     missing: MATRIX_KEYS.filter((k) => !covered.has(k) && !excluded.has(k)),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE PROSE, AND THE KEY EACH SENTENCE ANSWERS TO
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The header above records a debt: this file is English, so a French visitor
+   read a translated page title over entirely English prose. The owner opened
+   /features/quotes and /features/quote-from-the-call and said they have no
+   translations. He was right, and half-translated is the exact failure
+   lib/marketing/featureLabels.js was written to fix one level up — a page whose
+   headings speak Ukrainian and whose body does not reads as BROKEN software,
+   not as untranslated software.
+
+   ── Why the fix is a seam rather than six copies of this file ─────────────
+
+   Same argument as featureLabels.js, for the same reason. This module's job is
+   to hold the English that the checks in scripts/check-feature-pages.mjs prove
+   against the product — 1043 assertions read these strings, and the three
+   things a feature page may never claim (a phone app, an accounting
+   integration, change orders) are caught by searching this prose. Translating
+   in place would put six phrasings inside the thing that is supposed to say one
+   true thing, and five of them would be outside the reach of every assertion
+   that matters.
+
+   So: English stays here and stays the FALLBACK. The six phrasings live in
+   app/i18n/featurePages/, are merged into the one catalogue at the bottom of
+   app/i18n/messages.js, and are resolved through t() exactly like every other
+   string on the site. A language with no entry prints the proved English rather
+   than `featurePage.quotes.headline`, because that is what t() does with a
+   fallback and this is where the fallback comes from.
+
+   ── The key shape ────────────────────────────────────────────────────────
+
+   `featurePage.<slug>.<field>`, deliberately parallel to featureLabels.js's
+   `feature.<key>.<field>`: same catalogue, same flat dot-namespacing, and the
+   prefix is different so the two can never be confused by the orphan checks
+   that read them (`feature.` and `featurePage.` do not match each other's
+   patterns). Repeated fields are numbered from one — `featurePage.quotes.pain.2.fix`
+   — because a pain is a PAIR and its two halves have to stay together; keying
+   off the English text instead would mean editing an English sentence silently
+   orphaned six translations.
+
+   Written as functions rather than typed at call sites so the prefix can never
+   drift between the renderer, the catalogue and the check that compares them.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/** The catalogue key for one prose field of one page. */
+export function featurePageKey(slug, field) {
+  return `featurePage.${slug}.${field}`;
+}
+
+/**
+ * Every prose string on one page, as {field, english}, in a stable order.
+ *
+ * One function, read by the resolver below, by the generator that writes the
+ * English block of the catalogue, and by the coverage check. Three readers of
+ * one list means the three cannot come to disagree about what "every prose
+ * field" means — which is the failure mode of writing the list out three times.
+ *
+ * `image.alt` is NOT here: it already carries `altKey`, an existing catalogue
+ * key translated into all six. See featurePageCopy for the bug that was.
+ */
+export function featurePageStrings(page) {
+  const out = [
+    { field: "label", english: page.label },
+    { field: "headline", english: page.headline },
+    { field: "oneLine", english: page.oneLine },
+    { field: "description", english: page.description },
+  ];
+  if (page.image?.caption) out.push({ field: "imageCaption", english: page.image.caption });
+  if (page.inlineImage?.caption) {
+    out.push({ field: "inlineCaption", english: page.inlineImage.caption });
+  }
+  (page.pains || []).forEach((p, i) => {
+    out.push({ field: `pain.${i + 1}.pain`, english: p.pain });
+    out.push({ field: `pain.${i + 1}.fix`, english: p.fix });
+  });
+  (page.how || []).forEach((h, i) => {
+    out.push({ field: `how.${i + 1}.step`, english: h.step });
+    out.push({ field: `how.${i + 1}.body`, english: h.body });
+  });
+  (page.details || []).forEach((d, i) => {
+    out.push({ field: `detail.${i + 1}.label`, english: d.label });
+    out.push({ field: `detail.${i + 1}.body`, english: d.body });
+  });
+  return out;
+}
+
+/** Every prose key on every page, in page order. */
+export const FEATURE_PAGE_TEXT_KEYS = Object.freeze(
+  FEATURE_PAGES.flatMap((p) =>
+    featurePageStrings(p).map(({ field }) => featurePageKey(p.slug, field)),
+  ),
+);
+
+/**
+ * One page with every sentence said in the reader's language.
+ *
+ * ── Why it takes t() rather than a language code ──────────────────────────
+ *
+ * Identical argument to featureEntry() in lib/marketing/featureLabels.js: t()
+ * already implements the resolution — requested language → English catalogue →
+ * the fallback passed here → the key itself — and re-deriving it from MESSAGES
+ * would be a second copy of the rule that nobody looks at. Passing the English
+ * from THIS file as the fallback extends the chain by one honest step, so a
+ * language with a hole prints the proved English sentence rather than
+ * `featurePage.quotes.headline`.
+ *
+ * ── Why t is optional ─────────────────────────────────────────────────────
+ *
+ * generateMetadata() has no React context and must not have one: it is what a
+ * crawler indexes, and serving a French <title> because the last visitor
+ * switched languages is worse than not translating it. That is the same
+ * decision recorded on /industries/[slug]. So metadata calls this with no `t`
+ * and gets exactly the English it rendered before.
+ *
+ * ── image.alt: a field that was written and never read ────────────────────
+ *
+ * Every image here carries `altKey`, described in this file's header as "an
+ * existing catalogue key that is already translated into all six". The renderer
+ * printed `image.alt` — the English — so the key was written and read by
+ * nothing, which is failure class 1 in AGENTS.md. Resolved here, with the
+ * English alt as the fallback, so a blind visitor on a French page hears French.
+ */
+export function featurePageCopy(slug, t) {
+  const page = BY_SLUG.get(slug);
+  if (!page) return undefined;
+
+  const say = (field, english) =>
+    typeof t === "function" ? t(featurePageKey(slug, field), english) : english;
+  const alt = (img) =>
+    typeof t === "function" && img.altKey ? t(img.altKey, img.alt) : img.alt;
+
+  return {
+    ...page,
+    label: say("label", page.label),
+    headline: say("headline", page.headline),
+    oneLine: say("oneLine", page.oneLine),
+    description: say("description", page.description),
+    image: page.image
+      ? {
+          ...page.image,
+          alt: alt(page.image),
+          caption: say("imageCaption", page.image.caption),
+        }
+      : undefined,
+    inlineImage: page.inlineImage
+      ? {
+          ...page.inlineImage,
+          alt: alt(page.inlineImage),
+          caption: say("inlineCaption", page.inlineImage.caption),
+        }
+      : undefined,
+    pains: (page.pains || []).map((p, i) => ({
+      pain: say(`pain.${i + 1}.pain`, p.pain),
+      fix: say(`pain.${i + 1}.fix`, p.fix),
+    })),
+    how: (page.how || []).map((h, i) => ({
+      step: say(`how.${i + 1}.step`, h.step),
+      body: say(`how.${i + 1}.body`, h.body),
+    })),
+    details: (page.details || []).map((d, i) => ({
+      label: say(`detail.${i + 1}.label`, d.label),
+      body: say(`detail.${i + 1}.body`, d.body),
+    })),
+  };
+}
+
+/**
+ * The label a page is listed under elsewhere — the index cards and the
+ * "Contractors reading this also read" strip.
+ *
+ * Its own function because those two call sites want one string and not a whole
+ * page object, and because building the whole object to read one field would
+ * resolve ninety strings to print one.
+ */
+export function featurePageLabel(slug, t) {
+  const page = BY_SLUG.get(slug);
+  if (!page) return undefined;
+  return typeof t === "function"
+    ? t(featurePageKey(slug, "label"), page.label)
+    : page.label;
+}
