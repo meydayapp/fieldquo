@@ -170,8 +170,26 @@ export default function AwaitingPayment() {
                       means we have no record of one, not a fee of zero. */}
                   {took ? ` · ${t("app.booking.feeTaken", { amount: took })}` : ""}
                 </div>
-                {b.clientEmail && (
-                  <div className="text-xs text-muted-foreground truncate">{b.clientEmail}</div>
+                {/* ── The panel says "may be worth a call" and gave no number ──
+                    The route has always sent clientPhone; this component
+                    rendered the name and the email and dropped it. A panel
+                    whose entire purpose is "these people wanted the work, ring
+                    them" was withholding the thing you ring.
+
+                    Both are shown when both exist, because a booking collects
+                    an email always and a phone only sometimes, and which one a
+                    contractor reaches for is theirs to choose. Selectable text
+                    rather than a mailto/tel link: a mis-tap on a phone is a
+                    call to a stranger, and this panel is read while somebody is
+                    deciding, not acting.
+
+                    Each renders only when present. An empty line under a name
+                    reads as a missing record rather than as a client who never
+                    gave a number. */}
+                {(b.clientEmail || b.clientPhone) && (
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[b.clientPhone, b.clientEmail].filter(Boolean).join(" · ")}
+                  </div>
                 )}
               </div>
               {canCheck && !lapsed && (
