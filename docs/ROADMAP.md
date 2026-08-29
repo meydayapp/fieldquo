@@ -890,6 +890,42 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **/compare/fieldquo-vs-quoteiq: the comparison we lose the top of.
+  `app/(marketing)/compare/entryPrice.js`, `[slug]/ComparisonPage.js`,
+  `compareCopy.js`, `scripts/check-compare-pages.mjs`.**
+
+  QuoteIQ's entry tier is $29.99 for one user against our $99. The page says so
+  in a panel assembled from THEIR published figure and SEAT_LADDER's first rung
+  — `entryPriceGap`, which refuses far more often than it answers (a yearly
+  figure, an annual-prepaid rate against our no-commitment rung, a tier with no
+  stated seat count, a withheld or stale figure, a currency our ladder has no
+  row for) and does no arithmetic on either amount. It ends by telling the
+  reader to buy theirs if their entry tier is what they need. Both numbers are
+  asserted absent as literals from every file that renders them.
+
+  The other half could NOT be made the way it was scoped. `COMPARABLE_FEATURES`
+  carries one key and only Jobber's figures carry a structured `features` map,
+  so `comparableTier` cannot resolve a QuoteIQ tier for anything. Text-matching
+  their prose into our vocabulary is the straw man `competitors.js` forbids, so
+  the page prints their ladder in THEIR words at their own prices and states
+  that nobody has established a tier-by-tier match. The receptionist block no
+  longer vanishes when there is no match — it says which of the two it is.
+
+  Two assertions were CORRECTED rather than deleted: Projul's three annual
+  amounts now publish on the owner's signed currency assertion, so "nothing of
+  theirs can be compared" and the withheld count were both false. Every
+  published figure whose currency is not `SOURCED_PUBLISHER` now prints who
+  asserted it, when, and on what grounds — their amount, our judgement, kept
+  apart on the page as they are in the data.
+
+  **A leak found by the new assertions and fixed:** claim prose had no
+  freshness gate at all. `claimPublishable` asks who verified an entry and
+  never when, and several claims quote the amount they are about — so a Jobber
+  page rendered 95 days on emptied every price row and went on printing $29 and
+  $599 inside a sentence. Claim amounts are now redacted once the claim's own
+  reading is stale, with a note that says the reading expired (which is not the
+  same sentence as "nobody checked").
+
 - **Win/loss: the contractor can finally see WHY they lose, and finally has
   somewhere to type it. `lib/analytics/winLoss.js`,
   `app/api/analytics/win-loss/route.js`, `app/app/analytics/win-loss/page.js`,
