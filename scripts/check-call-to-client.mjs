@@ -238,8 +238,15 @@ const {
   draftQuoteFromCall,
 } = await import("@/lib/ai/callQuoteDraft");
 const { cleanPhone, normaliseEmail, toolDefinitions } = await import("@/lib/voice/tools");
-const { replyVerdict, agentConfirmations, confirmedOnCall, confirmedFacts, transcriptTurns } =
-  await import("@/lib/voice/transcript");
+const {
+  replyVerdict,
+  agentConfirmations,
+  confirmedOnCall,
+  confirmedFacts,
+  transcriptTurns,
+  callerText,
+  fenceTranscript,
+} = await import("@/lib/voice/transcript");
 const { visitPolicy, offeredModes, modePhrase, MODE_WORDS } = await import(
   "@/lib/voice/visitPath"
 );
@@ -1317,6 +1324,119 @@ section("18. The price refusal is untouched");
 }
 
 /* ─────────────────────────────── the verdict ──────────────────────────────── */
+
+/* ══════════ A tool call is not something the caller said ══════════════════
+ *
+ * We store `transcript_with_tool_calls` now: the plain transcript threw the
+ * tool calls away, and that is why a booking that never happened could not be
+ * diagnosed — the agent told a caller it had scheduled him for Monday, no
+ * Booking row existed, and nothing in our copy of the call distinguished
+ * "book_visit failed" from "book_visit was never called".
+ *
+ * The weaved array carries two extra entry shapes, and the normaliser's default
+ * — "anything I do not recognise is the CALLER" — is the safe read for speech
+ * and a dangerous one for these. A tool RESULT has a real string in `content`,
+ * and that string is OURS.
+ *
+ * Every fixture in this file was a plain {role, content} array, so all of this
+ * would have gone on passing while production broke.
+ */
+{
+  const WEAVED = [
+    { role: "agent", content: "That's thirty cabinet doors and five drawer fronts?" },
+    {
+      role: "tool_call_invocation",
+      tool_call_id: "t1",
+      name: "save_caller",
+      arguments: '{"name":"Emilio","phone":"8192387263"}',
+    },
+    {
+      role: "tool_call_result",
+      tool_call_id: "t1",
+      content: '{"saved":true,"say":"Got it — someone will call you back."}',
+      successful: true,
+    },
+    { role: "user", content: "Yes, that's right." },
+    {
+      role: "tool_call_invocation",
+      tool_call_id: "t2",
+      name: "book_visit",
+      arguments: '{"slot":"9dlf6m_1788202800000"}',
+    },
+    {
+      role: "tool_call_result",
+      tool_call_id: "t2",
+      content: '{"booked":false,"reason":"address_required"}',
+      successful: false,
+    },
+  ];
+  const turns = transcriptTurns(WEAVED);
+
+  ok(
+    "a tool invocation survives normalising — it is the entry that proves a tool was reached for",
+    turns.filter((t) => t.role === "tool").length === 4,
+    json(turns.map((t) => t.role)),
+  );
+  ok(
+    "and it is NEVER labelled as the caller",
+    turns.every((t) => t.role !== "caller" || !t.text.startsWith("{")),
+    json(turns),
+  );
+  ok(
+    "a failed tool is marked failed, and named after the tool rather than an id nobody can read",
+    turns.some((t) => t.role === "tool" && t.tool === "book_visit" && t.ok === false),
+    json(turns.filter((t) => t.role === "tool")),
+  );
+  ok(
+    "the name is carried from the invocation onto the result, which only has an id",
+    turns.filter((t) => t.tool === "book_visit").length === 2,
+    json(turns.filter((t) => t.role === "tool")),
+  );
+
+  // The four readers the audit said would each believe our own tool output.
+  ok(
+    "callerText is what every drafted value must be quoted verbatim FROM, so our tool output must not be in it",
+    callerText(turns) === "Yes, that's right.",
+    json(callerText(turns)),
+  );
+  ok(
+    "the fenced prompt carries no tool JSON — that block tells the model everything inside it is what a stranger said",
+    !/booked|saved|\{/.test(fenceTranscript(turns).split("-----BEGIN CALL RECORDING-----")[1]),
+    fenceTranscript(turns),
+  );
+
+  // The sharpest one. `agentConfirmations` reads the first FOLLOWING caller turn
+  // as the reply to an agent's question. A tool firing in between would become
+  // that reply, and `{"saved":true,...}` normalises to neither assent nor
+  // contradiction — so the caller's "yes, that's right" would be recorded as
+  // silence, and confirmedOnCall drops a silent question entirely.
+  const confirmations = agentConfirmations(turns);
+  ok(
+    "a tool firing between a question and its answer does not swallow the answer",
+    confirmations.some((c) => c.verdict === "assent"),
+    json(confirmations.map((c) => ({ verdict: c.verdict, text: c.text?.slice(0, 40) }))),
+  );
+  ok(
+    "so the confirmed fact survives, rather than being lost to a robot's sentence",
+    confirmedFacts(turns).length > 0,
+    json(confirmedFacts(turns)),
+  );
+
+  // An honest refusal has to stay honest: a call where nobody spoke but a tool
+  // fired must still count as having no caller words.
+  ok(
+    "a call with tool calls and no human speech still has an empty caller corpus",
+    callerText(transcriptTurns(WEAVED.filter((t) => t.role !== "user"))).trim() === "",
+    json(callerText(transcriptTurns(WEAVED.filter((t) => t.role !== "user")))),
+  );
+
+  // The old shape must keep working — most stored calls are in it.
+  ok(
+    "and a plain transcript with no tool calls is unchanged",
+    json(transcriptTurns([{ role: "agent", content: "Hi" }, { role: "user", content: "Hello" }])) ===
+      json([{ role: "agent", text: "Hi" }, { role: "caller", text: "Hello" }]),
+  );
+}
 
 console.log(
   fails.length

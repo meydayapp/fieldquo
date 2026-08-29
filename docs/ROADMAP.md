@@ -890,6 +890,48 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The receptionist said it had booked him, and never called the tool.
+  `lib/voice/prompt.js`, `tools.js`, `visitPath.js`, `availability.js`,
+  `transcript.js`, `app/api/voice/webhook/route.js`,
+  `scripts/check-voice-visit.mjs`, `check-call-to-client.mjs`.**
+
+  A caller rang Big painter Inc, the agent called `check_availability`, read
+  back a real slot — "Monday, August 31 at 3:00 p.m." — and told him it was
+  scheduled. `book_visit` was never called. No Booking row, nobody expecting
+  him, and the only person who believed an appointment existed was the customer.
+  The prompt had every rule needed to stop the agent INVENTING a time and none
+  to stop it inventing the booking, so the model did the helpful-sounding thing.
+
+  Three layers now say it: absolute rule 8, a block in the booking section that
+  names the actual sentences ("you're booked in", "that's scheduled"), and the
+  `book_visit` description itself, which is what the model is reading at the
+  moment it decides whether calling the tool is necessary.
+
+  It was undiagnosable because we stored `transcript_object` and threw the tool
+  calls away. `transcript_with_tool_calls` is stored now, through one
+  `transcriptFrom()` shared by all three writers. The two new entry shapes get
+  `role: "tool"` rather than the normaliser's "anything unrecognised is the
+  CALLER" default — a tool RESULT has a real string in `content` and that string
+  is ours, so the default would have fed `{"booked":true,...}` into `callerText`
+  (the corpus every drafted value must be quoted verbatim from), into the lead
+  recovery that writes real rows, and into `agentConfirmations`, where a tool
+  firing between "thirty doors?" and "yes, that's right" would have recorded the
+  answer as silence.
+
+  Two product rules came with it: the phone offers a CALLBACK first, and
+  withholds an in-person visit at a company that charges for one — the fee lives
+  on the EventType and the mode lives on the Company, and nothing tied them
+  together, so a free type could be booked as a visit and the fee was never
+  charged. A visit-only company with a paid type still books its free one;
+  dropping the mode with nothing to replace it is a regression wearing a fix's
+  clothes. And `book_visit` now requires a `reason`, written to
+  `Appointment.notes`, while a visit without an address is REFUSED rather than
+  booked to `eventType.location` — which is a label, not a destination.
+
+  `address` is deliberately not a required tool parameter: a model fills a
+  required field, and the value it invents for an unknown street is a van sent
+  to a stranger.
+
 - **/compare/fieldquo-vs-quoteiq: the comparison we lose the top of.
   `app/(marketing)/compare/entryPrice.js`, `[slug]/ComparisonPage.js`,
   `compareCopy.js`, `scripts/check-compare-pages.mjs`.**

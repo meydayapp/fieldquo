@@ -27,7 +27,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { toE164 } from "@/lib/voice/numbers";
-import { cleanPhone, cleanText, normaliseEmail, TOOL_NAMES } from "@/lib/voice/tools";
+import { cleanPhone, cleanText, normaliseEmail, TOOL_NAMES, SAY_ON_REFUSAL } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordConsent } from "@/lib/voice/outbound";
 import { photoDestination } from "@/lib/voice/quoteQuestions";
@@ -343,6 +343,9 @@ async function book(ctx, args) {
     // street onto an appointment.
     mode: typeof args.mode === "string" ? args.mode : null,
     address: cleanText(args.address, 300),
+    // Why they want it, in their words. Written to Appointment.notes, which is
+    // what the estimator reads before they turn up.
+    reason: cleanText(args.reason, 1000),
   });
 
   if (!result.ok) {
@@ -361,10 +364,7 @@ async function book(ctx, args) {
     return NextResponse.json({
       booked: false,
       reason: result.reason,
-      say:
-        result.reason === "fee_due"
-          ? "Ah — that one's a paid visit, so I can't take it over the phone. You can book it on the booking page and pay there. Shall I read the link out?"
-          : "That one's just gone. Would another time work?",
+      say: SAY_ON_REFUSAL[result.reason] || SAY_ON_REFUSAL.taken,
     });
   }
 

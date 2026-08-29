@@ -37,9 +37,10 @@ import {
   offersVisits,
   feeText,
   CAN_TEXT_BOOKING_LINK,
+  phoneBookableModes,
 } from "@/lib/voice/visitPath";
 import { buildAgentPrompt, visitSection } from "@/lib/voice/prompt";
-import { toolDefinitions } from "@/lib/voice/tools";
+import { toolDefinitions, SAY_ON_REFUSAL } from "@/lib/voice/tools";
 
 let fail = 0;
 const ok = (c, m) => {
@@ -373,9 +374,47 @@ const toolRoute = readFileSync(
   new URL("../app/api/voice/tools/[tool]/route.js", import.meta.url),
   "utf8",
 );
+// ── Every refusal says the true thing, and they are EXECUTED not grepped ──
+//
+// This used to assert that the route source contained `result.reason ===
+// "fee_due"`, which passed on a ternary whose only other branch was "that one's
+// just gone". Every non-fee refusal therefore reported a clash: a missing
+// address, an invented slot id and a company we could not read all came out as
+// "somebody just took it". For a slot the caller was offered thirty seconds ago
+// that is a lie, and it is the one that sends the agent off to offer a
+// different time instead of asking for the address it actually needed.
+//
+// The sentences live in lib/voice/tools.js now, beside the other agent-facing
+// wording, so this drives the real table rather than the shape of the file
+// that reads it.
+const REFUSALS = ["fee_due", "address_required", "bad_slot", "unknown_event_type", "taken"];
 ok(
-  /result\.reason === "fee_due"/.test(toolRoute),
+  REFUSALS.every((r) => typeof SAY_ON_REFUSAL[r] === "string" && SAY_ON_REFUSAL[r].length > 0),
+  "every refusal bookSlot can return has something honest to say",
+);
+ok(
+  new Set(REFUSALS.map((r) => SAY_ON_REFUSAL[r])).size > 1,
+  "and they are not all the same sentence",
+);
+ok(
+  SAY_ON_REFUSAL.fee_due !== SAY_ON_REFUSAL.taken &&
+    /paid|booking page/i.test(SAY_ON_REFUSAL.fee_due),
   'a fee refusal gets its own sentence — reporting it as "that one\'s just gone" is a lie about a slot that is still there',
+);
+ok(
+  SAY_ON_REFUSAL.address_required !== SAY_ON_REFUSAL.taken &&
+    /address/i.test(SAY_ON_REFUSAL.address_required),
+  "and a missing address is ASKED FOR, not reported as somebody else taking the slot",
+);
+ok(
+  !/just gone|taken/i.test(SAY_ON_REFUSAL.bad_slot),
+  "a slot id that was never real is not reported as a clash — that teaches the agent to invent a second one",
+);
+// The money rule reaches this table too: it is read aloud, so it is a surface
+// where an invented figure could reach a caller.
+ok(
+  !Object.values(SAY_ON_REFUSAL).some((v) => /[$€£]\s?\d/.test(v)),
+  "and no refusal sentence contains a figure",
 );
 ok(
   /callback_requested/.test(toolRoute) && /preferred_times/.test(toolRoute),
@@ -392,6 +431,132 @@ ok(
 ok(
   !/undefined|null|\[object|NaN/i.test(promptFor(paid)),
   "no undefined/NaN leaks into anything the agent reads aloud",
+);
+
+/* ══════ A callback is the default, and a visit is only offered when free ══
+ *
+ * Both rules come out of one call to Big painter Inc: the agent told the caller
+ * it had scheduled him and booked nothing, and the same company charges for an
+ * in-person consultation while offering a free one. The fee lives on the
+ * EventType and the mode lives on the COMPANY, so nothing stopped the free type
+ * being booked as a visit somebody drives to — the fee was not waived, it was
+ * simply never charged.
+ */
+
+const bothModes = (over = {}) => co({ bookingModes: ["visit", "call"], ...over });
+
+const prefersCall = visitPolicy({ company: bothModes(), eventTypes: [FREE], bookingUrl: LINK });
+ok(
+  prefersCall.bookableModes[0] === "call",
+  "a company that does both offers the CALLBACK first — modePhrase reads this in order, and the first mode named is the one a model reaches for",
+);
+ok(
+  prefersCall.bookableModes.includes("visit"),
+  "and the visit is still on the table when nothing is charged for",
+);
+
+const charges = visitPolicy({ company: bothModes(), eventTypes: [FREE, PAID], bookingUrl: LINK });
+ok(
+  !charges.bookableModes.includes("visit"),
+  "a company that CHARGES for a consultation does not have the phone arranging an in-person one — the free type booked as a visit gives the fee away",
+);
+ok(
+  JSON.stringify(charges.bookableModes) === JSON.stringify(["call"]),
+  "and what is left is the callback, which costs the business a call it was making anyway",
+);
+ok(
+  charges.canBook === true && charges.mode === "book",
+  "it can still book — withholding the mode must not withhold the appointment",
+);
+
+// The regression this rule could easily have caused, asserted so it cannot.
+const visitOnlyMixed = visitPolicy({ company: co(), eventTypes: [FREE, PAID], bookingUrl: LINK });
+ok(
+  JSON.stringify(visitOnlyMixed.bookableModes) === JSON.stringify(["visit"]),
+  "a VISIT-ONLY company with a paid type keeps booking its free one — dropping the mode with nothing to replace it is a regression wearing a fix's clothes",
+);
+ok(
+  JSON.stringify(phoneBookableModes({ company: co({ bookingModes: ["call"] }), paid: [] })) ===
+    JSON.stringify(["call"]),
+  "a call-only company is unchanged",
+);
+ok(
+  JSON.stringify(phoneBookableModes({ company: bothModes(), paid: [] })) ===
+    JSON.stringify(["call", "visit"]),
+  "and with nothing charged for, both survive with the call in front",
+);
+
+/* ═══════════ Nothing is booked until the tool says it is ═══════════════════
+ *
+ * The failure this exists for: check_availability returned three real slots,
+ * the agent read the first one back — "Monday, August 31 at 3:00 p.m." — and
+ * told the caller it was scheduled. book_visit was never called. No Booking
+ * row, nobody expecting him, and the only person who believed an appointment
+ * existed was the customer.
+ *
+ * The prompt had every rule needed to stop it INVENTING a time and none to stop
+ * it inventing the booking.
+ */
+
+const bookText = promptFor(free);
+ok(
+  /Nothing is arranged until book_visit has come back/.test(bookText),
+  "the booking section says outright that nothing exists until the tool returns",
+);
+ok(
+  /you're booked in/.test(bookText) && /that's scheduled/.test(bookText),
+  "and it names the actual sentences, because 'do not confirm prematurely' is an abstraction a model talks itself around",
+);
+ok(
+  /NEVER say something has been done unless the tool that does it has come back/.test(
+    promptFor(free),
+  ),
+  "and it is an absolute rule at the top as well, where nothing the owner writes can sit below it",
+);
+
+const bookTool = toolDefinitions(ORIGIN, { canBook: true }).find((t) => t.name === "book_visit");
+ok(
+  /NOTHING IS BOOKED UNTIL THIS TOOL RETURNS/.test(bookTool.description),
+  "and the tool description carries it too — that is what the model is reading when it decides whether calling this is necessary",
+);
+
+/* ─────────── What it must have before it can commit somebody ──────────── */
+
+ok(
+  /WHAT YOU NEED BEFORE YOU CAN BOOK/.test(bookText),
+  "the booking section lists what an appointment actually needs",
+);
+ok(
+  /Their name/.test(bookText) && /best number to reach them on/.test(bookText),
+  "name and number",
+);
+ok(
+  /Why they want it, in their own words/.test(bookText),
+  "and the reason, which is what the estimator reads before they turn up",
+);
+ok(
+  /The address the work is at/.test(bookText),
+  "and an address when somebody has to drive there",
+);
+ok(
+  !/The address the work is at/.test(promptFor(visitPolicy({
+    company: co({ bookingModes: ["call"] }),
+    eventTypes: [FREE],
+  }))),
+  "but never for a call-only company — asking a caller to spell their street out to arrange a phone call is what makes an assistant feel broken",
+);
+
+ok(
+  bookTool.parameters.required.includes("reason"),
+  "`reason` is a required tool parameter, so the appointment cannot be made without one",
+);
+ok(
+  !bookTool.parameters.required.includes("address"),
+  "`address` deliberately is NOT — a model fills a required field, and the value it invents for an unknown street is a van sent to a stranger",
+);
+ok(
+  /Whoever takes it reads this/.test(bookTool.parameters.properties.reason.description),
+  "and the reason parameter says who reads it, because that is what makes a model write a useful one",
 );
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);

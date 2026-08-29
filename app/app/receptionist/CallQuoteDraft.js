@@ -265,16 +265,39 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
                 {t("app.callDraft.reason.no_transcript")}
               </p>
             ) : (
-              turns.map((turn, i) => (
-                <p key={i} className="text-xs">
-                  <span className="font-semibold text-foreground">
-                    {turn.role === "agent"
-                      ? t("app.callDraft.speakerAgent")
-                      : t("app.callDraft.speakerCaller")}
-                  </span>{" "}
-                  <span className="text-muted-foreground">{turn.text}</span>
-                </p>
-              ))
+              turns.map((turn, i) =>
+                // ── What the agent DID, not just what it said ─────────────
+                //
+                // Deliberately untranslated: the row is a function name and a
+                // tick or a cross. The tool names are literals we send to the
+                // provider in English and they are the same string in every
+                // locale, so wrapping them in copy would mean six translations
+                // of the word "tool" wrapped around an identifier nobody
+                // translates.
+                turn.role === "tool" ? (
+                  <p key={i} className="text-xs font-mono flex gap-1.5">
+                    <span
+                      className={
+                        turn.ok === false ? "text-destructive" : "text-muted-foreground"
+                      }
+                      aria-hidden="true"
+                    >
+                      {turn.ok === false ? "✗" : turn.ok === true ? "✓" : "→"}
+                    </span>
+                    <span className="text-muted-foreground shrink-0">{turn.tool}</span>
+                    <span className="text-muted-foreground/70 truncate">{turn.text}</span>
+                  </p>
+                ) : (
+                  <p key={i} className="text-xs">
+                    <span className="font-semibold text-foreground">
+                      {turn.role === "agent"
+                        ? t("app.callDraft.speakerAgent")
+                        : t("app.callDraft.speakerCaller")}
+                    </span>{" "}
+                    <span className="text-muted-foreground">{turn.text}</span>
+                  </p>
+                ),
+              )
             )}
           </div>
         )}

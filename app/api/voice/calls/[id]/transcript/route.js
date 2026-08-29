@@ -62,7 +62,16 @@ export async function GET(request, { params }) {
     // that the provider stores this in two different shapes.
     turns: transcriptTurns(call.transcript)
       .slice(0, MAX_TURNS)
-      .map((t) => ({ role: t.role, text: String(t.text).slice(0, MAX_CHARS) })),
+      // `tool` and `ok` ride along on a tool turn, so the panel can show that
+      // book_visit was reached for and what it answered. That is the whole
+      // point of storing the weaved transcript: the call this was built for
+      // ended with the agent saying it had booked somebody, and the only way
+      // to tell a failed tool from an uncalled one was that no row existed.
+      .map((t) => ({
+        role: t.role,
+        text: String(t.text).slice(0, MAX_CHARS),
+        ...(t.role === "tool" ? { tool: t.tool, ok: t.ok } : {}),
+      })),
     // The provider's own compression, beside the thing it compressed. Both, so
     // a reader can see what the summary left out — which is the reason this
     // endpoint exists.

@@ -36,6 +36,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { transcriptFrom } from "@/lib/voice/transcript";
 import { toE164 } from "@/lib/voice/numbers";
 import { chargeCall, canTakeCall } from "@/lib/voice/credits";
 import { maybeAutoTopup } from "@/lib/voice/autoTopup";
@@ -175,7 +176,7 @@ export async function POST(request) {
           endedAt: new Date(),
           durationSec: seconds,
           disposition: call.disconnection_reason || null,
-          transcript: call.transcript_object || call.transcript || null,
+          transcript: transcriptFrom(call),
           summary: call.call_analysis?.call_summary || null,
           recordingUrl: call.recording_url || null,
           // What Retell charged US. Absent on a call Retell hasn't priced yet,
@@ -196,7 +197,7 @@ export async function POST(request) {
           // and this column is the record of the call rather than the invoice.
           durationSec: seconds,
           disposition: call.disconnection_reason || undefined,
-          transcript: call.transcript_object || call.transcript || undefined,
+          transcript: transcriptFrom(call) || undefined,
           summary: call.call_analysis?.call_summary || undefined,
           recordingUrl: call.recording_url || undefined,
           // Fills a gap, never blanks one: `call_analyzed` arriving without a

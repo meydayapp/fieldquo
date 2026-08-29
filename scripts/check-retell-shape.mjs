@@ -458,8 +458,37 @@ check(
   );
   check(
     "so it fetches the single-call read to get one",
-    /getCall/.test(code(recon)) && /transcript_object/.test(code(recon)),
+    /getCall/.test(code(recon)) && /transcriptFrom\(/.test(code(recon)),
     "https://docs.retellai.com/api-references/get-call",
+  );
+  // ── Which transcript field, asserted by EXECUTING the reader ────────────
+  //
+  // This used to be `/transcript_object/.test(recon)` — a grep for a field name
+  // in one of the three files that store this. It passed while all three
+  // discarded the tool calls, which is how an agent that told a caller it had
+  // booked him, and hadn't, left no trace: nothing in our copy of the call
+  // could tell a failed book_visit from one that was never called.
+  //
+  // transcript_with_tool_calls is the same utterances weaved with every tool
+  // invocation and result. Preferred, with both older fields still read, so a
+  // call stored before this — or one the provider only filled the plain field
+  // on — still comes back with its words.
+  const { transcriptFrom } = await import("../lib/voice/transcript.js");
+  check(
+    "and the weaved transcript wins, because that is the one with the tool calls in it",
+    transcriptFrom({
+      transcript_with_tool_calls: ["weaved"],
+      transcript_object: ["plain"],
+      transcript: "flat",
+    })[0] === "weaved",
+    "https://docs.retellai.com/api-references/get-call — transcript_with_tool_calls",
+  );
+  check(
+    "with both older fields still read rather than dropped",
+    transcriptFrom({ transcript_object: ["plain"], transcript: "flat" })[0] === "plain" &&
+      transcriptFrom({ transcript: "flat" }) === "flat" &&
+      transcriptFrom({}) === null,
+    "A call with only the plain transcript must still come back with its words.",
   );
 }
 
