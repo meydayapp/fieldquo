@@ -3524,6 +3524,38 @@ model Worker {
   type                      WorkerType @default(contractor)
   hourlyRate                Decimal?   @db.Decimal(10, 2)
 
+  /// Where this person's time COSTS the business: on a job, or on the business.
+  ///
+  /// Deliberately not the same question as `type` (contractor|employee), which
+  /// is about how they are PAID and which decides a payment rail and nothing
+  /// else. A bookkeeper and a cabinet installer can both be employees, and only
+  /// one of them has hours that belong to a job.
+  ///
+  /// "field"  — their hours are direct labour. Costed to the jobs they log time
+  ///            against, which is what actualJobCost already does.
+  /// "office" — their hours are overhead. Nobody should be asking them which
+  ///            job to bill an afternoon to.
+  ///
+  /// Defaulted to "field" rather than left null: every Worker row that exists
+  /// today was created by a screen that only ever added people to do jobs, so
+  /// "field" is what those rows actually mean. A null would be a third state
+  /// nothing knows how to read.
+  workType String @default("field")
+
+  /// The week this person is paid for whether or not the work fills it — 37.5,
+  /// 40, whatever the company guarantees. Null means they are paid only for the
+  /// hours they log, which is the honest default and NOT the same as zero.
+  ///
+  /// Never defaulted to 40. An invented week here would invent unabsorbed
+  /// labour for somebody who has none — the same refusal Salary.hoursPerWeek
+  /// and ForecastSettings.jobsPerWeekCapacity already make, and for the same
+  /// reason: this number ends up next to money.
+  ///
+  /// Read by lib/costing/utilisation.js, which reports the gap between this and
+  /// the hours that reached a job. It does NOT feed the price floor: see the
+  /// note there on why that is a separate, deliberate switch.
+  scheduledHoursPerWeek Decimal? @db.Decimal(6, 2)
+
   // When this person actually started. NOT the same as createdAt, which is when
   // the row was made — a five-year employee whose Worker row was backfilled
   // yesterday has a createdAt of yesterday, and using that to pro-rate their

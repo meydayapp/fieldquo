@@ -890,6 +890,58 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The hours you paid for that never reached a job.
+  `lib/costing/utilisation.js`, `lib/team/workProfile.js`,
+  `lib/costing/actualJobCost.js`, `app/api/analytics/utilisation/route.js`,
+  `scripts/check-utilisation.mjs`.**
+
+  The owner: a crew member is not necessarily somebody on site — some of them do
+  admin, which is overhead — and asked whether the add-crew popup should ask
+  which. It should, but not as one question with three answers: "admin or
+  technician, or something in between" collapses two independent facts, and the
+  in-between is exactly what falls through. A fitter guaranteed 37.5 hours who
+  bills 28 is a technician whose last 9.5 hours behave like admin.
+
+  So `Worker` carries two: `workType` (`field` | `office` — where their time
+  COSTS the business, deliberately not the same question as `type`, which is
+  contractor-vs-employee and decides a payment rail and nothing else) and
+  `scheduledHoursPerWeek` (nullable — the week they are paid for regardless).
+  Null means "paid only for the hours they log" and is never defaulted to 40;
+  an invented week invents unabsorbed labour for somebody who has none, the
+  same refusal `Salary.hoursPerWeek` and `ForecastSettings.jobsPerWeekCapacity`
+  already make.
+
+  `labourUtilisation()` then reports scheduled vs hours-that-reached-a-job vs
+  the gap, in hours and money. It REPORTS and deliberately does not reprice:
+  wiring it into `calculateBurnRate` would raise `costPerJob` and therefore the
+  minimum price on every quote, on the strength of time entries nobody has
+  audited. A company logging time patchily would read most of the week as
+  unabsorbed and price itself out of work. The panel says so where it is read,
+  not in a tooltip.
+
+  **Overhead now reaches an actual job cost.** It never did: the quote's
+  estimate has always been material + labour + overhead and `actualJobCost` was
+  material + labour, so the job panel showed a GROSS margin and compared it
+  against an estimate carrying a cost the actual was missing — a variance
+  biased toward "under budget" on every job in the product. Same figure, same
+  source (`calculateMinimumPrice().costPerJob`), passed as an argument so the
+  function stays pure and so asking for the figure WITHOUT overhead stays
+  possible. Null is "nobody has filled in the overhead screen", not zero.
+
+  The screens: `app/components/team/AddEmployeeModal.js` and
+  `app/app/settings/team/workers/page.js` ask the two questions,
+  `app/components/jobs/JobCosting.js` gains the overhead row (only when it is
+  known), and `app/app/settings/overhead/page.js` carries the panel. Note the
+  add-crew modal uses no `t()` at all and is hardcoded English — the two new
+  controls match that rather than being the only translated strings in it.
+
+  Worth knowing for whoever picks this up: `Salary.workerId` exists to link a
+  salary to a worker and NOTHING writes it, and a salaried field worker with an
+  `hourlyRate` is already counted twice on a quote — once through `burnRate`
+  into overhead, once through crew labour. Payroll is careful about this
+  (`computePayRun` pays the salary instead of the hours); the costing side is
+  not.
+
 - **Six Emilios, one bad string compare. `lib/voice/availability.js`,
   `lib/voice/prompt.js`, `lib/voice/tools.js`, `lib/ai/callQuoteDraft.js`.**
 

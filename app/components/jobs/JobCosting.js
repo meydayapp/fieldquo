@@ -15,7 +15,7 @@
 // is a statement we have no business making.
 
 import { useEffect, useState } from "react";
-import { Receipt, Clock, AlertTriangle } from "lucide-react";
+import { Receipt, Clock, AlertTriangle, Building2 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function JobCosting({ jobId }) {
@@ -74,7 +74,9 @@ export default function JobCosting({ jobId }) {
         {t("app.jobCosting.title", "What this job has cost")}
       </h2>
 
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div
+        className={`grid gap-4 ${actual.overhead ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}
+      >
         <Stat
           icon={<Receipt size={14} />}
           label={t("app.jobCosting.expenses", "Expenses")}
@@ -88,12 +90,36 @@ export default function JobCosting({ jobId }) {
             hours: actual.labour.approvedHours,
           })}
         />
+        {/* ── Only when the company's overhead is actually known ────────────
+            `actual.overhead` is null when nobody has filled in the overhead
+            screen, and null is not zero: rendering a $0 overhead row would be
+            a statement we have no basis for, and it would make the total below
+            look complete when it isn't. Absent, so absent from the screen. */}
+        {actual.overhead && (
+          <Stat
+            icon={<Building2 size={14} />}
+            label={t("app.jobCosting.overhead", "Overhead")}
+            value={money(actual.overhead.amount)}
+          />
+        )}
         <Stat
           label={t("app.jobCosting.totalCost", "Total cost")}
           value={money(actual.total)}
           strong
         />
       </div>
+
+      {/* Where that share came from, in the same words the quote screen uses
+          for the same number — the two panels are costing one job and must not
+          sound like they mean different things. */}
+      {actual.overhead && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t(
+            "app.jobCosting.overheadNote",
+            "Overhead is this job's share of what the business costs to run — your fixed costs spread across the jobs you take on.",
+          )}
+        </p>
+      )}
 
       {/* Profit against the price the client agreed. Deliberately NOT against
           an estimate: the quote's estimate isn't stored, and recomputing it

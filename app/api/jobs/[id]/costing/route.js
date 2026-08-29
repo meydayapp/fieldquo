@@ -14,6 +14,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle, assignedJobWhere } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
+import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise.
@@ -79,7 +80,27 @@ export async function GET(request, { params }) {
     }),
   ]);
 
-  const actual = actualJobCost(expenses, timeEntries);
+  // ── Overhead, so the two margins on this screen mean the same thing ──────
+  //
+  // The quote's estimated cost has always carried a share of overhead
+  // (estimateJobCost: material + labour + overhead). The actual never did, so
+  // the job panel showed a GROSS margin and compared it against a estimate that
+  // included a cost the actual was missing — a variance biased toward "under
+  // budget" on every job in the product.
+  //
+  // Same figure, same source: calculateMinimumPrice().costPerJob is what the
+  // quote was costed with, so the comparison is like for like. It stays null
+  // when the company has not filled in the overhead screen — an unknown
+  // overhead is absent, not zero, and a job whose margin quietly improved
+  // because we invented a zero would be the worse bug.
+  const overhead = await calculateMinimumPrice({ companyId: member.companyId })
+    .then((r) => (r && Number.isFinite(Number(r.costPerJob)) ? Number(r.costPerJob) : null))
+    .catch(() => null);
+
+  const actual = actualJobCost(expenses, timeEntries, {
+    overheadPerJob: overhead,
+    overheadBasis: overhead === null ? null : "per_job",
+  });
 
   // ── The estimate IS stored now ───────────────────────────────────────────
   //

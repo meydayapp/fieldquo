@@ -50,6 +50,34 @@ function money(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+// The utilisation endpoint states its own currency rather than assuming one,
+// so its figures are printed in it. Falls back to money() above when the
+// company has none recorded — an unlabelled number beats a wrong symbol.
+function moneyIn(n, currency) {
+  if (n == null) return null;
+  if (!currency) return money(n);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(Number(n));
+  } catch {
+    return money(n);
+  }
+}
+
+// Hours, printed as hours. Null stays null so the caller decides what absence
+// reads as — this file must never turn "not knowable" into "0h".
+function hours(n) {
+  if (n == null) return null;
+  return `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 1 })}h`;
+}
+
+// How far back the utilisation panel looks. Matches the endpoint's own default
+// so the period in the heading is the period that was measured.
+const UTILISATION_DAYS = 30;
+
 /**
  * Job costing decides whether this screen exists for you.
  *
@@ -97,6 +125,11 @@ function OverheadEditor() {
   const [assets, setAssets] = useState(null);
   const [bills, setBills] = useState(null);
   const [billSummary, setBillSummary] = useState(null);
+  // Hours paid for that never reached a job. Null until the server answers,
+  // and null again on a refusal — the panel renders itself away rather than
+  // showing a $0 assembled from a 403, which app/app/page.js records as a real
+  // past bug on this same kind of figure.
+  const [utilisation, setUtilisation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [assetForm, setAssetForm] = useState({
     name: "",
@@ -154,6 +187,21 @@ function OverheadEditor() {
     else setAssets([]);
   }, []);
 
+  // Read-only and loaded once: nothing on this page changes a guaranteed week
+  // or a time entry, so there is nothing here to reload after a mutation.
+  const loadUtilisation = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/analytics/utilisation?days=${UTILISATION_DAYS}`,
+      );
+      // A 403 is the normal answer for somebody without the burn-rate cost
+      // basis. Not an error banner, and emphatically not zeroes.
+      setUtilisation(res.ok ? await res.json() : null);
+    } catch {
+      setUtilisation(null);
+    }
+  }, []);
+
   const loadBills = useCallback(async () => {
     const res = await fetch("/api/bills");
     if (res.ok) {
@@ -185,8 +233,9 @@ function OverheadEditor() {
     });
     loadMinPrice();
     loadAssets();
+    loadUtilisation();
     if (seesBills) loadBills();
-  }, [loadMinPrice, loadAssets, loadBills, seesBills]);
+  }, [loadMinPrice, loadAssets, loadBills, loadUtilisation, seesBills]);
 
   async function addAsset(e) {
     e.preventDefault();
@@ -421,6 +470,10 @@ function OverheadEditor() {
   // so nothing has been discounted from one yet.
   const interestOnlyDebtIds = new Set(minPrice?.interestOnlyDebtIds || []);
   const linkableDebts = debts.filter((d) => d.active !== false);
+  // Empty on a refusal, on a failure, and on a company with no field workers —
+  // all three are "nothing to show", and the panel hides itself in all three
+  // rather than being a permanently blank card.
+  const utilRows = Array.isArray(utilisation?.rows) ? utilisation.rows : [];
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-8">
@@ -567,6 +620,152 @@ function OverheadEditor() {
           </p>
         )}
       </div>
+
+      {/* ── Paid hours that never reached a job ────────────────────────────
+          Sits next to the price floor because it is the cost the floor cannot
+          see: a fitter guaranteed 37.5 hours who logs 28 costs the business
+          9.5 hours that appear in no margin and no minimum price.
+
+          It REPORTS and deliberately does not reprice — see the note at the
+          top of lib/costing/utilisation.js. Which is exactly why the panel has
+          to say so out loud, in the panel and not in a tooltip: a reader who
+          assumes the figures above already include this will add it twice. */}
+      {utilRows.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-5 space-y-4">
+          <div>
+            <h2 className="font-semibold text-foreground">
+              {t("app.setOverhead.utilTitle", "Paid hours that never reached a job")}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {t("app.setOverhead.utilDesc", {
+                days: utilisation.days ?? UTILISATION_DAYS,
+              })}
+            </p>
+          </div>
+
+          <p className="text-[11px] rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-foreground">
+            {t("app.setOverhead.utilNotCounted")}
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t("app.setOverhead.utilCostLabel")}
+              </div>
+              {/* Null is "we could not work it out", never $0. The two are
+                  different sentences and only one of them is true here. */}
+              <div
+                className={
+                  utilisation.unabsorbedCost == null
+                    ? "text-sm font-semibold text-muted-foreground"
+                    : "text-base font-bold tabular-nums text-foreground"
+                }
+              >
+                {utilisation.unabsorbedCost == null
+                  ? t("app.setOverhead.utilUnknown")
+                  : moneyIn(utilisation.unabsorbedCost, utilisation.currency)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {t("app.setOverhead.utilHoursLabel")}
+              </div>
+              <div className="text-base font-bold tabular-nums text-muted-foreground">
+                {hours(utilisation.unabsorbedHours ?? 0)}
+              </div>
+            </div>
+          </div>
+
+          {utilisation.unabsorbedCost == null && (
+            <p className="text-[11px] text-muted-foreground">
+              {t("app.setOverhead.utilUnknownWhy")}
+            </p>
+          )}
+
+          {/* The total is knowably short. Saying by how many people is the
+              difference between a figure and a guess presented as one. */}
+          {(utilisation.incomplete || utilisation.unratedWorkers > 0) && (
+            <p className="text-[11px] text-muted-foreground">
+              {utilisation.unratedWorkers > 0
+                ? t("app.setOverhead.utilShort", {
+                    people: t("app.setOverhead.utilPeople", {
+                      value: utilisation.unratedWorkers,
+                    }),
+                  })
+                : t("app.setOverhead.utilIncomplete")}
+            </p>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="text-left font-medium py-1">
+                    {t("app.setOverhead.utilColWorker")}
+                  </th>
+                  <th className="text-right font-medium py-1">
+                    {t("app.setOverhead.utilColScheduled")}
+                  </th>
+                  <th className="text-right font-medium py-1">
+                    {t("app.setOverhead.utilColOnJobs")}
+                  </th>
+                  <th className="text-right font-medium py-1">
+                    {t("app.setOverhead.utilColUnabsorbed")}
+                  </th>
+                  <th className="text-right font-medium py-1">
+                    {t("app.setOverhead.utilColCost")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {utilRows.map((r) => (
+                  <tr key={r.workerId}>
+                    <td className="py-2 pr-2">
+                      <span className="block truncate text-foreground">
+                        {r.name || "—"}
+                      </span>
+                      {/* Why this row has no money on it. "Paid hourly — no
+                          guaranteed week" is how most of this trade employs
+                          people, so it reads as an arrangement rather than as
+                          something to go and fix. */}
+                      {r.missing === "schedule" && (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {t("app.setOverhead.utilNoSchedule")}
+                        </span>
+                      )}
+                      {r.missing === "rate" && (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {t("app.setOverhead.utilNoRate")}
+                        </span>
+                      )}
+                      {/* Overtime is not negative unabsorbed time, so it is its
+                          own sentence rather than a number that could cancel
+                          somebody else's gap. */}
+                      {r.overHours > 0 && (
+                        <span className="block text-[11px] text-muted-foreground">
+                          {t("app.setOverhead.utilOver", { hours: r.overHours })}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                      {hours(r.scheduledHours) ?? "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                      {hours(r.jobHours) ?? "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                      {hours(r.unabsorbedHours) ?? "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-foreground">
+                      {moneyIn(r.unabsorbedCost, utilisation.currency) ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── Fixed costs ────────────────────────────────────────────────────────
           The section that was missing. These are stored as recurring overhead

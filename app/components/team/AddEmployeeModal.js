@@ -41,6 +41,13 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
     preset: "estimator",
     workerType: "employee",
     hourlyRate: "",
+    // Two facts, not one — see lib/team/workProfile.js. `workerType` above is
+    // how they are PAID; this is where their time COSTS the business.
+    workType: "field",
+    // "" is a real answer and stays "": the server turns it into null, meaning
+    // "paid only for the hours they log". Never 40 — an invented week invents
+    // unabsorbed labour for somebody who has none.
+    scheduledHoursPerWeek: "",
   });
   const [error, setError] = useState("");
   // Set when the person was created but the invitation email did not go out.
@@ -89,6 +96,8 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
           permissions: preset ? { ...preset.values } : null,
           workerType: form.workerType,
           hourlyRate: form.hourlyRate,
+          workType: form.workType,
+          scheduledHoursPerWeek: form.scheduledHoursPerWeek,
         }),
       });
 
@@ -287,6 +296,54 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
                   onChange={(e) => set({ hourlyRate: e.target.value })}
                   className={`${inputClass} mt-1`}
                 />
+              </div>
+            </div>
+
+            {/* ── The other "what kind of person is this" question ────────────
+                Sits beside Worker type on purpose: one asks how they are paid,
+                this one asks where their time lands. Deliberately NOT called
+                "technician" — a painter, a landscaper and a cabinet maker are
+                not technicians, and what is being decided is where the cost
+                goes, not what the job is called. See lib/team/workProfile.js. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Where their time goes
+                </label>
+                <select
+                  value={form.workType}
+                  onChange={(e) => set({ workType: e.target.value })}
+                  className={`${inputClass} mt-1`}
+                >
+                  <option value="field">Works on jobs</option>
+                  <option value="office">Runs the business</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.workType === "office"
+                    ? "Their hours count as overhead — the cost of running the business, not of any one job."
+                    : "Their hours are costed to the jobs they work on."}
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Guaranteed hours a week (optional)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="168"
+                  step="0.5"
+                  placeholder="37.5"
+                  value={form.scheduledHoursPerWeek}
+                  onChange={(e) =>
+                    set({ scheduledHoursPerWeek: e.target.value })
+                  }
+                  className={`${inputClass} mt-1`}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  The week you pay for whether or not the work fills it. Leave
+                  it blank if they&apos;re paid only for the hours they log.
+                </p>
               </div>
             </div>
 

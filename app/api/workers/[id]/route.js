@@ -8,6 +8,7 @@ import {
   redactPay,
 } from "@/lib/permissions/enforce";
 import { db } from "@/lib/db";
+import { validateWorkProfile } from "@/lib/team/workProfile";
 import { managementChain } from "@/lib/org/reportingLine";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission, can } from "@/lib/permissions";
@@ -90,6 +91,17 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json();
   const { name, email, phone, hourlyRate, active, hiredOn, managerId } = body;
+
+  // Only validated when one of the two was actually sent: a PATCH that only
+  // renames somebody must not be made to restate their work profile, and
+  // defaulting an absent workType to "field" here would quietly move an office
+  // worker onto the tools.
+  const touchesProfile =
+    body.workType !== undefined || body.scheduledHoursPerWeek !== undefined;
+  const profile = touchesProfile ? validateWorkProfile(body) : null;
+  if (profile && !profile.ok) {
+    return NextResponse.json({ error: profile.error }, { status: 400 });
+  }
 
   // ── Mobile, and why it was missing ──────────────────────────────────────
   //
@@ -218,6 +230,11 @@ export async function PATCH(request, { params }) {
       ...(email !== undefined && { email }),
       ...(phone !== undefined && { phone: phoneValue }),
       ...(hourlyRate !== undefined && { hourlyRate }),
+      ...(profile?.ok && body.workType !== undefined && { workType: profile.workType }),
+      ...(profile?.ok &&
+        body.scheduledHoursPerWeek !== undefined && {
+          scheduledHoursPerWeek: profile.scheduledHoursPerWeek,
+        }),
       ...(active !== undefined && { active }),
       ...(hiredOn !== undefined && { hiredOn: hiredOnValue }),
       ...(managerId !== undefined && { managerId: managerValue }),

@@ -157,6 +157,19 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
     hiredOn: dateInput(worker.hiredOn),
     active: worker.active !== false,
     managerId: worker.managerId || "",
+    // Where their time COSTS the business, which is a different question from
+    // `worker.type` (how they're paid). Absent reads as "field" — the same
+    // reading validateWorkProfile makes, for the same reason: every row that
+    // predates the column was made by a screen that only added people to do
+    // jobs. See lib/team/workProfile.js.
+    workType: worker.workType === "office" ? "office" : "field",
+    // "" is the honest state, not zero and never 40: it means they're paid
+    // only for the hours they log, and inventing a week here would invent
+    // unabsorbed labour for somebody who has none.
+    scheduledHoursPerWeek:
+      worker.scheduledHoursPerWeek == null
+        ? ""
+        : String(worker.scheduledHoursPerWeek),
   });
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -185,6 +198,14 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
           // the right state for an owner and for any company that has never
           // drawn one.
           managerId: form.managerId || null,
+          workType: form.workType,
+          // "" clears the guaranteed week back to unset, which is a real
+          // state: it means utilisation has no gap to report for this person
+          // rather than a gap of zero.
+          scheduledHoursPerWeek:
+            form.scheduledHoursPerWeek === ""
+              ? null
+              : Number(form.scheduledHoursPerWeek),
         }),
       });
       setSaved(true);
@@ -283,6 +304,47 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
               own manager if they are away.
             </span>
           </label>
+          {/* ── Where their time lands ──────────────────────────────────────
+              The pair that lib/costing/utilisation.js reads. Deliberately two
+              controls rather than one three-option list: a fitter guaranteed
+              37.5 hours who bills 28 is a field worker whose last 9.5 hours
+              behave like overhead, and no single dropdown can say that. */}
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("app.setWorkers.workType")}
+            </span>
+            <select
+              value={form.workType}
+              onChange={(e) => setForm({ ...form, workType: e.target.value })}
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="field">{t("app.setWorkers.workTypeField")}</option>
+              <option value="office">{t("app.setWorkers.workTypeOffice")}</option>
+            </select>
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              {t("app.setWorkers.workTypeHint")}
+            </span>
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("app.setWorkers.scheduledHours")}
+            </span>
+            <input
+              type="number"
+              min="0"
+              max="168"
+              step="0.5"
+              value={form.scheduledHoursPerWeek}
+              onChange={(e) =>
+                setForm({ ...form, scheduledHoursPerWeek: e.target.value })
+              }
+              placeholder="37.5"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <span className="mt-1 block text-[11px] text-muted-foreground">
+              {t("app.setWorkers.scheduledHoursHint")}
+            </span>
+          </label>
           <label className="block">
             <span className="text-xs font-medium text-muted-foreground">
               {t("app.setWorkers.startDate")}
@@ -361,6 +423,17 @@ function WorkerRow({ worker, workers = [], reload, onConnect }) {
                 date: formatDateOnly(worker.hiredOn),
               })
             : ""}
+          {/* Shown only when it is the non-obvious answer. "field" is what
+              every pre-existing row means, so printing it on everybody would
+              be noise; "runs the business" changes how their time is costed
+              and has to be visible without opening the editor. */}
+          {worker.workType === "office" && t("app.setWorkers.officeMeta")}
+          {/* Absent means "paid for the hours they log", which is a real
+              answer and not a zero-hour week — so nothing is printed for it. */}
+          {worker.scheduledHoursPerWeek != null &&
+            t("app.setWorkers.guaranteedWeek", {
+              hours: Number(worker.scheduledHoursPerWeek),
+            })}
           {!worker.userId && t("app.setWorkers.noLogin")}
         </div>
       </div>

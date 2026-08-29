@@ -18,6 +18,7 @@ import {
 import { checkUserLimit } from "@/lib/platform/planLimits";
 import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
+import { validateWorkProfile } from "@/lib/team/workProfile";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -57,6 +58,11 @@ export async function POST(request) {
     workerType,
     hourlyRate,
     permissions,
+    // Where this person's hours cost the business, and the week they are paid
+    // for whether or not work fills it. Validated below, before anything is
+    // created. See lib/team/workProfile.js.
+    workType,
+    scheduledHoursPerWeek,
   } = await request.json();
 
   // `name` is what the full New User page sends, and now what the popup sends
@@ -159,6 +165,13 @@ export async function POST(request) {
     );
   }
 
+  // Rejected before anything is created, so a bad week never reaches a row and
+  // a half-made worker never has to be cleaned up.
+  const profile = validateWorkProfile({ workType, scheduledHoursPerWeek });
+  if (!profile.ok) {
+    return NextResponse.json({ error: profile.error }, { status: 400 });
+  }
+
   const worker = await db.worker.create({
     data: {
       companyId: member.companyId,
@@ -169,6 +182,11 @@ export async function POST(request) {
       city: city || null,
       province: province || null,
       type: workerType === "contractor" ? "contractor" : "employee",
+      // A DIFFERENT question from `type` above, which is about how they are
+      // paid. This one is about where their hours cost the business: on a job,
+      // or on the business. See lib/team/workProfile.js.
+      workType: profile.workType,
+      scheduledHoursPerWeek: profile.scheduledHoursPerWeek,
       // Clamped the same way — a Worker row's hourlyRate is the number
       // payroll multiplies, whatever table it lives in.
       hourlyRate: vetted.laborCostPerHour,
