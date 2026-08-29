@@ -12,6 +12,10 @@ import {
   ArrowRight,
   CheckCircle2,
   Circle,
+  AlertCircle,
+  Mail,
+  Phone,
+  MapPin,
 } from "lucide-react";
 
 import { isInternalPath } from "@/lib/appUrl";
@@ -22,7 +26,56 @@ import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { fetchList, fetchArray } from "@/lib/loadState";
+import { reportResponseError } from "@/lib/clientErrors";
+import { formatMoney } from "@/lib/currency";
 import ListState from "@/app/components/ListState";
+
+// ── The aging ladder's words ───────────────────────────────────────────────
+//
+// The ids come from lib/analytics/receivables.js, which holds no English on
+// purpose. `undated` is deliberately absent from this map: an invoice with no
+// due date is not a bucket on the ladder, it is a separate sentence, and giving
+// it a rung here would put it in a row of ages it does not have.
+const AGING_LABEL = {
+  not_due: ["app.dash.aging.notDue", "Not yet due"],
+  days_1_30: ["app.dash.aging.d1to30", "1–30 days"],
+  days_31_60: ["app.dash.aging.d31to60", "31–60 days"],
+  days_61_90: ["app.dash.aging.d61to90", "61–90 days"],
+  days_90_plus: ["app.dash.aging.d90plus", "90+ days"],
+};
+
+// ── The change, stated and nothing more ────────────────────────────────────
+//
+// Key and English fallback together, so the sentence reads correctly before the
+// catalogue entry lands rather than rendering "app.dash.revenue.down" at a
+// contractor. Every one of these says WHAT MOVED and stops there — the
+// competitor's "focus on new sales opportunities" is advice derived from one
+// number, and a panel that dispenses it is trusted less on the figures too.
+const TREND_SENTENCE = {
+  up: [
+    "app.dash.revenue.up",
+    "{month}: {amount} — up {pct}% on {priorMonth}.",
+  ],
+  down: [
+    "app.dash.revenue.down",
+    "{month}: {amount} — down {pct}% on {priorMonth}.",
+  ],
+  flat: [
+    "app.dash.revenue.flat",
+    "{month}: {amount} — about the same as {priorMonth}.",
+  ],
+};
+
+/** "2026-08" → "Aug 26", read on the UTC calendar the series was built on. */
+function monthLabel(key) {
+  const [y, m] = String(key).split("-").map(Number);
+  if (!y || !m) return key;
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(undefined, {
+    month: "short",
+    year: "2-digit",
+    timeZone: "UTC",
+  });
+}
 
 export default function DashboardPage() {
   const { t } = useTranslation();
@@ -55,6 +108,24 @@ export default function DashboardPage() {
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [onboardingError, setOnboardingError] = useState("");
+
+  // ── Money owed, and the shape of the money coming in ─────────────────────
+  //
+  // One endpoint, two panels — see the header of
+  // app/api/analytics/receivables/route.js for why they travel together.
+  //
+  // `null` is "not known", exactly as `overview` above: a member without
+  // showPricing, or at invoices:none, is refused, and a refused panel is
+  // ABSENT. "$0 owed" over an empty aging chart would be the same fabricated
+  // claim the comment at the top of this file exists to describe.
+  const [money, setMoney] = useState(null);
+  const [moneyErrorKey, setMoneyErrorKey] = useState("");
+  const [trendMonths, setTrendMonths] = useState(6);
+  // Which invoice is mid-chase, and what came back. Kept per-invoice rather
+  // than as one page-level flag so two clicks can't blur into one another.
+  const [chasing, setChasing] = useState(null);
+  const [chaseNote, setChaseNote] = useState("");
+  const [chaseError, setChaseError] = useState("");
 
   // Safety net for missed/misrouted checkout.session.completed webhooks.
   // successUrl (app/api/companies/route.js) redirects here with the real
@@ -117,6 +188,63 @@ export default function DashboardPage() {
     setRecentQuotes(null);
     setQuotesErrorKey(result.errorKey);
   }, []);
+
+  const loadMoney = useCallback(async () => {
+    const result = await fetchList(
+      `/api/analytics/receivables?months=${trendMonths}`,
+    );
+    if (result.aborted) return;
+    if (result.ok) {
+      setMoney(result.data);
+      setMoneyErrorKey("");
+      return;
+    }
+    setMoney(null);
+    // Same split as loadOverview: a 403 is a boundary working, so there is
+    // nothing to apologise for and nothing to retry. Everything else says so
+    // and offers the retry.
+    setMoneyErrorKey(result.status === 403 ? "" : result.errorKey);
+  }, [trendMonths]);
+
+  // Its own effect, keyed on the period selector — changing the range must
+  // refetch, and the first load must not sit behind the four tiles' skeleton.
+  useEffect(() => {
+    loadMoney();
+  }, [loadMoney]);
+
+  async function chase(invoice) {
+    setChasing(invoice.id);
+    setChaseNote("");
+    setChaseError("");
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/request-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        // Never a bare `if (res.ok)` with no else. The failures this route
+        // really returns — no email on file, already settled, a 403 — are
+        // sentences the contractor needs, not a button that quietly did
+        // nothing.
+        await reportResponseError(
+          res,
+          setChaseError,
+          t("app.invoiceDetail.requestError"),
+        );
+        return;
+      }
+      const data = await res.json();
+      setChaseNote(
+        `${t("app.invoiceDetail.paymentRequestSentTo")} ${data?.to || ""}`.trim(),
+      );
+      // The route stamps sentAt and can move a draft to sent, so the panel is
+      // reloaded from the server rather than patched from a guess.
+      await loadMoney();
+    } finally {
+      setChasing(null);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/onboarding-status", { cache: "no-store" })
@@ -273,6 +401,466 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* The money panels failed to load — but were not refused. Same shape,
+          same reasoning as the overview banner above. */}
+      {moneyErrorKey && (
+        <ListState
+          loading={false}
+          isEmpty={false}
+          errorKey={moneyErrorKey}
+          onRetry={loadMoney}
+        >
+          {null}
+        </ListState>
+      )}
+
+      {/* ── Money owed, with age ────────────────────────────────────────────
+          Absent for anyone the endpoint refused: no panel, no zero, no
+          apology. `money` is null until the server sends a body. */}
+      {money?.receivables && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Receipt size={16} className="text-muted-foreground" />
+              {t("app.dash.owed.title", "Money owed")}
+            </h2>
+            <Link
+              href="/app/invoices"
+              className="text-sm text-muted-foreground flex items-center gap-1"
+            >
+              {t("app.action.viewAll")} <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          {/* Three different states, and none of them is "$0.00". Nothing
+              billed, everything paid, and a real balance are three different
+              things to say — AGENTS.md failure class 5. */}
+          {money.receivables.noInvoices ? (
+            <p className="px-5 py-6 text-sm text-muted-foreground">
+              {t(
+                "app.dash.owed.noInvoices",
+                "No invoices yet, so nothing is owed to you.",
+              )}
+            </p>
+          ) : money.receivables.nothingOutstanding ? (
+            <p className="px-5 py-6 text-sm text-muted-foreground">
+              {t(
+                "app.dash.owed.nothing",
+                "Nothing outstanding — every invoice you have sent has been settled.",
+              )}
+            </p>
+          ) : (
+            <>
+              <div className="px-5 py-4 border-b border-border">
+                <div className="text-3xl font-bold text-foreground">
+                  {formatMoney(money.receivables.total, money.currency)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t(
+                    "app.dash.owed.caption",
+                    "Across {count} unpaid invoices. Counts the latest version of each invoice, less the payments recorded against it.",
+                    { count: money.receivables.count },
+                  )}
+                </p>
+                {money.receivables.overdueCount > 0 && (
+                  <p className="text-xs text-destructive mt-1">
+                    {t("app.dash.owed.pastDue", "{amount} of that is past due.", {
+                      amount: formatMoney(
+                        money.receivables.overdueTotal,
+                        money.currency,
+                      ),
+                    })}
+                  </p>
+                )}
+              </div>
+
+              {/* The aging strip. Only rungs with something on them — five
+                  empty boxes would be four claims nobody made. */}
+              <div className="px-5 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 border-b border-border">
+                {money.receivables.aging
+                  .filter((b) => b.count > 0)
+                  .map((b) => (
+                    <div
+                      key={b.id}
+                      className="border border-border rounded-lg px-3 py-2"
+                    >
+                      <div className="text-[11px] text-muted-foreground">
+                        {t(...AGING_LABEL[b.id])}
+                      </div>
+                      <div
+                        className={`text-sm font-semibold ${
+                          b.overdue ? "text-destructive" : "text-foreground"
+                        }`}
+                      >
+                        {formatMoney(b.amount, money.currency)}
+                      </div>
+                    </div>
+                  ))}
+                {money.receivables.undatedCount > 0 && (
+                  <div className="border border-border rounded-lg px-3 py-2">
+                    <div className="text-[11px] text-muted-foreground">
+                      {t("app.dash.aging.undated", "No due date")}
+                    </div>
+                    <div className="text-sm font-semibold text-foreground">
+                      {formatMoney(
+                        money.receivables.undatedTotal,
+                        money.currency,
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {chaseError && (
+                <p className="mx-5 mt-3 text-xs text-destructive flex items-start gap-1.5">
+                  <AlertCircle size={13} className="mt-0.5 shrink-0" />
+                  {chaseError}
+                </p>
+              )}
+              {chaseNote && (
+                <p className="mx-5 mt-3 text-xs text-muted-foreground">
+                  {chaseNote}
+                </p>
+              )}
+
+              <div className="divide-y divide-border">
+                {money.receivables.invoices.slice(0, 6).map((inv) => (
+                  <div
+                    key={inv.id}
+                    className="px-5 py-3 flex items-start justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">
+                        {inv.client?.name}
+                      </div>
+                      {/* Days past due, in red, from the DUE DATE — and an
+                          invoice with no due date says exactly that instead of
+                          being aged from the day it was raised. */}
+                      {inv.dueState === "overdue" ? (
+                        <div className="text-xs font-semibold text-destructive">
+                          {t(
+                            "app.dash.owed.daysPastDue",
+                            "{days} days past due",
+                            { days: inv.daysPastDue },
+                          )}
+                        </div>
+                      ) : inv.dueState === "undated" ? (
+                        <div className="text-xs text-muted-foreground">
+                          {t(
+                            "app.dash.owed.undated",
+                            "No due date on this invoice — it is not overdue",
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">
+                          {t("app.dash.owed.dueOn", "Due {date}", {
+                            date: new Date(inv.dueDate).toLocaleDateString(
+                              undefined,
+                              { month: "short", day: "numeric" },
+                            ),
+                          })}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {inv.invoiceNumber}
+                        {inv.amended
+                          ? ` · ${t("app.dash.owed.amended", "amended, v{version}", { version: inv.version })}`
+                          : ""}
+                      </div>
+                      {inv.partiallyPaid && (
+                        <div className="text-xs text-muted-foreground">
+                          {t("app.invoiceLifecycle.partiallyPaid", {
+                            paid: formatMoney(inv.paid, money.currency),
+                            total: formatMoney(inv.total, money.currency),
+                            due: formatMoney(inv.owed, money.currency),
+                          })}
+                        </div>
+                      )}
+                      {/* Contact details, subject to clientsProperties. A
+                          member on name_address_only keeps the name and the
+                          address and is TOLD the rest is hidden — a blank line
+                          would read as data nobody has entered. */}
+                      {inv.client?.restricted ? (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {t("app.access.restricted")}
+                        </div>
+                      ) : (
+                        <div className="mt-1 space-y-0.5">
+                          {inv.client?.email && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                              <Mail size={11} className="shrink-0" />
+                              {inv.client.email}
+                            </div>
+                          )}
+                          {inv.client?.phone && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <Phone size={11} className="shrink-0" />
+                              {inv.client.phone}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {inv.client?.address && (
+                        <div className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
+                          <MapPin size={11} className="shrink-0" />
+                          {[inv.client.address, inv.client.city]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-semibold text-foreground">
+                        {formatMoney(inv.owed, money.currency)}
+                      </div>
+                      {/* ── The reminder really sends ─────────────────────────
+                          POST /api/invoices/[id]/request-payment emails the
+                          client a portal link through Resend and stamps sentAt
+                          once Resend accepts. It enforces invoices at
+                          view_create_edit, which is precisely what `canRemind`
+                          reports, so this is not a button the server will 403.
+                          It refuses with a 400 when the client has no email
+                          address, and that sentence is shown rather than
+                          swallowed — which is why the button still renders for
+                          a member whose access hides the email: they may chase,
+                          they simply cannot see the address they are chasing. */}
+                      {money.canRemind &&
+                        (inv.client?.email || inv.client?.restricted) && (
+                          <button
+                            type="button"
+                            onClick={() => chase(inv)}
+                            disabled={chasing === inv.id}
+                            className="mt-1 text-xs font-semibold border border-border rounded-full px-3 py-1.5 disabled:opacity-50"
+                          >
+                            {t("app.invoiceLifecycle.actionChase")}
+                          </button>
+                        )}
+                      {money.canRemind &&
+                        !inv.client?.email &&
+                        !inv.client?.restricted && (
+                          <div className="mt-1 text-xs text-muted-foreground max-w-[14rem]">
+                            {t("app.invoiceLifecycle.noClientEmail", {
+                              name:
+                                inv.client?.name ||
+                                t("app.invoiceLifecycle.thisClient"),
+                            })}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {money.receivables.count > 6 && (
+                <Link
+                  href="/app/invoices"
+                  className="block px-5 py-3 text-xs text-muted-foreground underline"
+                >
+                  {t("app.dash.owed.more", "{count} more not shown here", {
+                    count: money.receivables.count - 6,
+                  })}
+                </Link>
+              )}
+
+              <div className="px-5 py-3 border-t border-border space-y-1">
+                {/* What the automation will do on its own — true either way,
+                    and the reason the manual button is not the only answer. */}
+                <p className="text-xs text-muted-foreground">
+                  {money.automaticReminder
+                    ? t(
+                        "app.dash.owed.autoReminder",
+                        "An automatic reminder goes out {value} {unit} after an invoice's due date.",
+                        {
+                          value: money.automaticReminder.delayValue,
+                          unit: money.automaticReminder.delayUnit,
+                        },
+                      )
+                    : t(
+                        "app.dash.owed.noAutoReminder",
+                        "No automatic overdue reminder is set up, so nothing chases these on its own.",
+                      )}
+                </p>
+                {/* Figures that are knowably short say so. Silence here would
+                    make an incomplete total look whole. */}
+                {money.receivables.notPlaced > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "app.dash.owed.notPlaced",
+                      "{count} invoice(s) carry no date at all and are not counted above.",
+                      { count: money.receivables.notPlaced },
+                    )}
+                  </p>
+                )}
+                {money.receivables.creditsTotal < 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t(
+                      "app.dash.owed.credits",
+                      "{count} invoice(s) have been overpaid by {amount} in total. That is money you hold, not money owed to you, so it is not in the figure above.",
+                      {
+                        count: money.receivables.credits.length,
+                        amount: formatMoney(
+                          Math.abs(money.receivables.creditsTotal),
+                          money.currency,
+                        ),
+                      },
+                    )}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── What has actually come in, month by month ───────────────────────
+          The tile above totals invoices marked paid; this counts PAYMENTS. Two
+          different questions, and the caption says which one this is rather
+          than letting the two quietly disagree. */}
+      {money?.revenue && (
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border gap-3">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <TrendingUp size={16} className="text-muted-foreground" />
+              {t("app.dash.revenue.title", "Money received")}
+            </h2>
+            <div className="flex gap-1.5">
+              {(money.periods || []).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setTrendMonths(p)}
+                  className={`text-xs font-semibold rounded-full px-3 py-1.5 border ${
+                    trendMonths === p
+                      ? "bg-inverted text-inverted-foreground border-transparent"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {t("app.dash.revenue.monthsOption", "{count}m", { count: p })}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {!money.revenue.available ? (
+            <p className="px-5 py-6 text-sm text-muted-foreground">
+              {t(
+                "app.dash.revenue.none",
+                "No payments have been recorded yet, so there is no trend to show.",
+              )}
+            </p>
+          ) : (
+            <div className="px-5 py-4">
+              {/* ── The commentary, and what it deliberately does not do ─────
+                  It states the change and stops. No "focus on new sales
+                  opportunities": advice generated from one number is a
+                  horoscope, and one sentence of it makes every real figure on
+                  the panel less believable.
+
+                  The comparison is between the last two COMPLETE months. An
+                  unfinished month measured against a finished one would
+                  manufacture a collapse on the 2nd of every month. */}
+              {money.revenue.headline &&
+                (money.revenue.headline.deltaPct === null ? (
+                  <p className="text-sm text-foreground">
+                    {t(
+                      "app.dash.revenue.fromNothing",
+                      "{month}: {amount}. Nothing was received in {priorMonth}.",
+                      {
+                        month: monthLabel(money.revenue.headline.month),
+                        amount: formatMoney(
+                          money.revenue.headline.amount,
+                          money.currency,
+                        ),
+                        priorMonth: monthLabel(
+                          money.revenue.headline.priorMonth,
+                        ),
+                      },
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-foreground">
+                    {t(
+                      ...(TREND_SENTENCE[money.revenue.headline.direction] ||
+                        TREND_SENTENCE.flat),
+                      {
+                        month: monthLabel(money.revenue.headline.month),
+                        amount: formatMoney(
+                          money.revenue.headline.amount,
+                          money.currency,
+                        ),
+                        pct: money.revenue.headline.deltaPct,
+                        priorMonth: monthLabel(
+                          money.revenue.headline.priorMonth,
+                        ),
+                      },
+                    )}
+                  </p>
+                ))}
+
+              {money.revenue.series.every((s) => s.amount === 0) ? (
+                <p className="text-sm text-muted-foreground mt-2">
+                  {t(
+                    "app.dash.revenue.noneInPeriod",
+                    "No payments were received in this period.",
+                  )}
+                </p>
+              ) : (
+                <>
+                  <div className="mt-4 flex items-end gap-2 h-32">
+                    {money.revenue.series.map((s, _i, series) => {
+                      const max = Math.max(...series.map((r) => r.amount));
+                      // A month with nothing in it gets no bar at all. A
+                      // minimum-height stub would draw money that never
+                      // arrived.
+                      const pct =
+                        max > 0 && s.amount > 0
+                          ? Math.max(4, (s.amount / max) * 100)
+                          : 0;
+                      return (
+                        <div
+                          key={s.month}
+                          className="flex-1 flex flex-col justify-end h-full"
+                          title={`${monthLabel(s.month)} — ${formatMoney(s.amount, money.currency)}`}
+                        >
+                          <div
+                            // The current month is not finished, so its bar is
+                            // drawn differently and labelled — comparing it to
+                            // a full month at a glance is the mistake this
+                            // prevents.
+                            className={`rounded-t ${s.partial ? "bg-muted-foreground" : "bg-primary"}`}
+                            style={{ height: `${pct}%` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    {money.revenue.series.map((s) => (
+                      <div
+                        key={s.month}
+                        className="flex-1 text-[10px] text-muted-foreground text-center truncate"
+                      >
+                        {monthLabel(s.month)}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {t(
+                      "app.dash.revenue.caption",
+                      "Payments recorded, by the month they were received. The revenue tile above totals invoices marked paid, which is a different measure.",
+                    )}
+                    {money.revenue.series.some((s) => s.partial)
+                      ? ` ${t("app.dash.revenue.partial", "The last bar is the current month, still in progress.")}`
+                      : ""}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Yearly goal + pace. Renders itself away for a non-admin with no goal
           set, so it's never a dead prompt. */}
