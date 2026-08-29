@@ -21,6 +21,12 @@ const FOOTER_COLUMNS = [
       { key: "product.team.label", href: "/product/team" },
       { key: "product.analytics.label", href: "/product/analytics" },
       { key: "nav.pricing", href: "/pricing" },
+      // Everything below shipped unreachable. A page nobody can navigate to is
+      // not a page, and the footer is where somebody looks for the one they
+      // half-remember.
+      { key: "nav.allFeatures", href: "/features" },
+      { key: "nav.compare", href: "/compare" },
+      { key: "nav.savings", href: "/savings" },
     ],
   },
   {
@@ -31,6 +37,7 @@ const FOOTER_COLUMNS = [
       // wanted again the day those pages ship, but a link to nothing is worse
       // than no link.
       { key: "footer.links.help", href: "/resources/help" },
+      { key: "nav.glossary", href: "/glossary" },
       { key: "footer.links.contact", href: "/contact" },
     ],
   },

@@ -19,6 +19,17 @@ const PRODUCT_ITEMS = [
   { key: "scheduling", href: "/product/scheduling" },
   { key: "team", href: "/product/team" },
   { key: "analytics", href: "/product/analytics" },
+  // ── The four page sets that existed and could not be reached ────────────
+  //
+  // /features (24 pages), /compare (four named competitors), /savings and
+  // /glossary (100 terms) all shipped with no link anywhere on the site. Built
+  // and unreachable is not built, and reporting them as done was wrong.
+  //
+  // They go here rather than in a fifth top-level nav item because this menu is
+  // already "what the product does", and a header with six items is how a
+  // header stops being read at all.
+  { key: "allFeatures", href: "/features" },
+  { key: "compare", href: "/compare" },
 ];
 
 function UserAvatar({ user, size = 36 }) {
@@ -183,6 +194,15 @@ export default function MarketingHeader() {
               }`}
             >
               {t("nav.pricing")}
+            </Link>
+            {/* Beside the price, because "what would it save me" is the same
+                question as "what does it cost" and gets asked in the same
+                breath. */}
+            <Link
+              href="/savings"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+              {t("nav.savings", "Savings")}
             </Link>
 
             <Link

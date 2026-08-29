@@ -225,12 +225,13 @@ export function engineeringLimitFor(categoryKey) {
 // not, and the merge cannot happen without adding them there first.
 //
 // TWO OF THE FOUR MAP TO NO INDUSTRY THIS PRODUCT SHIPS, and that is recorded
-// rather than forced. INDUSTRIES has twelve slugs and none of them is solar or
-// fire protection. Filing solar under "electrical" would put a PV array in
-// front of every electrician who signs up and would put an electrician's
-// service-call book in front of a solar company; filing sprinklers under
-// "plumbing" is the same mistake with a life-safety system attached. A trade
-// with `industries: []` is still reachable — categoriesWithoutIndustry() in
+// ── Filed by the owner, and it was mine to deduce ─────────────────────────
+//
+// These two shipped with no industry while I asked him which markets he sells
+// to. He answered the obvious thing — solar under roofing and construction,
+// sprinklers under construction — and he was right that it needed thinking
+// about who does the work, not a product decision. An empty industries array
+// left two fully priced trades nobody could select.
 // lib/trades/catalog.js exists for exactly this — it just is not offered by a
 // signup preset. That is the honest state until the owner decides whether
 // FieldQuo sells to those two markets.
@@ -249,15 +250,24 @@ export const SYSTEMS_TRADES = {
   },
   solar_pv_install: {
     label: "Solar PV Installation",
-    industries: [],
+    // Filed by the owner, and it was mine to deduce: a PV array is mounted on a
+    // roof by the people who work on roofs, and the rest of the job is a build.
+    // `electrical` was the wrong neighbour — the electrical tie-in is one trade
+    // on the job, not the trade that sells it.
+    industries: ["roofing", "construction-contracting"],
     categoryExists: false,
-    note: "NEW key. No industry in app/data/industries.js fits. Closest neighbours are `electrical` and `construction-contracting`, and both are wrong in a way that shows up on a signup preset — see the comment above.",
+    note: "NEW key. Needs a TRADE_CATALOG entry before the book can be reached.",
   },
   fire_sprinkler: {
     label: "Fire Sprinkler Installation & Service",
-    industries: [],
+    // General construction, per the owner. Sprinkler pipe goes in during the
+    // build alongside the other rough-in trades. Deliberately NOT plumbing:
+    // fire protection carries its own licence, and putting it on a plumber's
+    // signup preset offers a life-safety system to somebody who may not hold
+    // the ticket for it.
+    industries: ["construction-contracting"],
     categoryExists: false,
-    note: "NEW key. No industry fits; fire protection is its own trade with its own licensing. Do not file it under plumbing.",
+    note: "NEW key. Needs a TRADE_CATALOG entry before the book can be reached.",
   },
   gutter_services: {
     label: "Gutters & Eavestroughs",
