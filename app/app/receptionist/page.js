@@ -408,9 +408,12 @@ function CallRow({ call, urgent, busy, onSeen, formatDateTime, aiAvailable }) {
               : t("app.receptionist.bookedVisit")}
           </Link>
         )}
-        {call.recordingUrl && (
+        {/* The gated proxy, not the provider's URL — see
+            /api/voice/calls/[id]/recording. The href is a FieldQuo path with a
+            call id in it and is useless without a session. */}
+        {call.recordingHref && (
           <a
-            href={call.recordingUrl}
+            href={call.recordingHref}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"

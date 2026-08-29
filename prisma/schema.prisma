@@ -1721,6 +1721,22 @@ model Quote {
   // survive onto the PDF, where "we couldn't work out what you meant" is an
   // apology nobody asked for. See lib/ai/callQuoteDraft.js reviewNotesFromDraft.
   reviewNotes  String?
+  /// The phone call this quote was drafted from, if any — VoiceCall.id.
+  ///
+  /// A plain column, not a relation, for the same reason VoiceCall.leadId is
+  /// one: the link is only ever followed in one direction and a relation would
+  /// hang a `quotes` list off a call that nothing reads.
+  ///
+  /// It holds an ID and never a URL, and that is the whole design. The
+  /// recording it leads to is a Retell BEARER link — nothing signs it, proxies
+  /// it or expires it, so the string alone plays a customer's phone call with
+  /// no session (lib/voice/recording.js). A URL on THIS row would ride along on
+  /// every client-facing read that loads the quote whole and filters afterwards
+  /// — app/api/public/quotes/[token] does exactly that — and a quote is the one
+  /// document in this product that gets forwarded and printed. An id is useless
+  /// to a stranger; /api/voice/calls/[id]/recording is what turns it into audio,
+  /// for a signed-in member of the owning company only.
+  sourceCallId String?
   validUntil   DateTime?
   pdfUrl       String?
 
@@ -4870,6 +4886,29 @@ model VoiceAgent {
   /// Off by default. An agent that answers before anyone has heard it is how a
   /// contractor finds out from a client.
   enabled Boolean @default(false)
+
+  /// ── How it SOUNDS. Four codes, never provider values ────────────────────
+  ///
+  /// Deliberately our own vocabulary rather than Retell's numbers. Storing
+  /// `interruption_sensitivity: 0.7` would tie every existing row to one
+  /// provider's scale, so swapping to Vapi later would mean a data migration
+  /// rather than a change to one file — the same reason lib/voice/retell.js is
+  /// the only place that talks to Retell at all.
+  ///
+  /// The defaults are stated HERE as well as in lib/voice/agentTuning.js, so a
+  /// row created by any path lands on the same four values a company that never
+  /// opened the screen behaves as. `normaliseTuning` is still the gate: an
+  /// unrecognised string in one of these columns resolves back to the default
+  /// rather than reaching the provider.
+  ///
+  /// May a caller talk over it: easy | balanced | patient
+  tuneInterruptions String @default("balanced")
+  /// Where callers ring from, which decides denoising: quiet | normal | crowded
+  tuneBackground    String @default("normal")
+  /// How fast it comes back once they stop: quick | unhurried
+  tunePace          String @default("quick")
+  /// Brisk, or warm and chatty: professional | warm
+  tuneManner        String @default("professional")
 
   /// Attribution for anything the agent creates. A synthetic member, so the
   /// activity log says the receptionist did it rather than naming a person who

@@ -78,7 +78,7 @@ ok(
 );
 
 const freeText = promptFor(free);
-ok(/You can offer appointment times/.test(freeText), "it is told it may offer times");
+ok(/You can offer times for a visit/.test(freeText), "it is told it may offer times, and for WHAT");
 ok(
   /Only ever offer times you have been given/.test(freeText),
   "rule 2 survives: only times it was actually given",
@@ -224,9 +224,20 @@ ok(
   "the promo price is in the prompt and the struck-through one is not",
 );
 
-// Phone/video-only company. bookSlot writes mode "visit" and creates an
-// appointment somebody drives to, so it must not run for a company that has
-// deliberately switched visits off — but their booking page still works.
+// ── Phone/video-only company: it CAN book, and this assertion is inverted ──
+//
+// This used to assert `canBook === false`, because bookSlot hard-coded mode
+// "visit" and creating an appointment somebody drives to for a company that
+// does not do visits would have been a promise nobody made. That was the right
+// guard on the wrong lever: it locked out the easiest appointment in the whole
+// product to take on a phone call. A callback has no travel, no address, no
+// deposit and no payment.
+//
+// bookSlot now writes the mode the company actually offers and drops the
+// address for anything that is not a visit, and the tool descriptions and the
+// prompt name the mode — so the gate is the FEE, which is the thing the agent
+// genuinely cannot handle, and not the mode. See scripts/check-call-to-client.mjs
+// sections 15-17, which execute it.
 const callOnly = visitPolicy({
   company: co({ bookingModes: ["call"] }),
   eventTypes: [FREE],
@@ -235,8 +246,12 @@ const callOnly = visitPolicy({
 ok(offersVisits({ bookingModes: ["call"] }) === false, "a call-only company does not offer visits");
 ok(offersVisits({}) === true, "an unset bookingModes is the ['visit'] default, not 'nothing offered'");
 ok(
-  callOnly.canBook === false && callOnly.mode === "link",
-  "call-only → the phone cannot book a visit, but the link still stands",
+  callOnly.canBook === true && callOnly.mode === "book",
+  "call-only → it books a phone call rather than falling back to the link",
+);
+ok(
+  JSON.stringify(callOnly.bookableModes) === JSON.stringify(["call"]),
+  "...and it is told which mode it is arranging, so it never offers to come out",
 );
 
 // Both kinds at once. The free ones stay bookable; the paid ones are named with

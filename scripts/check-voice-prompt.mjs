@@ -67,7 +67,10 @@ ok(!/exactly these things/.test(sparse), "no services → no services line");
 // ── Booking ──────────────────────────────────────────────────────────────
 ok(/You cannot book anything/.test(buildAgentPrompt({ company, canBook:false })),
    "without real availability it is told it cannot book");
-ok(/You can offer appointment times/.test(full), "with availability it can");
+// The wording carries the MODE now — "You can offer times for a visit" — because
+// a phone-only company can book on the call and must not be told to come out.
+// See lib/voice/visitPath.js MODE_WORDS.
+ok(/You can offer times for a visit/.test(full), "with availability it can");
 
 // ── The owner's notes are bounded ────────────────────────────────────────
 const hostile = buildAgentPrompt({

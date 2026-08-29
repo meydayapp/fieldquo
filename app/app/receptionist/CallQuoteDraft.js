@@ -38,6 +38,23 @@
 //   NO MATCH     nothing in their services, price book or products matched. Even
 //                this is not thrown away — it goes onto the quote's review notes.
 //
+// ── Whose sentence it is ───────────────────────────────────────────────────
+//
+// Some of these quotes are the caller's own words and some are the assistant
+// repeating a fact back and the caller letting it stand — which is usually the
+// cleaner sentence and is why lib/voice/transcript.js now accepts it. The panel
+// says which, because a line the ROBOT said, shown as though the caller said
+// it, is a small lie the estimator will catch once and then stop trusting the
+// whole panel over.
+//
+// ── The recording, and why the link is not the recording ──────────────────
+//
+// Retell's recording URL is a bearer link: no signature, no expiry, no session.
+// The link here is /api/voice/calls/<id>/recording, which is a FieldQuo path
+// that checks the session and the tenant and streams the audio itself — so what
+// reaches this browser, and anything it is ever pasted into, is useless to a
+// stranger. Nothing client-facing carries either form. See lib/voice/recording.js.
+//
 // ── And what it did NOT hear is on the screen too ──────────────────────────
 //
 // The list of questions the call left unanswered is not a gap in the panel, it
@@ -58,8 +75,14 @@ import {
   Search,
   MapPin,
   Image as ImageIcon,
+  Play,
+  UserCheck,
+  UserPlus,
+  MessageSquareText,
+  CheckCheck,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { callRecordingHref } from "@/lib/voice/recording";
 import { useTranslation } from "@/app/hooks/useTranslation";
 
 export default function CallQuoteDraft({ call, aiAvailable }) {
@@ -69,6 +92,10 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  // The whole call, fetched only when somebody asks for it. Twenty-eight turns
+  // are not a summary and must not be pasted into a notes box — but they are
+  // already in the database, so they are one click away rather than lost.
+  const [turns, setTurns] = useState(null);
 
   // No words, nothing to read. Offered as an explanation rather than a disabled
   // button nobody can account for.
@@ -106,6 +133,20 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function loadTranscript() {
+    if (turns) {
+      setTurns(null);
+      return;
+    }
+    const res = await fetch(`/api/voice/calls/${call.id}/transcript`);
+    if (!res.ok) {
+      await reportResponseError(res, t("app.callDraft.error"));
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    setTurns(Array.isArray(data?.turns) ? data.turns : []);
   }
 
   if (!open) {
@@ -149,6 +190,95 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
           {t(`app.callDraft.reason.${reason}`)}
         </p>
       ) : null}
+
+      {/* ── What the assistant repeated back, and nobody corrected ─────────
+          The most reliable sentences in the call: the fact spelled out, then
+          agreed to. Shown above the drafted scope because this is what the
+          scope was drafted FROM, and because things with no field to land in —
+          a colour, a confirmed email — reach the estimator here or nowhere. */}
+      {(draft?.confirmed || []).length > 0 && (
+        <div className="rounded-md border border-border bg-card p-3">
+          <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <CheckCheck size={13} /> {t("app.callDraft.confirmedFacts")}
+          </p>
+          <ul className="mt-1 space-y-1">
+            {draft.confirmed.map((line, i) => (
+              <li key={i} className="text-xs text-muted-foreground italic">
+                “{line}”
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Who this call is now attached to. Said out loud because it is a WRITE:
+          a client the estimator did not create has appeared on their list, and
+          finding that out from the client list later is how people stop
+          trusting an assistant. Matched and created are deliberately different
+          sentences — one is a link, the other is a new row. */}
+      {(draft?.client?.created || draft?.client?.matchedOn) && draft?.client?.name && (
+        <p className="text-xs text-foreground flex gap-1.5">
+          {draft.client.created ? (
+            <UserPlus size={12} className="mt-0.5 shrink-0" />
+          ) : (
+            <UserCheck size={12} className="mt-0.5 shrink-0" />
+          )}
+          <span>
+            {draft.client.created
+              ? t("app.callDraft.clientCreated", { name: draft.client.name })
+              : t("app.callDraft.clientMatched", { name: draft.client.name })}
+          </span>
+        </p>
+      )}
+
+      {/* The audio. Only rendered when a recording actually exists — an
+          always-present button that 404s is the dead control AGENTS.md is
+          about. Internal: this href needs a session and the right tenant. */}
+      {draft?.recording?.callId && (
+        <a
+          href={callRecordingHref(draft.recording.callId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
+        >
+          <Play size={13} /> {t("app.receptionist.listen")}
+        </a>
+      )}
+
+      {/* And the words. Stored all along and openable nowhere until now — see
+          /api/voice/calls/[id]/transcript. Fetched on demand, never inlined
+          into the draft: the draft is copied into the quote builder and stored
+          on the call row, and a transcript does not belong in either. */}
+      <div>
+        <button
+          type="button"
+          onClick={loadTranscript}
+          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
+        >
+          <MessageSquareText size={13} />
+          {turns ? t("app.callDraft.hideTranscript") : t("app.callDraft.readTranscript")}
+        </button>
+        {turns && (
+          <div className="mt-2 max-h-72 overflow-y-auto rounded-md border border-border bg-card p-3 space-y-1.5">
+            {turns.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("app.callDraft.reason.no_transcript")}
+              </p>
+            ) : (
+              turns.map((turn, i) => (
+                <p key={i} className="text-xs">
+                  <span className="font-semibold text-foreground">
+                    {turn.role === "agent"
+                      ? t("app.callDraft.speakerAgent")
+                      : t("app.callDraft.speakerCaller")}
+                  </span>{" "}
+                  <span className="text-muted-foreground">{turn.text}</span>
+                </p>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* What the receptionist wrote down during the call. Rendered ABOVE the
           drafted scope on purpose: it is the only thing on this panel the model
@@ -210,7 +340,15 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
           {g.evidence?.scope && (
             <p className="mt-1 text-xs text-muted-foreground flex gap-1.5">
               <Quote size={12} className="mt-0.5 shrink-0" />
-              <span className="italic">“{g.evidence.scope}”</span>
+              <span className="italic">
+                “{g.evidence.scope}”
+                {g.evidenceSource?.scope === "confirmed" && (
+                  <span className="not-italic">
+                    {" "}
+                    ({t("app.callDraft.confirmedOnCall")})
+                  </span>
+                )}
+              </span>
             </p>
           )}
 
@@ -226,6 +364,12 @@ export default function CallQuoteDraft({ call, aiAvailable }) {
                     <span className="text-muted-foreground italic">
                       {" "}
                       — “{g.evidence[key]}”
+                      {g.evidenceSource?.[key] === "confirmed" && (
+                        <span className="not-italic">
+                          {" "}
+                          ({t("app.callDraft.confirmedOnCall")})
+                        </span>
+                      )}
                     </span>
                   )}
                 </li>

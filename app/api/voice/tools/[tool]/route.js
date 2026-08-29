@@ -27,12 +27,51 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createScoredLead } from "@/lib/leads/createLead";
 import { toE164 } from "@/lib/voice/numbers";
-import { cleanPhone, cleanText, TOOL_NAMES } from "@/lib/voice/tools";
+import { cleanPhone, cleanText, normaliseEmail, TOOL_NAMES } from "@/lib/voice/tools";
 import { recordError } from "@/lib/platform/errorLog";
 import { recordConsent } from "@/lib/voice/outbound";
 import { photoDestination } from "@/lib/voice/quoteQuestions";
+import { MODE_WORDS } from "@/lib/voice/visitPath";
 import { verifyRetellSignature, signingKeys } from "@/lib/voice/webhookSignature";
 import { recordRejectedDelivery } from "@/lib/voice/webhookHealth";
+
+/**
+ * The caller's email, unless it is the company's own.
+ *
+ * ── A real call, and the record it nearly poisoned ─────────────────────────
+ *
+ * The agent asked the caller to email photos in and read the address out. The
+ * address is the CONTRACTOR's — photoDestination(company), which is
+ * Company.email — and it came back on the next save_caller call as the
+ * caller's own. Nobody spelled an address out on that call at all.
+ *
+ * That is not one bad row. Every caller who is read the same address gets the
+ * same email, so the client matcher in lib/ai/callQuoteDraft.js — which keys on
+ * email precisely because it is the strongest identifier a caller gives — would
+ * fold every one of them onto whichever client got there first, and attach a
+ * stranger's quote to a real customer's record. That is the exact failure the
+ * matcher is built to avoid, arriving through the front door.
+ *
+ * So the company's own addresses are refused here, at the write, rather than
+ * filtered at every read. Returns null, which `update` reads as "leave what is
+ * there alone" — an agent misreading an address must not erase a good one.
+ */
+async function callerEmail(companyId, raw) {
+  const email = normaliseEmail(raw);
+  if (!email) return null;
+  const company = await db.company
+    .findUnique({ where: { id: companyId }, select: { email: true } })
+    .catch(() => null);
+  // photoDestination is the exact string the agent was given to read out, and
+  // Company.email is where it comes from. Both are compared because the first
+  // can be null while the second is set.
+  const ours = new Set(
+    [normaliseEmail(company?.email), normaliseEmail(photoDestination(company))].filter(
+      Boolean,
+    ),
+  );
+  return ours.has(email) ? null : email;
+}
 
 /** The call, the number and the company — or null. */
 async function contextFor(callId) {
@@ -130,6 +169,10 @@ async function saveCaller(ctx, args) {
     return NextResponse.json({ error: "I need a name or a number." }, { status: 400 });
   }
 
+  // Theirs, or nothing. See callerEmail — the agent reads the COMPANY's address
+  // out loud for photos, and it came back here as the caller's.
+  const email = await callerEmail(ctx.companyId, args.email);
+
   const summary = cleanText(args.summary, 2000);
   const address = cleanText(args.address, 300);
   const urgency = ["emergency", "soon", "planning"].includes(args.urgency)
@@ -185,7 +228,7 @@ async function saveCaller(ctx, args) {
         data: {
           name: name || undefined,
           phone: toE164(phone) || undefined,
-          email: cleanText(args.email, 200) || undefined,
+          email: email || undefined,
           // undefined leaves the existing text alone; a string replaces it.
           message,
         },
@@ -194,7 +237,7 @@ async function saveCaller(ctx, args) {
         companyId: ctx.companyId,
         name: name || "Caller",
         phone: toE164(phone),
-        email: cleanText(args.email, 200),
+        email,
         message: message || "— taken by the phone assistant",
         source: "phone_agent",
       });
@@ -294,6 +337,11 @@ async function book(ctx, args) {
     slotId: String(args.slot || ""),
     name,
     phone: toE164(phone),
+    // Passed through, never trusted: bookSlot refuses a mode the company does
+    // not offer and drops the address for anything that is not a visit, so a
+    // model that fills `address` in for a phone call cannot get an invented
+    // street onto an appointment.
+    mode: typeof args.mode === "string" ? args.mode : null,
     address: cleanText(args.address, 300),
   });
 
@@ -325,14 +373,21 @@ async function book(ctx, args) {
     data: { bookingId: result.bookingId },
   });
 
+  // What was actually booked, in the words for that mode. "You're booked in"
+  // told a caller nothing about whether to expect a knock or a ring, and the
+  // tool description above it said "come out" whatever had been arranged.
+  // bookSlot reports the mode it wrote, so the sentence and the row agree.
+  const what = MODE_WORDS[result.mode]?.booked || MODE_WORDS.visit.booked;
+
   return NextResponse.json({
     booked: true,
+    mode: result.mode,
     // Only promises the letter when one was actually sent. A caller who never
     // gave an email was being told a confirmation was coming, waited for it,
     // and had no way to reach the visit — bookSlot reports which happened
     // rather than leaving the agent to assume the good case.
     say: result.confirmationSent
-      ? `Done — you're booked in for ${result.label}. You'll get a confirmation shortly.`
-      : `Done — you're booked in for ${result.label}. I've put it in the calendar; if you'd like it in writing, give me an email address.`,
+      ? `Done — ${what} ${result.label}. You'll get a confirmation shortly.`
+      : `Done — ${what} ${result.label}. I've put it in the calendar; if you'd like it in writing, give me an email address.`,
   });
 }

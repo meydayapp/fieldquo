@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, BadgeCheck, ExternalLink } from "lucide-react";
+import { Loader2, BadgeCheck, ExternalLink, Play } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { showError } from "@/lib/clientErrors";
 import { jsonBody } from "@/lib/jsonBody";
@@ -203,6 +203,25 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
             {q.reviewNotes}
           </p>
         </div>
+      )}
+
+      {/* ── Hearing the call before approving a figure ────────────────────
+          The note above says what the caller asked for; this is the caller
+          asking. Present only when the quote came off a phone call and the
+          recording is still there.
+
+          The href is /api/voice/calls/<id>/recording, not the provider's URL:
+          that one is a bearer link and this is a quote screen, one field away
+          from the document a homeowner receives. See lib/voice/recording.js. */}
+      {q.recordingHref && (
+        <a
+          href={q.recordingHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted"
+        >
+          <Play size={13} /> {t("app.receptionist.listen")}
+        </a>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

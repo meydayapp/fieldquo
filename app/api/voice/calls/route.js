@@ -17,26 +17,13 @@ import { isAiConfigured } from "@/lib/ai/provider";
 import { voiceConfigured } from "@/lib/voice/retell";
 import { can } from "@/lib/permissions";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { CALL_AUDIO_LEVEL, callRecordingHref } from "@/lib/voice/recording";
 
-// ── Why the client dial and not `user:manage` ──────────────────────────────
-//
-// Everything else under /api/voice and /api/settings/voice gates on
-// `user:manage`, because those routes BUY a number, change the agent's script
-// or spend credit. This one hands over a hundred callers' phone numbers, what
-// they said, and a link to the recording of them saying it. That is not a
-// billing decision, it is the client book arriving by another door.
-//
-// `clientsProperties` at `full_view` is the dial that already draws exactly
-// this line. It is the level lib/permissions/enforce.js strips a lead's
-// `phone` below, and the level lib/permissions/nav.js hides the Clients row
-// below, for the reason stated there: a crew member gets the address of the
-// job they are driving to, not the company's customer list.
-//
-// It also keeps the person whose job this is. An Estimator (role `employee`,
-// so `user:manage` would refuse them) sits at clientsProperties full_edit and
-// is precisely who rings a missed call back. Gating on the coarse role would
-// have hidden the inbox from its main user to protect it from Crew.
-const CALLS_LEVEL = ["clientsProperties", "full_view"];
+// The dial, and the whole argument for it, now live in lib/voice/recording.js:
+// /api/voice/calls/[id]/recording asks the identical question, and two copies
+// of "who may hear a customer's call" is one copy that stays open after the
+// other is tightened.
+const CALLS_LEVEL = CALL_AUDIO_LEVEL;
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -187,7 +174,18 @@ export async function GET(request) {
       costCents: costForSeconds(c.durationSec, c.number?.numberType),
       summary: c.summary,
       disposition: c.disposition,
-      recordingUrl: c.recordingUrl,
+      // ── The recording, as a path rather than the provider's link ─────────
+      //
+      // This used to be `recordingUrl: c.recordingUrl` — the provider's own
+      // URL, handed to the browser. It is a bearer link (lib/voice/recording.js)
+      // and nothing about it says so, so it survived into history, into
+      // referrers and into anything that copied a link address, playable
+      // forever by anyone who ended up with it.
+      //
+      // A boolean and a path instead: the audio is fetched by
+      // /api/voice/calls/[id]/recording, which re-checks the session and the
+      // tenant and streams it. The provider's URL now never leaves the server.
+      recordingHref: c.recordingUrl ? callRecordingHref(c.id) : null,
       needsReview: c.needsReview && !c.reviewedAt,
       leadId: c.leadId,
       bookingId: c.bookingId,

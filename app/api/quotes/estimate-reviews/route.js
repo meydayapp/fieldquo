@@ -11,6 +11,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { can } from "@/lib/permissions";
 import { redactClient, redactQuoteMoney } from "@/lib/permissions/enforce";
+import { callRecordingHref } from "@/lib/voice/recording";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -40,6 +41,10 @@ export async function GET(request) {
       // the reviewer is exactly who it was written for, so a queue that showed
       // the figure but not the caveat would be the wrong half of the story.
       reviewNotes: true,
+      // The call this was drafted from, so the reviewer can hear it before
+      // approving a figure. An ID — never the recording URL, which is a bearer
+      // link (see Quote.sourceCallId). Turned into a gated path below.
+      sourceCallId: true,
       createdAt: true,
       client: { select: { name: true, email: true, phone: true, address: true } },
     },
@@ -63,9 +68,14 @@ export async function GET(request) {
   // redactQuoteMoney rather than a hand-written delete: this route's select is
   // a subset of a Quote, and the next column added to that select should not
   // need a second person to remember this line exists.
-  const redacted = quotes.map((q) => ({
+  const redacted = quotes.map(({ sourceCallId, ...q }) => ({
     ...redactQuoteMoney(full, q),
     client: redactClient(full, q.client),
+    // The id is swapped for the path that plays it, so the browser never holds
+    // a raw call id it could go hunting with either. /api/voice/calls/[id]/recording
+    // re-checks the session, the tenant and the permission before it streams
+    // anything, so an unlucky href is a 401 rather than a leak.
+    recordingHref: sourceCallId ? callRecordingHref(sourceCallId) : null,
   }));
 
   return NextResponse.json({
