@@ -78,6 +78,12 @@ import {
   TUNING_LABEL_TEXT,
   TUNING_HINT_TEXT,
 } from "@/lib/voice/agentTuning";
+// Fourth file with the same split. lib/voice/voices.js imports NOTHING either,
+// so the provider table can be read here for its LABELS without dragging Prisma
+// into the browser. Only `.label` is used: `costCentsPerMinute` is what Retell
+// charges FieldQuo, and a contractor's screen is the wrong place for FieldQuo's
+// own cost of goods.
+import { VOICE_PROVIDERS } from "@/lib/voice/voices";
 import {
   READINESS_LINKS,
   LINK_LABEL,
@@ -136,6 +142,11 @@ export default function VoiceSettingsPage() {
     background: "",
     pace: "",
     manner: "",
+    // "" is not a default here, it is the STORED absence of a choice — the
+    // language default answers. It has to round-trip as "" so that saving the
+    // greeting doesn't post a voice the company never picked, and so that
+    // picking "the standard voice" genuinely clears the column.
+    voice: "",
   });
   const [copied, setCopied] = useState(null);
   const [liveWarning, setLiveWarning] = useState(false);
@@ -214,6 +225,11 @@ export default function VoiceSettingsPage() {
       greeting: d.agent?.greeting || "",
       instructions: d.agent?.instructions || "",
       transferTo: d.agent?.transferTo || "",
+      // Null on the wire means "never chosen". Kept as "" rather than resolved
+      // to defaultVoiceId here: the page must be able to tell "they picked
+      // Adrian" from "nobody has picked, and Adrian is what answers", because
+      // only the second one is allowed to change when we change the default.
+      voice: d.agent?.voice || "",
       // `d.tuning.values` is never null and never partial — the server
       // normalises it, so a company with no VoiceAgent row at all still gets
       // the four defaults rather than four unselected pickers. `|| ""` is not
@@ -447,7 +463,13 @@ export default function VoiceSettingsPage() {
         body: JSON.stringify(patch),
       });
       if (!res.ok) {
-        await reportResponseError(res, t("app.setVoice.saveError", "Couldn't save."));
+        // reportVoiceError, not reportResponseError. The PUT's two refusals
+        // that a person can act on — a voice the provider doesn't offer, and a
+        // tuning value we don't recognise — travel as `errorKey`, and both were
+        // translated into all six languages while this handler threw the key
+        // away and toasted the English. A refusal nobody can read is most of
+        // the way back to a button that does nothing.
+        await reportVoiceError(res, t("app.setVoice.saveError", "Couldn't save."));
         return false;
       }
       const d = await res.json().catch(() => ({}));
@@ -848,6 +870,20 @@ export default function VoiceSettingsPage() {
   // a warning about text you have already changed is worse than none.
   const greetingWrongName =
     Boolean(agent?.greetingNamesOther) && form.greeting === (agent?.greeting || "");
+
+  /**
+   * What card 3's Save actually posts.
+   *
+   * The whole form, minus `voice` when it hasn't changed. The PUT validates any
+   * `voice` it is sent against a LIVE /list-voices — correct, and the reason an
+   * unknown id can't reach the provider — but that is a round trip to Retell,
+   * and posting the same unchanged id every time somebody edits their greeting
+   * would buy a slower Save for no decision at all.
+   */
+  const saysPayload = () => {
+    const { voice, ...rest } = form;
+    return voice === (agent?.voice || "") ? rest : { ...rest, voice };
+  };
 
   return (
     <div className="max-w-3xl p-4 sm:p-6 space-y-6">
@@ -1712,6 +1748,18 @@ export default function VoiceSettingsPage() {
             t={t}
           />
 
+          {/* Same deal as the card above: held in `form`, committed by the one
+              Save below. A voice that saved itself on click would push the
+              agent to the provider mid-decision, and the greeting sitting
+              unsaved two fields up would not go with it. */}
+          <VoicePicker
+            value={form.voice}
+            saved={agent?.voice || null}
+            busy={busy}
+            onPick={(id) => setForm({ ...form, voice: id })}
+            t={t}
+          />
+
           {liveWarning && (
             <p className="text-sm text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -1722,7 +1770,7 @@ export default function VoiceSettingsPage() {
           <button
             type="button"
             disabled={busy}
-            onClick={() => save(form)}
+            onClick={() => save(saysPayload())}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-inverted text-inverted-foreground text-sm font-semibold disabled:opacity-50"
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : saved ? <Check size={15} /> : null}
@@ -2528,6 +2576,285 @@ function SoundPicker({ settings, fields, values, busy, onPick, t }) {
           "None of these change what it's allowed to say. It still never gives a price, never promises a time it hasn't checked, and never claims to be a person.",
         )}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The traits the provider reports, as words rather than as enum values.
+ *
+ * `gender` is a closed pair and is translated. `accent` and `age` are free
+ * strings the provider invents — "middle_aged", "British", whatever ships next
+ * — so they are tidied and passed through rather than run at a catalogue that
+ * could never be complete. An untranslated "British" is honest; a blank where
+ * the accent should be is not.
+ */
+function voiceTraits(v, t) {
+  const tidy = (s) => String(s || "").replace(/_/g, " ").trim();
+  return [
+    v.gender === "female"
+      ? t("app.setVoice.voice.female", "Female")
+      : v.gender === "male"
+        ? t("app.setVoice.voice.male", "Male")
+        : null,
+    tidy(v.accent) || null,
+    tidy(v.age) || null,
+    VOICE_PROVIDERS[v.provider]?.label || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Which voice answers the phone.
+ *
+ * ── Fetched on first expand, never on page load ───────────────────────────
+ *
+ * /api/settings/voice/voices calls the provider live, because a hardcoded list
+ * breaks somebody's receptionist the day a voice is retired (lib/voice/voices.js
+ * has the argument). But this screen is opened to top up credit, to read a
+ * forwarding code, to switch the phone on — and a provider round trip on every
+ * one of those visits is a slower page for everybody to answer a question
+ * almost nobody is asking. So the list arrives when the list is opened, and is
+ * kept for the rest of the visit.
+ *
+ * ── The empty states are most of the value here ───────────────────────────
+ *
+ * "No voices available" would be a lie in all three of the ways this can fail.
+ * A deployment with no provider key has no voices CONFIGURED; a provider that
+ * is briefly down has voices we cannot SEE, and the one already answering the
+ * phone is untouched either way. And a 403 renders as nothing at all rather
+ * than as an empty dropdown — the dashboard's rule (app/app/page.js): a refusal
+ * is an absence, never a zero.
+ *
+ * ── Preview audio ─────────────────────────────────────────────────────────
+ *
+ * Nobody picks a voice from a name. `preload="none"` matters on a list this
+ * long: without it, opening the picker would pull a hundred mp3s down a
+ * driveway connection before anyone pressed anything.
+ */
+function VoicePicker({ value, saved, busy, onPick, t }) {
+  const [open, setOpen] = useState(false);
+  // idle → loading → ready | error. `reason` is the server's own word for why
+  // a ready list is empty, and the three are NOT interchangeable.
+  const [state, setState] = useState("idle");
+  const [voices, setVoices] = useState([]);
+  const [defaultVoiceId, setDefaultVoiceId] = useState(null);
+  const [reason, setReason] = useState(null);
+  const [forbidden, setForbidden] = useState(false);
+
+  const loadVoices = useCallback(async () => {
+    setState("loading");
+    try {
+      const res = await fetch("/api/settings/voice/voices");
+      if (res.status === 403) {
+        setForbidden(true);
+        return;
+      }
+      if (!res.ok) {
+        setState("error");
+        return;
+      }
+      const d = await res.json();
+      setVoices(Array.isArray(d.voices) ? d.voices : []);
+      setDefaultVoiceId(d.defaultVoiceId || null);
+      setReason(d.reason || null);
+      setState("ready");
+    } catch {
+      // Offline, DNS, a killed request. Said out loud below rather than
+      // swallowed: they pressed something, so silence would be a dead control.
+      setState("error");
+    }
+  }, []);
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    if (next && state === "idle") loadVoices();
+  }
+
+  // A member the route refuses sees no picker, not an empty one.
+  if (forbidden) return null;
+
+  const byId = (id) => voices.find((v) => v.id === id) || null;
+  const defaultName = defaultVoiceId ? byId(defaultVoiceId)?.name || defaultVoiceId : null;
+  // Until the list has loaded, the stored id is the only name we have. Printing
+  // it beats printing nothing: "11labs-Adrian" at least identifies the voice
+  // they chose, and it is replaced by the real name the moment the list lands.
+  const currentName = value ? byId(value)?.name || value : null;
+  const dirty = value !== (saved || "");
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/40 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            {t("app.setVoice.voice.title", "Voice")}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {currentName
+              ? t("app.setVoice.voice.current", "Answering with {name}.", { name: currentName })
+              : defaultName
+                ? t("app.setVoice.voice.usingDefaultNamed", "You haven't picked a voice, so the standard one answers: {name}.", { name: defaultName })
+                : t("app.setVoice.voice.usingDefault", "You haven't picked a voice, so the standard one for your language answers.")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className="shrink-0 px-4 py-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted"
+        >
+          {open
+            ? t("app.setVoice.voice.close", "Hide the list")
+            : t("app.setVoice.voice.open", "Choose a voice")}
+        </button>
+      </div>
+
+      {dirty && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-start gap-1.5">
+          <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+          {t("app.setVoice.voice.unsaved", "Not switched over yet — press Save below and the next caller hears it.")}
+        </p>
+      )}
+
+      {open && (
+        <div className="mt-4">
+          {state === "loading" && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Loader2 size={13} className="animate-spin shrink-0" />
+              {t("app.setVoice.voice.loading", "Asking the phone provider which voices it has…")}
+            </p>
+          )}
+
+          {state === "error" && (
+            <div className="text-xs text-muted-foreground">
+              <p>
+                {t("app.setVoice.voice.loadError", "We couldn't load the list of voices just now. Nothing has changed — the receptionist is still using the voice it was using.")}
+              </p>
+              <button
+                type="button"
+                onClick={loadVoices}
+                className="mt-2 px-4 py-2 rounded-full border border-border bg-background text-sm font-semibold text-foreground hover:bg-muted"
+              >
+                {t("app.setVoice.voice.retry", "Try again")}
+              </button>
+            </div>
+          )}
+
+          {/* Three different facts, three different sentences. Collapsing them
+              into one "no voices available" would tell a contractor their
+              product ships without any voices, which is untrue in all three
+              cases and alarming in all three. */}
+          {state === "ready" && reason === "not_configured" && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.voice.notConfigured", "The phone service isn't connected on this deployment, so there's no list of voices to pick from yet.")}
+            </p>
+          )}
+          {state === "ready" && reason === "unavailable" && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.voice.unavailable", "We couldn't reach the phone provider, so we can't show you its voices right now. Your receptionist's voice is unchanged — try again in a few minutes.")}
+            </p>
+          )}
+          {state === "ready" && !reason && !voices.length && (
+            <p className="text-xs text-muted-foreground">
+              {t("app.setVoice.voice.none", "The phone provider answered without offering a single voice we can describe, so there's nothing to choose from. Your receptionist's voice is unchanged.")}
+            </p>
+          )}
+
+          {state === "ready" && voices.length > 0 && (
+            <>
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {/* Clearing the choice is a real answer, not the absence of
+                    one: it hands the phone back to whatever the language
+                    default is, which is a thing that can be improved later
+                    without touching this company's row. */}
+                <button
+                  type="button"
+                  disabled={busy || !value}
+                  aria-pressed={!value}
+                  onClick={() => onPick("")}
+                  className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                    !value
+                      ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                      : busy
+                        ? "border-border bg-card opacity-50"
+                        : "border-border bg-card hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                    {!value && (
+                      <Check size={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />
+                    )}
+                    {t("app.setVoice.voice.useDefault", "The standard voice")}
+                  </span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">
+                    {t("app.setVoice.voice.useDefaultHint", "{name} — what answers when you haven't picked one yourself.", { name: defaultName || "—" })}
+                  </span>
+                </button>
+
+                {voices.map((v) => {
+                  const active = v.id === value;
+                  return (
+                    // The play control is a SIBLING of the choose button, not
+                    // inside it: an <audio> nested in a <button> is invalid
+                    // markup, and pressing play would also pick the voice.
+                    <div
+                      key={v.id}
+                      className={`flex flex-wrap items-center gap-2 rounded-lg border p-3 ${
+                        active
+                          ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        disabled={busy || active}
+                        aria-pressed={active}
+                        onClick={() => onPick(v.id)}
+                        className={`flex-1 min-w-[9rem] text-left ${busy && !active ? "opacity-50" : ""}`}
+                      >
+                        <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                          {active && (
+                            <Check size={14} className="shrink-0 text-emerald-700 dark:text-emerald-400" />
+                          )}
+                          {v.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground mt-0.5">
+                          {voiceTraits(v, t)}
+                        </span>
+                        {v.automaticFailover && (
+                          <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {t("app.setVoice.voice.failoverBadge", "keeps answering in an outage")}
+                          </span>
+                        )}
+                      </button>
+                      {v.previewUrl && (
+                        <audio
+                          controls
+                          preload="none"
+                          src={v.previewUrl}
+                          aria-label={t("app.setVoice.voice.preview", "Hear {name}", { name: v.name })}
+                          className="h-8 w-full sm:w-48 shrink-0"
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* The trade, in one sentence, because it is real and invisible.
+                  VOICE_PROVIDERS records that our platform voices get automatic
+                  TTS failover and the rest get manual failover only — an outage
+                  at the voice company takes those agents mute. Nothing about
+                  what any of it costs: that is FieldQuo's bill, not theirs. */}
+              <p className="text-xs text-muted-foreground mt-3">
+                {t("app.setVoice.voice.failoverNote", "If the company behind a voice has an outage, only the ones marked “keeps answering in an outage” switch to a backup on their own. The rest go quiet until it's fixed.")}
+              </p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

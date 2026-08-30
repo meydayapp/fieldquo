@@ -14,7 +14,8 @@ import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
-import { voiceConfigured } from "@/lib/voice/retell";
+import { voiceConfigured, listVoices } from "@/lib/voice/retell";
+import { pickableVoices, validateVoiceChoice } from "@/lib/voice/voices";
 import { provisionAgent, attachmentFailed } from "@/lib/voice/provision";
 import { quoteTopicsForCompany, photoDestination } from "@/lib/voice/quoteQuestions";
 import { greetingNamesAnotherBusiness } from "@/lib/voice/prompt";
@@ -249,6 +250,10 @@ export async function GET(request) {
           greeting: agent.greeting,
           instructions: agent.instructions,
           transferTo: agent.transferTo,
+          // Null means "never chosen" and the language default answers. The
+          // screen shows which that is rather than an empty select — see
+          // /api/settings/voice/voices, which reports defaultVoiceId alongside.
+          voice: agent.voice || null,
           provisioned: Boolean(agent.providerAgentId),
           // Decided here rather than in the page: greetingNamesAnotherBusiness
           // lives in lib/voice/prompt.js, which reaches the database through
@@ -455,6 +460,35 @@ export async function PUT(request) {
   if (typeof body.instructions === "string")
     data.instructions = body.instructions.trim().slice(0, 4000) || null;
   if (typeof body.transferTo === "string") data.transferTo = body.transferTo.trim().slice(0, 40) || null;
+
+  // ── The voice, validated against what the provider actually offers ──────
+  //
+  // VoiceAgent.voice has been READ by voiceFor() since the feature shipped and
+  // written by nothing, so every contractor got the same default — half a
+  // control, pointing the other way from the usual one.
+  //
+  // Validated against a live /list-voices rather than a list in code: an id the
+  // provider does not know fails /create-agent outright, which does not give
+  // the company a worse voice, it leaves their receptionist unprovisioned. A
+  // refusal here is visible; that is not.
+  if (body.voice !== undefined) {
+    let available = [];
+    if (voiceConfigured()) {
+      const raw = await listVoices().catch(() => null);
+      available = Array.isArray(raw) ? pickableVoices(raw) : [];
+    }
+    // With no reachable provider the only safe move is to accept CLEARING the
+    // choice and refuse setting one — we cannot tell a real id from a typo, and
+    // guessing wrong costs them their phone.
+    const choice = validateVoiceChoice(body.voice, available);
+    if (!choice.ok) {
+      return NextResponse.json(
+        { error: choice.error, errorKey: "app.setVoice.voice.rejected" },
+        { status: 400 },
+      );
+    }
+    data.voice = choice.voice;
+  }
 
   // ── How it sounds ────────────────────────────────────────────────────────
   //

@@ -611,8 +611,21 @@ for (const field of TUNING_FIELDS) {
     !/interruption_sensitivity|denoising_mode|responsiveness/.test(code(page)));
   ok("...the four values are loaded from the normalised server payload",
     /\.\.\.\(d\.tuning\?\.values \|\| \{\}\)/.test(page));
+  // ── The guarantee is ONE save, not one expression ──────────────────────
+  //
+  // This matched `save(form)` literally. The button now sends `saysPayload()`,
+  // which is the same `form` with `voice` dropped when it has not changed —
+  // because the PUT makes a live /list-voices call whenever `voice` is present,
+  // and posting an unchanged id on every greeting edit buys a slower Save for
+  // no decision. The thing worth protecting is that the four tuning values ride
+  // the SAME save as the greeting rather than getting a second button nobody
+  // presses, so that is what is asserted: the payload is built from `form`, and
+  // the only field it may omit is the voice.
   ok("...and committed by the same Save that pushes the greeting",
-    /onClick=\{\(\) => save\(form\)\}/.test(page));
+    /onClick=\{\(\) => save\(saysPayload\(\)\)\}/.test(page) &&
+      /const saysPayload = \(\) => \{[\s\S]{0,200}= form;/.test(page));
+  ok("...and that payload drops nothing but the voice",
+    /const \{ voice, \.\.\.rest \} = form;/.test(page));
   ok("...with the price refusal restated where somebody is changing behaviour",
     /app\.setVoice\.tune\.unchanged/.test(page));
 }
