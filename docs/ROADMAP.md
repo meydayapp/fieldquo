@@ -890,6 +890,35 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Nav sweep, and `/platform/voice-webhooks` was unreachable when it
+  mattered most.** `app/components/platform/PlatformSidebar.js`,
+  `scripts/check-nav-audit.mjs`, `docs/NAV-AUDIT.md`, `docs/TODO.md`.
+
+  The owner's recurring complaint — pages get built and nobody can click
+  their way to them — had a fresh instance: `/platform/voice-webhooks`
+  shipped linked ONLY from the phone-pool alert banner on `/platform`'s own
+  dashboard, and only while that alert was actually firing. No sidebar row.
+  The moment nobody's webhook was broken, the page had no path in at all —
+  you'd have to already know the URL. Fixed with its own row in
+  `PlatformSidebar.js`'s "FieldQuo's own systems" group, next to Voice
+  numbers (same vendor question, different half of it: where events land
+  rather than which numbers are billed).
+
+  `scripts/check-nav-audit.mjs` previously walked `app/app/` for orphan
+  pages but never `app/platform/` — precisely the gap that let this one
+  through. It now walks both trees with the same rule: every `page.js` is
+  either a sidebar href, a named drill-in (a button on another page), or a
+  named exclusion (an auth screen with no nav path by design). Both new
+  assertions were mutation-tested (removing the new row, a stale exclusion
+  entry, an orphan page with no link) and all three mutations were caught.
+
+  Everything else on the sweep's known-gaps list — the four
+  `/app/analytics/*` pages behind the Insights hub, the expense-tracking CSV
+  import button, Marketing Designer, AI credit — was confirmed already
+  reachable by reading the current sidebar source and the page each row
+  points at, not inferred from a commit message. See `docs/NAV-AUDIT.md`'s
+  "Follow-up sweep" section and `docs/TODO.md` for the full accounting.
+
 - **A company can now BUY AI credit — the two paid AI image features below
   correctly refused with "not enough AI balance" and there was nothing
   anyone could do about it. `lib/ai/topup.js`, `lib/ai/creditBundle.js`,

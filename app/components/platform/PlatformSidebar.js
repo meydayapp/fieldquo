@@ -72,6 +72,7 @@ import {
   PhoneOff,
   MessageSquareText,
   Percent,
+  Webhook,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -152,6 +153,13 @@ const GROUPS = [
       // released row that never reached the provider is invisible
       // everywhere else and costs money monthly.
       { label: "Voice numbers", href: "/platform/voice-numbers", icon: PhoneOff },
+      // Was linked ONLY from the phone-pool alert banner on /platform's own
+      // dashboard (app/platform/page.js), and only when that alert was firing
+      // — so the moment nobody's webhook was broken, there was no way into
+      // this page at all. Next to Voice numbers because it answers the same
+      // "what is Retell actually doing with this account" question, just for
+      // where call events land instead of which numbers are billed.
+      { label: "Voice webhooks", href: "/platform/voice-webhooks", icon: Webhook },
     ],
   },
   {
