@@ -56,7 +56,15 @@ export async function GET(request) {
   // EVERY row, released ones included. A released row whose number Retell still
   // lists is the single most expensive thing this page can find, and filtering
   // to live rows would hide precisely that.
+  //
+  // `simulated` rows are the one exception, and for a different reason than
+  // `released`: they were never bought at Retell in the first place — see
+  // VoicePhoneNumber.simulated and lib/voice/demoLine.js. Including them here
+  // would report every one of them as an "orphan" (held on our side, absent at
+  // the provider), which is what this page exists to flag as a billing leak.
+  // For a simulated row it is not one; it is the entire design.
   const rows = await db.voicePhoneNumber.findMany({
+    where: { simulated: false },
     include: { company: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
   });

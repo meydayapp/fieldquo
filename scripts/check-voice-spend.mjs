@@ -325,9 +325,18 @@ for (const dir of ["app", "lib"]) {
   };
   walk(dir);
 }
-ok(callers.every((f) => [ROUTE, "lib/voice/outboundCall.js"].includes(f)),
-   `only the two gated call sites spend at the provider`,
-   `also found: ${callers.filter((f) => ![ROUTE, "lib/voice/outboundCall.js"].includes(f)).join(", ")}`);
+// lib/voice/demoLine.js is a THIRD caller of buyNumber, and it is deliberately
+// not gated by reserveSpend: it always passes `demo: true`, which retell.js's
+// buyNumber short-circuits before any network call or reservation — see the
+// "a demo's line, simulated here" block in lib/voice/retell.js. Nothing here
+// EVER reaches the provider or spends a cent, so the money gate this list is
+// checking for has nothing to guard. scripts/check-demo-number-pool.mjs is
+// where that "never touches the network" claim is executed and proven; this
+// list just has to know demoLine.js is the one caller allowed to be ungated.
+const DEMO_LINE = "lib/voice/demoLine.js";
+ok(callers.every((f) => [ROUTE, "lib/voice/outboundCall.js", DEMO_LINE].includes(f)),
+   `only the two gated call sites — plus the demo line, which spends nothing — call the provider`,
+   `also found: ${callers.filter((f) => ![ROUTE, "lib/voice/outboundCall.js", DEMO_LINE].includes(f)).join(", ")}`);
 
 // Executed, not read: a company one cent short cannot reserve, and reserving
 // takes exactly the price and no more.

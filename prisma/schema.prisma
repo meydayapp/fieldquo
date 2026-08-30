@@ -4944,6 +4944,27 @@ model VoicePhoneNumber {
   agent   VoiceAgent? @relation(fields: [agentId], references: [id])
   calls   VoiceCall[]
 
+  /// A demo account's "number" — real receptionist, fictional line.
+  ///
+  /// Set only by lib/voice/demoLine.js, and only for a company whose isDemo is
+  /// true. The E.164 itself is the proof: it always falls in NANP's reserved
+  /// fictional block (NPA-555-0100 through NPA-555-0199 — see
+  /// lib/voice/retell.js's `isSimulatedNumber`), so a prospect who writes it
+  /// down and dials it later reaches nobody, not a stranger's real phone. No
+  /// purchase is ever made at Retell for a row with this set, and this is the
+  /// flag that says so to the two things that would otherwise assume one was:
+  ///
+  ///   * the rent cron (lib/voice/spendGate.js `rentDecision`) skips it for a
+  ///     stated reason, exactly as it already skips a company FieldQuo has
+  ///     withdrawn the feature from — never by accident of `monthlyCents`
+  ///     happening to be zero, which would give a true answer for the wrong
+  ///     reason and stop meaning anything the day someone reuses that column.
+  ///   * /platform/voice-numbers, which reconciles this table against what
+  ///     Retell's account actually holds, excludes these rows — they were never
+  ///     bought, so counting one as "held here, absent at the provider" would
+  ///     report a real-looking billing leak that isn't one.
+  simulated Boolean @default(false)
+
   @@index([companyId, status])
 }
 
