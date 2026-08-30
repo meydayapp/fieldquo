@@ -1109,6 +1109,44 @@ they set the pattern.
   exists, unused by any screen — no dead button rendered for it) and any
   change to the AI credit top-up flow (a different agent's scope, per the
   coordinator's brief).
+- **Nav audit and regroup — both sidebars, full page-by-page inventory first.
+  `docs/NAV-AUDIT.md`, `scripts/check-nav-audit.mjs`,
+  `app/components/layout/AdminSidebar.js`,
+  `app/components/layout/SettingsSidebar.js`,
+  `app/components/platform/PlatformSidebar.js`.**
+
+  Every `page.js` under `app/app/` and `app/platform/` was opened and read
+  before anything moved — `docs/NAV-AUDIT.md` is the resulting table (route,
+  one-line purpose, who can reach it, which feature flag gates it), plus the
+  before/after grouping and the calls that were genuinely close. The two
+  `/app` sidebars had already been reorganized in an earlier pass (Work /
+  People / Money / Grow, and an 8-group settings panel); this pass found and
+  fixed what that earlier pass left inconsistent with its own stated rules —
+  a single-item "Records" group in Settings, a 9-item "Documents & messaging"
+  group, and Insights buried inside Money despite AGENTS.md's own "Analytics
+  reads the whole thing, Settings configures it" line — then did the same
+  audit-first regroup for `PlatformSidebar.js`, which had never been grouped
+  at all (21 rows in ship order, no headers).
+
+  `scripts/check-nav-audit.mjs` (`npm run check:nav-audit`, in `check:all`)
+  extends `check-sidebar.mjs` with five assertions that script didn't cover:
+  every nav href resolves to a real `page.js`; every nav key has EN and FR;
+  the permission maps (`NAV_REQUIREMENTS`, `SETTINGS_ROW_CAPABILITY`) name
+  only rows that still exist, not just the reverse `check-settings-access.mjs`
+  already proved; no declared group — including Platform's — is empty; and
+  every route under `app/app/` is either a direct nav href or a named,
+  reasoned `DRILL_INS` entry, so a page that stops being linked from
+  anywhere fails the build instead of quietly joining `/app/tasks`'s old
+  company. Each assertion was mutation-tested — broken on purpose, confirmed
+  to fail, restored — rather than trusted on the strength of passing once.
+
+  One real finding, not yet fixed: `/app/analytics/{digest,statements,
+  win-loss,estimate-accuracy}` have no sidebar row and are reachable only
+  through in-page links on the Insights hub (`/app/analytics/benchmark`).
+  That's intentional — six analytics rows in one group is the "nine items,
+  split it" problem in reverse — but nothing enforces the hub keeps linking
+  to all four, and `check-nav-audit.mjs`'s `DRILL_INS` entry for them is a
+  documented risk, not a guarantee.
 
 - **The two paid AI image features actually spend money now — the deep
   photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,

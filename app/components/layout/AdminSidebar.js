@@ -62,7 +62,7 @@ import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 //
 // Eleven items in one list is past the point where anyone scans — you read it
 // top to bottom every time, which is slower than it looks when you do it fifty
-// times a day. Four short groups can be scanned by shape.
+// times a day. Five short groups can be scanned by shape.
 //
 // The order inside "Work" is the order work actually moves:
 //
@@ -78,9 +78,22 @@ import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 // pointing at /app/settings/* URLs anyway, which is a decent sign they were
 // never top-level concerns.
 //
+// ── Five groups, not four: Insights split out of Money ─────────────────────
+//
+// Money used to hold Payroll, Expenses, Insights and KPIs together, on the
+// theory that they're all "money screens". That conflated RUNNING money
+// (payroll, expenses — actions that move it) with READING money back
+// (Insights, KPIs — reports that change nothing). AGENTS.md already draws
+// this line for the whole product: "Analytics reads the whole thing. Settings
+// configures it." Insights is the reading half, so it gets its own shelf
+// between Money and Grow — after the operational groups a contractor works
+// in daily, before the group about finding new work. See the comment on that
+// group below for why it holds only two rows despite six analytics pages
+// existing.
+//
 // ── Collapsible, with one group deliberately not ────────────────────────────
 //
-// Twenty-four items is too many to scan even in four groups, so the groups
+// Twenty-four items is too many to scan even in five groups, so the groups
 // fold and remember it. "Work" does NOT fold, for a concrete reason rather
 // than a taste one: app/components/tours.js points the first-run walkthrough
 // at [data-tour='nav-requests'], 'nav-quotes' and 'nav-estimate-reviews', and
@@ -136,16 +149,38 @@ const NAV_GROUPS = [
     items: [
       { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet },
       { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet },
+    ],
+  },
+  // Insights used to live inside Money, and that was a mislabel rather than a
+  // simplification: Payroll and Expenses are things you RUN — money moves
+  // because you clicked something. Insights and KPIs are things you READ — a
+  // lens over quotes, jobs and invoices that changes nothing by itself.
+  // AGENTS.md draws the same line: "Analytics reads the whole thing. Settings
+  // configures it." Money runs the pipeline; this group reads it back.
+  //
+  // Only two rows here on purpose. /app/analytics/benchmark is a hub, not
+  // just a benchmark screen — it links out to digest, statements, win-loss
+  // and estimate-accuracy (see the comments on those four pages, which used
+  // to be reachable from NOTHING). Giving each of those six screens its own
+  // sidebar row would be the "nine items, split it" problem in reverse: a
+  // seventh nav row for what is genuinely one destination with a fan-out menu
+  // inside it. KPIs gets its own row anyway, on the same reasoning that put
+  // it here in the first place — it's the one insights screen that was
+  // built and then unreachable ("the /app/tasks failure again"), and a
+  // dashboard nobody can find stays unfound one click deeper into a hub.
+  {
+    key: "app.nav.group.insights",
+    items: [
       { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass },
-      // Win rate and estimate accuracy already had a screen, reachable through
-      // "Insights" above — but average job value, backlog in weeks, the margin
-      // roll-up, revenue per employee, on-time completion and utilisation as a
-      // rate never did. A dashboard nobody can find is the /app/tasks failure
-      // again, so this gets its own row rather than a sixth link buried on the
-      // Insights hub.
       { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge },
     ],
   },
+  // Marketing Designer (the ad-creative canvas editor, marketing_designer in
+  // lib/features/registry.js) belongs here, directly after
+  // "app.nav.marketing" — it's a tool FOR marketing campaigns, not a
+  // separate concern. It has no route yet (the feature entry is deliberately
+  // `hidden`, no page mounts DesignerLoader), so there is nothing to add
+  // until that lands; this comment is the seam.
   {
     key: "app.nav.group.grow",
     items: [
