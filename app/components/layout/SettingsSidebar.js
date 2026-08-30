@@ -5,8 +5,12 @@
 // had twenty-plus items in two buckets, which is past the point anyone scans.
 //
 // Groups are ordered roughly by how often they're opened: identity first, then
-// the day-to-day (team/scheduling, services/pricing), then the plumbing
-// (documents, money), then the client-facing surfaces, then records.
+// the day-to-day (team/scheduling, services/pricing), then what goes OUT
+// (documents & templates, messaging & alerts), then what comes IN or OUT in
+// money (getting paid — payments, expenses, payroll), then the client-facing
+// surfaces. The company's own audit trail (Activity) sits with Business
+// rather than in a group of its own — a "Records" group holding exactly one
+// row was a shelf, not a category.
 //
 // ── Mobile ──────────────────────────────────────────────────────────────────
 //
@@ -17,7 +21,7 @@
 //
 // So below `lg` it becomes a sticky bar showing WHERE YOU ARE plus a button that
 // opens the full list as a sheet. The current page's name is on the bar because
-// "Settings" alone doesn't tell you which of twenty-eight screens you're on, and
+// "Settings" alone doesn't tell you which of thirty-six screens you're on, and
 // on a phone the list that would have told you is hidden.
 "use client";
 
@@ -88,6 +92,11 @@ const GROUPS = [
       { key: "app.settings.company", href: "/app/settings/company", icon: Building2 },
       { key: "app.settings.branding", href: "/app/settings/branding", icon: Palette },
       { key: "app.settings.language", href: "/app/settings/language", icon: Languages },
+      // Moved in from a "Records" group that held this one row and nothing
+      // else — the owner's own rule for the main rail ("a group with one item
+      // is usually a group that should not exist") applies here too. The
+      // company's own action history sits with the company's own identity.
+      { key: "app.settings.activity", href: "/app/activity", icon: Activity },
     ],
   },
   {
@@ -108,22 +117,34 @@ const GROUPS = [
       { key: "app.settings.materialCosts", href: "/app/settings/material-costs", icon: Droplet },
       { key: "app.settings.cabinetRates", href: "/app/settings/cabinet-rates", icon: Ruler },
       { key: "app.settings.overhead", href: "/app/settings/overhead", icon: TrendingUp },
-      { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet },
       { key: "app.settings.customFields", href: "/app/settings/custom-fields", icon: ListPlus },
     ],
   },
+  // Nine rows under one "Documents & messaging" heading was the group the
+  // owner's own rule flags ("nine is usually two"). Split by what the row
+  // IS rather than by a headcount: a template sits still until someone opens
+  // it (this group); a rule below fires on its own schedule or configures
+  // where a message comes FROM (the next group). Quote Email, Email
+  // Templates, PDF Templates and Translations are all "what a document says";
+  // Checklists is the same kind of thing for a job visit — a template filled
+  // in on site rather than mailed out.
   {
     key: "app.settings.group.documents",
     items: [
       { key: "app.settings.quoteEmail", href: "/app/settings/quote-email", icon: MailOpen },
       { key: "app.settings.emailTemplates", href: "/app/settings/email-templates", icon: Mail },
       { key: "app.settings.pdfTemplates", href: "/app/settings/templates", icon: FileText },
-      { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign },
       { key: "app.settings.translations", href: "/app/settings/translations", icon: Globe },
+      { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
+    ],
+  },
+  {
+    key: "app.settings.group.messaging",
+    items: [
+      { key: "app.settings.messages", href: "/app/settings/messages", icon: MessageSquare },
       { key: "app.settings.followUps", href: "/app/settings/follow-ups", icon: Clock },
       { key: "app.settings.notifications", href: "/app/settings/notifications", icon: Bell },
-      { key: "app.settings.messages", href: "/app/settings/messages", icon: MessageSquare },
-      { key: "app.settings.checklists", href: "/app/settings/checklists", icon: ListChecks },
+      { key: "app.settings.emailDomain", href: "/app/settings/email-domain", icon: AtSign },
     ],
   },
   {
@@ -131,6 +152,10 @@ const GROUPS = [
     items: [
       { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt },
       { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet },
+      // Moved in from Services & pricing: a deduction rate isn't a price
+      // charged to a client, it's money moving the OTHER way — the same
+      // shelf as Payments and Expense Tracking, not the price book.
+      { key: "app.settings.payroll", href: "/app/settings/payroll", icon: Wallet },
     ],
   },
   {
@@ -144,16 +169,12 @@ const GROUPS = [
       { key: "app.settings.reviews", href: "/app/settings/reviews", icon: Star },
     ],
   },
-  {
-    key: "app.settings.group.records",
-    items: [{ key: "app.settings.activity", href: "/app/activity", icon: Activity }],
-  },
 ];
 
-// Nothing is open until you're in it. Thirty-five links in eight groups is the
+// Nothing is open until you're in it. Thirty-six links in eight groups is the
 // complaint; defaulting them all open would leave the list exactly as long as
 // it is today and make the accordion decoration. Closed, /app/settings reads as
-// eight category headings — a far better index than thirty-five links — and the
+// eight category headings — a far better index than thirty-six links — and the
 // group you're actually in opens itself. Nothing here anchors a tour, so unlike
 // the main rail no group needs pinning.
 const DISCLOSURE_KEY = "fq-settings-groups";
@@ -279,7 +300,7 @@ export default function SettingsSidebar() {
 
   // ── Filter ────────────────────────────────────────────────────────────
   //
-  // Thirty-five destinations in eight groups. The groups help, but past about
+  // Thirty-six destinations in eight groups. The groups help, but past about
   // twenty items no amount of grouping beats typing three letters — which is
   // why every settings screen worth using has a filter box (macOS, Slack,
   // GitHub all landed on the same answer).
@@ -380,7 +401,7 @@ export default function SettingsSidebar() {
                 <X size={20} />
               </button>
             </div>
-            {/* The sheet scrolls, not the page behind it. Twenty-eight items
+            {/* The sheet scrolls, not the page behind it. Thirty-six items
                 don't fit on a phone and a non-scrolling sheet would hide the
                 last three groups entirely. */}
             <div className="flex-1 overflow-y-auto px-3 py-4 overscroll-contain">
