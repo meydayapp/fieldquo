@@ -1001,6 +1001,40 @@ they set the pattern.
   app language, the same precedent `estimateAccuracy.js`'s own `findings[].text`
   already set.
 
+- **A demo account may not buy a real telephone number.
+  `app/api/settings/voice/number/route.js`.**
+
+  Nothing stopped one. There was no `isDemo` guard anywhere in the purchase
+  path, and a demo owner holds `user:manage` on their own demo company, so the
+  only thing that could refuse it was the route — and it did not.
+
+  Everything about a purchased number outlives the demo that bought it.
+  `lib/demo/seedDemo.js` deletes quotes, jobs, invoices, clients, appointments,
+  leads and products, and deliberately does **not** touch `VoicePhoneNumber` or
+  `VoiceAgent` — which is right, because a routine reseed must never perform an
+  irreversible release. So the number survives every reset while Retell bills
+  for it every month, attached to a company nobody owns: the same silent
+  recurring waste already fixed for cancelled subscriptions, arriving through a
+  different door.
+
+  And it is a real line a stranger can dial. Demos are re-dressed as different
+  trades between prospects (`lib/demo/industries.js`), so one number would
+  answer as a painter this week and a roofer next.
+
+  Refused server-side with a 403 and a translated reason, **before** the credit
+  reservation and before the provider call — a demo charged for a number it is
+  then refused would be the worst of both. Everything else about the
+  receptionist still demonstrates: settings, voice picker, greeting, prompt,
+  call list. Only provisioning a real line at a real carrier is withheld, and
+  neither `spendGate.js` nor `provision.js` gains a demo branch, so the demo
+  path cannot drift from the paid one.
+
+  Five mutations. Three caught first pass; **two were the test's fault** — the
+  ordering check compared the first textual match of `reserveSpend`, which is
+  its *import* at the top of the file, so it failed on correct code; and
+  `/status: 403/` matched the permission refusal a hundred lines earlier, so
+  turning the demo refusal into a 500 passed cleanly.
+
 - **Two wallets, because Retell and OpenAI do not charge alike.
   `lib/voice/credits.js`, `lib/voice/spendGate.js`, `VoiceCreditEntry.pool`.**
 

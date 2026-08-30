@@ -168,6 +168,46 @@ export async function POST(request) {
   // a French contractor in English, and this particular one is the message that
   // stops them buying a second number. The page resolves the key and falls back
   // to the English attached here, exactly as t() does everywhere else.
+  // ── A demo may not buy a real telephone number ──────────────────────────
+  //
+  // Refused server-side, before the permission-holding owner of a demo account
+  // can reach the provider, because everything about a purchased number
+  // outlives the demo that bought it.
+  //
+  // The reset does not release it. lib/demo/seedDemo.js deletes quotes, jobs,
+  // invoices, clients, appointments, leads and products — and deliberately
+  // never touches VoicePhoneNumber or VoiceAgent, which is right, since a
+  // routine reseed must not perform an irreversible release. So the number
+  // survives every reset and Retell bills for it every month, attached to a
+  // company nobody owns.
+  //
+  // And it is a REAL line a stranger can dial. A demo is re-dressed as
+  // different trades between prospects (lib/demo/industries.js), so the same
+  // number would answer as a painter one week and a roofer the next — and
+  // anyone who rang it after the demo would reach a receptionist for a
+  // business that does not exist.
+  //
+  // Everything ELSE about the receptionist stays demonstrable: the settings,
+  // the voice picker, the greeting, the prompt, the call list. Only the act of
+  // provisioning a real line at a real carrier is withheld.
+  // Named `demoCompany`, not `company` — the handler already declares its own
+  // `company` further down for the purchase itself.
+  const demoCompany = await db.company.findUnique({
+    where: { id: member.companyId },
+    select: { isDemo: true },
+  });
+  if (demoCompany?.isDemo) {
+    return NextResponse.json(
+      {
+        errorKey: "app.setVoice.number.demoBlocked",
+        error:
+          "This is a demo account, so it can't take a real phone number — a real line would keep billing after the demo and could be dialled by anyone. Everything else about the receptionist works here.",
+        reason: "demo_account",
+      },
+      { status: 403 },
+    );
+  }
+
   const existing = await heldNumber(member.companyId);
   if (existing) {
     const refusal = await refusalFor(member.companyId, existing);
