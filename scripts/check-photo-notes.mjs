@@ -93,10 +93,16 @@ section("5. What the photos cost");
 
 // detail:"low" is a deliberate, documented choice: a flat token cost per image
 // so the price of a review does not depend on which phone the estimator owns.
-// It is asserted here because a paid, higher-detail vision pass is a SEPARATE
-// feature — changing this constant silently would re-price every review that
-// already exists.
-ok(/detail: "low"/.test(provider), "reviews still send photos at flat-cost low detail");
+// It used to be hardcoded as a literal `detail: "low"` in the vendor payload;
+// lib/ai/provider.js's complete() now accepts an `imageDetail` PARAMETER (so
+// the paid deep read in lib/ai/visionPass.js can opt into "high" — see
+// scripts/check-ai-images.mjs for that half), but the free review above never
+// passes one, so it still gets exactly the same "low" it always did — proven
+// here by the parameter's own default, since nothing about this file's job
+// changed: reviews must stay flat-cost regardless of what a paid feature
+// elsewhere is allowed to ask for.
+ok(/imageDetail = "low"/.test(provider), "complete()'s image detail still DEFAULTS to low — the free review never overrides it");
+ok(!/imageDetail/.test(lib), "quoteReview.js's writingPass never passes imageDetail, so it inherits that default rather than asking for something dearer");
 ok(/maxImages = 4/.test(provider), "…and still cap how many go, so a 30-photo quote cannot bill 30 images");
 ok(
   /imageCount/.test(provider),
