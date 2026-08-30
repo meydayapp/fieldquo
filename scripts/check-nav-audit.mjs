@@ -21,12 +21,16 @@
 //   4. no declared group — in any of the three sidebars, PlatformSidebar
 //      included — is empty. A header with nothing under it is the trace a
 //      lost row leaves behind.
-//   5. every page.js under app/app/ is reachable from a sidebar row, or is
-//      named — WITH A REASON — in DRILL_INS below. A page that stops being
-//      linked from anywhere and isn't a declared drill-in fails the build
-//      instead of quietly joining app/app/tasks's old company (see
-//      AGENTS.md: "reachable from NOTHING" is a documented failure class
-//      here, not a hypothetical one).
+//   5. every page.js under app/app/ AND app/platform/ is reachable from a
+//      sidebar row, or is named — WITH A REASON — in DRILL_INS or
+//      EXCLUSIONS below. A page that stops being linked from anywhere and
+//      isn't a declared exception fails the build instead of quietly
+//      joining app/app/tasks's old company (see AGENTS.md: "reachable from
+//      NOTHING" is a documented failure class here, not a hypothetical
+//      one) — or /platform/voice-webhooks's old one: built, linked only
+//      from a conditional alert banner on /platform's own dashboard, and
+//      invisible the moment that alert wasn't firing. That is why platform
+//      gets the same walk as app/app now, not a lighter one.
 //
 // Mutation-tested — see the session's final report for which break each
 // assertion was confirmed to catch.
@@ -269,6 +273,43 @@ ok("every app/app route is either a direct nav href or a named DRILL_IN",
 const goneDrillIns = Object.keys(DRILL_INS).filter((r) => !allAppRoutes.includes(r));
 ok("every DRILL_INS entry still names a real route", goneDrillIns.length === 0,
   goneDrillIns.join(", "));
+
+// ── 6. Every app/platform page, same walk ───────────────────────────────
+//
+// /platform/voice-webhooks is why this exists: built, then linked ONLY from
+// a conditional alert banner on /platform/page.js (app/platform/page.js,
+// the `voiceHealth.alerts.some(...)` block) — no sidebar row at all, so the
+// one way in disappeared the moment that alert stopped firing. The app/app
+// walk above would never have caught that, because it never looked at
+// app/platform. Two categories, same as the brief: a PLATFORM_DRILL_IN is
+// reached by a button on another page; a PLATFORM_EXCLUSION is a route that
+// is deliberately not a nav destination at all (an auth screen, a redirect).
+const PLATFORM_DRILL_INS = {
+  "/platform/companies/[id]": "company detail — opened from the Companies list",
+};
+const PLATFORM_EXCLUSIONS = {
+  "/platform/login": "sign-in screen — PlatformSidebar hides itself here on purpose (see its own early return), so there is no nav to reach it FROM; it's where an unauthenticated staffer lands",
+};
+
+console.log("\nEvery app/platform page is reachable from the nav, or excused with a reason\n");
+const allPlatformRoutes = walkPages("app/platform").map((d) => d.replace(/^app/, ""));
+const linkedPlatformRoutes = new Set(platformItems.map((i) => i.href));
+const unexplainedPlatform = allPlatformRoutes.filter(
+  (r) => !linkedPlatformRoutes.has(r) && !(r in PLATFORM_DRILL_INS) && !(r in PLATFORM_EXCLUSIONS),
+);
+ok("every app/platform route is a nav href, a named drill-in, or an excluded route",
+  unexplainedPlatform.length === 0, unexplainedPlatform.join(", "));
+
+// Same reverse check as DRILL_INS above: a stale exception for a route that
+// no longer exists is invisible until you go looking for it, which is the
+// whole reason this file mutation-tests its own assertions rather than
+// trusting a comment to stay true.
+const gonePlatformExceptions = [
+  ...Object.keys(PLATFORM_DRILL_INS),
+  ...Object.keys(PLATFORM_EXCLUSIONS),
+].filter((r) => !allPlatformRoutes.includes(r));
+ok("every PLATFORM_DRILL_INS/PLATFORM_EXCLUSIONS entry still names a real route",
+  gonePlatformExceptions.length === 0, gonePlatformExceptions.join(", "));
 
 console.log(`\n${checks} checks, ${failures} failure(s).`);
 process.exit(failures ? 1 : 0);

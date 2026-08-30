@@ -182,6 +182,7 @@ screens.
 | `/platform/sales-agent` | FieldQuo's own phone sales agent: readiness chain, prompt/knowledge, call transcripts, tone toggles. | FieldQuo's own phone agent — explicitly not the tenant receptionist. | No |
 | `/platform/crew-lines` | FieldQuo's own Twilio number estate: holder, webhook drift/orphans; buy new numbers. | FieldQuo's own vendor account. | No |
 | `/platform/voice-numbers` | FieldQuo's own Retell number estate: billed numbers, holder, orphaned/duplicated. | FieldQuo's own vendor account, view-only re: tenant impact. | No |
+| `/platform/voice-webhooks` | Where Retell is actually posting call events for each agent, and a repair action when it's pointed at a dead deployment. | FieldQuo's own vendor/webhook configuration. | No, but it **was unreachable**: shipped with only a conditional link from the phone-pool alert banner on `/platform` (`app/platform/page.js`, shown only `if (voiceHealth.alerts.some(webhook-related))`). When that alert wasn't firing there was no way in at all — the exact "reachable from NOTHING" failure class. Fixed this pass: added as its own row in `PlatformSidebar.js`'s "FieldQuo's own systems" group, next to Voice numbers. |
 | `/platform/service-categories` | Add entries to the global service-category catalogue every company's onboarding reads from. | FieldQuo's own shared catalogue (affects every tenant's onboarding options). | No |
 | `/platform/audit-log` | Read-only feed of platform staff's own actions (impersonation, suspensions, edits). | FieldQuo's own staff-action record. | No |
 | `/platform/help` | Internal support runbook. | FieldQuo's own knowledge base. | No |
@@ -342,3 +343,60 @@ the audit didn't ask for.
   abusive accounts" exception (audit-logged, and non-negotiable #3 is about
   a company's *quote* data specifically), but confirming that with the
   product owner is a decision this audit can surface, not make.
+
+---
+
+# Follow-up sweep (2026-08-30) — features shipped since the regroup above
+
+The regroup above landed. Several features shipped afterward, and the owner's
+complaint — "things get built and nobody can navigate to them" — had
+reoccurred at least once. This pass re-swept both `app/app/page.js` and
+`app/platform/page.js` (the original audit only enumerated the latter's
+sidebar, never mechanically checked it for gaps the way `check-nav-audit.mjs`
+does for `app/app`) and reconciled against `docs/TODO.md`.
+
+**Found and fixed:**
+
+- **`/platform/voice-webhooks` was unreachable when it mattered most.** Built
+  to fix "the phone-pool warning named a fault and offered no way to fix it,"
+  it was linked ONLY from that same warning banner on `/platform`'s dashboard
+  — a conditional link, shown only while `voiceHealth.alerts` contains a
+  webhook-related message. No sidebar row existed. The moment nobody's
+  webhook was broken, the page had no path in at all — you'd have to already
+  know the URL. Added as its own row in `PlatformSidebar.js`'s "FieldQuo's
+  own systems" group, directly after Voice numbers (same vendor account,
+  same "what is Retell doing with this account" question, just the
+  delivery-endpoint half of it rather than the numbers-billed half).
+
+**Confirmed already fixed by the features that shipped them** (no further
+action — verified by reading the actual sidebar source and the page each row
+points at, not inferred from a commit message):
+
+- `/app/marketing/designer` — has its own row in `AdminSidebar.js`'s Grow
+  group (`app.nav.marketingDesigner`), placed directly after Marketing per
+  the comment left for it in the original regroup.
+- `/app/settings/ai-credit` — has its own row in `SettingsSidebar.js`'s
+  "Getting paid" group (`app.settings.aiCredit`), next to Payments and
+  Expense Tracking — the same "money moving" shelf, which is where a credit
+  top-up belongs.
+- `/app/settings/expense-tracking/import` — reached via an "Import from bank
+  CSV" button in the Expense Tracking page's own header row
+  (`app/app/settings/expense-tracking/page.js`), sitting directly beside the
+  primary "Add expense" button. Not buried — it's the second thing on the
+  page.
+- `/app/analytics/kpis` — already has its own row in the Insights group, not
+  folded into the hub. A money-flow section is landing on this page from
+  another agent's work in parallel with this sweep; per instruction, that
+  work was left alone. The row stays prominent (own sidebar entry, not a
+  drill-in) so the page keeps being findable as it grows.
+
+**Reachability net widened.** `scripts/check-nav-audit.mjs` previously only
+walked `app/app/` for orphan pages — `app/platform/` had no equivalent
+mechanical check, which is exactly the gap that let `/platform/voice-webhooks`
+ship unreachable in the first place. It now walks both trees: every
+`app/platform/**/page.js` must be a `PlatformSidebar.js` href, a named
+`PLATFORM_DRILL_INS` entry (a button on another platform page), or a named
+`PLATFORM_EXCLUSIONS` entry (an auth screen with no nav path by design). Both
+new assertions were mutation-tested — see the session report for which break
+each one caught (removing the new sidebar row; a stale exclusion entry for a
+renamed route; a brand-new page with no link anywhere).
