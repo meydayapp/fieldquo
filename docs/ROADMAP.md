@@ -966,6 +966,56 @@ they set the pattern.
   switched off entirely. Anchored on the exact, unconditional `if (...)`
   line instead.
 
+- **Bank-statement CSV import for expenses — the stepping stone to Plaid,
+  built so Plaid can slot in later without reworking the data model.
+  `lib/expenses/csvImport.js`, `app/api/expenses/import/{preview,commit}`,
+  `app/app/settings/expense-tracking/import`, `scripts/check-csv-import.mjs`.**
+
+  Plaid was evaluated and rejected for now — no published pricing, four-figure
+  monthly minimums, and no Canadian bank support at all, a hard blocker for
+  this contractor base. CSV gets most of the value at zero recurring cost: a
+  contractor exports a statement from any bank and maps the columns.
+
+  Upload → map columns → review → commit, mirroring the column-mapping UX of
+  a reference Next.js finance app but fixing its four real bugs: date format
+  is DETECTED from the actual column values and refused (not guessed) on
+  genuine dd/mm-vs-mm/dd ambiguity; every write is scoped to
+  `member.companyId` server-side, re-derived, never trusted from the request;
+  the permission gate is enforced in the route (`expenses:view_record_edit_own`,
+  the same floor as recording one expense by hand); nothing is ever deleted.
+
+  Three columns exist on `Expense` before a second writer does:
+  `importSource`, `importBatchId` (→ new `ExpenseImportBatch`, which also
+  carries the idempotency key that makes a double-submit a no-op instead of a
+  double write), and a nullable `externalId` that CSV never writes — reserved
+  for Plaid's own transaction id, so that integration is a backfill later, not
+  a migration. Duplicate detection (`naturalKey` = date + amount + normalised
+  description, scoped to the company) is deliberately SOURCE-BLIND — it never
+  looks at `importSource` — so a future Plaid sync redelivering months of
+  transactions a contractor already imported by hand is caught, not double-
+  booked. `scripts/check-csv-import.mjs` asserts this across simulated
+  csv/plaid/manual rows, executes the parser against hostile input (empty
+  file, headers-only, BOM, quoted commas, CRLF, a 5,000-row file, thousands
+  separators, currency symbols, blank/zero amounts, both sign conventions),
+  and mutation-tests its own assertions. One mutation survived the first
+  pass — disabling `stripBom()` didn't fail anything, because Papa.parse
+  already strips a leading BOM on its own; fixed by testing `stripBom()`
+  directly instead of only through the end-to-end parse.
+
+  Imported rows are always `recurring: false` — `Expense.recurring` declares
+  a STANDING monthly cost that `lib/analytics/burnRate.js` projects forward
+  every month, and a bank statement is twelve separate historical charges,
+  not one declaration; marking each `recurring: true` would multiply a single
+  rent payment by twelve in the burn-rate KPI. A contractor who wants rent to
+  feed that KPI still adds one line under Settings → Overhead, same as
+  before this feature existed.
+
+  **Not run here: `npx prisma db push`.** `DATABASE_URL` is Sensitive in
+  Vercel like `OPENAI_API_KEY` — `vercel env pull` returns only
+  `VERCEL_OIDC_TOKEN`, nothing else. The schema change (`ExpenseImportBatch`
+  + three `Expense` columns) is written and `prisma validate`/`generate`
+  pass against a dummy URL, but someone with real credentials has to push it
+  before the import routes will work against the live database.
 - **The two paid AI image features actually spend money now — the deep
   photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,
   `lib/ai/provider.js`'s new `generateImage()`,

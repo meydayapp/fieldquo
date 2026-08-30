@@ -989,6 +989,7 @@ model Company {
   marketingCampaigns    MarketingCampaign[]
   documentTemplates     DocumentTemplate[]
   expenses              Expense[]
+  expenseImportBatches  ExpenseImportBatch[]
   marketingSpends       MarketingSpend[]
   salaries              Salary[]
   debts                 Debt[]
@@ -3798,9 +3799,89 @@ model Expense {
 
   priceEntries MaterialPriceEntry[]
 
+  // ── Import provenance — CSV today, a bank aggregator later ───────────────
+  //
+  // The owner evaluated Plaid and rejected it for now: no published pricing,
+  // four-figure monthly contract minimums, and it doesn't support Canadian
+  // bank accounts at all — a hard blocker for a contractor base that includes
+  // Ottawa. CSV import gets most of the value at zero recurring cost and no
+  // bank credentials held. But it's a stepping stone, not the permanent
+  // shape: once there are enough paying companies to justify a Plaid
+  // contract, that integration has to write into the SAME ledger, or a
+  // contractor who used CSV for a year gets a wall between two eras of their
+  // own books.
+  //
+  // So these three columns exist before there is a second writer. Nothing
+  // but the CSV importer (lib/expenses/csvImport.js, app/api/expenses/import/*)
+  // writes them today — normally the sign of a dead field, called out here so
+  // it reads as deliberate groundwork instead. `externalId` in particular is
+  // written by nothing yet at all; it is reserved for Plaid's own transaction
+  // id, so that integration can backfill this shape rather than migrate it.
+  //
+  // Null on every row that predates this and on everything typed by hand on
+  // Settings -> Expense Tracking — "we don't know" and "entered manually" are
+  // both real answers, and neither is the string "csv_upload".
+  importSource  String?
+  importBatchId String?
+  importBatch   ExpenseImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  // Stable id FROM THE SOURCE SYSTEM. The CSV importer never writes this — a
+  // spreadsheet has no such id, and duplicate detection for CSV rows works on
+  // date + amount + normalised description instead (see naturalKey in
+  // lib/expenses/csvImport.js), scoped to companyId and deliberately blind to
+  // source so a later Plaid delivery of the same transaction is recognised as
+  // the same row rather than a second one.
+  externalId    String?
+
   @@index([companyId, createdById])
   // The bills query: this company's dated, unsettled rows, oldest first.
   @@index([companyId, dueDate])
+  // Duplicate detection and the trend chart both scan a company's expenses by
+  // date range; this is that query's index.
+  @@index([companyId, date])
+  @@index([importBatchId])
+  // Nulls are distinct in Postgres, so the years of rows that predate
+  // externalId — and every CSV-imported row, which never sets it — don't
+  // collide with each other. Only two real external ids landing on the same
+  // company would collide, which is exactly the point: that's Plaid
+  // redelivering a transaction it already sent.
+  @@unique([companyId, externalId])
+}
+
+// One CSV upload, reviewed and committed in one sitting. Exists for two
+// reasons: idempotency (see idempotencyKey below) and provenance — "which
+// file did these 40 rows come from" is a question a contractor reconciling a
+// statement will actually ask, and a bare importSource string on the Expense
+// row can't answer "which upload, which time".
+model ExpenseImportBatch {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // The member who ran the import. Nullable for the same reason
+  // Expense.createdById is: a session without a userId (support
+  // impersonation, which is read-only and can't reach this route at all, but
+  // the column shouldn't assume that forever) shouldn't crash the write.
+  createdById String?
+  // "csv_upload" today. A future "plaid" batch would represent one sync run
+  // rather than one file — see the Expense.importSource comment for why this
+  // column exists ahead of that integration.
+  source      String   @default("csv_upload")
+  filename    String?
+  // Generated once by the browser when the review screen loads
+  // (crypto.randomUUID()) and resubmitted unchanged on every commit attempt
+  // for that review session. A double-submit — a slow response and an
+  // impatient second click, or a retried fetch — carries the same key, so the
+  // commit route finds the batch it already wrote instead of writing the
+  // rows twice. Unique per company rather than globally: it only has to
+  // disambiguate one company's concurrent imports, and scoping it tighter is
+  // free.
+  idempotencyKey String
+  rowCount       Int      @default(0)
+  duplicateCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  expenses       Expense[]
+
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, createdAt])
 }
 
 model MarketingSpend {
