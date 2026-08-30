@@ -890,6 +890,59 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The dead air was ours, and four prompt fixes had reached nobody.
+  `lib/voice/tools.js`, `lib/voice/agentTuning.js`, `lib/voice/prompt.js`,
+  `lib/voice/provision.js`, `app/api/cron/voice-resync/route.js`.**
+
+  Two findings, and the second is the one that matters.
+
+  **The silence.** A 44-second call, whole: caller gives their name and number →
+  `save_caller` fires → the tool returns `{"say":"Got it — I've passed that
+  on…"}` → caller says *"Are you there?"*. The tool was declared
+  `speak_during_execution: false` **and** `speak_after_execution: false`, and
+  Retell's docs are explicit that the agent "remains silent during the function
+  call". So it went quiet for the whole HTTP round trip, then discarded a
+  sentence the route had written specifically to be spoken. Worse, `timeout_ms`
+  defaults to **120000** at the provider and we never set it: silence by
+  default, for up to two minutes, on a phone call. All three tools now speak
+  during and after, with static filler (no model round trip to say "one
+  moment"), and timeouts of 8–15s. `reminder_trigger_ms` was 10000 — literally
+  the ten seconds the caller counted — now 4000, twice.
+
+  `enable_dynamic_responsiveness` was turned on while chasing this and turned
+  back off: `check-voice-tuning` caught that it lets the provider vary, per
+  turn, the pace the owner picked on the settings screen. The check was right.
+  The dead air was never responsiveness, which is already at maximum.
+
+  **The bigger one: a prompt fix reaches nobody.** An agent is re-provisioned
+  only when somebody saves Settings > Voice. Four fixes shipped in one
+  afternoon — stop claiming bookings you have not made, ask for an email, call
+  `save_caller` every time — and the next four test calls behaved exactly as
+  before, because the agent was last provisioned at 19:45 and every commit
+  landed after it. Every contractor runs whatever we wrote on the day they last
+  pressed Save, and most will never press it again.
+
+  `VoiceAgent.provisionedHash` now fingerprints the instructions (prompt,
+  greeting, tools — NOT the ceiling or webhook URL, which move on their own and
+  would report drift for ever), and an hourly cron re-pushes the agents that
+  differ, capped at 25 a run.
+
+  **And the agent now knows things it should always have known**: the street
+  address, the website, the payment methods, and today's date in the company's
+  timezone — it had been interpreting "tomorrow" with no idea what day it was.
+  `book_visit` finally carries an email, which is the one hard requirement on
+  the web booking path: every phone booking was written with `clientEmail: ""`,
+  so `finalizeBooking` skipped the confirmation and the agent offered to send
+  one *after* the slot was already taken.
+
+  Still not sent, and worth doing next: the whole website. `CompanySite.blocks`
+  holds the FAQ answers, the `credentials` block with licence, insurance, years
+  in business and warranty, the process steps and the free-text hours note —
+  all typed by the company, all invisible to the phone. Retell knowledge bases
+  are the right home for it (automatic RAG, sub-100ms, `knowledge_base_ids` on
+  the LLM object) but cost $8/KB/month past the first ten, so it is a product
+  decision rather than a refactor.
+
 - **The hours you paid for that never reached a job.
   `lib/costing/utilisation.js`, `lib/team/workProfile.js`,
   `lib/costing/actualJobCost.js`, `app/api/analytics/utilisation/route.js`,

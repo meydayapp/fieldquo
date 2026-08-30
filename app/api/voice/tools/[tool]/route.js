@@ -349,6 +349,9 @@ async function book(ctx, args) {
     // Why they want it, in their words. Written to Appointment.notes, which is
     // what the estimator reads before they turn up.
     reason: cleanText(args.reason, 1000),
+    // Normalised and refused if it isn't one — same guard save_caller uses, so
+    // the company's own photo address can never become the client's.
+    email: args.email,
   });
 
   if (!result.ok) {

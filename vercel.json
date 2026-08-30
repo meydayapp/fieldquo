@@ -45,6 +45,10 @@
       "schedule": "35 * * * *"
     },
     {
+      "path": "/api/cron/voice-resync",
+      "schedule": "50 * * * *"
+    },
+    {
       "path": "/api/cron/voice-auto-topup",
       "schedule": "*/15 * * * *"
     },

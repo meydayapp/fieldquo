@@ -308,7 +308,33 @@ check(
 /* ═════════════════ structure that has no single call site ═════════════════ */
 
 const retellCode = code(retell);
-const agentPayloadRegion = provision.slice(provision.indexOf("const payload = {"));
+// ── Both regions are BOUNDED ───────────────────────────────────────────────
+//
+// This used to slice from "const payload = {" to the end of the file, which
+// swallowed the OUTBOUND llm payload further down — so "general_prompt is not
+// in the agent payload" was really asking "general_prompt appears nowhere in
+// the rest of the file", and it was true only by accident of ordering.
+const objectRegion = (src, opener) => {
+  const start = src.indexOf(opener);
+  if (start === -1) return "";
+  const rest = src.slice(start + opener.length);
+  // The closing brace of an object literal at this indentation, whichever
+  // depth it was declared at.
+  const end = rest.search(/\n\s{2,6}\};/);
+  return end === -1 ? rest : rest.slice(0, end);
+};
+const agentPayloadRegion = objectRegion(provision, "const payload = {");
+
+// ── The LLM payload's own region, rather than a character window ──────────
+//
+// These assertions used to be `/llmPayload = \{[\s\S]{0,600}general_tools/` —
+// "general_tools appears within 600 characters of the opening brace". That is a
+// proxy for "is inside the object" that fails the moment somebody adds a
+// comment, which is exactly what happened: a comment explaining a tool-timeout
+// fix pushed the field past the window and the check reported the field
+// missing. Slicing the object out and asking whether the key is IN it says what
+// was meant and cannot be broken by prose.
+const llmPayloadRegion = objectRegion(provision, "const llmPayload = {");
 
 // ── The client exposes both halves ────────────────────────────────────────
 check(
@@ -346,13 +372,16 @@ check(
 // ── The prompt fields live on the LLM, NOT the agent ──────────────────────
 check(
   "general_prompt is in the LLM payload, not the agent payload",
-  /llmPayload\s*=\s*\{[\s\S]{0,400}general_prompt/.test(provision) &&
-    !/const payload = \{[\s\S]{0,400}general_prompt/.test(agentPayloadRegion),
+  /general_prompt:/.test(llmPayloadRegion) && !/general_prompt:/.test(agentPayloadRegion),
   "general_prompt/begin_message/general_tools belong to the Retell LLM object.",
 );
 check(
   "general_tools is in the LLM payload",
-  /llmPayload\s*=\s*\{[\s\S]{0,600}general_tools/.test(provision),
+  /general_tools:/.test(llmPayloadRegion) && !/general_tools:/.test(agentPayloadRegion),
+);
+check(
+  "begin_message too",
+  /begin_message:/.test(llmPayloadRegion) && !/begin_message:/.test(agentPayloadRegion),
 );
 
 // ── The on/off switch is honoured at the provider ─────────────────────────

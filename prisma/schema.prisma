@@ -4893,6 +4893,27 @@ model VoiceAgent {
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   providerAgentId String?
+
+  /// Fingerprint of the INSTRUCTIONS we last pushed to the provider — the
+  /// prompt, the greeting and the tool definitions, hashed together.
+  ///
+  /// ── Why this exists ─────────────────────────────────────────────────────
+  ///
+  /// An agent is only ever re-provisioned when somebody saves Settings > Voice.
+  /// That was fine while the prompt only changed because THEY changed it, and
+  /// wrong the moment we started improving the prompt in code: a fix shipped on
+  /// Friday reached exactly the companies who happened to open their voice
+  /// settings afterwards, which is none of them. Every contractor's receptionist
+  /// was running whatever we wrote on the day they last pressed Save.
+  ///
+  /// Deliberately covers the instructions ONLY. The agent payload carries a call
+  /// ceiling that moves with the credit balance and a webhook URL that moves
+  /// with the deployment origin; hashing those would report drift on every run
+  /// for ever and re-push for nothing.
+  ///
+  /// Null means "pushed before this column existed" — the resync treats that as
+  /// drift once, writes a hash, and is quiet afterwards.
+  provisionedHash String?
   /// A SECOND agent, for calls WE place. Separate from the inbound receptionist
   /// because its whole prompt differs (discloses up front, honours "stop
   /// calling", never negotiates). One per company, reused across all outbound

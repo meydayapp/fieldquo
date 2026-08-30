@@ -620,5 +620,70 @@ ok(
   "and none of it puts a figure in the agent's mouth",
 );
 
+/* ═══════════ Dead air: every tool must cover its own silence ═════════════
+ *
+ * A real 44-second call, in full:
+ *
+ *   user   "It's Emilio. And my phone number is eight one nine…"
+ *   >>     save_caller invoked
+ *   >>     result {"saved":true,"say":"Got it — I've passed that on…"}
+ *   user   "Are you there?"
+ *
+ * save_caller was declared with speak_during_execution AND
+ * speak_after_execution both false. Retell's docs are explicit that the agent
+ * "remains silent during the function call" — so it went quiet for the whole
+ * HTTP round trip and then stayed quiet, discarding a `say` sentence the route
+ * had written specifically to be spoken. The caller filled the silence.
+ *
+ * And `timeout_ms` defaults to 120000 at the provider. Silence by default, for
+ * up to two minutes, on a phone call.
+ */
+for (const tool of toolDefinitions(ORIGIN, { canBook: true })) {
+  if (tool.type !== "custom") continue;
+  ok(
+    tool.speak_after_execution === true,
+    `${tool.name}: says something when it finishes — every one of these returns a \`say\` the caller is meant to hear`,
+  );
+  ok(
+    tool.speak_during_execution === true,
+    `${tool.name}: covers the wait instead of going silent through it`,
+  );
+  ok(
+    tool.execution_message_type === "static_text" &&
+      typeof tool.execution_message_description === "string" &&
+      tool.execution_message_description.length > 0,
+    `${tool.name}: with fixed words, so filling a pause does not cost a model round trip`,
+  );
+  ok(
+    Number.isInteger(tool.timeout_ms) && tool.timeout_ms >= 1000 && tool.timeout_ms <= 20000,
+    `${tool.name}: bounded well under the provider's two-minute default`,
+    tool.timeout_ms,
+  );
+}
+
+/* ── The email that made every phone booking unconfirmable ──────────────── */
+//
+// /api/booking/[slug]/confirm 400s without clientEmail — it is the one hard
+// requirement on the web path — and book_visit had no way to supply one. Every
+// phone booking was written with an empty email, finalizeBooking skipped the
+// confirmation, and the agent said "if you'd like it in writing, give me an
+// email address" AFTER the slot was already taken.
+{
+  const book = toolDefinitions(ORIGIN, { canBook: true }).find((t) => t.name === "book_visit");
+  ok("email" in book.parameters.properties, "book_visit can carry an email");
+  ok(
+    /confirmation/i.test(book.parameters.properties.email.description),
+    "…and says what it is for, which is what makes a model ask for it",
+  );
+  ok(
+    /belongs to the business/i.test(book.parameters.properties.email.description),
+    "…with the same guard save_caller carries: the company's own photo address is not the caller's",
+  );
+  ok(
+    /Their email, so the confirmation can be sent/.test(promptFor(free)),
+    "and the prompt asks for it BEFORE booking, not after the slot is gone",
+  );
+}
+
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);
