@@ -890,6 +890,44 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The cost basis for paid AI images, and the ledger kinds to charge it.
+  `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — inert
+  until the features land)*
+
+  Owner-approved 2026-08-30: pay-as-you-go at ~50% margin, bundles at ~30%, one
+  shared prepaid balance rather than a second wallet.
+
+  | | our cost | charged | margin |
+  |---|---|---|---|
+  | Vision pass, ≤8 photos at `detail:high` | $0.136 | $0.25 | 45.6% |
+  | Generated image + reference | $0.060 | $0.12 | 50.0% |
+  | $30 bundle — 4,000 credits | $20.00 | $30 | 33.3% |
+  | $50 bundle — 7,000 credits | $35.00 | $50 | 30.0% |
+  | $80 bundle — 11,500 credits | $57.50 | $80 | 28.1% |
+
+  **`detail` is a cost ceiling, not a quality dial.** `high` clamps to 2,500
+  patches — at most **$0.012 a photograph, whatever the camera**. `original`
+  carries no patch budget on this model: a 48MP phone photo measured 57,154
+  tokens, **19× the capped read of the same scene**. Priced flat per pass rather
+  than per photo, because a per-photo meter teaches an estimator to upload fewer
+  photographs — exactly backwards for a feature whose value is seeing more.
+
+  Both ride the existing `VoiceCreditEntry` ledger, which already carries crew
+  texts and line rental and was never really "the voice balance". That buys
+  top-up, auto-topup, idempotent refunds and the "where the credit went"
+  statement for free.
+
+  `spendAvailable()` asked `voice_receptionist` for every kind. A company
+  FieldQuo has withdrawn the receptionist from must still be able to make an
+  advert, so kinds now map to their own feature — and because those features are
+  not registered yet, both new kinds fail closed until they are.
+
+  **The check script prints the margins rather than only asserting them.**
+  `bundleMargin` first shipped against a cost basis one decimal out, reporting
+  every bundle at 92% instead of ~30%. It read fine and was reviewed twice. A
+  margin that looks too good is the one nobody questions. Nine mutations, all
+  caught, including replaying that decimal.
+
 - **AI Vision already ran on every quote with photos. Nobody was ever shown
   what it saw. `lib/ai/quoteReview.js`, `app/components/quotes/SuggestAddOns.js`.**
 
