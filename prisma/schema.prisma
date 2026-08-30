@@ -5155,6 +5155,37 @@ model VoiceCreditEntry {
   /// a single answer covering everything that spent it. The direction and the
   /// rate live in `note`, and `ref` ("crew_in:<msgId>" / "crew_out:<sid>")
   /// makes each one land exactly once.
+  /// Which WALLET this row belongs to. "voice" or "ai".
+  ///
+  /// ── Why two balances and not one ─────────────────────────────────────────
+  ///
+  /// One balance was the original design and it was wrong. Retell and OpenAI do
+  /// not charge alike, and the difference is not a detail:
+  ///
+  ///   voice  per MINUTE of talk time, PLUS a rental that arrives every month
+  ///          whether the phone rings or not. A number costs $4 in a month with
+  ///          no calls. The bill has a floor you cannot get under while you hold
+  ///          the line, and crew texting is the same shape — a carrier fee per
+  ///          message on a line that also rents monthly.
+  ///   ai     per TOKEN, and for pictures per image-token, which moves with
+  ///          resolution and quality. Nothing recurs. A company that generates
+  ///          nothing in March owes nothing for March.
+  ///
+  /// Mixing them puts a recurring floor underneath a usage-only product. A
+  /// contractor who tops up to make adverts would watch that credit drain into
+  /// a phone rental for a receptionist they never asked for, and the statement
+  /// would be right while the product was wrong.
+  ///
+  /// And the two are wanted by different people. Somebody who wants AI adverts
+  /// and photo review very often does not want a robot answering their phone.
+  /// Making them buy one wallet to get the other is selling the wrong thing.
+  ///
+  /// Never set by a caller. lib/voice/credits.js derives it from `kind`, so a
+  /// new spender cannot put a row in the wrong wallet by forgetting an argument
+  /// — the failure mode that would silently drain the phone line to pay for a
+  /// picture.
+  pool   String @default("voice")
+
   kind   String
   callId String?
   /// The Stripe Checkout session or payment intent behind a top-up, so a
@@ -5194,6 +5225,7 @@ model VoiceCreditEntry {
 
   @@unique([companyId, ref])
   @@index([companyId, createdAt])
+  @@index([companyId, pool])
 }
 
 /// Buy more credit automatically when the balance runs low.

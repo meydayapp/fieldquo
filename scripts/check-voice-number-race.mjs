@@ -111,7 +111,11 @@ function makeDb() {
             throw err;
           }
         }
-        const row = { id: `e${store.entries.length + 1}`, createdAt: new Date(), ...data };
+        // `pool` carries @default("voice") in the schema, so a row written
+        // without one is a VOICE row in Postgres. The fake has to do the same:
+        // a stand-in that drops a column default answers a question the real
+        // database would answer differently, which is worse than no fake.
+        const row = { id: `e${store.entries.length + 1}`, createdAt: new Date(), pool: "voice", ...data };
         store.entries.push(row);
         return row;
       },
@@ -310,6 +314,9 @@ function reset(cents = LOCAL * 5) {
   if (cents > 0) {
     globalThis.__FQ_DB.__state.entries.push({
       id: "seed",
+      // Seeded before the ledger had two wallets, so it is voice credit — the
+      // same value Postgres would have back-filled onto every existing row.
+      pool: "voice",
       companyId: "co",
       cents,
       kind: "topup",
@@ -466,6 +473,7 @@ for (const status of ["released", "failed"]) {
   // The reservation is still inside the claim window — this is the case that
   // would strand them if "any recent number_setup" were the rule.
   state.entries.push({
+    pool: "voice",
     id: "old-setup",
     companyId: "co",
     cents: -LOCAL,

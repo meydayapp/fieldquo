@@ -890,6 +890,38 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Two wallets, because Retell and OpenAI do not charge alike.
+  `lib/voice/credits.js`, `lib/voice/spendGate.js`, `VoiceCreditEntry.pool`.**
+
+  The first version put image generation and vision on the same prepaid balance
+  as the phone. Owner corrected it, and the correction is right:
+
+  | | how it is billed | floor |
+  |---|---|---|
+  | voice + crew text | per minute / per message, **plus a number rental every month** | a number costs $4 in a month with no calls |
+  | AI vision + images | per token, and per image-token — moves with resolution | **none.** Generate nothing, owe nothing |
+
+  One balance put that recurring floor underneath a usage-only product: a
+  contractor who topped up to make adverts would watch the credit drain into a
+  rental for a receptionist they never asked for, and every line of the
+  statement would be accurate while the product was wrong. They are also wanted
+  by different people — somebody who wants AI adverts very often does not want a
+  robot answering their phone.
+
+  `pool` is **derived from `kind` in the single ledger writer**, never passed. An
+  argument can be forgotten, and a forgotten argument here bills a picture to
+  the phone balance — money moving between wallets with nobody's fingerprints on
+  it. Refunds carry the original kind so they land where the money came from.
+  `balanceFor` defaults to voice, so all thirteen existing callers keep asking
+  their own question.
+
+  Eight mutations. Seven caught; **one survived and was the test's fault** — a
+  negative lookahead for `balanceFor(companyId, prisma)` "not followed by a
+  comma" never fires, because that call sits in an object literal and always has
+  one. Counting call sites replaced it. The in-memory ledger in
+  `check-voice-number-race.mjs` also needed teaching the column default: a fake
+  that drops one answers a question Postgres would answer differently.
+
 - **One advert, five shapes. `lib/marketing/ratios.js`.** *(foundation for the
   Marketing Designer)*
 
