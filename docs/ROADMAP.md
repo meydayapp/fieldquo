@@ -890,6 +890,38 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A callback offered for next Thursday. `lib/voice/callbackWindow.js`,
+  `lib/voice/availability.js`, `scripts/check-callback-window.mjs`.**
+
+  Callbacks came out of `bookableSlots`, which reads the same availability an
+  on-site VISIT is booked from. So a caller asking to be rung back at seven in
+  the evening was offered Thursday at three and Monday the seventh — the next
+  free ESTIMATE slots, days away. Right for a visit, where somebody drives over
+  and blocks out two hours. Absurd for a ten-minute phone call.
+
+  Callbacks are now computed from the clock and the company's OPENING HOURS:
+  about fifteen minutes out, three options fifteen minutes apart. Deliberately
+  `Company.businessHours` and not `AvailabilitySchedule` — the two are allowed
+  to disagree, and an estimator's day off is not a company closure.
+
+  Outside hours it goes to opening time on the next open day, so nobody is rung
+  at two in the morning. A slot without a full step left before closing is not
+  offered either: it is technically open and practically useless, because the
+  call would be cut off by closing time.
+
+  **And a company with no opening hours on file is offered NOTHING** — the
+  caller gets a message taken instead. Assuming nine-to-five is the
+  padding-absent-data-with-defaults failure the hours model exists to prevent,
+  and the thing it would pad is an automated system ringing a homeowner on
+  behalf of a business that never said it was open then. Same for an unusable
+  timezone: no offer beats a confident wrong hour.
+
+  Two things the mutation testing caught in the CHECK rather than the code: the
+  "last five minutes before closing" case never reached the guard it claimed to
+  test (16:55 plus fifteen is already past five, so the loop never ran), and an
+  assertion about unparseable times claimed a guarantee this file does not give
+  — `normaliseHours` repairs "bananas" to "08:00" upstream, so it never arrives.
+
 - **The phone stopped asking half of what the quote needs.
   `lib/voice/quoteQuestions.js`, `lib/voice/prompt.js`,
   `scripts/check-voice-quote-intake.mjs`.**
