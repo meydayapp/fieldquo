@@ -890,6 +890,43 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The booking calendar said who and when, and nothing about the work.
+  `prisma/schema.prisma` (Booking), `app/api/booking/[companySlug]/route.js`,
+  `.../confirm/route.js`, `app/book/[companySlug]/BookingFlow.js`.**
+
+  The public booking form asked for a name, an email, a phone and — for a visit
+  — an address, and not one question about the job. So a contractor opened
+  their calendar to a name and a time and had to ring the person to find out
+  what they had booked. It was not merely a missing field: `Booking` had
+  nowhere to put one.
+
+  `Booking.notes` and `Booking.serviceKey` now exist, and the note is copied
+  onto `Appointment.notes` at confirmation — the calendar reads that one, and a
+  note reachable only through the booking row is a note nobody working that day
+  will ever see. Same shape as the website `credentials` that were captured and
+  silently deleted.
+
+  The picker is built from the company's OWN enabled categories, which the
+  booking GET now returns as `{ key, label }` — labels resolved in the
+  company's language, capped at 40, and **no rates**: non-negotiable #4, and a
+  service list with money on it is a rate card published to every competitor in
+  the city. The confirm route re-checks the submitted key against the same
+  enabled list, so a tampered request cannot put a service they do not sell onto
+  their calendar.
+
+  Both optional. Name and email stay the only hard requirements, and "Not sure
+  yet" is a chip rather than an absence — somebody who does not know what their
+  job is called has to be able to say so, and the alternative reads as a
+  question they failed.
+
+  Two things caught in review of my own work: the GET was spreading the raw
+  join rows into the response alongside the clean array — forty of them with
+  translations in six languages, on a page loaded on one bar of signal — while
+  the comment beside it asserted the opposite, which is worse than no comment.
+  And the booking form's address debounce held a local `t` that would have
+  shadowed `useTranslation`'s into a render-time crash, which `next build` and
+  `check:undef` both stay green on.
+
 - **A five-minute phone call was reserving an hour, and nobody knew who was
   ringing. `lib/voice/callbackWindow.js`, `lib/voice/visitPath.js`,
   `lib/voice/prompt.js`, `app/components/dashboard/NeedsYou.js`.**

@@ -23,6 +23,16 @@ export async function POST(request, { params }) {
     // The structured halves of `address`, present only when the visitor picked
     // a Places suggestion. See the client create below for why they are kept
     // and why they are normalised rather than trusted.
+    // ── What the work IS ────────────────────────────────────────────────
+    //
+    // The form asked for a name, an email, a phone and an address, and nothing
+    // about the job — so a contractor opened their calendar to a name and a
+    // time and had to ring the person to find out what they had booked.
+    //
+    // Cleaned, not trusted: both come from a public form anybody on the
+    // internet can post to.
+    notes,
+    serviceKey,
     city, province, country,
   } =
     body;
@@ -49,6 +59,24 @@ export async function POST(request, { params }) {
       { error: "Event type not found" },
       { status: 404 },
     );
+
+  // Capped and trimmed. `notes` is prose a stranger typed; the length is what
+  // stops a booking row becoming a place to store a novel.
+  const cleanNotes =
+    typeof notes === "string" && notes.trim() ? notes.trim().slice(0, 2000) : null;
+  // Only a key this company actually offers. An arbitrary string here would put
+  // a service they do not sell onto their own calendar.
+  const cleanServiceKey =
+    typeof serviceKey === "string" && serviceKey.trim()
+      ? (
+          await db.companyServiceCategory.findFirst({
+            where: { companyId: company.id, enabled: true, category: { key: serviceKey.trim() } },
+            select: { id: true },
+          })
+        )
+        ? serviceKey.trim()
+        : null
+      : null;
 
   const start = new Date(startTime);
   const end = new Date(start.getTime() + eventType.durationMinutes * 60000);
@@ -218,6 +246,8 @@ export async function POST(request, { params }) {
         endTime: end,
         mode: chosenMode,
         address: visitAddress,
+        notes: cleanNotes,
+        serviceKey: cleanServiceKey,
         ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
         ...(linkedQuoteId && { quoteId: linkedQuoteId }),
         status: "pending_payment",
@@ -279,6 +309,13 @@ export async function POST(request, { params }) {
       location: visitAddress || eventType.location || null,
       ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
       status: "scheduled",
+      // ── Onto the row the crew actually reads ──────────────────────────
+      //
+      // Appointment.notes is what /app/appointments and the team schedule
+      // render. A note reachable only through the Booking row is a note nobody
+      // working that day will ever see, which is the same shape as the website
+      // credentials that were captured and never shown.
+      notes: cleanNotes,
       createdById: eventType.userId,
       assignedToId: eventType.userId,
     },
@@ -294,6 +331,8 @@ export async function POST(request, { params }) {
       endTime: end,
       mode: chosenMode,
       address: visitAddress,
+      notes: cleanNotes,
+      serviceKey: cleanServiceKey,
       ...(visitPoint && { latitude: visitPoint.lat, longitude: visitPoint.lng }),
       ...(linkedQuoteId && { quoteId: linkedQuoteId }),
       appointmentId: appointment.id,

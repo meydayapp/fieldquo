@@ -154,6 +154,23 @@ const en = {
   "contact.sent": "Thanks — we'll be in touch shortly.",
   "contact.error": "Something went wrong. Try again, or email us directly.",
 
+  // ── The public booking page (/book/[companySlug]) ─────────────────────────
+  //
+  // Client-facing, so these are gated at the marketing bar — every language or
+  // check:translations fails — rather than the app bar. A homeowner standing in
+  // a driveway is exactly the reader who has no relationship with FieldQuo and
+  // no way to guess at an English sentence.
+  //
+  // Worded to match the self-quote form's equivalent questions in
+  // lib/i18n/clientDocCopy.js. The same person is being asked the same thing on
+  // two different surfaces, and the two must not phrase it differently.
+  "booking.work.serviceLabel": "What kind of work is it?",
+  "booking.work.serviceUnsure": "Not sure yet",
+  "booking.work.notesLabel": "Anything we should know?",
+  "booking.work.notesPlaceholder":
+    "What needs doing, roughly how big, anything unusual about getting to it…",
+  "booking.work.notesHint": "Optional — it means we turn up prepared.",
+
   "features.everything": "Everything your business needs, in one place",
   "features.anyTrade": "Built for any trade",
 
@@ -653,6 +670,13 @@ const fr = {
   "contact.sent": "Merci — nous vous répondrons sous peu.",
   "contact.error": "Une erreur est survenue. Réessayez ou écrivez-nous directement.",
 
+  "booking.work.serviceLabel": "De quel type de travaux s'agit-il ?",
+  "booking.work.serviceUnsure": "Je ne sais pas encore",
+  "booking.work.notesLabel": "Autre chose à nous signaler ?",
+  "booking.work.notesPlaceholder":
+    "Ce qu'il y a à faire, l'ampleur approximative, tout ce qui sort de l'ordinaire…",
+  "booking.work.notesHint": "Facultatif — cela nous permet d'arriver préparés.",
+
   "features.everything":
     "Tout ce dont votre entreprise a besoin, au même endroit",
   "features.anyTrade": "Conçu pour tous les métiers",
@@ -1126,6 +1150,13 @@ const es = {
   "contact.sending": "Enviando…",
   "contact.sent": "Gracias — te contactaremos pronto.",
   "contact.error": "Algo salió mal. Inténtalo de nuevo o escríbenos directamente.",
+
+  "booking.work.serviceLabel": "¿Qué tipo de trabajo es?",
+  "booking.work.serviceUnsure": "Todavía no lo sé",
+  "booking.work.notesLabel": "¿Algo más que debamos saber?",
+  "booking.work.notesPlaceholder":
+    "Qué hay que hacer, más o menos de qué tamaño, cualquier cosa fuera de lo común…",
+  "booking.work.notesHint": "Opcional — nos permite llegar preparados.",
 
   "features.everything": "Todo lo que tu negocio necesita, en un solo lugar",
   "features.anyTrade": "Hecho para cualquier oficio",
@@ -1662,6 +1693,13 @@ const uk = {
   "contact.sent": "Дякуємо — ми скоро відповімо.",
   "contact.error": "Щось пішло не так. Спробуйте ще раз або напишіть нам напряму.",
 
+  "booking.work.serviceLabel": "Який це вид робіт?",
+  "booking.work.serviceUnsure": "Ще не знаю",
+  "booking.work.notesLabel": "Що ще нам варто знати?",
+  "booking.work.notesPlaceholder":
+    "Що потрібно зробити, приблизний обсяг, будь-що незвичне…",
+  "booking.work.notesHint": "Необов'язково — так ми приїдемо підготовленими.",
+
   "footer.product": "Продукт",
   "footer.company": "Компанія",
   "footer.legal": "Правова інформація",
@@ -2132,6 +2170,13 @@ const pa = {
   "contact.sending": "ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
   "contact.sent": "ਧੰਨਵਾਦ — ਅਸੀਂ ਜਲਦੀ ਸੰਪਰਕ ਕਰਾਂਗੇ।",
   "contact.error": "ਕੁਝ ਗ਼ਲਤ ਹੋ ਗਿਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਸਿੱਧਾ ਈਮੇਲ ਕਰੋ।",
+
+  "booking.work.serviceLabel": "ਇਹ ਕਿਸ ਤਰ੍ਹਾਂ ਦਾ ਕੰਮ ਹੈ?",
+  "booking.work.serviceUnsure": "ਹਾਲੇ ਪੱਕਾ ਨਹੀਂ",
+  "booking.work.notesLabel": "ਹੋਰ ਕੁਝ ਜੋ ਸਾਨੂੰ ਪਤਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ?",
+  "booking.work.notesPlaceholder":
+    "ਕੀ ਕਰਨਾ ਹੈ, ਲਗਭਗ ਕਿੰਨਾ ਵੱਡਾ, ਪਹੁੰਚ ਬਾਰੇ ਕੋਈ ਖ਼ਾਸ ਗੱਲ…",
+  "booking.work.notesHint": "ਚੋਣਵਾਂ — ਇਸ ਨਾਲ ਅਸੀਂ ਤਿਆਰ ਹੋ ਕੇ ਆਉਂਦੇ ਹਾਂ।",
 
   "footer.product": "ਉਤਪਾਦ",
   "footer.company": "ਕੰਪਨੀ",
@@ -2608,6 +2653,13 @@ const tl = {
   "contact.sending": "Ipinapadala…",
   "contact.sent": "Salamat — makikipag-ugnayan kami agad.",
   "contact.error": "May nagkamali. Subukan ulit, o mag-email sa amin nang diretso.",
+
+  "booking.work.serviceLabel": "Anong klaseng trabaho ito?",
+  "booking.work.serviceUnsure": "Hindi pa sigurado",
+  "booking.work.notesLabel": "May iba pa bang dapat naming malaman?",
+  "booking.work.notesPlaceholder":
+    "Ano ang kailangang gawin, gaano kalaki, anumang hindi karaniwan…",
+  "booking.work.notesHint": "Opsyonal — para handa kami pagdating.",
 
   "footer.product": "Produkto",
   "footer.company": "Kompanya",

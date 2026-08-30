@@ -3418,6 +3418,27 @@ model Booking {
   /// need a third query per row to answer "did a robot arrange this?" — which
   /// is a question the person driving there is entitled to have answered.
   source        String?
+
+  /// What the client said they wanted, in their own words.
+  ///
+  /// The booking form asked for a name, an email, a phone number and — for a
+  /// visit — an address, and nothing about the WORK. So a contractor opened
+  /// their calendar to a name and a time and had to ring the person to find out
+  /// what they had booked. Everything needed to prepare for the appointment was
+  /// a question nobody had asked.
+  ///
+  /// Copied onto Appointment.notes at confirmation, because the calendar reads
+  /// that one — a note only reachable through the booking row is a note nobody
+  /// working that day will see.
+  notes         String?
+
+  /// Which of the company's services this is about, as a ServiceCategory key.
+  ///
+  /// Optional and free-form-adjacent on purpose: the client picks from what the
+  /// company actually offers, and "not sure" is a real answer that must not be
+  /// coerced into the first item on the list. Null means they did not say, which
+  /// is different from them saying "something else".
+  serviceKey    String?
   status        BookingStatus @default(confirmed)
   // The estimate that prompted this visit, when there was one. An instant
   // estimate ends with "book a visit"; without this the booking and the quote

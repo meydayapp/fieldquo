@@ -28,6 +28,7 @@ import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 import { navigateTop } from "@/lib/embed/handoff";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import SlotCalendar from "@/app/components/public/SlotCalendar";
 import AddressField from "./AddressField";
 import {
@@ -52,6 +53,14 @@ import {
 // identity, so a fresh object literal on every render would be an endless loop
 // of availability requests.
 const CALENDAR_COPY = clientDocCopy("en").visit;
+
+// "Not sure yet" is a real answer, and it is not the same answer as an
+// untouched field — so it needs a value of its own rather than being expressed
+// as `null`. It is a LOCAL sentinel and never leaves this file: the confirm
+// POST sends `serviceKey` only when a real key is selected, because the server
+// stores null for anything that isn't one of the company's enabled categories
+// and a sentinel round-tripped through it would be silently discarded anyway.
+const SERVICE_UNSURE = "__unsure";
 
 // The fee is already resolved server-side (feeCents = what they pay, with
 // feeStandardCents set only when a promo is live). The browser just formats it.
@@ -95,6 +104,13 @@ function formatPhoneAsTyped(raw) {
 // VERIFIED server-side (company scope plus a matching client email) — this
 // component has no way to prove it, so it does not pretend to.
 export default function BookingFlow({ companySlug, initialEventSlug, prefill = null, quoteId = null }) {
+  // The visitor's own language, not the company's. Everything else on this page
+  // is still English literals — see CALENDAR_COPY above — so the two fields
+  // added here are the first strings that follow the reader. That is the right
+  // direction to start in: they are the only fields on the page a homeowner has
+  // to WRITE rather than recognise, and a question you can't read is a question
+  // you skip.
+  const { t } = useTranslation();
   const [company, setCompany] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -119,6 +135,24 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
     email: prefill?.email || "",
     phone: prefill?.phone || "",
   });
+
+  // ── What the appointment is actually about ────────────────────────────────
+  //
+  // The form asked for a name, an email, a phone and an address and nothing
+  // about the WORK, so a contractor opened their calendar to a name and a time
+  // and rang the person to find out what they had booked.
+  //
+  // Both OPTIONAL, and optional here means the submit button never looks at
+  // them. Name and email are the only hard requirements this flow has ever had
+  // and a third one would cost more bookings than an unanswered question does.
+  //
+  // `serviceKey` holds a key from `company.services` — the company's own
+  // enabled categories, handed over by the booking GET. Nothing else is ever
+  // offered: the confirm route re-checks the key against that same list and
+  // stores null for anything it doesn't recognise, so a hardcoded guess here
+  // would be a picker that silently records nothing.
+  const [notes, setNotes] = useState("");
+  const [serviceKey, setServiceKey] = useState(null);
 
   // ── The visit address ────────────────────────────────────────────────────
   //
@@ -260,8 +294,10 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
   }, [company]);
 
   useEffect(() => {
-    const t = setTimeout(() => setGeoAddress(address.trim()), 700);
-    return () => clearTimeout(t);
+    // Not `t`: this component now takes `t` from useTranslation(), and a local
+    // of that name shadows it into a render-time crash (scripts/check-t-shadow).
+    const timer = setTimeout(() => setGeoAddress(address.trim()), 700);
+    return () => clearTimeout(timer);
   }, [address]);
 
   // Answering SlotCalendar's question: what is free between these two dates?
@@ -320,6 +356,13 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
           clientEmail: form.email.trim(),
           clientPhone: form.phone.trim() || null,
           mode,
+          // Omitted entirely when they said nothing, rather than sent as "" —
+          // an empty string is a value, and the server would have to guess what
+          // it meant. Absence of a statement is not a statement.
+          ...(notes.trim() ? { notes: notes.trim() } : {}),
+          // SERVICE_UNSURE never goes over the wire: "I don't know" is a thing
+          // the visitor told this form, not a service the company sells.
+          ...(serviceKey && serviceKey !== SERVICE_UNSURE ? { serviceKey } : {}),
           ...(quoteId ? { quoteId } : {}),
           address: mode === "visit" ? address.trim() || null : null,
           // Only when the address was picked AND this is a site visit — a
@@ -915,6 +958,89 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
               onChange={(v) => setForm({ ...form, phone: formatPhoneAsTyped(v) })}
               hint="Optional, but it helps if we're running late."
             />
+
+            {/* ── Which of their services, in their own words ────────────────
+                Only rendered when the company has enabled some. A shop that
+                has enabled nothing gets no picker rather than an empty one —
+                a control with no options is a control that appears to work and
+                doesn't. The notes field below stands on its own either way.
+
+                Chips rather than a <select>: a native picker on a phone is a
+                modal wheel over the whole screen, and this is somebody
+                one-handed in a driveway who can see six trades at once
+                instead. Same shape as the "How would you like to meet?" row on
+                step 2, deliberately — it is the same kind of question. */}
+            {company.services?.length > 0 && (
+              <div>
+                <span className="block text-sm font-medium mb-1" style={{ color: theme.ink }}>
+                  {t("booking.work.serviceLabel")}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    ...company.services,
+                    // Last, and a real choice rather than a prompt: somebody who
+                    // doesn't know what their job is called must be able to SAY
+                    // so. Without it the only way to answer is to leave every
+                    // chip untapped, which reads as a question you failed.
+                    { key: SERVICE_UNSURE, label: t("booking.work.serviceUnsure") },
+                  ].map((svc) => {
+                    const on = serviceKey === svc.key;
+                    return (
+                      <button
+                        key={svc.key}
+                        type="button"
+                        // Tapping the chosen one again clears it. A mis-tap on a
+                        // phone must be undoable, and there is no other way back
+                        // to "didn't say".
+                        onClick={() => setServiceKey(on ? null : svc.key)}
+                        aria-pressed={on}
+                        className="inline-flex items-center px-3.5 min-h-10 rounded-lg border text-sm font-medium transition-colors border-[var(--bd)] hover:border-[var(--bd-hover)]"
+                        style={{
+                          "--bd": on ? solid.bg : theme.border,
+                          "--bd-hover": on ? solid.bg : theme.accentRule,
+                          backgroundColor: on ? solid.bg : theme.paper,
+                          color: on ? solid.fg : theme.ink,
+                        }}
+                      >
+                        {svc.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* The one field that tells the estimator what to bring. Capped at
+                the same 2000 the server caps at, so the browser can't offer
+                room the row won't keep — a note silently truncated after
+                submission is worse than one that stopped where they could see
+                it. */}
+            <div>
+              <label
+                htmlFor="booking-notes"
+                className="block text-sm font-medium mb-1"
+                style={{ color: theme.ink }}
+              >
+                {t("booking.work.notesLabel")}
+              </label>
+              <textarea
+                id="booking-notes"
+                rows={3}
+                maxLength={2000}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder={t("booking.work.notesPlaceholder")}
+                className="w-full border rounded-lg px-3 py-2.5 text-sm resize-y focus:outline-none border-[var(--bd)] focus:border-[var(--bd-focus)] placeholder:text-[var(--ink-faint)]"
+                style={{
+                  "--bd": theme.border,
+                  backgroundColor: theme.paper,
+                  color: theme.ink,
+                }}
+              />
+              <p className="text-xs mt-1" style={{ color: theme.inkMuted }}>
+                {t("booking.work.notesHint")}
+              </p>
+            </div>
           </div>
 
           <button
