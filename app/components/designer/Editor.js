@@ -32,6 +32,22 @@
 // source used them: this component builds and renders the whole editor and
 // never itself calls an API. `initialData` is `{ json, width, height }` —
 // the same shape use-load-state.ts / use-history.ts read/write.
+//
+// MOBILE LAYOUT — the source clone never had one: a fixed side rail plus a
+// fixed 360px tool panel plus a canvas is a desktop-only shape, and this
+// product's users are field contractors, "often run from a van" (AGENTS.md),
+// i.e. on a phone. Below the `md` breakpoint:
+//   - Sidebar.js's rail becomes a fixed bottom tab bar (own module doc).
+//   - Every tool panel (ShapeSidebar.js's own module doc has the pattern all
+//     fourteen share) becomes a fixed bottom sheet instead of a 360px column.
+//   - The one-line backdrop below dims the canvas and taps closed — shared
+//     here rather than duplicated in all fourteen panels.
+//   - `<main>` gets `pb-16` so the Footer's zoom controls sit above the
+//     fixed bottom tab bar instead of behind it.
+// Rejected: a horizontally-scrolling version of the desktop row (rail +
+// panel + canvas all still side by side, just scrollable) — that's the
+// "call a desktop layout responsive" trap the brief explicitly warned
+// against, and it would still put the canvas mostly off-screen by default.
 import { fabric } from "fabric";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -172,6 +188,18 @@ export function Editor({ initialData, saveCallback, onEditorReady }) {
       />
       <div className="absolute top-[68px] flex h-[calc(100%-68px)] w-full">
         <Sidebar activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        {/* Below `md`, every tool panel is a fixed bottom sheet (see e.g.
+            ShapeSidebar.js's own module doc) — this dims the canvas behind
+            it and taps closed, one shared backdrop instead of one per panel.
+            `activeTool !== "select"` covers every real panel: every value
+            the rail/toolbar can set has a matching sidebar component. */}
+        {activeTool !== "select" && (
+          <div
+            onClick={() => onChangeActiveTool("select")}
+            className="fixed inset-0 z-30 bg-black/30 md:hidden"
+            aria-hidden="true"
+          />
+        )}
         <ShapeSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FillColorSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <StrokeColorSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
@@ -186,7 +214,7 @@ export function Editor({ initialData, saveCallback, onEditorReady }) {
         <RemoveBgSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <DrawSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <SettingsSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
-        <main className="relative flex flex-1 flex-col overflow-auto bg-muted">
+        <main className="relative flex flex-1 flex-col overflow-auto bg-muted pb-16 md:pb-0">
           <Toolbar
             editor={editor}
             activeTool={activeTool}

@@ -24,7 +24,7 @@ export function FillColorSidebar({ editor, activeTool, onChangeActiveTool }) {
   return (
     <aside
       className={cn(
-        "relative z-[40] flex h-full w-[360px] flex-col border-r bg-card",
+        "fixed inset-x-0 bottom-16 z-40 flex max-h-[75vh] flex-col rounded-t-2xl border-t bg-card shadow-xl md:relative md:inset-x-auto md:bottom-auto md:h-full md:max-h-none md:w-[360px] md:rounded-none md:border-r md:border-t-0 md:shadow-none",
         activeTool === "fill" ? "visible" : "hidden",
       )}
     >

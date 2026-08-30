@@ -11,6 +11,17 @@
 // ScrollArea replaced with a plain `overflow-y-auto` div per AGENTS.md
 // (base-ui/react does ship a scroll-area primitive, but the task is explicit
 // that this port doesn't use it). `bg-white` swapped for `bg-card`.
+//
+// MOBILE — this file's `aside` className is the pattern all fourteen tool
+// panels share (ShapeSidebar, TextSidebar, FillColorSidebar, ...
+// AiSidebar): `fixed` + `bottom-16` below `md`, so the panel becomes a
+// bottom sheet sitting right above Sidebar.js's bottom tab bar (h-16)
+// instead of a 360px-wide column a phone screen doesn't have room for; at
+// `md` and up it reverts to `relative` and takes its place in the desktop
+// flex row exactly as the source clone did. `max-h-[75vh]` keeps the sheet
+// from covering the whole screen, and Editor.js renders one shared backdrop
+// (not duplicated per panel) that taps closed on mobile. See Sidebar.js's
+// own module doc for why the rail became a bottom bar in the first place.
 import { Circle, Diamond, Square, Triangle } from "lucide-react";
 
 import { ShapeTool } from "@/app/components/designer/ShapeTool";
@@ -31,7 +42,7 @@ export function ShapeSidebar({ editor, activeTool, onChangeActiveTool }) {
   return (
     <aside
       className={cn(
-        "relative z-[40] flex h-full w-[360px] flex-col border-r bg-card",
+        "fixed inset-x-0 bottom-16 z-40 flex max-h-[75vh] flex-col rounded-t-2xl border-t bg-card shadow-xl md:relative md:inset-x-auto md:bottom-auto md:h-full md:max-h-none md:w-[360px] md:rounded-none md:border-r md:border-t-0 md:shadow-none",
         activeTool === "shapes" ? "visible" : "hidden",
       )}
     >

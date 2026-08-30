@@ -471,5 +471,127 @@ ok(
   "both seeded templates have a real thumbnail file checked into public/",
 );
 
+// ═════════════════════════════════════════════════════════════════════════
+section("14. Owner's usability complaints — rail spacing, mobile layout, AI prompt copy");
+// ═════════════════════════════════════════════════════════════════════════
+// The owner's four verbatim complaints (see the coordinator's brief): the
+// tool rail wasted vertical space, the editor wasn't mobile-friendly, the AI
+// panel had no visible prompt, and its placeholder was the source clone's
+// own sample text. Comments stripped throughout — same reasoning as
+// sections 6/8/9 above: this section's own module docs (SidebarItem.js,
+// Sidebar.js, ShapeSidebar.js, AiSidebar.js) all describe the fix in prose
+// using the very words a naive scan would look for ("aspect-video",
+// "fixed", "astronaut").
+
+const sidebarItemSrc = read("app/components/designer/SidebarItem.js");
+const sidebarItemCode = stripComments(sidebarItemSrc);
+ok(
+  !/aspect-video/.test(sidebarItemCode),
+  "SidebarItem.js no longer forces the rail button into a 16:9 box — that's what turned a 100px-wide rail into ~56px-tall buttons before padding",
+);
+ok(
+  /\bh-14\b/.test(sidebarItemCode) && /md:h-16\b/.test(sidebarItemCode),
+  "…replaced with a plain, compact fixed height instead",
+);
+
+const sidebarRailSrc2 = read("app/components/designer/Sidebar.js");
+const sidebarRailCode2 = stripComments(sidebarRailSrc2);
+ok(
+  !/\bw-\[100px\]/.test(sidebarRailCode2),
+  "Sidebar.js no longer hardcodes the old 100px-wide rail",
+);
+ok(
+  /\bfixed\b[^"]*\binset-x-0\b[^"]*\bbottom-0\b/.test(sidebarRailCode2) &&
+    /md:static\b/.test(sidebarRailCode2) &&
+    /md:h-full\b/.test(sidebarRailCode2),
+  "the rail is `fixed` to the bottom of the viewport below `md`, and reverts to the static side rail at `md` and up",
+  sidebarRailCode2,
+);
+
+// The bottom-sheet treatment is shared by all fourteen tool panels — a
+// regression that fixes only some of them (e.g. reverting one file back to
+// a fixed 360px column) would still leave a phone unable to reach that one
+// tool. Looped, not spot-checked.
+const TOOL_PANEL_FILES = [
+  "AiSidebar.js",
+  "DrawSidebar.js",
+  "FilterSidebar.js",
+  "FillColorSidebar.js",
+  "FontSidebar.js",
+  "ImageSidebar.js",
+  "SettingsSidebar.js",
+  "RemoveBgSidebar.js",
+  "ShapeSidebar.js",
+  "OpacitySidebar.js",
+  "StrokeColorSidebar.js",
+  "TextSidebar.js",
+  "TemplateSidebar.js",
+  "StrokeWidthSidebar.js",
+];
+const OLD_DESKTOP_ONLY_PANEL_CLASS = "relative z-[40] flex h-full w-[360px] flex-col border-r bg-card";
+for (const name of TOOL_PANEL_FILES) {
+  const p = `app/components/designer/${name}`;
+  const code = stripComments(read(p));
+  ok(
+    !code.includes(OLD_DESKTOP_ONLY_PANEL_CLASS),
+    `${p} no longer uses the old desktop-only fixed-360px panel class unconditionally`,
+  );
+  ok(
+    /\bfixed\b/.test(code) && /bottom-16\b/.test(code) && /md:relative\b/.test(code) && /md:w-\[360px\]/.test(code),
+    `${p} renders as a fixed bottom sheet below \`md\` and the original 360px side panel at \`md\` and up`,
+  );
+}
+
+// Editor.js owns the one shared backdrop (not fourteen copies of it) and
+// gives the canvas area room for the fixed bottom rail.
+const editorSrc2 = read("app/components/designer/Editor.js");
+const editorCode2 = stripComments(editorSrc2);
+ok(
+  /activeTool !== "select"/.test(editorCode2) && /md:hidden/.test(editorCode2),
+  "Editor.js renders a mobile-only backdrop behind whichever tool panel is open",
+);
+ok(/\bpb-16\b/.test(editorCode2), "the canvas area reserves room for the fixed bottom rail on mobile");
+
+// The AI panel: a real, visible prompt box, in the audience's own language.
+const aiSidebarSrc2 = read("app/components/designer/AiSidebar.js");
+const aiSidebarCode2 = stripComments(aiSidebarSrc2);
+ok(
+  !/astronaut/i.test(aiSidebarCode2) && !/horse on mars/i.test(aiSidebarCode2),
+  "AiSidebar.js no longer carries the source clone's own sample prompt as its placeholder",
+);
+ok(!/rows=\{10\}/.test(aiSidebarCode2), "the textarea is no longer 10 rows tall — too tall for a phone once the keyboard is up");
+ok(/<Textarea\b/.test(aiSidebarCode2), "AiSidebar.js still renders a real Textarea, not just an error message");
+ok(
+  !/!loading\s*&&\s*status\?\.allowed/.test(aiSidebarCode2) && !/status\?\.allowed\s*&&\s*!loading/.test(aiSidebarCode2),
+  "…and rendering the form is NOT additionally gated on status.allowed — a disallowed company must still SEE the prompt box, only unable to submit it",
+);
+// The reason banner has to live INSIDE the same <form> as the textarea, not
+// as a separate block above it — that's the literal "stacked, not one
+// panel" bug the owner reported as "no prompt or anything of the sort".
+const aiFormMatch = aiSidebarCode2.match(/<form\b[\s\S]*?<\/form>/);
+ok(!!aiFormMatch, "AiSidebar.js's form can be isolated");
+if (aiFormMatch) {
+  const formBody = aiFormMatch[0];
+  ok(/disabledReasonText\(status\)/.test(formBody), "the refusal reason renders INSIDE the form, not in a separate block above it");
+  ok(/<Textarea\b/.test(formBody), "…in the same form as the actual prompt textarea");
+}
+
+// A vague "Feature not available for this object" told the owner nothing
+// actionable — replaced with a plain instruction.
+const removeBgSrc2 = read("app/components/designer/RemoveBgSidebar.js");
+ok(
+  !stripComments(removeBgSrc2).includes("Feature not available for this object"),
+  "RemoveBgSidebar.js's empty state tells the person what to do (select a photo), not just that something is unavailable",
+);
+
+// No hardcoded bg-white anywhere in the designer tree — a panel that's white
+// in dark mode is the exact bug AGENTS.md's item 5 and this file's own
+// section 6 already guard against for OTHER dropped dependencies; this
+// checks the literal Tailwind class itself, across every designer file.
+for (const file of DESIGNER_FILES) {
+  const code = stripComments(read(file));
+  ok(!/\bbg-white\b/.test(code), `${file} does not hardcode bg-white`);
+}
+
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);
