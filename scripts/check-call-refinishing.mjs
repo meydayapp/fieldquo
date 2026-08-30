@@ -203,10 +203,30 @@ eq("every measurement key has a spoken question", unphrasedMeasureKeys(), []);
 const topics = quoteTopics([
   { trade: "cabinet_refinishing", label: "Cabinet Refinishing", materials: [] },
 ]);
-eq("the agent asks for doors and drawer fronts only", topics[0]?.asks, [
+// ── It asks for what the DRAFT needs, which is more than the measurements ──
+//
+// This asserted "doors and drawer fronts only", which was true and was the
+// bug. app/data/quoteIntakeFields.js gives cabinet refinishing five fields, and
+// the draft model was shown all five — so every call ended with the review
+// panel reporting "They didn't tell us: Wood / Door Material, Cabinet
+// condition, Hinge type", because nothing on the phone ever asked. Condition
+// alone doubles the minutes per piece when there is real grease build-up.
+eq("the agent asks the measurements", topics[0]?.asks?.slice(0, 2), [
   "how many cabinet doors there are",
   "how many drawer fronts there are",
 ]);
+ok(
+  "…and the condition, as symptoms rather than as a grade the caller has to invent",
+  topics[0]?.asks?.some((a) => /scratches/.test(a) && /grease/.test(a)),
+);
+ok(
+  "…and the hinge type, which decides whether they align by hand",
+  topics[0]?.asks?.some((a) => /hinges/.test(a)),
+);
+ok(
+  "…and stops before it becomes a form",
+  (topics[0]?.asks?.length || 0) <= 6,
+);
 ok(
   "the agent is not told to ask about box veneer on a refinishing call",
   !JSON.stringify(topics).includes("cabinet box"),

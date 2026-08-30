@@ -32,7 +32,10 @@ import {
   safeMaterialLabel,
   unphrasedMeasureKeys,
   photoDestination,
+  deadJudgementPhrasings,
+  unmappedFieldTrades,
 } from "@/lib/voice/quoteQuestions";
+import { INSTANT_ESTIMATE_TRADES } from "@/lib/estimate/instantEstimate";
 import { buildAgentPrompt, quoteIntakeSection } from "@/lib/voice/prompt";
 import { approvedQuoteCallGate, CALLBACK_REFUSED } from "@/lib/voice/triggers";
 import { consentVerdict } from "@/lib/voice/outbound";
@@ -292,6 +295,110 @@ ok(consentVerdict({
   now: at(13),
   timeZone: "America/Toronto",
 }).allowed === false, "an expired consent is refused");
+
+/* ═════ The judgement questions the draft model was already expecting ══════
+ *
+ * The phone asked how many cabinet doors and never asked what state they were
+ * in — while the DRAFT model was being shown `condition`, `hingeType` and
+ * `woodSpecies` from app/data/quoteIntakeFields.js and reporting "They didn't
+ * tell us: Wood / Door Material, Cabinet condition, Hinge type" on every call.
+ * Each one moves the hours: degreasing heavy build-up doubles the minutes per
+ * piece, a legacy hinge is aligned by hand where a clip locks in.
+ *
+ * ASK_PHRASING covered MEASUREMENTS only, so the gap was structural rather
+ * than an oversight — no amount of adding keys to a hand-written list would
+ * have kept it closed. The questions now come from the same field list the
+ * catalogue does.
+ */
+const TRADES = Object.keys(INSTANT_ESTIMATE_TRADES).map((t) => ({
+  trade: t,
+  label: t,
+  materials: [],
+}));
+const topicFor = (trade) => quoteTopics(TRADES).find((t) => t.trade === trade);
+
+ok(
+  deadJudgementPhrasings().length === 0,
+  "every written phrasing names a field that exists — the lookup is `trade.fieldKey` and both halves are easy to get wrong",
+  deadJudgementPhrasings(),
+);
+ok(
+  unmappedFieldTrades().length === 0,
+  "and every askable trade resolves to a category with fields, so none loses its judgement questions silently",
+  unmappedFieldTrades(),
+);
+
+{
+  const asks = topicFor("cabinet_refinishing")?.asks || [];
+  ok(asks.length >= 5, "cabinet refinishing asks about more than counts now", asks.length);
+  // The owner's instruction, and the reason the phrasing is written by hand:
+  // nobody knows whether their kitchen is "moderate complexity". They know
+  // whether there are scratches and water marks.
+  ok(
+    asks.some((a) => /scratches/.test(a) && /water damage/.test(a) && /grease/.test(a)),
+    "…and condition is asked as SYMPTOMS a person can see, never as a category nobody can judge",
+    asks,
+  );
+  ok(
+    !asks.some((a) => /complexity|moderate|standard/i.test(a)),
+    "…so no caller is asked to grade their own kitchen",
+  );
+  ok(asks.some((a) => /hinges/.test(a)), "hinges are asked about");
+  ok(asks.some((a) => /oak|maple|MDF/.test(a)), "and what the doors are made of");
+}
+
+{
+  // One key, two meanings. `condition` is normal|heavy for cabinets and
+  // new_or_sound|minor_repair|major_repair for parging — a table keyed on the
+  // field name alone would read the wrong question to one of them.
+  const cabinets = topicFor("cabinet_refinishing")?.asks || [];
+  const parging = topicFor("parging")?.asks || [];
+  ok(
+    parging.some((a) => /cracking and crumbling/.test(a)),
+    "parging's `condition` asks about masonry, not grease",
+    parging,
+  );
+  ok(
+    !parging.some((a) => /grease/.test(a)) && !cabinets.some((a) => /crumbling/.test(a)),
+    "…and the two never borrow each other's question",
+  );
+}
+
+{
+  // Painting reads squareFootage. Asking room length, width and ceiling height
+  // on top makes the caller measure their house three more ways for a figure
+  // nobody uses — the form-not-a-conversation failure, arriving through the
+  // back door.
+  const asks = topicFor("painting")?.asks || [];
+  ok(
+    !asks.some((a) => /room length|room width|ceiling height/i.test(a)),
+    "measurements stay with MEASURE_SHAPES — the field list contributes judgements",
+    asks,
+  );
+  ok(
+    asks.some((a) => /ceilings are being painted/.test(a)),
+    "…and painting's own written phrasings fire, which they did not while keyed by category",
+    asks,
+  );
+}
+
+for (const topic of quoteTopics(TRADES)) {
+  ok(
+    topic.asks.length <= 6,
+    `${topic.trade}: at most six questions — ten is a form, and the caller hangs up around the sixth`,
+    topic.asks.length,
+  );
+  ok(
+    !topic.asks.some((a) => /[$€£]\s?\d/.test(a)),
+    `${topic.trade}: no question puts a figure in the agent's mouth`,
+  );
+  ok(
+    !topic.asks.some((a) => /\bapplies\b|\(.*\/.*\)/.test(a)),
+    `${topic.trade}: no form label read aloud as a question ("whether include ceiling applies", "pitch (rise/12)")`,
+    topic.asks,
+  );
+}
+
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

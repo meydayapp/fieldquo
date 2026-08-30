@@ -890,6 +890,45 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The phone stopped asking half of what the quote needs.
+  `lib/voice/quoteQuestions.js`, `lib/voice/prompt.js`,
+  `scripts/check-voice-quote-intake.mjs`.**
+
+  The receptionist asked how many cabinet doors and never asked what state they
+  were in — while the DRAFT model was being shown `condition`, `hingeType` and
+  `woodSpecies` from `app/data/quoteIntakeFields.js` and reporting *"They didn't
+  tell us: Wood / Door Material, Cabinet condition, Hinge type"* on every single
+  call. Each moves the hours: degreasing heavy build-up doubles the minutes per
+  piece, a legacy hinge is aligned by hand where a clip locks in.
+
+  Structural, not an oversight. `ASK_PHRASING` covered MEASUREMENTS and
+  `MEASURE_SHAPES.reads` lists only dimensional keys, so no amount of adding
+  entries to the hand-written list would have kept it closed. The questions now
+  come from `fieldsForCategory` — the same list `buildCatalogue` shows the model
+  — so a field added to the builder is asked about on the phone the same day.
+
+  **Judgements only.** A `number` on that list is a dimension the shape has
+  already asked for; painting reads `squareFootage`, and adding room length,
+  width and ceiling height on top asks the caller to measure their house three
+  more ways for a figure nobody uses.
+
+  **Asked as symptoms, not categories** — the owner's instruction and the right
+  one. Nobody knows if their kitchen is "moderate complexity"; they know whether
+  there are scratches, water marks and peeling. The model maps the answer onto
+  the option because the catalogue already hands it the option list.
+
+  Three traps, each now a check: `condition` means `normal|heavy` for cabinets
+  and `new_or_sound|minor_repair|major_repair` for parging, so phrasings are
+  keyed `trade.field`; the trade key and category key differ for roofing, stair
+  and painting; and the web form's own input list uses different names again
+  (`cutouts` there is `sinkCutouts` here). `deadJudgementPhrasings()` and
+  `unmappedFieldTrades()` must both return empty.
+
+  Also: the prompt read as an either/or — take the details for a quote, OR book
+  a time. A caller who describes a kitchen and then asks for a callback has done
+  both, and the half being dropped was the quote detail, because booking is the
+  one with a tool attached and a tidy ending.
+
 - **Concurrency is not the cost that loses money — the knowledge base is.
   `lib/voice/platformEconomics.js`, `app/api/platform/voice-economics/route.js`,
   `scripts/check-voice-economics.mjs`.**
