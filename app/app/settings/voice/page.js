@@ -84,6 +84,10 @@ import {
 // charges FieldQuo, and a contractor's screen is the wrong place for FieldQuo's
 // own cost of goods.
 import { VOICE_PROVIDERS } from "@/lib/voice/voices";
+// Client-safe by construction — lib/validation.js imports nothing, which is
+// why the number helpers live there and not in lib/voice/numbers.js, which
+// pulls in Prisma.
+import { confirmsNumber, formatNanpInput } from "@/lib/validation";
 import {
   READINESS_LINKS,
   LINK_LABEL,
@@ -2150,9 +2154,15 @@ function ReadinessPanel({ chain, busy, fixed, t, number, onRun, onFix }) {
  * acknowledgement. The route decides all of that again server-side; this is the
  * same decision rendered, not a substitute for it.
  *
- * The typed confirmation is compared loosely here (digits only) so a contractor
- * who types the pretty form on a phone keyboard is not defeated by punctuation.
- * The E.164 is what gets POSTed, and the route compares that exactly.
+ * The typed confirmation is compared loosely about PUNCTUATION and about the
+ * country code, and strictly about the ten digits. It used to compare
+ * digits-only against the E.164, which is eleven digits — so a contractor who
+ * typed exactly what the label asked for, (365) 517-6689, never matched and the
+ * red button never enabled. The number could not be released at all.
+ *
+ * The E.164 is still what gets POSTed, and the route still compares that
+ * exactly: this box confirms that a human read the number, and the server
+ * confirms which number.
  */
 function ReleaseNumber({ e164, display, ownNumber, forwarded, monthlyCents, money, busy, t, onRelease }) {
   const [open, setOpen] = useState(false);
@@ -2163,8 +2173,11 @@ function ReleaseNumber({ e164, display, ownNumber, forwarded, monthlyCents, mone
   // every number looks like the only one.
   const [soleWarning, setSoleWarning] = useState(false);
 
-  const digits = (s) => String(s || "").replace(/[^\d]/g, "");
-  const matches = Boolean(e164) && digits(typed) === digits(e164);
+  // confirmsNumber, not a local digits comparison. The local one compared the
+  // typed value against the E.164 — eleven digits against the ten the label
+  // above asks for — so typing exactly what it said left the red button
+  // disabled and the number unreleasable. See lib/validation.js.
+  const matches = confirmsNumber(typed, e164);
 
   function reset() {
     setOpen(false);
@@ -2236,7 +2249,12 @@ function ReleaseNumber({ e164, display, ownNumber, forwarded, monthlyCents, mone
           inputMode="tel"
           autoComplete="off"
           value={typed}
-          onChange={(e) => setTyped(e.target.value)}
+          // Formatted as they type, in the display form the label quotes, so
+          // what they are typing looks like the number they are being asked to
+          // confirm. Every other phone field in the app does this; this one did
+          // not, which made a box that was already failing to match look like a
+          // box that was simply not accepting the number.
+          onChange={(e) => setTyped(formatNanpInput(e.target.value))}
           placeholder={display}
           className="mt-1 w-full max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm tabular-nums text-foreground"
         />

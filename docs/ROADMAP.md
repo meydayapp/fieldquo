@@ -890,6 +890,32 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The one irreversible control in the product could not be operated.
+  `lib/validation.js`, `app/app/settings/voice/page.js`.**
+
+  Releasing a number is gated behind retyping it, which is right. The gate
+  compared digits-only "so a contractor who types the pretty form on a phone
+  keyboard is not defeated by punctuation" — the correct instinct, pointed at
+  the wrong string. It compared against the **E.164**: `+13655176689` is eleven
+  digits, and the label says `Type (365) 517-6689`, which is ten. Typing exactly
+  what was asked left the red button disabled with nothing saying why. The
+  number was unreleasable, and the US$4/month kept being charged.
+
+  The field also did not format as it was typed, which every other phone field
+  in the app does — so a box silently failing to match looked like a box
+  refusing the number.
+
+  Now `confirmsNumber` is loose about punctuation and the country code and
+  strict about the ten digits, `formatNanpInput` writes the display form as you
+  type, and both live in `lib/validation.js`, which imports nothing and is
+  therefore safe on the client (`lib/voice/numbers.js` pulls in Prisma).
+  International numbers compare on every digit rather than being silently
+  unreleasable, and are not rewritten into brackets they do not use.
+
+  Eight mutations, all caught — including a faithful replay of the original
+  comparison. The E.164 is still what gets POSTed and the route still checks it:
+  this box confirms a human read the number, the server decides which number.
+
 - **Three voices, and a receptionist that speaks the company's language.
   `lib/voice/voices.js`, `lib/voice/agentLanguage.js`, `lib/voice/prompt.js`.**
 
