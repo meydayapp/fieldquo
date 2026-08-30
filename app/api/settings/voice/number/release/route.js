@@ -40,7 +40,12 @@ import { recordActivity } from "@/lib/activity/log";
 import { recordError, errorDetail } from "@/lib/platform/errorLog";
 import { voiceConfigured } from "@/lib/voice/retell";
 import { formatNumber } from "@/lib/voice/numbers";
-import { HELD_STATUSES, planRelease, releaseHeldNumber } from "@/lib/voice/numberRelease";
+import {
+  HELD_STATUSES,
+  planRelease,
+  releaseHeldNumber,
+  standDownIfLastNumber,
+} from "@/lib/voice/numberRelease";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -217,6 +222,13 @@ export async function POST(request) {
     return NextResponse.json({ ...said, released: false, reason: result.reason }, { status: 502 });
   }
 
+  // ── The switches that now have nothing behind them ──────────────────────
+  //
+  // After this, the screen would otherwise show "Answer my calls" ON above the
+  // sentence "Set up a number above first — there's nothing for it to answer
+  // on." Only when this was their LAST number; see standDownIfLastNumber.
+  const standDown = await standDownIfLastNumber(member.companyId);
+
   await recordActivity(member, {
     action: "voice.number_released",
     entityType: "settings",
@@ -229,6 +241,11 @@ export async function POST(request) {
       // there, so this was a ghost row being tidied rather than a line given up.
       alreadyGone: Boolean(result.alreadyGone),
       soleNumber: Boolean(plan.soleNumber),
+      // Recorded because it is a change to what the product does on their
+      // behalf, not a detail of the release — particularly the outbound half,
+      // which is a consent to ring their clients.
+      turnedOffInbound: standDown.inbound,
+      turnedOffOutbound: standDown.outbound,
     },
   }).catch(() => {});
 
@@ -240,5 +257,9 @@ export async function POST(request) {
     // not `active`, and the rent cron only selects `active`. Stated back so the
     // screen can say it rather than implying it.
     rentStopped: true,
+    // Same reason: the page reloads its settings after this, but saying what we
+    // switched off is more honest than letting a toggle quietly flip.
+    turnedOffInbound: standDown.inbound,
+    turnedOffOutbound: standDown.outbound,
   });
 }

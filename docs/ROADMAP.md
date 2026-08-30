@@ -890,6 +890,41 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Two switches over a line that no longer exists, and US$4/month after the
+  customer left. `lib/voice/numberRelease.js`, `lib/voice/spendGate.js`.**
+
+  Releasing the last number left "Answer my calls" and "Call clients back
+  automatically" both ON, and the screen printed directly beneath the still-on
+  switch: *"Set up a number above first — there's nothing for it to answer on."*
+  The outbound half is worse than cosmetic — `outboundCallsEnabled` is the
+  contractor's consent for FieldQuo to ring **their** clients, so the day they
+  bought a new number the product would resume calling customers on a permission
+  they last thought about months earlier. `standDownIfLastNumber` now switches
+  both off, from the contractor's own button and from the unattended release,
+  and only when it was genuinely the last number (one production company holds
+  three).
+
+  Nothing noticed a cancelled subscription. The rent cron kept taking the rental
+  from a prepaid balance for a receptionist nobody could reach, on an account
+  with nobody logging in to see it — then eventually released the number as a
+  **delinquency**, with an email about an unpaid rental, which is not what
+  happened.
+
+  Now: charging stops the day they cancel, the number survives the whole 30-day
+  read-only window (that window is described in `access.js` as "not a
+  punishment" — taking a contractor's business line away inside it would make it
+  one), and it is released when the window closes, with copy that says the
+  subscription ended rather than that they didn't pay.
+
+  **A failed payment never releases anything.** `past_due` reaches `locked` in
+  seven days, and destroying the number printed on somebody's van over a bank's
+  fraud hold is not recoverable. Only `canceled_expired` — a decision, plus
+  thirty days — releases. FieldQuo withdrawing the feature still releases
+  nothing either: our decision, our cost.
+
+  Ten mutations, all caught, including replaying the missing branch and the
+  version where a declined card destroys a number.
+
 - **The one irreversible control in the product could not be operated.
   `lib/validation.js`, `app/app/settings/voice/page.js`.**
 
