@@ -59,7 +59,7 @@ export function Navbar({ editor, activeTool, saveStatus, onChangeActiveTool }) {
   };
 
   return (
-    <nav className="flex h-[68px] w-full items-center gap-x-8 border-b p-4">
+    <nav className="flex h-[68px] w-full items-center gap-x-8 overflow-x-auto border-b p-2 md:p-4">
       <div className="flex h-full w-full items-center gap-x-1">
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>

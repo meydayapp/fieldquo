@@ -76,7 +76,7 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
   return (
     <aside
       className={cn(
-        "relative z-[40] flex h-full w-[360px] flex-col border-r bg-card",
+        "fixed inset-x-0 bottom-16 z-40 flex max-h-[75vh] flex-col rounded-t-2xl border-t bg-card shadow-xl md:relative md:inset-x-auto md:bottom-auto md:h-full md:max-h-none md:w-[360px] md:rounded-none md:border-r md:border-t-0 md:shadow-none",
         active ? "visible" : "hidden",
       )}
     >
@@ -89,9 +89,12 @@ export function RemoveBgSidebar({ editor, activeTool, onChangeActiveTool }) {
         }
       />
       {!imageSrc && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-y-4">
+        <div className="flex flex-1 flex-col items-center justify-center gap-y-2 p-4 text-center">
           <AlertTriangle className="size-4 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">Feature not available for this object</p>
+          <p className="text-sm font-medium">Select a photo first</p>
+          <p className="text-xs text-muted-foreground">
+            Tap a photo on the canvas, then come back here to remove its background.
+          </p>
         </div>
       )}
       {imageSrc && loading && (

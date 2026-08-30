@@ -8,6 +8,18 @@
 // Both tabs are real now: Design opens TemplateSidebar (free,
 // DesignTemplate-backed), AI opens AiSidebar (the one premium feature,
 // gated in lib/designer/aiImageAdapter.js).
+//
+// MOBILE — the owner's other complaint was that this whole editor "must be
+// mobile and web friendly", and a fixed 100px side rail plus a fixed 360px
+// tool panel leaves less than nothing for the canvas on a phone (AGENTS.md:
+// contractors "often run from a van", i.e. on a phone, not a desk). Below
+// the `md` breakpoint this rail becomes a fixed bottom tab bar instead of a
+// side rail — the standard mobile pattern for a small, fixed set of primary
+// tools (Instagram, most phone photo/video editors), and the one that keeps
+// the canvas full-width and full-height instead of squeezing it sideways.
+// Editor.js pairs this with a matching bottom-sheet treatment for whichever
+// tool panel is open (see e.g. ShapeSidebar.js's own module-level className)
+// so a phone never has to render rail + panel + canvas side by side.
 import { ImageIcon, LayoutTemplate, Pencil, Settings, Shapes, Sparkles, Type } from "lucide-react";
 
 import { SidebarItem } from "@/app/components/designer/SidebarItem";
@@ -19,8 +31,8 @@ import { SidebarItem } from "@/app/components/designer/SidebarItem";
  */
 export function Sidebar({ activeTool, onChangeActiveTool }) {
   return (
-    <aside className="flex h-full w-[100px] flex-col overflow-y-auto border-r bg-card">
-      <ul className="flex flex-col">
+    <aside className="fixed inset-x-0 bottom-0 z-40 flex h-16 w-full flex-row border-t bg-card md:static md:inset-x-auto md:bottom-auto md:h-full md:w-[72px] md:flex-col md:overflow-y-auto md:border-r md:border-t-0">
+      <ul className="flex w-full flex-row md:flex-col">
         <SidebarItem
           icon={LayoutTemplate}
           label="Design"
