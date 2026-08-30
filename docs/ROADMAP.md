@@ -890,6 +890,54 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **"Ring this client about this quote", pressed by a person.
+  `lib/voice/quoteCallScope.js`, `lib/voice/triggers.js`,
+  `app/api/quotes/[id]/call/route.js`, `scripts/check-quote-call-button.mjs`.**
+
+  `approvedQuoteCallGate` answers "should we ring without being asked?", and
+  most of what it refuses is SCOPE — a standing decision made once on a settings
+  screen. A company set to "instant estimates only" had no way to say "not that
+  rule, this quote", and the estimator looking at it is exactly the person who
+  knows it is worth a call.
+
+  So `manualQuoteCallGate` drops the scope checks and keeps the four a click
+  cannot make safe: an unreviewed total (the agent reads it aloud and nobody
+  approved it), a quote the client has never been sent (reading a figure they
+  have not seen in writing is how a number becomes a commitment), no number to
+  dial, and the company's own master switch — which is not a preference about
+  which quotes.
+
+  It QUEUES rather than dials. `/api/cron/voice-outbound` places it within
+  fifteen minutes, re-checking consent, calling hours, credit and the quote's
+  total at dial time. Somebody can withdraw consent between the click and the
+  call, and the call has to lose that race — which it cannot do if the click
+  dialled.
+
+  `quoteCallContext` is now shared by both paths. The manual route was about to
+  hand-build the same brief, which is the copy that rots: the day somebody adds
+  a field, the button keeps briefing the agent with last month's shape.
+
+  Reasons travel as codes so the screen can say WHY. `no_phone` is the one that
+  matters — the settings screen already reports it as the commonest cause of a
+  quote going uncalled, and a button that 409s where a missing phone number
+  should be explained is the dead control this repo is swept for.
+
+  The button on `app/app/quotes/[id]/page.js` runs `manualQuoteCallGate` itself
+  rather than restating it, so it is only drawn when it would work; the
+  refusals render as a quiet sentence where the button would be, and `no_phone`
+  links to the client so somebody can fix it. Below `view_create_edit` it
+  renders nothing at all, notice included — a member who never sees the control
+  is not told why.
+
+  One substitution remains and one was removed. `client.phone` is deleted by
+  `redactClient` for a member capped at name_address_only, so the page treats it
+  as present and lets the server answer — claiming "no phone number" from data
+  the member simply isn't shown would be inventing absence out of restriction.
+  The outbound master switch was substituted the same way until the quote
+  endpoint started returning `company.outboundCallsEnabled`: assumed-ON meant a
+  company that had turned outbound calling off got a button that refused every
+  single time, which is the exact dead control the rest of this entry is about.
+
 - **A callback offered for next Thursday. `lib/voice/callbackWindow.js`,
   `lib/voice/availability.js`, `scripts/check-callback-window.mjs`.**
 

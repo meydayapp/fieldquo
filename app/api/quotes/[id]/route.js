@@ -62,7 +62,20 @@ export async function GET(request, { params }) {
       // client's own document does. Without it the page falls back to CAD and
       // a US contractor's totals read as Canadian dollars — the same silent
       // default that put "$2100.00" on the document in the first place.
-      company: { select: { currency: true } },
+      company: {
+        select: {
+          currency: true,
+          // ── So the "call this client" button is never a dead control ─────
+          //
+          // The page runs manualQuoteCallGate itself and only draws the button
+          // when it would work. Without this field the gate could not see the
+          // company's outbound master switch, so it assumed ON — and a company
+          // that had deliberately switched outbound calling off got a button
+          // that refused with a 409 every time. One field turns the last
+          // foreseeable refusal into a sentence explaining where the switch is.
+          outboundCallsEnabled: true,
+        },
+      },
     },
   });
 

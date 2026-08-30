@@ -45,11 +45,24 @@ import {
   Loader2,
   CheckCircle2,
   Building2,
+  PhoneCall,
+  PhoneOff,
 } from "lucide-react";
 import DeleteConfirmModal from "@/app/components/admin/DeleteConfirmModal";
 import BrandTheme from "@/app/components/BrandTheme";
 import { usePermissions } from "@/app/providers/PermissionProvider";
+import { useFeatureFlags } from "@/app/providers/FeatureProvider";
 import { hasLevel } from "@/lib/permissions/enforce";
+// The SAME gate POST /api/quotes/[id]/call runs, not a description of it.
+// quoteCallScope.js has no imports precisely so a browser bundle can execute
+// it — see its header — which is what keeps the button and the endpoint from
+// disagreeing about which quotes are callable.
+import {
+  manualQuoteCallGate,
+  callbackReasonKey,
+  CALLBACK_REASON_TEXT,
+  CALLBACK_REFUSED,
+} from "@/lib/voice/quoteCallScope";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
@@ -155,6 +168,25 @@ export default function QuoteDetailPage() {
   // than flashing and vanishing.
   const caller = usePermissions();
   const canDeleteQuote = hasLevel(caller, "quotes", "view_create_edit_delete");
+  // Ringing a client about their quote is acting on the quote, so the route
+  // takes the level that EDITS one. Rendered away rather than disabled for
+  // anyone below it: a 403 arriving behind a visible control is the bug the
+  // dashboard note in app/app/page.js is about — the refusal reads as an
+  // answer ("nothing happened") instead of as a refusal.
+  const canCallClient = hasLevel(caller, "quotes", "view_create_edit");
+  // And gone entirely for a tenant with no phone receptionist. `null` flags
+  // mean "show everything", the same rule lib/features/nav.js applies — a
+  // provider that hasn't resolved must not blank working controls.
+  const voiceFlag = useFeatureFlags()?.voice_receptionist;
+  const voiceAvailable = !voiceFlag || voiceFlag.usable;
+  // The request is in flight. The button is disabled while it is true, so a
+  // second press can't queue a second call.
+  const [calling, setCalling] = useState(false);
+  // What the endpoint said, once. { kind: "queued" | "already" | "refused" |
+  // "error", reason?, message? } — held rather than flattened into `error`,
+  // because a queued call and a refusal are not errors and must not paint the
+  // red banner that means "the quote didn't send".
+  const [callResult, setCallResult] = useState(null);
   const [sending, setSending] = useState(""); // "" | "quote" | "follow_up"
   const [justSent, setJustSent] = useState("");
   // The send refused because an optional email section is switched on with
@@ -403,6 +435,51 @@ export default function QuoteDetailPage() {
     setActionLoading(false);
   }
 
+  /**
+   * Queues a call to this client about this quote.
+   *
+   * Nothing dials here. /api/cron/voice-outbound places the task within about
+   * fifteen minutes, re-checking consent and calling hours at dial time — so
+   * every sentence this writes says "queued" or "shortly", never "calling".
+   * Claiming a call is happening when a task is merely written is the same
+   * lie the old Send button told about email.
+   */
+  async function callClient() {
+    setCalling(true);
+    setCallResult(null);
+    try {
+      const res = await fetch(`/api/quotes/${id}/call`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+
+      // A refusal, with the code that says which one. Kept apart from the
+      // error branch: the quote isn't broken and the request wasn't wrong,
+      // there is just something to fix first — and a generic "couldn't do
+      // that" is exactly what makes somebody press the button again.
+      if (res.status === 409 && data?.reason) {
+        setCallResult({ kind: "refused", reason: data.reason });
+        return;
+      }
+      // Never a bare `if (res.ok)` with nothing on the other side. A 500, a
+      // 403 that arrived because someone's access changed since this page
+      // loaded, a dropped connection — all of them have to say so, or the
+      // press reads as having worked.
+      if (!res.ok) {
+        setCallResult({
+          kind: "error",
+          message: data?.error || t("app.quoteDetail.callError"),
+        });
+        return;
+      }
+      // { queued: false, reason: "already_queued" } is a 200 and not an error:
+      // the call they want is already coming.
+      setCallResult({ kind: data?.queued ? "queued" : "already" });
+    } catch {
+      setCallResult({ kind: "error", message: t("app.quoteDetail.callError") });
+    } finally {
+      setCalling(false);
+    }
+  }
+
   async function handleConvert() {
     setError("");
     setActionLoading(true);
@@ -470,6 +547,35 @@ export default function QuoteDetailPage() {
       /cabinet|kitchen|countertop|remodel/.test(g.category?.key || ""),
     );
 
+  // ── Can this quote be rung about? ───────────────────────────────────────
+  //
+  // Run through the real gate rather than a second reading of it. Two
+  // substitutions, because this page can see less than the endpoint can:
+  //
+  //   client.phone          — see below. It is the only substitution left.
+  //
+  // The outbound master switch used to be substituted here too, assumed ON,
+  // because the quote payload did not carry it — so a company that had
+  // deliberately turned outbound calling off got a button that refused every
+  // time. The endpoint now returns `company.outboundCallsEnabled`, so the gate
+  // reads the real value and the button is simply absent, with a sentence
+  // naming the switch. One field, and the last foreseeable dead control on this
+  // screen is gone.
+  //
+  //   client.phone          redactClient DELETES it for a member capped at
+  //                         name_address_only. "No phone number on the
+  //                         client" would then be a claim about data this
+  //                         member simply isn't shown — absence and
+  //                         restriction are different statements — so the
+  //                         number is treated as present and the server's 409
+  //                         gets to answer.
+  const callGate = manualQuoteCallGate({
+    ...quote,
+    client: quote.client?.restricted
+      ? { ...quote.client, phone: "restricted" }
+      : quote.client,
+  });
+
   // The stored address is Google's FORMATTED string and already contains the
   // city and province — appending them printed "…, Canada, Toronto, ON" on the
   // document a client opens. See lib/format/address.js.
@@ -524,6 +630,25 @@ export default function QuoteDetailPage() {
               {t("app.quoteDetail.followUp")}
             </button>
           )}
+          {/* Only when it could actually work. The refusals this page CAN
+              foresee — unreviewed, never emailed, no number — render as a
+              sentence under the strip instead, because a visible control that
+              answers "no" is the dead button this codebase keeps being swept
+              for. See callGate above for the two things it can't foresee. */}
+          {canCallClient && voiceAvailable && callGate.allowed && (
+            <button
+              onClick={callClient}
+              disabled={calling}
+              className="flex items-center gap-1.5 border border-border text-foreground px-4 py-2 rounded-full text-sm font-semibold disabled:opacity-60"
+            >
+              {calling ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <PhoneCall size={14} />
+              )}
+              {t("app.quoteDetail.callClient", "Call about this quote")}
+            </button>
+          )}
           {["sent", "draft"].includes(quote.status) && (
             <Link
               href={`/app/quote-approval/${id}`}
@@ -572,6 +697,20 @@ export default function QuoteDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Why this quote can't be rung about, or what happened when it was.
+          Under the strip rather than in it: the pill row is controls, and a
+          sentence sitting between two buttons reads as a broken one. Rendered
+          under exactly the same two conditions as the button, so a member who
+          never sees the control is never told why it isn't there. */}
+      {canCallClient && voiceAvailable && (
+        <CallNotice
+          gate={callGate}
+          result={callResult}
+          clientId={quote.client?.id}
+          clientName={quote.client?.name}
+        />
+      )}
 
       {error && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">
@@ -1509,6 +1648,125 @@ export default function QuoteDetailPage() {
         itemName={quote.quoteNumber}
         busy={deleting}
       />
+    </div>
+  );
+}
+
+/**
+ * One quiet line about the quote callback: why it can't happen, or what
+ * happened when somebody asked for it.
+ *
+ * ── Why every refusal gets its own sentence ────────────────────────────────
+ *
+ * Because the codes are not interchangeable and neither are the remedies. "No
+ * phone number on the client" is fixed on the client; "still waiting for
+ * someone to approve the estimate" is fixed in the review queue; the master
+ * switch is fixed in settings by somebody who may not be the person reading
+ * this. A single "couldn't do that" collapses three different jobs into one
+ * shrug — and a shrug is what makes people press the button again.
+ *
+ * ── Why it borrows the settings card's strings ─────────────────────────────
+ *
+ * app.setVoice.callback.* already carries a sentence per refusal code in all
+ * six languages, written for the same vocabulary the gate decides in. A second
+ * translation of "No phone number on the client" is the copy that rots,
+ * because it's the one nobody looks at. The one exception is `outbound_off`:
+ * that string reads "Automatic calls are switched off", which is an answer
+ * about a different feature to somebody who just pressed a manual button, so
+ * this surface says which switch and where.
+ */
+function CallNotice({ gate, result, clientId, clientName }) {
+  const { t } = useTranslation();
+
+  if (result?.kind === "queued") {
+    return (
+      <NoticeLine tone="positive" icon={CheckCircle2}>
+        {/* "Shortly", not "calling now". enqueueOutbound writes a task; the
+            cron places it within about fifteen minutes. */}
+        {t(
+          "app.quoteDetail.callQueued",
+          "Queued — we'll ring {name} within about 15 minutes.",
+          { name: clientName },
+        )}
+      </NoticeLine>
+    );
+  }
+  if (result?.kind === "already") {
+    return (
+      <NoticeLine tone="muted" icon={PhoneCall}>
+        {t(
+          "app.quoteDetail.callAlreadyQueued",
+          "A call about this quote is already queued. It'll go out within about 15 minutes.",
+        )}
+      </NoticeLine>
+    );
+  }
+  if (result?.kind === "error") {
+    return (
+      <NoticeLine tone="negative" icon={PhoneOff}>
+        {result.message}
+      </NoticeLine>
+    );
+  }
+
+  // The server's refusal beats the page's, because it read the row a moment
+  // ago and this copy of the quote may be several minutes old.
+  const reason =
+    result?.kind === "refused"
+      ? result.reason
+      : gate.allowed
+        ? null
+        : gate.reason;
+  if (!reason) return null;
+
+  const key = callbackReasonKey(reason);
+  const text =
+    reason === CALLBACK_REFUSED.OFF
+      ? t(
+          "app.quoteDetail.callOutboundOff",
+          "Outbound calling is switched off for your company. An owner can turn it back on in Settings → Phone receptionist.",
+        )
+      : // A code from a future release that this build has no sentence for
+        // falls back to the generic failure. t() renders the KEY when nothing
+        // resolves, and a dotted catalogue key on screen is worse than an
+        // honest "try again".
+        t(key, CALLBACK_REASON_TEXT[key] || t("app.quoteDetail.callError"));
+
+  return (
+    <NoticeLine tone="muted" icon={PhoneOff}>
+      {text}
+      {/* The commonest reason by a distance — the voice settings screen leads
+          with it — and the only one with a fix one click away. */}
+      {reason === CALLBACK_REFUSED.NO_PHONE && clientId && (
+        <>
+          {" "}
+          <Link
+            href={`/app/clients/${clientId}`}
+            className="underline font-medium"
+          >
+            {t("app.quoteDetail.callAddPhone", "Add a phone number")}
+          </Link>
+        </>
+      )}
+    </NoticeLine>
+  );
+}
+
+/** The line itself — right-aligned under the strip, so it reads as belonging
+ *  to the buttons above it rather than to the document below. */
+function NoticeLine({ tone, icon: Icon, children }) {
+  const colour =
+    tone === "positive"
+      ? "text-green-700 dark:text-green-400"
+      : tone === "negative"
+        ? "text-red-700 dark:text-red-400"
+        : "text-muted-foreground";
+  return (
+    <div
+      className={`-mt-2 flex items-start justify-end gap-1.5 text-sm sm:text-right ${colour}`}
+    >
+      <Icon size={14} className="mt-0.5 shrink-0" />
+      <span>{children}</span>
     </div>
   );
 }
