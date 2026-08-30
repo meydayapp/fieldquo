@@ -27,6 +27,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Loader2, Plus, Trash2, Upload } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
+// The same formatter the number-release confirmation uses, so a phone number
+// looks the same everywhere in the app rather than in whichever shape the
+// person happened to type it.
+import { formatNanpInput } from "@/lib/validation";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { ReadOnlyNotice } from "@/app/components/settings/PermissionNotice";
@@ -280,6 +284,10 @@ export default function QuoteEmailSettingsPage() {
                 <Field
                   value={r.phone}
                   disabled={!canEdit || saving}
+                  // A reference's number is read off this screen and dialled by
+                  // a person; an unpunctuated string of ten digits is the one
+                  // shape nobody can read back over the phone.
+                  format={formatNanpInput}
                   placeholder={t("app.setQuoteEmail.phone")}
                   onCommit={(phone) =>
                     setReferences(
@@ -443,16 +451,20 @@ function EmptyWarning({ t }) {
  * Saving per keystroke would round-trip through the sanitiser mid-word and
  * delete a half-typed row out from under the person typing it.
  */
-function Field({ value, placeholder, disabled, onCommit }) {
+// `format` is opt-in rather than sniffed from the placeholder: this Field also
+// holds a person's NAME, and running a phone formatter over "O'Brien" would
+// quietly delete it.
+function Field({ value, placeholder, disabled, onCommit, format }) {
   const [draft, setDraft] = useState(value ?? "");
   useEffect(() => setDraft(value ?? ""), [value]);
   return (
     <input
-      type="text"
+      type={format ? "tel" : "text"}
+      inputMode={format ? "tel" : undefined}
       value={draft}
       disabled={disabled}
       placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => setDraft(format ? format(e.target.value) : e.target.value)}
       onBlur={() => {
         if (draft !== (value ?? "")) onCommit(draft);
       }}
@@ -480,7 +492,8 @@ function AddRow({ label, disabled, onAdd, t }) {
         type="tel"
         value={phone}
         disabled={disabled}
-        onChange={(e) => setPhone(e.target.value)}
+        inputMode="tel"
+        onChange={(e) => setPhone(formatNanpInput(e.target.value))}
         placeholder={t("app.setQuoteEmail.phone")}
         className="flex-1 min-w-[8rem] px-2.5 py-1.5 text-sm rounded-md border border-border bg-card text-foreground"
       />
