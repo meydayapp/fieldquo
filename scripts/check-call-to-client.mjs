@@ -1359,6 +1359,80 @@ async function book({ modes, mode, address, clients = [] }) {
   const { res } = await book({ modes: ["call"], mode: "call", clients: [] });
   ok("a genuinely new caller still gets a client record", res.ok === true && globalThis.__FQ_ROWS.client.length === 1);
 }
+
+/* ═══ The deadlock: a callback booked as a visit, refused for no address ═══
+ *
+ * A real 2m40s call. The agent took the name, the number, the email and the
+ * reason, called check_availability, offered Thursday at three, the caller
+ * accepted — and then:
+ *
+ *   >> book_visit {slot, name, phone, email}
+ *   << {"booked":false,"reason":"address_required"}     (twice)
+ *
+ * Big painter Inc charges for one consultation, so phoneBookableModes withholds
+ * "visit" and the agent's modes are ["call"]. toolDefinitions then omits BOTH
+ * the `mode` parameter (only sent when there is a choice) AND the `address`
+ * parameter (only sent when a visit is possible). So the agent could not say
+ * "this is a call", bookSlot read offeredModes(company) — the company's full
+ * ["visit","call"] — fell to offered[0] = "visit", and refused for an address
+ * the agent had no field to send. It asked the caller, got the address,
+ * re-sent identical arguments, and was refused again. Nothing was ever booked.
+ *
+ * The mode now comes from visitPolicy, the one function the prompt, the tools
+ * and the slot list already read.
+ */
+{
+  resetDb();
+  globalThis.__FQ_ROWS.company = [
+    { id: "co_1", bookingModes: ["visit", "call"], stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto" },
+  ];
+  // The shape that caused it: one free type the phone may book, one PAID type
+  // whose existence withholds "visit".
+  globalThis.__FQ_ROWS.eventType = [
+    { id: "et_freeXX", companyId: "co_1", active: true, name: "Callback", feeCents: 0, durationMinutes: 30, userId: "u1", location: "Phone or on-site visit" },
+    { id: "et_paidYY", companyId: "co_1", active: true, name: "Consultation", feeCents: 5000, durationMinutes: 60, userId: "u1", location: "On-site" },
+  ];
+  globalThis.__FQ_ROWS.booking = [];
+  globalThis.__FQ_ROWS.appointment = [];
+  globalThis.__FQ_ROWS.client = [];
+  globalThis.__FQ_ROWS.voiceCall = [{ id: "vc_1", companyId: "co_1" }];
+
+  const tools = toolDefinitions("https://x", { canBook: true, bookableModes: ["call"] });
+  const book = tools.find((t) => t.name === "book_visit");
+  ok(
+    !("mode" in book.parameters.properties) && !("address" in book.parameters.properties),
+    "with one mode the agent has NO field for mode and none for address — which is what made this unwinnable",
+    Object.keys(book.parameters.properties),
+  );
+
+  // Exactly the arguments the real call sent: no mode, no address.
+  const res = await bookSlot({
+    companyId: "co_1",
+    callId: "vc_1",
+    slotId: `freeXX_${Date.now() + 86400000}`,
+    name: "Capri",
+    phone: "+18192387263",
+    email: "emilio.boves@gmail.com",
+    reason: "Kitchen refinishing",
+  });
+  ok("the callback BOOKS", res.ok === true, json(res.reason));
+  ok("...as a call, not a visit", res.mode === "call", json(res.mode));
+  ok(
+    "...and is never refused for an address it had no way to send",
+    res.reason !== "address_required",
+    json(res.reason),
+  );
+  ok(
+    "...landing a real booking row",
+    globalThis.__FQ_ROWS.booking[0]?.mode === "call",
+    json(globalThis.__FQ_ROWS.booking[0]?.mode),
+  );
+  ok(
+    "...and the email the caller spelled out reaches it, so the confirmation sends",
+    globalThis.__FQ_ROWS.booking[0]?.clientEmail === "emilio.boves@gmail.com",
+    json(globalThis.__FQ_ROWS.booking[0]?.clientEmail),
+  );
+}
 // The sentence the caller actually hears.
 {
   const route = read("app/api/voice/tools/[tool]/route.js");
