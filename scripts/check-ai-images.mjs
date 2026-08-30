@@ -457,7 +457,22 @@ ok(/key:\s*"marketing_designer"/.test(REGISTRY), "marketing_designer is a regist
 ok(new RegExp(`featureAllowsSpend\\([^)]*["']ai_vision["']`).test(VISION_ROUTE), "the vision route calls featureAllowsSpend with the literal key 'ai_vision'");
 ok(new RegExp(`featureAllowsSpend\\([^)]*["']marketing_designer["']`).test(DESIGNER_ROUTE), "the designer route calls featureAllowsSpend with the literal key 'marketing_designer'");
 ok(/apiPrefixes:\s*\[\s*["']\/api\/quotes\/\[id\]\/vision["']/.test(REGISTRY), "ai_vision claims the vision route's own API prefix");
-ok(/apiPrefixes:\s*\[\s*["']\/api\/marketing\/designer\/images["']/.test(REGISTRY), "marketing_designer claims the designer route's own API prefix");
+// Matched anywhere in the entry's apiPrefixes list, not as its FIRST element.
+// The original anchored to position and broke the moment marketing_designer
+// grew a second and third route (the canvas editor's own /api/designer/generate
+// and /api/designer/remove-bg landed from a separate worktree). What matters is
+// that every billable route is claimed — not the order they are written in.
+ok(
+  /key: "marketing_designer"[\s\S]*?apiPrefixes: \[[\s\S]*?"\/api\/marketing\/designer\/images"[\s\S]*?\]/.test(REGISTRY),
+  "marketing_designer claims the designer route's own API prefix",
+);
+// And the editor's two, which are the same money through a different door.
+for (const route of ["/api/designer/generate", "/api/designer/remove-bg"]) {
+  ok(
+    new RegExp(`key: "marketing_designer"[\\s\\S]*?apiPrefixes: \\[[\\s\\S]*?"${route.replace(/\//g, "\\/")}"[\\s\\S]*?\\]`).test(REGISTRY),
+    `…and ${route}, so no billable route is left ungated`,
+  );
+}
 
 // spendGate.js's own kind→feature map must still point at these two keys —
 // the map this whole check assumed at the top.
