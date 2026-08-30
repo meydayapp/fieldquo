@@ -21,7 +21,12 @@ import { db } from "@/lib/db";
 import { memberOrRefusalPlain } from "@/lib/apiMember";
 import { requirePermission } from "@/lib/permissions";
 import { voiceConfigured, listVoices } from "@/lib/voice/retell";
-import { pickableVoices, DEFAULT_VOICE_ID, DEFAULT_VOICE_ID_FR } from "@/lib/voice/voices";
+import {
+  pickableVoices,
+  pickDefaultVoice,
+  DEFAULT_VOICE_ID,
+  DEFAULT_VOICE_ID_FR,
+} from "@/lib/voice/voices";
 
 export async function GET(request) {
   // memberOrRefusalPlain returns a PLAIN object, not a Response — the "plain"
@@ -61,11 +66,27 @@ export async function GET(request) {
     return NextResponse.json({ voices: [], reason: "not_configured" });
   }
 
-  const company = await db.company.findUnique({
-    where: { id: member.companyId },
-    select: { defaultLanguage: true },
-  });
-  const language = company?.defaultLanguage === "fr" ? "fr" : "en";
+  const [company, agent] = await Promise.all([
+    db.company.findUnique({
+      where: { id: member.companyId },
+      select: { defaultLanguage: true },
+    }),
+    // What is answering the phone TODAY. The shortlist is three voices, so a
+    // company that chose something else before it existed would open a picker
+    // with nothing selected, about a phone that is very definitely saying
+    // something — and the first save would silently change how their business
+    // sounds. pickableVoices takes `keep` for exactly this, and until now
+    // nothing passed it.
+    db.voiceAgent.findUnique({
+      where: { companyId: member.companyId },
+      select: { voice: true },
+    }),
+  ]);
+  // Spanish is a language a company can actually be set to, and the shortlist
+  // has a voice for it — so this is no longer a French-or-English question.
+  const language = ["fr", "es"].includes(company?.defaultLanguage)
+    ? company.defaultLanguage
+    : "en";
 
   let raw = null;
   try {
@@ -77,10 +98,21 @@ export async function GET(request) {
     return NextResponse.json({ voices: [], reason: "unavailable" });
   }
 
+  const voices = pickableVoices(raw, { language, keep: agent?.voice || null });
+
   return NextResponse.json({
-    voices: pickableVoices(raw, { language }),
+    voices,
     // What answers the phone when nothing is chosen, so the screen can label it
     // rather than showing a blank select and leaving the reader to guess.
-    defaultVoiceId: language === "fr" ? DEFAULT_VOICE_ID_FR : DEFAULT_VOICE_ID,
+    //
+    // Resolved from the SAME list the picker shows, and by the same function
+    // voiceFor() provisions with, because the screen renders this by looking
+    // the id up among those voices: a constant that is no longer in the list
+    // came out the other side as the raw string "11labs-Adrian", printed to a
+    // contractor as the name of their standard voice.
+    defaultVoiceId: pickDefaultVoice(voices, {
+      language,
+      fallback: language === "fr" ? DEFAULT_VOICE_ID_FR : DEFAULT_VOICE_ID,
+    }),
   });
 }

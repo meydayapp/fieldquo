@@ -475,7 +475,19 @@ export async function PUT(request) {
     let available = [];
     if (voiceConfigured()) {
       const raw = await listVoices().catch(() => null);
-      available = Array.isArray(raw) ? pickableVoices(raw) : [];
+      // `keep` is the voice already in use, and it has to be passed here for
+      // the same reason the picker passes it: pickableVoices returns the
+      // SHORTLIST, so a company that chose a voice before the shortlist existed
+      // would have that voice refused as "not one the provider offers" — on a
+      // save where they changed the greeting and never touched the voice at
+      // all. The provider does offer it. We simply stopped recommending it.
+      const current = await db.voiceAgent.findUnique({
+        where: { companyId: member.companyId },
+        select: { voice: true },
+      });
+      available = Array.isArray(raw)
+        ? pickableVoices(raw, { keep: current?.voice || null })
+        : [];
     }
     // With no reachable provider the only safe move is to accept CLEARING the
     // choice and refuse setting one — we cannot tell a real id from a typo, and

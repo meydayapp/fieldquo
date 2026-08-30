@@ -890,6 +890,45 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Three voices, and a receptionist that speaks the company's language.
+  `lib/voice/voices.js`, `lib/voice/agentLanguage.js`, `lib/voice/prompt.js`.**
+
+  Narrowing to three PROVIDERS did not narrow the screen: Cartesia alone ships
+  about twenty voices, so the picker still offered around thirty — including two
+  called Willa, from different vendors, sounding nothing like each other. A
+  contractor choosing how their business answers the phone is not auditioning a
+  voice cast.
+
+  The picker is now three voices, by name, all Cartesia: **Andrew** (English),
+  **Emma** (French), **Alejandro** (Spanish). Matched by provider + name against
+  the live `/list-voices`, never by a typed id — if Cartesia retires one it
+  quietly stops appearing instead of failing `/create-agent` and leaving a
+  receptionist unprovisioned.
+
+  **The language half was a dead control and had been since the feature
+  shipped.** The provider's `language` field sets transcription and the voice;
+  it does not tell the model what to say. No prompt in `prompt.js` named a
+  language, so every receptionist answered in English — a French company's
+  included, unless its owner happened to type a French greeting by hand. Adding
+  Alejandro without fixing that would have shipped an agent reading English
+  words in a Spanish accent. Fixed: a LANGUAGE section in the prompt, a greeting
+  per language, and `es → es-419` on the agent.
+
+  `uk`, `pa` and `tl` still reach the phone as `en-US`, deliberately: Retell has
+  locales for them, `prompt.js` does not, and a receptionist reading English in
+  a Punjabi accent is worse than one plainly speaking English, and much harder
+  to notice.
+
+  Three bugs found on the way. `keep` — the voice already in use — was written
+  into `pickableVoices` and passed by nobody, so the save route would have
+  refused a company's own voice as "not one the provider offers" on a save where
+  they only edited the greeting. The screen's "standard voice" label looked its
+  id up in the list it renders, so a constant no longer in that list printed to
+  the contractor as the raw string `11labs-Adrian`. And `check-voice-picker.mjs`
+  had an assertion written `ok("a preview is carried…")` — the message passed as
+  the condition, so a non-empty string was the test, passing on every build for
+  as long as it existed.
+
 - **Every agent shipped on the priciest voice, and the one its vendor warns
   about. `lib/voice/voices.js`, `lib/voice/provision.js`.**
 
