@@ -1016,6 +1016,100 @@ they set the pattern.
   + three `Expense` columns) is written and `prisma validate`/`generate`
   pass against a dummy URL, but someone with real credentials has to push it
   before the import routes will work against the live database.
+- **Marketing Designer — actually reachable now. `MarketingDesign` +
+  `MarketingDesignLayout` (`prisma/schema.prisma`),
+  `app/api/marketing/designer/designs/`,
+  `app/app/marketing/designer/`, `app/components/designer/CampaignEditor.js`
+  + `CampaignEditorLoader.js`.**
+
+  Everything two entries below was ported, priced and gated, and nothing
+  could open it — `marketing_designer` sat at `defaultState: "hidden"`
+  because no `/app` page mounted `DesignerLoader` and there was nowhere to
+  save a design to. Flipped to **`on`**: `/app/marketing/designer` (a
+  campaigns/designs index) and `/app/marketing/designer/[id]` (the editor)
+  both exist now, gated by a `layout.js` mounting `<FeatureGate
+  feature="marketing_designer">`, nested inside the existing
+  `marketing_campaigns` gate at `/app/marketing` on purpose — a design always
+  belongs to a `MarketingCampaign`, so withdrawing marketing entirely leaves
+  nothing to attach one to either.
+
+  **The data model, modelled honestly per the owner's brief:** a design
+  belongs to one campaign and has ONE SAVED LAYOUT PER ASPECT RATIO, not one
+  shared blob — `lib/marketing/ratios.js`'s own header explains why: each
+  ratio's adjustments have to persist separately, or fixing the Story
+  disturbs the square. `MarketingDesignLayout` carries its own `json` (a
+  fabric `canvas.toJSON(JSON_KEYS)` document), `width`, `height`, and a
+  `@@unique([designId, ratioKey])` so a second save for the same ratio
+  REPLACES it (upsert) instead of accumulating history rows or, worse,
+  colliding with a different ratio's row. `MarketingDesignLayout` has no
+  `companyId` of its own — reached only through a `MarketingDesign` already
+  proved to belong to the caller's company, the same pattern `PamphletStop`
+  uses for `MarketingCampaign`.
+
+  **Tabs across all five ratios, the feature the coordinator called "not a
+  detail."** Clicking a tab with no saved layout yet reflows the CURRENT tab's
+  content into it via the existing `reflow()` (nothing reimplemented);
+  clicking a tab that already has one loads it back. Getting the ROUTING
+  right — which ratio a debounced autosave belongs to — turned out to be the
+  actual engineering problem: `Editor.js`'s save chain
+  (`saveCallback` → `useHistory`'s `save` → the `editor` object itself) is
+  rebuilt fresh every time the `saveCallback` prop's IDENTITY changes, so
+  `CampaignEditor.js` deliberately gives it a NEW identity per active ratio
+  (a `useCallback` keyed on ratio STATE, not a mutable ref) — a save already
+  in flight when a tab changes keeps calling the OLD closure, tagged for the
+  OLD ratio, rather than a ref-read-at-fire-time redirecting it to the new
+  one. A new `onEditorReady` prop on `Editor.js` (additive, every existing
+  caller unaffected) is what lets `CampaignEditor.js` hold the live `editor`
+  object at all — nothing in `app/components/designer/` needed it before.
+
+  **"Download all" rasterises every ratio through an offscreen fabric
+  `StaticCanvas`, one file per ratio, named by `assetFilename()`** — never
+  the `crypto.randomUUID()` name every other export button uses
+  (`downloadFile()` in `lib/designer/utils.js` grew an optional third
+  `filename` argument for this one caller; every existing caller is
+  unaffected). A ratio the user never visited is derived at download time via
+  the SAME `reflow()` the tabs use — no fabric needed to compute a starting
+  layout, only to render it. `overflowing()` warns per tab and in a summary
+  banner when artwork hangs over an edge; non-blocking, matching
+  `lib/marketing/ratios.js`'s own "this is a starting point" stance.
+
+  **The one build failure worth recording:** a dynamic `import("fabric")`
+  inside the page's download-all click handler looked safe — it isn't.
+  Turbopack still resolves the specifier while analysing the SSR bundle for
+  an ordinary (non-`ssr:false`) page, and fabric's UMD wrapper has a
+  `require("jsdom")` branch this repo doesn't install jsdom for. Real
+  `next build` failure: `Can't resolve 'jsdom'`. Fixed by moving every
+  fabric-touching line into `CampaignEditor.js`, reached only through its own
+  `CampaignEditorLoader.js` (`next/dynamic(..., { ssr: false })`) — the same
+  fix `DesignerLoader.js` already applies to `Editor.js`, one layer up.
+
+  `scripts/check-designer-reach.mjs` (`npm run check:designer-reach`, folded
+  into `check:all`) executes the real route handlers against an in-memory
+  Prisma stand-in — two ratios of the same design land in two separate rows
+  and a re-save of one never touches the other, a foreign `campaignId` is
+  refused and writes nothing, a cross-tenant load 404s rather than leaking
+  layouts — plus source-level checks that the ssr:false chain is unbroken and
+  every exported filename is distinct. Seven mutations tried by hand while
+  writing it, all seven caught: the ssr:false flag removed, the tenant-scope
+  check commented out, the upsert key hardcoded to one ratio (the two rows
+  collapsed into one, silently discarding the other ratio's edits), the
+  download filename argument dropped, the registry's `defaultState` flipped
+  back to `hidden`, the cross-tenant `companyId` check removed, and the
+  gate's `layout.js` marked `"use client"`.
+
+  **Known coupling, left as-is:** `SettingsSidebar.js`'s existing general
+  "resize the canvas" tool also renders the `AD_RATIOS` presets and calls the
+  same `editor.changeRatio()`. Using that control instead of a tab inside the
+  campaign editor reflows the canvas without going through this page's
+  tab-tracking state, so the next autosave stays tagged with whatever tab was
+  last clicked — a narrow, documented gap (see `CampaignEditor.js`'s own
+  module doc), not a silent one.
+
+  **Not built here:** a rename UI for a saved design (the `PATCH` route
+  exists, unused by any screen — no dead button rendered for it) and any
+  change to the AI credit top-up flow (a different agent's scope, per the
+  coordinator's brief).
+
 - **The two paid AI image features actually spend money now — the deep
   photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,
   `lib/ai/provider.js`'s new `generateImage()`,
@@ -1049,11 +1143,13 @@ they set the pattern.
   `reflow()` is what turns one picture into every shape.
 
   Registered as two features: `ai_vision` (on — it has a real caller, the
-  quote builder's `SuggestAddOns.js`) and `marketing_designer` (**hidden** —
-  the endpoint is real and gated, but the canvas editor a contractor would
-  actually reach it through is separate, unshipped work; naming a route
-  nobody can click to on a live registry would be exactly the "control that
-  appears to work" AGENTS.md warns about). `scripts/check-ai-images.mjs`
+  quote builder's `SuggestAddOns.js`) and `marketing_designer` (**was
+  hidden** at the time this entry was written — the endpoint was real and
+  gated, but the canvas editor a contractor would reach it through was
+  separate, unshipped work, and naming a route nobody could click to on a
+  live registry would have been exactly the "control that appears to work"
+  AGENTS.md warns about. Flipped to `on` once the editor became reachable —
+  see the entry at the top of this section). `scripts/check-ai-images.mjs`
   executes the wallet routing for real against a stubbed ledger and reads
   both routes for reserve-before-vendor-call ordering and refund-on-failure.
   One mutation survived the first pass — deleting the refund from the
@@ -1228,8 +1324,8 @@ they set the pattern.
 
 - **The canvas editor port itself. `app/components/designer/`,
   `lib/designer/`, `app/api/designer/`.** *(foundation for the Marketing
-  Designer — editor ported and every source-clone feature restored, not yet
-  reachable from any page)*
+  Designer — editor ported and every source-clone feature restored; made
+  reachable from a page since, see the entry at the top of this section)*
 
   Ported from a Fabric.js v5 Canva clone (TypeScript, Radix, uploadthing,
   react-query, Replicate) into this repo's plain-JS/`@base-ui/react` stack.
@@ -1324,16 +1420,17 @@ they set the pattern.
   path string split so it never reads as an import specifier in the checker's
   own file.
 
-  **Not built here, by design:** the Prisma model for a company's own
-  *saved* designs (as opposed to the global template catalog, which now
-  exists), the save API route, and the real AI vendor call —
-  `initialData`/`saveCallback` are left as the injection point for the first
-  two, exactly as the source clone used them, and `lib/designer/aiImageAdapter.js`'s
-  TODO seam is the injection point for the third. Nothing imports
-  `DesignerLoader` from any page yet. `DATABASE_URL` for the real Neon dev
-  database was pulled from the main repo's `.env` (gitignored, machine-local
-  — see AGENTS.md) to actually run `npx prisma db push` and the seed script
-  against it this session, rather than only validating the schema offline.
+  **Not built here at the time, by design — both landed since, see the top
+  entry in this section:** the Prisma model for a company's own *saved*
+  designs (as opposed to the global template catalog, which existed already),
+  the save API route, and the real AI vendor call — `initialData`/
+  `saveCallback` were left as the injection point for the first two, exactly
+  as the source clone used them, and `lib/designer/aiImageAdapter.js`'s TODO
+  seam was the injection point for the third (closed in the entry two above
+  this one). `DATABASE_URL` for the real Neon dev database was pulled from
+  the main repo's `.env` (gitignored, machine-local — see AGENTS.md) to
+  actually run `npx prisma db push` and the seed script against it this
+  session, rather than only validating the schema offline.
 
 - **The cost basis for paid AI images, and the ledger kinds to charge it.
   `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — both

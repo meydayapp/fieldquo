@@ -987,6 +987,7 @@ model Company {
   serviceCategories     CompanyServiceCategory[]
   customQuoteTypes      ServiceCategory[]
   marketingCampaigns    MarketingCampaign[]
+  marketingDesigns      MarketingDesign[]
   documentTemplates     DocumentTemplate[]
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
@@ -3057,10 +3058,80 @@ model MarketingCampaign {
   sentAt         DateTime?
   recipientCount Int?
 
-  stops PamphletStop[]
+  stops   PamphletStop[]
+  designs MarketingDesign[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A saved advert built in the Marketing Designer canvas editor
+// (app/components/designer/). Distinct from DesignTemplate — that is a
+// global, company-agnostic starter shelf every company sees the same rows
+// of; this is what one company actually built, tied to the campaign it is
+// advertising.
+//
+// Multi-tenant like every model in this schema: companyId scopes it
+// directly rather than only through campaignId, so a lookup never has to
+// walk the relation to prove ownership (lib/tenant/ownedIds.js's convention
+// — see also its OWNED_ID_FIELDS entry for campaignId, which every route
+// creating a design must prove against before writing this foreign key).
+model MarketingDesign {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  campaignId String
+  campaign   MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name String
+
+  layouts MarketingDesignLayout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([campaignId])
+}
+
+// One row per aspect ratio the design has been adjusted for.
+//
+// lib/marketing/ratios.js's own header explains why this can't be a single
+// shared layout: reflow() only ever produces a STARTING point for a new
+// ratio, a human adjusts it from there, and "each ratio's adjustments are
+// SAVED SEPARATELY, so fixing the Story does not disturb the square" is the
+// whole point of that module. Modelling one JSON blob per design here would
+// throw that away the moment a second ratio was opened.
+//
+// No companyId of its own — reached only through a MarketingDesign already
+// proved to belong to the caller's company, the same pattern PamphletStop
+// uses for MarketingCampaign (see app/api/marketing/campaigns/[id]/stops):
+// a child table hanging off an owner that was already checked doesn't need
+// a second copy of the same fact.
+model MarketingDesignLayout {
+  id       String          @id @default(cuid())
+  designId String
+  design   MarketingDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  /// One of lib/marketing/ratios.js's AD_RATIOS keys (e.g. "instagram_post").
+  /// A plain string rather than an enum: the ratio list is product-owned and
+  /// AD_RATIOS can grow without a schema migration.
+  ratioKey String
+  /// A fabric.js canvas.toJSON(JSON_KEYS) document — see
+  /// lib/designer/constants.js's JSON_KEYS for the exact extra props that
+  /// must round-trip. Native Json, same convention as DesignTemplate.json.
+  json   Json
+  width  Int
+  height Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One saved layout per ratio per design — saving again for the same ratio
+  // REPLACES it (upsert on this key), it never accumulates a history row.
+  @@unique([designId, ratioKey])
+  @@index([designId])
 }
 
 // A marketing-email recipient — either imported from the Client list or

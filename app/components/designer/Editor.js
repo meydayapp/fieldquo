@@ -62,8 +62,19 @@ import { SettingsSidebar } from "@/app/components/designer/SettingsSidebar";
  * @param {Object} props
  * @param {{json?: string, width?: number, height?: number}} [props.initialData]
  * @param {(values: {json: string, height: number, width: number}) => (void|Promise<void>)} [props.saveCallback]
+ * @param {(editor: import("@/lib/designer/constants").Editor | undefined) => void} [props.onEditorReady] -
+ *   optional escape hatch for a caller that needs to drive the canvas from
+ *   OUTSIDE this component tree — the campaign editor page's ratio tab bar
+ *   (app/app/marketing/designer/[id]/page.js) is the one consumer today, and
+ *   it needs editor.changeRatio()/loadJson() to switch a tab and
+ *   editor.canvas for "download all". Nothing inside app/components/designer/
+ *   reads this prop; every sidebar still gets `editor` the way it always did,
+ *   built here and threaded down. Fired on every identity change of `editor`
+ *   (useEditor.js rebuilds it often — a colour picked, a shape selected —
+ *   which is why a consumer must guard for "nothing changed that I care
+ *   about" itself rather than assume one call means one meaningful event).
  */
-export function Editor({ initialData, saveCallback }) {
+export function Editor({ initialData, saveCallback, onEditorReady }) {
   // "unavailable" (no saveCallback wired — nothing rendered), "idle" (has a
   // callback, nothing saved yet this session), "pending", "saved", "error".
   const [saveStatus, setSaveStatus] = useState(saveCallback ? "idle" : "unavailable");
@@ -105,6 +116,13 @@ export function Editor({ initialData, saveCallback }) {
     clearSelectionCallback: onClearSelection,
     saveCallback: debouncedSave,
   });
+
+  // See the onEditorReady JSDoc above: a no-op for every caller that doesn't
+  // pass it, and the only wire a caller outside this tree has to the live
+  // `editor` object.
+  useEffect(() => {
+    onEditorReady?.(editor);
+  }, [editor, onEditorReady]);
 
   const onChangeActiveTool = useCallback(
     (tool) => {

@@ -21,6 +21,7 @@ import {
   Briefcase,
   Receipt,
   Megaphone,
+  Palette,
   Headset,
   BadgeCheck,
   Clock,
@@ -149,6 +150,12 @@ const NAV_GROUPS = [
     key: "app.nav.group.grow",
     items: [
       { key: "app.nav.marketing", href: "/app/marketing", icon: Megaphone },
+      // The multi-ratio ad canvas editor — its own row, not folded into the
+      // Marketing hub link above, because it is a different verb (design one
+      // asset in five sizes vs. run a campaign) and the check-sidebar.mjs
+      // "every item is found by typing its own label" rule needs its own
+      // href to prove reachable.
+      { key: "app.nav.marketingDesigner", href: "/app/marketing/designer", icon: Palette },
       { key: "app.nav.funnels", href: "/app/funnels", icon: Filter },
       { key: "app.nav.receptionist", href: "/app/receptionist", icon: Headset },
       { key: "app.nav.crewInbox", href: "/app/crew-inbox", icon: MessageSquare },
