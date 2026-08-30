@@ -955,6 +955,68 @@ they set the pattern.
   that produces zeros rather than the one that divides by zero and produces
   Infinity.
 
+- **The canvas editor port itself. `app/components/designer/`,
+  `lib/designer/`.** *(foundation for the Marketing Designer — editor ported,
+  not yet reachable from any page)*
+
+  Ported from a Fabric.js v5 Canva clone (TypeScript, Radix, uploadthing,
+  react-query, Replicate) into this repo's plain-JS/`@base-ui/react` stack.
+  `fabric@5.3.0-browser` pinned exactly — the default `fabric` package expects
+  a node-canvas binding this repo has no use for and doesn't want to build;
+  the `-browser` build touches `window`/`document` at import time instead,
+  which is why every file that imports it opens with `"use client"` and the
+  editor root is only ever reached through
+  `app/components/designer/DesignerLoader.js`'s `next/dynamic(..., { ssr:
+  false })` — not a perf choice, the only way the SSR pass doesn't crash on it.
+
+  Three real bugs fixed in the port, not carried forward: `createFilter`'s
+  "gamma" case fell through into "saturation" for want of a `break;` (choosing
+  Gamma silently applied Saturation instead); `transformText` normalised
+  legacy `text` objects with a bare comparison — `item.type === "textbox"` —
+  whose result was discarded, so it did nothing; `saveSvg()` called
+  `canvas.toDataURL()`, the same raster export `savePng()` uses, and downloaded
+  it with a `.svg` extension — a PNG wearing a lie of a file extension. Fixed
+  to call `canvas.toSVG()` for real. (A fourth, unrequested but same failure
+  class: `saveJpg()` inherited `format: "png"` from its shared options
+  builder — also fixed.)
+
+  Wired to `lib/marketing/ratios.js` per the note on that entry above:
+  `SettingsSidebar`'s new "Frame" section calls `editor.changeRatio()`, which
+  reflows the document through the existing `reflow()`/`overflowing()` — not
+  reimplemented here — and surfaces a non-blocking warning when artwork still
+  hangs over the new frame's edge.
+
+  Dropped rather than ported: `ai-sidebar` (Replicate image generation) and
+  `remove-bg-sidebar` (background removal), both paywalled AI features with no
+  backend in this repo — shipping either button would be the dead-control
+  failure this file warns about throughout, not a stub worth keeping.
+  `template-sidebar` dropped with its `useConfirm`/`useGetTemplates`
+  dependencies. Every `usePaywall` call, `UserButton`, react-icons,
+  `@tanstack/react-query`, and Hono usage went with them. Image upload is
+  rewired to the existing `MediaUploader` + `/api/upload` (Cloudinary,
+  authenticated) rather than left pointing at uploadthing or Unsplash.
+  `react-color` is kept (colour picker) and flagged unmaintained in a comment
+  — replacing it was judged a larger risk than the small, inert dependency it
+  is.
+
+  `Slider`, `DropdownMenu`, and `Tooltip` didn't exist in `components/ui/` and
+  were built on `@base-ui/react` for this port; `Hint` (the toolbar tooltip
+  wrapper) at `components/Hint.jsx`. `scripts/check-designer.mjs` executes the
+  two fabric-free bug fixes for real (transformText, debounce) and checks the
+  fabric-dependent ones (Gamma/Saturation, saveSvg, the ratios.js wiring)
+  against source text with comments stripped — the first draft of several of
+  those source-text assertions passed on a real mutation because the file's
+  own explanatory comment happened to repeat the code phrase being checked for
+  ("reflow(", "ssr: false", "editor.changeRatio("); scoping every such check
+  to comment-free code, and to the specific call shape rather than a bare
+  substring, is what catches the mutation instead of reading its own prose
+  back.
+
+  **Not built here, by design:** the Prisma model, the save API route, AI
+  image generation, and credit gating — `initialData`/`saveCallback` are left
+  as the injection point for that work, exactly as the source clone used them.
+  Nothing imports `DesignerLoader` from any page yet.
+
 - **The cost basis for paid AI images, and the ledger kinds to charge it.
   `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — inert
   until the features land)*
