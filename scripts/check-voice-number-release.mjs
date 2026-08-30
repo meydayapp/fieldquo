@@ -526,7 +526,22 @@ const platformRoute = read("app/api/platform/voice-numbers/route.js");
 ok("the reconciliation route is superadmin-gated", platformRoute.includes("getCurrentPlatformAdmin"));
 ok("...refusing with a 401 otherwise", /Unauthorized[\s\S]{0,40}status: 401/.test(platformRoute));
 ok("...asking the PROVIDER rather than reading our own rows", platformRoute.includes("listAllNumbers()"));
-ok("...and including released rows, which is where the leak hides", platformRoute.includes("findMany({\n    include:"));
+// The query gained a `where` clause for `simulated: false` (demo numbers were
+// never bought at Retell, so comparing them against the provider's real
+// inventory would misreport every one as an "orphan" — see
+// lib/voice/demoLine.js and scripts/check-demo-number-pool.mjs, which is where
+// that exclusion is actually proven). The property this line exists to
+// protect is narrower than "no where clause at all": released rows must still
+// come through, so the assertion is that nothing filters on STATUS.
+const findManyCall = platformRoute.slice(
+  platformRoute.indexOf("db.voicePhoneNumber.findMany("),
+  platformRoute.indexOf("});", platformRoute.indexOf("db.voicePhoneNumber.findMany(")),
+);
+ok(
+  "...and including released rows, which is where the leak hides",
+  findManyCall.includes("include:") && !/status\s*:/.test(findManyCall),
+  `got: ${findManyCall}`,
+);
 ok(
   "...and editing nothing (AGENTS.md #3)",
   !/voicePhoneNumber\.(update|delete|create)/.test(platformRoute) && !platformRoute.includes("releaseNumber"),

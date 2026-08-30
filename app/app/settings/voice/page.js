@@ -827,7 +827,7 @@ export default function VoiceSettingsPage() {
     );
   }
 
-  const { agent, number, credit, pricing, sources, configured, readiness, numberChoice } = data;
+  const { agent, number, credit, pricing, sources, configured, readiness, numberChoice, demo } = data;
   // The route builds this sentence where there is no t(), so it travels as a
   // key plus its values with the English attached as the fallback.
   // Bracketed lines the phone will skip. Computed with the SAME function
@@ -1129,12 +1129,36 @@ export default function VoiceSettingsPage() {
                     ? t("app.setVoice.badgeTollFree", "toll-free")
                     : t("app.setVoice.badgeLocal", "local")}
               </span>
+              {number.simulated && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 font-medium">
+                  {t("app.setVoice.demoLine.badge", "demo line")}
+                </span>
+              )}
               {number.monthlyCents > 0 && (
                 <span className="text-xs text-muted-foreground">
                   {money(number.monthlyCents)}{t("app.setVoice.perMonth", "/month")}
                 </span>
               )}
             </div>
+
+            {/* ── A demo line can't take calls, and says so plainly ─────────
+                Required, not decoration: a plausible-looking number over a
+                line that cannot ring is exactly the "control that appears to
+                work and doesn't" AGENTS.md is built around. When FieldQuo's
+                own sales line is actually configured and live, this is the
+                strongest moment of the demo — a prospect stops looking at a
+                screen and hears it answer. `demo.fieldquoNumber` is FieldQuo's
+                own real phone number, which never appears on a real
+                contractor's screen: `demo.isDemo` (and, structurally,
+                `number.simulated`) only ever come back true for a sales
+                fixture — see the header comment in the GET route. */}
+            {number.simulated && (
+              <div className="rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+                {demo?.fieldquoNumberDisplay
+                  ? t("app.setVoice.demoLine.withReal", "This is a demo line and can't take calls — it's simulated, not a real number. Ring {number} to hear the real receptionist answer.", { number: demo.fieldquoNumberDisplay })
+                  : t("app.setVoice.demoLine.simulatedOnly", "This is a demo line and can't take calls — the setup is simulated, and no real phone number exists behind it.")}
+              </div>
+            )}
 
             {/* ── The number they are actually paying for ──────────────────
                 A forwarded setup has TWO numbers: the one on the van, which

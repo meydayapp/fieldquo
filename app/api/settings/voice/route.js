@@ -67,6 +67,9 @@ import {
   CREW_MMS_CENTS,
   SMS_SEGMENT_CHARS,
 } from "@/lib/crew/messaging";
+// FieldQuo's OWN real sales line — see the header note on `demo` below for why
+// it is fetched here at all.
+import { salesNumbers, demoInviteNumber } from "@/lib/platform/salesCall";
 
 /**
  * @param read  true only on GET. Non-negotiable #3: the platform console views
@@ -88,6 +91,28 @@ async function requireAdmin(request, { read = false } = {}) {
     return { error: "Only an owner or admin can change the receptionist.", status: 403 };
   }
   return { member };
+}
+
+/**
+ * FieldQuo's own real number, if — and only if — this company is a demo AND
+ * the number is actually live. The decision itself is pure (`demoInviteNumber`
+ * in lib/platform/salesCall.js); this only gathers what it needs to decide —
+ * whether lib/platform/salesAgent.js's PlatformVoiceAgent is switched on —
+ * with a plain DB read rather than a live provider call, since this route
+ * runs on every company's page load and a Retell round trip for an admin's
+ * own settings screen is not a cost worth paying here.
+ */
+async function fieldquoInviteNumber(isDemo) {
+  const platformAgent = isDemo
+    ? await db.platformVoiceAgent
+        .findUnique({ where: { id: "fieldquo" }, select: { enabled: true } })
+        .catch(() => null)
+    : null;
+  return demoInviteNumber({
+    isDemo,
+    numbers: salesNumbers(),
+    agentEnabled: Boolean(platformAgent?.enabled),
+  });
 }
 
 export async function GET(request) {
@@ -112,6 +137,10 @@ export async function GET(request) {
       select: {
         name: true, outboundCallsEnabled: true, outboundQuoteCallScope: true,
         crewInboxEnabled: true,
+        // Whether this is a sales fixture rather than a customer — see `demo`
+        // below, computed after this query, for why it changes what the screen
+        // is allowed to show.
+        isDemo: true,
         // Where the receptionist tells a caller to email photos, and the
         // language its spoken trade names come out in. Both feed the "what it
         // asks for" note the settings screen prints — see quoteTopicsForCompany.
@@ -238,11 +267,37 @@ export async function GET(request) {
                 message: `Add credit first — a call costs ${ratePerMinute(type)}¢ a minute and your balance is $${(cents / 100).toFixed(2)}. It would pick up and fail.`,
               };
 
+  // ── A demo line invites the real thing ───────────────────────────────────
+  //
+  // Only ever computed for a company whose isDemo is true — non-negotiable #1
+  // in AGENTS.md: FieldQuo is white-label by default, and this is the one
+  // deliberate exception, because a demo account is a sales fixture, not a
+  // contractor's business, and a prospect on a demo call is the audience
+  // FieldQuo's own number is FOR. Gated on the SAME row `company` above
+  // already read, so a real contractor's screen never even asks the question.
+  //
+  // `fieldquoNumber` is only ever set when the line is actually configured —
+  // FIELDQUO_SALES_NUMBER names one AND FieldQuo's own platform agent is
+  // switched on — the same not_configured/unavailable distinction
+  // /api/settings/voice/voices/route.js draws: an unset variable and a set one
+  // that isn't live are different states, and neither should render as a dead
+  // tel: link a prospect taps on and nobody answers.
+  const fieldquoNumber = await fieldquoInviteNumber(Boolean(company?.isDemo));
+  const demo = {
+    isDemo: Boolean(company?.isDemo),
+    fieldquoNumber,
+    // Formatted HERE for the same reason `number.display` is: lib/voice/
+    // numbers.js imports Prisma, so a client component calling formatNumber
+    // itself would drag the database driver into the browser bundle.
+    fieldquoNumberDisplay: fieldquoNumber ? formatNumber(fieldquoNumber) : null,
+  };
+
   return NextResponse.json({
     // Said out loud rather than failing mysteriously. Locally there's no key,
     // and "not set up yet" is a state the screen has to render, not an error.
     configured: voiceConfigured(),
     companyName: company?.name || null,
+    demo,
     agent: agent
       ? {
           enabled: agent.enabled,
@@ -294,6 +349,11 @@ export async function GET(request) {
           source: number.source,
           status: number.status,
           numberType: type,
+          // A demo's own line — see `demo` above. Labelled in the UI wherever
+          // this number appears, because a plausible-looking number over a line
+          // that cannot ring is exactly the "control that appears to work and
+          // doesn't" AGENTS.md is built around.
+          simulated: Boolean(number.simulated),
           monthlyCents: number.monthlyCents,
           portExpectedAt: number.portExpectedAt,
           // What the rental is doing right now — when it next comes out, and

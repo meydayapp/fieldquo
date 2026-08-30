@@ -147,7 +147,14 @@ function routingProblems(list) {
 }
 
 const AGENT = "agent_abc123";
-const E164 = "+15145550142";
+// NOT NPA-555-01XX. That block is reserved by NANP for fiction, and
+// lib/voice/retell.js now recognises exactly that shape as a DEMO number and
+// answers it locally without ever reaching fetch — see "a demo's line,
+// simulated here" in that file and scripts/check-demo-number-pool.mjs, which
+// executes that path on purpose. This script is testing the OPPOSITE thing —
+// the real request bodies sent for a real, paid company — so its fixture has
+// to fall outside that block or every assertion below silently stops running.
+const E164 = "+15145559876";
 
 const bought = await capture(() => buyNumber({ areaCode: "514", agentId: AGENT, nickname: "n" }));
 const imported = await capture(() =>
@@ -158,7 +165,7 @@ const detached = await capture(() => attachAgent(E164, null));
 const fetched = await capture(() => getNumber(E164));
 const listed = await capture(() => listNumbers());
 const dialled = await capture(() =>
-  createPhoneCall({ fromE164: E164, toE164: "+15145550199", agentId: AGENT }),
+  createPhoneCall({ fromE164: E164, toE164: "+15145559854", agentId: AGENT }),
 );
 
 // ── Nothing deprecated reaches the wire ───────────────────────────────────
@@ -296,7 +303,7 @@ check(
   "create-phone-call is the /v2/ path with from_number + to_number",
   dialled.url.endsWith("/v2/create-phone-call") &&
     dialled.body?.from_number === E164 &&
-    dialled.body?.to_number === "+15145550199",
+    dialled.body?.to_number === "+15145559854",
   `got ${dialled.method} ${dialled.url} ${JSON.stringify(dialled.body)}`,
 );
 check(

@@ -1147,6 +1147,46 @@ they set the pattern.
   split it" problem in reverse — but nothing enforces the hub keeps linking
   to all four, and `check-nav-audit.mjs`'s `DRILL_INS` entry for them is a
   documented risk, not a guarantee.
+- **A demo account can now demo the receptionist end to end, on a phone
+  number that is never real. `lib/voice/demoLine.js`, the "a demo's line,
+  simulated here" block in `lib/voice/retell.js`,
+  `app/api/settings/voice/number/route.js`, `VoicePhoneNumber.simulated`,
+  `lib/platform/salesCall.js`'s `demoInviteNumber()`.**
+
+  A demo could always set up the RECEPTIONIST (agent, prompt, greeting,
+  voice, tuning) but never a NUMBER — buying one for real would outlive the
+  demo, keep billing FieldQuo, and be a real line a stranger could dial while
+  the account was re-dressed as a different trade the following week. That
+  refusal (`app.setVoice.number.demoBlocked`) is still there, now scoped to
+  `ported` only (a demo has no real carrier to move a number from).
+
+  `purchased`/`forwarded` now SIMULATE instead: `lib/voice/demoLine.js`
+  provisions a REAL Retell agent and LLM through the exact same
+  `provisionAgent()` a paying company's setup calls, on a phone number that
+  falls inside NANP's reserved fictional block (NPA-555-0100–0199 — the one
+  already used, coincidentally, in this repo's own demo seed data). The seam
+  lives entirely inside `lib/voice/retell.js`: `buyNumber`, `attachAgent`,
+  `getNumber` and `releaseNumber` all recognise that E.164 shape on their own
+  and never touch the network for it, so `provision.js`,
+  `syncNumberAttachment`, `diagnose.js` and the rent cron (`rentDecision`,
+  which skips a `simulated` row by name) all run their real code paths
+  completely unchanged — no `isDemo` branch was added to any of them, and
+  `scripts/check-demo-number-pool.mjs` executes that claim rather than
+  reading it.
+
+  `/platform/voice-numbers` (Retell-vs-our-rows reconciliation) excludes
+  `simulated` rows — they were never bought, so comparing them against the
+  real account would misreport every one as a billing leak. Seeded
+  `VoiceCall` rows (`lib/demo/seedDemo.js`) keep the call list from reading
+  as broken on a line that has genuinely never rung, wiped on every reset
+  alongside the quotes and jobs beside them.
+
+  One deliberate exception to the white-label rule: when FieldQuo's own real
+  sales line (`FIELDQUO_SALES_NUMBER`) is actually configured and live, a
+  demo's settings screen invites the prospect to ring it and hear the real
+  thing — `demoInviteNumber()` is pure and triple-gated (`isDemo`, a number
+  configured, the platform agent switched on), and returns null for every
+  real contractor, full stop.
 
 - **The two paid AI image features actually spend money now — the deep
   photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,
