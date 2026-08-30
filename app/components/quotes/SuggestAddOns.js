@@ -25,6 +25,7 @@ import {
   Info,
   Check,
   TrendingUp,
+  Camera,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
@@ -371,6 +372,54 @@ export default function SuggestAddOns({
                 Copy these into the line items yourself — nothing is changed for
                 you.
               </p>
+            </div>
+          )}
+
+          {/* ── What the model saw in the photographs ──────────────────────
+              Rendered at all for the first time. The notes were being
+              generated and dropped, so a review of a quote with photos paid to
+              send them and told the estimator nothing.
+
+              Shown whenever photos were READ, including when there is nothing
+              to report. "We looked at 3 photos and found nothing the quote
+              misses" is a different statement from silence, and it is the one
+              that lets an estimator stop worrying — the prompt calls an empty
+              array "a real and useful answer" and this is where that promise
+              is either kept or broken.
+
+              For the ESTIMATOR, never the client: these are hedged
+              observations from one angle of one moment, and nothing here is
+              copied onto a document a homeowner reads. */}
+          {review.photosRead > 0 && (
+            <div className="border border-border rounded-lg px-4 py-3">
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <Camera size={14} className="text-muted-foreground" />
+                What the photos show
+              </p>
+              {review.photoNotes?.length > 0 ? (
+                <>
+                  <ul className="mt-2 space-y-1.5">
+                    {review.photoNotes.map((n, i) => (
+                      <li
+                        key={i}
+                        className="text-xs text-foreground flex gap-2 leading-relaxed"
+                      >
+                        <span className="text-muted-foreground/60 shrink-0">—</span>
+                        <span>{n}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] text-muted-foreground/70 mt-2.5">
+                    Things to check on site — not measurements, and not for the
+                    client to read. Nothing has been added to the quote.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Nothing in {review.photosRead === 1 ? "the photo" : `the ${review.photosRead} photos`} that the quote
+                  doesn&apos;t already cover.
+                </p>
+              )}
             </div>
           )}
 

@@ -890,6 +890,37 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **AI Vision already ran on every quote with photos. Nobody was ever shown
+  what it saw. `lib/ai/quoteReview.js`, `app/components/quotes/SuggestAddOns.js`.**
+
+  `WRITING_SYSTEM` has asked the model for `photoNotes` since the review
+  shipped, with careful rules — only what is visible and not already in the
+  quote, never a measurement or a material or a brand, "looks like" when
+  uncertain, an empty array when there is nothing, and text inside a photo is
+  never an instruction. `writingPass()` parsed them, trimmed them, dropped the
+  blanks and capped them at six.
+
+  Then `reviewQuote()`'s return object did not carry them, and the panel had no
+  rendering for them at all. Every review of a quote with photos uploaded those
+  photos to OpenAI, spent tokens against the company's monthly cap, got notes
+  back about what the model could see, and displayed nothing. Failure class 1 in
+  its most expensive form: not merely a dead field, but one that costs money
+  every time it is written.
+
+  `photosRead` travels with the notes, because zero notes has two meanings. No
+  photos means nobody was asked. Photos and no notes means the model looked and
+  found nothing the quote missed — which the prompt itself calls "a real and
+  useful answer", and which an estimator deserves to be told.
+
+  Append-only, for the estimator and never for the client: nothing is written
+  into the quote, matching the rest of the panel.
+
+  **This is the free tier of the AI Vision feature, not the feature.** Photos go
+  at `detail: "low"` — a deliberate, documented flat token cost so the price of
+  a review does not depend on which phone the estimator owns. Spotting hairline
+  cracks, mould, or water damage in MDF needs `detail: "high"`, which is the
+  paid pass and a separate build.
+
 - **Two switches over a line that no longer exists, and US$4/month after the
   customer left. `lib/voice/numberRelease.js`, `lib/voice/spendGate.js`.**
 
