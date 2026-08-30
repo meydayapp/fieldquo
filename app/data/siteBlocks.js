@@ -259,6 +259,14 @@ export const BLOCK_TYPES = {
     // `pairs` holds image URLs, so it needs its own sanitiser branch — the
     // generic itemEditable path would let a javascript: URL through as a string.
     imagePair: ["before", "after"],
+    // ── Both halves, or it is not a pair ────────────────────────────────
+    //
+    // Opt-in, and it has to be: the rule used to key off `imagePair` being
+    // present at all, which silently applied it to `credentials` too — where
+    // the image is an OPTIONAL manufacturer badge and the text is the whole
+    // point. A contractor typing "Licence: RBQ 5812-4471-01" with no logo to
+    // upload had the row deleted on save.
+    requireImages: true,
     defaults: { heading: "Before & after", intro: "", pairs: [] },
   },
 
@@ -572,10 +580,26 @@ function sanitiseContent(type, content = {}) {
             return clean;
           });
 
-    // A before/after pair with only one side is not a slider. Dropping the
+    // ── Dropping an incomplete item is OPT-IN ──────────────────────────
+    //
+    // A before/after pair with only one side is not a slider: dropping the
     // half-pair beats rendering a divider over a blank rectangle, which reads
     // as a broken image rather than as missing content.
-    if (def.imagePair) {
+    //
+    // But this was keyed on `def.imagePair` — "does this block have any image
+    // fields?" — and `credentials` has one too, an OPTIONAL logo for a
+    // manufacturer badge. `safeImageUrl` returns null for an absent one, so
+    // every credentials row without an uploaded badge failed the `every` and
+    // was deleted. That is company-TYPED content — a licence number, a warranty
+    // length, years in business — destroyed on save, on the one block the
+    // model is forbidden from writing because its claims are legal ones.
+    //
+    // The renderer never wanted this: SiteBlocks.js keeps any item with a
+    // label, a value OR a logo, and two of the three variants never draw the
+    // logo at all. So the filter is now the exception it always was, and the
+    // safeImageUrl pass over imagePair above — which is the actual XSS guard —
+    // is untouched.
+    if (def.requireImages && def.imagePair) {
       out[def.repeats] = out[def.repeats].filter((item) =>
         def.imagePair.every((k) => item[k]),
       );
