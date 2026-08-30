@@ -13,6 +13,7 @@ import {
   TrendingDown,
   TrendingUp,
   Download,
+  Upload,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
@@ -520,13 +521,21 @@ export default function ExpenseTrackingPage() {
             {t("app.setExpenses.subtitle")}
           </p>
         </div>
-        <button
-          data-tour="expense-add"
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
-        >
-          <Plus size={14} /> {t("app.setExpenses.addExpense")}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/app/settings/expense-tracking/import"
+            className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+          >
+            <Upload size={14} /> {t("app.expImport.ctaButton", "Import from bank CSV")}
+          </Link>
+          <button
+            data-tour="expense-add"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
+          >
+            <Plus size={14} /> {t("app.setExpenses.addExpense")}
+          </button>
+        </div>
       </div>
 
       {/* Month navigation */}
