@@ -51,7 +51,17 @@ export async function POST(request, { params }) {
       companyId: true,
       fromE164: true,
       bookingId: true,
-      lead: { select: { name: true, phone: true, email: true, message: true } },
+      // ── leadId is a COLUMN, not a relation ────────────────────────────
+      //
+      // Selecting `lead: { … }` here threw PrismaClientValidationError and the
+      // whole endpoint 500'd, which the screen reported as "couldn't book the
+      // callback". VoiceCall.leadId is deliberately a plain string — the schema
+      // says so — so the lead is a second read.
+      //
+      // Nothing in the build catches this: check-imports resolves modules,
+      // check-exports resolves names, and neither knows what a Prisma model
+      // looks like. The only thing that finds an invalid select is running it.
+      leadId: true,
     },
   });
   if (!call) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,9 +72,18 @@ export async function POST(request, { params }) {
     return NextResponse.json({ booked: false, reason: "already_booked" });
   }
 
+  const lead = call.leadId
+    ? await db.leadRequest.findFirst({
+        // Re-scoped. The id came off a row that was already scoped, and asking
+        // again costs nothing.
+        where: { id: call.leadId, companyId: member.companyId },
+        select: { name: true, phone: true, email: true, message: true },
+      })
+    : null;
+
   // A number to ring. The lead's own is preferred over caller ID: somebody who
   // asked to be rung on a different phone gave that number for a reason.
-  const phone = call.lead?.phone || call.fromE164;
+  const phone = lead?.phone || call.fromE164;
   if (!phone) return NextResponse.json({ booked: false, reason: "no_phone" }, { status: 409 });
 
   const policy = await visitPolicyFor(call.companyId);
@@ -85,11 +104,11 @@ export async function POST(request, { params }) {
     companyId: call.companyId,
     callId: call.id,
     slotId: slots[0].id,
-    name: call.lead?.name || "Phone caller",
+    name: lead?.name || "Phone caller",
     phone,
-    email: call.lead?.email || null,
+    email: lead?.email || null,
     mode: "call",
-    reason: call.lead?.message || "Callback booked by hand from the call.",
+    reason: lead?.message || "Callback booked by hand from the call.",
   });
 
   if (!result?.ok) {
@@ -100,7 +119,7 @@ export async function POST(request, { params }) {
     action: "voice.callback.booked",
     entityType: "voice_call",
     entityId: call.id,
-    summary: `Booked a callback for ${call.lead?.name || "a caller"} — ${result.label}`,
+    summary: `Booked a callback for ${lead?.name || "a caller"} — ${result.label}`,
   });
 
   return NextResponse.json({ booked: true, at: result.label, bookingId: result.bookingId });
