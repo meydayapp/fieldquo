@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 27 August 2026. **Update this file when you finish something.**
+Last updated: 30 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -889,6 +889,71 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **The KPI dashboard — one screen for sales, profit, execution and cash.
+  `lib/analytics/kpis.js`, `app/api/analytics/kpis/route.js`,
+  `app/app/analytics/kpis/page.js`, `scripts/check-kpis.mjs`.**
+
+  Win rate and estimate accuracy already had screens (reachable through
+  Insights); average job value, backlog expressed in WEEKS (not the
+  commercial-GC months benchmark, which would libel a residential shop),
+  the margin roll-up, revenue per employee, on-time completion and
+  utilisation as a rate never did. The module calls the existing builders
+  (`buildWinLoss`, `buildReceivables`, `buildEstimateAccuracy`,
+  `actualJobCost`, `labourUtilisation`) rather than re-deriving any of them,
+  and adds only the handful of figures with no home yet.
+
+  Three traps, each with its own suppression rather than a caveat in small
+  print: (1) margin rests on APPROVED hours and logged Expense rows, so a
+  crew that logs time badly shows a *better* margin — `incomplete` rides
+  along on every margin figure rather than being averaged away. (2)
+  `JobMaterial.actualCost` (the buy-list) is invisible to job costing, which
+  sums `Expense` rows only — a company bookkeeping through the buy-list
+  alone would show near-$0 materials on jobs it visibly bought for.
+  `detectMaterialsBuyListTrap()` compares the buy-list total against the
+  Expense total for the same jobs and, when they diverge past a real-money
+  threshold, the margin KPIs refuse to print a number rather than report a
+  fake one. (3) `overheadPerJob` stays `null` — never defaulted to 0 —
+  unless `ForecastSettings.jobsPerWeekCapacity` is set, inherited straight
+  from `lib/analytics/minimumPrice.js`'s own refusal.
+
+  Every KPI returns `{ value, sampleSize, incomplete, reason, reasonText }`
+  and `value` is `null` in every case except two documented, whitelisted
+  real zeros (no backlog booked; nothing outstanding on AR) — enforced as a
+  *generic* invariant in the check script (`value === null` iff `reason` is
+  set), walked over every fixture's output, rather than asserted metric by
+  metric.
+
+  Three small SVG chart primitives (`app/components/charts/`: `Sparkline`,
+  `BarComparison`, `GanttStrip`) — no library, matching the one existing
+  precedent (`CircularProgress`) but theme-aware via the app's own CSS
+  custom properties rather than literal hex. The Gantt strip is real
+  schedule data: scheduled visit window vs. actual completion day, per job.
+
+  Eleven mutations, all eleven caught. Two more were tried and are
+  deliberately **not** in the automated set: removing `kpis.js`'s own
+  `if (from > to)` and `if (!currency)` guards doesn't change observable
+  behaviour, because `buildWinLoss()` and `buildEstimateAccuracy()` — which
+  `buildKpis()` always calls — throw the identical
+  `{status, message/code}` a few lines later. Confirmed by mutating both and
+  watching the harness fail to catch either; documented in
+  `scripts/check-kpis.mjs` rather than deleted, since reordering the calls
+  inside `buildKpis()` would make them load-bearing again.
+
+  Left out, and each rendered as a "not tracked" panel with the reason
+  rather than invented: cost per lead (`MarketingSpend.leads` is hand-typed,
+  no UTM/campaign attribution exists), rework/callback rate, CSAT, safety
+  incident rate, equipment utilisation, change-order rate — none of these
+  has a capturing mechanism anywhere in the schema.
+
+  Only English and French are in `app/i18n/appMessages.js` for the new
+  `app.kpis.*` / `app.nav.kpis` / `app.benchmark.kpis` keys (the two
+  `check:translations` actually gates); Spanish/Ukrainian/Punjabi/Tagalog
+  fall back to English until someone adds them, same as any other
+  `APP_REVIEW_PENDING` language. Server-generated `reasonText` sentences
+  (the KPI dashboard's `REASONS` dictionary) are English-only regardless of
+  app language, the same precedent `estimateAccuracy.js`'s own `findings[].text`
+  already set.
 
 - **Two wallets, because Retell and OpenAI do not charge alike.
   `lib/voice/credits.js`, `lib/voice/spendGate.js`, `VoiceCreditEntry.pool`.**

@@ -92,6 +92,19 @@ export default function BenchmarkPage() {
           >
             {t("app.benchmark.estimateAccuracy", "Estimate accuracy")}
           </Link>
+          {/* Sixth link, same argument, and the newest of the group: sales,
+              profit, execution and cash in one place — most of it numbers none
+              of the five pages above ever showed (average job value, backlog in
+              weeks, the margin roll-up, revenue per employee, on-time
+              completion, utilisation as a rate). It also has its own row in
+              the sidebar (app.nav.kpis) because it's the one a contractor is
+              most likely to open first. */}
+          <Link
+            href="/app/analytics/kpis"
+            className="inline-flex items-center gap-1.5 text-sm text-foreground underline"
+          >
+            {t("app.benchmark.kpis", "KPI dashboard")}
+          </Link>
         </div>
       </div>
 
