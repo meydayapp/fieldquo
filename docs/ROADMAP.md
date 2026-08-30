@@ -1261,6 +1261,42 @@ they set the pattern.
   app language, the same precedent `estimateAccuracy.js`'s own `findings[].text`
   already set.
 
+- **The phone-pool warning named a fault nobody could fix.
+  `lib/voice/webhookAudit.js`, `app/platform/voice-webhooks/`.**
+
+  `/platform` reported, correctly, that calls were *"billed by the hourly
+  reconciler because Retell's webhook never delivered them"* — and offered no
+  button, no setting and no plan. Half a control.
+
+  The cause was already written down one file away, in `readiness.js`'s
+  `originIsStable()`: `provisionAgent` derives `webhook_url` from the origin of
+  whichever request triggered it — correct, since a preview deployment must wire
+  to itself — so a save made from a preview URL or a laptop silently repoints
+  the LIVE agent at an address that stops existing. The phone answers perfectly.
+  The events go into the void. The reconciler bills them later, which is exactly
+  why the money is right and the call list is empty.
+
+  **The refusal is the feature.** A repair run from a preview would write that
+  preview's URL onto every live agent — the same fault, inflicted on every
+  tenant at once, by the tool built to cure it. So the audit reads from
+  anywhere and the repair refuses unless the origin is one that can still be
+  there next month, naming the URL it would have written so a disabled button is
+  explainable rather than mysterious.
+
+  Three distinctions the code holds onto: a failed READ is `unknown`, never
+  `wrong`, so a timeout cannot rewrite a healthy agent; an all-unknown run is not
+  `healthy`, so an outage cannot read as a clean bill of health; and after a
+  write the agent is read BACK, because a 200 from somebody else's service is
+  not evidence of a state — the rule `numberRelease.js` already follows.
+
+  Nothing on a tenant's data is written; only where FieldQuo's own events are
+  delivered changes, which is why this is not a breach of non-negotiable #3.
+
+  Six mutations, all caught — including allowing a preview to repair. One
+  assertion had to be fixed first: comparing bare positions put `updateAgent`'s
+  IMPORT ahead of the gate, so it failed on correct code. Third time that exact
+  trap has appeared here.
+
 - **A demo account may not buy a real telephone number.
   `app/api/settings/voice/number/route.js`.**
 

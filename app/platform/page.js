@@ -269,6 +269,27 @@ export default function PlatformDashboardPage() {
                       ? ` · ${voiceHealth.meter.companiesOverdrawn} overdrawn`
                       : ""}
                   </p>
+                  {/* ── The remedy, next to the diagnosis ──────────────────
+                      This banner named a fault nobody could act on: it said
+                      call events were not arriving and offered no button, no
+                      setting and no plan. The cause is documented in
+                      lib/voice/readiness.js — an agent provisioned from a
+                      preview URL or a laptop keeps that origin's webhook_url
+                      forever, so the phone answers and the events go nowhere,
+                      which is exactly why the money is right and the call list
+                      is empty.
+
+                      Shown only for the alert it actually addresses. A repair
+                      link under "you are at your concurrency limit" would be a
+                      button that fixes a different problem. */}
+                  {voiceHealth.alerts.some((a) => /webhook/i.test(a.message || "")) && (
+                    <Link
+                      href="/platform/voice-webhooks"
+                      className={`inline-block mt-3 text-sm font-semibold underline underline-offset-2 ${ink}`}
+                    >
+                      Check where Retell is posting call events →
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
