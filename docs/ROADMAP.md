@@ -1301,6 +1301,40 @@ they set the pattern.
   app language, the same precedent `estimateAccuracy.js`'s own `findings[].text`
   already set.
 
+- **A job's photos could only arrive by text message, and the panel hid itself
+  when empty. `app/api/jobs/[id]/photos/route.js`,
+  `app/components/jobs/JobPhotoCurator.js`.**
+
+  `JobPhoto` rows had exactly one writer in the entire codebase —
+  `lib/crew/inbox.js`, when a crew member texts a picture to the crew line. A
+  contractor who does not use crew SMS could not put a photo on a job at all.
+
+  Worse, the curator `return null`-ed on a job with no photos — *"nothing filed
+  yet — no empty box"*. Defensible while there was nothing to put in the box,
+  and wrong the moment it meant the feature was **invisible** rather than empty.
+  Absent and empty are different statements; this repo already has a check named
+  `check:empty-vs-error` about that exact confusion elsewhere.
+
+  Now there is a POST, and an upload control on the job page. Two routes rather
+  than one: the browser uploads to `/api/upload` — signed, authenticated,
+  foldered per company, shared with quotes, invoices, leads and the site builder
+  — then files the URL against the job, where the company scope and the
+  permission level are enforced. Giving job photos their own Cloudinary path is
+  how signing rules drift apart between surfaces.
+
+  The empty state names the OTHER way in, so the crew-SMS path stops being
+  folklore.
+
+  Six mutations. Four caught; **two survived and both were the test's fault** —
+  the POST slice ran past POST into the PATCH handler below it, which uses the
+  same `view_create_edit` string, so downgrading POST's gate read as fine; and
+  `await load()` also appears in `patch()`, so deleting the re-read from the
+  upload path passed. Both now end at the next export.
+
+  *Still open, from the CompanyCam comparison: this is intake, not
+  documentation. No internal timeline, no annotation, no photo report — and
+  `JobPhoto`'s stated purpose is still the public website gallery.*
+
 - **The phone-pool warning named a fault nobody could fix.
   `lib/voice/webhookAudit.js`, `app/platform/voice-webhooks/`.**
 

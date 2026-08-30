@@ -20,6 +20,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Star, ImageIcon, Loader2, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import MediaUploader from "@/app/components/MediaUploader";
 
 export default function JobPhotoCurator({ jobId }) {
   const [data, setData] = useState(null);
@@ -67,10 +68,20 @@ export default function JobPhotoCurator({ jobId }) {
 
   const photos = data?.photos || [];
   const stages = data?.stages || [];
-  if (!photos.length) return null; // nothing filed yet — no empty box
 
   const featuredCount = photos.filter((p) => p.featured).length;
 
+  // ── Rendered even with nothing in it ──────────────────────────────────
+  //
+  // This used to `return null` when a job had no photos — "nothing filed yet —
+  // no empty box". Reasonable while the ONLY way a photo could arrive was a
+  // crew member texting one in: an empty box you cannot fill is clutter.
+  //
+  // It is the wrong call now that there is an upload control, and it was
+  // costing more than tidiness even before: a contractor who does not use crew
+  // SMS saw no panel at all and concluded the product could not hold job
+  // photos. Absent and empty are different statements, and this rendered the
+  // wrong one.
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1">
@@ -86,17 +97,61 @@ export default function JobPhotoCurator({ jobId }) {
         become a before/after.
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {photos.map((p) => (
-          <PhotoCard
-            key={p.id}
-            photo={p}
-            stages={stages}
-            busy={busy === p.id}
-            onFeature={() => patch(p.id, { featured: !p.featured })}
-            onStage={(stage) => patch(p.id, { stage })}
-          />
-        ))}
+      {photos.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {photos.map((p) => (
+            <PhotoCard
+              key={p.id}
+              photo={p}
+              stages={stages}
+              busy={busy === p.id}
+              onFeature={() => patch(p.id, { featured: !p.featured })}
+              onStage={(stage) => patch(p.id, { stage })}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Nothing filed yet. Add photos here, or text them to your crew line and
+          they land automatically.
+        </p>
+      )}
+
+      {/* ── The intake path ───────────────────────────────────────────────
+          Uploads through /api/upload, exactly like a quote's client photos —
+          one signed Cloudinary path shared by every surface rather than a
+          second one whose rules drift. The URL then gets filed against this
+          job by POST /api/jobs/[id]/photos, which is where the company scope
+          and the permission level are enforced. */}
+      <div className="mt-4 pt-4 border-t border-border">
+        <MediaUploader
+          uploadUrl="/api/upload"
+          value={[]}
+          max={12}
+          onChange={async (added) => {
+            const usable = (added || []).filter((m) => m?.url);
+            if (!usable.length) return;
+            const res = await fetch(`/api/jobs/${jobId}/photos`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                photos: usable.map((m) => ({ url: m.url, stage: "progress" })),
+              }),
+            });
+            if (!res.ok) {
+              await reportResponseError(res, "Couldn't file those photos against the job.");
+              return;
+            }
+            // Re-read rather than trusting what we just sent: the server decides
+            // the stage and the id, and a list built from the request would
+            // disagree with the one the next page load shows.
+            await load();
+          }}
+        />
+        <p className="text-[11px] text-muted-foreground/70 mt-2">
+          Filed as &ldquo;progress&rdquo; — change the stage on any photo after
+          it lands.
+        </p>
       </div>
     </section>
   );

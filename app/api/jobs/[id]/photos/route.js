@@ -53,6 +53,84 @@ export async function GET(request, { params }) {
   });
 }
 
+/**
+ * File a photo against this job.
+ *
+ * ── The intake path that did not exist ────────────────────────────────────
+ *
+ * Until now a JobPhoto row could be created in exactly ONE place —
+ * lib/crew/inbox.js, when a crew member texts a picture in. So a contractor who
+ * does not use crew SMS could never get a photo onto a job at all, and the
+ * curator below them rendered `null` rather than an empty box, which meant the
+ * feature was not merely empty on their screen but invisible.
+ *
+ * This does NOT upload anything. /api/upload already owns that — signed,
+ * authenticated, foldered per company — and the browser posts the file there
+ * first and hands us the resulting URL. Two routes rather than one because the
+ * upload endpoint is shared by quotes, invoices, leads and the site builder,
+ * and giving each of them its own Cloudinary path is how the signing rules
+ * drift apart.
+ */
+export async function POST(request, { params }) {
+  const { id } = await params;
+  const { member, response } = await memberOrRefusal(request);
+  if (response) return response;
+
+  // The same level as re-staging a photo or editing the job itself. Filing a
+  // photo is an edit to the job's record, not a view of it.
+  const { full, response: denied } = await levelOrRefusal(
+    member,
+    "jobs",
+    "view_create_edit",
+    "add job photos",
+  );
+  if (denied) return denied;
+
+  const job = await db.job.findFirst({
+    where: { id, companyId: member.companyId, ...assignedJobWhere(full) },
+    select: { id: true },
+  });
+  if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const body = await request.json().catch(() => ({}));
+  const items = Array.isArray(body?.photos) ? body.photos : [];
+
+  // https only, and length-capped, for the same reason lib/ai/provider.js
+  // filters image URLs: a data: or blob: URL is meaningless to anything that
+  // later fetches it, and would file a row pointing at nothing.
+  const rows = items
+    .map((it) => ({
+      url: typeof it?.url === "string" ? it.url.trim().slice(0, 500) : "",
+      stage: STAGES[it?.stage] ? it.stage : "progress",
+      caption: typeof it?.caption === "string" ? it.caption.trim().slice(0, 200) || null : null,
+    }))
+    .filter((r) => /^https:\/\//.test(r.url));
+
+  if (!rows.length) {
+    // Distinguished from a server fault: nothing was wrong with us, the request
+    // simply carried no usable picture.
+    return NextResponse.json(
+      { error: "No usable photo in that upload.", reason: "no_photos" },
+      { status: 400 },
+    );
+  }
+
+  // companyId is re-derived from the session on every row and never taken from
+  // the body — the cross-tenant write the reference CSV importer got wrong.
+  await db.jobPhoto.createMany({
+    data: rows.map((r) => ({ ...r, companyId: member.companyId, jobId: id })),
+  });
+
+  const photos = await db.jobPhoto.findMany({
+    where: { jobId: id, companyId: member.companyId },
+    orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
+    },
+  });
+  return NextResponse.json({ added: rows.length, photos });
+}
+
 export async function PATCH(request, { params }) {
   const { id } = await params;
   const { member, response } = await memberOrRefusal(request);
