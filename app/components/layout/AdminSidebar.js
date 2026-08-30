@@ -30,6 +30,7 @@ import {
   Gift,
   Sparkles,
   Compass,
+  Gauge,
   Eye,
   UserCog,
   ListTodo,
@@ -135,6 +136,13 @@ const NAV_GROUPS = [
       { key: "app.nav.payroll", href: "/app/payroll", icon: Wallet },
       { key: "app.nav.expenses", href: "/app/settings/expense-tracking", icon: Wallet },
       { key: "app.nav.insights", href: "/app/analytics/benchmark", icon: Compass },
+      // Win rate and estimate accuracy already had a screen, reachable through
+      // "Insights" above — but average job value, backlog in weeks, the margin
+      // roll-up, revenue per employee, on-time completion and utilisation as a
+      // rate never did. A dashboard nobody can find is the /app/tasks failure
+      // again, so this gets its own row rather than a sixth link buried on the
+      // Insights hub.
+      { key: "app.nav.kpis", href: "/app/analytics/kpis", icon: Gauge },
     ],
   },
   {
