@@ -1170,6 +1170,7 @@ model Company {
   voiceCalls    VoiceCall[]
   voiceCredits  VoiceCreditEntry[]
   voiceAutoTopup VoiceAutoTopup?
+  aiCreditBundle AiCreditBundle?
   callConsents  CallConsent[]
 
   /// Where a happy customer should leave a review. Usually a Google review
@@ -5428,6 +5429,95 @@ model VoiceAutoTopup {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A monthly AI credit allowance — Stripe BILLING (same customer as
+/// VoiceAutoTopup and the company's own plan), `mode: "subscription"`, one row
+/// per company.
+///
+/// ── Why a second wallet needs a second purchase mechanism at all ───────────
+///
+/// lib/ai/imageEconomics.js prices two ways to buy the SAME "ai" wallet:
+/// pay-as-you-go at ~50% margin (a one-off VoiceCreditEntry, kind "ai_topup",
+/// see lib/ai/topup.js) and a bundle at ~30% margin because the company has
+/// committed to buying every month. A committed buyer paying less per credit
+/// is the only honest reason to ask anyone to commit — so the bundle needs its
+/// OWN recurring charge, and this row is what remembers which one a company
+/// picked and where Stripe is with it.
+///
+/// ── Rollover, not expiry — and this is a decision, not a default ───────────
+///
+/// Unused bundle credit ROLLS OVER. It is not clawed back at the end of a
+/// period, and it is not clawed back on cancellation either — see
+/// cancelAiBundle in lib/ai/creditBundle.js. Two reasons, and neither is
+/// laziness:
+///
+///   1. The ledger is a SUM (lib/voice/credits.js's own header). There is no
+///      column that says "these 4,000 credits were part of March's grant" —
+///      a generation debits the wallet, not a specific month's row. Expiring
+///      "the unused part of March" would mean either a second, per-lot ledger
+///      (a real schema change, not a policy flip) or writing a debit for
+///      money the company already paid for and never spent — which is not an
+///      expiry, it is FieldQuo taking money back, dressed as one.
+///   2. It matches every other balance in this product. Phone credit doesn't
+///      expire. A pay-as-you-go AI top-up doesn't expire. A bundle that did
+///      would be the one balance in FieldQuo that punishes a quiet month, on
+///      the one feature (advertising) contractors already use in bursts —
+///      busy before a season, quiet after.
+///
+/// The UI has to say this in plain words before anyone pays — silence here
+/// is the failure AGENTS.md calls out by name — see BUNDLE_ROLLOVER_NOTICE in
+/// lib/ai/creditBundle.js, which the settings page and the bundle route both
+/// read from the one place rather than each writing their own sentence.
+///
+/// ── Cancelling stops FUTURE grants, and nothing else ────────────────────────
+///
+/// cancelAiBundle() cancels the Stripe subscription itself, immediately.
+/// That is the entire enforcement: no subscription, no more invoices, no more
+/// invoice.payment_succeeded events, no more grants — lib/ai/creditBundle.js
+/// does not gate the grant on this row's own `status` column, because this
+/// row is a cache of what Stripe already decided, not a second switch that
+/// could disagree with it. Already-granted credit is an ordinary balance of
+/// ai_bundle-kind rows in VoiceCreditEntry and is never touched.
+model AiCreditBundle {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// BUNDLES[].key from lib/ai/imageEconomics.js — "starter" | "busy" |
+  /// "agency". The price and credit count are NOT stored here: they live in
+  /// that one priced list, so a margin correction there is a margin
+  /// correction everywhere, including for a company already subscribed.
+  key String
+
+  /// The same platform Billing customer as the company's own subscription and
+  /// VoiceAutoTopup — see lib/stripe.js's warning never to mix a Connect
+  /// account into a Billing call.
+  stripeCustomerId     String
+  stripeSubscriptionId String @unique
+
+  /// Stripe's own subscription status, kept for display only — see the model
+  /// header for why the grant does not read this column to decide anything.
+  status String @default("active")
+
+  /// Mirrors subscription.cancel_at_period_end. Not used to gate a grant
+  /// either; shown on screen so "you cancelled" and "we're still charging
+  /// you" cannot both be true on the page at once.
+  cancelAtPeriodEnd Boolean @default(false)
+
+  /// Stripe's current_period_end, for "renews on" / "credit stops after".
+  currentPeriodEnd DateTime?
+
+  /// The most recent period this subscription was actually granted credit
+  /// for — display only. The real idempotency guard is the ledger's own
+  /// unique (companyId, ref), keyed by lib/ai/creditBundle.js's aiBundleRef(),
+  /// the same pattern rentRef() uses for number rental.
+  lastGrantedPeriodStart DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
 }
 
 /// Permission to ring a specific number, and where it came from.

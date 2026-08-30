@@ -63,20 +63,51 @@ ok("and no longer builds a bare dollar sign by hand",
 const cc = readFileSync(join(ROOT, "lib/voice/creditCurrency.js"), "utf8");
 ok("the constant's own file imports nothing", !/^import /m.test(cc));
 
-// ── Only one path may put real money into the ledger ─────────────────────
+// ── Only specific paths may put real money into the ledger ────────────────
 //
 // Asserted on the IMPORT rather than the call. lib/voice/topup.js takes
 // `deps.addCredit || addCredit` so its check can execute the settlement against
 // an injected ledger — a better design than a direct call, and one a grep for
 // `addCredit(` cannot see. The invariant is which modules may credit at all,
-// not how they spell the invocation.
-const crediters = execLines("grep -rln 'addCredit' app lib")
-  .filter((f) => !f.endsWith("lib/voice/credits.js"));
-ok("exactly two modules may add credit", crediters.length === 2, crediters.join(" | "));
-ok("one is the top-up settlement — the single place money buys credit",
+// not how they spell the invocation — so this stays a bare-word match rather
+// than tightening to a call pattern, which would silently stop seeing the
+// `deps.addCredit || addCredit` fallback assignment this exact shape depends
+// on (it isn't a call at that point in the source; it's a reference).
+//
+// Two files are excluded by NAME rather than by the grep pattern: the AI
+// wallet's settings screen has a button labelled "Add credit", which the
+// catalogue stores as the key `app.setAiCredit.addCredit` — six letters that
+// happen to match, in a translation string and its dictionary entry, neither
+// of which calls anything. Excluding them by filename is the same move the
+// original version of this list already made for lib/voice/credits.js
+// itself (the ledger's own definition file) — a grep this blunt will always
+// need a couple of named exceptions, and naming them beats narrowing the
+// pattern until it stops finding what it's actually for.
+const crediters = execLines("grep -rln 'addCredit' app lib").filter(
+  (f) =>
+    !f.endsWith("lib/voice/credits.js") &&
+    !f.endsWith("app/app/settings/ai-credit/page.js") &&
+    !f.endsWith("app/i18n/appMessages.js"),
+);
+// Four modules today, not two — the AI wallet doubled the count when it
+// gained its own top-up and its own monthly bundle grant, each needing the
+// exact same "money entered the ledger, write it down" primitive
+// lib/voice/topup.js already used for the phone side. A fifth appearing here
+// uncommented is the thing this assertion exists to catch.
+ok("exactly four modules may add credit", crediters.length === 4, crediters.join(" | "));
+ok("one is the voice top-up settlement — the single place phone money buys credit",
    crediters.some((f) => f.endsWith("lib/voice/topup.js")), crediters.join(" | "));
-ok("the other is the reservation refund, not a second purchase",
+ok("another is the reservation refund, not a second purchase",
    crediters.some((f) => f.endsWith("lib/voice/spendGate.js")));
+ok("a third is the AI top-up settlement — lib/ai/topup.js's own mirror of the voice one",
+   crediters.some((f) => f.endsWith("lib/ai/topup.js")), crediters.join(" | "));
+ok("the fourth is the AI bundle's monthly grant",
+   crediters.some((f) => f.endsWith("lib/ai/creditBundle.js")), crediters.join(" | "));
+// grantDemoAiCredit (the one-time 1,000-credit sales-demo grant) is NOT a
+// fifth crediter: it lives in lib/voice/credits.js beside addCredit itself,
+// which this list deliberately excludes — see the filter above. Its call
+// site in lib/demo/seedDemo.js calls grantDemoAiCredit(), not addCredit()
+// directly, so it never shows up in `crediters` either way.
 // And that settlement is reached from BOTH doors, so a browser that never comes
 // back from Stripe is not the only thing standing between a charge and a
 // credit — which is exactly what it used to be.

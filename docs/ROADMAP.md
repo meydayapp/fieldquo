@@ -890,6 +890,82 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A company can now BUY AI credit — the two paid AI image features below
+  correctly refused with "not enough AI balance" and there was nothing
+  anyone could do about it. `lib/ai/topup.js`, `lib/ai/creditBundle.js`,
+  `app/api/settings/ai/{topup,bundle,credit}/route.js`,
+  `app/app/settings/ai-credit/page.js`, `scripts/check-ai-credit.mjs`.**
+
+  Two ways to buy, mirroring the voice wallet's own shapes one wallet over:
+  a pay-as-you-go top-up (`kind: "ai_topup"`, `mode: "payment"`, the same
+  two-doors-one-settlement pattern `lib/voice/topup.js` uses — the browser's
+  return redirect and the `checkout.session.completed` webhook both call
+  `creditAiTopup`, keyed on the payment intent via the new `aiTopupRef()` in
+  `credits.js`), and a monthly bundle (`kind: "ai_bundle"`,
+  `mode: "subscription"`, owner-approved `BUNDLES` from
+  `lib/ai/imageEconomics.js` — starter $30/4,000, busy $50/7,000, agency
+  $80/11,500, all at ~30% margin).
+
+  **Rollover, not expiry — a stated decision.** Unused bundle credit is
+  never clawed back, monthly or on cancellation — `BUNDLE_ROLLOVER_NOTICE`
+  in `lib/ai/creditBundle.js` is the one sentence the settings page reads
+  verbatim rather than paraphrasing, shown BEFORE anyone pays. The reasoning
+  is written into the `AiCreditBundle` model comment: the ledger is a SUM
+  with no per-lot expiry concept, and every other balance in this product
+  (phone credit, a pay-as-you-go AI top-up) already never expires.
+
+  **The grant is idempotent per billing PERIOD**, not just per subscription
+  — `aiBundleRef(subscriptionId, periodStart)` mirrors `spendGate.js`'s own
+  `rentRef()` for monthly number rental, so a redelivered March invoice
+  can't grant March twice and April still fires as a genuinely new period.
+  New `AiCreditBundle` Prisma model tracks the subscription for display only
+  — the grant does NOT gate on its `status` column, because Stripe actually
+  cancelling the subscription (not a local flag) is the only thing that
+  really stops future invoices, and therefore future grants.
+
+  **The collision that mattered most:** an AI bundle subscribes on the SAME
+  Stripe customer as the company's own platform plan
+  (`lib/platform/stripeBilling.js`). Its `invoice.payment_succeeded` /
+  `invoice.payment_failed` events would otherwise be misread by
+  `syncSubscriptionFromStripeEvent`'s customer-keyed lookups as the
+  company's plan renewing or failing — wrong amount into the referral-credit
+  calculation, a real tenant wrongly marked past-due over a declined AI
+  top-up card. `app/api/platform/billing/webhook/route.js` now checks every
+  invoice event against the bundle table FIRST and returns before the
+  platform-billing handler ever sees a bundle's own invoice.
+
+  **A sales-demo grant, added same day, owner-approved:** every
+  `Company.isDemo` account gets 1,000 AI credits once —
+  `grantDemoAiCredit()` in `credits.js`, called from
+  `lib/demo/seedDemo.js`'s `applyIndustry()` (creation, an industry switch,
+  and reset all pass through it, and the grant is idempotent on
+  `DEMO_AI_CREDIT_REF`, no version suffix, same reasoning as `TRIAL_REF`).
+  Deliberately a GRANT and not an `isDemo` bypass inside `checkSpend` —
+  OpenAI still bills FieldQuo per call whether or not the company is a demo,
+  a bypass is an unbounded liability where a grant is capped at $5, and a
+  prospect on a sales call should see the real balance and price UI, because
+  that is the thing being sold.
+
+  Not built here, by explicit instruction: the Marketing Designer page and
+  the sidebar reorganisation belong to other agents in flight; this only
+  adds one link into `SettingsSidebar.js` (`/app/settings/ai-credit`,
+  gated `user:manage` like the phone credit row beside it) and leaves
+  `AdminSidebar.js` untouched.
+
+  `scripts/check-ai-credit.mjs` executes all of it against a stubbed
+  ledger/Stripe rather than trusting the comments above: a doubled webhook
+  credits once, `ai_topup` never lands in the voice wallet, a bundle period
+  is idempotent and fires again next period, cancelling stops future grants
+  without deleting a row, the demo grant is idempotent and the spend gate
+  carries no `isDemo` branch anywhere. Every one of those assertions was
+  mutation-tested — the production code broken, the check confirmed to fail,
+  the code restored — and one gap surfaced and was fixed during that pass: a
+  `false &&` disabling the billing webhook's bundle-invoice guard left the
+  two event-name substrings still present in the file, so a looser
+  `.test(route)`-per-string check passed against a guard that had been
+  switched off entirely. Anchored on the exact, unconditional `if (...)`
+  line instead.
+
 - **The two paid AI image features actually spend money now — the deep
   photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,
   `lib/ai/provider.js`'s new `generateImage()`,
