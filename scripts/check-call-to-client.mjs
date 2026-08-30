@@ -1729,6 +1729,167 @@ const skipWritten = () =>
   );
 }
 
+/* ═══ The callback books itself, because the model would not ═══════════════
+ *
+ * Four calls in a row ended with no booking, for four different reasons, and
+ * the through-line never changed: booking depended on the model choosing to
+ * call check_availability and then book_visit, and it does not reliably do
+ * either. On the last one it called NEITHER — it read "Opening hours: Mon – Thu
+ * 8:00 a.m. – 5:00 p.m." out of its own prompt, invented "8:00, 8:15 or 8:30"
+ * from that line, offered those to the caller, and hung up. The tool log for
+ * that call contains two save_caller invocations and nothing else.
+ *
+ * So the discretion is gone. save_caller is the tool the model calls without
+ * fail — twice, on the call that booked nothing — and the booking now hangs off
+ * that rather than off a decision.
+ */
+{
+  const callbackCompany = () => {
+    globalThis.__FQ_ROWS.company = [
+      { id: "co_1", email: COMPANY_EMAIL, bookingModes: ["visit", "call"],
+        stripeChargesEnabled: true, currency: "CAD", timezone: "America/Toronto",
+        businessHours: [
+          { day: 0, closed: true }, { day: 1, closed: false, open: "08:00", close: "17:00" },
+          { day: 2, closed: false, open: "08:00", close: "17:00" },
+          { day: 3, closed: false, open: "08:00", close: "17:00" },
+          { day: 4, closed: false, open: "08:00", close: "17:00" },
+          { day: 5, closed: false, open: "08:00", close: "16:00" }, { day: 6, closed: true },
+        ] },
+    ];
+    // One free type the phone may book, one PAID — which is what withholds
+    // "visit" and makes this a callback company.
+    globalThis.__FQ_ROWS.eventType = [
+      { id: "et_freeXX", companyId: "co_1", active: true, name: "Callback", feeCents: 0,
+        durationMinutes: 30, userId: "u1", location: "Phone" },
+      { id: "et_paidYY", companyId: "co_1", active: true, name: "Consultation", feeCents: 5000,
+        durationMinutes: 60, userId: "u1", location: "On-site" },
+    ];
+    globalThis.__FQ_ROWS.booking = [];
+    globalThis.__FQ_ROWS.appointment = [];
+    globalThis.__FQ_ROWS.client = [];
+  };
+
+  const callSave = async (args) => {
+    resetDb();
+    globalThis.__FQ_ROWS.voiceCall = [
+      { id: "vc_1", providerCallId: "call_1", companyId: "co_1", fromE164: "+18192387263" },
+    ];
+    callbackCompany();
+    const res = await toolsRoute.POST(
+      { text: async () => json({ call: { call_id: "call_1" }, args }), headers: { get: () => "sig" } },
+      { params: Promise.resolve({ tool: "save-caller" }) },
+    );
+    return res;
+  };
+
+  const res = await callSave({ name: "Anna", phone: "8192387263", summary: "Wants a callback." });
+  const body = res?.body || {};
+  ok(
+    "save_caller BOOKS the callback — no check_availability, no book_visit, no decision to make",
+    body.booked === true,
+    json(body),
+  );
+  ok("…and hands the agent the time to read out", typeof body.at === "string" && body.at.length > 0, body.at);
+  ok(
+    "…inside the sentence it says, so the caller hears a time rather than 'someone will ring you'",
+    /call you back/.test(body.say) && body.say.includes(body.at || "\u0000"),
+    body.say,
+  );
+  ok(
+    "…and a real booking row exists",
+    (globalThis.__FQ_ROWS.booking || []).length === 1,
+    (globalThis.__FQ_ROWS.booking || []).length,
+  );
+  ok("…as a call", globalThis.__FQ_ROWS.booking?.[0]?.mode === "call", globalThis.__FQ_ROWS.booking?.[0]?.mode);
+
+  // The model calls save_caller more than once per call. The second must not
+  // book a second slot.
+  const again = await (async () => {
+    resetDb();
+    globalThis.__FQ_ROWS.voiceCall = [
+      { id: "vc_1", providerCallId: "call_1", companyId: "co_1", fromE164: "+18192387263",
+        bookingId: "bk_existing" },
+    ];
+    callbackCompany();
+    return toolsRoute.POST(
+      { text: async () => json({ call: { call_id: "call_1" }, args: { name: "Anna", phone: "8192387263" } }),
+        headers: { get: () => "sig" } },
+      { params: Promise.resolve({ tool: "save-caller" }) },
+    );
+  })();
+  ok(
+    "a second save_caller on the same call books nothing more",
+    again?.body?.booked === undefined,
+    json(again?.body),
+  );
+
+  // ── A VISIT company must not have callbacks booked underneath it ───────
+  //
+  // The guard is `bookableModes[0] === "call"`, and without a visit-only
+  // fixture nothing exercises it: a callback company passes either way. A visit
+  // needs an address and somebody agreeing to be in, which is a conversation
+  // and belongs in book_visit — auto-booking one off a name and a number would
+  // put a stranger in a driveway.
+  const visitOnly = await (async () => {
+    resetDb();
+    globalThis.__FQ_ROWS.voiceCall = [
+      { id: "vc_1", providerCallId: "call_1", companyId: "co_1", fromE164: "+18192387263" },
+    ];
+    callbackCompany();
+    globalThis.__FQ_ROWS.company[0].bookingModes = ["visit"];
+    // No paid type either, so "visit" is genuinely what this company books.
+    globalThis.__FQ_ROWS.eventType = [globalThis.__FQ_ROWS.eventType[0]];
+    return toolsRoute.POST(
+      { text: async () => json({ call: { call_id: "call_1" }, args: { name: "Anna", phone: "8192387263" } }),
+        headers: { get: () => "sig" } },
+      { params: Promise.resolve({ tool: "save-caller" }) },
+    );
+  })();
+  // ⚠ This assertion holds for a second reason as well as the intended one, and
+  // saying so is worth more than the appearance of coverage: with a visit
+  // company, bookableSlots takes the CALENDAR path, and computeAvailableSlots
+  // needs AvailabilitySchedule rows this stub does not model — so it returns
+  // nothing whether or not the mode guard is there. Mutating the guard away
+  // does NOT fail this test. It is a regression guard on the observable
+  // behaviour, not proof of the guard itself.
+  ok(
+    "a visit-only company books nothing from save_caller — a visit is not something to arrange off a name and a number",
+    visitOnly?.body?.booked === undefined,
+    json(visitOnly?.body),
+  );
+  ok(
+    "…and its lead is still saved",
+    visitOnly?.body?.saved === true,
+    json(visitOnly?.body?.saved),
+  );
+
+  // A lead must survive even when booking is impossible — the lead is what this
+  // endpoint exists for.
+  const noHours = await (async () => {
+    resetDb();
+    globalThis.__FQ_ROWS.voiceCall = [
+      { id: "vc_1", providerCallId: "call_1", companyId: "co_1", fromE164: "+18192387263" },
+    ];
+    callbackCompany();
+    globalThis.__FQ_ROWS.company[0].businessHours = null;
+    return toolsRoute.POST(
+      { text: async () => json({ call: { call_id: "call_1" }, args: { name: "Anna", phone: "8192387263" } }),
+        headers: { get: () => "sig" } },
+      { params: Promise.resolve({ tool: "save-caller" }) },
+    );
+  })();
+  ok(
+    "a company with no opening hours books nothing and still saves the lead",
+    noHours?.body?.saved === true && noHours?.body?.booked === undefined,
+    json(noHours?.body),
+  );
+  ok(
+    "…and the agent falls back to the honest promise rather than a time",
+    /someone will call you back/.test(noHours?.body?.say || ""),
+    noHours?.body?.say,
+  );
+}
+
 console.log(
   fails.length
     ? `\nFAILED — ${fails.length} of ${pass + fails.length}\n${fails.map((f) => `  ✗ ${f}`).join("\n")}\n`

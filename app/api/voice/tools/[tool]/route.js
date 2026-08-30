@@ -295,12 +295,83 @@ async function saveCaller(ctx, args) {
     },
   });
 
+  // ── The callback is booked HERE, by the server ──────────────────────────
+  //
+  // Four calls in a row ended with no booking, for four different reasons, and
+  // the through-line was always the same: booking depended on the model
+  // choosing to call check_availability and then book_visit, and it does not
+  // reliably do either. On the last one it never called either tool — it read
+  // "Opening hours: Mon – Thu 8:00 a.m. – 5:00 p.m." out of its own prompt,
+  // invented "8:00, 8:15 or 8:30" from that line, offered those to the caller,
+  // and hung up. Three attempts at fixing that with prompt wording did not.
+  //
+  // So the discretion is removed. save_caller is the one tool the model calls
+  // without fail — it called it TWICE on the call that booked nothing — so the
+  // booking hangs off that instead of off a decision. The agent is handed a
+  // time it did not choose and reads it out.
+  //
+  // Bounded deliberately: only a company whose phone books CALLBACKS, only when
+  // there is a name and a number to ring, and only once per call. A visit still
+  // goes through book_visit, because a visit needs an address and a person
+  // agreeing to be in.
+  const booked = await autoBookCallback(ctx, { name, phone });
+
   // What the agent says next. Given explicitly so it doesn't invent a promise —
   // "someone will call you back" is true; "we'll be there tomorrow" is not.
   return NextResponse.json({
     saved: true,
-    say: "Got it — I've passed that on and someone will call you back.",
+    ...(booked ? { booked: true, at: booked.label } : {}),
+    say: booked
+      ? `Got it — someone will call you back ${booked.label}.`
+      : "Got it — I've passed that on and someone will call you back.",
   });
+}
+
+/**
+ * Book the next callback slot, without asking the model to decide.
+ *
+ * Returns { label } when a booking was made, or null — and null is the ordinary
+ * case for a visit-only company, a company with no opening hours on file, or a
+ * call that already booked something. Never throws: a failure here must not
+ * lose the LEAD, which is the thing this endpoint exists to save.
+ */
+async function autoBookCallback(ctx, { name, phone }) {
+  try {
+    if (!name || !phone) return null;
+
+    // Already booked on this call — the model calls save_caller more than once
+    // and the second one must not book a second slot.
+    const call = await db.voiceCall.findUnique({
+      where: { id: ctx.id },
+      select: { bookingId: true },
+    });
+    if (call?.bookingId) return null;
+
+    const { visitPolicyFor, bookableSlots, bookSlot } = await import("@/lib/voice/availability");
+    const policy = await visitPolicyFor(ctx.companyId);
+    // Only where a CALLBACK is what this company's phone arranges. A visit
+    // needs an address and somebody agreeing to be in, which is a conversation
+    // and belongs in book_visit.
+    if (!policy.canBook || policy.bookableModes[0] !== "call") return null;
+
+    const slots = await bookableSlots(ctx.companyId);
+    if (!slots.length) return null;
+
+    const result = await bookSlot({
+      companyId: ctx.companyId,
+      callId: ctx.id,
+      slotId: slots[0].id,
+      name,
+      phone,
+      email: null,
+      mode: "call",
+      reason: "Callback requested on the phone.",
+    });
+    return result?.ok ? { label: result.label } : null;
+  } catch (err) {
+    console.error("[voice/tools] auto callback failed:", err?.message);
+    return null;
+  }
 }
 
 /* ────────────────────────────── availability ───────────────────────────── */
