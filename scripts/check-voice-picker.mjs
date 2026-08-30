@@ -21,6 +21,8 @@
 import {
   pickableVoices,
   validateVoiceChoice,
+  pickDefaultVoice,
+  CURATED_PROVIDERS,
   VOICE_PROVIDERS,
   DEFAULT_VOICE_ID,
   DEFAULT_VOICE_ID_FR,
@@ -33,8 +35,10 @@ const ok = (c, m, d) => {
 };
 const section = (t) => console.log(`\n${t}\n`);
 
+// Curated providers only — the list a contractor actually sees. ElevenLabs and
+// MiniMax have their own cases in section 6.
 const RAW = [
-  { voice_id: "11labs-Adrian", voice_name: "Adrian", provider: "elevenlabs", gender: "male", accent: "British", preview_audio_url: "https://cdn/x.mp3" },
+  { voice_id: "cartesia-Ana", voice_name: "Ana", provider: "cartesia", gender: "female", accent: "British", preview_audio_url: "https://cdn/x.mp3" },
   { voice_id: "retell-Nova", voice_name: "Nova", provider: "platform", gender: "female" },
   { voice_id: "cartesia-Sam", voice_name: "Sam", provider: "cartesia", gender: "male" },
 ];
@@ -44,25 +48,17 @@ section("1. The list is the provider's, reduced to what a picker needs");
 {
   const list = pickableVoices(RAW);
   ok(list.length === 3, "every usable voice survives", list.length);
-  ok(list[0].id === DEFAULT_VOICE_ID, "the one answering today sorts first, so nobody hunts for it", list[0].id);
-  // With the French default actually present, it is the one that sorts first —
-  // a French company opening this screen sees what is answering their phone,
-  // not whatever is alphabetically first.
-  const withFr = [
-    ...RAW,
-    { voice_id: DEFAULT_VOICE_ID_FR, voice_name: "Marissa", provider: "elevenlabs", gender: "female" },
-  ];
   ok(
-    pickableVoices(withFr, { language: "fr" })[0].id === DEFAULT_VOICE_ID_FR,
-    "and in French it is the French default that sorts first",
-    pickableVoices(withFr, { language: "fr" })[0].id,
+    pickableVoices(RAW, { keep: "retell-Nova" })[0].id === "retell-Nova",
+    "the voice answering TODAY sorts first, so nobody hunts for their own",
+    pickableVoices(RAW, { keep: "retell-Nova" })[0].id,
   );
   ok(
-    pickableVoices(withFr, { language: "en" })[0].id === DEFAULT_VOICE_ID,
-    "…while the same list in English puts the English one there",
+    list[0].name === "Ana",
+    "…and with nothing chosen it is simply alphabetical, not a stale constant",
+    list[0].name,
   );
   ok(
-    list.find((v) => v.id === "11labs-Adrian")?.previewUrl === "https://cdn/x.mp3",
     "a preview is carried — nobody picks a voice from a name",
   );
 }
@@ -144,6 +140,72 @@ section("5. Hostile and empty input");
   ok(
     pickableVoices([{ voice_id: "a", voice_name: "A", provider: "platform", gender: "alien" }])[0].gender === null,
     "an unrecognised gender is absent rather than passed through",
+  );
+}
+
+section("6. Curated, and the default is resolved rather than typed");
+
+const WIDE = [
+  { voice_id: "11labs-Adrian", voice_name: "Adrian", provider: "elevenlabs", gender: "male" },
+  { voice_id: "cartesia-Sam", voice_name: "Sam", provider: "cartesia", gender: "male" },
+  { voice_id: "cartesia-Chloe", voice_name: "Chloé", provider: "cartesia", gender: "female", accent: "French Canadian" },
+  { voice_id: "retell-Nova", voice_name: "Nova", provider: "platform", gender: "female" },
+  { voice_id: "minimax-Bot", voice_name: "Bot", provider: "minimax", gender: "male" },
+  { voice_id: "openai-Alloy", voice_name: "Alloy", provider: "openai", gender: "female" },
+];
+
+{
+  const shown = pickableVoices(WIDE).map((v) => v.provider);
+  ok(
+    shown.every((p) => CURATED_PROVIDERS.includes(p)),
+    "only the providers worth offering are shown",
+    [...new Set(shown)],
+  );
+  // Retell's own words: minimax "can sound somewhat more robotic"; ElevenLabs
+  // costs 2.7x and has "less reliable" spelling on a job that spells emails.
+  ok(!shown.includes("minimax"), "…not the one documented as robotic");
+  ok(!shown.includes("elevenlabs"), "…nor the one that costs 2.7x and spells worse");
+
+  // But a company already ON one must still see what is answering their phone.
+  ok(
+    pickableVoices(WIDE, { keep: "11labs-Adrian" }).some((v) => v.id === "11labs-Adrian"),
+    "a company already on a de-curated voice still sees it — otherwise the picker shows nothing selected about a phone that is definitely saying something",
+  );
+  ok(
+    !pickableVoices(WIDE, { keep: "11labs-Adrian" }).some((v) => v.id === "minimax-Bot"),
+    "…and keeping theirs does not re-admit everything else",
+  );
+}
+
+{
+  const list = pickableVoices(WIDE);
+  ok(
+    pickDefaultVoice(list, { language: "en", fallback: "11labs-Adrian" }) === "cartesia-Sam",
+    "the default comes from the most-preferred provider",
+    pickDefaultVoice(list, { language: "en", fallback: "11labs-Adrian" }),
+  );
+  ok(
+    pickDefaultVoice(list, { language: "fr", fallback: "11labs-Marissa" }) === "cartesia-Chloe",
+    "…and a French company gets a French voice",
+  );
+  // The bug this caught in review: preferring French for fr while taking
+  // whatever sorted first for en handed an English business a French accent,
+  // because "Chloé" comes before "Sam".
+  ok(
+    pickDefaultVoice(list, { language: "en" }) !== "cartesia-Chloe",
+    "…and an English company does NOT get the French one just because it sorts first",
+  );
+  ok(
+    pickDefaultVoice(pickableVoices([WIDE[3]]), { language: "en" }) === "retell-Nova",
+    "with no cartesia it falls to the next preferred provider",
+  );
+  ok(
+    pickDefaultVoice([], { fallback: "11labs-Adrian" }) === "11labs-Adrian",
+    "and an unreachable provider keeps the id we already ship — a working agent on a pricier voice beats no agent",
+  );
+  ok(
+    pickDefaultVoice([], {}) === null,
+    "…with no fallback offered, it says so rather than inventing an id that would fail create-agent",
   );
 }
 

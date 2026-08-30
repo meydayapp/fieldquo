@@ -890,6 +890,47 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Every agent shipped on the priciest voice, and the one its vendor warns
+  about. `lib/voice/voices.js`, `lib/voice/provision.js`.**
+
+  `DEFAULT_VOICE_ID` was `11labs-Adrian`. Retell's own pricing puts ElevenLabs
+  at **$0.040/min against $0.015** for platform, Cartesia, Fish, OpenAI and
+  MiniMax alike — 2.7x, on a component measured directly against the 60% gross
+  margin — and its own comparison says of it: *"exact spelling is less reliable
+  and you may notice occasional pacing or tone quirks"*.
+
+  Spelling is not small print here. The receptionist reads phone numbers back
+  digit by digit and spells email addresses aloud, and both have been got wrong
+  on real calls in this repo's own transcripts.
+
+  The picker is curated to the three providers worth offering, in preference
+  order: **cartesia** (*"natural-sounding"*, *"stronger spelling accuracy than
+  ElevenLabs"*, *"among the lowest synthesis latency of any provider"*),
+  **platform** (*"fine-tuned for conversational AI over the phone"*, and the
+  only one with automatic TTS failover), **fish_audio** (`s2-pro`, the
+  highest-ranked open-weight model in blind listening tests). Dropped: minimax,
+  which Retell says *"can sound somewhat more robotic"*, and openai, about which
+  it claims nothing.
+
+  **A company already on a de-curated voice still sees it.** Filtering out what
+  is answering their phone would show a picker with nothing selected about a
+  line that is very definitely saying something, and the first save would
+  silently change how their business sounds.
+
+  The default is RESOLVED from `/list-voices`, never written down — the same
+  rule the picker was built on: an unknown `voice_id` fails `/create-agent`
+  outright, so a constant typed from memory does not give a company a worse
+  voice, it leaves their receptionist unprovisioned. The old ElevenLabs id is
+  the fallback when the provider cannot be reached, because a working agent on a
+  pricier voice beats no agent.
+
+  Two things caught in review: preferring a French voice for a French company
+  while taking whatever sorted first for an English one handed an English
+  business a French accent, because "Chloé" precedes "Sam" — the preference is
+  symmetric now. And the list sorted a stale CONSTANT to the top rather than the
+  voice actually in use, so a contractor opened the screen to something
+  arbitrary and had to hunt for their own.
+
 - **The booking calendar said who and when, and nothing about the work.
   `prisma/schema.prisma` (Booking), `app/api/booking/[companySlug]/route.js`,
   `.../confirm/route.js`, `app/book/[companySlug]/BookingFlow.js`.**
