@@ -422,7 +422,7 @@ export default function AdminSidebar() {
     );
   }
 
-  function SidebarContent({ forceExpanded = false }) {
+  function sidebarContent({ forceExpanded = false }) {
     const showLabel = forceExpanded || !collapsed;
 
     return (
@@ -773,7 +773,7 @@ export default function AdminSidebar() {
           collapsed ? "w-[76px]" : "w-64"
         }`}
       >
-        <SidebarContent />
+        {sidebarContent({ forceExpanded: false })}
       </aside>
 
       {/* Mobile drawer */}
@@ -784,7 +784,7 @@ export default function AdminSidebar() {
             onClick={() => setMobileOpen(false)}
           />
           <aside className="absolute left-0 top-0 h-full w-[min(20rem,86vw)] max-w-[86vw] bg-sidebar text-sidebar-foreground shadow-2xl flex flex-col">
-            <SidebarContent forceExpanded />
+            {sidebarContent({ forceExpanded: true })}
           </aside>
         </div>
       )}
