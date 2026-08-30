@@ -373,6 +373,17 @@ const en = {
   // ── Dashboard ────────────────────────────────────────────────────────────
   "app.dash.title": "Dashboard",
   "app.dash.subtitle": "Here's what's happening with your business.",
+  // ── The banner for work the automation left behind ─────────────────────
+  // Counted nouns rather than "quote(s)": four of the six languages here do
+  // not have a two-form plural, and one of them does not split on number at
+  // all. See lib/i18n/plurals.js. The sentences are deliberately verbless
+  // where a language would have to agree a verb with the numeral — a template
+  // cannot decline, so the copy stays out of its way.
+  "app.dash.needs.title": "Waiting on you",
+  "app.dash.needs.quotesCount": countedNoun("en", { one: "quote", other: "quotes" }),
+  "app.dash.needs.quotes": "{count} waiting for you to approve the price.",
+  "app.dash.needs.callsCount": countedNoun("en", { one: "call", other: "calls" }),
+  "app.dash.needs.calls": "{count} from your receptionist — nothing done yet.",
   "app.dash.revenueThisMonth": "Revenue this month",
   "app.dash.quotesSent": "Quotes sent this month",
   "app.dash.conversionRate": "Conversion rate",
@@ -4363,6 +4374,19 @@ const fr = {
 
   "app.dash.title": "Tableau de bord",
   "app.dash.subtitle": "Voici où en est votre entreprise.",
+  "app.dash.needs.title": "En attente de vous",
+  "app.dash.needs.quotesCount": countedNoun("fr", {
+    one: "soumission",
+    many: "soumissions",
+    other: "soumissions",
+  }),
+  "app.dash.needs.quotes": "{count} en attente de votre approbation du prix.",
+  "app.dash.needs.callsCount": countedNoun("fr", {
+    one: "appel",
+    many: "appels",
+    other: "appels",
+  }),
+  "app.dash.needs.calls": "{count} de votre réceptionniste — rien de fait pour l’instant.",
   "app.dash.revenueThisMonth": "Revenus ce mois-ci",
   "app.dash.quotesSent": "Soumissions envoyées ce mois-ci",
   "app.dash.conversionRate": "Taux de conversion",
@@ -8170,6 +8194,19 @@ const es = {
   "app.settings.activity": "Registro de actividad",
   "app.dash.title": "Panel",
   "app.dash.subtitle": "Esto es lo que pasa con tu negocio.",
+  "app.dash.needs.title": "Pendientes de ti",
+  "app.dash.needs.quotesCount": countedNoun("es", {
+    one: "cotización",
+    many: "cotizaciones",
+    other: "cotizaciones",
+  }),
+  "app.dash.needs.quotes": "{count} a la espera de que apruebes el precio.",
+  "app.dash.needs.callsCount": countedNoun("es", {
+    one: "llamada",
+    many: "llamadas",
+    other: "llamadas",
+  }),
+  "app.dash.needs.calls": "{count} de tu recepcionista — nada hecho todavía.",
   "app.dash.revenueThisMonth": "Ingresos este mes",
   "app.dash.quotesSent": "Cotizaciones enviadas este mes",
   "app.dash.conversionRate": "Tasa de conversión",
@@ -11399,6 +11436,24 @@ const uk = {
   "app.settings.activity": "Журнал активності",
   "app.dash.title": "Панель",
   "app.dash.subtitle": "Ось що відбувається з вашим бізнесом.",
+  "app.dash.needs.title": "Чекають на вас",
+  "app.dash.needs.quotesCount": countedNoun("uk", {
+    one: "кошторис",
+    few: "кошториси",
+    many: "кошторисів",
+    other: "кошториса",
+  }),
+  // Verbless on purpose: "чекає" and "чекають" decline with the numeral, and a
+  // {placeholder} sentence cannot pick between them. The heading above already
+  // says who they are waiting on.
+  "app.dash.needs.quotes": "{count} без підтвердженої ціни.",
+  "app.dash.needs.callsCount": countedNoun("uk", {
+    one: "дзвінок",
+    few: "дзвінки",
+    many: "дзвінків",
+    other: "дзвінка",
+  }),
+  "app.dash.needs.calls": "{count} від вашого ресепшену — ще нічого не зроблено.",
   "app.dash.revenueThisMonth": "Дохід цього місяця",
   "app.dash.quotesSent": "Надіслані кошториси цього місяця",
   "app.dash.conversionRate": "Коефіцієнт конверсії",
@@ -14621,6 +14676,11 @@ const pa = {
   "app.settings.activity": "ਗਤੀਵਿਧੀ ਲੌਗ",
   "app.dash.title": "ਡੈਸ਼ਬੋਰਡ",
   "app.dash.subtitle": "ਇਹ ਹੈ ਤੁਹਾਡੇ ਕਾਰੋਬਾਰ ਵਿੱਚ ਕੀ ਹੋ ਰਿਹਾ ਹੈ।",
+  "app.dash.needs.title": "ਤੁਹਾਡੀ ਉਡੀਕ ਵਿੱਚ",
+  "app.dash.needs.quotesCount": countedNoun("pa", { one: "ਹਵਾਲਾ", other: "ਹਵਾਲੇ" }),
+  "app.dash.needs.quotes": "{count} ਕੀਮਤ ਦੀ ਮਨਜ਼ੂਰੀ ਦੀ ਉਡੀਕ ਵਿੱਚ।",
+  "app.dash.needs.callsCount": countedNoun("pa", { one: "ਕਾਲ", other: "ਕਾਲਾਂ" }),
+  "app.dash.needs.calls": "ਤੁਹਾਡੇ ਰਿਸੈਪਸ਼ਨਿਸਟ ਤੋਂ {count} — ਹਾਲੇ ਕੁਝ ਨਹੀਂ ਕੀਤਾ ਗਿਆ।",
   "app.dash.revenueThisMonth": "ਇਸ ਮਹੀਨੇ ਦੀ ਆਮਦਨ",
   "app.dash.quotesSent": "ਇਸ ਮਹੀਨੇ ਭੇਜੇ ਗਏ ਹਵਾਲੇ",
   "app.dash.conversionRate": "ਕਨਵਰਜ਼ਨ ਦਰ",
@@ -17835,6 +17895,14 @@ const tl = {
   "app.settings.activity": "Log ng aktibidad",
   "app.dash.title": "Dashboard",
   "app.dash.subtitle": "Ito ang nangyayari sa iyong negosyo.",
+  "app.dash.needs.title": "Hinihintay ka",
+  // Tagalog's two CLDR categories are not singular/plural — see the note at the
+  // top of this block and in lib/i18n/plurals.js — so both forms are the same
+  // word, and "mga" is not smuggled in to fake a plural.
+  "app.dash.needs.quotesCount": countedNoun("tl", { one: "quote", other: "quote" }),
+  "app.dash.needs.quotes": "{count} ang naghihintay na aprubahan mo ang presyo.",
+  "app.dash.needs.callsCount": countedNoun("tl", { one: "tawag", other: "tawag" }),
+  "app.dash.needs.calls": "{count} mula sa receptionist mo — wala pang nagagawa.",
   "app.dash.revenueThisMonth": "Kita ngayong buwan",
   "app.dash.quotesSent": "Mga quote na naipadala ngayong buwan",
   "app.dash.conversionRate": "Conversion rate",

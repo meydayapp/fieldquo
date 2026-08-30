@@ -1836,6 +1836,17 @@ const skipWritten = () =>
     (globalThis.__FQ_ROWS.booking || []).length,
   );
   ok("…as a call", globalThis.__FQ_ROWS.booking?.[0]?.mode === "call", globalThis.__FQ_ROWS.booking?.[0]?.mode);
+  // ── And it reserves a call's worth of time, not a consultation's ───────
+  //
+  // The event type here is 60 minutes because that is what it was created for:
+  // somebody sitting in a kitchen. A callback booked against it inherited the
+  // hour, so "can you ring me back" took sixty minutes off an estimator's day
+  // and two of them emptied a Monday.
+  {
+    const b = globalThis.__FQ_ROWS.booking?.[0];
+    const mins = b ? Math.round((new Date(b.endTime) - new Date(b.startTime)) / 60000) : null;
+    ok("…reserving 15 minutes, not the hour the event type is configured for", mins === 15, json(mins));
+  }
 
   // The model calls save_caller more than once per call. The second must not
   // book a second slot.

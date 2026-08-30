@@ -685,5 +685,65 @@ for (const tool of toolDefinitions(ORIGIN, { canBook: true })) {
   );
 }
 
+/* ═══════════ "And who's gonna call me?" ═══════════════════════════════════
+ *
+ * A real caller asked exactly that, and the agent said "I can't say exactly
+ * who" — about an appointment it was in the middle of booking on Daniel's
+ * calendar, on an event type named "Consultation with Daniel". The product knew
+ * and had never passed it on: visitPolicy computed freeVisits and visitSection
+ * never destructured it.
+ */
+{
+  const withOwner = visitPolicy({
+    company: co(),
+    eventTypes: [{ ...FREE, user: { name: "Daniel" } }],
+    bookingUrl: LINK,
+  });
+  ok(
+    withOwner.freeVisits[0]?.ownerName === "Daniel",
+    "the owner's name survives classification",
+    withOwner.freeVisits[0],
+  );
+  ok(
+    /If they ask who will be speaking to them, it is Daniel\./.test(promptFor(withOwner)),
+    "…and the agent is told, so it can answer instead of saying it cannot say",
+  );
+
+  // An unassigned type genuinely lands on nobody's calendar. The vague answer
+  // is the true one, and inventing a name is worse.
+  const noOwner = visitPolicy({ company: co(), eventTypes: [FREE], bookingUrl: LINK });
+  ok(
+    noOwner.freeVisits[0]?.ownerName === null,
+    "an unassigned appointment type carries no name",
+    noOwner.freeVisits[0],
+  );
+  ok(
+    !/who will be speaking to them/.test(promptFor(noOwner)),
+    "…and nothing is said about who, rather than a name being invented",
+  );
+
+  // Two people, and the agent must not pick one at random.
+  const two = visitPolicy({
+    company: co(),
+    eventTypes: [
+      { ...FREE, user: { name: "Daniel" } },
+      { ...FREE, id: "clfree000009", name: "Estimate with Ann", user: { name: "Ann" } },
+    ],
+    bookingUrl: LINK,
+  });
+  const twoText = promptFor(two);
+  ok(
+    /Daniel, Ann/.test(twoText),
+    "with two owners both are named",
+    twoText.match(/who will be speaking to them[\s\S]{0,160}/)?.[0],
+  );
+  ok(
+    /rather than guessing a name/.test(twoText),
+    "…and it is told to stay vague rather than guess which",
+  );
+  // Rule one reaches here too: this section names people, never figures.
+  ok(!/[$€£]\s?\d/.test(twoText), "and naming somebody puts no figure in the agent's mouth");
+}
+
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

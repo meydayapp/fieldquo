@@ -23,6 +23,7 @@ import { isInternalPath } from "@/lib/appUrl";
 import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
+import NeedsYou from "@/app/components/dashboard/NeedsYou";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
@@ -315,6 +316,14 @@ export default function DashboardPage() {
           {t("app.dash.subtitle")}
         </p>
       </div>
+
+      {/* What the automation did that still needs a person — a quote it
+          priced, a call it took, a visit it booked. Above everything else
+          because it is the only content on this page that is waiting on the
+          reader; the panels below are figures, which keep. Renders itself away
+          when there is nothing, and each of its three lines is independently
+          absent, so a quiet company sees the dashboard it saw yesterday. */}
+      <NeedsYou />
 
       {onboardingError && (
         <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-sm rounded-lg px-4 py-3">

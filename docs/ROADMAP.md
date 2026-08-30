@@ -890,6 +890,44 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A five-minute phone call was reserving an hour, and nobody knew who was
+  ringing. `lib/voice/callbackWindow.js`, `lib/voice/visitPath.js`,
+  `lib/voice/prompt.js`, `app/components/dashboard/NeedsYou.js`.**
+
+  Three things one transcript exposed.
+
+  **Duration.** The phone books callbacks against whichever free event type
+  exists, and at Big painter Inc that is "Consultation with Daniel" — sixty
+  minutes, configured for somebody sitting in a kitchen. So "can you ring me
+  back" reserved a full hour of an estimator's day, and two of them emptied his
+  Monday. A callback takes `CALLBACK_MINUTES` now. The override only ever
+  SHORTENS: a callback that runs long costs nobody a slot, where an hour blocked
+  for a five-minute call costs every other slot in it. A visit keeps the
+  configured duration exactly, because that one really is somebody driving over.
+
+  **"And who's gonna call me?"** — a real caller asked, and the agent answered
+  "I can't say exactly who", about an appointment it was booking on Daniel's
+  calendar, on a type named "Consultation with Daniel". `visitPolicy` computed
+  `freeVisits` and `visitSection` never destructured it, so the product knew and
+  had never passed it on. It carries `ownerName` now. Null stays null — an
+  unassigned type genuinely lands on nobody's calendar and the vague answer is
+  the true one — and with two owners the agent is told to stay vague rather than
+  guess which.
+
+  **And nothing on the dashboard said any of it had happened.** `NeedsYou`
+  reports only what needs a person: quotes the software priced and is holding
+  for approval, calls that produced nothing yet, and upcoming AI-booked
+  appointments. Absent line by line, so a company with quotes waiting and no
+  calls sees one line rather than three with two blanks; absent entirely when
+  there is nothing; and absent rather than zero when an endpoint refuses,
+  because a 403 rendering as "0" is a bug this dashboard has had before.
+
+  The instant-quote half of that question was already built and only invisible:
+  `draftQuoteFromCall` prices at most one trade per call when the intake is
+  complete, and `createEstimateQuote` lands it with `needsReview: true`, which
+  its own header calls the ONLY way an auto-priced quote arrives. It never
+  reaches a client without a person.
+
 - **I replaced a correct answer with a fast wrong one.
   `lib/voice/callbackWindow.js`, `lib/voice/availability.js`,
   `app/api/team/schedules/route.js`, `lib/schedule/jobVisits.js`,
