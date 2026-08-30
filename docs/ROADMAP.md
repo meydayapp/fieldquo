@@ -890,6 +890,39 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **One advert, five shapes. `lib/marketing/ratios.js`.** *(foundation for the
+  Marketing Designer)*
+
+  The canvas editor being ported has a `changeSize()` that sets the workspace
+  rectangle's width and height and touches nothing else — objects keep their
+  absolute coordinates. Resize a 1200x630 Facebook banner to a 1080x1080 square
+  and the headline at x=900 is simply outside the picture: still in the
+  document, clipped out of the frame, with nothing on screen saying so. A
+  contractor laying out one advert and asking for it as a Story would get a
+  broken Story, silently, five files at a time.
+
+  `reflow()` maps each object through its CENTRE and scales by ONE factor —
+  `min`, so artwork fits inside the new frame rather than being pushed out of
+  it. Uniform, because stretching 1:1 artwork into 9:16 distorts a logo and
+  squashes a face, and a contractor putting their own van on Instagram spots
+  that instantly. Strokes scale with their shape (fabric draws them in absolute
+  pixels, so an unscaled 6px outline goes crude at the smallest ratio);
+  `fontSize` deliberately does not, because fabric applies `scaleY` on top of it
+  and scaling both squares the change.
+
+  It is a STARTING layout, not a finished one — good square-to-portrait,
+  mediocre landscape-to-portrait — so each ratio saves its own adjustments and
+  `overflowing()` names anything still hanging over an edge rather than letting
+  five files reach Instagram to find out. Filenames carry the network
+  (`spring-promo-instagram-story.png`), because a folder of design-1 through
+  design-5 is a folder nobody can use.
+
+  Ten mutations. Eight caught first pass; **two survived and both were the
+  tests' fault** — "fontSize is unchanged" was asserted on the one reflow whose
+  scale is exactly 1, and the no-NaN check only exercised the degenerate frame
+  that produces zeros rather than the one that divides by zero and produces
+  Infinity.
+
 - **The cost basis for paid AI images, and the ledger kinds to charge it.
   `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — inert
   until the features land)*
