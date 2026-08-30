@@ -15,14 +15,18 @@
 //     in. That is a real status, not a decorative one: if `saveCallback` is
 //     omitted, no "Saved"/"Saving" indicator renders at all, rather than
 //     lying about a save that isn't wired up.
-//   - No ai-sidebar, template-sidebar or remove-bg-sidebar. Per AGENTS.md,
-//     ai-sidebar (Replicate image generation) and every usePaywall call are
-//     dropped outright. remove-bg-sidebar depended on the same
-//     usePaywall + AI-backend pairing — shipping its button with the backend
-//     gone would be exactly the dead-control failure AGENTS.md warns about,
-//     so it goes with it. template-sidebar's useGetTemplates/useConfirm are
-//     both explicitly on the drop list, and with it dropped, `templates` is
-//     no longer offered from the left icon rail (see Sidebar.js).
+//   - ai-sidebar, template-sidebar and remove-bg-sidebar are ALL present, per
+//     the owner's 2026-08-30 correction to the first pass of this port:
+//     every editor feature in the source clone exists here too, and AI image
+//     generation is the ONLY premium piece. Templates are free
+//     (DesignTemplate Prisma model, app/api/designer/templates); AI
+//     generation and background removal both meter on the SAME
+//     `image_generation` spend kind via lib/designer/aiImageAdapter.js — see
+//     that file's own doc for the TODO seam where the real vendor call lands
+//     once a sibling worktree's lib/ai/images.js exists. Replicate and
+//     usePaywall specifically stay dropped: this repo's own spend-gate
+//     infrastructure (lib/voice/spendGate.js, lib/features/gate.js) replaces
+//     both.
 //
 // `initialData` and `saveCallback` are the injection point, exactly as the
 // source used them: this component builds and renders the whole editor and
@@ -47,7 +51,10 @@ import { OpacitySidebar } from "@/app/components/designer/OpacitySidebar";
 import { TextSidebar } from "@/app/components/designer/TextSidebar";
 import { FontSidebar } from "@/app/components/designer/FontSidebar";
 import { ImageSidebar } from "@/app/components/designer/ImageSidebar";
+import { TemplateSidebar } from "@/app/components/designer/TemplateSidebar";
 import { FilterSidebar } from "@/app/components/designer/FilterSidebar";
+import { AiSidebar } from "@/app/components/designer/AiSidebar";
+import { RemoveBgSidebar } from "@/app/components/designer/RemoveBgSidebar";
 import { DrawSidebar } from "@/app/components/designer/DrawSidebar";
 import { SettingsSidebar } from "@/app/components/designer/SettingsSidebar";
 
@@ -155,7 +162,10 @@ export function Editor({ initialData, saveCallback }) {
         <TextSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FontSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <ImageSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <TemplateSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <FilterSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <AiSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
+        <RemoveBgSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <DrawSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <SettingsSidebar editor={editor} activeTool={activeTool} onChangeActiveTool={onChangeActiveTool} />
         <main className="relative flex flex-1 flex-col overflow-auto bg-muted">

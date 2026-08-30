@@ -2,12 +2,13 @@
 
 // app/components/designer/Sidebar.js
 //
-// Ported from `components/sidebar.tsx` with two icons removed: "Design"
-// (opened template-sidebar) and "AI" (opened ai-sidebar). Both sidebars are
-// dropped per AGENTS.md — leaving their launcher icons in this rail would be
-// exactly the dead-button failure AGENTS.md's "rule that matters most"
-// warns about, a tab that opens onto nothing.
-import { ImageIcon, Pencil, Settings, Shapes, Type } from "lucide-react";
+// Ported from `components/sidebar.tsx`. "Design" (templates) and "AI" were
+// dropped in the first pass of this port and restored per the owner's
+// 2026-08-30 correction — see Editor.js's module doc for the full reasoning.
+// Both tabs are real now: Design opens TemplateSidebar (free,
+// DesignTemplate-backed), AI opens AiSidebar (the one premium feature,
+// gated in lib/designer/aiImageAdapter.js).
+import { ImageIcon, LayoutTemplate, Pencil, Settings, Shapes, Sparkles, Type } from "lucide-react";
 
 import { SidebarItem } from "@/app/components/designer/SidebarItem";
 
@@ -20,6 +21,12 @@ export function Sidebar({ activeTool, onChangeActiveTool }) {
   return (
     <aside className="flex h-full w-[100px] flex-col overflow-y-auto border-r bg-card">
       <ul className="flex flex-col">
+        <SidebarItem
+          icon={LayoutTemplate}
+          label="Design"
+          isActive={activeTool === "templates"}
+          onClick={() => onChangeActiveTool("templates")}
+        />
         <SidebarItem
           icon={ImageIcon}
           label="Image"
@@ -43,6 +50,12 @@ export function Sidebar({ activeTool, onChangeActiveTool }) {
           label="Draw"
           isActive={activeTool === "draw"}
           onClick={() => onChangeActiveTool("draw")}
+        />
+        <SidebarItem
+          icon={Sparkles}
+          label="AI"
+          isActive={activeTool === "ai"}
+          onClick={() => onChangeActiveTool("ai")}
         />
         <SidebarItem
           icon={Settings}

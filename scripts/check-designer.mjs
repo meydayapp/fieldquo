@@ -1,10 +1,14 @@
 // scripts/check-designer.mjs
 //
-// Guards the canvas-editor port (app/components/designer/, lib/designer/)
-// against the three ways this exact kind of port goes wrong: a fixed bug
-// regressing back to its broken form, a dropped dependency creeping back in,
-// and fabric's browser build getting imported somewhere Next's SSR pass can
-// reach it.
+// Guards the canvas-editor port (app/components/designer/, lib/designer/,
+// app/api/designer/) against the ways this exact kind of port goes wrong: a
+// fixed bug regressing back to its broken form, a dropped dependency
+// creeping back in, fabric's browser build getting imported somewhere
+// Next's SSR pass can reach it — and, since the owner's 2026-08-30
+// correction restored templates/Unsplash/AI generation/background removal,
+// the free/premium line drawn between them drifting: a free feature
+// accidentally gated behind the AI spend check, or the two AI actions
+// quietly ending up priced differently instead of sharing one kind.
 //
 // ══ Two different kinds of assertion, on purpose ═══════════════════════════
 //
@@ -62,6 +66,7 @@ function walk(dir, out = []) {
 
 const DESIGNER_FILES = [
   ...walk("app/components/designer"),
+  ...walk("app/api/designer"),
   ...walk("lib/designer"),
   "components/Hint.jsx",
   "components/ui/slider.jsx",
@@ -69,6 +74,7 @@ const DESIGNER_FILES = [
   "components/ui/tooltip.jsx",
   "components/ui/input.jsx",
   "components/ui/label.jsx",
+  "components/ui/textarea.jsx",
 ].filter((f) => fs.existsSync(path.join(ROOT, f)));
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -173,12 +179,12 @@ ok(rgbaObjectToString("transparent") === "rgba(0,0,0,0)", "the literal 'transpar
 ok(rgbaObjectToString({ r: 10, g: 20, b: 30 }) === "rgba(10, 20, 30, 1)", "a missing alpha defaults to fully opaque");
 ok(rgbaObjectToString({ r: 10, g: 20, b: 30, a: 0 }) === "rgba(10, 20, 30, 0)", "an explicit alpha of 0 is kept, not treated as falsy/missing");
 
-// "remove-bg" is intentionally absent — that sidebar was dropped along with
-// the AI backend it needed (see Editor.js). A "remove-bg" entry surviving in
-// this list would mean something still expects to open a sidebar this port
-// doesn't ship.
-ok(!selectionDependentTools.includes("remove-bg"), "'remove-bg' is not a selection-dependent tool — that sidebar was dropped");
-ok(!selectionDependentTools.includes("templates") && !selectionDependentTools.includes("ai"), "'templates'/'ai' are not tools — those sidebars were dropped");
+// Restored per the owner's 2026-08-30 correction (see Editor.js's module
+// doc): "remove-bg" IS selection-dependent — deselecting must close its
+// sidebar the same way it closes fill/stroke/opacity — while "templates" and
+// "ai" are NOT, because neither needs anything selected to be useful.
+ok(selectionDependentTools.includes("remove-bg"), "'remove-bg' IS a selection-dependent tool — its sidebar needs a selected image, same as fill/stroke/opacity");
+ok(!selectionDependentTools.includes("templates") && !selectionDependentTools.includes("ai"), "'templates'/'ai' are NOT selection-dependent — both work with nothing selected");
 
 // ═════════════════════════════════════════════════════════════════════════
 section("6. Dropped dependencies do not creep back in");
@@ -271,6 +277,180 @@ const settingsCode = stripComments(read("app/components/designer/SettingsSidebar
 ok(/\bAD_RATIOS\b/.test(settingsCode), "SettingsSidebar.js renders the AD_RATIOS presets");
 ok(/onClick=\{\(\)\s*=>\s*editor\?\.changeRatio\(/.test(settingsCode),
   "SettingsSidebar.js wires a click to editor.changeRatio() — not a fresh implementation of frame-switching");
+
+// ═════════════════════════════════════════════════════════════════════════
+section("10. Template gallery — free, and genuinely a Prisma model");
+// ═════════════════════════════════════════════════════════════════════════
+// Restored per the coordinator's 2026-08-30 correction: every editor feature
+// in the source clone exists here except AI image generation. Checked at the
+// source level (no live DB query from a script that runs in every
+// environment, including ones with no DATABASE_URL — the seed itself was
+// already run and verified by hand against the real database this session).
+const schemaSrc = read("prisma/schema.prisma");
+const templateModelMatch = schemaSrc.match(/model DesignTemplate \{([\s\S]*?)\n\}/);
+ok(!!templateModelMatch, "prisma/schema.prisma defines model DesignTemplate");
+if (templateModelMatch) {
+  // Prisma's `///` doc comments stripped the same way `//` is elsewhere —
+  // this schema's OWN comment on the model explains why `isPro` was
+  // deliberately not carried over, and that explanation contains the word
+  // "isPro". Reading fields, not prose, again.
+  const modelBody = templateModelMatch[1].replace(/^\s*\/\/\/.*$/gm, "");
+  ok(/^\s*name\s+String\s+@unique/m.test(modelBody), "DesignTemplate.name is unique (the seed's upsert key)");
+  ok(/^\s*json\s+Json/m.test(modelBody), "DesignTemplate.json is a native Json field");
+  ok(/^\s*thumbnailUrl\s+String\?/m.test(modelBody), "DesignTemplate.thumbnailUrl is nullable — no image is a real, renderable state");
+  ok(
+    !/^\s*isPro\b/m.test(modelBody) && !/^\s*isTemplate\b/m.test(modelBody),
+    "DesignTemplate has no isPro/isTemplate column — nothing here is paywalled, so there is nothing for either flag to gate",
+  );
+}
+
+const templatesRouteSrc = read("app/api/designer/templates/route.js");
+ok(/memberOrRefusal\s*\(/.test(templatesRouteSrc), "GET /api/designer/templates resolves its member through the guard");
+ok(/db\.designTemplate\.findMany\(/.test(templatesRouteSrc), "it actually queries DesignTemplate — not a stub");
+ok(
+  !stripComments(templatesRouteSrc).includes("isPro") && !stripComments(templatesRouteSrc).includes("usePaywall"),
+  "the templates route has no paywall check — the gallery is free",
+);
+
+const editorSrc = read("app/components/designer/Editor.js");
+ok(/<TemplateSidebar\b/.test(editorSrc), "Editor.js renders TemplateSidebar");
+const sidebarRailSrc = read("app/components/designer/Sidebar.js");
+ok(
+  /onClick=\{\(\)\s*=>\s*onChangeActiveTool\("templates"\)\}/.test(sidebarRailSrc),
+  "the left icon rail has a real launcher for the templates tool — not a rail with no way to reach it",
+);
+
+// ═════════════════════════════════════════════════════════════════════════
+section("11. AI image tools — the one premium feature, gated and priced once");
+// ═════════════════════════════════════════════════════════════════════════
+const registrySrc = read("lib/features/registry.js");
+ok(/key:\s*"marketing_designer"/.test(registrySrc), "\"marketing_designer\" is a registered feature");
+
+const registryEntryMatch = registrySrc.match(/\{\s*\n\s*key:\s*"marketing_designer"[\s\S]*?\n\s*\},\n\];/);
+ok(!!registryEntryMatch, "the marketing_designer entry can be isolated for its own checks");
+if (registryEntryMatch) {
+  const entry = registryEntryMatch[0];
+  ok(/"\/api\/designer\/remove-bg"/.test(entry), "marketing_designer's apiPrefixes cover the remove-bg route");
+  ok(/"\/api\/designer\/generate"/.test(entry), "marketing_designer's apiPrefixes cover the generate route");
+  // The whole point of the coordinator's correction: templates, uploads and
+  // stock photos must NOT go dark if this feature is ever locked or hidden.
+  ok(
+    !entry.includes("/api/designer/templates") && !entry.includes("/api/designer/unsplash"),
+    "marketing_designer's apiPrefixes do NOT cover templates or unsplash — those stay free and reachable regardless of this feature's state",
+  );
+}
+
+const adapterSrc = read("lib/designer/aiImageAdapter.js");
+ok(/export async function requestAiImage/.test(adapterSrc), "aiImageAdapter.js exports requestAiImage()");
+ok(/export async function statusForCompany/.test(adapterSrc), "aiImageAdapter.js exports statusForCompany()");
+ok(
+  (adapterSrc.match(/featureAllowsSpend\(companyId,\s*"marketing_designer"\)/g) || []).length >= 2,
+  "both statusForCompany() and requestAiImage() check the SAME literal feature key — not a copy that can drift",
+);
+
+// The seam: don't build what a sibling worktree is building.
+//
+// Written as "@/lib/ai/" + "images" rather than the joined literal on
+// purpose — scripts/check-imports.mjs (part of `npm run build`) scans this
+// very file's source text for anything shaped like `from "..."`, and the
+// unjoined literal `'@/lib/ai/images'` sitting next to the word "from" in a
+// comment or string read AS a real import specifier, which it isn't: it's
+// the string this assertion is checking is ABSENT elsewhere. Splitting it
+// is the same fix check-imports.mjs's own header describes for the same
+// self-referential trap.
+const NOT_YET_BUILT_MODULE = "@/lib/ai/" + "images";
+ok(
+  !fs.existsSync(path.join(ROOT, "lib/ai/images.js")),
+  "lib/ai/images.js was NOT created here — that's the sibling worktree's file to land",
+);
+ok(
+  !stripComments(adapterSrc).includes(NOT_YET_BUILT_MODULE),
+  "aiImageAdapter.js does not import the not-yet-landed lib/ai/images.js",
+);
+
+const generateRouteSrc = read("app/api/designer/generate/route.js");
+const removeBgRouteSrc = read("app/api/designer/remove-bg/route.js");
+for (const [name, src] of [["generate", generateRouteSrc], ["remove-bg", removeBgRouteSrc]]) {
+  const code = stripComments(src);
+  ok(/requestAiImage\(/.test(code), `${name}/route.js calls the shared adapter, not its own spend logic`);
+  ok(
+    !/requestAiImage\(\s*\{[^}]*\bkind:/s.test(code),
+    `${name}/route.js does not pass its own "kind" to requestAiImage — the adapter alone decides the spend kind, so the two routes cannot drift onto different prices`,
+  );
+  ok(
+    /priceCents/.test(code) && /balanceCents/.test(code) && /shortfallCents/.test(code),
+    `${name}/route.js's refusal body carries price, balance and shortfall — not "something went wrong"`,
+  );
+}
+
+// "Never a button that appears to work": both sidebars must render their
+// action disabled BEFORE a click, driven by the status fetch, not just fail
+// after the fact.
+const aiSidebarSrc = read("app/components/designer/AiSidebar.js");
+const removeBgSidebarSrc = read("app/components/designer/RemoveBgSidebar.js");
+for (const [name, src] of [["AiSidebar", aiSidebarSrc], ["RemoveBgSidebar", removeBgSidebarSrc]]) {
+  ok(/useAiImageStatus\(/.test(src), `${name}.js reads live status before rendering its action`);
+  ok(/disabled=\{!status\?\.allowed/.test(src), `${name}.js's action button is disabled whenever status.allowed is false`);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+section("12. Unsplash — restored, free, key never reaches the browser");
+// ═════════════════════════════════════════════════════════════════════════
+const unsplashLibSrc = read("lib/designer/unsplash.js");
+ok(/process\.env\.UNSPLASH_ACCESS_KEY/.test(unsplashLibSrc), "lib/designer/unsplash.js reads a server-only env var");
+for (const file of DESIGNER_FILES) {
+  // Comments stripped — lib/designer/unsplash.js's own header explains, in
+  // prose, why it does NOT use NEXT_PUBLIC_UNSPLASH_ACCESS_KEY the way the
+  // source clone did, which put that exact string in a comment for a
+  // raw-text scan to trip over.
+  ok(
+    !stripComments(read(file)).includes("NEXT_PUBLIC_UNSPLASH"),
+    `${file} does not reference a public (browser-exposed) Unsplash key`,
+  );
+}
+
+const unsplashRouteSrc = read("app/api/designer/unsplash/route.js");
+ok(/reason:\s*"not_configured"/.test(unsplashRouteSrc), "the route can say \"not configured\"");
+ok(/reason:\s*"unavailable"/.test(unsplashRouteSrc), "the route can separately say \"unavailable\" — a different sentence for a different problem");
+// The two reasons must come from DIFFERENT branches — a single `reason:
+// "not_configured"` that also covers a provider failure would be exactly
+// the conflation AGENTS.md calls a bug.
+ok(
+  (unsplashRouteSrc.match(/reason:\s*"(not_configured|unavailable)"/g) || []).length === 2,
+  "each reason string is written exactly once — one conditional branch per meaning, not reused across two different failures",
+);
+ok(read("docs/VERCEL.md").includes("UNSPLASH_ACCESS_KEY"), "UNSPLASH_ACCESS_KEY is documented in docs/VERCEL.md");
+
+// ═════════════════════════════════════════════════════════════════════════
+section("13. Seed content — real templates only, no third-party hotlinks");
+// ═════════════════════════════════════════════════════════════════════════
+// coming_soon and flash_sale are pure shapes/text from the source clone's own
+// sample templates — genuinely real, not fabricated. car_sale and travel are
+// deliberately NOT seeded: both embed a `type:"image"` object pointing at a
+// live third-party CDN this repo doesn't control (uploadthing, Unsplash's
+// image host respectively), which can 404 the moment either host rotates the
+// file — a template that silently breaks is worse than one that was never
+// offered. See prisma/seed-design-templates.js's own header for the full
+// reasoning; this just proves the file still agrees with it.
+const seedSrc = read("prisma/seed-design-templates.js");
+const seedCode = stripComments(seedSrc);
+ok(seedCode.includes("coming-soon.json"), "Coming Soon is an active (uncommented) seed entry");
+ok(seedCode.includes("flash-sale.json"), "Flash Sale is an active (uncommented) seed entry");
+ok(
+  !seedCode.includes("car-sale.json") && !seedCode.includes("travel.json"),
+  "car_sale and travel stay commented out — not active seed entries — because their JSON embeds a live third-party image URL this repo doesn't control",
+);
+// And prove they are still THERE, just commented — scaffolded for a five-
+// minute follow-up, not silently deleted.
+ok(
+  seedSrc.includes("car-sale.json") && seedSrc.includes("travel.json"),
+  "car_sale and travel are still documented in the file (commented), not removed outright",
+);
+ok(
+  fs.existsSync(path.join(ROOT, "public/design-templates/coming-soon.png")) &&
+    fs.existsSync(path.join(ROOT, "public/design-templates/flash-sale.png")),
+  "both seeded templates have a real thumbnail file checked into public/",
+);
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
 process.exit(fail ? 1 : 0);

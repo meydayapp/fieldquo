@@ -956,8 +956,9 @@ they set the pattern.
   Infinity.
 
 - **The canvas editor port itself. `app/components/designer/`,
-  `lib/designer/`.** *(foundation for the Marketing Designer — editor ported,
-  not yet reachable from any page)*
+  `lib/designer/`, `app/api/designer/`.** *(foundation for the Marketing
+  Designer — editor ported and every source-clone feature restored, not yet
+  reachable from any page)*
 
   Ported from a Fabric.js v5 Canva clone (TypeScript, Radix, uploadthing,
   react-query, Replicate) into this repo's plain-JS/`@base-ui/react` stack.
@@ -986,36 +987,82 @@ they set the pattern.
   reimplemented here — and surfaces a non-blocking warning when artwork still
   hangs over the new frame's edge.
 
-  Dropped rather than ported: `ai-sidebar` (Replicate image generation) and
-  `remove-bg-sidebar` (background removal), both paywalled AI features with no
-  backend in this repo — shipping either button would be the dead-control
-  failure this file warns about throughout, not a stub worth keeping.
-  `template-sidebar` dropped with its `useConfirm`/`useGetTemplates`
-  dependencies. Every `usePaywall` call, `UserButton`, react-icons,
-  `@tanstack/react-query`, and Hono usage went with them. Image upload is
-  rewired to the existing `MediaUploader` + `/api/upload` (Cloudinary,
-  authenticated) rather than left pointing at uploadthing or Unsplash.
-  `react-color` is kept (colour picker) and flagged unmaintained in a comment
-  — replacing it was judged a larger risk than the small, inert dependency it
-  is.
+  First pass dropped `ai-sidebar`, `remove-bg-sidebar` and `template-sidebar`
+  outright — the first two for their Replicate/`usePaywall` pairing, the third
+  for its Drizzle/Hono backend. **Coordinator correction, same day:** every
+  editor feature in the source clone has to exist here; AI image generation is
+  the ONLY premium piece. All three restored:
 
-  `Slider`, `DropdownMenu`, and `Tooltip` didn't exist in `components/ui/` and
-  were built on `@base-ui/react` for this port; `Hint` (the toolbar tooltip
-  wrapper) at `components/Hint.jsx`. `scripts/check-designer.mjs` executes the
-  two fabric-free bug fixes for real (transformText, debounce) and checks the
-  fabric-dependent ones (Gamma/Saturation, saveSvg, the ratios.js wiring)
-  against source text with comments stripped — the first draft of several of
-  those source-text assertions passed on a real mutation because the file's
-  own explanatory comment happened to repeat the code phrase being checked for
-  ("reflow(", "ssr: false", "editor.changeRatio("); scoping every such check
-  to comment-free code, and to the specific call shape rather than a bare
-  substring, is what catches the mutation instead of reading its own prose
-  back.
+  - **Templates — free.** `DesignTemplate` (`prisma/schema.prisma`, global, no
+    `companyId`), `GET /api/designer/templates`, `TemplateSidebar.js`. No
+    `isPro` column — deliberately not carried over; nothing here is
+    paywalled, so it would be written and never meaningfully read.
+    `prisma/seed-design-templates.js` seeds two of the source clone's own four
+    sample templates (Coming Soon, Flash Sale — real fabric.js documents with
+    real thumbnails, copied in rather than hand-fabricated). The other two
+    (Car Sale, Travel) stay commented out in the seed file: both embed a
+    `type:"image"` object hotlinked to a third-party CDN (uploadthing,
+    Unsplash) this repo doesn't control, which could 404 the file silently.
+    Restoring them is re-hosting one image each on Cloudinary — scaffolded,
+    not done blind.
+  - **Unsplash — free.** `lib/designer/unsplash.js` +
+    `/api/designer/unsplash` proxy the key server-side (the source clone
+    shipped `NEXT_PUBLIC_UNSPLASH_ACCESS_KEY` straight into the browser
+    bundle; fixed here, not carried forward). Mirrors
+    `voiceConfigured()`'s `"not_configured"` vs `"unavailable"` split exactly
+    — an operator problem and a transient one are different sentences.
+  - **AI generation + background removal — the one premium piece.** Both
+    meter on the SAME `image_generation` spend kind (`lib/voice/spendGate.js`,
+    already priced by `lib/ai/imageEconomics.js`, already the separate "ai"
+    wallet) via one new file, `lib/designer/aiImageAdapter.js` —
+    `"marketing_designer"` newly registered in `lib/features/registry.js`,
+    scoped to exactly `/api/designer/{generate,remove-bg}` so the free
+    features above stay reachable regardless of this one's state. No vendor
+    call is wired: a sibling worktree is concurrently building
+    `lib/ai/images.js` and an image entry point on `lib/ai/provider.js`, so
+    this stops at a seam (`AI_IMAGE_VENDOR_READY = false`) rather than
+    colliding with that work. `AiSidebar`/`RemoveBgSidebar` fetch
+    `/api/designer/ai-image-status` and render the action DISABLED with the
+    specific reason (feature off / vendor not wired / can't afford it, with
+    the price, balance and shortfall) before anyone clicks — never
+    click-then-refund-then-error.
 
-  **Not built here, by design:** the Prisma model, the save API route, AI
-  image generation, and credit gating — `initialData`/`saveCallback` are left
-  as the injection point for that work, exactly as the source clone used them.
-  Nothing imports `DesignerLoader` from any page yet.
+  Everything else from the first pass stands: `UserButton`, react-icons,
+  `@tanstack/react-query` and Hono usage stay dropped (this repo's own
+  spend-gate and feature-registry infrastructure replaces `usePaywall`
+  outright). Image upload is rewired to the existing `MediaUploader` +
+  `/api/upload` (Cloudinary, authenticated) rather than uploadthing.
+  `react-color` is kept (colour picker) and flagged unmaintained in a comment.
+
+  `Slider`, `DropdownMenu`, `Tooltip`, `Textarea` didn't exist in
+  `components/ui/` and were built on `@base-ui/react` for this port; `Hint`
+  (the toolbar tooltip wrapper) at `components/Hint.jsx`.
+  `scripts/check-designer.mjs` executes the two fabric-free bug fixes for
+  real (transformText, debounce) and checks everything else against source
+  text with comments stripped. Caught on real mutations, twice over: the
+  first draft of several source-text assertions ("reflow(", "ssr: false",
+  "editor.changeRatio(", and later "featureAllowsSpend(companyId,
+  \"marketing_designer\")" — twice, and "@/lib/ai/images" — once) passed
+  against a real regression because a file's own explanatory comment happened
+  to repeat the exact phrase being checked for; one assertion (the
+  not-yet-built-module check) tripped `check-imports.mjs`'s OWN specifier
+  scanner by containing the literal text `from "@/lib/ai/images"`, the same
+  self-referential trap that script's own header describes. Fixed the same
+  way each time: comment-stripped source, the specific call/literal shape
+  rather than a bare substring, and — for the import-scanner collision — the
+  path string split so it never reads as an import specifier in the checker's
+  own file.
+
+  **Not built here, by design:** the Prisma model for a company's own
+  *saved* designs (as opposed to the global template catalog, which now
+  exists), the save API route, and the real AI vendor call —
+  `initialData`/`saveCallback` are left as the injection point for the first
+  two, exactly as the source clone used them, and `lib/designer/aiImageAdapter.js`'s
+  TODO seam is the injection point for the third. Nothing imports
+  `DesignerLoader` from any page yet. `DATABASE_URL` for the real Neon dev
+  database was pulled from the main repo's `.env` (gitignored, machine-local
+  — see AGENTS.md) to actually run `npx prisma db push` and the seed script
+  against it this session, rather than only validating the schema offline.
 
 - **The cost basis for paid AI images, and the ledger kinds to charge it.
   `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — inert

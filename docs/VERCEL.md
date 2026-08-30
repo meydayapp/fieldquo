@@ -22,6 +22,7 @@ does nothing to the deployment.
 | `CRON_SECRET` | Guards all four cron routes | Every cron 401s: no follow-ups, no review requests, no outbound calls, no monthly digest, no large-quote check. Vercel reports the cron as *run*, so this looks fine from the dashboard. |
 | `PLATFORM_JWT_SECRET` | Superadmin console session | Fails **closed** — jose refuses a zero-length key, so login appears to work and bounces you straight back out with nothing in any log. |
 | `IMPERSONATION_JWT_SECRET` | Read-only support tokens | Throws a 500 with instructions. The one that fails honestly. |
+| `UNSPLASH_ACCESS_KEY` | Stock-photo tab in the Marketing Designer's Image sidebar | The tab says the stock library isn't set up on this deployment — not "no images found", which is a different, wrong statement. See `lib/designer/unsplash.js`. |
 
 Generate the secrets with:
 

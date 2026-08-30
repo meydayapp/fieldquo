@@ -761,6 +761,45 @@ model Subscription {
 
 }
 
+/// The Marketing Designer's starter-template gallery (app/components/designer/,
+/// lib/designer/) — a FieldQuo-provided catalog, not a per-company save. Global
+/// like `Plan` above, for the same reason: every company sees the same shelf of
+/// starters, the way every company sees the same pricing tiers.
+///
+/// Deliberately NOT the source clone's shape. The nextjs-canva-clone this was
+/// ported from stored templates as `Project` rows with `isTemplate`/`isPro`
+/// flags — one table doing double duty as "a user's saved design" AND "a
+/// public gallery entry", gated by a paywall. Two things changed that shape
+/// here: (1) this task builds only the gallery, not a "save my project" flow,
+/// so there is nothing for a template to be a special case OF; (2) the owner's
+/// 2026-08-30 correction on this port is explicit — every editor feature ships
+/// free except AI image generation, so an `isPro` column would be written and
+/// never meaningfully read (AGENTS.md's #1 recurring failure class). Dropped
+/// rather than carried forward as dead weight.
+model DesignTemplate {
+  id   String @id @default(cuid())
+  /// Unique so prisma/seed-design-templates.js can upsert on it — re-running
+  /// the seed fixes a template in place rather than duplicating the row.
+  name String @unique
+  /// A fabric.js canvas.toJSON() document — the same shape
+  /// Editor.js's editor.loadJson()/saveJson() read and write, stored as
+  /// native Json (this schema's convention — see DocumentTemplate.sections)
+  /// rather than a pre-stringified String, so a template can be inspected or
+  /// edited with an ordinary Postgres JSON query instead of only ever as an
+  /// opaque blob.
+  json   Json
+  width  Int
+  height Int
+  /// Nullable: TemplateSidebar renders a generated colour/name card instead
+  /// of a broken <img> when this is absent, rather than pretending a preview
+  /// image exists. See prisma/seed-design-templates.js for why the seeded
+  /// rows below DO have one.
+  thumbnailUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ============================================================
 // TENANT CORE — Company, Users, Membership/RBAC
 // ============================================================

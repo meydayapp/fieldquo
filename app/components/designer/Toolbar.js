@@ -6,9 +6,9 @@
 // FaStrikethrough/FaUnderline, TbColorFilter, BsBorderWidth,
 // RxTransparencyGrid) replaced with lucide-react equivalents — this repo
 // already depends on lucide-react and is told not to add react-icons.
-// "Remove background" button dropped along with remove-bg-sidebar (see the
-// note in Editor.js); "Filters" stays, since image filters are pure
-// client-side canvas math with no AI backend dependency.
+// "Remove background" restored per the owner's 2026-08-30 correction — see
+// Editor.js's module doc; it opens RemoveBgSidebar, which prices and gates
+// the action itself before this button ever does anything.
 import { useState } from "react";
 import {
   AlignCenter,
@@ -22,6 +22,7 @@ import {
   Filter,
   Italic,
   Ruler,
+  SquareSplitHorizontal,
   Strikethrough,
   Trash,
   Underline,
@@ -306,6 +307,20 @@ export function Toolbar({ editor, activeTool, onChangeActiveTool }) {
               className={cn(activeTool === "filter" && "bg-muted")}
             >
               <Filter className="size-4" />
+            </Button>
+          </Hint>
+        </div>
+      )}
+      {isImage && (
+        <div className="flex h-full items-center justify-center">
+          <Hint label="Remove background" side="bottom" sideOffset={5}>
+            <Button
+              onClick={() => onChangeActiveTool("remove-bg")}
+              size="icon"
+              variant="ghost"
+              className={cn(activeTool === "remove-bg" && "bg-muted")}
+            >
+              <SquareSplitHorizontal className="size-4" />
             </Button>
           </Hint>
         </div>

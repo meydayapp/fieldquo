@@ -49,6 +49,7 @@
     "check:visit-copy": "node --import ./scripts/alias-loader.mjs scripts/check-visit-copy.mjs",
     "seed:demos": "node --import ./scripts/alias-loader.mjs scripts/seed-demos.mjs",
     "seed:checklists": "node prisma/seed-checklists.js",
+    "seed:design-templates": "node prisma/seed-design-templates.js",
     "seed:construction-checklists": "node prisma/seed-construction-checklists.js",
     "seed:demo-availability": "node prisma/seed-demo-availability.js",
     "check:voice-outbound": "node --import ./scripts/alias-loader.mjs scripts/check-outbound-prompt.mjs",
