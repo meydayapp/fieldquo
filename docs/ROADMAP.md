@@ -890,6 +890,37 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Concurrency is not the cost that loses money — the knowledge base is.
+  `lib/voice/platformEconomics.js`, `app/api/platform/voice-economics/route.js`,
+  `scripts/check-voice-economics.mjs`.**
+
+  The owner's worry was that concurrency ($8 per slot per month past the first
+  20) was an uncovered cost that would invert the voice margin. The arithmetic
+  says the opposite, and it is now executable rather than argued: **a slot pays
+  for itself after 42 billable minutes a month**, against a slot that could
+  carry 43,800 if it were never idle. Concurrency is an AVAILABILITY decision —
+  running out means an inbound call waits ~40s and then fails, which a caller
+  experiences as a contractor who does not answer — not a pricing one.
+
+  The fixed cost that genuinely inverts a margin is the Retell knowledge base,
+  at $8 per company per month past the first ten. A contractor doing 30 minutes
+  a month earns about $5.85 of gross margin; a knowledge base takes them to
+  **−$2.30**. That is the feature proposed one turn earlier for putting the
+  company's website into the agent's context, and it would have lost money on
+  every quiet contractor. The prompt is the cheaper home for that content while
+  it stays under Retell's ~4k-token billing threshold (currently ~3.1k).
+
+  Margin is measured, not modelled. `VoiceCall.providerCostCents` has held
+  Retell's own per-call figure all along and nothing aggregated it, so "are we
+  making money on voice?" could only be answered by re-deriving the estimate
+  that set the price. Real figures over the first eight billable calls: charged
+  44.2¢/min, Retell billed 17.8¢/min, **60% gross**.
+
+  The absence rules are the assertions that matter: a call Retell has not priced
+  is COUNTED but not costed (Number(null) is 0, which turns "we don't know" into
+  "it was free" and flatters every margin it touches), and a concurrency limit
+  we could not fetch reports unknown rather than zero paid slots.
+
 - **The dead air was ours, and four prompt fixes had reached nobody.
   `lib/voice/tools.js`, `lib/voice/agentTuning.js`, `lib/voice/prompt.js`,
   `lib/voice/provision.js`, `app/api/cron/voice-resync/route.js`.**
