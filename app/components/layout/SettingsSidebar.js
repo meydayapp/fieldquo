@@ -59,6 +59,7 @@ import {
   Languages,
   MailOpen,
   Zap,
+  Sparkles,
   Activity,
   Settings as SettingsIcon,
   ChevronDown,
@@ -131,6 +132,7 @@ const GROUPS = [
     items: [
       { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt },
       { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet },
+      { key: "app.settings.aiCredit", href: "/app/settings/ai-credit", icon: Sparkles },
     ],
   },
   {

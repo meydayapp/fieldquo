@@ -686,6 +686,17 @@ const IMPERSONATION_STILL_REFUSED = [
   // the console needs to SEE about automatic top-up already travels on
   // /api/settings/voice, whose read does admit an impersonation session.
   "app/api/settings/voice/auto-topup/route.js",
+  // Same shape as the voice pair immediately above, one wallet over: this
+  // GET only ever settles a Stripe checkout session (confirms a payment).
+  // The balance and statement the console needs to SEE already travel on
+  // /api/settings/ai/credit, whose read does admit an impersonation session.
+  "app/api/settings/ai/topup/route.js",
+  // Its GET does double duty — a plain status read AND settling a
+  // subscription-checkout session — and the second half must never run under
+  // impersonation, same reasoning as auto-topup above. Costs the console
+  // nothing: the bundle's status is also carried on /api/settings/ai/credit's
+  // response (`ai.bundle`), which is the one that opens for support.
+  "app/api/settings/ai/bundle/route.js",
   "app/api/settings/leave-policies/route.js",
   "app/api/debt/route.js",
   "app/api/salaries/route.js", // gated on the payroll grid, which "viewer" fails

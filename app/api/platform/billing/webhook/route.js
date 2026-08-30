@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
 import { recordError } from "@/lib/platform/errorLog";
 
 // Raw body required for Stripe signature verification — Next.js needs the request
@@ -67,6 +68,60 @@ export async function POST(request) {
       });
       return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
     }
+  }
+
+  // ── An AI credit bundle's invoice, not the company's own plan ─────────────
+  //
+  // Both live on the SAME Stripe customer (lib/ai/creditBundle.js's module
+  // header explains why), and syncSubscriptionFromStripeEvent's invoice
+  // handlers below look the company up by CUSTOMER — because until this
+  // feature existed a customer only ever had one subscription. Left
+  // unguarded, a bundle's monthly invoice would be misread as the company's
+  // plan renewing: `invoice.payment_succeeded` would feed the bundle's price
+  // into the referral-credit calculation as if it were the plan's own
+  // payment, and `invoice.payment_failed` would put the company's account
+  // into the past-due read-only path over a $30 AI top-up card decline that
+  // has nothing to do with whether they can use FieldQuo at all.
+  //
+  // So every invoice event is checked against the bundle table FIRST. A
+  // `handled: true` answer here is a bundle invoice — fully dealt with, and
+  // the request returns before syncSubscriptionFromStripeEvent ever sees it.
+  // A `handled: false` answer is an ordinary company-plan invoice — by far
+  // the common case — and falls through exactly as it always has.
+  if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
+    const invoice = event.data.object;
+    const subscriptionId =
+      typeof invoice?.subscription === "string" ? invoice.subscription : invoice?.subscription?.id || null;
+
+    try {
+      if (event.type === "invoice.payment_succeeded") {
+        const result = await grantAiBundlePeriod(invoice);
+        if (result.handled) {
+          return NextResponse.json({ received: true, settled: "ai_bundle_period", result });
+        }
+      } else {
+        // A failed bundle charge needs no action of ours: Stripe's own
+        // dunning retries it, and if it keeps failing Stripe cancels the
+        // subscription — which is what actually stops future grants (see
+        // cancelAiBundle's header). Just confirmed as "not the company's
+        // plan" so the generic past-due path below is not run against it.
+        const row = await resolveAiBundleSubscription(subscriptionId);
+        if (row) {
+          return NextResponse.json({ received: true, settled: "ai_bundle_period_failed" });
+        }
+      }
+    } catch (err) {
+      await recordError({
+        area: "billing-webhook",
+        code: "ai_bundle_invoice",
+        message: `AI bundle invoice handling failed: ${err?.message}`,
+        detail: { eventId: event?.id, type: event?.type, invoiceId: invoice?.id, subscriptionId },
+      });
+      // Genuinely unknown whether the grant landed — ask Stripe to retry
+      // rather than silently drop a paid invoice's credit.
+      return NextResponse.json({ error: "AI bundle settlement failed" }, { status: 500 });
+    }
+    // Not a bundle invoice — fall through to the company's own plan handling.
   }
 
   // syncSubscriptionFromStripeEvent throws when a checkout session arrives with
