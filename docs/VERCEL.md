@@ -120,6 +120,7 @@ Set only to override. The default is in brackets.
 |---|---|---|
 | `OPENAI_MODEL` | `gpt-5-mini` | Prefer changing the **code** default — a model name isn't a secret |
 | `OPENAI_WRITING_MODEL` | `OPENAI_MODEL` | Separate model for long-form copy |
+| `OPENAI_IMAGE_MODEL` | `gpt-image-1` | Marketing image generation and the paid quote vision pass — lib/ai/provider.js's `generateImage()` |
 | `VOICE_CENTS_PER_MINUTE` | `35` | What we charge per voice minute |
 | `VOICE_FREE_MINUTES` | `30` | Trial voice allowance |
 | `RETELL_COST_CENTS_PER_MINUTE` | `16` | What a minute costs **FieldQuo** at Retell (not what we charge). Only used to estimate how fast the shared pool is draining, on /platform |

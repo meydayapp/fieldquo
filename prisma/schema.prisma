@@ -1844,6 +1844,21 @@ model Quote {
   aiReview     Json?
   aiReviewedAt DateTime?
 
+  // Every PAID deep photo read — see lib/ai/visionPass.js. A separate column
+  // from aiReview above, and a deliberately different shape: aiReview is
+  // OVERWRITTEN on every re-run because nothing was paid for the discarded
+  // copy, but a deep read costs real credit (VISION_PASS_CENTS) each time it
+  // runs, and silently discarding one an estimator already paid for the
+  // moment they run a second is the same "wrote it, never showed it" failure
+  // AGENTS.md warns about, one step later. So passes ACCUMULATE — newest
+  // first, see app/api/quotes/[id]/vision/route.js — and every earlier read
+  // stays on record alongside what it cost.
+  //
+  // Append-only in a second sense too: nothing here is ever copied onto
+  // lineItems, notes or scopeGroups automatically. It is the estimator's own
+  // decision to act on a note, exactly like the free photoNotes above.
+  aiVisionPasses Json?
+
   // ── Instant estimate provenance & review gate ───────────────────────────
   // Set when a quote was born from the public instant estimator rather than
   // typed by staff. The homeowner saw a RANGE and the company must confirm it

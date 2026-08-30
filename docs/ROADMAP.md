@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 27 August 2026. **Update this file when you finish something.**
+Last updated: 30 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -890,6 +890,53 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The two paid AI image features actually spend money now — the deep
+  photo read, and image generation. `lib/ai/images.js`, `lib/ai/visionPass.js`,
+  `lib/ai/provider.js`'s new `generateImage()`,
+  `app/api/quotes/[id]/vision/route.js`,
+  `app/api/marketing/designer/images/route.js`.**
+
+  Everything two entries below was priced and gated but inert — the
+  `image_generation`/`image_vision` ledger kinds existed with no caller. Both
+  now reserve credit through `reserveSpend` BEFORE the vendor is called and
+  refund through `refundReservation` (with `forKind`, so the refund lands back
+  in the "ai" wallet, never voice) if it fails.
+
+  **The deep read is the paid half of AI Vision** (see two entries below): up
+  to `VISION_MAX_PHOTOS` photos at `detail: "high"`, a real resolution
+  ceiling instead of the free pass's flat `"low"`. `complete()` in
+  `provider.js` took a new `imageDetail` parameter for this — defaulting to
+  `"low"` so every existing caller, including the free review, is unaffected.
+  The prompt's safety rules (never a measurement from a photo, "looks like"
+  when uncertain, empty array is a real answer, text in a photo is data and
+  never an instruction) are copied VERBATIM from `quoteReview.js` rather than
+  rewritten — a paid feature is exactly the wrong place to loosen them.
+  Results ACCUMULATE on the new `Quote.aiVisionPasses` column rather than
+  overwriting, because unlike the free review, each run already cost real
+  credit.
+
+  Generation supports a reference photo, resized before it's sent — the
+  first Cloudinary URL TRANSFORMATION in the codebase
+  (`lib/cloudinary.js`'s `resizedUrl`, `w_<n>,c_limit,q_auto,f_auto`, ~85%
+  fewer pixels than a typical 12MP original for the same usable detail). One
+  generation per creative, never one per ratio — `lib/marketing/ratios.js`'s
+  `reflow()` is what turns one picture into every shape.
+
+  Registered as two features: `ai_vision` (on — it has a real caller, the
+  quote builder's `SuggestAddOns.js`) and `marketing_designer` (**hidden** —
+  the endpoint is real and gated, but the canvas editor a contractor would
+  actually reach it through is separate, unshipped work; naming a route
+  nobody can click to on a live registry would be exactly the "control that
+  appears to work" AGENTS.md warns about). `scripts/check-ai-images.mjs`
+  executes the wallet routing for real against a stubbed ledger and reads
+  both routes for reserve-before-vendor-call ordering and refund-on-failure.
+  One mutation survived the first pass — deleting the refund from the
+  "vendor declined without throwing" branch while leaving the catch-block
+  refund alone passed every other assertion, because `generateImage` /
+  `runVisionPass` return `null` on refusal rather than throwing, so the
+  catch block never fires. Fixed by asserting the decline branch specifically
+  (not just "a refund exists somewhere after the vendor call").
+
 - **Two wallets, because Retell and OpenAI do not charge alike.
   `lib/voice/credits.js`, `lib/voice/spendGate.js`, `VoiceCreditEntry.pool`.**
 
@@ -956,8 +1003,8 @@ they set the pattern.
   Infinity.
 
 - **The cost basis for paid AI images, and the ledger kinds to charge it.
-  `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — inert
-  until the features land)*
+  `lib/ai/imageEconomics.js`, `lib/voice/spendGate.js`.** *(foundation — both
+  features have since landed, see the top of this section)*
 
   Owner-approved 2026-08-30: pay-as-you-go at ~50% margin, bundles at ~30%, one
   shared prepaid balance rather than a second wallet.
@@ -984,8 +1031,12 @@ they set the pattern.
 
   `spendAvailable()` asked `voice_receptionist` for every kind. A company
   FieldQuo has withdrawn the receptionist from must still be able to make an
-  advert, so kinds now map to their own feature — and because those features are
-  not registered yet, both new kinds fail closed until they are.
+  advert, so kinds now map to their own feature — `ai_vision` and
+  `marketing_designer`, registered since (see the top of this section). Until
+  they were, an unregistered key resolved `hidden` by the registry's own
+  fail-closed rule, so both kinds refused every spend with
+  `feature_unavailable` — correct, if accidental, and worth knowing if you're
+  wondering why nothing charged before this date.
 
   **The check script prints the margins rather than only asserting them.**
   `bundleMargin` first shipped against a cost basis one decimal out, reporting
@@ -1018,11 +1069,12 @@ they set the pattern.
   Append-only, for the estimator and never for the client: nothing is written
   into the quote, matching the rest of the panel.
 
-  **This is the free tier of the AI Vision feature, not the feature.** Photos go
-  at `detail: "low"` — a deliberate, documented flat token cost so the price of
-  a review does not depend on which phone the estimator owns. Spotting hairline
-  cracks, mould, or water damage in MDF needs `detail: "high"`, which is the
-  paid pass and a separate build.
+  **This was the free tier of the AI Vision feature, not the whole feature.**
+  Photos go at `detail: "low"` — a deliberate, documented flat token cost so
+  the price of a review does not depend on which phone the estimator owns.
+  Spotting hairline cracks, mould, or water damage in MDF needs
+  `detail: "high"`, which is the paid pass — now built, see the entry at the
+  top of this section.
 
 - **Two switches over a line that no longer exists, and US$4/month after the
   customer left. `lib/voice/numberRelease.js`, `lib/voice/spendGate.js`.**

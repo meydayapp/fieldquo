@@ -215,8 +215,19 @@ ok(!renderSalesKnowledge(
      deriveSalesKnowledge({ plans: SET_A, featureMap: { ghost_feature: { state: "on" } } }),
    ).includes("ghost"),
    "and the word never reaches the rendered knowledge base");
-ok(offeredFeatures({}).length === FEATURE_KEYS.length,
-   "an empty map falls back to the registry defaults rather than withdrawing everything");
+// Not FEATURE_KEYS.length: a registry entry may itself default to "hidden"
+// (marketing_designer does — its own product surface hasn't shipped yet, see
+// lib/features/registry.js's comment on it), and an empty map has to inherit
+// THAT default too, not force every key open. The real claim is narrower and
+// still meaningful: nothing here should WITHDRAW a key that would otherwise be
+// offered — i.e. an empty map must resolve identically to asking the registry
+// for its own defaults, key by key, computed independently below rather than
+// assumed to be "every key".
+const registryDefaultCount = registry.FEATURES.filter(
+  (f) => registry.isVisible(f.defaultState) && registry.isAvailable(f.defaultState),
+).length;
+ok(offeredFeatures({}).length === registryDefaultCount,
+   "an empty map falls back to the registry's OWN defaults rather than withdrawing everything — including a key whose own default is hidden");
 
 // Withdrawing a feature withdraws it from the phone. This is the executable
 // form of "a feature removed from the registry disappears": the registry is

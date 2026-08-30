@@ -26,6 +26,7 @@ import {
   Check,
   TrendingUp,
   Camera,
+  Eye,
 } from "lucide-react";
 import { fetchJson } from "@/lib/fetchJson";
 import { jsonBody } from "@/lib/jsonBody";
@@ -76,6 +77,12 @@ export default function SuggestAddOns({
   const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState([]);
 
+  // The PAID deep photo read — a separate spend from the free review above,
+  // off a separate AI credit wallet. See app/api/quotes/[id]/vision/route.js.
+  const [visionPasses, setVisionPasses] = useState([]);
+  const [visionRunning, setVisionRunning] = useState(false);
+  const [visionError, setVisionError] = useState("");
+
   const load = useCallback(async () => {
     if (!quoteId) return;
     try {
@@ -92,6 +99,18 @@ export default function SuggestAddOns({
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+
+    // Fetched separately, and its failure never touches `error` above — a
+    // company FieldQuo has withdrawn the deep read from (lib/features/gate.js
+    // resolving ai_vision to `hidden`) must still see its own quote review and
+    // add-ons, not a panel that failed to load over a feature it never asked
+    // for.
+    try {
+      const vision = await fetchJson(`/api/quotes/${quoteId}/vision`);
+      setVisionPasses(Array.isArray(vision?.passes) ? vision.passes : []);
+    } catch {
+      setVisionPasses([]);
     }
   }, [quoteId]);
 
@@ -126,6 +145,22 @@ export default function SuggestAddOns({
       setError(err.message);
     } finally {
       setReviewing(false);
+    }
+  }
+
+  async function runVision() {
+    setVisionError("");
+    setVisionRunning(true);
+    try {
+      const data = await fetchJson(`/api/quotes/${quoteId}/vision`, { method: "POST" });
+      setVisionPasses(Array.isArray(data?.passes) ? data.passes : []);
+    } catch (err) {
+      // The route's own message already states the price, the balance and the
+      // shortfall when it's a credit refusal — see the route. Shown verbatim
+      // rather than replaced with a generic "something went wrong".
+      setVisionError(err.message);
+    } finally {
+      setVisionRunning(false);
     }
   }
 
@@ -443,6 +478,123 @@ export default function SuggestAddOns({
                 blank on purpose.
               </p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* ── The PAID deep photo read ──────────────────────────────────────
+          A separate, higher-detail pass over the same photos "What the
+          photos show" above reads for free — up to 8 of them at full
+          resolution instead of the quick, flat-rate check. Shown whenever
+          there's a quote to run it against, independent of whether the free
+          review above has been run at all: an estimator may want the deep
+          read on its own, without re-running the wording/pricing checks.
+          Never merges into the free photoNotes panel — it costs real AI
+          credit each run and every past read stays on record (see the
+          Quote.aiVisionPasses schema comment), so it gets its own history
+          rather than being folded into a panel that overwrites on refresh. */}
+      {(visionPasses.length > 0 || !readOnly) && (
+        <div className="mt-5 border border-border rounded-lg px-4 py-3">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                <Eye size={14} className="text-muted-foreground" />
+                Deep photo read
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border border-border rounded-full px-1.5 py-0.5">
+                  Paid
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                A closer look at every photo on this quote — up to 8, read at
+                full resolution instead of the quick check above. Spends AI
+                credit each time it runs, separate from your phone balance.
+              </p>
+            </div>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={runVision}
+                disabled={visionRunning}
+                className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-4 py-2 rounded-full disabled:opacity-60 shrink-0"
+              >
+                {visionRunning ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Eye size={14} />
+                )}
+                {visionRunning
+                  ? "Reading..."
+                  : visionPasses.length > 0
+                    ? "Run again"
+                    : "Run deep read"}
+              </button>
+            )}
+          </div>
+
+          {visionError && (
+            <p className="text-xs text-red-700 dark:text-red-300 mt-2.5">
+              {visionError}
+            </p>
+          )}
+
+          {visionPasses.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {visionPasses.map((p, i) => (
+                <div
+                  key={p.at || i}
+                  className="border border-dashed border-border rounded-lg px-3 py-2.5"
+                >
+                  <p className="text-[11px] text-muted-foreground/70">
+                    {p.at
+                      ? new Date(p.at).toLocaleString("en-CA", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })
+                      : "—"}
+                    {" · "}
+                    {p.photosRead} photo{p.photosRead === 1 ? "" : "s"} read
+                    {typeof p.costCents === "number" && (
+                      <>
+                        {" · "}${(p.costCents / 100).toFixed(2)}
+                      </>
+                    )}
+                  </p>
+                  {p.notes?.length > 0 ? (
+                    <ul className="mt-1.5 space-y-1.5">
+                      {p.notes.map((n, j) => (
+                        <li
+                          key={j}
+                          className="text-xs text-foreground flex gap-2 leading-relaxed"
+                        >
+                          <span className="text-muted-foreground/60 shrink-0">
+                            —
+                          </span>
+                          <span>{n}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Nothing found beyond what the quote already covers.
+                    </p>
+                  )}
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground/70">
+                Things to check on site — not measurements, and not for the
+                client to read. Nothing has been added to the quote.
+              </p>
+            </div>
+          ) : (
+            !readOnly && (
+              <p className="text-xs text-muted-foreground mt-2.5">
+                Not run yet. This is a closer look than the free check above —
+                worth it before a job with photos that are hard to judge from
+                a quick glance.
+              </p>
+            )
           )}
         </div>
       )}
