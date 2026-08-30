@@ -57,7 +57,20 @@ export async function GET(request) {
       // the AI receptionist took, and somebody driving to a job is entitled to
       // know a robot arranged it. Selected here rather than derived from
       // VoiceCall.bookingId, which would be a third query per row.
-      booking: { select: { endTime: true, source: true } },
+      booking: {
+        select: {
+          endTime: true,
+          source: true,
+          // ── Which KIND of appointment this is ──────────────────────────
+          //
+          // A callback and a site visit look identical on the calendar: a name
+          // and a time. One means ring this person, the other means drive to
+          // their house — and a callback has no address, so the row for one is
+          // a name and a time and nothing else. Somebody reading their day has
+          // to be able to tell which it is without opening anything.
+          mode: true,
+        },
+      },
     },
     orderBy: { scheduledAt: "asc" },
   });

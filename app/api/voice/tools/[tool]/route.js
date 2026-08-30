@@ -343,7 +343,7 @@ async function saveCaller(ctx, args) {
   // there is a name and a number to ring, and only once per call. A visit still
   // goes through book_visit, because a visit needs an address and a person
   // agreeing to be in.
-  const booked = await autoBookCallback(ctx, { name, phone });
+  const booked = await autoBookCallback(ctx, { name, phone, message });
 
   // What the agent says next. Given explicitly so it doesn't invent a promise —
   // "someone will call you back" is true; "we'll be there tomorrow" is not.
@@ -351,7 +351,7 @@ async function saveCaller(ctx, args) {
     saved: true,
     ...(booked ? { booked: true, at: booked.label } : {}),
     say: booked
-      ? `Got it — someone will call you back ${booked.label}.`
+      ? `Got it — someone will call you back ${String(booked.label).replace(/\.$/, "")}.`
       : "Got it — I've passed that on and someone will call you back.",
   });
 }
@@ -364,7 +364,7 @@ async function saveCaller(ctx, args) {
  * call that already booked something. Never throws: a failure here must not
  * lose the LEAD, which is the thing this endpoint exists to save.
  */
-async function autoBookCallback(ctx, { name, phone }) {
+async function autoBookCallback(ctx, { name, phone, message }) {
   try {
     if (!name || !phone) return null;
 
@@ -394,7 +394,17 @@ async function autoBookCallback(ctx, { name, phone }) {
       phone,
       email: null,
       mode: "call",
-      reason: "Callback requested on the phone.",
+      // ── What the person making the call needs to know ─────────────────
+      //
+      // This said "Callback requested on the phone." — true, and useless to
+      // whoever picks the appointment up. `message` is what the agent actually
+      // wrote down: the address, the urgency, and the caller's own description
+      // of the work. It is already assembled a few lines above for the lead, so
+      // the appointment carries the same words rather than a placeholder.
+      //
+      // Appointment.notes is what the schedule shows, and a crew member looking
+      // at a name and a time has no other way to find out why they are ringing.
+      reason: message || "Callback requested on the phone.",
     });
     return result?.ok ? { label: result.label } : null;
   } catch (err) {

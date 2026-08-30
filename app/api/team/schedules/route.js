@@ -45,6 +45,20 @@ export async function GET(request) {
           eventType: { userId: m.userId },
           status: "confirmed",
           startTime: { gte: now, lte: horizon },
+          // ── Or every booking is counted twice ─────────────────────────
+          //
+          // A booking that has been converted is ALREADY in the appointment
+          // list below, so counting it here shows one callback as two entries
+          // at the same minute — under two different names, because the
+          // appointment renders its matched client while the booking renders
+          // the name the caller gave. On a screen headed "what's booked" that
+          // reads as a double-booking, and it is what made a receptionist that
+          // had taken two calls look like it had taken four.
+          //
+          // Same guard /api/appointments has carried since it merged the two
+          // lists. Nullable on purpose: rows predating the conversion have no
+          // appointment and are still the only record of themselves.
+          appointmentId: null,
         },
         orderBy: { startTime: "asc" },
         select: { startTime: true, clientName: true },

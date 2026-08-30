@@ -1767,6 +1767,26 @@ const skipWritten = () =>
     globalThis.__FQ_ROWS.booking = [];
     globalThis.__FQ_ROWS.appointment = [];
     globalThis.__FQ_ROWS.client = [];
+    // ── Real availability, because that is what decides the time ─────────
+    //
+    // computeAvailableSlots returns {} when the event type's owner has no
+    // AvailabilitySchedule rows, and this fixture used to get its times from
+    // opening hours instead — which is exactly the mistake that booked a caller
+    // at 8:30 with the estimator whose Monday starts at three. The times come
+    // from the person's calendar now, so the fixture has to carry one or it is
+    // testing a path production no longer takes.
+    //
+    // Every weekday, wide open, so the assertion is about WHETHER save_caller
+    // books rather than about which minute it picks.
+    globalThis.__FQ_ROWS.availabilitySchedule = [1, 2, 3, 4, 5].map((d) => ({
+      id: `av_${d}`,
+      userId: "u1",
+      dayOfWeek: d,
+      startTime: "08:00",
+      endTime: "17:00",
+      timezone: "America/Toronto",
+    }));
+    globalThis.__FQ_ROWS.leaveRequest = [];
   };
 
   const callSave = async (args) => {
@@ -1794,6 +1814,21 @@ const skipWritten = () =>
     "…inside the sentence it says, so the caller hears a time rather than 'someone will ring you'",
     /call you back/.test(body.say) && body.say.includes(body.at || "\u0000"),
     body.say,
+  );
+  // ── The notes are what a crew member has to work from ─────────────────
+  //
+  // The appointment used to read "Callback requested on the phone." — true, and
+  // useless. Somebody looking at a name and a time on the calendar has no other
+  // way to find out who to ring, on what number, or what about.
+  ok(
+    "the appointment carries what the caller actually said, not a placeholder",
+    /Wants a callback/.test(globalThis.__FQ_ROWS.appointment?.[0]?.notes || ""),
+    json(globalThis.__FQ_ROWS.appointment?.[0]?.notes),
+  );
+  ok(
+    "…and the number to ring is on it",
+    /8192387263/.test(globalThis.__FQ_ROWS.appointment?.[0]?.notes || ""),
+    json(globalThis.__FQ_ROWS.appointment?.[0]?.notes),
   );
   ok(
     "…and a real booking row exists",
@@ -1871,7 +1906,11 @@ const skipWritten = () =>
       { id: "vc_1", providerCallId: "call_1", companyId: "co_1", fromE164: "+18192387263" },
     ];
     callbackCompany();
-    globalThis.__FQ_ROWS.company[0].businessHours = null;
+    // No AVAILABILITY is what stops a booking now, not absent opening hours.
+    // withinBusinessHours returns true for a company that has stated nothing —
+    // silence is not a closure, and refusing every slot on an empty column
+    // would take the receptionist's whole calendar away.
+    globalThis.__FQ_ROWS.availabilitySchedule = [];
     return toolsRoute.POST(
       { text: async () => json({ call: { call_id: "call_1" }, args: { name: "Anna", phone: "8192387263" } }),
         headers: { get: () => "sig" } },
@@ -1879,7 +1918,7 @@ const skipWritten = () =>
     );
   })();
   ok(
-    "a company with no opening hours books nothing and still saves the lead",
+    "a worker with no availability books nothing, and the lead is still saved",
     noHours?.body?.saved === true && noHours?.body?.booked === undefined,
     json(noHours?.body),
   );

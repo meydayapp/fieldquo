@@ -890,6 +890,48 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **I replaced a correct answer with a fast wrong one.
+  `lib/voice/callbackWindow.js`, `lib/voice/availability.js`,
+  `app/api/team/schedules/route.js`, `lib/schedule/jobVisits.js`,
+  `app/app/appointments/page.js`.**
+
+  A caller asking to be rung back was being offered "Thursday at three" — days
+  away, and it looked absurd. So callbacks were switched to generate times from
+  the company's OPENING HOURS: fifteen minutes out, next open day after closing.
+
+  It booked a caller in at **8:30 on a Monday with the estimator whose Monday
+  starts at three.** Opening hours know whether the BUSINESS is open. They know
+  nothing about whose calendar the booking lands on, who is on leave, or what is
+  already taken — and `computeAvailableSlots` knows all three. The "absurd"
+  original answer was that person's real availability, read correctly.
+
+  Availability is the source again, with the lead time as a FLOOR on it rather
+  than a replacement, and opening hours kept only as a guard for the one thing
+  availability cannot answer: personal hours can disagree with the company's,
+  and somebody available at seven should not have a customer rung before the
+  doors open. `nextCallbackTimes` was deleted rather than left as a function
+  nothing calls.
+
+  **The schedule was double-counting every AI booking.** `/api/team/schedules`
+  fetched bookings with no `appointmentId: null` filter — the guard
+  `/api/appointments` has carried since it merged the two lists — so a converted
+  booking appeared as its appointment AND as itself. Two callbacks read as four
+  entries at the same minute under two different names, because the appointment
+  renders its matched client and the booking renders the name the caller gave.
+  Measured on the owner's own data: 4 rows before, 2 after.
+
+  **And the calendar showed a name and a time.** Everything else was already in
+  the feed and rendered by nothing: phone, email, address, notes, the quote it
+  belongs to, whether a reminder went out, the coordinates. Now on the row — the
+  phone as a `tel:` link, because the person reading it is in a van — with the
+  rest behind a click. `booking.mode` is carried too, so a callback and a site
+  visit stop looking identical; null renders nothing rather than defaulting to
+  "visit", because guessing wrong sends somebody to a driveway.
+
+  `bookSlot` also stopped falling back to `eventType.location`, which wrote the
+  LABEL "Phone or on-site visit" into the field a crew member reads as a street.
+  Its own comment warned against exactly that while the line below did it.
+
 - **Every lead the receptionist ever took was cold.
   `lib/leads/score.js`, `lib/leads/createLead.js`,
   `app/api/voice/tools/[tool]/route.js`, `app/api/quotes/route.js`,

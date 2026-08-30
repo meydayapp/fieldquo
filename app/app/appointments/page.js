@@ -13,7 +13,12 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Headset,
+  Phone,
+  Mail,
+  Video,
+  FileText,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
@@ -21,6 +26,7 @@ import { travelLegs, describeTravel } from "@/lib/booking/travel";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { can } from "@/lib/permissions";
+import { navRowAllowed } from "@/lib/permissions/nav";
 import { useSession } from "@/lib/auth-client";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -80,6 +86,69 @@ function localeFormat(date, language, opts) {
 }
 
 /**
+ * localeFormat's sibling for an INSTANT, which needs the time as well as the
+ * date.
+ *
+ * The row below used to hardcode "en-US" while the month grid two inches above
+ * it formatted in the interface language — so a French back office read
+ * "Mon, Aug 31" under "août 2026". Same try/catch reasoning as localeFormat: a
+ * formatter that throws would take out the whole list.
+ */
+function localeDateTime(date, language, opts) {
+  try {
+    return date.toLocaleString(language || undefined, opts);
+  } catch {
+    return date.toLocaleString(undefined, opts);
+  }
+}
+
+/**
+ * Which KIND of appointment this is — the fact the owner asked for by name.
+ *
+ * A callback and a site visit are a name and a time on this list, and they mean
+ * opposite things: one is "ring this person", the other is "drive to their
+ * house". A callback has no address by design, so the row for one carries
+ * nothing that distinguishes it at all.
+ *
+ * The three modes are MODE_WORDS in lib/voice/visitPath.js, and the labels are
+ * the receptionist screen's, not new ones: the same call shows "Callback
+ * booked" on /app/receptionist, and one fact should not have two vocabularies.
+ *
+ * There is deliberately NO default. `mode` is null on an appointment nobody
+ * booked through a booking page and on rows predating the column, and guessing
+ * "visit" there sends somebody to a driveway.
+ */
+const MODE_BADGES = {
+  call: { key: "app.receptionist.bookedCall", icon: Phone },
+  visit: { key: "app.receptionist.bookedVisit", icon: MapPin },
+  video: { key: "app.receptionist.bookedVideo", icon: Video },
+};
+
+/**
+ * The device's maps app, from an address.
+ *
+ * Same affordance and same URL shape as the job page's — the calendar and the
+ * job detail must not disagree about what "directions" opens.
+ */
+function mapsHref(address) {
+  return `https://maps.google.com/?q=${encodeURIComponent(address)}`;
+}
+
+/**
+ * Does this entry's client row actually CARRY contact details?
+ *
+ * Only an appointment's does. GET /api/appointments loads the whole Client row
+ * for an appointment (then redacts it), while VISIT_INCLUDE narrows a visit's
+ * client to { id, name, address } and a booking's client is synthesised from
+ * the booking's own columns. So `phone` is undefined on those two whatever the
+ * customer's record says — and printing "not set" there would be a lie about a
+ * customer whose number we hold. The panel says nothing instead.
+ */
+function carriesContact(entry) {
+  return entry?.kind === "appointment";
+}
+
+/**
  * The drive between each appointment and the one before it.
  *
  * Grouped BY ASSIGNEE first. The list is one chronological stream across the
@@ -135,6 +204,14 @@ export default function AppointmentsPage() {
   // slow, and the server refuses regardless of what this renders.
   const caller = usePermissions();
   const canAssign = !caller?.role || can(caller.role, "appointment:assign");
+  // Whether "Open client" is worth offering. Asked of navRowAllowed rather than
+  // hasLevel directly, so this link and the sidebar row it duplicates answer
+  // the same question of the same grid — including its failure posture, which
+  // is to fall OPEN when no provider resolved. A member on name_address_only
+  // has no /app/clients at all (see lib/permissions/nav.js on why the client
+  // BOOK is gated above the address on their own work), and a link into a
+  // screen that is hidden from them is the dead control AGENTS.md opens with.
+  const canOpenClient = navRowAllowed("app.nav.clients", caller);
   // Claiming needs the caller's own USER id — Member.userId server-side, which
   // is the session user's id. Nothing else on this page knows it: the roster
   // from /api/settings/members does not say which row is you.
@@ -159,6 +236,18 @@ export default function AppointmentsPage() {
   });
   const [selectedDay, setSelectedDay] = useState(""); // "" = the whole list
   const listRef = useRef(null);
+  // Which rows are expanded. A Set rather than one open id: a dispatcher
+  // comparing two mornings should not have the first one snap shut when they
+  // open the second. Keyed by kind+id because an Appointment id and a JobVisit
+  // id come from different tables and are only accidentally distinct.
+  const [openRows, setOpenRows] = useState(() => new Set());
+  const toggleRow = (key) =>
+    setOpenRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   useEffect(() => {
     // Was a bare Promise.all(...).then(): if either request 500'd, r.json()
@@ -509,8 +598,53 @@ export default function AppointmentsPage() {
           // computing legs over the visible subset would quietly invent a
           // drive from whatever happened to be above it.
           const leg = legs.get(appt.id);
+
+          const rowKey = `${appt.kind || "appointment"}-${appt.id}`;
+          const isOpen = openRows.has(rowKey);
+          const panelId = `appt-details-${rowKey}`;
+
+          // The start, and — when we actually know it — the finish. An
+          // Appointment has no duration column, so a row created from a booking
+          // is the only kind that can say when it ends. Nothing is assumed for
+          // the rest: an invented hour on a kitchen survey is the sort of
+          // number people plan a second job around.
+          const startAt = new Date(appt.scheduledAt);
+          const endAt = appt.booking?.endTime ? new Date(appt.booking.endTime) : null;
+          const whenText = Number.isNaN(startAt.getTime())
+            ? ""
+            : localeDateTime(startAt, language, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+              }) +
+              (endAt && !Number.isNaN(endAt.getTime())
+                ? ` – ${localeDateTime(endAt, language, { hour: "numeric", minute: "2-digit" })}`
+                : "");
+
+          // What the person acts on from the row itself: a number to ring and a
+          // place to drive to. `location` is where the van goes and is the right
+          // one to lead with; the client's own address is a fallback and is
+          // shown separately in the panel when the two disagree.
+          const phone = appt.client?.phone || null;
+          const rowAddress = appt.location || appt.client?.address || null;
+
+          // Bookings carry `notes` too, but bookingToCalendarEntry fills it with
+          // the booking's MODE — the word "visit" — which now has its own badge
+          // on the row. Repeating it under a "Notes" heading would dress a badge
+          // up as something the customer said.
+          const notesText = appt.kind === "booking" ? null : appt.notes || null;
+          const notePreview = (notesText || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .find(Boolean);
+
+          const mode = MODE_BADGES[appt.booking?.mode] || null;
+          const ModeIcon = mode?.icon;
+
           return (
-          <div key={appt.id}>
+          <div key={rowKey}>
           {leg?.travel && (
             <div
               className={`flex items-center gap-1.5 text-xs px-1 pb-1.5 ${
@@ -529,7 +663,31 @@ export default function AppointmentsPage() {
           )}
           <div className="glass-effect card-hover rounded-lg p-4">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
+                {/* ── The row opens ─────────────────────────────────────────
+                    A button rather than a click handler on the card, because
+                    the card also holds an assignee <select> and two links, and
+                    a div that swallows clicks around real controls is how a
+                    dropdown stops opening on a phone.
+
+                    No aria-label: one REPLACES the button's contents for a
+                    screen reader, and the contents here are the client's name
+                    and every badge on the row — the most useful announcement
+                    on the page. aria-expanded carries the affordance instead. */}
+                <button
+                  type="button"
+                  onClick={() => toggleRow(rowKey)}
+                  aria-expanded={isOpen}
+                  // Only while the panel exists. aria-controls pointing at an
+                  // id that is not in the document is a dangling reference, and
+                  // some screen readers announce it as a broken control.
+                  aria-controls={isOpen ? panelId : undefined}
+                  // And only while it would be true. "Show details" hovering
+                  // over details that are already on screen is a small version
+                  // of the same lie as a button that doesn't do the thing.
+                  title={isOpen ? undefined : t("app.appts.toggleDetails")}
+                  className="w-full text-left rounded focus:outline-none focus:ring-2 focus:ring-ring"
+                >
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-medium truncate">
                     {appt.client?.name}
@@ -588,21 +746,68 @@ export default function AppointmentsPage() {
                     <span className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                       <Headset size={12} />{t("app.schedule.bookedByAssistant")}</span>
                   )}
+                  {/* Ring them, or drive to them. See MODE_BADGES. */}
+                  {mode && (
+                    <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full shrink-0 border border-border text-muted-foreground">
+                      <ModeIcon size={11} />{t(mode.key)}</span>
+                  )}
+                  <ChevronDown
+                    size={14}
+                    aria-hidden="true"
+                    className={`shrink-0 text-muted-foreground transition-transform ${
+                      isOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {new Date(appt.scheduledAt).toLocaleString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </div>
-                {appt.location && (
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-                    <MapPin size={13} className="shrink-0" />
-                    <span className="truncate">{appt.location}</span>
+                {/* A visit's job title, a booking's event type. Both were
+                    carried by the feed and rendered by nothing — so a day of
+                    job visits read as a list of surnames. */}
+                {appt.title && (
+                  <div className="text-sm text-muted-foreground mt-0.5 truncate">
+                    {appt.title}
                   </div>
+                )}
+                <div className="text-sm text-muted-foreground mt-1">
+                  {whenText}
+                </div>
+                </button>
+
+                {/* Outside the toggle: these are links, and a link inside a
+                    button is neither one. This is the line the owner asked for
+                    — a number that dials and an address that opens maps,
+                    without opening anything first. */}
+                {(phone || rowAddress) && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm">
+                    {phone && (
+                      <a
+                        href={`tel:${phone}`}
+                        className="flex items-center gap-1.5 text-foreground underline underline-offset-2"
+                      >
+                        <Phone size={13} className="shrink-0" />
+                        <span className="tabular-nums">{phone}</span>
+                      </a>
+                    )}
+                    {rowAddress && (
+                      <a
+                        href={mapsHref(rowAddress)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 min-w-0 text-muted-foreground underline underline-offset-2"
+                      >
+                        <MapPin size={13} className="shrink-0" />
+                        <span className="truncate">{rowAddress}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Why this appointment exists, in one line. For an AI-booked
+                    callback that is the caller's own words, and it was on
+                    screen nowhere at all. */}
+                {!isOpen && notePreview && (
+                  <p className="text-sm text-muted-foreground mt-1 truncate italic">
+                    {notePreview}
+                  </p>
                 )}
               </div>
 
@@ -679,6 +884,15 @@ export default function AppointmentsPage() {
               </div>
               )}
             </div>
+
+            {isOpen && (
+              <AppointmentDetails
+                appt={appt}
+                panelId={panelId}
+                canOpenClient={canOpenClient}
+                t={t}
+              />
+            )}
           </div>
           </div>
           );
@@ -700,6 +914,160 @@ export default function AppointmentsPage() {
             setShowForm(false);
           }}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * One labelled fact, or nothing at all.
+ *
+ * Renders nothing for a null child rather than a dash. The two absences on this
+ * screen are different statements — a callback genuinely has no address, and a
+ * member on name_address_only has a phone number they may not read — so the
+ * CALLER decides what an absence means and this component never pads one.
+ */
+function DetailRow({ icon: Icon, label, children }) {
+  if (children == null) return null;
+  return (
+    <div className="flex items-start gap-3 min-w-0">
+      <dt className="flex items-center gap-1.5 w-24 shrink-0 pt-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon size={12} className="shrink-0" />}
+        <span className="truncate">{label}</span>
+      </dt>
+      <dd className="flex-1 min-w-0 text-sm text-foreground break-words">
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+/**
+ * Everything the calendar feed carries about one entry.
+ *
+ * ── What was on screen before ──────────────────────────────────────────────
+ *
+ * A name, a time and a street. The owner's complaint was that a crew member
+ * cannot tell "who to call, where to go or what number" from that — and it is
+ * worst on an AI-booked CALLBACK, which has no address by design, so the row
+ * was a name and a time and the one thing the person making that call needs
+ * was on screen nowhere in the product.
+ *
+ * ── Three kinds of absence, three different sentences ──────────────────────
+ *
+ * Restricted, empty, and never-loaded are not the same fact, and the failure
+ * mode of collapsing them is real: "Not set" under a phone number sends someone
+ * to the client record to fill in a field that is already filled in and simply
+ * hidden from them.
+ *
+ *   * `client.restricted` — redactClient stripped it (lib/permissions/enforce),
+ *     so the number exists and this member may not read it.
+ *   * loaded and empty — genuinely nothing on file, which is worth saying,
+ *     because "Open client" below is how it gets fixed.
+ *   * never loaded — see carriesContact(). Only an appointment's client row
+ *     reaches this page whole. The panel stays silent rather than guessing.
+ *
+ * Address is deliberately not in that matrix: name_address_only KEEPS the
+ * address (that is the level's whole point — crew have to drive there), so a
+ * blank one is always a genuine blank, and on a callback it is the correct
+ * answer rather than missing data.
+ */
+function AppointmentDetails({ appt, panelId, canOpenClient, t }) {
+  const client = appt.client || null;
+  const loaded = carriesContact(appt);
+
+  // A link to the value, or the sentence that explains its absence, or nothing.
+  const contact = (value, href) => {
+    if (value) {
+      return (
+        <a href={href} className="underline underline-offset-2 break-all">
+          {value}
+        </a>
+      );
+    }
+    if (client?.restricted) {
+      return (
+        <span className="text-muted-foreground italic">
+          {t("app.access.restricted")}
+        </span>
+      );
+    }
+    if (loaded) {
+      return <span className="text-muted-foreground">{t("app.job.notSet")}</span>;
+    }
+    return null;
+  };
+
+  const address = (value) =>
+    value ? (
+      <a
+        href={mapsHref(value)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2"
+      >
+        {value}
+      </a>
+    ) : null;
+
+  // Where the van goes and where the customer lives are allowed to differ — a
+  // site address on the appointment, a billing address on the client — and both
+  // are shown when they do. Identical strings collapse to one row rather than
+  // printing the same street twice under two headings.
+  const siteAddress = appt.location || null;
+  const clientAddress =
+    client?.address && client.address !== siteAddress ? client.address : null;
+
+  const notesText = appt.kind === "booking" ? null : appt.notes || null;
+
+  // A booking's client is synthesised from the booking's own columns — there is
+  // no Client row behind it — so offering to open one would 404 on an id that
+  // does not exist. bookingToCalendarEntry marks it `synthetic` for exactly
+  // this decision.
+  const clientHref =
+    canOpenClient && client?.id && !client.synthetic
+      ? `/app/clients/${client.id}`
+      : null;
+
+  return (
+    <div
+      id={panelId}
+      className="mt-3 pt-3 border-t border-border"
+    >
+      <dl className="space-y-2.5">
+        <DetailRow icon={Phone} label={t("app.field.phone")}>
+          {contact(client?.phone, `tel:${client?.phone}`)}
+        </DetailRow>
+        <DetailRow icon={Mail} label={t("app.field.email")}>
+          {contact(client?.email, `mailto:${client?.email}`)}
+        </DetailRow>
+        <DetailRow icon={MapPin} label={t("app.appts.location")}>
+          {address(siteAddress)}
+        </DetailRow>
+        <DetailRow icon={MapPin} label={t("app.field.address")}>
+          {address(clientAddress)}
+        </DetailRow>
+        <DetailRow icon={FileText} label={t("app.field.notes")}>
+          {notesText ? (
+            // Line breaks preserved: an AI-booked callback's notes are a short
+            // list — who rang, on what number, what they asked for — and run
+            // together they read as one unpunctuated sentence.
+            <p className="whitespace-pre-line">{notesText}</p>
+          ) : null}
+        </DetailRow>
+      </dl>
+
+      {/* Who it is assigned to is NOT repeated here. It is already on every row
+          — in the assignee select, or beside it as a name — and that is the
+          place it is changed, so a second copy two inches away could only ever
+          disagree with the first. */}
+      {clientHref && (
+        <Link
+          href={clientHref}
+          className="inline-block mt-3 text-sm font-medium underline underline-offset-2"
+        >
+          {t("app.appts.openClient")}
+        </Link>
       )}
     </div>
   );
