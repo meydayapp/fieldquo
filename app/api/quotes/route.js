@@ -134,7 +134,33 @@ export async function POST(request) {
     // the estimator's own additions. Never part of the document a client sees;
     // see the QuoteCosting model for why it is a separate row.
     costing,
+    // ── The call this quote came out of ─────────────────────────────────
+    //
+    // The builder opens with `?fromCall=<voiceCallId>` and prefills the scope
+    // FieldQuo AI read off the recording — and then saved a quote with no link
+    // back to it. Two things depended on that link and quietly did not work:
+    // the recording button on the quote (callRecordingHref reads
+    // Quote.sourceCallId), and the receptionist screen archiving a call once
+    // its quote exists, which is derived from this column precisely so a
+    // deleted quote puts the call back on the list.
+    //
+    // Validated below against the caller's own company — a call id is a
+    // reference to a customer's recording, and one from another tenant must not
+    // be attachable to a quote here.
+    sourceCallId,
   } = body;
+
+  // Scoped before it is trusted. findFirst with the companyId in the WHERE, so
+  // an id from another tenant resolves to nothing rather than to their call.
+  const verifiedSourceCallId =
+    typeof sourceCallId === "string" && sourceCallId
+      ? (
+          await db.voiceCall.findFirst({
+            where: { id: sourceCallId, companyId: member.companyId },
+            select: { id: true },
+          })
+        )?.id || null
+      : null;
 
   if (!clientId || total === undefined) {
     return NextResponse.json(
@@ -207,6 +233,10 @@ export async function POST(request) {
           ? Math.round(Number(composeSeconds))
           : null,
       companyId: member.companyId,
+      // The call this quote came out of, only when it really is this company's.
+      // Omitted rather than set null, so the automatic estimate path's own id
+      // is never overwritten by a hand save that didn't carry one.
+      ...(verifiedSourceCallId ? { sourceCallId: verifiedSourceCallId } : {}),
       quoteNumber,
       clientId,
       createdById: member.userId,

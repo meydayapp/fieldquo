@@ -890,6 +890,51 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Every lead the receptionist ever took was cold.
+  `lib/leads/score.js`, `lib/leads/createLead.js`,
+  `app/api/voice/tools/[tool]/route.js`, `app/api/quotes/route.js`,
+  `app/api/voice/calls/[id]/book-callback/route.js`.**
+
+  A real call: a name, an email, a number, an address, and thirty-seven cabinet
+  doors with soft-close hinges and new handle holes. It scored **17 — cold**,
+  below a web form where somebody ticked "ASAP" and typed nothing else. That
+  word is what a contractor uses to decide who to ring first.
+
+  Two causes, both structural. **Timeline is 35 of the 100 points and the phone
+  passed none** — even though `save_caller` already collects `urgency`
+  (emergency | soon | planning) on every call. Two vocabularies for one fact
+  that had never been introduced; `URGENCY_TIMELINE` maps them and nothing new
+  is asked.
+
+  **And budget is 30 points the phone is FORBIDDEN to ask about** — absolute
+  rule 1. So a voice lead was marked against a total it could not reach. The
+  score is now earned out of what the CHANNEL could ask: `unasked` factors leave
+  the denominator instead of counting against the lead. Same rule the rest of
+  the product follows — absence of a statement is not a statement, and a
+  question nobody asked is not one answered badly. Named by SOURCE rather than
+  by "is the field empty", because a web visitor who skipped the budget question
+  genuinely did decline to answer. Anna is now 41 and warm; web leads are
+  unchanged, which is the assertion that stops a scoring change quietly
+  re-ranking everything already on file.
+
+  **A quote saved from a call now keeps the link.** The builder opens with
+  `?fromCall=` and prefilled the scope, then saved with no `sourceCallId` — so
+  the recording button on the quote never appeared and the call never archived,
+  because archiving is derived from that column precisely so a deleted quote
+  puts the call back on the list.
+
+  **And a person can book the callback by hand** when the assistant could not —
+  a hang-up before a name, no opening hours that day, a slot taken. It books
+  through the same `bookableSlots`/`bookSlot` path, not a second one.
+
+  Two testing notes worth keeping. In `check-call-to-client` the helper is
+  `ok(label, cond)` and eight new assertions had been written `ok(cond, label)`,
+  so the message string was read as the condition and every one passed against
+  every broken variant — mutation testing was the only reason that surfaced.
+  And `createScoredLead` is stubbed in that harness, so the channel wiring is
+  covered in `check-lead-scoring` by driving the same composition directly
+  rather than by an assertion that could not run.
+
 - **"Ring this client about this quote", pressed by a person.
   `lib/voice/quoteCallScope.js`, `lib/voice/triggers.js`,
   `app/api/quotes/[id]/call/route.js`, `scripts/check-quote-call-button.mjs`.**

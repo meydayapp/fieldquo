@@ -24,11 +24,12 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   Headset, Phone, PhoneOutgoing, AlertTriangle, Check, Play, Loader2, UserPlus, CalendarCheck, Settings, History,
-  ChevronDown, ChevronRight, Archive, ArchiveRestore, FileText,
+  ChevronDown, ChevronRight, Archive, ArchiveRestore, FileText, PhoneCall, CalendarClock,
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchList } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
+import { useHasLevel } from "@/app/providers/PermissionProvider";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import CallQuoteDraft from "./CallQuoteDraft";
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -61,6 +62,28 @@ const BOOKED_KEYS = {
   video: { at: "app.receptionist.bookedVideoAt", plain: "app.receptionist.bookedVideo" },
 };
 
+// ── Why the manual "Book a callback" refused ──────────────────────────────
+//
+// POST /api/voice/calls/[id]/book-callback answers 409 with a `reason` for
+// every way the booking can fail, and every one of them is a different thing
+// to do next. One generic "couldn't do that" is what makes somebody press the
+// button a second time and get the same nothing — so each reason gets its own
+// sentence, and the reason that is almost always the real one (no opening
+// hours on file) gets somewhere to go as well.
+//
+// Anything not in this table — address_required, unknown_event_type, a reason
+// a later build adds — falls to callbackFailed, which says the booking didn't
+// happen rather than pretending to know why.
+const CALLBACK_REASON_KEYS = {
+  already_booked: "app.receptionist.callbackAlready",
+  no_phone: "app.receptionist.callbackNoPhone",
+  not_callbacks: "app.receptionist.callbackNotCallbacks",
+  no_times: "app.receptionist.callbackNoTimes",
+  fee_due: "app.receptionist.callbackFeeDue",
+  taken: "app.receptionist.callbackTaken",
+  bad_slot: "app.receptionist.callbackBadSlot",
+};
+
 function duration(sec) {
   const s = Math.max(0, Number(sec) || 0);
   const m = Math.floor(s / 60);
@@ -70,6 +93,12 @@ function duration(sec) {
 export default function ReceptionistPage() {
   const { t } = useTranslation();
   const { formatDateTime } = useCompanyPreferences();
+  // The same gate the endpoint takes (requests: view_create_edit). Below it the
+  // button is not rendered AND no notice replaces it — a member who may not
+  // book callbacks is not being denied anything they asked for, and a "you
+  // can't do this" line on every row would be noise about a job that isn't
+  // theirs. The server refuses regardless; this only stops offering it.
+  const canBookCallback = useHasLevel("requests", "view_create_edit");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -81,6 +110,11 @@ export default function ReceptionistPage() {
   // keep reading while they scan the list.
   const [recovering, setRecovering] = useState(false);
   const [recoverResult, setRecoverResult] = useState(null);
+  // Which row is mid-booking, and what the last press answered. Held apart from
+  // `busy` on purpose: booking a callback must not put a spinner in the Archive
+  // button beside it, which would read as archiving.
+  const [callbackBusy, setCallbackBusy] = useState(null);
+  const [callbackResult, setCallbackResult] = useState(null);
 
   // `data` stays null on failure. `data?.calls || []` used to render the
   // "you haven't turned this on yet" panel — complete with a Set it up button —
@@ -197,6 +231,62 @@ export default function ReceptionistPage() {
     }
   }
 
+  // ── The manual backup for the callback the assistant didn't book ────────
+  //
+  // 409 is an ANSWER from this endpoint, not a transport failure: it is how the
+  // route says which of half a dozen fixable things is in the way. So the body
+  // is read on 409 as well as on 200, and only a status we did not plan for
+  // goes to the generic toast. 403 is among those and shouldn't happen — a
+  // member below requests:view_create_edit never sees the button.
+  async function bookCallback(id) {
+    setCallbackBusy(id);
+    setCallbackResult(null);
+    try {
+      const res = await fetch(`/api/voice/calls/${id}/book-callback`, {
+        method: "POST",
+      });
+      if (!res.ok && res.status !== 409) {
+        await reportResponseError(res, t("app.receptionist.callbackFailed"));
+        return;
+      }
+      const body = await res.json().catch(() => null);
+
+      if (body?.booked) {
+        // The time comes back from the server that wrote it, and is repeated
+        // here rather than only appearing in the badge: somebody pressed a
+        // button that puts a stranger in their diary and is owed the when.
+        setCallbackResult({
+          id,
+          tone: "good",
+          text: t("app.receptionist.callbackBooked", { when: body.at || "" }),
+        });
+        // Swaps the button for the booking badge on the row.
+        await load();
+        return;
+      }
+
+      const reason = body?.reason || "failed";
+      setCallbackResult({
+        id,
+        // "There is already one" is the thing they wanted being true already,
+        // not a warning.
+        tone: reason === "already_booked" ? "plain" : "warn",
+        text: t(CALLBACK_REASON_KEYS[reason] || "app.receptionist.callbackFailed"),
+        // Opening hours live on Company.businessHours, edited on the company
+        // settings screen — a company that has never set them is offered no
+        // slots at all, deliberately, so this is nearly always the fix.
+        href: reason === "no_times" ? "/app/settings/company" : null,
+        hrefText:
+          reason === "no_times" ? t("app.receptionist.callbackNoTimesCta") : null,
+      });
+      // Our copy of the row says there is no booking and the server says there
+      // is. Reload so the badge — and the time on it — appears.
+      if (reason === "already_booked") await load();
+    } finally {
+      setCallbackBusy(null);
+    }
+  }
+
   const calls = data?.calls || [];
   // Whether the deployment can call a model at all. `data` is null on a failed
   // load, and `?? false` rather than `?? true` on purpose: offering a button we
@@ -232,6 +322,28 @@ export default function ReceptionistPage() {
   const flagged = calls.filter((c) => c.needsReview);
   const open = calls.filter((c) => !c.needsReview && !c.archived);
   const archived = calls.filter((c) => !c.needsReview && c.archived);
+
+  // ── "Somebody is expecting a call" belongs above the list, not in it ─────
+  //
+  // Built from the booking times already in this payload — no second fetch, no
+  // nav badge somewhere else in the app, and nothing at all when there is
+  // nothing coming. A heads-up that is present on a quiet day is a heads-up
+  // people stop reading.
+  //
+  // `pending_payment` and `cancelled` are excluded because neither is a
+  // commitment: one is a slot held while somebody pays and may never be paid
+  // for, the other is a slot already given back. Counting either would be
+  // asserting an appointment that does not exist — the padding failure class.
+  // Their rows still carry their own badge; this line only counts what a
+  // contractor should plan their morning around.
+  const upcoming = calls
+    .map((c) => c.booking)
+    .filter(
+      (b) => b?.at && b.status !== "cancelled" && b.status !== "pending_payment",
+    )
+    .map((b) => new Date(b.at))
+    .filter((d) => !Number.isNaN(d.getTime()) && d.getTime() > Date.now())
+    .sort((a, b) => a.getTime() - b.getTime());
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
@@ -273,6 +385,18 @@ export default function ReceptionistPage() {
             : t("app.receptionist.settings")}
         </Link>
       </div>
+
+      {upcoming.length > 0 && (
+        <p className="flex items-start gap-2 text-sm text-muted-foreground">
+          <CalendarClock size={15} className="mt-0.5 shrink-0" />
+          <span>
+            {t("app.receptionist.upcomingSummary", {
+              count: t("app.receptionist.upcomingCount", { value: upcoming.length }),
+              when: formatDateTime(upcoming[0]),
+            })}
+          </span>
+        </p>
+      )}
 
       {recoverResult && (
         <div
@@ -354,6 +478,9 @@ export default function ReceptionistPage() {
                 onSeen={() => markSeen(c.id)}
                 formatDateTime={formatDateTime}
                 aiAvailable={aiAvailable}
+                onBookCallback={canBookCallback ? () => bookCallback(c.id) : null}
+                bookingCallback={callbackBusy === c.id}
+                callbackResult={callbackResult?.id === c.id ? callbackResult : null}
               />
             ))}
           </div>
@@ -377,6 +504,9 @@ export default function ReceptionistPage() {
                 onArchive={() => setArchived(c.id, true)}
                 formatDateTime={formatDateTime}
                 aiAvailable={aiAvailable}
+                onBookCallback={canBookCallback ? () => bookCallback(c.id) : null}
+                bookingCallback={callbackBusy === c.id}
+                callbackResult={callbackResult?.id === c.id ? callbackResult : null}
               />
             ))}
           </div>
@@ -409,6 +539,9 @@ export default function ReceptionistPage() {
                   onUnarchive={c.archivedAt ? () => setArchived(c.id, false) : null}
                   formatDateTime={formatDateTime}
                   aiAvailable={aiAvailable}
+                  onBookCallback={canBookCallback ? () => bookCallback(c.id) : null}
+                  bookingCallback={callbackBusy === c.id}
+                  callbackResult={callbackResult?.id === c.id ? callbackResult : null}
                 />
               ))}
             </div>
@@ -421,7 +554,10 @@ export default function ReceptionistPage() {
   );
 }
 
-function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDateTime, aiAvailable }) {
+function CallRow({
+  call, urgent, busy, onSeen, onArchive, onUnarchive, formatDateTime, aiAvailable,
+  onBookCallback, bookingCallback, callbackResult,
+}) {
   const { t } = useTranslation();
   return (
     <div
@@ -558,6 +694,31 @@ function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDat
           </span>
         )}
 
+        {/* ── The human backup for a callback that never got booked ───────
+            Only when this call has NO booking. A call that has one already
+            shows its badge above; a button beside that badge would offer to do
+            a thing the server correctly refuses to do twice.
+
+            Absent entirely below requests:view_create_edit — no button and no
+            notice. See canBookCallback on the page. */}
+        {!call.bookingId && onBookCallback && (
+          <button
+            type="button"
+            disabled={bookingCallback}
+            onClick={onBookCallback}
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border border-border text-foreground hover:bg-muted disabled:opacity-50"
+          >
+            {bookingCallback ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <PhoneCall size={13} />
+            )}
+            {bookingCallback
+              ? t("app.receptionist.callbackBooking")
+              : t("app.receptionist.bookCallback")}
+          </button>
+        )}
+
         {onArchive && (
           <button
             type="button"
@@ -593,6 +754,33 @@ function CallRow({ call, urgent, busy, onSeen, onArchive, onUnarchive, formatDat
           </button>
         )}
       </div>
+
+      {/* What the press answered, on the row it was pressed on. Kept beside the
+          call rather than toasted: "no free times, you never set opening hours"
+          is a sentence somebody needs to still be reading while they go and fix
+          it. Survives the reload that follows a success, so the confirmed time
+          stays visible next to the badge it just created. */}
+      {callbackResult && (
+        <p
+          className={`mt-2 text-xs ${
+            callbackResult.tone === "good"
+              ? "text-emerald-700 dark:text-emerald-300"
+              : callbackResult.tone === "warn"
+                ? "text-amber-700 dark:text-amber-300"
+                : "text-muted-foreground"
+          }`}
+        >
+          {callbackResult.text}
+          {callbackResult.href && (
+            <>
+              {" "}
+              <Link href={callbackResult.href} className="underline font-medium">
+                {callbackResult.hrefText}
+              </Link>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

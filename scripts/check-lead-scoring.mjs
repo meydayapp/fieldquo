@@ -13,6 +13,8 @@ import {
   buildReasonAnalysis,
   buildScoreCalibration,
 } from "../lib/analytics/leadScoring.js";
+import { scoreLead } from "../lib/leads/score.js";
+import { UNASKABLE_BY_SOURCE } from "../lib/leads/createLead.js";
 
 let pass = 0;
 const failures = [];
@@ -140,6 +142,80 @@ check("median ignores unscored leads rather than counting them as 0",
   buildTemperatureAnalysis([
     lead("hot", "converted", 80), lead("hot", "lost", 70), lead("hot", "lost", null),
   ]).bands.find((b) => b.temperature === "hot").medianScore === 75);
+
+/* ═══ A question nobody asked is not a question answered badly ═════════════
+ *
+ * The phone receptionist is FORBIDDEN to discuss money — absolute rule 1 in
+ * lib/voice/prompt.js — and budget is 30 of the 100 points. So every lead the
+ * assistant ever took was marked against a total it could not reach.
+ *
+ * A real call: a name, an email, a number, an address, and thirty-seven cabinet
+ * doors with soft-close hinges and new handle holes. It scored 17 and came out
+ * COLD — below a web form where somebody ticked "ASAP" and typed nothing else.
+ * That word is what a contractor uses to decide who to ring first.
+ */
+{
+  const anna = {
+    phone: "+18192387263",
+    email: "anna@example.com",
+    timeline: "1_3_months",
+    message:
+      "Address: 917 Little Rock Street, Ottawa\nCabinet refinishing: 37 doors, 6 drawers, white, soft-close hinges, new handle holes.",
+  };
+  const asWeb = scoreLead(anna);
+  const asPhone = scoreLead(anna, { unasked: ["budget"] });
+
+  check(
+    `the same lead scores higher when budget could not be asked (web ${asWeb.score} vs phone ${asPhone.score})`,
+    asPhone.score > asWeb.score,
+  );
+  check(
+    "…and a detailed, contactable enquiry is warm rather than cold",
+    asPhone.temperature === "warm",
+  );
+  check(
+    "…and the reasons say WHY, so the number stays explainable",
+    asPhone.reasons.some((r) => /can't ask/.test(r.label)),
+  );
+  check(
+    "a web lead that DID state a big budget still outranks a phone lead that never could",
+    scoreLead({ ...anna, budgetBand: "15k_plus", timeline: "asap" }).score >
+      scoreLead({ ...anna, timeline: "asap" }, { unasked: ["budget"] }).score,
+  );
+  // The assertion that stops a scoring change quietly re-ranking every lead
+  // already on file.
+  check(
+    "an ordinary web lead scores exactly what it always did",
+    scoreLead({ phone: "1", email: "a@b.c", timeline: "asap", budgetBand: "5k_15k" }).score === 69,
+  );
+  check("…and an empty list changes nothing at all", scoreLead(anna, { unasked: [] }).score === asWeb.score);
+  check(
+    "an unknown factor withholds nothing rather than inflating the score",
+    scoreLead(anna, { unasked: ["not_a_factor"] }).score === asWeb.score,
+  );
+
+  // ── The wiring, which is the half that silently stops working ──────────
+  //
+  // The scorer can be perfect and still be handed an empty list. This drives
+  // the same composition createScoredLead performs — source to withheld
+  // factors to score — without needing a database.
+  check(
+    "a phone lead declares budget as unasked",
+    JSON.stringify(UNASKABLE_BY_SOURCE.phone_agent) === JSON.stringify(["budget"]),
+  );
+  check(
+    "…and no other source withholds anything, so the web is untouched",
+    Object.keys(UNASKABLE_BY_SOURCE).length === 1,
+  );
+  check(
+    "…and composing the two gives the warm score the receptionist's leads deserve",
+    scoreLead(anna, { unasked: UNASKABLE_BY_SOURCE.phone_agent || [] }).temperature === "warm",
+  );
+  check(
+    "…while an unknown source composes to no withholding at all",
+    scoreLead(anna, { unasked: UNASKABLE_BY_SOURCE.web_form || [] }).score === asWeb.score,
+  );
+}
 
 console.log(`\n${pass + failures.length} checks, ${failures.length} failure(s).\n`);
 if (failures.length) process.exitCode = 1;

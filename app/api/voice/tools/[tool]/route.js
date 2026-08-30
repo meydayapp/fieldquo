@@ -156,6 +156,21 @@ export async function POST(request, { params }) {
 
 /* ─────────────────────────────── save-caller ───────────────────────────── */
 
+/**
+ * What the agent hears about timing, in the words the lead scorer uses.
+ *
+ * Two vocabularies for one fact, and they had never been introduced. The tool
+ * asks for `urgency` because that is what a receptionist can tell from a call;
+ * lib/leads/score.js weighs `timeline` because that is what a web form asks.
+ * Mapping them is not a guess — "something is broken right now" IS "ready to
+ * start", and it is the largest single weight in the score.
+ */
+const URGENCY_TIMELINE = {
+  emergency: "asap",
+  soon: "2_weeks",
+  planning: "1_3_months",
+};
+
 async function saveCaller(ctx, args) {
   const name = cleanText(args.name, 200);
   // Falls back to caller ID. The model asking twice for a number we already
@@ -240,6 +255,20 @@ async function saveCaller(ctx, args) {
         email,
         message: message || "— taken by the phone assistant",
         source: "phone_agent",
+        // ── The urgency the agent already collected, as a TIMELINE ────────
+        //
+        // Timeline is 35 of the 100 points in lib/leads/score.js — the single
+        // biggest weight, and the phone was passing none. So every lead the
+        // receptionist ever took scored "cold": a real call with a name, an
+        // email, a number, an address and thirty-seven cabinet doors came out
+        // at 17, below a web form where somebody ticked a box.
+        //
+        // Nothing new is asked. `urgency` is already a required-ish part of
+        // save_caller and the agent fills it on every call; it simply never
+        // reached the scorer. The mapping is the obvious one and it is
+        // deliberately conservative — "planning" is a real intention to buy,
+        // not a promise about next week.
+        timeline: URGENCY_TIMELINE[urgency] || null,
       });
 
   // ── "I asked them to email photos" ─────────────────────────────────────
