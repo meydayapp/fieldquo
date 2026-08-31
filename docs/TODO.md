@@ -164,6 +164,30 @@ just the wrong invoice every time for anyone who found the URL. Moved to
 had said since the first commit. `check-rbac-redaction.mjs` had been asserting
 this route redacts money, which it does; nobody had asked whether it worked.
 
+Then the sweep was made a build check — `scripts/check-route-callers.mjs` —
+and stripping comments before matching turned up **six more**. Every one had
+looked reached because a file's own prose named the route it was about to
+call, or fail to. Two were the Stripe webhooks, which are registered in
+Stripe's dashboard and can have no in-app caller. Four were real, and are now
+declared in the check with the reason, rather than suppressed:
+
+| Route | Why it has no caller |
+|---|---|
+| `/api/marketing-spend` | `MarketingSpend` is READ — `lib/analytics/marketingRollup.js` feeds the monthly digest from it — and **no screen writes it**, so the digest reports zero spend forever. Small build: date, platform, amount. |
+| `/api/analytics/burn-rate` | Already documented in `lib/permissions/costBasis.js`. Monthly burn and runway. The numbers exist on the Overhead screen; this presentation of them has no page. |
+| `/api/analytics/pricing-benchmark` | A second door onto what `/api/analytics/benchmark` already serves. |
+| `/api/leads/public` | `app/quote/[companySlug]/page.js` was built to give this and `/api/self-quote` a home; only the self-quote half was wired. The public quote form works — the page's header comment just overstates what it closed. |
+| `/api/feedback` | Documented in `lib/supportContact.js`: the console reads what it writes, nothing in `/app` renders a form, which is exactly why `SUPPORT_EMAIL` points at an inbox a human answers. |
+| `/api/ai/quote-suggestions` | An HTTP wrapper around `lib/ai/quoteSuggestions.js`, which IS used — `quoteReview.js` calls it in process. |
+
+**Built.** `/platform/voice-economics` — the endpoint computed the per-minute
+margin, the number-rental spread, the concurrency bill nobody is charged for
+and the break-even minutes on a slot, and no screen called it. Now a page, with
+a sidebar row, and the shared call pool given its own panel ABOVE the money:
+a full pool is not a margin problem, it is an inbound call waiting forty
+seconds and then failing, which the homeowner experiences as a contractor who
+does not answer their phone.
+
 **For the owner: Good/Better/Best quote tiers are a whole feature with no
 front door.** `Quote.tierGroupId` and `Quote.tierLabel` are in the schema.
 `POST /api/quotes/tier-group` creates the linked trio. `GET
