@@ -135,6 +135,14 @@ export async function POST(request) {
       // Under 160 characters including the link, so it lands as one segment.
       // Identifies the sender and the product immediately — an unexplained
       // link from an unknown number gets deleted.
+      //
+      // Not gated by lib/sms/optOut.js's maySms(): that check is keyed on
+      // (companyId, phone) for a COMPANY's own client, and the recipient here
+      // is a prospective FieldQuo signup the contractor is referring — not
+      // this company's customer, and this sends from the shared system
+      // number rather than the company's own client-facing line. There's no
+      // "this company's opt-out list" for this recipient to be on. Rate
+      // limiting and dedup (above) are this route's own abuse controls.
       const text = `${greeting}${company.name} uses FieldQuo for quotes and invoices and thinks you'd like it. ${REFEREE_BONUS_MONTHS} month${REFEREE_BONUS_MONTHS === 1 ? "" : "s"} free: ${url}`;
       const result = await sendSms({ to: phone, body: text });
       if (!result.success) throw new Error(result.error || "SMS failed");

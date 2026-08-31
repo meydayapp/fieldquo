@@ -125,6 +125,13 @@ const GLOBAL_BY_DESIGN = {
       "Token route. The appointment is the one this booking points at, and the " +
       "booking was resolved from the manage token in the client's own email.",
   },
+  "app/api/unsubscribe/[token]/route.js": {
+    marketingSubscriber:
+      "Token route. The subscriber was loaded by findUnique({ where: { " +
+      "unsubscribeToken: token } }) — the token IS the credential, unguessable " +
+      "and unique per row, so it already resolves to exactly one company's " +
+      "subscriber before the id ever reaches the update.",
+  },
   "app/api/visit/[token]/reschedule/route.js": {
     appointment:
       "Same manage-token route, the reschedule half. The appointment is reached " +

@@ -16,6 +16,7 @@ import {
   renderTemplateSections,
   renderSubject,
 } from "@/lib/email/renderTemplateSections";
+import { ensureSubscriberToken, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 
 export async function POST(request, { params }) {
   const { id } = await params;
@@ -89,6 +90,14 @@ export async function POST(request, { params }) {
 
   let delivered = 0;
   for (const sub of subscribers) {
+    // A marketing campaign is the textbook COMMERCIAL email — see
+    // lib/marketing/unsubscribe.js's classification note. Every recipient
+    // here already exists as a subscribed row (the query above filters on
+    // it), but not every row was ever minted a token: rows added by a manual
+    // add or a client import never send anything at creation time, so
+    // nothing needed one until now.
+    const unsubscribeToken = await ensureSubscriberToken(db, sub);
+
     const mergeData = {
       clientName: sub.name || "",
       clientAddress: sub.address || "",
@@ -100,6 +109,7 @@ export async function POST(request, { params }) {
     const html = renderTemplateSections(campaign.template.sections, mergeData, {
       company: campaign.company || {},
       theme: campaign.template.theme || null,
+      unsubscribe: { token: unsubscribeToken, request },
     });
     // The campaign name is an internal label; prefer the template's
     // client-facing subject when one is set.
@@ -113,6 +123,7 @@ export async function POST(request, { params }) {
       subject,
       html,
       ...sender,
+      ...unsubscribeHeaders({ token: unsubscribeToken, request }),
     });
     if (!result?.error) delivered++;
   }

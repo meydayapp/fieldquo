@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { sendSms } from "@/lib/sms/twilioClient";
 import { renderMessage } from "@/lib/sms/renderTemplate";
+import { maySms } from "@/lib/sms/optOut";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
@@ -78,23 +79,33 @@ export async function PATCH(request, { params }) {
   });
 
   // Fire an "on my way" text when status flips to that state — don't let an SMS
-  // failure block the actual status update from saving.
+  // failure block the actual status update from saving. Wrapped in an async
+  // IIFE (rather than a bare `await`) so the opt-out check ahead of the send
+  // keeps that same "never blocks the response" property.
   if (status === "on_the_way" && visit.job.client.phone) {
-    sendSms({
-      to: visit.job.client.phone,
-      // The company's own wording when they set it, the built-in otherwise.
-      // renderMessage falls back safely if a stored template is invalid, so a
-      // bad edit can never ship a raw "{token}" to a customer.
-      body: renderMessage({
-        type: "on_my_way",
-        templates: visit.job.company.smsTemplates,
-        values: {
-          company: visit.job.company.name,
-          worker: updated.assignedTo?.name || "Your technician",
-          name: (visit.job.client.name || "").split(/\s+/)[0],
-        },
-      }),
-    }).catch((err) => console.error("On-my-way SMS failed:", err.message));
+    (async () => {
+      // Reply STOP has to mean something everywhere a client-facing text goes
+      // out, not just on the reminder cron that already checked it — see
+      // lib/sms/optOut.js.
+      const allowed = await maySms({ companyId: visit.job.companyId, phone: visit.job.client.phone });
+      if (!allowed) return;
+
+      await sendSms({
+        to: visit.job.client.phone,
+        // The company's own wording when they set it, the built-in otherwise.
+        // renderMessage falls back safely if a stored template is invalid, so a
+        // bad edit can never ship a raw "{token}" to a customer.
+        body: renderMessage({
+          type: "on_my_way",
+          templates: visit.job.company.smsTemplates,
+          values: {
+            company: visit.job.company.name,
+            worker: updated.assignedTo?.name || "Your technician",
+            name: (visit.job.client.name || "").split(/\s+/)[0],
+          },
+        }),
+      });
+    })().catch((err) => console.error("On-my-way SMS failed:", err.message));
   }
 
   // A completed visit on a recurring job spawns the next one immediately, so the

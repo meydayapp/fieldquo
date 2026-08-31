@@ -890,6 +890,74 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Two consent mechanisms FieldQuo promised and didn't have: email
+  unsubscribe (CASL) and SMS "Reply STOP".** `lib/marketing/unsubscribe.js`,
+  `app/api/unsubscribe/[token]/route.js`, `app/unsubscribe/[token]/`,
+  `lib/sms/optOut.js`, `lib/sms/optOutKeywords.js`, `app/api/sms/inbound/route.js`,
+  `scripts/check-consent-mechanisms.mjs`.
+
+  **Email:** `MarketingSubscriber.subscribed` was already checked before a
+  send, but nothing public could ever change it — the only route was
+  staff-only, gated on `user:manage`. `unsubscribeToken` follows
+  `Client.portalToken`'s exact shape (32 CSPRNG bytes, base64url, `@unique`
+  per row) rather than a derived/HMAC token, so a leak is bounded to one row.
+  GET on the public route reads only (mail-client link-scanners prefetch
+  GETs — an auto-unsubscribing GET would opt out everyone whose inbox got
+  scanned); the visible page then asks for one button click before POSTing
+  the actual mutation, and that same POST endpoint is also where RFC 8058's
+  `List-Unsubscribe-Post` header points, for mailbox providers' own
+  zero-click "Unsubscribe" chip. Classified every FieldQuo email as
+  commercial or transactional (comment block in `lib/marketing/
+  unsubscribe.js`) and wired the link into exactly the three commercial ones
+  — marketing campaigns, review requests, and "job completed" follow-ups
+  (its own `TRIGGER_META` description already said "e.g. a thank-you /
+  review request") — while leaving quotes, invoices, auth mail and the other
+  two follow-up triggers untouched. `applyUnsubscribe()` is pure (same split
+  as `shouldRequestReview`): sets the flag once, never moves the original
+  timestamp on a repeat click, never deletes the row.
+
+  **SMS:** `lib/sms/templates.js` told every client "Reply STOP to opt out"
+  with no webhook behind it — the only inbound SMS route in the repo
+  resolved against the CREW line, not a client-facing number. New webhook
+  resolves by `Company.smsFromNumber` (now `@unique`, mirroring
+  `CrewInboxNumber.e164`). Deliberately a NEW model (`SmsOptOut`, one row per
+  company+number, updated in place) rather than reusing
+  `CallConsent.optedOutAt` — that field is documented as permanent ("always
+  wins... never deleted"), correct for a voice opt-out under TCPA but wrong
+  for SMS, where STOP/START are standard, carrier-expected REVERSIBLE
+  keywords. `maySms()` checks both tables (an opted-out-of-calls number is
+  refused SMS too), but a START only ever clears the SMS-specific flag.
+  Keyword matching is exact-message-only after trim + strip-one-trailing-
+  punctuation-run — "please stop by at 3" is not "STOP" — not a substring or
+  word-boundary match. Whether Twilio's own Advanced Opt-Out is already
+  replying to STOP for these numbers is NOT visible from this repo; the
+  webhook always records the opt-out, but only sends its own confirmation
+  text behind `SMS_OPT_OUT_SEND_CONFIRMATION` (see docs/VERCEL.md) so it
+  can't double-reply against carrier-level handling the owner hasn't
+  confirmed either way.
+
+  **Known gap, not silently dropped:** a company using the SHARED system SMS
+  number (no `smsFromNumber` of its own) has no working "Reply STOP" today —
+  the shared number can't be attributed to one tenant from the webhook's `To`
+  alone, the same limitation the crew line solves with a claim table this
+  number has no equivalent of. Every company on a dedicated `smsFromNumber`
+  is covered.
+
+  `scripts/check-consent-mechanisms.mjs` (`npm run check:consent-mechanisms`,
+  in `check:all`) executes the real token generator (20,000 tokens, zero
+  collisions), the real `applyUnsubscribe` decision function, the real
+  `renderTemplateSections`/`buildReviewEmail` template builders (link present
+  with a token, absent without one), and the real `classifyInboundSms`
+  against the brief's own near-miss cases plus a dozen more. Every
+  `sendSms(` call site in the app is enumerated from source and must be
+  either gated (`maySms(` before `sendSms(`, checked within that one
+  function's extracted body) or on a short, reasoned exemption list (crew
+  replies, a staff test text, a referral invite to a non-client) — a new,
+  unaccounted-for call site fails the build. Four mutations were run against
+  the shipped code during this session (substring keyword matching, an
+  unsubscribe timestamp that moves on a repeat click, a removed `maySms`
+  guard, an unconditional confirmation reply) and all four were caught, then
+  reverted.
 - **The monthly digest now reads the CALLS behind won and lost quotes, not
   just the numbers. `lib/ai/callTranscriptDigest.js`,
   `lib/ai/monthlyDigest.js`, `app/app/analytics/digest/page.js`,

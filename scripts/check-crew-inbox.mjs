@@ -322,8 +322,22 @@ ok(
 console.log("\nThe inbound route's own shape");
 const routeSrc = readFileSync(new URL("../app/api/crew/inbound/route.js", import.meta.url), "utf8");
 ok("it derives the tenant through tenantKeyFromInbound", routeSrc.includes("tenantKeyFromInbound(params)"));
-ok("it refuses when the auth token is unset", /if \(!token \|\| !signature/.test(routeSrc));
-ok("it validates the Twilio signature", routeSrc.includes("twilio.validateRequest"));
+// Signature verification used to be inline here. It moved to
+// lib/sms/verifyTwilioWebhook.js when app/api/sms/inbound/route.js (the
+// client-facing STOP-keyword webhook) needed the exact same check — two
+// Twilio webhooks hand-rolling the same HMAC-over-reconstructed-URL logic is
+// the duplication class AGENTS.md warns rots, because a fix to one copy
+// (say, the x-forwarded-proto reconstruction) has no reason to reach the
+// other. The route's own job now is just to CALL the shared check and
+// refuse on `!ok`; the auth-token-unset refusal and the actual
+// validateRequest call are asserted against the shared file below, which is
+// where they now live.
+ok("it delegates signature verification to the shared helper", routeSrc.includes("verifyTwilioWebhook(request)"));
+ok("it refuses when that verification fails", /if \(!ok\)/.test(routeSrc));
+
+const verifySrc = readFileSync(new URL("../lib/sms/verifyTwilioWebhook.js", import.meta.url), "utf8");
+ok("the shared helper refuses when the auth token is unset", /token\s*&&\s*signature/.test(verifySrc));
+ok("the shared helper validates the Twilio signature", verifySrc.includes("twilio.validateRequest"));
 
 const lookup = routeSrc.slice(
   routeSrc.indexOf("crewInboxNumber.findUnique"),

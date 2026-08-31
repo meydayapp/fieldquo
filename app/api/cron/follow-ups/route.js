@@ -22,6 +22,8 @@ import {
   renderSubject,
 } from "@/lib/email/renderTemplateSections";
 import { getAppOrigin } from "@/lib/appUrl";
+import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
+import { TRIGGER_META } from "@/lib/followUps/triggers";
 
 function cutoffFor(rule) {
   const ms =
@@ -199,6 +201,7 @@ export async function GET(request) {
   let sent = 0;
   let skippedNoTemplate = 0;
   let skippedNoEmail = 0;
+  let skippedUnsubscribed = 0;
 
   for (const rule of rules) {
     const finder = FINDERS[rule.triggerEvent];
@@ -226,10 +229,35 @@ export async function GET(request) {
         continue; // already logged (race or already handled) — skip silently
       }
 
+      // Commercial only (job_completed — see TRIGGER_META in
+      // lib/followUps/triggers.js for the classification and why): has this
+      // person unsubscribed from this company's marketing mail?
+      // ensureSubscriber also mints the row this send needs a token from —
+      // most job_completed recipients have never been on this list, same as
+      // a review-request recipient. Claimed above either way: an unsubscribed
+      // recipient still "used up" this (rule, entity) pair, so the cron
+      // doesn't re-evaluate them every hour forever — there's nothing that
+      // will ever change the answer.
+      let unsubscribeToken = null;
+      if (TRIGGER_META[rule.triggerEvent]?.commercial) {
+        const subscriber = await ensureSubscriber(db, {
+          companyId: entity.companyId,
+          email: to,
+          name: entity.client?.contactName || entity.client?.name,
+          source: "follow_up",
+        });
+        if (subscriber?.subscribed === false) {
+          skippedUnsubscribed++;
+          continue;
+        }
+        unsubscribeToken = subscriber?.unsubscribeToken || null;
+      }
+
       const mergeData = mergeDataFor(finder.entityType, entity, request);
       const html = renderTemplateSections(rule.template.sections, mergeData, {
         company: entity.company || {},
         theme: rule.template.theme || null,
+        ...(unsubscribeToken && { unsubscribe: { token: unsubscribeToken, request } }),
       });
 
       await sendEmail({
@@ -247,10 +275,11 @@ export async function GET(request) {
         // Replies go to the company's inbox, falling back to the account
         // owner's email so a reply is never silently lost.
         ...(await resolveSender(entity.company || {}, entity.companyId)),
+        ...(unsubscribeToken && unsubscribeHeaders({ token: unsubscribeToken, request })),
       });
       sent++;
     }
   }
 
-  return NextResponse.json({ success: true, sent, skippedNoTemplate, skippedNoEmail });
+  return NextResponse.json({ success: true, sent, skippedNoTemplate, skippedNoEmail, skippedUnsubscribed });
 }

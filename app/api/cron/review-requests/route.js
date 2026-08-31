@@ -30,6 +30,7 @@ import { resolveSender } from "@/lib/email/companySender";
 import { shouldRequestReview, clampDelay, MAX_DELAY_HOURS } from "@/lib/reviews/request";
 import { buildReviewEmail } from "@/lib/reviews/reviewEmail";
 import { resolveClientLanguage } from "@/lib/i18n/clientLanguage";
+import { ensureSubscriber, unsubscribeHeaders } from "@/lib/marketing/unsubscribe";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -88,17 +89,25 @@ export async function GET(request) {
     for (const job of jobs) {
       const client = job.client;
 
-      // Has this person unsubscribed? Looked up by email against the marketing
-      // list, which is where unsubscribes already live — a review request is
-      // not an invoice, nobody needs it, so "leave me alone" wins.
-      let subscribed = true;
+      // A review request is a COMMERCIAL email (see lib/marketing/unsubscribe.js
+      // — asking a past customer to promote the business is outreach on the
+      // business's behalf, not delivery of something they're owed). So this
+      // recipient must both be checked against, AND become findable through,
+      // the unsubscribe list — ensureSubscriber does both: it reads a prior
+      // opt-out the same way the old inline query did, and it also mints the
+      // row+token a working unsubscribe LINK needs, for someone who has never
+      // been on this list before (the common case — nothing else adds a
+      // review-request recipient to MarketingSubscriber).
+      let subscriber = null;
       if (client?.email) {
-        const sub = await db.marketingSubscriber.findUnique({
-          where: { companyId_email: { companyId: company.id, email: client.email } },
-          select: { subscribed: true },
+        subscriber = await ensureSubscriber(db, {
+          companyId: company.id,
+          email: client.email,
+          name: client.name,
+          source: "review_request",
         });
-        if (sub && sub.subscribed === false) subscribed = false;
       }
+      const subscribed = subscriber ? subscriber.subscribed !== false : true;
 
       const verdict = shouldRequestReview({ job, company, client, subscribed, now });
       if (!verdict.send) { note(verdict.reason); continue; }
@@ -111,7 +120,13 @@ export async function GET(request) {
       if (claim.count === 0) { note("Another run got there first."); continue; }
 
       const language = resolveClientLanguage({ client, company });
-      const email = buildReviewEmail({ company, client, language });
+      const email = buildReviewEmail({
+        company,
+        client,
+        language,
+        unsubscribeToken: subscriber?.unsubscribeToken,
+        request,
+      });
       if (!email) { note("Couldn't build the email."); continue; }
 
       // sendEmail does NOT throw. It returns `{ id }`, `{ error }` or
@@ -126,6 +141,14 @@ export async function GET(request) {
         // replies land in their inbox — including the "actually, something
         // was wrong" replies the email invites.
         ...(await resolveSender(company, company.id)),
+        // List-Unsubscribe / List-Unsubscribe-Post — see
+        // lib/marketing/unsubscribe.js's unsubscribeHeaders(). Only set when a
+        // token actually exists, which it always should here (ensureSubscriber
+        // ran above), but a missing token must degrade to "no header" rather
+        // than throw and drop a review request that would otherwise be fine.
+        ...(subscriber?.unsubscribeToken
+          ? unsubscribeHeaders({ token: subscriber.unsubscribeToken, request })
+          : {}),
       });
 
       if (result?.skipped) {
