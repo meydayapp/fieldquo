@@ -22,6 +22,45 @@ When you touch an area, check it rather than trusting it.
 
 ---
 
+## Legal pages — real, not placeholders, but NOT lawyer-reviewed
+
+`/privacy`, `/terms` (rewritten) and `/security` (new) replaced two 25-line
+placeholders that literally said "needs to be drafted before this goes live."
+Every factual claim was checked against the code that makes it true —
+including two claims from the brief that commissioned this work that turned
+out to be FALSE once checked: the platform console's read-only impersonation
+session can in fact hear call recordings and read transcripts (non-negotiable
+#3, "view everything, edit nothing" — not blocked, as the brief assumed), and
+the anonymised-benchmark pooling in Settings is opt-in and off by default
+(`Company.shareAnonymizedPricing`), not the opt-out-by-term design the brief
+described. Both pages describe what the code actually does, not what was
+assumed going in.
+
+**Still needs before this can go live with real customers:**
+- A lawyer's review — the pages say so themselves.
+- Quebec Law 25 privacy officer name/title/contact — `lib/legal/privacyOfficer.js`
+  ships an honest, checked-in placeholder (`PRIVACY_OFFICER_PENDING = true`).
+- Terms §15: FieldQuo's legal entity name, place of incorporation, and
+  governing law/venue — not established anywhere in this codebase, left as an
+  explicit placeholder for the owner/counsel to fill in.
+- No ToS acceptance checkbox exists in `app/signup` today — these terms rely
+  on "by using the product you agree," not a captured clickwrap consent.
+
+`scripts/check-legal-pages.mjs` (`npm run check:legal-pages`, wired into
+`check:all`) mutation-tested against: a bare certification claim slipped into
+its own paragraph, the "what we don't claim" section deleted, `new Date()`
+creeping back in (both in a page AND inside `lib/legal/effectiveDates.js`
+itself — the first version of this check only validated the imported STRING,
+which a `new Date().toISOString().slice(0,10)` also matches on the day it
+runs), a processor's integration file renamed out from under the policy, the
+privacy table rendering an empty array instead of `PROCESSORS`, a filled-in
+officer name with the PENDING flag left true (and the reverse), the whole
+Quebec section deleted while its import silently stayed behind, and a mangled
+placeholder bracket. All caught after the checks were tightened to catch them
+— see the script's own comments for the shape of each near-miss.
+
+---
+
 ## ⚠️ Do these first — deployment is currently incomplete
 
 **Moved to [VERCEL.md](VERCEL.md)** and kept honest there: `npm run check:env`
