@@ -10,8 +10,26 @@ gap.
 
 ## In flight
 
-Nothing. Everything dispatched this session has landed and been verified here,
-not on an agent's report.
+| What | Where | State |
+|---|---|---|
+| Monthly digest reads the CONVERSATIONS behind won and lost quotes | `/app/analytics/digest` | agent building |
+
+Owner-approved 2026-08-30: transcripts on both won and lost quotes, monthly
+only, roughly $0.04–$0.10 per company per month on a cheap model.
+
+**Deliberately NOT part of it**, and this should not be revisited without a
+reason: no AI on `/app/analytics/win-loss`, `/app/analytics/estimate-accuracy`
+or `/app/analytics/statements`. Both of those modules carry a written argument
+against it — every sentence win-loss can honestly produce is a function of six
+integers, and a model reading its free-text decline reasons would cluster them
+into categories that are not really there; estimate-accuracy's named failure is
+a model inventing a cause on numbers a contractor reprices against. The digest
+is allowed AI because its findings are computed in code and the model only
+phrases them.
+
+The transcript work is the one thing those decisions do not cover: an objection
+raised aloud, a budget mentioned and never written down, a competitor named —
+evidence that exists only as prose, which code cannot read.
 
 ## Reachability — swept 2026-08-30, and now guarded
 
