@@ -228,18 +228,52 @@ export default function JenniferPanel({ variant = "marketing" }) {
 
   return (
     <>
+      {/* ── The bug the owner hit on a phone ──────────────────────────────
+          This was a toggle: bottom-5 right-5, z-50, showing an X while open.
+          On a phone the panel below is w-full, so its composer's send button
+          sits in that exact corner — under a 56px circle at a higher z-index.
+          The owner reported "the x button is on top of the send", and it was
+          literally that.
+
+          The toggle is now an OPEN-only control. Closing is the X in the
+          panel's own header, which is where a close control belongs and
+          where it does not overlap anything. Hidden rather than unmounted so
+          the panel's slide-in transition still runs from a stable tree. */}
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close chat with Jennifer" : "Chat with Jennifer"}
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90"
+        onClick={() => setOpen(true)}
+        aria-label="Chat with Jennifer"
+        aria-expanded={open}
+        aria-controls="jennifer-panel"
+        className={`fixed bottom-5 right-5 z-50 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 ${
+          open ? "hidden" : "flex"
+        }`}
       >
-        {open ? <X size={22} /> : <MessageCircle size={22} />}
+        <MessageCircle size={22} />
       </button>
 
+      {/* `invisible` and `pointer-events-none` when closed, not just
+          translated away. Two reasons, and the second is half of the owner's
+          second complaint:
+
+          - translate-x-full parks a full-width panel just past the right edge
+            while leaving every button in it tabbable. aria-hidden on a subtree
+            that still takes focus is worse than either alone — a keyboard user
+            tabs into a dialog screen readers have been told is not there.
+          - a fixed element sitting outside the viewport is one of the ways
+            iOS Safari lets the page pan sideways. The other way is the input
+            font size, fixed below.
+
+          visibility is animatable, so the slide-out still plays: it flips at
+          the end of the transition rather than clipping it. */}
       <div
-        className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-card shadow-2xl transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
+        id="jennifer-panel"
+        role="dialog"
+        aria-label="Chat with Jennifer"
+        className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-sm flex-col border-l border-border bg-card shadow-2xl transition-[transform,visibility] duration-300 ${
+          open
+            ? "translate-x-0 visible"
+            : "translate-x-full invisible pointer-events-none"
         }`}
         aria-hidden={!open}
       >
@@ -251,11 +285,13 @@ export default function JenniferPanel({ variant = "marketing" }) {
               {isCompany && status === "escalated" && " · with a person"}
             </p>
           </div>
+          {/* -mr-2 keeps the icon optically aligned with the panel edge while
+              the 44px box that a thumb actually needs extends past it. */}
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close"
-            className="text-muted-foreground hover:text-foreground"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X size={18} />
           </button>
@@ -303,7 +339,7 @@ export default function JenniferPanel({ variant = "marketing" }) {
             <p className="text-xs text-muted-foreground">
               {pollError ? (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                  <WifiOff size={12} /> Couldn't check for a reply — retrying…
+                  <WifiOff size={12} /> Couldn&rsquo;t check for a reply — retrying…
                 </span>
               ) : (
                 "Waiting for a reply from FieldQuo…"
@@ -348,7 +384,7 @@ export default function JenniferPanel({ variant = "marketing" }) {
                 />
                 <label
                   htmlFor="jennifer-attach-input"
-                  className="flex items-center justify-center rounded-lg border border-border px-2.5 text-muted-foreground hover:bg-muted cursor-pointer"
+                  className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
                   aria-label="Attach a screenshot"
                 >
                   {uploading ? <Loader2 size={16} className="animate-spin" /> : <Paperclip size={16} />}
@@ -360,13 +396,21 @@ export default function JenniferPanel({ variant = "marketing" }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="Ask Jennifer…"
-              className="flex-1 rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/10"
+              /* text-base, then text-sm from sm: up. iOS Safari zooms the page
+                 whenever a focused form control computes under 16px, and once
+                 zoomed the page pans — which is the second half of what the
+                 owner reported. 16px on a phone stops it at the cause;
+                 maximum-scale=1 would "stop" it by taking pinch-zoom away
+                 from anyone who needs it, and recent Safari ignores that
+                 anyway. Desktop keeps the 14px this composer was designed at. */
+              className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-ring/10"
             />
             <button
               type="button"
               onClick={() => send()}
               disabled={sending || (!input.trim() && !pendingImage)}
-              className="flex items-center gap-1 rounded-lg bg-inverted px-3 py-2 text-sm font-semibold text-inverted-foreground disabled:opacity-60"
+              aria-label="Send"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-inverted text-sm font-semibold text-inverted-foreground disabled:opacity-60"
             >
               {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             </button>
