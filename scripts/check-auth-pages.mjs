@@ -347,9 +347,11 @@ const bodyMatch = signupSrc.match(
   /fetch\("\/api\/companies",[\s\S]*?body: JSON\.stringify\(\{([\s\S]*?)\n {8}\}\),/,
 );
 ok("the POST body is still one literal in one place", Boolean(bodyMatch));
-// `key:` and bare `key,` both count — employeeCount is passed shorthand, and a
-// regex that only saw the colon form would have quietly declared the payload
-// one key smaller than it is.
+// `key:` and bare `key,` both count. No key is passed shorthand today, but the
+// regex keeps accepting both: it was written after a colon-only version
+// quietly declared the payload one key smaller than it was, and narrowing it
+// again the moment the shorthand key went away would re-open that hole for
+// whoever adds the next one.
 const bodyKeys = bodyMatch
   ? [...bodyMatch[1].matchAll(/^\s{10}([A-Za-z][A-Za-z0-9]*)\s*[:,]/gm)].map((m) => m[1])
   : [];
@@ -363,7 +365,12 @@ const EXPECTED_BODY = [
   "language",
   "industries",
   "planId",
-  "employeeCount",
+  // employeeCount was here until 2026-08-31. Signup used to post a raw
+  // headcount, and /api/companies minted a "Custom (N employees)" Plan from it
+  // at the retired $45/licence rate — so a prospect who clicked the Solo card
+  // could be charged a different number than the card showed. The ladder has
+  // no honest headcount-to-tier mapping, so the parameter was removed rather
+  // than guessed at. See docs/PRICING-CLEANUP.md.
   "serviceCategoryIds",
   "billingInterval",
   "referralCode",
