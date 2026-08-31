@@ -29,6 +29,14 @@ export const rows = {
   voiceCallTask: [],
   callConsent: [],
   company: [],
+  // Read by lib/costing/quoteCosting.js's buildQuoteCostingRow (via
+  // app/api/quotes/costingWrite.js), which createEstimateDraft now calls for
+  // every auto-estimated draft — phone or instant-quote — so it can attach a
+  // real QuoteCosting row. Empty by default: no rate-book overrides, no
+  // recipe overrides, which is the same "use the code defaults" state a real
+  // company with nothing saved under Settings would be in.
+  companyServiceCategory: [],
+  materialRecipeSetting: [],
 };
 
 /** Every write the product attempted, in order: { model, action, data }. */
@@ -42,6 +50,8 @@ export function resetDbStub() {
   rows.voiceCallTask = [];
   rows.callConsent = [];
   rows.company = [];
+  rows.companyServiceCategory = [];
+  rows.materialRecipeSetting = [];
   writes.length = 0;
 }
 
@@ -99,6 +109,8 @@ export const db = new Proxy(
     voiceCallTask: model("voiceCallTask"),
     callConsent: model("callConsent"),
     company: model("company"),
+    companyServiceCategory: model("companyServiceCategory"),
+    materialRecipeSetting: model("materialRecipeSetting"),
   },
   {
     get(target, prop) {

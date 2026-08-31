@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { can, permissionDenialMessage } from "@/lib/permissions";
 import { recordActivity } from "@/lib/activity/log";
 import { normaliseMediaList } from "@/lib/media/validate";
 import {
@@ -13,6 +14,7 @@ import {
   redactQuote,
 } from "@/lib/permissions/enforce";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
+import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
 import {
   reconcileScopeGroups,
   reconcileImportsForQuote,
@@ -77,6 +79,7 @@ export async function GET(request, { params }) {
           outboundCallsEnabled: true,
         },
       },
+      assignedTo: { select: { id: true, name: true } },
     },
   });
 
@@ -181,7 +184,31 @@ export async function PATCH(request, { params }) {
     // The internal cost estimate. See the note below on why `undefined` and an
     // empty object have to mean different things here.
     costing,
+    // Who's working the quote now. `undefined` leaves it exactly where it
+    // was — a status-only PATCH (accept/decline/send) must not silently
+    // unassign a quote a colleague is already carrying.
+    assignedToId,
   } = body;
+
+  // Reassigning to someone else requires quote:assign, same as create. Taking
+  // it for yourself, or clearing it, doesn't.
+  if (
+    assignedToId !== undefined &&
+    assignedToId &&
+    assignedToId !== member.userId &&
+    !can(member.role, "quote:assign")
+  ) {
+    return NextResponse.json(
+      { error: permissionDenialMessage("quote:assign") },
+      { status: 403 },
+    );
+  }
+  if (assignedToId) {
+    const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
+      assignedToId,
+    });
+    if (notOurs) return notOurs;
+  }
 
   // Line-item edits are only valid while the quote is open. Editing scope groups
   // on a decided (accepted/declined) quote would rewrite what was agreed and —
@@ -211,6 +238,7 @@ export async function PATCH(request, { params }) {
     ...(validUntil !== undefined && {
       validUntil: validUntil ? new Date(validUntil) : null,
     }),
+    ...(assignedToId !== undefined && { assignedToId: assignedToId || null }),
     // Re-sanitised on every save, not just on create — an edit is just as much
     // a browser-supplied list as the original was.
     ...(clientPhotos !== undefined && {
@@ -297,7 +325,11 @@ export async function PATCH(request, { params }) {
     }
     return tx.quote.findUnique({
       where: { id },
-      include: { client: true, scopeGroups: { include: { category: true } } },
+      include: {
+        client: true,
+        scopeGroups: { include: { category: true } },
+        assignedTo: { select: { id: true, name: true } },
+      },
     });
   });
 

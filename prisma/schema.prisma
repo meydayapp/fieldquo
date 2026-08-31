@@ -1413,6 +1413,7 @@ model User {
   sessions              Session[]
   accounts              Account[]
   quotesCreated         Quote[]                @relation("QuoteCreatedBy")
+  quotesAssigned        Quote[]                @relation("QuoteAssignee")
   invoicesCreated       Invoice[]              @relation("InvoiceCreatedBy")
   appointmentsCreated   Appointment[]          @relation("AppointmentCreatedBy")
   appointmentsAssigned  Appointment[]          @relation("AppointmentAssignee")
@@ -1744,6 +1745,16 @@ model Quote {
   client      Client      @relation(fields: [clientId], references: [id])
   createdById String?
   createdBy   User?       @relation("QuoteCreatedBy", fields: [createdById], references: [id])
+  // Who is working this quote — distinct from createdById, which never
+  // changes hands. Defaults to the creator on the normal builder (see
+  // POST /api/quotes) and stays null when nobody could be named, which is
+  // the honest outcome for an auto-estimated draft: nobody was signed in
+  // when the instant-quote flow created it. needsReview carries that case
+  // into the review queue rather than this column inventing an owner.
+  // Reassigning to someone else requires "quote:assign" — the same rule
+  // Appointment.assignedToId enforces (lib/permissions.js).
+  assignedToId String?
+  assignedTo   User?       @relation("QuoteAssignee", fields: [assignedToId], references: [id])
 
   lineItems    Json?
   clientPhotos Json?

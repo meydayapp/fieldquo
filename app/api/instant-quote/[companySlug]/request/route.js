@@ -39,6 +39,17 @@ export async function POST(request, { params }) {
       financing: true,
       slug: true, bookingSlug: true, bookingModes: true,
       eventTypes: { where: { active: true }, select: { id: true } },
+      // What createEstimateDraft needs to resolve tax the same way every
+      // other document does — see lib/tax/resolveTaxRate.js's precedence
+      // ladder. Without these fields resolveDocumentTax silently reads an
+      // empty company and always falls through to "no tax resolved", which
+      // is the exact defect this select exists to close.
+      taxRate: true,
+      autoApplyLocalTax: true,
+      taxRates: { select: { name: true, rate: true } },
+      country: true,
+      province: true,
+      vatRegistered: true,
     },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -283,6 +294,11 @@ function sanitiseMeasurement(m) {
     doorCount: m.doorCount ?? null,
     drawerCount: m.drawerCount ?? null,
     boxLinearFt: m.boxLinearFt ?? null,
+    // The condition tier the homeowner picked for cabinet refinishing. Kept
+    // for the same reason doorCount/drawerCount are: it's what the reviewer's
+    // cost estimate is derived from (costingInputsForInstantTrade reads it),
+    // not just what's shown on screen.
+    complexityLevel: m.complexityLevel ?? null,
     // Junk removal: the reviewer needs to see WHAT was quoted, not just a total.
     // Keys + counts only — no prices were ever in the measurement.
     items: Array.isArray(m.items) ? m.items : null,
