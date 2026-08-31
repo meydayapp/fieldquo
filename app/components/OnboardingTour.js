@@ -42,6 +42,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ArrowRight } from "lucide-react";
+import { useTranslation } from "@/app/hooks/useTranslation";
 
 const CARD_WIDTH = 288; // w-72
 const MARGIN = 12;
@@ -77,6 +78,13 @@ function waitForTarget(selector, timeoutMs = 1200) {
 }
 
 export default function OnboardingTour({ steps, storageKey, serverSeen = false, onFinish }) {
+  // Resolved HERE, not baked into tours.js. That module is plain data with no
+  // React tree — see its own header — so this is the first point in the
+  // render path where a language is actually known. Every step's title/body
+  // is a key (step.titleKey / step.bodyKey) into app.tour.* in
+  // app/i18n/appMessages.js; t() falls back to English on a missing
+  // translation rather than printing the raw key, same as everywhere else.
+  const { t } = useTranslation();
   const [stepIndex, setStepIndex] = useState(0);
   const [active, setActive] = useState(false);
   const [rect, setRect] = useState(null);
@@ -218,6 +226,12 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
 
   if (!active || !step) return null;
 
+  // Resolved once per render rather than inline at each use, so the JSX below
+  // reads step.title/step.body the same way it did before this was
+  // translated — the diff that matters is here, not scattered through markup.
+  const title = t(step.titleKey);
+  const body = t(step.bodyKey);
+
   // ── Where the card goes ──────────────────────────────────────────────────
   //
   // Below the target when there's room, above when there isn't, and clamped
@@ -246,7 +260,7 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
   }
 
   return (
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label={step.title}>
+    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label={title}>
       {/* Only one dimmer. The ring's huge box-shadow IS the dim when there's a
           target — stacking a second one over it made the page twice as dark on
           the steps that worked. */}
@@ -268,12 +282,12 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
       <div className="absolute bg-card rounded-xl p-4 shadow-xl" style={cardStyle}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">
-            {stepIndex + 1} of {steps.length}
+            {t("app.tour.stepCount", "{n} of {total}", { n: stepIndex + 1, total: steps.length })}
           </span>
           <button
             type="button"
             onClick={finish}
-            aria-label="Close"
+            aria-label={t("app.action.close", "Close")}
             // 44px hit area. It was a bare 14px icon, which on a phone is a
             // target you stab at three times.
             className="p-2 -m-2 text-muted-foreground hover:text-foreground"
@@ -281,8 +295,8 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
             <X size={16} />
           </button>
         </div>
-        <h4 className="font-semibold text-foreground text-sm">{step.title}</h4>
-        <p className="text-sm text-muted-foreground mt-1">{step.body}</p>
+        <h4 className="font-semibold text-foreground text-sm">{title}</h4>
+        <p className="text-sm text-muted-foreground mt-1">{body}</p>
         <div className="flex items-center gap-2 mt-3">
           {stepIndex + 1 < steps.length && (
             <button
@@ -290,7 +304,7 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
               onClick={finish}
               className="px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground"
             >
-              Skip
+              {t("app.tour.skip", "Skip")}
             </button>
           )}
           <button
@@ -298,7 +312,7 @@ export default function OnboardingTour({ steps, storageKey, serverSeen = false, 
             onClick={next}
             className="flex-1 bg-inverted text-inverted-foreground py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-1"
           >
-            {stepIndex + 1 < steps.length ? "Next" : "Done"}
+            {stepIndex + 1 < steps.length ? t("app.action.next", "Next") : t("app.action.done", "Done")}
             <ArrowRight size={13} />
           </button>
         </div>

@@ -24,6 +24,7 @@
 import { MESSAGES, MESSAGE_KEYS } from "../app/i18n/messages.js";
 import { APP_MESSAGE_KEYS, appCoverage } from "../app/i18n/appMessages.js";
 import { LANGUAGES, DEFAULT_LANGUAGE } from "../app/i18n/languages.js";
+import { TOURS } from "../app/components/tours.js";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -91,6 +92,50 @@ for (const { code, name } of LANGUAGES) {
 for (const k of APP_MESSAGE_KEYS.filter((k) => !(k in (MESSAGES.fr || {})))) {
   console.log(`     missing from French: ${k}`);
   problems++;
+}
+
+// ── The onboarding tour: every step must be a KEY, not English text ────────
+//
+// tours.js used to hold the walkthrough's English sentences directly in
+// `title`/`body` — every account read the tour in English regardless of the
+// language they'd picked, in a product whose non-negotiable #6 is about
+// respecting the language a document was created in. The fix was moving the
+// strings into this catalogue (app.tour.*) and having tours.js hold only
+// `titleKey`/`bodyKey`, resolved by OnboardingTour.js's own t() call at
+// render time — but nothing stopped a future edit from typing a sentence
+// back into `titleKey` the way the old field held one directly. The generic
+// "every app.* literal the code asks for must exist" scan just below this
+// block would NOT catch that regression: a bare English sentence has no
+// "app." prefix, so it never enters that scan at all. This block exists
+// specifically to close that gap — it inspects the tour data itself, not
+// source text, and fails on anything that isn't a resolvable app.tour.* key.
+console.log("\nOnboarding tour strings (app/components/tours.js)\n");
+{
+  const KEY_RE = /^app\.tour\.[A-Za-z0-9]+\.[A-Za-z0-9]+$/;
+  let badSteps = 0;
+  for (const tour of TOURS) {
+    for (const [i, step] of tour.steps.entries()) {
+      for (const field of ["titleKey", "bodyKey"]) {
+        const value = step[field];
+        if (typeof value !== "string" || !KEY_RE.test(value)) {
+          console.log(
+            `     ${tour.key} step ${i + 1}: ${field} is not an "app.tour.*" key (got ${JSON.stringify(value)}) — looks like a hardcoded string crept back in`,
+          );
+          badSteps++;
+          continue;
+        }
+        if (!(value in MESSAGES.en)) {
+          console.log(`     ${tour.key} step ${i + 1}: ${field} "${value}" has no English string`);
+          badSteps++;
+        }
+      }
+    }
+  }
+  if (badSteps === 0) {
+    console.log("  every tour step title/body is a translation key.");
+  } else {
+    problems += badSteps;
+  }
 }
 
 // ── Every key the code asks for must exist ─────────────────────────────────

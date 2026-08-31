@@ -5,10 +5,32 @@
 // user lands on a matching page it opens the tour — then records it as seen,
 // per-user, server-side, so it never nags twice.
 //
+// ── Every string here is a translation key, not English text ───────────────
+//
+// `titleKey` / `bodyKey` name an entry in app/i18n/appMessages.js (the
+// "app.tour.*" namespace); OnboardingTour.js resolves them with t() at
+// RENDER time. They can't be resolved here: this module is plain data with no
+// React tree, imported by scripts/check-translations.mjs under bare node, and
+// t() needs the LanguageProvider context that only exists once this array is
+// consumed inside a component. Baking English sentences into this array — as
+// it used to do — means every account reads the tour in English regardless of
+// what language they picked, which is exactly the bug this shape fixes: the
+// six languages FieldQuo ships (app/i18n/languages.js) are pointless on the
+// very first thing a new contractor sees if the walkthrough that greets them
+// ignores all of it.
+//
 // ── Adding a page tour ──────────────────────────────────────────────────────
 // 1. Put `data-tour="some-anchor"` on the element(s) you want to point at.
 // 2. Add an entry here: a unique `key` (bump the -vN suffix to re-show a
 //    changed tour to everyone), a `match(pathname)` predicate, and `steps`.
+// 3. Add `app.tour.<tourSlug>.<stepSlug>Title` / `...Body` to app/i18n/
+//    appMessages.js for at least English and French — `npm run
+//    check:translations` fails the build on a missing English or French key,
+//    same bar as every other app string. The other four languages are
+//    strongly preferred (see that file's header for why they're reported,
+//    not gated) — a contractor who picked Spanish for their first-run tour
+//    and got half of it in English is a worse first minute than one who
+//    never got a tour at all.
 // Nothing else to wire — the anchor just has to exist when the page renders.
 //
 // ── Targets that live behind a drawer ───────────────────────────────────────
@@ -32,41 +54,46 @@ export const TOURS = [
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
         // "Leads", not "Requests". The nav item this points at is labelled
-        // Leads on screen — in all six languages — and the tour was reading
-        // the internal message KEY (`app.nav.requests`) instead. A tour that
+        // Leads on screen — in all six languages (app.nav.requests) — and the
+        // tour was reading the internal message KEY instead. A tour that
         // names a menu item something the menu doesn't say sends someone
         // hunting for a page that isn't there, on their first minute in the
-        // product.
-        title: "Leads land here",
-        body: "Every enquiry from your website, booking link or instant estimate shows up in Leads. Start of the pipeline.",
+        // product. The trap generalises past English: a title/body pulled
+        // from app.nav.requests's ENGLISH string would have been "Leads" in
+        // every language, printing an English word on a Ukrainian or Punjabi
+        // first run. Each language below names its OWN nav label
+        // (app.nav.requests's translation in that language), checked against
+        // the actual sidebar string, not transliterated from this comment.
+        titleKey: "app.tour.welcome.leadsTitle",
+        bodyKey: "app.tour.welcome.leadsBody",
       },
       {
         target: "[data-tour='nav-quotes']",
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
-        title: "Turn them into quotes",
-        body: "Build a branded quote, send it, and get it approved and paid — all from here.",
+        titleKey: "app.tour.welcome.quotesTitle",
+        bodyKey: "app.tour.welcome.quotesBody",
       },
       {
         target: "[data-tour='nav-estimate-reviews']",
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
-        title: "Instant estimates to approve",
-        body: "When a homeowner gets an instant price from your site, it lands here for you to confirm before it's binding.",
+        titleKey: "app.tour.welcome.estimateReviewsTitle",
+        bodyKey: "app.tour.welcome.estimateReviewsBody",
       },
       {
         target: "[data-tour='nav-ai']",
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
-        title: "Ask FieldQuo AI",
-        body: "Questions about your own numbers — “what did I quote the Bergerons?” — answered from your data.",
+        titleKey: "app.tour.welcome.aiTitle",
+        bodyKey: "app.tour.welcome.aiBody",
       },
       {
         target: "[data-tour='nav-settings']",
         openWith: "[data-tour-open='nav']",
         closeWith: "[data-tour-close='nav']",
-        title: "Set up your business",
-        body: "Branding, services, pricing, payments and your instant-quote rates all live in Settings. Worth 10 minutes up front.",
+        titleKey: "app.tour.welcome.settingsTitle",
+        bodyKey: "app.tour.welcome.settingsBody",
       },
     ],
   },
@@ -80,18 +107,23 @@ export const TOURS = [
     steps: [
       {
         target: "[data-tour='leads-temp']",
-        title: "Leads are scored for you",
-        body: "Every lead is triaged hot, warm or cold from what they told you — budget, timeline, urgency. Filter to the ones ready to buy.",
+        titleKey: "app.tour.leads.tempTitle",
+        bodyKey: "app.tour.leads.tempBody",
       },
       {
         target: "[data-tour='leads-search']",
-        title: "Find anyone fast",
-        body: "Search by name, email or phone across your whole pipeline.",
+        titleKey: "app.tour.leads.searchTitle",
+        bodyKey: "app.tour.leads.searchBody",
       },
       {
         target: "[data-tour='leads-sort']",
-        title: "Hottest first — then dig in",
-        body: "Sort so the ready-to-go leads rise to the top. Click any lead to open its detail: the score and why, assign an owner, log a call-back, and Convert to quote in one tap.",
+        // The body now also names drag-to-move (dnd-kit, LeadCard's own drag
+        // handle — see app.leads.dragHandle): the board has supported it for
+        // a while and the tour never mentioned it. No new anchor needed —
+        // this step already sits on the toolbar next to the board it
+        // describes, so the extra sentence attaches to an anchor that exists.
+        titleKey: "app.tour.leads.sortTitle",
+        bodyKey: "app.tour.leads.sortBody",
       },
     ],
   },
@@ -103,8 +135,8 @@ export const TOURS = [
     steps: [
       {
         target: "[data-tour='funnels-new']",
-        title: "Build a lead funnel",
-        body: "A mobile quiz for your ads and link-in-bio. Start from a TikTok, Instagram, YouTube or Web template — or describe it and let AI build it from your services. Every finished funnel drops a scored lead into your pipeline.",
+        titleKey: "app.tour.funnels.newTitle",
+        bodyKey: "app.tour.funnels.newBody",
       },
     ],
   },
@@ -118,13 +150,13 @@ export const TOURS = [
     steps: [
       {
         target: "[data-tour='funnel-steps']",
-        title: "Your steps",
-        body: "Each step is one full-screen question or screen. Add, reorder or delete them here, then edit the selected step in the middle — with a live preview beside you.",
+        titleKey: "app.tour.funnelBuilder.stepsTitle",
+        bodyKey: "app.tour.funnelBuilder.stepsBody",
       },
       {
         target: "[data-tour='funnel-publish']",
-        title: "Publish and share",
-        body: "When it's ready, Publish — then copy the link onto your ad, bio or a QR code. You can't publish without a contact step, so a funnel never goes live collecting nothing.",
+        titleKey: "app.tour.funnelBuilder.publishTitle",
+        bodyKey: "app.tour.funnelBuilder.publishBody",
       },
     ],
   },
@@ -136,8 +168,8 @@ export const TOURS = [
     steps: [
       {
         target: "[data-tour='booking-fee']",
-        title: "Charge for a visit",
-        body: "Set a visit fee (with an optional promo price) to collect by card at booking — through your own Stripe. Later, credit it back onto the client's invoice in one tap if they hire you.",
+        titleKey: "app.tour.bookingFee.feeTitle",
+        bodyKey: "app.tour.bookingFee.feeBody",
       },
     ],
   },
@@ -145,162 +177,162 @@ export const TOURS = [
     key: "quotes-v1",
     match: (p) => p === "/app/quotes",
     steps: [
-      { target: "[data-tour='quotes-new']", title: "Build a quote", body: "Start a new branded quote for a client — pick services, set pricing, then send it to get approved and paid." },
-      { target: "[data-tour='quotes-stats']", title: "Track the pipeline", body: "See at a glance how many quotes are draft, sent and accepted." },
-      { target: "[data-tour='quotes-search']", title: "Find any quote", body: "Search by quote number or client name across everything you've sent." },
+      { target: "[data-tour='quotes-new']", titleKey: "app.tour.quotes.newTitle", bodyKey: "app.tour.quotes.newBody" },
+      { target: "[data-tour='quotes-stats']", titleKey: "app.tour.quotes.statsTitle", bodyKey: "app.tour.quotes.statsBody" },
+      { target: "[data-tour='quotes-search']", titleKey: "app.tour.quotes.searchTitle", bodyKey: "app.tour.quotes.searchBody" },
     ],
   },
   {
     key: "quote-new-v1",
     match: (p) => p === "/app/quotes/new",
     steps: [
-      { target: "[data-tour='client-picker']", title: "Pick the client", body: "Choose an existing client or add a new one — the quote and its emails go to them." },
-      { target: "[data-tour='service-picker']", title: "Add your services", body: "Tap the services you're quoting; each drops in priced line items you can fine-tune." },
-      { target: "[data-tour='totals']", title: "Review and send", body: "Check the total, then save as a draft or send it to the client for approval." },
+      { target: "[data-tour='client-picker']", titleKey: "app.tour.quoteNew.clientTitle", bodyKey: "app.tour.quoteNew.clientBody" },
+      { target: "[data-tour='service-picker']", titleKey: "app.tour.quoteNew.serviceTitle", bodyKey: "app.tour.quoteNew.serviceBody" },
+      { target: "[data-tour='totals']", titleKey: "app.tour.quoteNew.totalsTitle", bodyKey: "app.tour.quoteNew.totalsBody" },
     ],
   },
   {
     key: "estimate-reviews-v1",
     match: (p) => p === "/app/estimate-reviews",
     steps: [
-      { target: "[data-tour='reviews-header']", title: "Approve instant estimates", body: "Prices your website quoted a homeowner land here first — confirm or adjust the figure before the quote can be sent." },
+      { target: "[data-tour='reviews-header']", titleKey: "app.tour.estimateReviews.headerTitle", bodyKey: "app.tour.estimateReviews.headerBody" },
     ],
   },
   {
     key: "jobs-v1",
     match: (p) => p === "/app/jobs",
     steps: [
-      { target: "[data-tour='jobs-filters']", title: "Work you've won", body: "Jobs are scheduled work for a client — many appear automatically when a quote is accepted. Filter by status to see what needs a date or what's in progress." },
-      { target: "[data-tour='jobs-new']", title: "Add a job", body: "Create a job by hand when the work didn't come from a quote." },
-      { target: "[data-tour='jobs-search']", title: "Find a job", body: "Search by job title or client name." },
+      { target: "[data-tour='jobs-filters']", titleKey: "app.tour.jobs.filtersTitle", bodyKey: "app.tour.jobs.filtersBody" },
+      { target: "[data-tour='jobs-new']", titleKey: "app.tour.jobs.newTitle", bodyKey: "app.tour.jobs.newBody" },
+      { target: "[data-tour='jobs-search']", titleKey: "app.tour.jobs.searchTitle", bodyKey: "app.tour.jobs.searchBody" },
     ],
   },
   {
     key: "job-builder-v1",
     match: (p) => p.startsWith("/app/jobs/") && p !== "/app/jobs/new" && p.split("/").length === 4,
     steps: [
-      { target: "[data-tour='job-status']", title: "Move the job along", body: "Update the status as work progresses — from needs-a-date through to completed." },
-      { target: "[data-tour='job-client']", title: "Everything for the crew", body: "Client name, phone and a tap-to-navigate address — what someone needs before they set off." },
-      { target: "[data-tour='job-visits']", title: "Schedule the visits", body: "A job is done across one or more visits, each with its own date, assignee, checklist and photos. Add them here." },
+      { target: "[data-tour='job-status']", titleKey: "app.tour.jobBuilder.statusTitle", bodyKey: "app.tour.jobBuilder.statusBody" },
+      { target: "[data-tour='job-client']", titleKey: "app.tour.jobBuilder.clientTitle", bodyKey: "app.tour.jobBuilder.clientBody" },
+      { target: "[data-tour='job-visits']", titleKey: "app.tour.jobBuilder.visitsTitle", bodyKey: "app.tour.jobBuilder.visitsBody" },
     ],
   },
   {
     key: "invoices-v1",
     match: (p) => p === "/app/invoices",
     steps: [
-      { target: "[data-tour='invoices-new']", title: "Bill for completed work", body: "Raise an invoice for a client, then send it and collect payment." },
-      { target: "[data-tour='invoices-stats']", title: "Know what you're owed", body: "Total billed, what's been paid, and what's still outstanding — always in view." },
-      { target: "[data-tour='invoices-search']", title: "Find an invoice", body: "Search by invoice number or client name." },
+      { target: "[data-tour='invoices-new']", titleKey: "app.tour.invoices.newTitle", bodyKey: "app.tour.invoices.newBody" },
+      { target: "[data-tour='invoices-stats']", titleKey: "app.tour.invoices.statsTitle", bodyKey: "app.tour.invoices.statsBody" },
+      { target: "[data-tour='invoices-search']", titleKey: "app.tour.invoices.searchTitle", bodyKey: "app.tour.invoices.searchBody" },
     ],
   },
   {
     key: "invoice-new-v1",
     match: (p) => p === "/app/invoices/new",
     steps: [
-      { target: "[data-tour='invoice-client']", title: "Who's being billed", body: "Search and pick the client this invoice goes to." },
-      { target: "[data-tour='invoice-items']", title: "List the work", body: "Add a line per item with quantity and rate; the totals add up as you go." },
-      { target: "[data-tour='invoice-save']", title: "Save or send", body: "Save it as a draft, or send it to email the invoice straight to the client." },
+      { target: "[data-tour='invoice-client']", titleKey: "app.tour.invoiceNew.clientTitle", bodyKey: "app.tour.invoiceNew.clientBody" },
+      { target: "[data-tour='invoice-items']", titleKey: "app.tour.invoiceNew.itemsTitle", bodyKey: "app.tour.invoiceNew.itemsBody" },
+      { target: "[data-tour='invoice-save']", titleKey: "app.tour.invoiceNew.saveTitle", bodyKey: "app.tour.invoiceNew.saveBody" },
     ],
   },
   {
     key: "appointments-v1",
     match: (p) => p === "/app/appointments",
     steps: [
-      { target: "[data-tour='appts-new']", title: "Book a visit", body: "Add an appointment with a client, a time and a site address, and assign it to someone." },
-      { target: "[data-tour='appts-filters']", title: "See what's coming", body: "Appointments list in time order with drive times between stops; filter by status to focus." },
+      { target: "[data-tour='appts-new']", titleKey: "app.tour.appointments.newTitle", bodyKey: "app.tour.appointments.newBody" },
+      { target: "[data-tour='appts-filters']", titleKey: "app.tour.appointments.filtersTitle", bodyKey: "app.tour.appointments.filtersBody" },
     ],
   },
   {
     key: "tasks-v1",
     match: (p) => p === "/app/tasks",
     steps: [
-      { target: "[data-tour='tasks-new']", title: "Your team's to-do list", body: "Tasks are internal reminders — follow up a client, order material, chase a deposit. Unlike a job, they're not scheduled work at a site." },
-      { target: "[data-tour='tasks-showdone']", title: "Nothing slips", body: "Overdue and high-priority tasks rise to the top; flip this to review what's already done." },
+      { target: "[data-tour='tasks-new']", titleKey: "app.tour.tasks.newTitle", bodyKey: "app.tour.tasks.newBody" },
+      { target: "[data-tour='tasks-showdone']", titleKey: "app.tour.tasks.showDoneTitle", bodyKey: "app.tour.tasks.showDoneBody" },
     ],
   },
   {
     key: "marketing-v1",
     match: (p) => p === "/app/marketing",
     steps: [
-      { target: "[data-tour='marketing-new']", title: "Run a campaign", body: "Track pamphlet drops, paid ads or an email blast — each with its own budget and progress." },
-      { target: "[data-tour='marketing-subscribers']", title: "Your audience", body: "Manage the contacts your email campaigns go out to." },
+      { target: "[data-tour='marketing-new']", titleKey: "app.tour.marketing.newTitle", bodyKey: "app.tour.marketing.newBody" },
+      { target: "[data-tour='marketing-subscribers']", titleKey: "app.tour.marketing.subscribersTitle", bodyKey: "app.tour.marketing.subscribersBody" },
     ],
   },
   {
     key: "availability-v1",
     match: (p) => p === "/app/settings/availability",
     steps: [
-      { target: "[data-tour='avail-working']", title: "Your shift", body: "Working hours are when you're on the clock — used for scheduling and timesheets, never shown to clients." },
-      { target: "[data-tour='avail-bookable']", title: "When clients can book you", body: "Bookable hours are the public window on your booking page — usually narrower than your shift." },
+      { target: "[data-tour='avail-working']", titleKey: "app.tour.availability.workingTitle", bodyKey: "app.tour.availability.workingBody" },
+      { target: "[data-tour='avail-bookable']", titleKey: "app.tour.availability.bookableTitle", bodyKey: "app.tour.availability.bookableBody" },
     ],
   },
   {
     key: "scheduler-v1",
     match: (p) => p === "/app/scheduler",
     steps: [
-      { target: "[data-tour='scheduler-week']", title: "Plan the week", body: "This is staff shift scheduling — step through the week to see who's rostered each day." },
-      { target: "[data-tour='scheduler-add']", title: "Draft, then publish", body: "Add shifts as drafts, then Publish so your team can see them — nothing shows to a worker until you do." },
+      { target: "[data-tour='scheduler-week']", titleKey: "app.tour.scheduler.weekTitle", bodyKey: "app.tour.scheduler.weekBody" },
+      { target: "[data-tour='scheduler-add']", titleKey: "app.tour.scheduler.addTitle", bodyKey: "app.tour.scheduler.addBody" },
     ],
   },
   {
     key: "schedule-v1",
     match: (p) => p === "/app/schedule",
     steps: [
-            // Not read-only, and hasn't been for a while: the page header on the same
+      // Not read-only, and hasn't been for a while: the page header on the same
       // screen says "and you can set anyone's from here", and every row carries
       // a working Edit hours button. A coach-mark that contradicts the buttons
       // beside it teaches people to stop reading coach-marks.
-      { target: "[data-tour='schedule-header']", title: "The team at a glance", body: "Everyone's weekly hours and what's booked in the next two weeks. People set their own under Settings → Availability, and you can set anyone's from here." },
+      { target: "[data-tour='schedule-header']", titleKey: "app.tour.schedule.headerTitle", bodyKey: "app.tour.schedule.headerBody" },
     ],
   },
   {
     key: "expense-tracking-v1",
     match: (p) => p === "/app/settings/expense-tracking",
     steps: [
-      { target: "[data-tour='expense-add']", title: "Log what you spend", body: "Record an expense and tag it to a job, to overhead, or as general spend." },
-      { target: "[data-tour='expense-kpis']", title: "Burn and runway", body: "See this month's spend, your monthly burn rate and how many months of runway that leaves." },
-      { target: "[data-tour='expense-ai']", title: "Ask for a read-out", body: "Generate a plain-English summary that flags anything unusual in your spending." },
+      { target: "[data-tour='expense-add']", titleKey: "app.tour.expenseTracking.addTitle", bodyKey: "app.tour.expenseTracking.addBody" },
+      { target: "[data-tour='expense-kpis']", titleKey: "app.tour.expenseTracking.kpisTitle", bodyKey: "app.tour.expenseTracking.kpisBody" },
+      { target: "[data-tour='expense-ai']", titleKey: "app.tour.expenseTracking.aiTitle", bodyKey: "app.tour.expenseTracking.aiBody" },
     ],
   },
   {
     key: "payroll-v1",
     match: (p) => p === "/app/payroll",
     steps: [
-      { target: "[data-tour='payroll-header']", title: "Payslips and pay runs", body: "FieldQuo works out pay from approved hours and your saved rates — you still move the money yourself." },
-      { target: "[data-tour='payroll-run']", title: "Run a period", body: "Pick the dates and calculate; only approved timesheets are included, so approve hours first." },
+      { target: "[data-tour='payroll-header']", titleKey: "app.tour.payroll.headerTitle", bodyKey: "app.tour.payroll.headerBody" },
+      { target: "[data-tour='payroll-run']", titleKey: "app.tour.payroll.runTitle", bodyKey: "app.tour.payroll.runBody" },
     ],
   },
   {
     key: "time-off-v1",
     match: (p) => p === "/app/time-off",
     steps: [
-      { target: "[data-tour='timeoff-header']", title: "Book and track time off", body: "See your balances, request vacation or sick days, and — if you manage people — approve theirs from the Team tab." },
+      { target: "[data-tour='timeoff-header']", titleKey: "app.tour.timeOff.headerTitle", bodyKey: "app.tour.timeOff.headerBody" },
     ],
   },
   {
     key: "timesheets-v1",
     match: (p) => p === "/app/settings/team/timesheets",
     steps: [
-      { target: "[data-tour='timesheets-header']", title: "Hours worked", body: "Every clock-in and manual entry lands here for you to review before it's paid." },
-      { target: "[data-tour='timesheets-add']", title: "Add hours by hand", body: "Log time after the fact — pick the worker, the date and the start and end times." },
-      { target: "[data-tour='timesheets-list']", title: "Approve before payroll", body: "Clock out open entries and approve hours; only approved time flows into a pay run." },
+      { target: "[data-tour='timesheets-header']", titleKey: "app.tour.timesheets.headerTitle", bodyKey: "app.tour.timesheets.headerBody" },
+      { target: "[data-tour='timesheets-add']", titleKey: "app.tour.timesheets.addTitle", bodyKey: "app.tour.timesheets.addBody" },
+      { target: "[data-tour='timesheets-list']", titleKey: "app.tour.timesheets.listTitle", bodyKey: "app.tour.timesheets.listBody" },
     ],
   },
   {
     key: "voice-v1",
     match: (p) => p === "/app/settings/voice",
     steps: [
-      { target: "[data-tour='voice-number']", title: "A number to answer on", body: "Get a new number or forward your own — this is what the AI receptionist picks up." },
-      { target: "[data-tour='voice-credit']", title: "Pay per minute", body: "Calls draw down prepaid credit — your 30 free trial minutes are already loaded. Top up here to keep the line live." },
-      { target: "[data-tour='voice-answer']", title: "Turn it on", body: "Once you've got a number and credit, switch the receptionist on to start catching missed calls." },
+      { target: "[data-tour='voice-number']", titleKey: "app.tour.voice.numberTitle", bodyKey: "app.tour.voice.numberBody" },
+      { target: "[data-tour='voice-credit']", titleKey: "app.tour.voice.creditTitle", bodyKey: "app.tour.voice.creditBody" },
+      { target: "[data-tour='voice-answer']", titleKey: "app.tour.voice.answerTitle", bodyKey: "app.tour.voice.answerBody" },
     ],
   },
   {
     key: "payments-v1",
     match: (p) => p === "/app/settings/payments",
     steps: [
-      { target: "[data-tour='payments-header']", title: "Get paid by card", body: "Connect a payment provider so clients can pay quotes and invoices online." },
-      { target: "[data-tour='payments-stripe']", title: "Connect Stripe", body: "FieldQuo uses your own Stripe account — finish the connection here and the status shows once you're live." },
+      { target: "[data-tour='payments-header']", titleKey: "app.tour.payments.headerTitle", bodyKey: "app.tour.payments.headerBody" },
+      { target: "[data-tour='payments-stripe']", titleKey: "app.tour.payments.stripeTitle", bodyKey: "app.tour.payments.stripeBody" },
     ],
   },
 ];
