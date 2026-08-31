@@ -429,6 +429,25 @@ not something with an obvious visual payoff live; mention it only if asked
 
 **NOT READ ALOUD — reference only. Answer in your own words.**
 
+**"Can the customer tell when we're actually turning up?"**
+Yes, and this landed on 2026-08-31, after the beats above were written — so
+if you have thirty spare seconds, it's worth showing on the visit you created
+in beat 2. Each visit now carries "On my way", "Mark complete" and "Cancel
+visit". "On my way" texts the client the wording the company set in
+Settings → Client messages, and the button says so on its face with the
+number underneath it. Two things worth knowing before you press it on a live
+demo: it really sends, so do it against a visit whose client is you; and a
+success on screen means the status saved, not that the text was delivered —
+the send is fired detached so a carrier outage can't lose the status change.
+"Mark complete" is what moves the "1 of 3 complete" counter at the top of the
+visits panel, and on a recurring job it puts the next visit on the calendar
+immediately instead of waiting for the overnight run.
+
+Only the person the visit is assigned to sees these buttons, plus anyone with
+schedule edit-all, plus anyone at all if the visit is unassigned — the same
+three clauses the API enforces (`lib/jobs/visitStatus.js`, `mayMoveVisit`).
+If you're demoing as the owner it'll be there.
+
 **"Can my crew see prices anywhere on this job?"**
 Not on the buy-list. `app/api/jobs/[id]/materials/route.js` strips both
 `estUnitCost` and `actualCost` server-side for anyone without the
