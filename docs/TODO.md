@@ -14,7 +14,7 @@ gap.
 |---|---|---|
 | Job-site photo documentation — timeline, annotation, photo reports | job detail | agent building |
 | Drag-to-reorder on the Leads board | `/app/leads` | agent building |
-| Demo scripts — marketing & growth, job execution | `docs/DEMO-*.md` | agents building |
+| Demo script — job execution | `docs/DEMO-JOB.md` | agent building |
 
 ## Landed overnight 2026-08-30
 

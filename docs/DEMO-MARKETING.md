@@ -245,8 +245,8 @@ number of storeys, timeline.]*
 
 *[Flip back to the FIRST tab — the back office. Open `/app/leads`.]*
 
-> Now watch this side. I didn't refresh anything, I didn't click anything
-> over here.
+> Now watch this side. I haven't typed anything into this half of the screen.
+> The lead was already sitting here waiting when I opened the page.
 
 *[Point at the new lead at (or near) the top of the list.]*
 
