@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
+import { can, permissionDenialMessage } from "@/lib/permissions";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { getNextQuoteNumber } from "@/lib/quotes/quoteNumber";
 import { recordActivity } from "@/lib/activity/log";
@@ -55,6 +56,7 @@ export async function GET(request) {
     include: {
       client: { select: { id: true, name: true, email: true } },
       scopeGroups: { include: { category: { select: { label: true } } } },
+      assignedTo: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -148,6 +150,11 @@ export async function POST(request) {
     // reference to a customer's recording, and one from another tenant must not
     // be attachable to a quote here.
     sourceCallId,
+    // Who is working this quote. Omitted means "me" — see the default below —
+    // so the common case (an estimator creating their own quote) needs no
+    // extra click. Naming someone ELSE is a staffing decision and gated the
+    // same way reassigning an appointment is.
+    assignedToId,
   } = body;
 
   // Scoped before it is trusted. findFirst with the companyId in the WHERE, so
@@ -169,14 +176,41 @@ export async function POST(request) {
     );
   }
 
+  // Silence means "assign it to me" — a quote with nobody working it is a
+  // worse default than the person who just created it. An explicit
+  // `assignedToId: null` (the builder never sends one, but an API client
+  // might) is honoured as genuinely unassigned rather than overridden.
+  const resolvedAssignedToId =
+    assignedToId === undefined ? member.userId : assignedToId || null;
+
+  // Handing a quote to somebody ELSE requires quote:assign — creating your
+  // own (or leaving it unassigned) doesn't. Same rule as appointment:assign,
+  // for the same reason: assigning yourself work isn't a staffing decision.
+  if (
+    resolvedAssignedToId &&
+    resolvedAssignedToId !== member.userId &&
+    !can(member.role, "quote:assign")
+  ) {
+    return NextResponse.json(
+      { error: permissionDenialMessage("quote:assign") },
+      { status: 403 },
+    );
+  }
+
   // The clientId arrives from a browser and was written straight onto the
   // quote. Posting another tenant's client id built a quote inside THIS
   // company pointing at THEIR client — and every GET on it returns
   // `client`, so the address book crossed the boundary one quote at a time.
   // Sending that quote would then email their client on this company's
   // letterhead. See lib/tenant/ownedIds.js.
+  //
+  // assignedToId rides the same check (a user id, proved by team membership
+  // rather than by owning a row) so a name from another tenant can't be
+  // written here either — see lib/tenant/ownedIds.js's own note on why that
+  // hole existed on Appointment before.
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
     clientId,
+    assignedToId: resolvedAssignedToId,
   });
   if (notOurs) return notOurs;
 
@@ -240,6 +274,7 @@ export async function POST(request) {
       quoteNumber,
       clientId,
       createdById: member.userId,
+      assignedToId: resolvedAssignedToId,
       quoteType: quoteType || null,
       subtotal: subtotal || 0,
       discount: discount || 0,
@@ -300,7 +335,11 @@ export async function POST(request) {
         row: costingRow,
       }) && { costing: { create: costingRow } }),
     },
-    include: { client: true, scopeGroups: true },
+    include: {
+      client: true,
+      scopeGroups: true,
+      assignedTo: { select: { id: true, name: true } },
+    },
   });
 
   // Optional areas and substrates on a takeoff become tickable extras. Derived

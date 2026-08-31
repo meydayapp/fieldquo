@@ -34,6 +34,7 @@ export default function EstimateReviewsPage() {
   const { t } = useTranslation();
   const [quotes, setQuotes] = useState(null);
   const [canApprove, setCanApprove] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
@@ -42,6 +43,7 @@ export default function EstimateReviewsPage() {
       const data = await fetchJson("/api/quotes/estimate-reviews");
       setQuotes(data.quotes);
       setCanApprove(Boolean(data.canApprove));
+      setCurrentUserId(data.currentUserId || null);
     } catch (err) {
       setError(err.message || "Could not load reviews");
     }
@@ -62,6 +64,27 @@ export default function EstimateReviewsPage() {
       await load();
     } catch (err) {
       showError(err.message || "Could not approve");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  // Nobody was signed in when the instant-quote flow created this draft — see
+  // createEstimateDraft — so it always lands here unassigned. Claiming it is
+  // the one reassignment that never needs quote:assign (you're naming
+  // yourself, not somebody else), so this is safe for anyone who can see the
+  // queue at all.
+  async function assignToMe(q) {
+    setBusyId(q.id);
+    try {
+      await fetchJson(`/api/quotes/${q.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: jsonBody({ assignedToId: currentUserId }, "self-assign"),
+      });
+      await load();
+    } catch (err) {
+      showError(err.message || "Could not assign");
     } finally {
       setBusyId(null);
     }
@@ -102,6 +125,8 @@ export default function EstimateReviewsPage() {
             canApprove={canApprove}
             busy={busyId === q.id}
             onApprove={approve}
+            onAssignToMe={assignToMe}
+            currentUserId={currentUserId}
           />
         ))}
       </div>
@@ -109,7 +134,7 @@ export default function EstimateReviewsPage() {
   );
 }
 
-function ReviewCard({ q, canApprove, busy, onApprove }) {
+function ReviewCard({ q, canApprove, busy, onApprove, onAssignToMe, currentUserId }) {
   const { t } = useTranslation();
   const d = q.estimateData || {};
   const m = d.measurement || {};
@@ -138,6 +163,28 @@ function ReviewCard({ q, canApprove, busy, onApprove }) {
         <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground shrink-0">
           {SOURCE_LABEL[q.estimateSource] || q.estimateSource}
         </span>
+      </div>
+
+      {/* Nobody was signed in to name when this draft was created — the
+          honest outcome AGENTS.md's "absence of a statement" rule calls for,
+          not a guessed default. This queue is where that gets fixed: whoever
+          picks it up claims it in one click, with no permission needed since
+          naming yourself isn't a staffing decision. */}
+      <div className="mt-2">
+        {q.assignedTo ? (
+          <span className="text-xs rounded-full bg-muted px-2 py-1 text-muted-foreground">
+            Assigned to {q.assignedTo.id === currentUserId ? "you" : q.assignedTo.name}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onAssignToMe(q)}
+            disabled={busy || !currentUserId}
+            className="text-xs rounded-full border border-dashed border-border px-2 py-1 text-muted-foreground hover:text-foreground hover:border-foreground/40 disabled:opacity-50"
+          >
+            Unassigned — assign to me
+          </button>
+        )}
       </div>
 
       <div className="mt-3 flex gap-4">

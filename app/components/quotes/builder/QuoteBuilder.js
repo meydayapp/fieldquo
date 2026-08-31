@@ -195,6 +195,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       taxRate: null,
       validUntil: defaultValidUntil(),
       costing: null,
+      assignedTo: null,
     };
   }
 
@@ -226,6 +227,7 @@ export function initialStateFromQuote(quote, { fallbackLabel = "Scope" } = {}) {
       ? new Date(quote.validUntil).toISOString().slice(0, 10)
       : "",
     costing: null,
+    assignedTo: quote.assignedTo || null,
   };
 }
 
@@ -302,6 +304,7 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           businessInfo,
           productsData,
           workersData,
+          membersData,
           recipesData,
           overheadData,
         ] = await Promise.all([
@@ -315,6 +318,14 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
           // degrades to the empty fallback rather than blocking the whole page.
           fetch("/api/products").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/workers").then((r) => (r.ok ? r.json() : [])),
+          // The roster the "Assigned to" picker offers — same endpoint the
+          // appointments page already uses for the same purpose. Roles come
+          // back with it so an estimator without quote:assign can still see
+          // it is the account's default; the select itself is left enabled
+          // for everyone since assigning YOURSELF needs no extra permission
+          // — the server is what actually enforces reassigning to someone
+          // else (see app/api/quotes/route.js).
+          fetch("/api/settings/members").then((r) => (r.ok ? r.json() : [])),
           // Company-specific overrides on the internal cost recipe — see
           // Settings > Material Costs. Resolved server-side (defaults merged
           // with any saved overrides), so this is fed straight into
@@ -348,6 +359,14 @@ export default function QuoteBuilder({ mode = "create", quoteId = null }) {
             : [],
           products: Array.isArray(productsData) ? productsData : [],
           workers: Array.isArray(workersData) ? workersData : [],
+          // ROSTER_SELECT rows: { id, userId, role, active, user:{id,name,email} }
+          // — see app/api/settings/members. Filtered to active members only;
+          // an assignee who has left the company shouldn't be offered for a
+          // NEW pick even though an already-assigned quote keeps showing them
+          // (start.assignedTo carries its own name, independent of this list).
+          members: Array.isArray(membersData)
+            ? membersData.filter((m) => m.active !== false)
+            : [],
           recipeOverrides:
             recipesData && typeof recipesData === "object" ? recipesData : {},
           companyLanguage: businessInfo?.defaultLanguage || "en",
@@ -638,6 +657,7 @@ export function QuoteBuilderForm({
   const categories = Array.isArray(boot.categories) ? boot.categories : [];
   const products = Array.isArray(boot.products) ? boot.products : [];
   const workers = Array.isArray(boot.workers) ? boot.workers : [];
+  const teamRoster = Array.isArray(boot.members) ? boot.members : [];
   const recipeOverrides =
     boot.recipeOverrides && typeof boot.recipeOverrides === "object"
       ? boot.recipeOverrides
@@ -731,6 +751,17 @@ export function QuoteBuilderForm({
     start.processNotes ?? boot.defaultProcessNotes ?? "",
   );
   const [clientPhotos, setClientPhotos] = useState(start.clientPhotos || []);
+  // Who's working this quote. "" means unset — on a create that resolves to
+  // the person saving it (POST /api/quotes defaults assignedToId to the
+  // caller when the body omits it); on an edit it means the quote genuinely
+  // has nobody named, which an auto-estimated draft can honestly be. Seeded
+  // from start.assignedTo (the User relation, not just the id) so the select
+  // can show a name without a second lookup.
+  const [assignedToId, setAssignedToId] = useState(start.assignedTo?.id || "");
+  // Same discipline as taxRateTouched: PATCH only reassigns when the request
+  // SAYS to. Sending the unchanged value on every save of somebody else's
+  // quote would make "add a note" require quote:assign for no reason.
+  const [assignedToTouched, setAssignedToTouched] = useState(false);
   const [discount, setDiscount] = useState(start.discount ?? "");
   const [taxEnabled, setTaxEnabled] = useState(start.taxEnabled !== false);
   const [taxRate, setTaxRate] = useState(
@@ -1404,6 +1435,11 @@ export function QuoteBuilderForm({
           // save including the notes and the expiry that are still legitimately
           // editable.
           ...(canEditScope ? { scopeGroups: groupsPayload } : {}),
+          // Only when the picker was actually touched — see assignedToTouched's
+          // own comment. A routine save (a note, an expiry date) must not
+          // silently re-post the assignee and trip quote:assign for someone
+          // who never meant to reassign anything.
+          ...(assignedToTouched && { assignedToId: assignedToId || null }),
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1430,6 +1466,10 @@ export function QuoteBuilderForm({
           // app/api/quotes/[id]/send.
           status: "draft",
           language: quoteLanguage || companyLanguage,
+          // Omitted on the default "(unassigned)" pick — POST /api/quotes
+          // resolves that to whoever is saving. Sent only when the estimator
+          // deliberately picked someone from the list.
+          ...(assignedToId && { assignedToId }),
         }),
       });
       if (!res.ok) {
@@ -1613,6 +1653,45 @@ export function QuoteBuilderForm({
         creating={creatingClient}
         error={error}
       />
+
+      {/* Who's working this quote. Defaults to whoever saves it — the select
+          opens on "(unassigned)" and the server resolves that to the caller
+          on create, so most people never need to touch this. Reassigning to
+          someone else needs quote:assign; a member without it gets a 403 back
+          through the error banner above rather than a hidden control, since
+          the server is the actual gate here (AGENTS.md: hiding a button isn't
+          access control). */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-3">Assigned to</h2>
+        <select
+          value={assignedToId}
+          onChange={(e) => {
+            setAssignedToId(e.target.value);
+            setAssignedToTouched(true);
+          }}
+          className="w-full border border-border rounded px-3 py-2 text-sm bg-background text-foreground"
+        >
+          <option value="">
+            {isEdit ? "Unassigned — needs review" : "Me (default)"}
+          </option>
+          {teamRoster
+            // The current assignee stays offered even if they've since gone
+            // inactive — teamRoster is filtered to active members, and an
+            // edit that opens on someone deactivated shouldn't silently drop
+            // them from the list they're currently shown as.
+            .concat(
+              start.assignedTo &&
+                !teamRoster.some((m) => m.userId === start.assignedTo.id)
+                ? [{ userId: start.assignedTo.id, user: start.assignedTo }]
+                : [],
+            )
+            .map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.user?.name || m.user?.email || "Unnamed"}
+              </option>
+            ))}
+        </select>
+      </div>
 
       {/* Language is chosen once, at creation, and baked into the saved quote.
           It is deliberately not a viewer toggle and deliberately not editable

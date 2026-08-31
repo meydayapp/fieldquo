@@ -47,6 +47,12 @@ export async function GET(request) {
       sourceCallId: true,
       createdAt: true,
       client: { select: { name: true, email: true, phone: true, address: true } },
+      // Nobody was signed in when the instant-quote flow created this draft,
+      // so it lands here with no assignee by construction — see
+      // createEstimateDraft. Surfaced here rather than invented at creation:
+      // this queue IS the "leave it for review" the schema comment on
+      // Quote.assignedToId points to.
+      assignedTo: { select: { id: true, name: true } },
     },
   });
 
@@ -84,5 +90,10 @@ export async function GET(request) {
     // approve route enforces it again server-side. Hiding a button is not
     // access control.
     canApprove: can(member.role, "quote:approve-estimate"),
+    // So the page can offer "Assign to me" without a second round trip, and
+    // so it can tell "assigned to me" apart from "assigned to someone else"
+    // for the reassign gate (PATCH /api/quotes/[id] needs quote:assign for
+    // the second case, not the first).
+    currentUserId: member.userId,
   });
 }
