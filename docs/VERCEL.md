@@ -19,7 +19,7 @@ does nothing to the deployment.
 | `STRIPE_BILLING_WEBHOOK_SECRET` | FieldQuo's own subscriptions | Payment failures never reach us. Nobody is ever marked past-due, so the 7-day grace never starts and a dead card bills forever. |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | Contractor payouts | A homeowner pays and the invoice stays unpaid on screen. |
 | `GOOGLE_MAPS_SERVER_KEY` | Geocoding · Distance Matrix · Solar · Static Maps | Roof measurement is dead. Travel-time booking silently falls back to straight-line estimates — it still works and still says "about", but a river with one bridge fools it. |
-| `CRON_SECRET` | Guards every `app/api/cron/*` route (a growing list — check `vercel.json` for the current count rather than trusting a number here) | Every cron 401s: no follow-ups, no review requests, no outbound calls, no monthly digest, no large-quote check, no renewal reminders. Vercel reports the cron as *run*, so this looks fine from the dashboard. |
+| `CRON_SECRET` | Guards every `app/api/cron/*` route (a growing list — check `vercel.json` for the current count rather than trusting a number here) | Every cron 401s: no follow-ups, no review requests, no outbound calls, no monthly digest, no large-quote check, no renewal reminders, no past-due grace warning. Vercel reports the cron as *run*, so this looks fine from the dashboard. |
 | `PLATFORM_JWT_SECRET` | Superadmin console session | Fails **closed** — jose refuses a zero-length key, so login appears to work and bounces you straight back out with nothing in any log. |
 | `IMPERSONATION_JWT_SECRET` | Read-only support tokens | Throws a 500 with instructions. The one that fails honestly. |
 | `UNSPLASH_ACCESS_KEY` | Stock-photo tab in the Marketing Designer's Image sidebar | The tab says the stock library isn't set up on this deployment — not "no images found", which is a different, wrong statement. See `lib/designer/unsplash.js`. |
@@ -95,6 +95,15 @@ deliveries stop, check the agent, not the account tab.
   var involved either way; this is a dashboard setting this repo cannot read
   or set for you. See `lib/billing/renewalReminder.js` for why 7 and 30 days
   were chosen.
+- **`/api/cron/grace-warning`** — the past-due read-only warning. No env var
+  of its own beyond `CRON_SECRET` above, but it depends on the same Stripe
+  billing webhook the grace period itself does: without
+  `STRIPE_BILLING_WEBHOOK_SECRET` no subscription is ever marked `past_due`
+  in the first place (see that row above), so this cron would simply find
+  nothing to warn about — not a bug in this cron, but worth knowing before
+  concluding it's broken. Sends up to two emails per grace episode (a
+  heads-up, then a last-chance notice inside the final two days); see
+  `lib/billing/graceWarning.js` for why two rather than one.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's
