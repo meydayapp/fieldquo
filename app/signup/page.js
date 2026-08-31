@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/auth-client";
-import { calculatePricing , TRIAL_PRICE, trialLabel } from "@/lib/pricing";
+import { TRIAL_PRICE, trialLabel } from "@/lib/pricing";
 import {
   firstStep,
   resumeStep,
@@ -561,9 +561,6 @@ export default function SignupPage() {
   // the plans effect below and constant afterwards.
   const wantedRef = useRef({ tier: null, planId: null });
 
-  const [isCustom, setIsCustom] = useState(false);
-  const [customCount, setCustomCount] = useState(25);
-
   // Monthly (no commitment) or annual (one year, one charge). Same rate either
   // way — see lib/billing/interval.js. Defaults to the option with no
   // commitment attached, because that is the safe thing to assume for someone
@@ -606,21 +603,18 @@ export default function SignupPage() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
-  const employeeCount = isCustom ? customCount : selectedPlan?.maxUsers || 1;
 
-  const pricing = isCustom
-    ? calculatePricing(customCount)
-    : {
-        trialTotal: TRIAL_PRICE,
-        monthlyTotal: Number(selectedPlan?.priceMonthly || 0),
-        contactSalesRequired: false,
-      };
+  // There is no self-serve headcount price any more — see lib/pricing.js.
+  // The four tiers (lib/pricing/ladder.js) are the whole menu, so "what does
+  // this cost" is always just the selected Plan row's own price.
+  const pricing = {
+    trialTotal: TRIAL_PRICE,
+    monthlyTotal: Number(selectedPlan?.priceMonthly || 0),
+  };
 
-  const selectedPlanName = isCustom
-    ? `Custom — ${customCount} employees`
-    : selectedPlan?.name || "Selected plan";
+  const selectedPlanName = selectedPlan?.name || "Selected plan";
 
-  const hasSelection = isCustom || Boolean(selectedPlanId);
+  const hasSelection = Boolean(selectedPlanId);
   // "There is already a login behind this" — true whether they're resuming an
   // abandoned signup or adding a second business. Both skip account CREATION.
   const accountExists = Boolean(accountReady || alreadyOnFieldquo);
@@ -660,18 +654,16 @@ export default function SignupPage() {
   // Annual is offered per PLAN, because Plan.priceAnnual is nullable and null
   // means "this tier has no annual option" — including every bespoke Custom
   // row, which is created without one.
-  const annualPrice = isCustom ? null : annualPriceOf(selectedPlan);
+  const annualPrice = annualPriceOf(selectedPlan);
   const annualAvailable = annualPrice !== null;
   // What gets posted. Never `billingInterval` straight from state: a plan with
   // no annual price must not be bought on a cadence it does not have, and the
   // screen shows this same value, so the button and the charge cannot diverge.
   const effectiveInterval = annualAvailable ? billingInterval : "month";
-  const charge = isCustom
-    ? { interval: "month", amount: pricing.monthlyTotal }
-    : chargeFor(selectedPlan, effectiveInterval);
+  const charge = chargeFor(selectedPlan, effectiveInterval);
   // Zero today — annual is the interval, not a discount. Shown only when the
   // number is real and positive, so nothing claims a saving that isn't there.
-  const yearlySaving = isCustom ? null : annualSaving(selectedPlan);
+  const yearlySaving = annualSaving(selectedPlan);
 
   // ── The draft ───────────────────────────────────────────────────────────
   //
@@ -691,8 +683,6 @@ export default function SignupPage() {
         // password is never stored, and `...form` here would reintroduce it as
         // undefined and break the controlled input.
         if (draft?.form) setForm((f) => ({ ...f, ...draft.form, password: "" }));
-        if (typeof draft?.isCustom === "boolean") setIsCustom(draft.isCustom);
-        if (draft?.customCount) setCustomCount(Number(draft.customCount) || 1);
         if (draft?.selectedPlanId) setSelectedPlanId(draft.selectedPlanId);
         if (Array.isArray(draft?.selectedIndustries))
           setSelectedIndustries(draft.selectedIndustries);
@@ -726,8 +716,6 @@ export default function SignupPage() {
         JSON.stringify({
           form: safeForm,
           selectedPlanId,
-          isCustom,
-          customCount,
           selectedIndustries,
           selectedCategoryIds,
           showAllServices,
@@ -743,8 +731,6 @@ export default function SignupPage() {
     hydrated,
     form,
     selectedPlanId,
-    isCustom,
-    customCount,
     selectedIndustries,
     selectedCategoryIds,
     showAllServices,
@@ -959,11 +945,8 @@ export default function SignupPage() {
   // re-resolves it, so changing the address moves the selection across to the
   // other currency's row of the same tier instead of clearing the step.
   //
-  // Skipped entirely while "Custom" is chosen — that is a selection too, and
-  // re-asserting a ladder row underneath it would quietly change what gets
-  // posted.
   useEffect(() => {
-    if (plansLoading || isCustom) return;
+    if (plansLoading) return;
     const next = resolvePlanSelection({
       all: plans,
       visible: visiblePlans,
@@ -976,7 +959,6 @@ export default function SignupPage() {
     // render and would make this an infinite loop.
   }, [
     plansLoading,
-    isCustom,
     plans,
     selectedPlanId,
     visiblePlans.map((p) => p.id).join(","),
@@ -984,16 +966,8 @@ export default function SignupPage() {
 
   function selectPlan(plan) {
     setSelectedPlanId(plan.id);
-    setIsCustom(false);
     setError("");
   }
-
-  function selectCustom() {
-    setIsCustom(true);
-    setSelectedPlanId(null);
-    setError("");
-  }
-
 
   function handleBusinessSubmit(e) {
     e.preventDefault();
@@ -1086,11 +1060,6 @@ export default function SignupPage() {
       );
       return;
     }
-    if (isCustom && pricing.contactSalesRequired) {
-      setError("For more than 40 employees, please contact sales.");
-      return;
-    }
-
     setSubmitting(true);
 
     try {
@@ -1106,8 +1075,7 @@ export default function SignupPage() {
           country: form.country,
           language: form.language,
           industries: selectedIndustries,
-          planId: isCustom ? null : selectedPlanId,
-          employeeCount,
+          planId: selectedPlanId,
           serviceCategoryIds: selectedCategoryIds,
           // The CADENCE, never a price. The server reprices from its own Plan
           // row either way (non-negotiable #5) and refuses "year" outright for
@@ -1594,68 +1562,37 @@ export default function SignupPage() {
                   <PricingCard
                     key={plan.id}
                     plan={plan}
-                    selected={!isCustom && selectedPlanId === plan.id}
+                    selected={selectedPlanId === plan.id}
                     onSelect={() => selectPlan(plan)}
                   />
                 ))}
 
-                <div
-                  className={`text-left border rounded-2xl p-6 flex flex-col relative bg-card transition-all duration-150 ease-out hover:scale-[1.03] hover:shadow-lg ${
-                    isCustom
-                      ? "border-inverted ring-2 ring-ring scale-[1.02] bg-muted"
-                      : "border-border hover:border-border"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={selectCustom}
-                    className="text-left"
+                {/* ── There is no fifth card any more ────────────────────────
+                    This used to be a "Custom" card: type a headcount, get a
+                    price at $45/licence (calculatePricing). The owner retired
+                    that pricing model 2026-08-31 — the four tiers above ARE
+                    the pricing now. Scale tops out at 10 seats + 15 crew, and
+                    the ladder has no self-serve answer above that (there is no
+                    function from a raw headcount to a tier — see
+                    lib/pricing/ladder.js tierFor, which needs a seats/crew
+                    split a plain number can't supply). Rather than invent a
+                    price for that gap, this names it and points at a human,
+                    the same way the page already does two states up for a
+                    country the ladder has no currency for. */}
+                <div className="text-left border border-dashed border-border rounded-2xl p-6 flex flex-col justify-center bg-card">
+                  <h3 className="text-lg font-semibold text-foreground">
+                    Need more than Scale?
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Scale covers up to 10 seats and 15 crew. For a bigger
+                    team, we'll work out a plan by hand.
+                  </p>
+                  <Link
+                    href="/contact"
+                    className="mt-4 text-sm font-semibold underline underline-offset-2 self-start"
                   >
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Custom
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Tell us how many employees you need, and we'll calculate
-                      your rate.
-                    </p>
-                  </button>
-
-                  {isCustom && (
-                    <div className="mt-4">
-                      <label className="text-sm font-medium text-foreground">
-                        Number of employees
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={customCount}
-                        onChange={(e) =>
-                          setCustomCount(Number(e.target.value || 1))
-                        }
-                        className="w-full mt-1 border border-border rounded-lg px-3 py-2 text-sm"
-                      />
-                      {pricing.contactSalesRequired ? (
-                        <p className="mt-4 text-sm text-foreground">
-                          For more than 40 employees, pricing is custom —{" "}
-                          <Link
-                            href="/contact"
-                            className="underline font-medium"
-                          >
-                            contact us
-                          </Link>
-                          .
-                        </p>
-                      ) : (
-                        <p className="mt-4 text-sm text-foreground">
-                          {trialLabel(pricing.trialTotal)}, then{" "}
-                          <span className="font-semibold">
-                            {symbol}
-                            {money(pricing.monthlyTotal)}/mo
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    Contact us
+                  </Link>
                 </div>
               </div>
             )}
@@ -1679,7 +1616,7 @@ export default function SignupPage() {
                     types a different deal into /platform/billing/plans gets the
                     number they typed, and a plan with no annual price is
                     disabled rather than quietly sold on a cadence it lacks. */}
-                {hasSelection && !pricing.contactSalesRequired && (
+                {hasSelection && (
                   <div className="mt-4">
                     <div className="text-sm font-medium text-foreground">
                       How would you like to be billed?
@@ -1741,8 +1678,6 @@ export default function SignupPage() {
                                 {symbol}
                                 {money(annualPrice / 12)} a month.
                               </>
-                            ) : isCustom ? (
-                              "Custom sizing is billed monthly."
                             ) : (
                               "This plan is billed monthly only."
                             )}
@@ -1765,7 +1700,7 @@ export default function SignupPage() {
                   </div>
                 )}
 
-                {hasSelection && !pricing.contactSalesRequired && charge && (
+                {hasSelection && charge && (
                   <div className="text-sm text-muted-foreground mt-4">
                     {trialLabel(pricing.trialTotal)}, then{" "}
                     <span className="font-semibold text-foreground">
@@ -1780,12 +1715,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={handleFinish}
-                  disabled={
-                    submitting ||
-                    !hasSelection ||
-                    !charge ||
-                    (isCustom && pricing.contactSalesRequired)
-                  }
+                  disabled={submitting || !hasSelection || !charge}
                   className={`${PRIMARY_BUTTON} mt-4 disabled:opacity-40`}
                 >
                   {submitting ? "Setting up..." : "Continue to Payment"}

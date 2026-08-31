@@ -47,7 +47,7 @@ async function main() {
   const plan = await db.plan.findFirst({ orderBy: { priceMonthly: "asc" } });
   if (!plan) {
     console.error(
-      "No Plan rows exist at all — run prisma/seed-plans.js first.",
+      "No Plan rows exist at all — run `npm run seed:seat-ladder` first.",
     );
     process.exit(1);
   }

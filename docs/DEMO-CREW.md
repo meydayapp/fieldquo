@@ -505,14 +505,19 @@ entries and pay whether or not the linked invitation was ever accepted.
   checkbox (a plain `PATCH`) is wired to a button. The `DELETE` route's
   archive protection is real, but there's nothing to click that exercises it.
   If a "Remove worker" control gets added later, re-check this section.
-- **Two live pricing models, not reconciled.** `lib/pricing.js`
-  (`calculatePricing`, $45/seat under 9 employees — what `docs/DEMO-SCRIPT.md`
-  currently quotes) and `lib/pricing/ladder.js` (`SEAT_LADDER`, seats + free
-  crew, Solo at $99) are both imported by `app/signup/page.js`, and the ladder
-  is what the public pricing page and the seat-limit gate run on. Which one
-  actually governs a *given* company's live subscription in the database
-  wasn't checked — confirm on `/platform/demo` or the company's own
-  `/app/settings/account-billing` before quoting a number on a real call.
+- **Resolved: the two live pricing models are down to one.** `lib/pricing.js`
+  used to export `calculatePricing()` ($45/seat under 9 employees), and it was
+  still reachable from signup and the Team page's "Add licenses" upgrade even
+  after `lib/pricing/ladder.js` (`SEAT_LADDER`, seats + free crew, Solo at
+  $99) shipped as the intended pricing — the owner's ruling, 2026-08-31, was
+  that the four-tier ladder is the only pricing. `calculatePricing()`,
+  `NAMED_TIERS` and the `$45` figure are gone from `lib/pricing.js`; the two
+  routes that used to mint a "Custom (N employees)" Plan from a typed
+  headcount (`app/api/companies/route.js`, `app/api/platform/billing/
+  checkout/route.js`) now require a real `planId` instead. See
+  `docs/PRICING-CLEANUP.md`. A company already on a legacy per-headcount or
+  bespoke Custom plan is untouched and keeps billing exactly as before —
+  nothing here was a data migration.
 - **The availability-override demo (Beat 2, Part A step 6) depends on Mike
   having a linked login already**, which depends on invite-acceptance state
   this pass didn't verify against a live database. Built a fallback line into

@@ -62,7 +62,7 @@ export default function TermsPage() {
       </p>
       <p>
         A new company's first month is free (see the pricing page for current
-        rates by team size). We also run a referral programme: when a company
+        plans and rates). We also run a referral programme: when a company
         you refer signs up and qualifies, both you and they receive one free
         month. Referral terms may change; the terms in effect at the time you
         refer someone govern that referral.
@@ -71,8 +71,10 @@ export default function TermsPage() {
       <h2>3. Subscriptions and billing</h2>
       <ul>
         <li>
-          FieldQuo is billed per licensed seat, at the rate shown on the
-          pricing page for your team size, through Stripe.
+          FieldQuo is billed at the flat monthly (or annual) rate for the
+          plan you choose, shown on the pricing page, through Stripe. Each
+          plan includes a set number of licensed seats and free crew members;
+          contact us if your team needs more than the largest plan covers.
         </li>
         <li>
           If a subscription payment fails or lapses, your company's access to

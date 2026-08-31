@@ -7,7 +7,7 @@ import { Plus, Clock, Mail, X } from "lucide-react";
 import { formatCompanyDate } from "@/lib/format/companyDate";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { useTranslation } from "@/app/hooks/useTranslation";
-import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
+import SeatCapUpgradeNotice from "@/app/components/SeatCapUpgradeNotice";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import AccessEditor, {
   emptyPermissionValues,
@@ -543,7 +543,11 @@ export default function TeamOverviewPage() {
       {seats.limit &&
         seats.used >= seats.limit &&
         ["owner", "admin"].includes(grants.yourRole) && (
-          <SeatUpgradePanel used={seats.used} limit={seats.limit} />
+          <SeatCapUpgradeNotice
+            used={seats.used}
+            limit={seats.limit}
+            nextTier={seats.nextTier}
+          />
         )}
 
       {/* ── Tabs only for pages this person can open ────────────────────────

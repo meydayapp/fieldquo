@@ -135,9 +135,11 @@ const ladderRows = SUPPORTED_CURRENCIES.flatMap((currency) =>
   })),
 );
 
-// A rate negotiated with one company. lib/billing/customPlan.js writes these
-// with isPublic: false, and advertising one to everybody is handing a private
-// discount to every competitor in the city.
+// A rate negotiated with one company — the shape a legacy "Custom (N
+// employees)" row still in the database carries (isPublic: false), from
+// before the owner retired the per-licence pricing model that used to mint
+// these automatically (docs/PRICING-CLEANUP.md). Advertising one to
+// everybody would hand a private discount to every competitor in the city.
 const bespoke = {
   id: "bespoke-1",
   name: "Custom (2 employees)",

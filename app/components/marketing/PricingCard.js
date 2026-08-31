@@ -2,7 +2,7 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { calculatePricing , TRIAL_PRICE } from "@/lib/pricing";
+import { TRIAL_PRICE } from "@/lib/pricing";
 import { useTranslation } from "@/app/hooks/useTranslation";
 // The locale table moved to app/i18n/numberLocale.js — /pricing needed the
 // same one, and two copies of a mapping is how the second copy goes stale.
@@ -18,13 +18,12 @@ function money(value, locale) {
   return number.toLocaleString(locale, { maximumFractionDigits: 0 });
 }
 
-export default function PricingCard({ tier, plan, selected, onSelect }) {
+export default function PricingCard({ plan, selected, onSelect }) {
   const { t, language } = useTranslation();
   const locale = numberLocaleFor(language);
-  const isDbPlan = Boolean(plan);
 
-  const label = isDbPlan ? plan.name : tier.label;
-  const employeeCount = isDbPlan ? plan.maxUsers : tier.employeeCount;
+  const label = plan.name;
+  const employeeCount = plan.maxUsers;
 
   // ── Seats and crew are two different things, and one number hid that ──────
   //
@@ -38,22 +37,25 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
   // A ladder plan says what it is. A legacy plan has no crew concept and keeps
   // the old wording, because inventing "0 crew" for it would be a claim about a
   // plan that predates the idea.
-  const ladderSeats = isDbPlan && plan.crewSeats != null ? plan.seats : null;
-  const ladderCrew = isDbPlan && plan.crewSeats != null ? plan.crewSeats : null;
-
-  const calculated = calculatePricing(employeeCount || 1);
+  const ladderSeats = plan.crewSeats != null ? plan.seats : null;
+  const ladderCrew = plan.crewSeats != null ? plan.crewSeats : null;
 
   // TRIAL_PRICE, not a literal. This was hardcoded to 1 and would have gone on
   // advertising a dollar after the real price changed in lib/pricing.js.
-  const trialTotal = isDbPlan ? TRIAL_PRICE : calculated.trialTotal;
-  const monthlyTotal = isDbPlan
-    ? Number(plan.priceMonthly || 0)
-    : calculated.monthlyTotal;
+  const trialTotal = TRIAL_PRICE;
+  const monthlyTotal = Number(plan.priceMonthly || 0);
 
-  const perLicense =
-    employeeCount > 0 ? Math.round(monthlyTotal / employeeCount) : monthlyTotal;
-
-  const popular = !isDbPlan && tier.popular;
+  // ── There used to be a "(${amount}/licence)" line here ────────────────────
+  //
+  // It divided the plan's flat price by maxUsers (seats + free crew) and
+  // printed the result — so Solo, a flat $99, read "$99/mo ($17/licence)" next
+  // to a Custom card genuinely selling licences at $45 each. Both numbers were
+  // real and they described two different products: under the seat ladder a
+  // tier is a flat rate, seats are not sold individually, and crew are free.
+  // The $17 was arithmetic, not a price, and calling it one was the exact
+  // "you didn't remove the $45 from the previous pricing" bug the owner
+  // flagged 2026-08-31 — see docs/PRICING-CLEANUP.md.
+  const popular = plan.popular;
 
   return (
     <button
@@ -98,10 +100,7 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
         <span className="font-semibold text-foreground">
           ${money(monthlyTotal, locale)}
           {t("pricing.perMonthShort")}
-        </span>{" "}
-        {employeeCount
-          ? t("pricing.perLicense", { amount: money(perLicense, locale) })
-          : ""}
+        </span>
       </div>
 
       <ul className="mt-4 space-y-2 flex-1">
@@ -139,14 +138,14 @@ export default function PricingCard({ tier, plan, selected, onSelect }) {
           {t("pricing.fullAccess")}
         </li>
 
-        {isDbPlan && plan.maxQuotesPerMonth && (
+        {plan.maxQuotesPerMonth && (
           <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
             {t("pricing.quoteLimit", { count: plan.maxQuotesPerMonth })}
           </li>
         )}
 
-        {isDbPlan && plan.aiCopilotEnabled && (
+        {plan.aiCopilotEnabled && (
           <li className="flex items-center gap-2 text-sm text-foreground">
             <CheckCircle2 size={16} className="text-green-600 shrink-0" />
             {t("pricing.aiIncluded")}
