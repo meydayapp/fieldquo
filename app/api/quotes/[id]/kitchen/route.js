@@ -27,12 +27,11 @@ import { recordActivity } from "@/lib/activity/log";
 import { ratesForCompany } from "@/lib/kitchen/rates";
 import { kitchenLineItems, getKitchenBreakdown } from "@/lib/kitchen/pricing";
 import { resolveTaxRate } from "@/lib/tax/resolveTaxRate";
-
-// The scope group a kitchen design owns. Matched by label rather than by
-// category so a company that files kitchens under "Cabinet refacing" or
-// "Remodeling" still gets exactly one design-owned group rewritten instead of
-// accumulating a new one on every save.
-const KITCHEN_GROUP_LABEL = "Kitchen — designed";
+import {
+  KITCHEN_DESIGN_KEY,
+  KITCHEN_GROUP_LABEL,
+  canUseKitchenDesigner,
+} from "@/lib/kitchen/access";
 
 /** The quote, if this member is allowed to see it. Scoped by company. */
 async function loadQuote(member, id) {
@@ -59,6 +58,16 @@ export async function GET(request, { params }) {
 
   const quote = await loadQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+
+  // The route itself, not just the button that links here — a hidden button
+  // is not access control. Refused only when the company has never turned
+  // Kitchen Design on AND this quote has no design of its own to protect.
+  if (!(await canUseKitchenDesigner(quote, member.companyId))) {
+    return NextResponse.json(
+      { error: "Kitchen Design isn't turned on for this company." },
+      { status: 403 },
+    );
+  }
 
   const rates = await ratesForCompany(member.companyId);
 
@@ -110,6 +119,15 @@ export async function PUT(request, { params }) {
   const quote = await loadQuote(member, id);
   if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
 
+  // Same gate as GET, checked again here rather than trusted from it — a PUT
+  // is a separate request and a separate authority to prove.
+  if (!(await canUseKitchenDesigner(quote, member.companyId))) {
+    return NextResponse.json(
+      { error: "Kitchen Design isn't turned on for this company." },
+      { status: 403 },
+    );
+  }
+
   // A sent quote is a commercial commitment. Repricing one underneath a client
   // who is looking at it is how two people end up with different numbers for
   // the same document — the same reason Quote.language is fixed at creation.
@@ -140,8 +158,12 @@ export async function PUT(request, { params }) {
   const subtotal = Number(breakdown.total.toFixed(2));
 
   // The category to file it under: whatever the company already uses for this
-  // quote, else its first enabled cabinetry-ish service, else its first service
-  // at all. A quote can't have a scope group without a category.
+  // quote, else its own "Kitchen Design & New Installs" category if it has
+  // one enabled, else the nearest cabinetry-ish service as a fallback for a
+  // company that reached this screen only because the quote already carries
+  // a design (the canUseKitchenDesigner check above lets that through even
+  // with kitchen_design off), else its first service at all. A quote can't
+  // have a scope group without a category.
   const existing = quote.scopeGroups.find((g) => g.label === KITCHEN_GROUP_LABEL);
   let categoryId = existing?.categoryId || quote.scopeGroups[0]?.categoryId;
   if (!categoryId) {
@@ -149,10 +171,11 @@ export async function PUT(request, { params }) {
       where: { companyId: member.companyId, enabled: true },
       include: { category: { select: { id: true, key: true } } },
     });
+    const kitchenDesign = enabled.find((e) => e.category?.key === KITCHEN_DESIGN_KEY);
     const cabinetish = enabled.find((e) =>
       /cabinet|kitchen|countertop|remodel/.test(e.category?.key || ""),
     );
-    categoryId = (cabinetish || enabled[0])?.category?.id;
+    categoryId = (kitchenDesign || cabinetish || enabled[0])?.category?.id;
   }
   if (!categoryId) {
     return NextResponse.json(

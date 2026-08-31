@@ -179,15 +179,58 @@ export const RECIPE_EDITABLE_FIELDS = {
 // Consumables (tape/masking film/sandpaper) are nested, so they get their own
 // small editable-field list per consumable key rather than living in
 // RECIPE_EDITABLE_FIELDS above.
+// Labels rewritten 2026-08-30 after the owner asked, of tape and masking
+// film: "is the units per roll? is how many tapes are in one roll? and the
+// cost of a pack of tapes in a roll?" — reasonable questions, because "Units
+// per roll" was ambiguous between "how many rolls come in a pack" and what it
+// actually means, which is neither: `perUnits` is how many DOORS+DRAWERS one
+// roll covers before the estimate reaches for a second one. There is no
+// "tapes per roll" concept anywhere in the calculation — a roll is the unit
+// that gets bought and used, never subdivided.
+//
+// The math these numbers drive (lib/costing/estimateJobCost.js): for a job
+// with `units` = doors + drawers,
+//   tape rolls needed        = ceil(units / tape.perUnits)
+//   masking film rolls needed = maskingFilm.perJob + ceil(units / maskingFilm.perUnits)
+// and each is billed at its own cost-per-roll. MaterialCostsEditor renders a
+// worked example from the company's OWN current numbers right under these
+// fields (see consumableExample() in the page) rather than a canned one that
+// could drift from what's actually saved.
 export const CONSUMABLE_EDITABLE_FIELDS = {
   tape: [
-    { key: "perUnits", label: "Units per roll", type: "number", step: 1 },
-    { key: "costPerRoll", label: "Cost per roll ($)", type: "number", step: 0.01 },
+    {
+      key: "perUnits",
+      label: "Doors + drawers covered by one roll",
+      hint: "Not how many tapes come in a roll — there's no such thing here. A roll is the unit. This is how many doors and drawers one roll gets you through before the job needs another.",
+      type: "number",
+      step: 1,
+    },
+    { key: "costPerRoll", label: "Cost per roll ($)", hint: "What you pay for one whole roll — not per door, per tape, or per foot.", type: "number", step: 0.01 },
   ],
   maskingFilm: [
-    { key: "perJob", label: "Rolls per job (base)", type: "number", step: 1 },
-    { key: "perUnits", label: "Units per additional roll", type: "number", step: 1 },
-    { key: "costPerRoll", label: "Cost per roll ($)", type: "number", step: 0.01 },
+    {
+      key: "perJob",
+      label: "Rolls every job uses no matter how small",
+      hint: "A base allowance — even a 2-door job masks off the counters and floor, so this many rolls are charged before the per-piece count below even starts.",
+      type: "number",
+      step: 1,
+    },
+    {
+      key: "perUnits",
+      label: "Doors + drawers covered by each additional roll",
+      hint: "Same idea as tape's field above: once the base allowance is used, one more roll gets charged for every this-many doors+drawers.",
+      type: "number",
+      step: 1,
+    },
+    { key: "costPerRoll", label: "Cost per roll ($)", hint: "What you pay for one whole roll.", type: "number", step: 0.01 },
   ],
-  sandpaper: [{ key: "perUnit", label: "Cost per unit ($)", type: "number", step: 0.01 }],
+  sandpaper: [
+    {
+      key: "perUnit",
+      label: "Cost per door or drawer ($)",
+      hint: "Sandpaper scales straight with piece count, not by the roll — this is charged once per door and once per drawer.",
+      type: "number",
+      step: 0.01,
+    },
+  ],
 };

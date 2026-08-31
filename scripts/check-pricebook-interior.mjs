@@ -154,7 +154,12 @@ ok(
 console.log("\nThe gap that is actually there");
 const catalogKeys = Object.keys(TRADE_CATALOG);
 const unpriced = catalogKeys.filter((k) => !tradeIsPricedByDefault(k));
-ok(`48 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 48, unpriced.length);
+// 49, not 48, since kitchen_design (2026-08-30, see lib/trades/catalog.js)
+// joined the unpriced side on purpose: it's the interactive designer, not a
+// $/sqft or per-unit rate card, so it was never going to have a price book —
+// same shape as countertop's own documented reason above. A DIFFERENT trade
+// losing its book is still what this count exists to catch.
+ok(`49 of ${catalogKeys.length} catalogue trades cannot price themselves`, unpriced.length === 49, unpriced.length);
 ok("only 2 material recipes exist in the whole product", Object.keys(MATERIAL_RECIPES).length === 2);
 ok("...and this file adds 8", Object.keys(INTERIOR_RECIPES).length === 8);
 // The three the brief named as empty. Overwriting any of them would have
