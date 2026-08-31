@@ -13,6 +13,7 @@ import {
   redactLead,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { isValidLeadStatus, canSetLeadStatus } from "@/lib/leads/pipeline";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
@@ -80,7 +81,9 @@ export async function PATCH(request, { params }) {
   const { id } = await params;
   const existing = await db.leadRequest.findFirst({
     where: { id, companyId: member.companyId },
-    select: { id: true, budgetBand: true, timeline: true },
+    // quoteId is here for canSetLeadStatus below — "converted" is Won, and
+    // this is what proves whether the lead has anything to be won FROM.
+    select: { id: true, budgetBand: true, timeline: true, quoteId: true },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -89,9 +92,14 @@ export async function PATCH(request, { params }) {
   const data = {};
 
   if (body.status !== undefined) {
-    const allowed = ["new", "contacted", "converted", "lost"];
-    if (!allowed.includes(body.status))
+    if (!isValidLeadStatus(body.status))
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    // "Converted" is Won, and nothing may land there on nothing but the enum
+    // being poked — see lib/leads/pipeline.js. Covers both the drawer's own
+    // status buttons and the board's drag-to-move, which both PATCH here.
+    const statusCheck = canSetLeadStatus(existing, body.status);
+    if (!statusCheck.ok)
+      return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
     data.status = body.status;
   }
 

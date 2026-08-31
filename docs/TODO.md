@@ -10,9 +10,7 @@ gap.
 
 ## In flight
 
-| What | Where | State |
-|---|---|---|
-| Drag-to-reorder on the Leads board | `/app/leads` | agent building |
+Nothing. Everything dispatched overnight has landed and been verified.
 
 ## Landed overnight, 2026-08-31
 
@@ -35,6 +33,33 @@ schema decision mirroring the existing `QuoteImport.targetLineId` reconciliation
 one level up.
 
 **Visit status.** See "a route with no caller" below.
+
+**Drag-to-move on the Leads board** — `@dnd-kit/core`, already a dependency.
+Separate drag handle from the click-to-open button so keyboard Space/Enter does
+not fight the native click; Mouse/Touch/Keyboard sensors rather than one
+Pointer sensor, so a touch-scroll on the single-column mobile board is not
+mistaken for a pickup.
+
+The trap was the drop into "Won". The decision was to REFUSE it rather than
+auto-convert — creating a real quote row from a slide gesture is a side effect
+nobody asked for, and it would not make the lead won anyway, only quoted. The
+rule lives in one pure function, `canSetLeadStatus` in `lib/leads/pipeline.js`,
+enforced server-side in BOTH PATCH routes with a 409, not just in the drag
+handler. Executed against hostile input: no quote refused, `quoteId: ""`
+refused, `null` lead refused, a bogus status refused, and lost/contacted
+unaffected.
+
+The same hole was already open on the drawer's own "Won" button, which PATCHed
+the enum with no check at all. It got the same guard.
+
+The rule is "a quote exists", not "a quote was accepted" — a contractor who
+gets a yes on the phone must be able to record it. What is refused is a win
+with nothing priced behind it, which is the one a drag board makes easy and
+which sits in the win-rate number forever. The module comment overstated this;
+corrected on merge.
+
+Not done: dnd-kit's screen-reader drag announcements are still English-only.
+Keyboard dragging works; the live-region text is not routed through `t()`.
 
 **Demo scripts** for marketing/growth and job execution — the last two blocks.
 

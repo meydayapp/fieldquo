@@ -11,6 +11,7 @@ import {
   redactLeads,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
+import { isValidLeadStatus, canSetLeadStatus } from "@/lib/leads/pipeline";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -120,11 +121,16 @@ export async function PATCH(request) {
   // lib/permissions/nav.js has said so since it was written ("Leads are the
   // requests grid") and hides the quick-add control at view_only. The control
   // was hidden and the endpoint behind it was open: dragging a card across the
-  // pipeline board is this PATCH, and a Worker set to "Requests: view only"
-  // could move anyone's lead to Lost.
+  // pipeline board is this PATCH — the leads board now actually does that,
+  // with @dnd-kit — and a Worker set to "Requests: view only" could move
+  // anyone's lead to Lost.
   //
   // Hiding a button is not access control — and of the four grid categories in
   // the Worker presets, requests was the one whose route had no check at all.
+  // The drag handler on the client checks the SAME rule below before it ever
+  // sends a request (so a refused drop never leaves the network), but this is
+  // the gate that actually matters: it runs independently of whatever the
+  // client chose to check, or skipped.
   try {
     const full = await loadEnforceableMember(db, member.id);
     requireLevel(full, "requests", "view_create_edit", "change a request");
@@ -142,7 +148,7 @@ export async function PATCH(request) {
   }
   // Same allow-list as the per-lead route — an arbitrary string here would be
   // stored and then silently bucketed into "new" by the board.
-  if (!["new", "contacted", "converted", "lost"].includes(status)) {
+  if (!isValidLeadStatus(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
@@ -151,6 +157,16 @@ export async function PATCH(request) {
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // "Converted" is Won, and nothing may land there on nothing but the enum
+  // being poked — see lib/leads/pipeline.js. This is what makes a drag drop
+  // onto the Converted column an honest refusal rather than a lead marked Won
+  // with no quote behind it, and it applies to the drawer's own status button
+  // exactly the same way, for the exact same reason.
+  const statusCheck = canSetLeadStatus(existing, status);
+  if (!statusCheck.ok) {
+    return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
+  }
 
   const updated = await db.leadRequest.update({
     where: { id },
