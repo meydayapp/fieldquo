@@ -125,6 +125,27 @@ The data-flow audit turned these up. Ranked worst first.
 
 Fixed 2026-08-30: the receptionist now tells callers the call is recorded.
 
+## Found and closed 2026-08-31 — a route with no caller
+
+`JobVisit.status` was written once, at creation, and nothing in the product
+could change it again. `grep on_the_way` returned exactly one file: the route
+that reacts to it. The only client that ever PATCHed a visit was the checklist,
+which sends `checklistItems` and nothing else.
+
+Stranded by that, all correct in source:
+
+- the **"on my way" text** to the homeowner — with editable wording at
+  `/app/settings/messages`, under a header saying it is the one message that
+  really sends;
+- **`ensureUpcomingVisit`** on completion, so a recurring job's next visit
+  waited for the nightly cron instead of appearing as the crew closed out;
+- the job page's **"0 of 3 complete"** counter, which could never move.
+
+Now: `lib/jobs/visitStatus.js` (the transitions and the label map),
+`app/components/jobs/VisitStatus.js` (the buttons, which name the text on the
+button and say where it goes), and `scripts/check-visit-status.mjs`, which asks
+the question no check in the repo asked — **does this route have a caller?**
+
 ## Planned, not started
 
 - Job-site photo documentation beyond intake: internal before/during/after

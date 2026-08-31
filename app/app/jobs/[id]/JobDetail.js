@@ -19,6 +19,8 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
+import VisitStatus from "@/app/components/jobs/VisitStatus";
+import { visitStatusLabel } from "@/lib/jobs/visitStatus";
 import {
   ArrowLeft,
   Pencil,
@@ -46,6 +48,15 @@ const STATUS_STYLES = {
   completed:
     "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900",
   cancelled: "bg-muted text-muted-foreground border-border",
+  // Visit-only, and it had no entry — so the moment a visit could actually be
+  // put on the way, its badge would have fallen through to the same grey as a
+  // cancelled one. Purple rather than amber: "in_progress" above is a JOB
+  // status and the two sit inches apart on this page.
+  on_the_way:
+    "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-900",
+  // lib/schedule/jobVisits.js filters on both spellings because it could not
+  // be sure which one the table holds. Style both for the same reason.
+  canceled: "bg-muted text-muted-foreground border-border",
 };
 
 // `unscheduled` included — it's where every auto-created job from an accepted
@@ -487,7 +498,7 @@ export default function JobDetail({ jobId }) {
                             "bg-muted text-muted-foreground border-border"
                           }`}
                         >
-                          {v.status?.replace(/_/g, " ")}
+                          {visitStatusLabel(v.status)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -506,6 +517,13 @@ export default function JobDetail({ jobId }) {
                       )}
                     </div>
                   </div>
+
+                  <VisitStatus
+                    jobId={jobId}
+                    visit={v}
+                    client={job.client}
+                    onChanged={load}
+                  />
 
                   <VisitChecklist jobId={jobId} visit={v} onChanged={load} />
                 </div>
