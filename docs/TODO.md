@@ -10,11 +10,8 @@ gap.
 
 ## In flight
 
-| What | Where | State |
-|---|---|---|
-| Money flow (income / expenses / what's left, period-over-period) folded INTO the KPI dashboard | `/app/analytics/kpis` | agent building |
-| Designer UX — tool rail spacing, mobile layout, AI prompt panel, clone-origin copy | `app/components/designer/` | agent building |
-| Navigation sweep — every page reachable, sidebars intuitive | both sidebars | agent building |
+Nothing. Everything dispatched this session has landed and been verified here,
+not on an agent's report.
 
 ## Reachability — swept 2026-08-30, and now guarded
 
