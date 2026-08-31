@@ -94,8 +94,15 @@ export default function TeamOverviewPage() {
       setPending(Array.isArray(pendingData.pending) ? pendingData.pending : []);
       setSeats(pendingData.seats || { used: 0, limit: null });
       setGrants(grantData);
+      // Archived (active: false) is excluded too — this section's whole claim
+      // is "they can be scheduled and paid right now", which is exactly what
+      // stops being true the moment somebody is archived. Without this an
+      // archived worker with no login sat here forever, described as payable,
+      // which is the reverse of what archiving is supposed to mean.
       setUnlinkedWorkers(
-        (Array.isArray(workerData) ? workerData : []).filter((w) => !w.userId),
+        (Array.isArray(workerData) ? workerData : []).filter(
+          (w) => !w.userId && w.active !== false,
+        ),
       );
     });
   }, []);

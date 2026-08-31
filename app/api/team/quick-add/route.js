@@ -16,9 +16,11 @@ import {
   toBetterAuthRole,
 } from "@/lib/permissions";
 import { checkUserLimit } from "@/lib/platform/planLimits";
+import { seatCheck, seatLimitMessage } from "@/lib/pricing/seatLimit";
 import { takeInviteEmailOutcome } from "@/lib/email/teamInvite";
 import { validateInvite } from "@/lib/permissions/inviteGuard";
 import { validateWorkProfile } from "@/lib/team/workProfile";
+import { resolveQuickAddWorker } from "@/lib/team/ensureWorker";
 
 export async function POST(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -109,6 +111,45 @@ export async function POST(request) {
     return NextResponse.json({ error: vetted.error }, { status: vetted.status });
   }
 
+  // ── The seat cap, missing from this route entirely ────────────────────────
+  //
+  // checkUserLimit() above only counts HEADS against the legacy
+  // Plan.maxUsers (seats + free crew, one number — see planLimits.js), so a
+  // Solo company at 1/1 seats and 0/5 crew reads as "1 of 6, go ahead" and
+  // this route created whoever was asked for: an Estimator, a Dispatcher, a
+  // Manager, all seats, none of them checked against the ONE seat the plan
+  // actually sells. The full New User page (POST /api/settings/members)
+  // already runs this exact check; this route just never got it, which is
+  // how the onboarding popup ended up offering — and creating — seats the
+  // company had none of.
+  //
+  // Same rule as there: checked AFTER clamping, against what this invite will
+  // actually carry, with pending invitations counted (a sent invite has
+  // already committed a seat, accepted or not) and crew never blocked by it.
+  const seatRoster = await db.member.findMany({
+    where: { companyId: member.companyId, active: true },
+    select: { role: true, permissions: true },
+  });
+  const seatPending = await db.pendingTeamProfile.findMany({
+    where: { companyId: member.companyId },
+    select: { role: true, permissions: true },
+  });
+  const seatPlan = await db.subscription.findUnique({
+    where: { companyId: member.companyId },
+    select: { plan: { select: { seats: true, crewSeats: true, tierKey: true } } },
+  });
+  const seats = seatCheck({
+    roster: [...seatRoster, ...seatPending],
+    plan: seatPlan?.plan || null,
+    incoming: { role, permissions: vetted.permissions },
+  });
+  if (!seats.allowed) {
+    return NextResponse.json(
+      { error: seatLimitMessage(seats), code: "seat_limit", seats },
+      { status: 402 },
+    );
+  }
+
   const cleanEmail = String(email).trim().toLowerCase();
 
   // Refuse duplicates before creating anything. Without this, adding the same
@@ -121,7 +162,7 @@ export async function POST(request) {
     }),
     db.worker.findFirst({
       where: { companyId: member.companyId, email: cleanEmail },
-      select: { id: true },
+      select: { id: true, active: true },
     }),
     db.invitation.findFirst({
       where: { organizationId: member.authOrgId, email: cleanEmail, status: "pending" },
@@ -135,7 +176,14 @@ export async function POST(request) {
       { status: 409 },
     );
   }
-  if (existingWorker) {
+  // An ACTIVE worker record with this email is still a real duplicate to
+  // refuse — two rows for one person means two payroll lines. An INACTIVE
+  // one is a different fact: this is somebody who was archived, not erased
+  // (lib/billing/access.js's rule applied to a person, not just a company),
+  // and re-adding them should reattach to that record — see the reactivation
+  // below — so their timesheets, pay-run lines and leave balances are theirs
+  // again rather than starting a second, empty history.
+  if (existingWorker?.active) {
     return NextResponse.json(
       { error: "You already have a team member with that email address." },
       { status: 409 },
@@ -172,26 +220,29 @@ export async function POST(request) {
     return NextResponse.json({ error: profile.error }, { status: 400 });
   }
 
-  const worker = await db.worker.create({
-    data: {
-      companyId: member.companyId,
-      name: fullName,
-      email: cleanEmail,
-      phone: phone || null,
-      address: address || null,
-      city: city || null,
-      province: province || null,
-      type: workerType === "contractor" ? "contractor" : "employee",
-      // A DIFFERENT question from `type` above, which is about how they are
-      // paid. This one is about where their hours cost the business: on a job,
-      // or on the business. See lib/team/workProfile.js.
-      workType: profile.workType,
-      scheduledHoursPerWeek: profile.scheduledHoursPerWeek,
-      // Clamped the same way — a Worker row's hourlyRate is the number
-      // payroll multiplies, whatever table it lives in.
-      hourlyRate: vetted.laborCostPerHour,
-    },
+  // ── Reattach to an archived Worker, don't shadow it with a second row ────
+  //
+  // existingWorker here is only ever the INACTIVE case — active ones already
+  // returned 409 above. Their Worker.id is what every TimeEntry, PayRunLine,
+  // Payout and LeaveBalance still points at, so bringing them back has to
+  // UPDATE that row, not create a new one next to it. Factored into
+  // lib/team/ensureWorker.js rather than inlined here so there is exactly one
+  // place that decides "reattach or create" for a quick-added worker — the
+  // same reasoning ensureWorkerForMember already applies on invite acceptance.
+  const workerResult = await resolveQuickAddWorker({
+    member,
+    existingWorker,
+    cleanEmail,
+    fullName,
+    phone,
+    address,
+    city,
+    province,
+    workerType,
+    profile,
+    hourlyRate: vetted.laborCostPerHour,
   });
+  const worker = workerResult.worker;
 
   let invite = null;
   try {
@@ -212,9 +263,17 @@ export async function POST(request) {
     });
   } catch (err) {
     // The invite is the whole point — a Worker row with no way to sign in is a
-    // half-created teammate. Roll it back rather than leaving an orphan that
-    // shows up in payroll for someone who can't log in.
-    await db.worker.delete({ where: { id: worker.id } }).catch(() => {});
+    // half-created teammate. A brand-new row is rolled back rather than left
+    // as an orphan that shows up in payroll for someone who can't log in.
+    //
+    // A REACTIVATED row is different: it is not an orphan, it is somebody's
+    // real employment record, and deleting it here would destroy the exact
+    // history this route exists to keep. Left active — the invite failed, not
+    // the person's standing — so an owner who retries a moment later reattaches
+    // again instead of recreating them from nothing.
+    if (workerResult.created) {
+      await db.worker.delete({ where: { id: worker.id } }).catch(() => {});
+    }
     return NextResponse.json(
       { error: err.message || "Could not send the invitation. Nothing was created." },
       { status: 502 },
