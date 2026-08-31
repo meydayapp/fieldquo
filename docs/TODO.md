@@ -12,19 +12,20 @@ gap.
 
 | What | Where | State |
 |---|---|---|
-| Jennifer — FieldQuo's own support/sales assistant, ported from echo | right-hand panel, marketing site + signed-in | agent building |
-| Service-gating for trade-specific SETTINGS screens | starting with Cabinet Rates | agent building |
-| Past-due grace warning — `graceWarnedAt` exists to dedupe a send nobody built | daily cron | agent building |
-| Demo scripts, one 15-min block each: voice, crew, money | `docs/DEMO-*.md` | agents building |
-| Read-aloud rewrite of the quote-to-cash script | `docs/DEMO-SCRIPT.md` | agent building |
+| Job-site photo documentation — timeline, annotation, photo reports | job detail | agent building |
+| Drag-to-reorder on the Leads board | `/app/leads` | agent building |
+| Demo scripts — marketing & growth, job execution | `docs/DEMO-*.md` | agents building |
 
-**Jennifer's scope, corrected by the owner 2026-08-30 and not to be widened:**
-she is FieldQuo's tier-1 support and sales assistant — "a tier 1 issue type
-conversation to fix something." She does NOT write quotes, price jobs or do work
-inside the product. The in-app copilot is a separate product with a separate job
-("the ai that is created in a company have specific roles and cannot be
-interacted") and must be left alone. Two assistants is correct: the copilot
-helps a contractor work, Jennifer helps when something is broken.
+## Landed overnight 2026-08-30
+
+Jennifer (support assistant, text only, escalation lifecycle) · past-due grace
+warning, two notices, empathetic register · renewal reminders (7 day monthly,
+30 day annual) · crisis handling on every AI surface · privacy policy, terms and
+a security page · trade-gated settings screens · CASL unsubscribe and real STOP
+handling · instant quotes carry tax, costing and an assignee · seat guard on
+onboarding · workers archived not destroyed · kitchen/countertop/stairs gating ·
+the starting credit described as $10.50, not "30 free minutes" · demo scripts for
+quote-to-cash, voice, crew and money, all read-aloud.
 
 ## Reachability — swept 2026-08-30, and now guarded
 
