@@ -1,8 +1,24 @@
 # FieldQuo — Feature Guide (Sales & Demo)
 
-_The single source of truth for what FieldQuo does. Two layers: a **Quick summary**
-to skim, and an **Expanded guide** detailed enough to script a demo. Kept
-current — every time a feature is added or changed, this file is updated._
+_The single source of truth for what FieldQuo does, told for a demo and a
+sales conversation. Two layers: a **Quick summary** to skim, and an
+**Expanded guide** detailed enough to script a demo._
+
+> **This file drifted before, and the lesson is worth stating rather than
+> just fixing quietly.** This page previously claimed to be updated "every
+> time a feature is added or changed." It wasn't — it went three weeks
+> without a touch while the Marketing Designer, paid AI image features,
+> bank-statement import, the KPI dashboard's money-flow section, direct
+> job-photo upload, the curated voice picker (with French/Spanish and a
+> recorded-call disclosure), simulated demo phone lines and the platform's
+> webhook-repair screen all shipped. A document asserting something false
+> about itself is exactly the failure class AGENTS.md is built against,
+> so the honest claim is a weaker one: **this file is updated when someone
+> remembers to, and it should be checked against `docs/ROADMAP.md`'s
+> "Recently completed" log (newest first) before being trusted for a demo
+> script.** For a support ticket rather than a demo, use
+> `docs/SUPPORT-GUIDE.md` instead — it's task-oriented, names exact pages,
+> and is scoped to answering a contractor rather than pitching one.
 
 > **Maturity is labelled honestly** — ✅ shipped · 🟡 in progress · ⚠️ configured-but-not-wired.
 > A sales guide that promises a dead control burns trust on the first demo, so the
@@ -86,28 +102,33 @@ Lead ──▶ Quote ──▶ (client approves) ──▶ Job ──▶ Invoice
 
 ### Know your numbers
 - **Expense tracking** — burn rate, runway, job-vs-overhead split.
+- **Bank-statement CSV import** for expenses — upload, map the columns, review, commit; the stepping stone to a real bank feed.
 - **Overhead → minimum price** you can't go below.
 - **Job cost & margin** with a green/amber/red signal.
-- **Revenue goal & pace, monthly digest email, "how you compare" benchmark.**
+- **KPI dashboard** — one screen for sales, profit, execution and cash, including a **money-flow section** (income vs. expenses over time).
+- **Revenue goal & pace, monthly digest email** (now reads the *calls* behind won and lost quotes, not just the numbers) **, "how you compare" benchmark.**
 
 ### Grow
 - **Refer & earn** — bring another contractor, earn account credit worth a month of *their* plan.
+- **Marketing Designer** — a real canvas ad editor (templates, stock photos, AI image generation, background removal) that exports one design across five ad sizes at once.
 - **Automated follow-ups** on unanswered quotes; **automated review requests.**
 - **Large-quote alerts, appointment reminders.**
 
 ### Your brand & website
 - **AI-drafted, multi-page website** at yourname.fieldquo.com — facts locked, can't invent a claim.
 - **One brand colour** flows onto every surface with **measured contrast.**
-- **Job photos → website gallery & before/after.**
+- **Job photos → website gallery & before/after** — and photos can now be added straight from the job page, not only by texting the crew line.
 - **Send emails from your own domain.**
 
 ### AI
 - **FieldQuo AI copilot** — ask your own business anything; never sees another tenant.
-- **AI phone receptionist + outbound follow-up calls** (never quotes a price).
+- **AI phone receptionist + outbound follow-up calls** (never quotes a price, discloses on request that it's an assistant, and now discloses once, early, that the call is recorded). Curated, spelling-accurate voice picker; French and Spanish are now genuinely spoken, not just transcribed.
+- **AI photo "deep read" on a quote** and **AI image generation** (Marketing Designer) — the two *paid* AI features, spending a company's own AI credit balance rather than FieldQuo's free quota.
 - **AI website copy, monthly digest, expense summary** — all metered & quota-safe.
 
 ### Crew & mobile
 - **Crew auto-attribution** — a crew member texts a photo, it files onto the right job (no app to install).
+- **Direct job-photo upload** on the job page itself, for shops that don't use the crew SMS line.
 - **Time clock, mobile-first everything.**
 
 ### Team & platform
@@ -270,11 +291,13 @@ Nothing falls through the gap between quoting and doing.
 driveway-view detail: tap-to-call phone, tap-to-navigate address, the visit list
 with checklist progress, photo counts, and notes.
 
-**Visits & checklists** 🟡 — Visits (scheduling, crew, checklists, photos) are fully
-built in the data + API and display everywhere, **but there's no "create a visit"
-screen yet** — the "Add visit" button points to a page that doesn't exist. Today
-visits are created via API or auto-generated for recurring jobs. *Don't demo
-"Add visit."*
+**Visits & checklists** ✅ — Visits (scheduling, crew, checklists, photos) are
+fully built and display everywhere, **and now have a real "create a visit"
+screen** — the "Add visit" button used to point at a page that didn't exist;
+it now opens a builder that offers the company's own checklist templates
+alongside FieldQuo's 168 per-trade system templates, phased pre/during/post,
+and genuinely stamps the chosen items onto the new visit (they used to save
+and go nowhere). Safe to demo end to end.
 
 **"On my way" text** ✅ — Flipping a visit to en-route texts the client (the
 company's own wording or a safe fallback), non-blocking.
@@ -378,6 +401,26 @@ recurring; the dashboard shows burn rate, runway, the job-vs-overhead split, a
 6-month trend, and an AI plain-English summary. Restricted members see only their
 own entries.
 
+**Bank-statement CSV import** ✅ — Upload a statement exported from any bank,
+map the columns, review the parsed rows, commit. Deliberately the low-cost
+stand-in for a paid bank-aggregator (evaluated and rejected — no Canadian
+support, four-figure monthly minimums), but built so a real bank feed can slot
+in later as a backfill rather than a rework: every imported row records its
+source, and duplicate detection is source-blind, so a future aggregator
+redelivering months of transactions a contractor already imported by hand gets
+caught, not double-booked.
+
+**KPI dashboard** ✅ — One screen for sales, profit, execution and cash: win
+rate, average job value, backlog (expressed in weeks, not months — a
+residential shop isn't a commercial GC), margin roll-up, revenue per employee,
+on-time completion, utilisation. Includes a **money-flow section** — income
+vs. expenses over a chosen period, compared against the equivalent prior
+period. Every figure is `value / incomplete / reason` under the hood: a
+company with no history for a metric sees an honest "—", never a fabricated
+zero, and margin figures specifically go silent (rather than print a
+misleading percentage) when logged expenses and a job's material buy-list
+disagree by an amount that suggests double bookkeeping.
+
 **Overhead → minimum price** ✅ — Enter fixed costs (salaries, debt) and weekly
 capacity, and get the price you can't go below. It refuses to compute without a
 real capacity (no invented "3 jobs/week").
@@ -414,6 +457,16 @@ URL, and live counts prove it's sending.
 
 **Alerts** ✅ — Large-quote email alerts and appointment reminder texts, each backed
 by a cron that honours the setting.
+
+**Marketing Designer** ✅ — A real canvas ad editor (`/app/marketing/designer`),
+reached from a company's marketing campaigns. Templates, a stock-photo library,
+and one advert exported as five ad-network sizes at once (Facebook banner,
+Instagram Story/square, etc.) are all free; AI image generation and background
+removal are the one paid piece, spending the company's AI credit balance. A
+design keeps one saved layout **per aspect ratio** rather than one shared
+layout stretched five ways, because a headline that fits a square doesn't fit
+a Story without adjustment — and each ratio starts from a sensible automatic
+reflow, then can be hand-tuned.
 
 ## H. Your brand & website (white-label)
 
@@ -453,10 +506,35 @@ the model, so it can't reach another tenant's books.
 **AI phone receptionist + outbound calls** ✅ (newer; needs Retell + prepaid voice
 credits) — A voice that answers as the business, captures the lead, and **never
 quotes a price**, escalating emergencies to a human; and outbound quote follow-ups
-/ review calls that disclose they're an assistant and honour "stop calling."
+/ review calls that disclose they're an assistant and honour "stop calling." The
+call now discloses, once, early and in one short clause, that it's being recorded
+— it wasn't, until this pass; FieldQuo's own sales line already did. The voice
+picker is **curated** to three providers chosen for phone-call clarity and
+spelling accuracy over the previous default, which was the single most
+expensive voice its own vendor offers and the one it warns sounds least
+reliable at spelling addresses and numbers back. French and Spanish companies
+now genuinely get a French- or Spanish-speaking agent (a real prompt-level
+fix — setting the "language" field alone changed transcription and the voice
+but never told the model what language to actually reply in, so a French
+company was answered in English until this shipped).
+
+**AI image generation + "deep read" quote review** ✅ (paid) — Two AI features
+that spend a company's own **AI credit balance** rather than FieldQuo's free
+quota: generating an image (Marketing Designer, with background removal) and a
+closer, higher-resolution AI read of the photos already on a quote — on top of
+the free quote review, which still runs on every quote regardless of AI credit.
+Buy AI credit as a pay-as-you-go top-up or a monthly bundle at Settings → AI
+credit. **This is a separate balance from the phone/crew wallet** — topping up
+one does nothing for the other, and this is the most common AI-billing support
+question (see `docs/SUPPORT-GUIDE.md`).
 
 **AI website copy, monthly digest, expense summary** ✅ — All go through one
 metered, quota-checked provider so AI never breaks a page or blows a budget.
+The monthly digest now reads the **calls** behind a company's won and lost
+quotes, not just the numbers — pointing at up to three things an actual caller
+said, never counting or concluding on its own (every count in the digest is
+still real arithmetic on real rows; the model only adds what a transcript
+alone can supply).
 
 > **Accuracy note:** the crew photo auto-attribution below is **not** an LLM — it's
 > a deterministic engine. Sell it as "smart auto-filing," not "AI."
@@ -468,6 +546,12 @@ it files onto the right job visit using confidence tiers (text match, GPS
 proximity, or only-one-job-today) and **asks when it can't be sure** — never guesses
 silently. The office inbox surfaces only the exceptions. No app to install; FieldQuo
 owns the schema, so the photo lands with no third party.
+
+**Direct job-photo upload** ✅ — A job's photos no longer have to arrive by
+crew text: an upload control on the job page itself files a photo the same
+way, for the (common) shop that doesn't use the crew SMS line. The panel also
+stopped hiding itself on a job with zero photos yet — "nothing filed" and "no
+such feature" used to render identically.
 
 **Time clock + mobile** ✅ — One big in/out button with live hours; the whole `/app`
 is mobile-first for a phone on a bad driveway connection, add-to-home-screen
@@ -517,15 +601,16 @@ apply here.
 Branding, Company (name/address/tax/hours/regional), Payments, Email domain,
 Language, Translations (review AI-drafted service names before a client sees them),
 Notifications, Instant-quotes rate cards, Booking page, Lead-form links + embeds,
-Website, Reviews, Follow-ups, Expense tracking, Messages ("on my way" wording),
-Overhead, Materials, Services, Products, Account & billing, Document (PDF)
-templates. **All of the above are fully read-and-written.** Three are **not** wired
-and should be hidden or skipped in a demo:
+Website, Reviews, Follow-ups, Expense tracking (+ its bank-statement CSV import),
+Messages ("on my way" wording), Overhead, Materials, Services, Products,
+Checklists (now genuinely stamped onto a visit, see section C), Account &
+billing, AI credit (a separate balance from phone/crew credit — section I),
+Document (PDF) templates. **All of the above are fully read-and-written.** Two
+are **not** wired and should be hidden or skipped in a demo:
 
 - ⚠️ **Email templates** — the block editor and "Set Active" work, but the real
   **quote/invoice** sends use a hardcoded (still-branded) email and ignore the
   Active template. Active templates only drive marketing campaigns and follow-ups.
-- ⚠️ **Checklist templates** — saved but never stamped onto a visit.
 - ⚠️ **Custom fields** — definable but never collected or displayed.
 - ⚠️ **Voice `transferTo`** — a dead field (saved, never used).
 
@@ -575,13 +660,27 @@ tooling exists; it's not part of the customer sales deck. All ✅ shipped.
 
 **Sales tooling**
 - **Demo accounts** — one re-skinnable demo per rep; "Change trade" re-dresses it
-  as any industry (wiping that demo's data, with a confirm).
+  as any industry (wiping that demo's data, with a confirm). A demo can now
+  demo the **phone receptionist end to end on a phone number that is never
+  real** — a simulated line drawn from the numbering plan's reserved
+  fictional block, run through the exact same provisioning a paying company
+  gets, so the settings, voice picker and call list all genuinely work
+  without ever risking a real, dialable number outliving the demo or
+  answering as the wrong trade next week. A demo cannot buy a real number at
+  all — refused server-side, on purpose.
 - **Demo bookings** — product demos prospects booked from the marketing site, as
   a sales queue.
 
 **Operations & reliability**
 - **Feedback queue** — in-app bug reports/requests, aged oldest-first, with
   private internal notes.
+- **Voice webhook repair** — when a receptionist answers perfectly but its
+  calls never appear in the log, this screen (`/platform/voice-webhooks`)
+  shows where each company's call events are actually being delivered and can
+  repair a stale delivery address — but refuses to run the repair from
+  anywhere that won't still exist next month, since a bad repair would break
+  every other company's receptionist at once, not just the one being looked
+  at.
 - **AI usage metering + per-company caps** — sorts tenants by token spend, flags
   3×+ spikes, and lets staff cap a company (blank = plan default, 0 = AI off).
 - **AI health & Email health checks** — the AI check runs one real completion
@@ -606,16 +705,20 @@ tooling exists; it's not part of the customer sales deck. All ✅ shipped.
 | Feature | Status | Demo guidance |
 |---|---|---|
 | Good/Better/Best tiers | data/API only, no UI | Describe as a concept, don't click |
-| Visit creation ("Add visit") | API works, no create screen | Don't tap "Add visit" (404) |
-| Paid estimate visits | config shipped, checkout in progress | Configure a fee; don't collect it |
 | Email templates "Set Active" | editor works, real quote/invoice sends ignore it | Don't claim your custom email is what clients get |
-| Checklist templates | saved, not stamped onto visits | Skip |
 | Custom fields | definable, never collected | Skip |
 | Employee payroll payout | not wired (contractor payouts work) | Demo contractor payouts only |
-| AI phone receptionist | shipped but newest; needs Retell + credits | Demo on a configured account |
+| AI phone receptionist | shipped but newer; needs Retell + credits | Demo on a configured account |
 | Instant estimates / cost engine | real but trade-limited | Stick to supported trades |
 | Granular permission grid | saves, enforced only on sensitive routes | Demo the 4 roles, not per-category everywhere |
 | Product `costPrice` / Materials page | captured but not read by any calc | Don't imply product-cost margin or material-driven quoting |
+
+_Resolved since the last pass through this table — kept out of it now, not
+forgotten: **"Add visit"** has a real create screen (`/app/jobs/[id]/visits/new`)
+and is safe to demo; **checklist templates** (company-built and FieldQuo's own
+168 system templates) are now offered when creating a visit and genuinely
+stamp onto it; **paid estimate visits** collect a real Stripe charge at
+booking, not just a config screen — see section D above for all three._
 
 ---
 
