@@ -140,6 +140,9 @@ const en = {
   // ── Navigation ───────────────────────────────────────────────────────────
   "app.nav.home": "Home",
   "app.nav.ai": "FieldQuo AI",
+  // The mobile bottom tab bar's own "More" tab, which opens the same drawer
+  // AdminSidebar already renders — see app/components/layout/MobileTabBar.js.
+  "app.nav.more": "More",
 
   "app.nav.group.work": "Work",
   "app.nav.requests": "Leads",
@@ -4376,6 +4379,7 @@ const fr = {
   "app.scheduler.managerSubtitle": "Ajoutez les quarts de la semaine, puis cliquez sur Publier pour que votre équipe les voie — les quarts restent masqués jusqu'à la publication.",
   "app.nav.home": "Accueil",
   "app.nav.ai": "FieldQuo IA",
+  "app.nav.more": "Plus",
 
   "app.nav.group.work": "Travail",
   "app.nav.requests": "Prospects",
@@ -8420,6 +8424,7 @@ const es = {
   "app.scheduler.managerSubtitle": "Añade los turnos de la semana y luego pulsa Publicar para que tu equipo los vea: los turnos permanecen ocultos hasta que publicas.",
   "app.nav.home": "Inicio",
   "app.nav.ai": "FieldQuo IA",
+  "app.nav.more": "Más",
   "app.nav.group.work": "Trabajo",
   "app.nav.requests": "Prospectos",
   "app.nav.quotes": "Cotizaciones",
@@ -11654,6 +11659,7 @@ const uk = {
   "app.scheduler.managerSubtitle": "Додайте зміни на тиждень, а потім натисніть «Опублікувати», щоб команда їх побачила — зміни залишаються прихованими, доки ви не опублікуєте.",
   "app.nav.home": "Головна",
   "app.nav.ai": "FieldQuo ШІ",
+  "app.nav.more": "Більше",
   "app.nav.group.work": "Робота",
   "app.nav.requests": "Ліди",
   "app.nav.quotes": "Кошториси",
@@ -14920,6 +14926,7 @@ const pa = {
   "app.scheduler.managerSubtitle": "ਹਫ਼ਤੇ ਲਈ ਸ਼ਿਫਟਾਂ ਸ਼ਾਮਲ ਕਰੋ, ਫਿਰ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ ਤਾਂ ਜੋ ਤੁਹਾਡੀ ਟੀਮ ਉਹਨਾਂ ਨੂੰ ਦੇਖ ਸਕੇ — ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਕਰਦੇ, ਸ਼ਿਫਟਾਂ ਲੁਕੀਆਂ ਰਹਿੰਦੀਆਂ ਹਨ।",
   "app.nav.home": "ਹੋਮ",
   "app.nav.ai": "FieldQuo AI",
+  "app.nav.more": "ਹੋਰ",
   "app.nav.group.work": "ਕੰਮ",
   "app.nav.requests": "ਲੀਡਸ",
   "app.nav.quotes": "ਕੋਟੇਸ਼ਨ",
@@ -18143,6 +18150,7 @@ const tl = {
   "app.scheduler.managerSubtitle": "Magdagdag ng mga shift para sa linggo, pagkatapos ay i-Publish para makita ito ng iyong team — nananatiling nakatago ang mga shift hanggang i-publish mo ang mga ito.",
   "app.nav.home": "Home",
   "app.nav.ai": "FieldQuo AI",
+  "app.nav.more": "Higit pa",
   "app.nav.group.work": "Trabaho",
   "app.nav.requests": "Mga Lead",
   "app.nav.quotes": "Mga Kotasyon",

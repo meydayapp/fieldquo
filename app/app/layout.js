@@ -2,6 +2,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/app/components/layout/AdminSidebar";
+import MobileTabBar from "@/app/components/layout/MobileTabBar";
 import ImpersonationBanner from "@/app/components/ImpersonationBanner";
 import BillingBanner from "@/app/components/layout/BillingBanner";
 import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
@@ -330,7 +331,16 @@ export default async function AppLayout({ children }) {
             normal flow rather than beside it as a flex column. */}
         <div className="lg:flex">
           <AdminSidebar />
-          <main className="flex-1 min-w-0">{children}</main>
+          {/* pb-[calc(4rem+...)] reserves exactly what MobileTabBar occupies
+              below `lg` — its fixed 4rem (h-16) content row plus the same
+              safe-area inset it pads itself with — so the last thing on a
+              page is never rendered underneath the bar. lg:pb-0 undoes it
+              the moment AdminSidebar's real rail takes over and the tab bar
+              stops rendering (see its own lg:hidden). */}
+          <main className="flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
+            {children}
+          </main>
+          <MobileTabBar />
         </div>
       </PermissionProvider>
       </FeatureProvider>
