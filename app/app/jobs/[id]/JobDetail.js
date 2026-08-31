@@ -17,6 +17,7 @@ import JobTasks from "@/app/components/jobs/JobTasks";
 import Link from "next/link";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import JobPhotoCurator from "@/app/components/jobs/JobPhotoCurator";
+import JobPhotoTimeline from "@/app/components/jobs/JobPhotoTimeline";
 import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import {
@@ -517,6 +518,11 @@ export default function JobDetail({ jobId }) {
 
       {/* Turn what a human wrote about this job into office to-dos */}
       <SuggestedTasks jobId={jobId} onCreated={load} />
+
+      {/* The job's own photo record — every photo filed, dated, grouped by
+          stage, issue shots included. This is the evidence; the panel below
+          is the marketing curation of a subset of it. */}
+      <JobPhotoTimeline jobId={jobId} jobTitle={job.title} />
 
       {/* Curate the crew's photos → website gallery */}
       <JobPhotoCurator jobId={jobId} />
