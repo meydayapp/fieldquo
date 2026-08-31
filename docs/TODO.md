@@ -55,17 +55,52 @@ Closed in this sweep:
 
 - **Stripe live keys.** Order matters: create both live webhook endpoints first,
   then set all three env vars together, then have the 8 Connect-onboarded
-  contractors re-onboard. Doing the key before the webhooks means live events
-  arrive with no valid secret and are silently rejected. 11 test-mode
-  subscriptions will need re-subscribing; no real money has moved.
+  contractors re-onboard. 11 test-mode subscriptions need re-subscribing; no
+  real money has moved.
 - **Suspend/Reactivate on `/platform/companies/[id]`** — the only write path onto
-  a customer's own Company row in the whole console. Either a sanctioned
-  exception to non-negotiable #3 or a violation. A product call.
-- **Photo retention.** Job photos are liability evidence (CompanyCam's own
-  benchmark is 7-10 years for structural work) and the product never deletes
-  data. Unbounded Cloudinary storage on a flat subscription is a margin problem.
-  Needs a stated policy, including what happens on cancellation.
+  a customer's own Company row in the console. Sanctioned exception to
+  non-negotiable #3, or a violation. A product call.
+- **A named privacy officer.** Quebec Law 25 requires the title and contact be
+  PUBLISHED on the website once you hold a Quebec resident's data. By default the
+  role falls to whoever holds highest authority. There is no such disclosure
+  today.
+- **Legal review** of anything drafted below before it is published.
 
+## Legal and privacy — found 2026-08-30, ranked by exposure
+
+The data-flow audit turned these up. Ranked worst first.
+
+1. **CASL: no unsubscribe in any email.** `MarketingSubscriber.subscribed`
+   exists and is honoured before sending, but toggling it needs `user:manage` —
+   it is staff-only, and there is no public unsubscribe route anywhere.
+   Canada's anti-spam law requires a working unsubscribe mechanism in commercial
+   electronic messages. This is the sharpest legal exposure in the product.
+2. **"Reply STOP" is promised with nothing behind it.** Appointment reminders
+   tell homeowners to reply STOP. The only inbound SMS webhook is the crew line,
+   matched on `CrewInboxNumber` — a homeowner's STOP is not processed by
+   FieldQuo at all. It may be handled at the Twilio account level; that is not
+   verifiable from the repo and must not be claimed until confirmed.
+3. **No retention limit on call recordings or transcripts.** No cron, no expiry
+   field, no deletion path. Combined with "nothing is ever deleted", a homeowner's
+   recorded call is kept indefinitely.
+4. **No company-deletion path exists at all** — not self-serve, not admin. A
+   contractor asking to be deleted has no backend flow.
+5. **No homeowner-facing data surface.** The client portal shows invoices only.
+   No access, correction, export or deletion for the person whose name, address,
+   photos and recorded call are held.
+6. **Google Maps and Google Solar receive homeowner addresses** for roof
+   measurement and address autocomplete — a live processor missing from
+   AGENTS.md's stack table.
+7. **Homeowner IP and user agent are stored** on `Quote.signature` and
+   `ServicePlanAuthorisation`, with no retention path. IP is personal data in
+   most frameworks.
+8. **No data residency is established in code** for any processor. A policy
+   naming a country would be inventing a fact.
+9. **No cookie banner, no sub-processor list, no DPA** anywhere in the repo.
+
+Fixed 2026-08-30: the receptionist now tells callers the call is recorded.
+
+## Planned, not started
 ## Planned, not started
 
 - Job-site photo documentation beyond intake: internal before/during/after
