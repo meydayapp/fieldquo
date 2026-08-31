@@ -55,6 +55,10 @@
     {
       "path": "/api/cron/crew-line-rent",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/renewal-reminders",
+      "schedule": "0 9 * * *"
     }
   ]
 }

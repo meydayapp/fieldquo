@@ -759,6 +759,23 @@ model Subscription {
   /// table and the one nobody remembers to collect.
   cancelReason String?
 
+  /// The `currentPeriodEnd` an advance renewal reminder was already sent for
+  /// (`/api/cron/renewal-reminders`, `lib/billing/renewalReminder.js`).
+  ///
+  /// Keyed to the PERIOD, the same idea as `rentRef()` keying a rent charge to
+  /// a period (lib/voice/spendGate.js) — not a boolean, because a boolean can
+  /// only ever fire once. `currentPeriodEnd` advances every time Stripe
+  /// renews, so comparing against it is what lets next month's (or next
+  /// year's) reminder go out while this month's cannot be sent twice, on a
+  /// cron that runs daily, replays, or overlaps itself.
+  renewalRemindedPeriodEnd DateTime?
+
+  /// When the reminder above was actually sent. Written only on a CONFIRMED
+  /// send — see the cron's claim/revert comment — so a Resend failure doesn't
+  /// permanently suppress the one email that exists to give someone notice
+  /// before their card is charged.
+  renewalReminderSentAt DateTime?
+
 }
 
 /// The Marketing Designer's starter-template gallery (app/components/designer/,
