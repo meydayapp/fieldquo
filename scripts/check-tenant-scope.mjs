@@ -330,6 +330,15 @@ const PLATFORM_MAY_WRITE = {
     "The shared service catalogue — rows with companyId null, seeded by us. The " +
     "console creates system categories; a company's OWN custom categories are " +
     "created by that company.",
+  jenniferConversation:
+    "Marking an escalated Jennifer conversation resolved once a FieldQuo operator " +
+    "has answered it — a support-queue status, the same shape as Feedback's own " +
+    "status, not the company's quote/invoice/job/client data.",
+  jenniferMessage:
+    "A FieldQuo operator's OWN reply into an escalated Jennifer conversation. " +
+    "Jennifer (lib/ai/jennifer/) is FieldQuo's own assistant answering for " +
+    "itself; this is the human half of the same conversation, not an edit to " +
+    "anything the company wrote.",
 };
 
 const platformWrites = [];

@@ -46,6 +46,15 @@ const TYPE_META = {
     Icon: MessageSquare,
     className: "text-muted-foreground bg-muted",
   },
+  // A handoff Jennifer (lib/ai/jennifer/) made rather than answered — money
+  // moving, a data-deletion request, a legal/privacy request. `body` is the
+  // one-sentence reason only, never a conversation — see
+  // app/api/jennifer/route.js's recordEscalation.
+  jennifer_escalation: {
+    label: "Jennifer",
+    Icon: AlertCircle,
+    className: "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40",
+  },
 };
 
 function ageInDays(createdAt) {

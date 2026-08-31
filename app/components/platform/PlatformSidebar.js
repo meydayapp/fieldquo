@@ -57,6 +57,7 @@ import {
   Tags,
   ScrollText,
   MessageSquare,
+  MessageCircle,
   BarChart3,
   LogOut,
   ShieldCheck,
@@ -97,6 +98,12 @@ const GROUPS = [
     label: "Support",
     items: [
       { label: "Feedback", href: "/platform/feedback", icon: MessageSquare },
+      // Conversations Jennifer (lib/ai/jennifer/) escalated rather than
+      // answered — money, deletion, legal/privacy requests. Separate row from
+      // Feedback on purpose: these are live conversations to REPLY into
+      // (app/api/platform/jennifer/conversations/[id]), not tickets to triage
+      // and close.
+      { label: "Jennifer", href: "/platform/jennifer", icon: MessageCircle },
       { label: "Errors", href: "/platform/errors", icon: AlertTriangle },
     ],
   },

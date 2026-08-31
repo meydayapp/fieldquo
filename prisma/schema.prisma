@@ -4584,6 +4584,15 @@ enum FeedbackType {
   billing
   question
   other
+  /// A handoff Jennifer (lib/ai/jennifer/) made rather than answered — money
+  /// actually moving, a data-deletion request, or a legal/privacy request.
+  /// Lands in the SAME queue as every other report a human already works
+  /// (/platform/feedback), rather than a second console nobody would check.
+  /// `body` carries only the one-sentence reason a visitor or member gave,
+  /// never the conversation itself — Jennifer's chat history is not persisted
+  /// for either mode, and this row is a ticket asking a person to follow up,
+  /// not a transcript.
+  jennifer_escalation
 }
 
 enum FeedbackStatus {
@@ -4591,6 +4600,80 @@ enum FeedbackStatus {
   in_progress
   resolved
   wont_fix
+}
+
+// ── Jennifer — tier-1 support, company mode only ────────────────────────────
+//
+// Anonymous visitor conversations are NEVER persisted (AGENTS.md non-
+// negotiable #8 — this codebase has no deletion path for anything, and a
+// stranger's chat log kept forever is a liability). This pair of models exists
+// ONLY for a signed-in company member's own conversation with Jennifer, so
+// `companyId` is required, never nullable — unlike Feedback.companyId, which
+// has to tolerate an anonymous report.
+//
+// No `@relation` to Company, deliberately, matching Feedback's own precedent
+// just above: a soft reference kept simple rather than a hard FK with cascade
+// semantics to reason about, for a table nothing else joins against.
+model JenniferConversation {
+  id        String   @id @default(cuid())
+  companyId String
+  // Member.userId of whoever started it — the identity POST /api/jennifer
+  // resolves from the SESSION, never from anything the client sends.
+  userId    String
+
+  status JenniferConversationStatus @default(unresolved)
+
+  // Set once, when a message tips the conversation into `escalated` — either
+  // escalate.js's forced regex match or the model's own escalateToHuman tool
+  // call. Null until then. Distinct from Feedback.type: an ANONYMOUS
+  // escalation still gets a Feedback row (there is no conversation to point
+  // an operator at); a COMPANY escalation gets THIS conversation's status
+  // flipped instead, and no duplicate Feedback ticket — the conversation
+  // itself is what /platform/jennifer reads.
+  escalationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages JenniferMessage[]
+
+  // (status, updatedAt): the operator queue lists open (escalated) ones
+  // oldest-first, same ordering Feedback's own queue uses.
+  @@index([status, updatedAt])
+  @@index([companyId, updatedAt])
+}
+
+enum JenniferConversationStatus {
+  unresolved
+  escalated
+  resolved
+}
+
+model JenniferMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   JenniferConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role JenniferMessageRole
+  // Never a tool result, never a fenced company-data block — only what a
+  // person (the visitor or the operator) or the model's own final answer
+  // actually said. See lib/ai/jennifer/conversations.js.
+  content String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+enum JenniferMessageRole {
+  user
+  assistant
+  // A FieldQuo platform admin's reply, once escalated. Carries no admin id —
+  // read consistently with how impersonation is presented to a company
+  // (Part 6 of docs/SUPPORT-GUIDE.md: escalate to "a human", not to a named
+  // individual), and because /platform's own admin session already scopes who
+  // MAY write one at the API layer.
+  operator
 }
 
 enum MemberRole {
