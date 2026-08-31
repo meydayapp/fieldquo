@@ -74,7 +74,7 @@ import {
   MessageSquareText,
   Percent,
   Webhook,
-  PhoneCall,
+  Gauge,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -174,7 +174,7 @@ const GROUPS = [
       // "should we change the price" rather than "is something broken", and
       // because the concurrency figure on it is the one nobody thinks to look
       // for until an inbound call has already failed.
-      { label: "Voice economics", href: "/platform/voice-economics", icon: PhoneCall },
+      { label: "Voice economics", href: "/platform/voice-economics", icon: Gauge },
     ],
   },
   {

@@ -12,9 +12,31 @@ gap.
 
 | What | Where | State |
 |---|---|---|
-| Job-site photo documentation — timeline, annotation, photo reports | job detail | agent building |
 | Drag-to-reorder on the Leads board | `/app/leads` | agent building |
-| Demo script — job execution | `docs/DEMO-JOB.md` | agent building |
+
+## Landed overnight, 2026-08-31
+
+**Job photo record.** `stageTimeline()` in `lib/gallery/albums.js` — the office
+twin of `albums()`, and the one function in that file that does NOT filter.
+Unfeatured photos and `issue` shots are exactly what a contractor needs in a
+dispute, so the timeline keeps them while every public view still drops them.
+Executed against a hostile fixture to confirm both halves: 3 of 3 photos in the
+timeline, 1 of 3 in `albums`, and `beforeAfterPairs` correctly empty when the
+"after" is unfeatured. A photo-report PDF hangs off it, reusing the existing
+`@react-pdf` pipeline and the company's own brand theme, scoped by company AND
+`assignedJobWhere` so a crew member restricted to their own jobs cannot pull a
+report for somebody else's.
+
+Photo-to-quote-line-item was scoped OUT rather than half-built, and the reason
+is good: line items inside `QuoteScopeGroup.lineItems` have no stable id, and
+`PATCH /api/quotes/[id]` replaces that JSON array wholesale. Any photo
+reference by id would silently orphan on the next quote edit. That needs a
+schema decision mirroring the existing `QuoteImport.targetLineId` reconciliation
+one level up.
+
+**Visit status.** See "a route with no caller" below.
+
+**Demo scripts** for marketing/growth and job execution — the last two blocks.
 
 ## Landed overnight 2026-08-30
 
