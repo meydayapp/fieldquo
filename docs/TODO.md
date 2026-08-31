@@ -256,14 +256,20 @@ guessing costs a rebuild.
 
 ## Planned, not started
 
-- Job-site photo documentation beyond intake: internal before/during/after
-  timeline, annotation, photo reports. `JobPhoto`'s stated purpose in its own
-  schema comment is still the public website gallery, not a liability record.
-- Drag-to-reorder on the Leads board. The board, columns, cards and status
-  endpoint all exist; only the drag interaction is missing. Use `@dnd-kit`
-  (React 19), never `@hello-pangea/dnd`. A drop into "Converted" must go through
-  the real conversion endpoint, which also creates a Quote — not a bare status
-  PATCH.
+- Photo annotation — drawing on a job photo. Deliberately left out of the photo
+  record above: there is no canvas tooling in this repo, and the caption field
+  covers most of what an arrow would.
+- Photos attached to a quote LINE ITEM. Blocked on schema, not effort: line
+  items inside `QuoteScopeGroup.lineItems` have no stable id and
+  `PATCH /api/quotes/[id]` replaces that JSON array wholesale, so a photo
+  referencing one by id orphans on the next edit. Needs a stable line-item id
+  and a reconciliation pass, mirroring `QuoteImport.targetLineId` one level up.
+- A marketing-spend entry screen. `MarketingSpend` is read by
+  `lib/analytics/marketingRollup.js` and written by nothing, so the monthly
+  digest reports zero spend forever. `/api/marketing-spend` already has GET,
+  POST and per-row PATCH/DELETE; only the form is missing.
+- Screen-reader drag announcements on the leads board. dnd-kit's defaults are
+  English-only and not routed through `t()`. Keyboard dragging itself works.
 - Plaid, when there are enough paying companies to amortise a $1,000+/month
   floor — roughly 100 connected accounts at break-even, comfortable at 200-300.
   CSV import is the deliberate stand-in and is built so Plaid is a backfill:
