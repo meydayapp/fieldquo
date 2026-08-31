@@ -243,6 +243,7 @@ const en = {
   "footer.legal": "Legal",
   "footer.privacy": "Privacy",
   "footer.terms": "Terms",
+  "footer.security": "Security",
   "footer.rights": "All rights reserved.",
   "footer.tagline":
     "The all-in-one platform for contractors and home service pros — quotes, scheduling, invoicing, and payments in one place.",
@@ -254,6 +255,7 @@ const en = {
   "footer.links.careers": "Careers",
   "footer.links.privacy": "Privacy Policy",
   "footer.links.terms": "Terms of Service",
+  "footer.links.security": "Security",
 
   // Theme switcher
   "theme.label": "Theme",
@@ -748,6 +750,7 @@ const fr = {
   "footer.legal": "Légal",
   "footer.privacy": "Confidentialité",
   "footer.terms": "Conditions",
+  "footer.security": "Sécurité",
   "footer.rights": "Tous droits réservés.",
   "footer.tagline":
     "La plateforme tout-en-un pour les entrepreneurs et les services à domicile — soumissions, planification, facturation et paiements au même endroit.",
@@ -759,6 +762,7 @@ const fr = {
   "footer.links.careers": "Carrières",
   "footer.links.privacy": "Politique de confidentialité",
   "footer.links.terms": "Conditions d'utilisation",
+  "footer.links.security": "Sécurité",
 
   "theme.label": "Thème",
   "theme.light": "Clair",
@@ -1226,6 +1230,7 @@ const es = {
   "footer.legal": "Legal",
   "footer.privacy": "Privacidad",
   "footer.terms": "Términos",
+  "footer.security": "Seguridad",
   "footer.rights": "Todos los derechos reservados.",
   "footer.tagline":
     "La plataforma todo en uno para contratistas y servicios a domicilio — presupuestos, agenda, facturación y pagos en un solo lugar.",
@@ -1237,6 +1242,7 @@ const es = {
   "footer.links.careers": "Empleo",
   "footer.links.privacy": "Política de privacidad",
   "footer.links.terms": "Términos del servicio",
+  "footer.links.security": "Seguridad",
 
   "theme.label": "Tema",
   "theme.light": "Claro",
@@ -1705,6 +1711,7 @@ const uk = {
   "footer.legal": "Правова інформація",
   "footer.privacy": "Конфіденційність",
   "footer.terms": "Умови",
+  "footer.security": "Безпека",
   "footer.rights": "Усі права захищено.",
   "footer.tagline":
     "Універсальна платформа для підрядників і послуг для дому — кошториси, планування, рахунки та оплати в одному місці.",
@@ -1716,6 +1723,7 @@ const uk = {
   "footer.links.careers": "Кар'єра",
   "footer.links.privacy": "Політика конфіденційності",
   "footer.links.terms": "Умови використання",
+  "footer.links.security": "Безпека",
 
   "theme.label": "Тема",
   "theme.light": "Світла",
@@ -2183,6 +2191,7 @@ const pa = {
   "footer.legal": "ਕਾਨੂੰਨੀ",
   "footer.privacy": "ਪਰਦੇਦਾਰੀ",
   "footer.terms": "ਸ਼ਰਤਾਂ",
+  "footer.security": "ਸੁਰੱਖਿਆ",
   "footer.rights": "ਸਾਰੇ ਹੱਕ ਰਾਖਵੇਂ ਹਨ।",
   "footer.tagline":
     "ਠੇਕੇਦਾਰਾਂ ਅਤੇ ਘਰੇਲੂ ਸੇਵਾ ਪੇਸ਼ੇਵਰਾਂ ਲਈ ਸਭ-ਇੱਕ-ਥਾਂ ਪਲੇਟਫਾਰਮ — ਕੋਟ, ਸ਼ਡਿਊਲਿੰਗ, ਇਨਵੌਇਸਿੰਗ ਅਤੇ ਭੁਗਤਾਨ ਇੱਕੋ ਥਾਂ।",
@@ -2194,6 +2203,7 @@ const pa = {
   "footer.links.careers": "ਨੌਕਰੀਆਂ",
   "footer.links.privacy": "ਪਰਦੇਦਾਰੀ ਨੀਤੀ",
   "footer.links.terms": "ਸੇਵਾ ਦੀਆਂ ਸ਼ਰਤਾਂ",
+  "footer.links.security": "ਸੁਰੱਖਿਆ",
 
   "theme.label": "ਥੀਮ",
   "theme.light": "ਹਲਕਾ",
@@ -2666,6 +2676,7 @@ const tl = {
   "footer.legal": "Legal",
   "footer.privacy": "Privacy",
   "footer.terms": "Mga Tuntunin",
+  "footer.security": "Seguridad",
   "footer.rights": "Nakalaan ang lahat ng karapatan.",
   "footer.tagline":
     "Ang all-in-one platform para sa mga contractor at home service pro — quotes, scheduling, invoicing at bayad sa iisang lugar.",
@@ -2677,6 +2688,7 @@ const tl = {
   "footer.links.careers": "Mga trabaho",
   "footer.links.privacy": "Patakaran sa privacy",
   "footer.links.terms": "Mga tuntunin ng serbisyo",
+  "footer.links.security": "Seguridad",
 
   "theme.label": "Tema",
   "theme.light": "Maliwanag",

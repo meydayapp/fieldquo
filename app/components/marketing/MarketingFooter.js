@@ -48,6 +48,7 @@ const FOOTER_COLUMNS = [
       { key: "footer.links.careers", href: "/careers" },
       { key: "footer.links.privacy", href: "/privacy" },
       { key: "footer.links.terms", href: "/terms" },
+      { key: "footer.links.security", href: "/security" },
     ],
   },
 ];
@@ -136,6 +137,12 @@ export default function MarketingFooter() {
               className="text-sm text-primary-foreground/80 hover:text-primary-foreground"
             >
               {t("footer.terms")}
+            </Link>
+            <Link
+              href="/security"
+              className="text-sm text-primary-foreground/80 hover:text-primary-foreground"
+            >
+              {t("footer.security")}
             </Link>
           </div>
         </div>
