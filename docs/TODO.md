@@ -10,26 +10,53 @@ gap.
 
 ## In flight
 
-| What | Where | State |
-|---|---|---|
-| Monthly digest reads the CONVERSATIONS behind won and lost quotes | `/app/analytics/digest` | agent building |
+Raised 2026-08-30. Nothing here is done until a human can click it and see it
+behave.
 
-Owner-approved 2026-08-30: transcripts on both won and lost quotes, monthly
-only, roughly $0.04–$0.10 per company per month on a cheap model.
+**Blocks the owner's next demo — fix first**
 
-**Deliberately NOT part of it**, and this should not be revisited without a
-reason: no AI on `/app/analytics/win-loss`, `/app/analytics/estimate-accuracy`
-or `/app/analytics/statements`. Both of those modules carry a written argument
-against it — every sentence win-loss can honestly produce is a function of six
-integers, and a model reading its free-text decline reasons would cluster them
-into categories that are not really there; estimate-accuracy's named failure is
-a model inventing a cause on numbers a contractor reprices against. The digest
-is allowed AI because its findings are computed in code and the model only
-phrases them.
+| What | Detail |
+|---|---|
+| Onboarding let a NON-CREW person be added as an employee | Seats read 1/1 used, 0/5 crew. The picker offered someone who is not crew. |
+| A deleted employee still appears in Payroll | "Jonny" was deleted and is still there. Should be ARCHIVED, not deleted — and if re-added, does the history come back? The product norm is that nothing is ever destroyed. |
 
-The transcript work is the one thing those decisions do not cover: an objection
-raised aloud, a budget mentioned and never written down, a competitor named —
-evidence that exists only as prose, which code cannot read.
+**Instant quote is missing what the normal quote builder does**
+
+| What | Detail |
+|---|---|
+| Tax | It creates the client, then says it "can't work out the client's tax" and leaves tax off the quote entirely. |
+| Costing | Not attached automatically; has to be entered by hand afterwards. |
+| Assigned employee | No way to pick one, unlike the normal builder. |
+
+**Services that appear without being chosen**
+
+Kitchen design behaves like a permanent button rather than a service a company
+offers. Countertops and stairs show up too, on companies that never selected
+them. New kitchen installs are done by several trades and NOT by every cabinet
+refinisher — the catalogue must follow what a company actually sells.
+
+**Copy that does not explain itself**
+
+- `/app/settings/material-costs` — for a consumable, "units" is ambiguous. Is it
+  per roll? Rolls per pack? What does the price refer to? Same for masking film.
+  And there is no obvious place to say how much material a small / medium /
+  large job consumes.
+- `/app/settings/overhead` — the arithmetic needs checking against a real
+  company (Pro Painter Inc), and it is unclear where BILLS DUE belong, or
+  whether they are only a statistic.
+
+**Legal, owner-approved to build**
+
+| What | Why |
+|---|---|
+| Public unsubscribe route in every commercial email | CASL requires a working unsubscribe. Today `MarketingSubscriber.subscribed` is staff-only behind `user:manage`, and no public route exists. Sharpest exposure in the product. |
+| Homeowner STOP handling | Appointment reminders promise "Reply STOP". The only inbound SMS webhook is the crew line. A homeowner's STOP reaches nothing FieldQuo owns. |
+
+**Also**
+
+A 15-minute demo script, ordered so the numbers make sense — overhead, material
+costs and services have to be filled in before a quote demo shows anything real.
+Audience: a solo painting company covering one employee.
 
 ## Reachability — swept 2026-08-30, and now guarded
 
