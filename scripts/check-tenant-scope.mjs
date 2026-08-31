@@ -92,6 +92,14 @@ const GLOBAL_BY_DESIGN = {
       "Same: a cron over the whole queue. Each task is a row this run just " +
       "selected, and marking it done is not a lookup by a caller-supplied id.",
   },
+  "app/api/cron/renewal-reminders/route.js": {
+    subscription:
+      "Same shape again: a cron over every FieldQuo subscription, authenticated " +
+      "by CRON_SECRET, no member and no company to scope by — FieldQuo IS the " +
+      "tenant here, billing its own customers. Both updates key off sub.id from " +
+      "this run's own findMany, and the second is a REVERT to the row's own " +
+      "prior values (not a foreign key from a caller) when a send didn't happen.",
+  },
   "app/api/instant-quote/[companySlug]/request/route.js": {
     leadRequest:
       "Public intake. The lead was created moments earlier by createScoredLead " +
