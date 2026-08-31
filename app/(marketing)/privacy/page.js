@@ -105,6 +105,15 @@ export default function PrivacyPage() {
           Stripe's rules for charging a saved payment method later require us
           to be able to show that authorisation happened.
         </li>
+        <li>
+          When they approve a quote by signing it online: the drawn
+          signature itself, the name they typed, the time, and the IP address
+          and browser user agent the signature came from. That last part is
+          what makes the signature worth anything &mdash; a signature nobody can
+          place at a time and a connection is a picture, not evidence, and if
+          the approval is later disputed it is the contractor who needs to be
+          able to show it happened.
+        </li>
       </ul>
       <p>
         We do not knowingly collect information from anyone we know to be a
