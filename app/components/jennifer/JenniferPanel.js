@@ -245,7 +245,13 @@ export default function JenniferPanel({ variant = "marketing" }) {
         aria-label="Chat with Jennifer"
         aria-expanded={open}
         aria-controls="jennifer-panel"
-        className={`fixed bottom-5 right-5 z-50 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 ${
+        /* The bottom offset clears the mobile tab bar, which did not exist
+           when this button was placed. MobileTabBar is 4rem plus the home
+           indicator and renders below lg, so below lg this sits above both;
+           from lg up the bar is gone and bottom-5 is right again. Same
+           calc() as app/app/layout.js's <main> padding — if one changes the
+           other has to, which is why both name the 4rem out loud. */
+        className={`fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-50 h-14 w-14 items-center justify-center rounded-full bg-inverted text-inverted-foreground shadow-lg hover:opacity-90 lg:bottom-5 ${
           open ? "hidden" : "flex"
         }`}
       >

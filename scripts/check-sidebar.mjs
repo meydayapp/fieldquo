@@ -440,6 +440,50 @@ if (declared) {
   );
 }
 
+// ══ The tab bar's "More" reaches the drawer through the DOM ════════════════
+//
+// MobileTabBar cannot call AdminSidebar's `setMobileOpen` — it is local state
+// with no exported setter and no context. So "More" clicks the real hamburger
+// node by attribute, which is not invented: app/components/OnboardingTour.js
+// already opens the same drawer the same way, because the welcome tour has to
+// point at rows living inside it.
+//
+// The cost of that choice is a SILENT failure. openAdminDrawer() does nothing
+// at all if the node is gone — `if (trigger instanceof HTMLElement)` and no
+// else — so renaming or dropping the attribute leaves a "More" button that
+// looks fine and opens nothing. Two consumers now depend on a string in a
+// third file, and nothing else in the repo would notice.
+//
+// Asserted here rather than in a new check script because the check:all chain
+// is being edited by several agents at once and a new entry would conflict;
+// this file already parses AdminSidebar, so it is the right home anyway.
+const TAB_BAR = "app/components/layout/MobileTabBar.js";
+const TOUR = "app/components/OnboardingTour.js";
+const DRAWER_HOOK = 'data-tour-open="nav"';
+
+const sidebarSrc = read("app/components/layout/AdminSidebar.js");
+ok(
+  `AdminSidebar still renders ${DRAWER_HOOK} on its hamburger`,
+  sidebarSrc.includes(DRAWER_HOOK),
+  sidebarSrc.includes(DRAWER_HOOK)
+    ? ""
+    : "MobileTabBar's More button and OnboardingTour both click this node to open\n       the drawer. Without it both fail silently — the button opens nothing.",
+);
+ok(
+  "MobileTabBar targets that same attribute",
+  read(TAB_BAR).includes(DRAWER_HOOK),
+  read(TAB_BAR).includes(DRAWER_HOOK)
+    ? ""
+    : "the tab bar's More button no longer matches the node AdminSidebar renders",
+);
+ok(
+  "OnboardingTour targets it too, so the two agree",
+  read(TOUR).includes("data-tour-open"),
+  read(TOUR).includes("data-tour-open")
+    ? ""
+    : "the tour opened the drawer this way first; if it has moved on, MobileTabBar\n       is now the only caller and this coupling should be reconsidered",
+);
+
 console.log(
   `\n${checks} checks, ${failures} failure(s)${warnings ? `, ${warnings} warning(s)` : ""}.`,
 );
