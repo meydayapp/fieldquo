@@ -890,6 +890,52 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The monthly digest now reads the CALLS behind won and lost quotes, not
+  just the numbers. `lib/ai/callTranscriptDigest.js`,
+  `lib/ai/monthlyDigest.js`, `app/app/analytics/digest/page.js`,
+  `scripts/check-digest-transcripts.mjs`.**
+
+  `lib/analytics/winLoss.js` and `lib/analytics/estimateAccuracy.js` both
+  deliberately shipped with NO model — every sentence either report can
+  produce is arithmetic on rows Postgres already has, and a model reading
+  free text was either clustering (winLoss's rule 3) or inventing a cause
+  (estimateAccuracy's whole "why no AI writes the summary" section). Neither
+  argument covers what a caller SAID on the call a quote was drafted from
+  (`Quote.sourceCallId` → `VoiceCall.transcript`) — an objection, a budget
+  figure, a competitor's name — because that evidence exists only as prose
+  and no query gets it back. That is the one place a model in this codebase
+  adds sight rather than risk, and the new file's header spells out why the
+  other two reports still get none, so this isn't read later as license to
+  add AI to a number screen.
+
+  Findings are computed in code (every count in the output is an array
+  length; the model is never asked to count, cluster or conclude — it reads
+  ONE call in isolation and points at up to three things actually said).
+  Capped at `MAX_TRANSCRIPTS` (20) and `PER_CALL_CHAR_CAP` (4,000 chars) per
+  call, so a company with hundreds of calls a month doesn't produce a
+  hundred-transcript prompt — worst case lands near $0.0035/company/month
+  against gpt-5-mini, well under the owner-approved $0.04–$0.10 band.
+  Metered through `checkAiQuota`/`recordAiUsage` like every other AI call
+  here, under its own feature name (`monthly_digest_calls`) so its cost is
+  separable in the platform AI-usage view. Reuses `lib/voice/transcript.js`'s
+  `fenceTranscript`/`looksLikeInstruction` rather than re-implementing the
+  prompt-injection defence — a transcript is a stranger's words down a phone
+  line, and that fence is already case-hardened by
+  `lib/ai/callLeadRecovery.js` and `lib/ai/callQuoteDraft.js`. An absent
+  period (no call-sourced decisions, AI unconfigured, quota used up) is
+  stated on the digest page, never a silently missing section.
+
+  `scripts/check-digest-transcripts.mjs` (`npm run check:digest-transcripts`,
+  in `check:all`) executes the selection, capping, prompt-building, output
+  parsing and DB-wired orchestration against scripted and hostile input —
+  including an injected instruction inside a transcript, a model reply that
+  tries to smuggle a conclusion/count/theme, and the quota-before-vendor-call
+  ordering — and separately proves, by stripped-comment source scan, that
+  `winLoss.js`, `estimateAccuracy.js` and `lib/accounting/statements.js`
+  still import nothing from `lib/ai/`. Every assertion in it was
+  mutation-tested (cap removed, absence guard disabled, injection guard
+  disabled, quota gate disabled, a stray AI import added to `winLoss.js`) and
+  every mutation was caught.
 - **Nav sweep, and `/platform/voice-webhooks` was unreachable when it
   mattered most.** `app/components/platform/PlatformSidebar.js`,
   `scripts/check-nav-audit.mjs`, `docs/NAV-AUDIT.md`, `docs/TODO.md`.

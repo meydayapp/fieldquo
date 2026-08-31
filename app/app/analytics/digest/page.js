@@ -136,11 +136,127 @@ export default function DigestPage() {
                       )}
                     </div>
                   )}
+
+                  {/* Older digests, generated before this existed, carry no
+                      callInsights key at all — omitted rather than rendering
+                      an empty section for a month that never looked. A digest
+                      generated AFTER this shipped always carries one, even
+                      when there was nothing to read (see
+                      lib/ai/callTranscriptDigest.js — absence is stated, not
+                      silently dropped, once the field exists). */}
+                  {d.highlightsJson?.callInsights && (
+                    <CallInsights ci={d.highlightsJson.callInsights} t={t} />
+                  )}
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// The conversations behind this month's won and lost quotes — see
+// lib/ai/callTranscriptDigest.js for what this reads and the rules it
+// follows. Reasons AI didn't run are named rather than the section vanishing
+// silently, same rule the emptiness case follows: absence is a statement, not
+// a gap in the page.
+function CallInsights({ ci, t }) {
+  if (!ci.hasData) {
+    return (
+      <div className="pt-2 border-t border-border/60">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          {t("app.digest.calls.title", "Calls behind this month's decisions")}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {t(
+            "app.digest.calls.none",
+            "No won or lost quotes this month were linked to a phone call.",
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  if (!ci.aiRead) {
+    const reasonKey =
+      ci.reason === "quota_exceeded"
+        ? "app.digest.calls.quotaExceeded"
+        : ci.reason === "model_empty"
+          ? "app.digest.calls.modelEmpty"
+          : "app.digest.calls.unavailable";
+    const fallback =
+      ci.reason === "quota_exceeded"
+        ? "{count} calls behind this month's decisions could have been read, but this month's FieldQuo AI allowance is used up."
+        : ci.reason === "model_empty"
+          ? "{count} calls were sent for reading but nothing came back — this will try again next month."
+          : "{count} calls behind this month's decisions could have been read, but FieldQuo AI isn't available on this deployment.";
+    return (
+      <div className="pt-2 border-t border-border/60">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+          {t("app.digest.calls.title", "Calls behind this month's decisions")}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {t(reasonKey, fallback, { count: ci.read })}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-2 border-t border-border/60">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+        {t("app.digest.calls.title", "Calls behind this month's decisions")}
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">
+        {ci.capped
+          ? t(
+              "app.digest.calls.summaryCapped",
+              "Read the {read} most recent of {total} calls linked to a decision this month.",
+              { read: ci.read, total: ci.totalCandidates },
+            )
+          : t(
+              "app.digest.calls.summary",
+              "Read {read} of {total} calls linked to a decision this month.",
+              { read: ci.read, total: ci.totalCandidates },
+            )}
+      </p>
+      <div className="space-y-3">
+        {ci.calls.map((c) => (
+          <div key={c.quoteId} className="text-sm rounded-md border border-border p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span
+                className={`text-xs font-medium px-1.5 py-0.5 rounded ${
+                  c.outcome === "won"
+                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                    : "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                }`}
+              >
+                {c.outcome === "won"
+                  ? t("app.digest.calls.won", "Won")
+                  : t("app.digest.calls.lost", "Lost")}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {c.quoteNumber || t("app.digest.calls.quoteFallback", "Quote")}
+              </span>
+            </div>
+            {c.notes.length > 0 ? (
+              <ul className="list-disc pl-4 space-y-0.5">
+                {c.notes.map((n, i) => (
+                  <li key={i}>{n}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                {t(
+                  "app.digest.calls.nothingNotable",
+                  "Nothing on this call stood out beyond what's already on the quote.",
+                )}
+              </p>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
