@@ -13,8 +13,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createTrialCheckoutSession } from "@/lib/platform/stripeBilling";
-import { calculatePricing } from "@/lib/pricing";
-import { findOrCreateCustomPlan } from "@/lib/billing/customPlan";
+import { TRIAL_PRICE } from "@/lib/pricing";
 import { seedStandardAddOns } from "@/lib/products/seedStandardAddOns";
 import { seedDefaultTemplates } from "@/lib/email/seedDefaultTemplates";
 import { getAppOrigin, isInternalPath } from "@/lib/appUrl";
@@ -72,7 +71,6 @@ export async function POST(request) {
     province,
     industries,
     planId,
-    employeeCount,
     serviceCategoryIds,
     // Carried through from /refer/<code> or ?ref=<code>. See lib/referrals.
     referralCode,
@@ -144,52 +142,46 @@ export async function POST(request) {
     );
   }
 
-  if (!employeeCount) {
+  // ── There is no self-serve headcount price any more ─────────────────────
+  //
+  // This used to accept an `employeeCount` and mint a "Custom (N employees)"
+  // Plan on the fly at $45/licence (calculatePricing + findOrCreateCustomPlan)
+  // — the pricing model the owner retired 2026-08-31 in favour of the four-tier
+  // seat ladder (lib/pricing/ladder.js: Solo/Crew/Shop/Scale). The ladder has
+  // no function from a raw headcount to a tier, because a headcount alone
+  // doesn't say how many of those people are billable seats versus free crew
+  // (lib/pricing/ladder.js isBillableSeat) — that split isn't knowable from a
+  // single number, so guessing it would be padding absent data with a default
+  // (AGENTS.md). A real Plan row, chosen on the signup page, is required
+  // instead. A company that needs more than Scale (10 seats + 15 crew) has no
+  // self-serve price — see docs/PRICING-CLEANUP.md for that gap.
+  if (!planId) {
     return NextResponse.json(
-      { error: "employeeCount is required" },
+      { error: "planId is required" },
       { status: 400 },
     );
   }
-
-  const pricingResult = calculatePricing(employeeCount);
-
-  if (pricingResult.contactSalesRequired) {
-    return NextResponse.json(
-      {
-        error:
-          "This employee count requires custom pricing — contact sales instead",
-      },
-      { status: 400 },
-    );
-  }
-
-  const pricing = { ...pricingResult, employeeCount };
 
   // Resolve a real Plan row before we ever create a Stripe checkout session,
   // since Subscription.planId is required and the webhook can't invent one
-  // after the fact. Two cases:
-  //  - A named tier was selected (planId provided) — validate it exists.
-  //  - "Custom" employee count (planId is null from the signup form) — no
-  //    seeded Plan matches an arbitrary count, so find-or-create one sized
-  //    to this exact pricing, keyed by employee count so repeat signups at
-  //    the same count reuse the same Plan row instead of piling up dupes.
-  let plan;
-
-  if (planId) {
-    plan = await db.plan.findUnique({ where: { id: planId } });
-    if (!plan) {
-      return NextResponse.json(
-        { error: "Selected plan not found" },
-        { status: 400 },
-      );
-    }
-  } else {
-    // Shared with the "Add licenses" checkout route, which had the same block
-    // with a divergent `update` clause that overwrote operator price edits.
-    // `where: { name }` also stopped being a legal upsert target when
-    // Plan.name lost its @unique, so this would have thrown outright.
-    plan = await findOrCreateCustomPlan(pricing);
+  // after the fact.
+  const plan = await db.plan.findUnique({ where: { id: planId } });
+  if (!plan) {
+    return NextResponse.json(
+      { error: "Selected plan not found" },
+      { status: 400 },
+    );
   }
+
+  // What createTrialCheckoutSession needs to know about money: the free first
+  // month (always TRIAL_PRICE, never plan-specific) and, for the record kept
+  // on the Stripe subscription's own metadata, how many people this plan is
+  // for. The recurring charge itself comes straight off `plan` — see the note
+  // on the line item in lib/platform/stripeBilling.js.
+  const pricing = {
+    trialTotal: TRIAL_PRICE,
+    employeeCount: plan.maxUsers ?? plan.seats + (plan.crewSeats || 0),
+  };
   // ── A tier from the other currency is not buyable here ──────────────────
   //
   // The browser posts an id, and the seat ladder exists once per currency with

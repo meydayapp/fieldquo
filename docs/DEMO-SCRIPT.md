@@ -551,11 +551,14 @@ between calls on the same demo account — see checklist item 7.
 question asked; don't recite this as prose.**
 
 **"What does it cost?"**
-$45 per licensed seat for up to 9 employees (`lib/pricing.js`,
-`calculatePricing()`). A solo painter plus the one new hire is 2 licenses =
-**$90/month**. The first month is genuinely free — `TRIAL_PRICE = 0`, not a
-$1 token charge, on purpose, so there's no card-form friction before they've
-even tried it. At 10+ employees the per-seat price steps down.
+Four flat-rate plans (`lib/pricing/ladder.js`, `SEAT_LADDER`), not a
+per-licence rate: **Solo $99** (1 seat + 5 free crew), **Crew $169** (3 seats
++ 8 crew), **Shop $269** (6 seats + 11 crew), **Scale $369** (10 seats + 15
+crew). A seat is anyone who can create or change a quote, job or invoice;
+crew — schedule, clock-in, photos — are free. The first month is genuinely
+free — `TRIAL_PRICE = 0`, not a $1 token charge, on purpose, so there's no
+card-form friction before they've even tried it. A team bigger than Scale is
+a conversation, not a self-serve price — point them at Contact.
 
 **"Is my data mine?"**
 Two separate guarantees, both enforced twice in code, not just promised in

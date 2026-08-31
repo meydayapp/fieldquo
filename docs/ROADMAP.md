@@ -3022,6 +3022,41 @@ they set the pattern.
   from `priceFor()` and every "is it running" from `promotionIsLive()`, so the
   console cannot disagree with checkout.
 
+- **The per-licence pricing model above was fully removed, not just
+  find-or-create-fixed. `lib/pricing.js`, `lib/billing/customPlan.js`
+  (deleted), `prisma/seed-plans.js` (deleted), `app/api/companies/route.js`,
+  `app/api/platform/billing/checkout/route.js`,
+  `app/components/marketing/PricingCard.js`, `app/signup/page.js`,
+  `app/components/SeatCapUpgradeNotice.js` (replaces
+  `app/components/SeatUpgradePanel.js`), `app/i18n/messages.js`,
+  `scripts/check-platform-pricing-console.mjs`.** See
+  `docs/PRICING-CLEANUP.md` for the full accounting.
+
+  The find-or-create fix above stopped the plans editor from being reverted,
+  but the entry above already names the actual defect: the $45/seat model
+  (`calculatePricing`) was still live and mintable alongside the ladder, which
+  is what the owner's 2026-08-31 ruling — "we have 4 models starting at $99"
+  — retired. `calculatePricing()`, `NAMED_TIERS` and the $45 figure are gone
+  from `lib/pricing.js`; `findOrCreateCustomPlan` had exactly one caller-class
+  (mint a Custom plan from a typed headcount) and is gone with it, since an
+  operator negotiating a genuine one-off rate already has a direct path — the
+  console's own "New plan" form. Signup's "Custom" card (type an employee
+  count, get a per-licence price) is gone; a team bigger than Scale (10 seats
+  + 15 crew) is told to contact us rather than being offered an invented
+  price — there is no ladder equivalent above Scale, and the ladder has no
+  function from a raw headcount to a tier anyway (a headcount alone doesn't
+  say how many are billable seats vs. free crew). The Team page's "Add
+  licences" panel (`SeatUpgradePanel`, same $45/seat POST) is replaced by
+  `SeatCapUpgradeNotice`, which points at Account & Billing's plan picker
+  instead — the same upgrade path the page already used for its ladder-based
+  seat/crew cap.
+
+  **Nothing here touched a single existing `Plan` row or `Subscription`.** A
+  company already on a legacy per-headcount or bespoke Custom plan (still real
+  data, still billing) keeps paying exactly what it pays; `lib/billing/
+  retention.js`'s `perSeat` branch still exists for exactly those companies.
+  Only the code that *minted new* per-licence rows is gone.
+
 - **Every client in production had a country of `null`, so no quote could
   charge tax. `app/components/AddressAutocomplete.js` (consumers),
   `lib/tax/documentTax.js`, `app/api/quotes/[id]/send/route.js`,

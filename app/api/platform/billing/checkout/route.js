@@ -10,8 +10,6 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { isBillingAdmin, BILLING_ADMIN_ERROR } from "@/lib/billing/billingAdmin";
 import { createBillingCheckoutSession } from "@/lib/platform/stripeBilling";
-import { calculatePricing } from "@/lib/pricing";
-import { findOrCreateCustomPlan } from "@/lib/billing/customPlan";
 import { getAppOrigin } from "@/lib/appUrl";
 import { resolveCheckoutInterval } from "@/lib/billing/interval";
 
@@ -29,10 +27,20 @@ export async function POST(request) {
     return NextResponse.json({ error: BILLING_ADMIN_ERROR }, { status: 403 });
   }
 
-  const { planId, employeeCount, interval: requestedInterval } = await request.json();
-  if (!planId && !employeeCount)
+  const { planId, interval: requestedInterval } = await request.json();
+
+  // ── There is no self-serve headcount price any more ─────────────────────
+  //
+  // This used to also accept an `employeeCount` from the Team page's "Add
+  // licenses" panel and mint a "Custom (N employees)" Plan on the fly at
+  // $45/licence (calculatePricing + findOrCreateCustomPlan) — the pricing
+  // model the owner retired 2026-08-31 in favour of the four-tier seat ladder
+  // (lib/pricing/ladder.js: Solo/Crew/Shop/Scale). A seat upgrade is now the
+  // same "choose a tier" flow as any other plan change: pick a planId. See
+  // docs/PRICING-CLEANUP.md.
+  if (!planId)
     return NextResponse.json(
-      { error: "planId or employeeCount is required" },
+      { error: "planId is required" },
       { status: 400 },
     );
 
@@ -40,48 +48,21 @@ export async function POST(request) {
     where: { id: member.companyId },
   });
 
-  // Two ways to arrive here:
-  //  - A named tier (planId) — the existing Account & Billing "Choose plan"
-  //    flow. Validate it exists.
-  //  - A seat count (employeeCount) — the Team page's "Add licenses" upgrade.
-  //    No seeded Plan matches an arbitrary count, so find-or-create a
-  //    `Custom (N employees)` Plan sized to it, exactly like signup does
-  //    (app/api/companies/route.js) so repeat upgrades at the same count reuse
-  //    one Plan row instead of piling up dupes.
-  let plan;
-  if (employeeCount) {
-    const pricing = calculatePricing(employeeCount);
-    if (pricing.contactSalesRequired) {
-      return NextResponse.json(
-        {
-          error:
-            "That many licenses needs a custom quote — contact sales instead of self-serve checkout.",
-        },
-        { status: 400 },
-      );
-    }
-    // Find-or-create, NOT upsert-with-update. The `update` this replaces wrote
-    // calculatePricing()'s number back over whatever an operator had set on
-    // /platform/billing/plans, so a price edited there was reverted by the next
-    // stranger who signed up or upgraded at the same headcount — a control that
-    // appears to work and doesn't. Once the row exists it is the price. See
-    // lib/billing/customPlan.js.
-    plan = await findOrCreateCustomPlan(pricing);
-  } else {
-    plan = await db.plan.findUnique({ where: { id: planId } });
-  }
+  const plan = await db.plan.findUnique({ where: { id: planId } });
 
   if (!plan)
     return NextResponse.json({ error: "Plan not found" }, { status: 404 });
 
-  // During an active trial the seat upgrade must stay free until the trial
-  // ends — the new per-seat price only applies afterward. Carry the remaining
-  // days onto the Stripe subscription's trial, same computation as signup
-  // (app/api/companies/route.js). Scoped to the employeeCount (Add licenses)
-  // flow so the existing named-plan "Choose plan" checkout keeps its current
-  // behaviour unchanged. Absent/expired trial → no trial days.
+  // During an active trial, a plan change must stay free until the trial
+  // ends — the new price only applies afterward. Carry the remaining days
+  // onto the Stripe subscription's trial, same computation as signup
+  // (app/api/companies/route.js). This used to be scoped to the employeeCount
+  // (Add licenses) flow only, leaving a mid-trial "Choose plan" upgrade to
+  // lose the days already committed; there is no reason left to treat the two
+  // differently now that both arrive here as a planId. Absent/expired trial →
+  // no trial days.
   let trialDays;
-  if (employeeCount && company?.trialEndsAt && company.trialEndsAt.getTime() > Date.now()) {
+  if (company?.trialEndsAt && company.trialEndsAt.getTime() > Date.now()) {
     trialDays = Math.max(
       1,
       Math.ceil((company.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),

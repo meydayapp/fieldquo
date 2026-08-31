@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Info, Upload, User as UserIcon } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
-import SeatUpgradePanel from "@/app/components/SeatUpgradePanel";
+import SeatCapUpgradeNotice from "@/app/components/SeatCapUpgradeNotice";
 import { formatPhoneInput } from "@/lib/validation";
 import {
   PERMISSION_CATEGORIES,
@@ -329,7 +329,11 @@ function NewUserForm() {
       )}
 
       {seatLimited && seats.limit && canBuySeats && (
-        <SeatUpgradePanel used={seats.used} limit={seats.limit} />
+        <SeatCapUpgradeNotice
+          used={seats.used}
+          limit={seats.limit}
+          nextTier={seats.nextTier}
+        />
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">

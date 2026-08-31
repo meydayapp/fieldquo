@@ -91,32 +91,55 @@ ok("no route upserts a Plan with a calculated price in its update clause", () =>
   }
 });
 
-ok("both call sites share one find-or-create helper", () => {
+ok("neither signup nor a seat upgrade mints a plan from a headcount any more", () => {
+  // The owner's ruling, 2026-08-31: "we have 4 models starting at $99" — the
+  // seat ladder (lib/pricing/ladder.js: Solo/Crew/Shop/Scale) is THE pricing.
+  // What used to happen here was findOrCreateCustomPlan(calculatePricing(n)) —
+  // exactly the $45/licence model that got retired. Both routes now require a
+  // real planId; there is no code path left that manufactures a Plan row from
+  // a number a visitor typed. See docs/PRICING-CLEANUP.md.
   for (const f of [
     "app/api/platform/billing/checkout/route.js",
     "app/api/companies/route.js",
   ]) {
-    assert.match(
-      code(f),
-      /findOrCreateCustomPlan/,
-      `${f} does not use the shared helper`,
+    const src = code(f);
+    assert.ok(
+      !/calculatePricing/.test(src),
+      `${f} still calls calculatePricing`,
     );
+    assert.ok(
+      !/findOrCreateCustomPlan/.test(src),
+      `${f} still mints a Custom plan from a headcount`,
+    );
+    assert.match(src, /planId/, `${f} should still resolve a plan by id`);
   }
 });
 
-ok("the helper creates but never updates an existing row", () => {
-  const src = code("lib/billing/customPlan.js");
-  assert.match(src, /findFirst/, "it should look before it creates");
+ok("the per-licence pricing model is gone, not just unused", () => {
+  const src = code("lib/pricing.js");
+  assert.ok(!/calculatePricing/.test(src), "calculatePricing() should be removed");
+  assert.ok(!/perLicense/.test(src), "perLicense should be removed");
   assert.ok(
-    !/plan\.update\(|plan\.upsert\(/.test(src),
-    "the helper must not write to a row that already exists",
+    !/\b45\b/.test(src),
+    "the $45/licence figure should be gone from lib/pricing.js",
+  );
+  assert.ok(
+    !/NAMED_TIERS/.test(src),
+    "NAMED_TIERS (the old 1/10/20-employee cards) should be removed",
   );
 });
 
-ok("a bespoke Custom plan is not offered in the company-facing picker", () => {
-  // isPublic defaulted true, which put a rate negotiated with one company into
-  // every company's plan list with a live Choose plan button.
-  assert.match(code("lib/billing/customPlan.js"), /isPublic:\s*false/);
+ok("the find-or-create-a-custom-plan helper is gone, not just unreachable", () => {
+  // It existed for exactly one job — minting a "Custom (N employees)" Plan
+  // from calculatePricing() output — and that job no longer exists. An
+  // operator negotiating a genuine one-off rate now uses the console's own
+  // "New plan" form (POST /api/platform/billing/plans), which writes a Plan
+  // row directly and was always independent of this helper.
+  assert.ok(
+    !fs.existsSync(path.join(process.cwd(), "lib/billing/customPlan.js")),
+    "lib/billing/customPlan.js should be deleted now that nothing mints a " +
+      "Custom plan from a headcount automatically",
+  );
 });
 
 ok("the seeder does not re-assert SEAT_LADDER over an existing row", () => {

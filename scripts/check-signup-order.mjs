@@ -372,7 +372,10 @@ const LADDER_ROW = {
   priceMonthly: solo.price,
   priceAnnual: defaultAnnualPrice(solo.price),
 };
-// A bespoke row, exactly as lib/billing/customPlan.js mints it: no annual.
+// A bespoke row, shaped like the legacy "Custom (N employees)" rows still in
+// the database from before the per-licence pricing model was retired (it used
+// to be minted by lib/billing/customPlan.js, now deleted — see
+// docs/PRICING-CLEANUP.md): no annual.
 const CUSTOM_ROW = {
   id: "plan_custom_2",
   name: "Custom (2 employees)",
