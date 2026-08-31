@@ -60,6 +60,8 @@ There is a third: **`/platform`**, FieldQuo's own back office (superadmin only).
 | SMS | Twilio | `lib/sms/twilioClient.js` |
 | Images | Cloudinary | signed server-side uploads via `/api/upload` |
 | AI | OpenAI | **only** through `lib/ai/provider.js` |
+| Maps | Google Maps + Google Solar | homeowner addresses leave the building here — autocomplete, and roof measurement in `lib/measure/roofMeasurement.js` |
+| Stock photos | Unsplash | hotlinked, not copied — a visitor to a contractor's site hits Unsplash's CDN directly |
 | Hosting | Vercel | |
 
 Roughly 64 Prisma models, 167 API routes, 62 `/app` pages, 12 `/platform` pages.

@@ -105,10 +105,9 @@ The data-flow audit turned these up. Ranked worst first.
 5. **No homeowner-facing data surface.** The client portal shows invoices only.
    No access, correction, export or deletion for the person whose name, address,
    photos and recorded call are held.
-6. **Google Maps and Google Solar receive homeowner addresses** for roof
-   measurement and address autocomplete. Both are now named in the published
-   sub-processor list, but they are still missing from AGENTS.md's stack table,
-   so an agent reading only that file does not know they exist.
+6. ~~**Google Maps and Google Solar receive homeowner addresses**~~ — closed
+   2026-08-31. Both are in the published sub-processor list and now in
+   AGENTS.md's stack table, alongside Unsplash, which had the same problem.
 7. **Homeowner IP and user agent are stored** on `Quote.signature` and
    `ServicePlanAuthorisation`, with no retention path. IP is personal data in
    most frameworks.
