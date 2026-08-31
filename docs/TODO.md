@@ -106,18 +106,26 @@ The data-flow audit turned these up. Ranked worst first.
    No access, correction, export or deletion for the person whose name, address,
    photos and recorded call are held.
 6. **Google Maps and Google Solar receive homeowner addresses** for roof
-   measurement and address autocomplete — a live processor missing from
-   AGENTS.md's stack table.
+   measurement and address autocomplete. Both are now named in the published
+   sub-processor list, but they are still missing from AGENTS.md's stack table,
+   so an agent reading only that file does not know they exist.
 7. **Homeowner IP and user agent are stored** on `Quote.signature` and
    `ServicePlanAuthorisation`, with no retention path. IP is personal data in
    most frameworks.
 8. **No data residency is established in code** for any processor. A policy
    naming a country would be inventing a fact.
-9. **No cookie banner, no sub-processor list, no DPA** anywhere in the repo.
+9. **No cookie banner and no DPA.** The sub-processor list is closed:
+   `lib/legal/processors.js` names all 14, the privacy page renders them, and
+   `scripts/check-legal-pages.mjs` fails the build if any entry's integration
+   disappears. Added 2026-08-31: **Unsplash**, because a new company site
+   hotlinks stock photos rather than copying them, so a homeowner's browser
+   fetches from Unsplash and Unsplash sees their IP; and **YouTube**, for the
+   no-cookie embed on FieldQuo's own industry pages. Both were real third-party
+   requests made by a page a member of the public loads, and neither was
+   disclosed.
 
 Fixed 2026-08-30: the receptionist now tells callers the call is recorded.
 
-## Planned, not started
 ## Planned, not started
 
 - Job-site photo documentation beyond intake: internal before/during/after
