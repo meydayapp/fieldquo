@@ -451,7 +451,16 @@ ok(hostile.indexOf("WHAT FIELDQUO IS") < hostile.indexOf("IGNORE ALL PREVIOUS"),
 ok(/do NOT override the absolute rules above/i.test(hostile.replace(/\s+/g, " ")),
    "the notes are labelled as unable to override the rules");
 ok(/^---$/m.test(hostile), "the notes are fenced, so an injection reads as text inside a boundary");
-ok(buildSalesPrompt({ knowledge: kbA, notes: "x".repeat(99999) }).length < 12000,
+// The ceiling itself isn't the property being tested — it's a generous bound
+// above the prompt's actual fixed-size content, chosen so a REGRESSION (notes
+// truncation silently removed, or SALES_RULES itself starting to include
+// runaway content) fails loudly while ordinary growth of the fixed rules text
+// does not. It moved once already: adding the shared crisis rule
+// (lib/ai/crisisRule.js's CRISIS_RULE, ~1.3kB, pulled in by SALES_RULES) is
+// exactly that kind of ordinary growth, not a truncation regression, so the
+// ceiling moved with it rather than the rule being trimmed to fit an
+// arbitrary number chosen before the rule existed.
+ok(buildSalesPrompt({ knowledge: kbA, notes: "x".repeat(99999) }).length < 15000,
    "a runaway note is truncated rather than blowing the context window");
 
 ok(SALES_RULES !== voicePrompt.SYSTEM_RULES,

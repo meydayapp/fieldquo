@@ -890,6 +890,60 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A caller who is a danger to themselves is now handled — everywhere a
+  model's words reach a person, not just the receptionist.
+  `lib/ai/crisisRule.js` (new), `lib/voice/prompt.js`,
+  `lib/voice/outboundPrompt.js`, `lib/platform/salesPrompt.js`,
+  `lib/ai/copilotClient.js`, `lib/ai/callQuoteDraft.js`,
+  `lib/ai/callLeadRecovery.js`, `lib/voice/autoDraft.js`,
+  `app/api/voice/calls/[id]/draft-quote/route.js`, `app/i18n/appMessages.js`,
+  `scripts/check-crisis-handling.mjs` (new).**
+
+  Rule 5 in `lib/voice/prompt.js` already covered a PROPERTY emergency — gas,
+  fire, flooding — and pointed the caller at 911. Nothing anywhere covered a
+  caller who is a danger to THEMSELVES: a grep for self-harm, suicide, crisis
+  or 988 across `lib/ai`, `lib/voice` and `lib/platform` returned nothing, on
+  the one surface that answers real phone calls from strangers, alone,
+  sometimes at night.
+
+  One rule, `CRISIS_RULE` in `lib/ai/crisisRule.js`, reused verbatim by every
+  prompt that can reach a person — the receptionist (rule 5b), the outbound
+  caller FieldQuo places on a contractor's behalf (rule 6b), FieldQuo's own
+  sales line (rule 10b), and the in-app copilot. It notices without being
+  asked to diagnose, stops the task rather than continuing to collect an
+  address, names 988 (the US/CA Suicide & Crisis Lifeline — the product's
+  numbers are all NANP, so this is a correct claim, not a guess) and 911, and
+  is explicit that it must never diagnose, counsel, promise to relay a
+  message, or hang up. It is deliberately narrow: a receptionist is not a
+  crisis line, and performing being one would be its own harm.
+
+  Downstream, `lib/ai/callQuoteDraft.js` and `lib/ai/callLeadRecovery.js` read
+  a FINISHED transcript to build a quote draft or recover a lead — a
+  different failure mode from the live call, and the live prompt rule can't
+  reach it. Both now refuse, via a deterministic pattern match
+  (`mentionsCrisis()`, biased toward firing rather than missing) run BEFORE
+  either spends a model call, so a crisis call can no longer become a scored
+  sales lead or a priced draft. The transcript itself is never touched —
+  deleting it would hide something a human might need to see — but the call
+  now gets `needsReview: true`, the same flag a property emergency already
+  sets and the same queue the receptionist screen already surfaces flagged
+  calls from, so a person is pointed at it instead of nothing happening.
+
+  `scripts/check-crisis-handling.mjs` (`npm run check:crisis`, in
+  `check:all`) builds every real prompt and asserts on the STRING SENT TO THE
+  MODEL — proving shared reuse, not four paraphrases — executes
+  `mentionsCrisis()` against real crisis and non-crisis phrasing, executes
+  `recoverLeadFromCall()` with injected fakes to prove the model is never
+  called and no lead is created, and proves the extracted digit sequences in
+  the rule are EXACTLY `{988, 911}` (so a rewrite can't quietly grow a third,
+  invented number). Every assertion was mutation-tested by hand — the rule
+  removed from one prompt, a restriction weakened, the downstream gate
+  disabled, a foreign number added — and each mutation was caught.
+
+  A "Jennifer" support assistant is being built in a parallel worktree and was
+  deliberately left untouched; `CRISIS_RULE` is written to be imported from
+  there too rather than copied a fifth time.
+
 - **The public instant-quote draft now taxes, costs, and honestly leaves
   itself unassigned. `lib/estimate/createEstimateQuote.js`,
   `lib/estimate/instantQuoteCosting.js` (new),
