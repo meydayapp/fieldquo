@@ -15,6 +15,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  closestCorners,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
   Inbox,
   Mail,
   Phone,
@@ -28,6 +40,8 @@ import {
   Loader2,
   Upload,
   ArrowRight,
+  GripVertical,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
@@ -40,6 +54,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
 import { describeFinish } from "@/lib/kitchen/finishes";
+import { LEAD_STATUSES, canSetLeadStatus } from "@/lib/leads/pipeline";
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -156,6 +171,114 @@ export default function LeadsPage() {
     return a;
   }, {});
 
+  // ── Drag-to-move ────────────────────────────────────────────────────────
+  //
+  // The permission gate that matters is server-side (PATCH /api/leads — see
+  // its own comment on why). This is checked here too so a refused drag never
+  // even reaches the network — the card's drag handle is simply not rendered
+  // for someone who can't move a lead — but it is a courtesy, not the
+  // control. The drawer's status buttons have never had a client-side check
+  // and rely on the same server gate; this mirrors that rather than inventing
+  // a second standard.
+  const canEdit = useHasLevel("requests", "view_create_edit");
+
+  // The lead mid-drag, by id — DragOverlay reads it for the floating preview
+  // and canSetLeadStatus reads it to decide whether each column is a legal
+  // drop target while the drag is in progress.
+  const [activeId, setActiveId] = useState("");
+  // ids with a PATCH in flight from a drag. A card stays non-draggable while
+  // its own move is unresolved, so a second drag can't race the first one's
+  // revert.
+  const [pendingIds, setPendingIds] = useState(() => new Set());
+  const [boardError, setBoardError] = useState("");
+
+  // Two device-specific sensors rather than one PointerSensor: a distance
+  // threshold that feels right for a mouse (8px) would make a touch scroll
+  // down the board register as a drag pickup after a few pixels of finger
+  // wobble. TouchSensor's own delay+tolerance gives a touch user a genuine
+  // press-and-hold before anything lifts, so scrolling the stacked mobile
+  // layout (AGENTS.md: "often run from a van", one-handed) stays a scroll.
+  // KeyboardSensor is unrelated to either and is what makes the board
+  // operable without a pointer at all.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const activeLead = (leads ?? []).find((l) => l.id === activeId) || null;
+
+  function handleDragStart(event) {
+    setBoardError("");
+    setActiveId(event.active.id);
+  }
+
+  function handleDragCancel() {
+    setActiveId("");
+  }
+
+  async function handleDragEnd(event) {
+    const { active, over } = event;
+    setActiveId("");
+    if (!over) return; // dropped outside every column — nothing to do
+
+    const lead = (leads ?? []).find((l) => l.id === active.id);
+    const targetStatus = over.id;
+    if (!lead || lead.status === targetStatus) return;
+
+    // THE TRAP: "Converted" is Won, and Won is not a thing a slide gesture
+    // gets to declare — see lib/leads/pipeline.js. Refused here, before
+    // anything moves, so there is nothing to revert and no request to send:
+    // the card simply stays put and the reason is shown.
+    const check = canSetLeadStatus(lead, targetStatus);
+    if (!check.ok) {
+      setBoardError(check.reason);
+      return;
+    }
+
+    await moveLead(lead, targetStatus);
+  }
+
+  // Optimistic move that ACTUALLY reverts. The reference Trello clone this
+  // idea came from applied the drop locally and never rolled back on
+  // failure — the card stayed where it was dropped while the server had
+  // refused it, a control that appears to work and doesn't. Here the card
+  // jumps immediately, and jumps back the moment the server disagrees.
+  async function moveLead(lead, targetStatus) {
+    const prevStatus = lead.status;
+    setPendingIds((prev) => new Set(prev).add(lead.id));
+    setLeads((prev) =>
+      prev.map((l) => (l.id === lead.id ? { ...l, status: targetStatus } : l)),
+    );
+    try {
+      const res = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: lead.id, status: targetStatus }),
+      });
+      if (!res.ok) {
+        setLeads((prev) =>
+          prev.map((l) => (l.id === lead.id ? { ...l, status: prevStatus } : l)),
+        );
+        await reportResponseError(res, setBoardError, t("app.leads.updateError"));
+        return;
+      }
+      patchLead(await res.json());
+    } catch {
+      // Network failure — same revert, since the server never agreed either.
+      setLeads((prev) =>
+        prev.map((l) => (l.id === lead.id ? { ...l, status: prevStatus } : l)),
+      );
+      setBoardError(t("app.leads.updateError"));
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(lead.id);
+        return next;
+      });
+    }
+  }
+
   // Rendered INSTEAD of the screen, not around it: nothing loads, and the
   // panel names who to ask. A list that is empty because the server refused it
   // reads as "you have none", which is a different and untrue statement.
@@ -212,6 +335,20 @@ export default function LeadsPage() {
         </button>
       </div>
 
+      {boardError && (
+        <div className="flex items-start gap-2 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg px-3 py-2 text-sm text-red-700 dark:text-red-300">
+          <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+          <span className="flex-1">{boardError}</span>
+          <button
+            onClick={() => setBoardError("")}
+            className="text-red-700 dark:text-red-300 hover:opacity-70 shrink-0"
+            aria-label={t("app.action.close", "Close")}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <ListState
         loading={loading}
         errorKey={errorKey}
@@ -232,26 +369,47 @@ export default function LeadsPage() {
           </div>
         }
       >
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {COLUMNS.map((col) => (
-            <div key={col.key}>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-sm font-semibold text-foreground">{t(col.labelKey)}</h2>
-                <span className="text-xs text-muted-foreground">{grouped[col.key].length}</span>
+        {/*
+          Desktop/tablet: drag across the grid below. Phone (this same grid,
+          reflowed to one column by the `md:`/`xl:` breakpoints, not a
+          separate layout): the columns stack full-width instead of sitting
+          side by side, so dragging a card past a tall stack to reach a column
+          far down the page is exactly the two-thumbs, squint-at-a-small-
+          target gesture AGENTS.md warns "someone working from a van" cannot
+          be asked to do one-handed. Nothing here requires it — dnd-kit is
+          still wired up (TouchSensor keeps it honestly usable if someone
+          tries), but the drawer's status buttons are the primary path on a
+          phone and are untouched by any of this.
+        */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {COLUMNS.map((col) => (
+              <LeadColumn
+                key={col.key}
+                col={col}
+                leads={grouped[col.key]}
+                onOpen={setOpenId}
+                t={t}
+                canEdit={canEdit}
+                pendingIds={pendingIds}
+                activeLead={activeLead}
+              />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeLead ? (
+              <div className="rotate-2 shadow-lg">
+                <LeadCard lead={activeLead} tone="border-border" onOpen={() => {}} t={t} />
               </div>
-              <div className="space-y-3">
-                {grouped[col.key].length === 0 && (
-                  <div className="border border-dashed border-border rounded-xl px-4 py-6 text-center text-xs text-muted-foreground">
-                    {t("app.leads.nothingHere")}
-                  </div>
-                )}
-                {grouped[col.key].map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} tone={col.tone} onOpen={() => setOpenId(lead.id)} t={t} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </ListState>
 
       {openLead && (
@@ -283,7 +441,82 @@ function TempBadge({ temperature, score, t, size = "sm" }) {
   );
 }
 
-function LeadCard({ lead, tone, onOpen, t }) {
+// One droppable column. Highlights while something is dragged over it —
+// green if this drop is legal, red (and the cursor tells the same story) if
+// it isn't, so the refusal is visible from the moment the card crosses the
+// boundary rather than only after it's released.
+function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead }) {
+  const { setNodeRef, isOver } = useDroppable({ id: col.key });
+  const dropCheck = activeLead ? canSetLeadStatus(activeLead, col.key) : { ok: true };
+  const showInvalid = isOver && activeLead && activeLead.status !== col.key && !dropCheck.ok;
+  const showValid = isOver && activeLead && activeLead.status !== col.key && dropCheck.ok;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className="text-sm font-semibold text-foreground">{t(col.labelKey)}</h2>
+        <span className="text-xs text-muted-foreground">{leads.length}</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`space-y-3 min-h-[3rem] rounded-xl transition-colors ${
+          showInvalid
+            ? "ring-2 ring-red-400 dark:ring-red-800 bg-red-50/40 dark:bg-red-950/20"
+            : showValid
+              ? "ring-2 ring-emerald-400 dark:ring-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/10"
+              : ""
+        }`}
+      >
+        {leads.length === 0 && (
+          <div className="border border-dashed border-border rounded-xl px-4 py-6 text-center text-xs text-muted-foreground">
+            {t("app.leads.nothingHere")}
+          </div>
+        )}
+        {leads.map((lead) => (
+          <DraggableLeadCard
+            key={lead.id}
+            lead={lead}
+            tone={col.tone}
+            onOpen={() => onOpen(lead.id)}
+            t={t}
+            disabled={!canEdit || pendingIds.has(lead.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Wraps a card as a dnd-kit draggable. The drag handle is its OWN small
+// button rather than the whole card, and deliberately not wired to
+// `onClick`/`onOpen` at all — dnd-kit's KeyboardSensor activates a drag on
+// Space/Enter, the same keys a plain <button> uses to fire a click, and one
+// element trying to be both would mean a keyboard user could never reliably
+// open the drawer. Mouse and touch can still pick the card up from anywhere
+// on the handle; the rest of the card stays a normal click target.
+function DraggableLeadCard({ lead, tone, onOpen, t, disabled }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
+    id: lead.id,
+    disabled,
+  });
+  return (
+    <div ref={setNodeRef} className={isDragging ? "opacity-40" : ""}>
+      <LeadCard
+        lead={lead}
+        tone={tone}
+        onOpen={onOpen}
+        t={t}
+        dragHandle={
+          disabled
+            ? null
+            : { attributes, listeners, ref: setActivatorNodeRef }
+        }
+      />
+    </div>
+  );
+}
+
+function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
   const budgetKey = BUDGET_LABEL_KEY[lead.budgetBand];
   const timelineKey = TIMELINE_LABEL_KEY[lead.timeline];
   // Counted by kind, not by array length. The badge next to a film icon used to
@@ -293,76 +526,86 @@ function LeadCard({ lead, tone, onOpen, t }) {
   // the two signals, so it gets its own badge rather than being folded in.
   const { visual: photoCount, documents: docCount } = countMediaKinds(lead.clientPhotos);
   return (
-    <button
-      onClick={onOpen}
-      className={`w-full text-left bg-card border rounded-xl p-4 ${tone} hover:shadow-sm transition-shadow`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="font-medium text-foreground">{lead.name}</span>
-        <TempBadge temperature={lead.temperature} score={lead.score} t={t} />
-      </div>
-
-      {(budgetKey || timelineKey) && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {timelineKey && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {t(timelineKey)}
-            </span>
-          )}
-          {budgetKey && lead.budgetBand !== "unsure" && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-              {t(budgetKey)}
-            </span>
-          )}
+    <div className={`relative bg-card border rounded-xl ${tone} hover:shadow-sm transition-shadow`}>
+      {dragHandle && (
+        <button
+          type="button"
+          ref={dragHandle.ref}
+          {...dragHandle.attributes}
+          {...dragHandle.listeners}
+          className="absolute right-1.5 top-1.5 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent cursor-grab active:cursor-grabbing touch-none"
+          aria-label={t("app.leads.dragHandle", "Drag to move")}
+          title={t("app.leads.dragHandle", "Drag to move")}
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
+      <button onClick={onOpen} className="w-full text-left p-4">
+        <div className="flex items-start justify-between gap-2 pr-6">
+          <span className="font-medium text-foreground">{lead.name}</span>
+          <TempBadge temperature={lead.temperature} score={lead.score} t={t} />
         </div>
-      )}
 
-      {lead.category?.label && (
-        <div className="mt-2 text-xs text-muted-foreground">{lead.category.label}</div>
-      )}
+        {(budgetKey || timelineKey) && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {timelineKey && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {t(timelineKey)}
+              </span>
+            )}
+            {budgetKey && lead.budgetBand !== "unsure" && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                {t(budgetKey)}
+              </span>
+            )}
+          </div>
+        )}
 
-      <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="flex items-center gap-2">
-          {lead.doNotCall && (
-            <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 font-semibold">
-              <PhoneOff size={11} /> {t("app.leads.doNotCall")}
-            </span>
-          )}
-          {photoCount > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <Film size={11} aria-hidden="true" /> {photoCount}
-              <span className="sr-only">{t("app.leads.mediaCountLabel")}</span>
-            </span>
-          )}
-          {docCount > 0 && (
-            <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-              <Paperclip size={11} aria-hidden="true" /> {docCount}
-              <span className="sr-only">{t("app.leads.planCountLabel")}</span>
-            </span>
-          )}
-          {lead.quote && (
-            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-              <FileText size={11} /> {lead.quote.quoteNumber}
-            </span>
-          )}
-        </span>
-        <span className="flex items-center gap-1.5">
-          {lead.assignedTo?.name && (
-            <span
-              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-inverted text-inverted-foreground text-[8px] font-bold"
-              title={lead.assignedTo.name}
-            >
-              {initials(lead.assignedTo.name)}
-            </span>
-          )}
-          {new Date(lead.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-        </span>
-      </div>
-    </button>
+        {lead.category?.label && (
+          <div className="mt-2 text-xs text-muted-foreground">{lead.category.label}</div>
+        )}
+
+        <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-2">
+            {lead.doNotCall && (
+              <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 font-semibold">
+                <PhoneOff size={11} /> {t("app.leads.doNotCall")}
+              </span>
+            )}
+            {photoCount > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Film size={11} aria-hidden="true" /> {photoCount}
+                <span className="sr-only">{t("app.leads.mediaCountLabel")}</span>
+              </span>
+            )}
+            {docCount > 0 && (
+              <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                <Paperclip size={11} aria-hidden="true" /> {docCount}
+                <span className="sr-only">{t("app.leads.planCountLabel")}</span>
+              </span>
+            )}
+            {lead.quote && (
+              <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                <FileText size={11} /> {lead.quote.quoteNumber}
+              </span>
+            )}
+          </span>
+          <span className="flex items-center gap-1.5">
+            {lead.assignedTo?.name && (
+              <span
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-inverted text-inverted-foreground text-[8px] font-bold"
+                title={lead.assignedTo.name}
+              >
+                {initials(lead.assignedTo.name)}
+              </span>
+            )}
+            {new Date(lead.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+          </span>
+        </div>
+      </button>
+    </div>
   );
 }
-
-const STATUS_FLOW = ["new", "contacted", "converted", "lost"];
 
 function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   const [lead, setLead] = useState(null);
@@ -639,21 +882,38 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
             <div>
               <div className="text-xs text-muted-foreground mb-1.5">{t("app.leads.status")}</div>
               <div className="flex flex-wrap gap-1.5">
-                {STATUS_FLOW.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => patch({ status: s })}
-                    disabled={busy || lead.status === s}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                      lead.status === s
-                        ? "bg-inverted text-inverted-foreground border-transparent"
-                        : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {t(s === "converted" ? "app.leads.won" : `app.status.${s}`)}
-                  </button>
-                ))}
+                {LEAD_STATUSES.map((s) => {
+                  // Same rule the drag board refuses a drop with — see
+                  // lib/leads/pipeline.js. A lead with no quote can't become
+                  // Won from this button either; the server would 409 it, and
+                  // a button that always fails silently is worse than one
+                  // that explains itself and stops short of trying.
+                  const statusCheck = canSetLeadStatus(lead, s);
+                  const blocked = lead.status !== s && !statusCheck.ok;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => patch({ status: s })}
+                      disabled={busy || lead.status === s || blocked}
+                      title={blocked ? statusCheck.reason : undefined}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        lead.status === s
+                          ? "bg-inverted text-inverted-foreground border-transparent"
+                          : blocked
+                            ? "border-border text-muted-foreground/50 cursor-not-allowed"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {t(s === "converted" ? "app.leads.won" : `app.status.${s}`)}
+                    </button>
+                  );
+                })}
               </div>
+              {lead.status !== "converted" && !canSetLeadStatus(lead, "converted").ok && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground italic">
+                  {t("app.leads.wonNeedsQuote", "Won follows the quote's own outcome — convert this lead first.")}
+                </p>
+              )}
             </div>
 
             {/* Convert / view quote */}

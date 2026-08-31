@@ -1,6 +1,6 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 30 August 2026. **Update this file when you finish something.**
+Last updated: 31 August 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
@@ -3324,11 +3324,14 @@ they set the pattern.
   removing the stripping in `redactPay`, neutering `canSeeAllPay`, mapping
   Manager back to `admin`, or reverting the shifts level each fails it.
 
-  Still open, and a product decision rather than a bug: the `notes` and
-  `requests` categories gate nothing. Neither subject has a delete endpoint, so
-  the delete levels withhold something nobody can do; the live gap is the edit
-  level, since `PATCH /api/leads/[id]` consults no grid. `lib/permissions.js`
-  records this at the top.
+  Still open, and a product decision rather than a bug: `notes` gates nothing.
+  There is no delete endpoint for it either, so the delete level withholds
+  something nobody can do. `requests` is no longer in that state — this
+  paragraph was stale: `PATCH /api/leads`, `PATCH /api/leads/[id]` and `POST
+  /api/leads/import` all now call `requireLevel(full, "requests",
+  "view_create_edit", ...)` (see the comment on the bulk PATCH route, which
+  names the exact gap this described). `lib/permissions.js` still records the
+  `notes` gap at the top.
 
 - **The cost basis was outside the `jobCosting` toggle —
   `lib/permissions/costBasis.js`, `scripts/check-cost-basis.mjs`.**
@@ -3460,6 +3463,70 @@ they set the pattern.
   `PATCH /api/settings/service-categories`, so for a supervisor the whole screen
   is live-looking inputs over a refusal. The proper fix is the read-only
   rendering Company Settings got, not another hidden row.
+
+- **Drag-to-move on the leads board — `lib/leads/pipeline.js`,
+  `app/app/leads/page.js`, `scripts/check-leads-drag.mjs`.**
+
+  The board's four columns (new → contacted → converted → lost) already
+  existed with buttons in the drawer as the only way to change a lead's
+  status. `@dnd-kit/core` was already a dependency (`@dnd-kit/sortable` and
+  `@dnd-kit/utilities` too, unused before this) so this is the interaction
+  only — MouseSensor + TouchSensor with different activation constraints
+  (distance for a mouse, delay+tolerance for touch, so scrolling the
+  mobile-reflowed single-column board doesn't register as a drag pickup) plus
+  KeyboardSensor for cross-container keyboard dragging.
+
+  **The trap:** "Converted" renders as "Won", and `lib/leads/convertLead.js`
+  deliberately does NOT set that status when a quote is created — drafting a
+  quote isn't winning the work — and `lib/quotes/quoteLifecycle.js` only ever
+  writes it when a quote is *accepted*. A drag that PATCHed the enum straight
+  from a drop would mark a lead Won with nothing behind it. Decision: **refuse
+  the drop**, not auto-convert — a slide gesture shouldn't silently create a
+  database row (a quote) as a side effect, and auto-converting still wouldn't
+  make the lead WON, only quoted, so it would just move the false claim one
+  step later. `canSetLeadStatus(lead, status)` in `lib/leads/pipeline.js` is
+  the one place this is decided, and it turned out the drawer's own "Won"
+  button had the exact same hole — it PATCHed the same enum with no check at
+  all — so the guard was put where both paths actually write: inside
+  `PATCH /api/leads` and `PATCH /api/leads/[id]`, server-side, returning 409
+  with a reason. The client checks the same function before ever sending a
+  request (so a refused drop costs nothing), but that's a courtesy; the route
+  is what a bypassed client can't get past.
+
+  **Permission:** turned out not to be a gap here — `PATCH /api/leads` and
+  `PATCH /api/leads/[id]` already call `requireLevel(full, "requests",
+  "view_create_edit", ...)` (see the corrected paragraph above, this file was
+  stale). Verified by executing both routes against a stubbed session at
+  `requests: view_only` / `none` / `view_create_edit` / owner, in
+  `check-leads-drag.mjs`.
+
+  **Revert on failure:** the reference Trello clone this idea came from
+  applied a drop locally and never rolled back when the server refused it.
+  `moveLead` in `page.js` does — optimistic update, then reverts to the prior
+  status on a non-ok response or a thrown network error, with the reason
+  surfaced through `reportResponseError`/a board-level banner.
+
+  **Mobile:** the grid's existing `md:grid-cols-2 xl:grid-cols-4` reflow to
+  one column below `md` is untouched, and nothing requires drag — the
+  drawer's status buttons remain the primary path on a phone, unconditionally
+  rendered (not hidden behind a desktop breakpoint).
+
+  Not done: no custom `accessibility.announcements` on `DndContext` — the
+  board relies on dnd-kit's own default (English-only) screen-reader
+  announcements rather than routing them through `t()`. Keyboard dragging
+  itself works (KeyboardSensor + closestCorners collision detection resolve
+  cross-column drops the same way dnd-kit's own multi-container examples do);
+  what's missing is translating what gets announced while it happens.
+
+  `check:leads-drag` (84 assertions) executes both PATCH routes against a
+  stubbed db/session (same technique as `check-win-loss.mjs`), executes
+  `canSetLeadStatus` against hostile input, and reads `page.js` structurally
+  with comments stripped and positional checks scoped to one function's body
+  at a time (`handleDragEnd`, `moveLead`) rather than the whole file.
+  Mutation-proven: commenting out the quote check in `canSetLeadStatus` fails
+  14 assertions, commenting out `requireLevel` in the bulk route fails 5,
+  removing the revert branch in `moveLead` fails 1, and adding
+  `@hello-pangea/dnd` to `package.json` fails 1.
 
 - **One definition of what a trade is — `lib/trades/catalog.js`.**
 
