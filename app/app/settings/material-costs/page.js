@@ -31,13 +31,59 @@ const CATEGORY_META = {
     label: "Cabinet Refinishing",
     model: "cabinet_unit",
     note: "Doors/drawers × coats ÷ coverage = gallons. Changing coat counts below scales material cost automatically.",
+    // Answers "where do I set how much material a small/medium/large job
+    // uses?" — there is no such setting anywhere in FieldQuo. Quantity is
+    // never a size bucket; it's always the actual door/drawer count typed on
+    // that quote, run through the rates below. Said here rather than left for
+    // someone to go looking for a screen that doesn't exist.
+    sizeNote: "There's no separate small/medium/large setting. Every quote counts its own doors and drawers (or square footage), and the rates below scale automatically — a 10-door job and a 40-door job use the same rates, just more of them.",
   },
   exterior_painting: {
     model: "production_rate",
     label: "Exterior Painting",
     note: "Area ÷ production rate = labour hours; area × coats ÷ coverage = gallons.",
+    sizeNote: "There's no separate small/medium/large setting here either. Every quote's own square footage drives the quantity — the rates below scale to whatever area is typed on that job.",
   },
 };
+
+// A representative kitchen for the worked examples beside the consumable
+// fields below — named as what it is rather than left as a bare number, so
+// the example reads like a job a contractor would recognise.
+const EXAMPLE_KITCHEN = { doors: 24, drawers: 8, label: "a 24-door, 8-drawer kitchen" };
+
+/**
+ * The sentence under each consumable field, computed from the COMPANY'S OWN
+ * current numbers (draft, not the shipped defaults) so it can never drift
+ * from what's actually saved — same reasoning as the primer/hardener note
+ * elsewhere on this page. Returns null rather than a broken sentence when a
+ * rate is zero/unset; a wrong example is worse than none (AGENTS.md — a
+ * dead/misleading control is not a small thing).
+ */
+function consumableExample(subKey, cfg) {
+  const units = EXAMPLE_KITCHEN.doors + EXAMPLE_KITCHEN.drawers;
+  if (!cfg) return null;
+  if (subKey === "tape") {
+    const perUnits = Number(cfg.perUnits);
+    const costPerRoll = Number(cfg.costPerRoll);
+    if (!(perUnits > 0) || !Number.isFinite(costPerRoll)) return null;
+    const rolls = Math.ceil(units / perUnits);
+    return `${EXAMPLE_KITCHEN.label} (${units} pieces) needs ${rolls} roll${rolls === 1 ? "" : "s"} of tape — $${(rolls * costPerRoll).toFixed(2)}.`;
+  }
+  if (subKey === "maskingFilm") {
+    const perJob = Number(cfg.perJob) || 0;
+    const perUnits = Number(cfg.perUnits);
+    const costPerRoll = Number(cfg.costPerRoll);
+    if (!(perUnits > 0) || !Number.isFinite(costPerRoll)) return null;
+    const rolls = perJob + Math.ceil(units / perUnits);
+    return `Same kitchen needs ${perJob} base roll${perJob === 1 ? "" : "s"} + ${Math.ceil(units / perUnits)} more = ${rolls} roll${rolls === 1 ? "" : "s"} of masking film — $${(rolls * costPerRoll).toFixed(2)}.`;
+  }
+  if (subKey === "sandpaper") {
+    const perUnit = Number(cfg.perUnit);
+    if (!Number.isFinite(perUnit)) return null;
+    return `Same kitchen: ${units} pieces × $${perUnit.toFixed(2)} = $${(units * perUnit).toFixed(2)} in sandpaper.`;
+  }
+  return null;
+}
 
 // Field configs (which keys are editable, labels, number step) live in
 // app/data/materialRecipes.js so the API route and this page can't drift
@@ -221,9 +267,14 @@ function MaterialCostsEditor() {
                 </button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground mb-4">
+            <p className="text-xs text-muted-foreground mb-1">
               {t(`app.setMaterialCosts.cat.${categoryKey}.note`, meta.note)}
             </p>
+            {meta.sizeNote && (
+              <p className="text-xs text-muted-foreground mb-4">
+                {t(`app.setMaterialCosts.cat.${categoryKey}.sizeNote`, meta.sizeNote)}
+              </p>
+            )}
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
               {fields.map((f) => (
@@ -264,6 +315,15 @@ function MaterialCostsEditor() {
                             <label className="text-[11px] text-muted-foreground block mb-0.5">
                               {f.label}
                             </label>
+                            {/* The owner's actual question ("is the units per
+                                roll? is how many tapes are in one roll?") —
+                                answered right beside the field it's about
+                                rather than in a tooltip nobody opens. */}
+                            {f.hint && (
+                              <p className="text-[10px] text-muted-foreground/80 mb-1 leading-snug">
+                                {f.hint}
+                              </p>
+                            )}
                             <input
                               type="number"
                               step={f.step}
@@ -279,6 +339,13 @@ function MaterialCostsEditor() {
                             />
                           </div>
                         ))}
+                        {/* Computed from THIS company's own numbers above, not
+                            a canned example — see consumableExample(). */}
+                        {consumableExample(subKey, draft.consumables?.[subKey]) && (
+                          <p className="text-[10px] text-muted-foreground bg-muted rounded px-2 py-1.5 leading-snug">
+                            {consumableExample(subKey, draft.consumables?.[subKey])}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

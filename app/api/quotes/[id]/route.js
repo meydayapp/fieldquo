@@ -28,6 +28,7 @@ import {
   requireCost,
 } from "../costingWrite";
 import { syncTakeoffAddOns } from "@/lib/quotes/takeoffAddOns";
+import { canUseKitchenDesigner } from "@/lib/kitchen/access";
 
 export async function GET(request, { params }) {
   // Next 16: params is a Promise. Read synchronously it's undefined, so every
@@ -90,12 +91,20 @@ export async function GET(request, { params }) {
   });
   const importedGroupIds = imports.map((i) => i.targetLineId);
 
+  // Computed here, once, from the company's actual CompanyServiceCategory
+  // rows — not re-derived client-side from a regex over this quote's own
+  // scope groups, which is what let a company selling only countertops see
+  // "Kitchen Designer" on every countertop quote. See lib/kitchen/access.js.
+  const canOpenKitchenDesigner = await canUseKitchenDesigner(quote, member.companyId);
+
   // Shaped by the same entry point the list route uses. GET /api/quotes has
   // been redacting for a while and this route wasn't, which made the
   // restriction cosmetic: the token and the client's email were one click away
   // on the detail endpoint. Redacting after the spread rather than before it so
   // importedGroupIds can't reintroduce a key the redactor just removed.
-  return NextResponse.json(redactQuote(full, { ...quote, importedGroupIds }));
+  return NextResponse.json(
+    redactQuote(full, { ...quote, importedGroupIds, canOpenKitchenDesigner }),
+  );
 }
 
 // Quotes are edited directly, not versioned — unlike invoices, there's no signed

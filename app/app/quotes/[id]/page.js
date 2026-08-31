@@ -528,24 +528,21 @@ export default function QuoteDetailPage() {
       </div>
     );
 
-  // ── Is this a kitchen? ──────────────────────────────────────────────────
+  // ── Can this quote open the Kitchen Designer? ───────────────────────────
   //
-  // True when the quote already carries a design, or when any of its scope
-  // groups is cabinetry work — which is how a quote that hasn't been designed
-  // yet can still open the designer and become one.
-  //
-  // Deliberately not "always show it": on a fence quote the button would open an
-  // empty room and a pricing panel for cabinetry nobody is buying. And not "only
-  // when a design exists" either — that would make the designer impossible to
-  // reach the first time.
+  // Computed server-side by GET /api/quotes/[id] (lib/kitchen/access.js), not
+  // re-derived here from this quote's own scope groups. It used to be: any
+  // scope group whose category key matched /cabinet|kitchen|countertop|
+  // remodel/ — which meant a company selling only countertops got the
+  // designer on every countertop quote, and a general contractor who
+  // genuinely installs new kitchens had no way to turn it on at all (see the
+  // owner's report, 2026-08-30). The real gate is now the company's own
+  // "Kitchen Design & New Installs" toggle in Settings > Services, with an
+  // exception for a quote that already has a design saved on it — a company
+  // that turns the service off later does not lose what it already drew.
   //
   // Placed after the !quote guard because it reads `quote`.
-  const isKitchen =
-    quote.quoteType === "kitchen" ||
-    quote.scopeDetails?.serviceType === "kitchen" ||
-    (quote.scopeGroups || []).some((g) =>
-      /cabinet|kitchen|countertop|remodel/.test(g.category?.key || ""),
-    );
+  const isKitchen = Boolean(quote.canOpenKitchenDesigner);
 
   // ── Can this quote be rung about? ───────────────────────────────────────
   //

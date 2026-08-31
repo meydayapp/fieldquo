@@ -101,17 +101,36 @@ section("The catalogue moved, it did not change");
 
 const beforeKeys = BEFORE.categories.map((c) => c.key).sort();
 const afterKeys = [...tradeKeys()].sort();
-ok("every seeded key still exists, and no key was invented",
-  JSON.stringify(beforeKeys) === JSON.stringify(afterKeys),
-  { missing: beforeKeys.filter((k) => !afterKeys.includes(k)),
-    added: afterKeys.filter((k) => !beforeKeys.includes(k)) });
+// Originally `beforeKeys === afterKeys`, strict. That proved the ONE historical
+// refactor which created this file moved the four lists without inventing a
+// phantom key along the way — a real bug it was written to catch. It is not a
+// promise that the catalogue may never grow again: kitchen_design was added
+// 2026-08-30 as a genuine new trade (see lib/trades/catalog.js), not a repeat
+// of that bug, so the assertion now only requires that nothing from BEFORE
+// went missing or got renamed underneath an existing tenant row — checked
+// here and in the two blocks below. A key vanishing is still a hard failure;
+// a key being ADDED is normal product growth and is asserted by name instead,
+// same as the two fence entries' sortOrder already was.
+const missingFromBefore = beforeKeys.filter((k) => !afterKeys.includes(k));
+ok("every seeded key from before the refactor still exists",
+  missingFromBefore.length === 0, missingFromBefore);
+const addedSinceBefore = afterKeys.filter((k) => !beforeKeys.includes(k));
+ok("kitchen_design is the only trade added since, and it's a deliberate one",
+  JSON.stringify(addedSinceBefore) === JSON.stringify(["kitchen_design"]),
+  addedSinceBefore);
+
+// The label/icon/sortOrder checks below only make sense for keys BEFORE
+// already had an opinion about — a newly added trade has no historical value
+// to compare against, and comparing it to `undefined` would flag every new
+// trade as "renamed" on the day it's added.
+const historicalKeys = tradeKeys().filter((k) => beforeKeys.includes(k));
 
 const beforeLabels = Object.fromEntries(BEFORE.categories.map((c) => [c.key, c.label]));
-const relabelled = tradeKeys().filter((k) => TRADE_CATALOG[k].label !== beforeLabels[k]);
+const relabelled = historicalKeys.filter((k) => TRADE_CATALOG[k].label !== beforeLabels[k]);
 ok("no trade was renamed", relabelled.length === 0, relabelled);
 
 const beforeIcons = Object.fromEntries(BEFORE.categories.map((c) => [c.key, c.icon]));
-const reiconed = tradeKeys().filter((k) => TRADE_CATALOG[k].icon !== beforeIcons[k]);
+const reiconed = historicalKeys.filter((k) => TRADE_CATALOG[k].icon !== beforeIcons[k]);
 ok("no trade's icon changed", reiconed.length === 0, reiconed);
 
 // sortOrder is the ONE thing that moved, and only for the two categories a
@@ -119,7 +138,7 @@ ok("no trade's icon changed", reiconed.length === 0, reiconed);
 // than waved through, because sortOrder is written by the seeder into every
 // tenant's shared catalogue rows.
 const beforeSort = Object.fromEntries(BEFORE.categories.map((c) => [c.key, c.sortOrder]));
-const resorted = tradeKeys().filter((k) => TRADE_CATALOG[k].sortOrder !== beforeSort[k]);
+const resorted = historicalKeys.filter((k) => TRADE_CATALOG[k].sortOrder !== beforeSort[k]);
 ok("only the two colliding fence entries were re-ordered",
   JSON.stringify(resorted.sort()) === JSON.stringify(["fence_repair", "fence_restoration"]),
   resorted);
@@ -534,7 +553,12 @@ section("Known gaps (reported, not failed)");
 const noIndustry = categoriesWithoutIndustry();
 console.log(`  · ${noIndustry.length} trades belong to no industry preset, reachable only via "show other trades":`);
 console.log(`      ${noIndustry.join(", ")}`);
-ok("that list has not grown", noIndustry.length === 12, noIndustry);
+// 13, not 12, since kitchen_design (2026-08-30) joined it deliberately: it
+// isn't a painting-industry or a construction-industry trade, it's sold by
+// both and presumed onto neither, same reasoning as the two fence entries
+// already in this list. A DIFFERENT new member showing up here is still the
+// thing this count exists to catch.
+ok("that list has not grown beyond the one deliberate addition", noIndustry.length === 13, noIndustry);
 
 const instantNoIndustry = noIndustry.filter((k) => instantTradeForCategory(k));
 console.log(`  · of those, ${instantNoIndustry.length} have a wired instant estimator — offered to every company on one screen, surfaced by no industry on the other:`);

@@ -30,6 +30,7 @@ import { Resend } from "resend";
 import { lazyClient } from "@/lib/lazyClient";
 import { getAppOrigin } from "@/lib/appUrl";
 import { recordConsent, DISCLOSURE } from "@/lib/voice/outbound";
+import { KITCHEN_DESIGN_KEY } from "@/lib/kitchen/access";
 
 const resend = lazyClient(() => new Resend(process.env.RESEND_API_KEY));
 
@@ -125,9 +126,22 @@ export async function POST(request) {
     where: { companyId: company.id, enabled: true },
     include: { category: { select: { id: true, key: true } } },
   });
+
+  // Same rule as the page that hosts this form (app/quote/[companySlug]/
+  // kitchen/page.js): a company that never turned Kitchen Design on gets the
+  // same "Not found" a bad slug gets, not a lead accepted for work it never
+  // said it does. The POST is a second entry point into the same page and has
+  // to prove this on its own — a browser can reach this route directly
+  // without ever rendering the page that would have 404'd first.
+  if (!enabled.some((e) => e.category?.key === KITCHEN_DESIGN_KEY)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const categoryId =
+    enabled.find((e) => e.category?.key === KITCHEN_DESIGN_KEY)?.category?.id ||
     enabled.find((e) => /cabinet|kitchen|countertop|remodel/.test(e.category?.key || ""))
-      ?.category?.id || null;
+      ?.category?.id ||
+    null;
 
   const counts = design.elements.reduce((acc, el) => {
     const g = KINDS[el.kind]?.group || "other";
