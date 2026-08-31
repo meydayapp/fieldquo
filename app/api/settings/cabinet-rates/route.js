@@ -8,6 +8,17 @@
 //
 // Owners and admins only. This is the company's pricing; an employee who can
 // build a quote has no business changing what a linear foot costs.
+//
+// Also gated by TRADE, on top of role: this is the ONLY screen that reads or
+// writes Company.cabinetRates, and the only thing that ever reads that column
+// back out is the Kitchen Designer's own save routes, which are gated on
+// kitchen_design (lib/kitchen/access.js). A company that has never turned
+// kitchen_design on — and has never saved its own rates either — has nothing
+// this screen can do for them; the nav row hides for exactly that company
+// (app/components/layout/SettingsSidebar.js via lib/settings/tradeGateNav.js)
+// and this route refuses it too, because AGENTS.md is explicit that hiding a
+// row is not the gate. See lib/settings/tradeGate.js for the full reasoning,
+// including why this is whole-screen where Material Costs next door is not.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -22,6 +33,7 @@ import {
   BOX_MATERIALS,
 } from "@/lib/kitchen/pricing";
 import { hasOwnRates } from "@/lib/kitchen/rates";
+import { canUseCabinetRatesSettings } from "@/lib/settings/tradeGate";
 
 /**
  * @param read  true only on GET. Non-negotiable #3: the platform console views
@@ -32,6 +44,11 @@ import { hasOwnRates } from "@/lib/kitchen/rates";
  *              opts into rather than a line inside the shared gate, so a write
  *              cannot acquire it by editing one place — PUT and DELETE below
  *              call requireAdmin(request) with no options and are unchanged.
+ *              The TRADE gate is carved out with it: a support session must be
+ *              able to see a company's cabinet rates while investigating a
+ *              ticket even if the company never turned kitchen_design on —
+ *              "views everything" does not stop being true because the row is
+ *              unusual for that tenant.
  */
 async function requireAdmin(request, { read = false } = {}) {
   // memberOrRefusalPlain, not getCurrentMember: this helper's callers turn a
@@ -46,6 +63,12 @@ async function requireAdmin(request, { read = false } = {}) {
     requirePermission(member.role, "user:manage");
   } catch {
     return { error: "Only owners and admins can change pricing.", status: 403 };
+  }
+  if (!(await canUseCabinetRatesSettings(member.companyId))) {
+    return {
+      error: "Kitchen Design & New Installs isn't turned on for your company.",
+      status: 403,
+    };
   }
   return { member };
 }

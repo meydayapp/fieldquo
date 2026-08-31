@@ -228,6 +228,20 @@ function MaterialCostsEditor() {
         </p>
       </div>
 
+      {/* The API omits a category the company neither sells nor has ever
+          overridden (lib/settings/tradeGate.js). If that leaves NOTHING —
+          this company sells neither Cabinet Refinishing nor Exterior
+          Painting — the map below renders zero cards, and a blank page under
+          a header is exactly the "screen that appears to work and doesn't"
+          AGENTS.md names. `recipes` is only null while loading, which the
+          guard above already returns early for, so by here it's always an
+          object — possibly empty. */}
+      {recipes && Object.keys(recipes).length === 0 && (
+        <div className="rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {t("app.setMaterialCosts.noneApplicable")}
+        </div>
+      )}
+
       {Object.entries(CATEGORY_META).map(([categoryKey, meta]) => {
         const draft = drafts[categoryKey];
         if (!draft) return null;

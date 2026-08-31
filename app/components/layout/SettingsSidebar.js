@@ -77,6 +77,7 @@ import FeatureRowBadge from "@/app/components/layout/FeatureRowBadge";
 import { useSettingsAccess } from "@/app/providers/SettingsAccessProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
 import { filterSettingsGroups } from "@/lib/permissions/settingsAccess";
+import { filterSettingsGroupsByTrade } from "@/lib/settings/tradeGateNav";
 
 const GROUPS = [
   {
@@ -181,7 +182,7 @@ const GROUPS = [
 // the main rail no group needs pinning.
 const DISCLOSURE_KEY = "fq-settings-groups";
 
-export default function SettingsSidebar() {
+export default function SettingsSidebar({ tradeGate = null }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const pathname = usePathname();
@@ -193,11 +194,14 @@ export default function SettingsSidebar() {
   // the settings screens behind these rows are gated by their own FeatureGate
   // layouts whether or not this list ever hides anything.
   const featureFlags = useFeatureFlags();
-  // Two filters, one after the other, answering two different questions:
-  // "does this company have the feature" and "may this person use the screen".
-  // They are kept separate because they fail in opposite directions — a missing
-  // feature map shows everything, and so does a missing role, but conflating
-  // them would make one silently stand in for the other.
+  // Three filters, one after the other, answering three different questions:
+  // "does this company have the feature", "may this person use the screen",
+  // and — since the Cabinet Rates fix — "does this company sell the thing
+  // this particular screen configures". They are kept separate because they
+  // fail in opposite directions — a missing feature map shows everything, and
+  // so does a missing role or a missing trade gate, but conflating any two of
+  // them would make one silently stand in for another that asks a different
+  // question.
   //
   // Removing a row is cosmetics, not access control. Every row this can remove
   // is refused server-side for the same member whether or not the row was
@@ -220,12 +224,15 @@ export default function SettingsSidebar() {
   const caller = usePermissions();
   const groups = useMemo(
     () =>
-      filterSettingsGroups(
-        filterNavGroups(GROUPS, featureFlags),
-        access.resolved ? { role: access.role, impersonation: access.impersonation } : null,
-        caller,
+      filterSettingsGroupsByTrade(
+        filterSettingsGroups(
+          filterNavGroups(GROUPS, featureFlags),
+          access.resolved ? { role: access.role, impersonation: access.impersonation } : null,
+          caller,
+        ),
+        tradeGate,
       ),
-    [featureFlags, access.resolved, access.role, access.impersonation, caller],
+    [featureFlags, access.resolved, access.role, access.impersonation, caller, tradeGate],
   );
   // The "you are here" label on the mobile bar reads from this too — otherwise a
   // hidden feature would name itself at the top of the screen the moment someone

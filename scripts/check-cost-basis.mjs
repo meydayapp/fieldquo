@@ -153,6 +153,23 @@ function makeDb() {
         return {};
       },
     },
+    // The material-recipes PUT/DELETE fixtures below write categoryKey
+    // "cabinet_refinishing" — added when GET/PUT/DELETE were also gated by
+    // TRADE (lib/settings/tradeGate.js), on top of the cost-basis grid this
+    // file exists to test. Without a category enabled, canUseMaterialCostsCategory
+    // would refuse every role including the owner, which would make this
+    // file's PUT/DELETE cases test "does the company sell cabinet_refinishing"
+    // instead of "does this role hold cost-basis write" — a different
+    // question than the one this file is for. This company sells the trade
+    // its own fixtures write to, same as any real company saving an override
+    // would.
+    companyServiceCategory: {
+      async findMany() {
+        return [
+          { companyId: "co", enabled: true, category: { key: "cabinet_refinishing" } },
+        ];
+      },
+    },
     forecastSettings: {
       async findUnique() {
         return { jobsPerWeekCapacity: 3 };
