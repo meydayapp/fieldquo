@@ -205,7 +205,11 @@ export async function POST(request) {
         stripeCustomerId: customerId,
         stripeSubscriptionId: live.id,
         status: live.status,
-        ...(nowLive ? { pastDueSince: null, graceWarnedAt: null } : {}),
+        // Both grace-warning markers, not just the first — see the schema
+        // comment on graceWarnedAt/graceFinalWarnedAt. Leaving the second one
+        // set would mean a company that relapses months from now skips
+        // straight to "already sent the final warning" on day one.
+        ...(nowLive ? { pastDueSince: null, graceWarnedAt: null, graceFinalWarnedAt: null } : {}),
         currentPeriodEnd: live.current_period_end
           ? new Date(live.current_period_end * 1000)
           : null,

@@ -100,6 +100,16 @@ const GLOBAL_BY_DESIGN = {
       "this run's own findMany, and the second is a REVERT to the row's own " +
       "prior values (not a foreign key from a caller) when a send didn't happen.",
   },
+  "app/api/cron/grace-warning/route.js": {
+    subscription:
+      "Same shape as renewal-reminders: a cron over every past_due FieldQuo " +
+      "subscription, authenticated by CRON_SECRET, no member and no company to " +
+      "scope by — FieldQuo IS the tenant here, warning its own customers about " +
+      "their own billing state. Both db.subscription.update calls key off " +
+      "sub.id from this run's own findMany and revert one column (the marker " +
+      "this same run's updateMany just claimed) back to null when the send " +
+      "didn't actually happen — never a foreign key from a caller.",
+  },
   "app/api/instant-quote/[companySlug]/request/route.js": {
     leadRequest:
       "Public intake. The lead was created moments earlier by createScoredLead " +

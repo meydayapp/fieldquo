@@ -716,9 +716,24 @@ model Subscription {
   /// clock.
   pastDueSince DateTime?
 
-  /// Set when the "you have N days left" email goes out, so the daily job
+  /// Set when the FIRST "you have N days left" grace-period email goes out,
+  /// so the daily job (/api/cron/grace-warning, lib/billing/graceWarning.js)
   /// doesn't send it again every morning.
+  ///
+  /// Two markers, not one, because a seven-day window with someone's whole
+  /// business record on the line gets a heads-up at the start AND a last
+  /// chance near the end — the same two-day urgency threshold the read-only
+  /// banner already uses (app/components/layout/BillingBanner.js: "urgent"
+  /// once daysLeft <= 2). One timestamp could only dedupe one send; tracking
+  /// which specific warning went out is what lets a second, later one still
+  /// fire. Both are cleared by clearPastDue() the moment payment succeeds, so
+  /// a company that relapses gets a fresh pair rather than silence.
   graceWarnedAt DateTime?
+
+  /// The SECOND grace-period email — the last-chance warning close to
+  /// lockout. See graceWarnedAt for why this is a second column rather than
+  /// reusing the first.
+  graceFinalWarnedAt DateTime?
 
   /// The last save offer this company accepted, and when.
   ///
