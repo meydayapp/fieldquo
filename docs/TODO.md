@@ -14,6 +14,9 @@ gap.
 |---|---|---|
 | Jennifer — FieldQuo's own support/sales assistant, ported from echo | right-hand panel, marketing site + signed-in | agent building |
 | Service-gating for trade-specific SETTINGS screens | starting with Cabinet Rates | agent building |
+| Past-due grace warning — `graceWarnedAt` exists to dedupe a send nobody built | daily cron | agent building |
+| Demo scripts, one 15-min block each: voice, crew, money | `docs/DEMO-*.md` | agents building |
+| Read-aloud rewrite of the quote-to-cash script | `docs/DEMO-SCRIPT.md` | agent building |
 
 **Jennifer's scope, corrected by the owner 2026-08-30 and not to be widened:**
 she is FieldQuo's tier-1 support and sales assistant — "a tier 1 issue type
