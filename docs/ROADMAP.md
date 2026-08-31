@@ -890,6 +890,58 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **The public instant-quote draft now taxes, costs, and honestly leaves
+  itself unassigned. `lib/estimate/createEstimateQuote.js`,
+  `lib/estimate/instantQuoteCosting.js` (new),
+  `app/api/instant-quote/[companySlug]/request/route.js`,
+  `Quote.assignedToId` (new column), `app/api/quotes/route.js`,
+  `app/api/quotes/[id]/route.js`, `app/app/estimate-reviews/page.js`,
+  `scripts/check-instant-quote-draft.mjs` (new).**
+
+  Three defects reported from a real run, one root cause: `createEstimateDraft`
+  never attempted any of this. Tax — it wrote neither `tax` nor `taxEnabled`
+  at all, so every auto-estimated draft entered review already `unresolved`
+  (see `lib/tax/documentTax.js`'s three-state tax line). Costing — the instant
+  path attached no `QuoteCosting` row, so a contractor typed the cost panel by
+  hand on every single one. Assignee — `Quote` had no `assignedToId` column at
+  all, in either flow.
+
+  Fixed by calling the SAME server modules the normal builder saves through,
+  not by adding a second calculation: `resolveDocumentTax` +
+  `lib/quotes/totals.js`'s `quoteTotals()` for tax (resolved against the
+  CLIENT ROW's jurisdiction, not just what one request happened to carry, so
+  a repeat visitor matched by email still gets the jurisdiction from an
+  earlier visit); `buildQuoteCostingRow` (the exact function POST/PATCH
+  `/api/quotes` already save through) for costing, fed by a small new adapter
+  that translates the instant estimate's measurement into the takeoff/
+  intakeValues shape the cost engine reads — only for the two trades where
+  that translation is honest (roofing, cabinet refinishing/refacing).
+  A costing row is only PERSISTED when it has a real basis: a saved row is
+  trusted UNCONDITIONALLY on read (`GET /api/quotes/[id]/costing` never
+  re-runs `costBasisMissing` on one), so writing an overhead-only "costed"
+  row for an unmapped trade would present a fabricated green margin as
+  settled fact — precisely the Q-2026-0006 bug `costBasisMissing` exists to
+  catch, one call site later.
+
+  `Quote.assignedToId` didn't exist on either the normal builder or the
+  instant flow — added along with a `quote:assign` permission mirroring
+  `appointment:assign` (reassigning to someone else needs it; taking it for
+  yourself, or an API client sending nothing, doesn't). Nobody is signed in
+  when the public instant-quote flow runs, so there is no honest name to put
+  there — it stays null, and the pre-existing `needsReview` flag is what
+  carries it to review rather than a second concept. `/app/estimate-reviews`
+  now shows "Assigned to X" or a one-click "assign to me".
+
+  `scripts/check-instant-quote-draft.mjs` (`npm run check:instant-quote-draft`,
+  in `check:all`) executes `createEstimateDraft` against a scripted db for a
+  known and an unknown tax jurisdiction, a costable and an uncostable trade,
+  and the assignee outcome — plus runs the actual pricing functions against a
+  hostile payload (money fields smuggled into intake) to prove they're
+  ignored, and statically confirms the two instant-quote routes destructure
+  no money field off the request. All 22 assertions were mutation-tested
+  (revert the fix, confirm the check fails, revert back) and all 22 caught
+  their mutation.
+
 - **The monthly digest now reads the CALLS behind won and lost quotes, not
   just the numbers. `lib/ai/callTranscriptDigest.js`,
   `lib/ai/monthlyDigest.js`, `app/app/analytics/digest/page.js`,
