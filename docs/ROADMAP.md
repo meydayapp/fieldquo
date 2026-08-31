@@ -731,7 +731,8 @@ Adapted from the owner's working TrueFinish code. What's done:
   the drawing. Do not copy it into a renderer; that is how the picture a client
   approves stops matching the one the crew builds from.
 - `lib/kitchen/planShapes.js` + `PlanSvg.js` — the presentation plan.
-- `/app/quotes/[id]/kitchen`, `/design/[token]`, `/app/settings/cabinet-rates`.
+- `/app/quotes/[id]/kitchen`, `/design/[token]`, `/app/settings/cabinet-rates`
+  (now gated on `kitchen_design` — see "Cabinet Rates and Material Costs" below).
 
 Elevations, the finish picker, the self-quote entry and the PDF are all done —
 the drawing on a quote comes from the same `planShapes` list as the screen, via
@@ -889,6 +890,52 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
+
+- **Cabinet Rates and Material Costs stop appearing for companies that can't
+  use them. `lib/settings/tradeGate.js` (new), `lib/settings/tradeGateNav.js`
+  (new), `lib/trades/companyCategories.js` (new — `companyEnabledCategoryKeys`
+  split out of `lib/kitchen/access.js`), `app/api/settings/cabinet-rates/route.js`,
+  `app/api/settings/material-recipes/route.js`,
+  `app/app/settings/cabinet-rates/layout.js` (new),
+  `app/app/settings/material-costs/page.js`, `app/components/layout/SettingsSidebar.js`,
+  `app/app/settings/layout.js`, `scripts/check-trade-gate.mjs` (new).**
+
+  Same bug as the Kitchen Designer fix below, one row lower: Settings > Cabinet
+  Rates rendered in the Pricing group for every company, including one selling
+  no cabinetry at all, and its API was gated only by role — hiding the nav row
+  alone would have been the "hiding a button is not access control" failure.
+  SettingsSidebar had no mechanism at all for "does this company sell the
+  thing this screen configures" (only feature flags and the permission grid),
+  so the fix is a third filter of that shape, applied narrowly: read off the
+  ROUTE, Cabinet Rates and Material Costs turned out to be the only two
+  screens that hard-code a closed set of `ServiceCategory` keys with nothing
+  to show a company outside it — `Company.cabinetRates` is read by nothing but
+  the Kitchen Designer's own save routes (gated on `kitchen_design`, NOT
+  `cabinet_refinishing`/`cabinet_refacing` — a company doing only refinishing
+  still has this screen refused), and `MATERIAL_RECIPES` has exactly two keys
+  (`cabinet_refinishing`, `exterior_painting`). Everything else in the Pricing
+  group (Products, Services, Overhead, Custom Fields) stays universal, and
+  Services stays load-bearing: it's the screen that turns a trade ON, so
+  gating it on "already sells X" would make it unreachable for the company
+  that needs it most. Full reasoning, including why Cabinet Rates is a
+  whole-screen gate and Material Costs is a per-card one, is in
+  `lib/settings/tradeGate.js`'s header.
+
+  Existing-data rule mirrored from `lib/kitchen/access.js`'s `hasKitchenData`:
+  a company that already saved a rate card (`hasOwnRates`) or a material-recipe
+  override keeps the screen even after switching the trade off — company-scoped
+  instead of quote-scoped, since neither screen belongs to one quote.
+  Impersonation still sees everything on both (non-negotiable #3), carved out
+  the same way the routes already carved it out for role.
+
+  `scripts/check-trade-gate.mjs` (`npm run check:trade-gate`, in `check:all`)
+  executes the pure functions against hostile input, runs the owner's exact
+  scenario and five neighbouring ones against `scripts/fixtures/dbStub.mjs`
+  (including the "refinishing+refacing on, kitchen_design off" case, which is
+  the one the bug report was actually about), asserts the two gate maps cannot
+  drift from each other or from the sidebar's own source, and greps the routes
+  (comments stripped) to prove the fix is wired in, not just written. 66
+  assertions, each mutation-tested by hand against the real files.
 
 - **The public instant-quote draft now taxes, costs, and honestly leaves
   itself unassigned. `lib/estimate/createEstimateQuote.js`,

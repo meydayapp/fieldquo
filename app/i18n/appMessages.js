@@ -1677,6 +1677,10 @@ const en = {
   "app.setMaterials.reorderPlaceholder": "Reorder threshold",
   "app.setMaterials.addMaterial": "Add Material",
   "app.setMaterialCosts.subtitle": "These numbers drive the internal Cost & Margin estimate on every quote — what you actually pay for materials and labour, separate from the price you charge the client. Leave anything you're not sure about at the default.",
+  // Shown instead of the two recipe cards when the API returns neither —
+  // this company sells neither Cabinet Refinishing nor Exterior Painting and
+  // has never saved its own numbers for either. See lib/settings/tradeGate.js.
+  "app.setMaterialCosts.noneApplicable": "Nothing to configure here yet. This screen sets material costs for Cabinet Refinishing and Exterior Painting — turn one of them on in Settings › Services to see it here.",
   "app.setMaterialCosts.custom": "Custom",
   "app.setMaterialCosts.default": "Default",
   "app.setMaterialCosts.resetDefaults": "Reset to defaults",
@@ -5801,6 +5805,7 @@ const fr = {
   "app.setMaterials.reorderPlaceholder": "Seuil de réapprovisionnement",
   "app.setMaterials.addMaterial": "Ajouter un matériau",
   "app.setMaterialCosts.subtitle": "Ces chiffres alimentent l'estimation interne des coûts et de la marge sur chaque soumission — ce que vous payez réellement pour les matériaux et la main-d'œuvre, distinct du prix facturé au client. Laissez à la valeur par défaut tout ce dont vous n'êtes pas certain.",
+  "app.setMaterialCosts.noneApplicable": "Rien à configurer ici pour l'instant. Cet écran définit les coûts de matériaux pour la Refinition d'armoires et la Peinture extérieure — activez l'un des deux dans Paramètres › Services pour le voir ici.",
   "app.setMaterialCosts.custom": "Personnalisé",
   "app.setMaterialCosts.default": "Par défaut",
   "app.setMaterialCosts.resetDefaults": "Rétablir les valeurs par défaut",

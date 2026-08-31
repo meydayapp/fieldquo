@@ -4,6 +4,16 @@
 // app/data/materialRecipes.js — primer/top-coat coverage, per-gallon costs,
 // coat counts, consumable costs, labour minutes — from Settings > Material
 // Costs, instead of only ever using the shared TrueFinish-derived defaults.
+//
+// Also gated by TRADE, on top of the cost-basis grid below: MATERIAL_RECIPES
+// has exactly two keys, cabinet_refinishing and exterior_painting — not every
+// company has a recipe here worth touching. GET now returns only the
+// categories this company may see (sold, or already carrying a saved
+// override — see lib/settings/tradeGate.js), and PUT/DELETE refuse a
+// categoryKey outside that set. The nav row hides only when NEITHER category
+// is visible (SettingsSidebar via lib/settings/tradeGateNav.js); a company
+// selling exactly one of the two keeps the row and sees exactly one card,
+// because page.js already treats a missing key as "don't render this card".
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -18,6 +28,10 @@ import {
   requireCostBasisWrite,
 } from "@/lib/permissions/costBasis";
 import { MATERIAL_RECIPES, getRecipe } from "@/app/data/materialRecipes";
+import {
+  materialCostsVisibleCategories,
+  canUseMaterialCostsCategory,
+} from "@/lib/settings/tradeGate";
 
 // GET → { cabinet_refinishing: { ...resolvedRecipe, _hasOverrides }, ... }
 // One entry per recipe that exists, merging any saved overrides on top of
@@ -55,8 +69,19 @@ export async function GET(request) {
     saved.map((s) => [s.categoryKey, s.overrides]),
   );
 
+  // Impersonation sees every category regardless of trade — non-negotiable
+  // #3, and the same reasoning as the impersonation carve-out just above:
+  // "views everything" does not stop being true because a recipe is unusual
+  // for this tenant. A real member only sees categories the company sells or
+  // has already overridden; page.js already renders "nothing here" for a
+  // categoryKey this omits (`if (!draft) return null`), which is what keeps
+  // this filter from becoming a second, disagreeing gate.
+  const visibleKeys = member.impersonation
+    ? Object.keys(MATERIAL_RECIPES)
+    : await materialCostsVisibleCategories(member.companyId);
+
   const result = {};
-  for (const categoryKey of Object.keys(MATERIAL_RECIPES)) {
+  for (const categoryKey of visibleKeys) {
     result[categoryKey] = {
       ...getRecipe(categoryKey, savedByKey[categoryKey] || {}),
       _hasOverrides: Boolean(savedByKey[categoryKey]),
@@ -87,6 +112,18 @@ export async function PUT(request) {
   }
   if (!overrides || typeof overrides !== "object") {
     return NextResponse.json({ error: "overrides must be an object" }, { status: 400 });
+  }
+  // The cost-basis grid decided WHO may write; this decides WHETHER this
+  // categoryKey is theirs to write at all. A company that neither sells this
+  // trade nor has ever overridden it before has nothing here worth creating —
+  // see canUseMaterialCostsCategory, which allows a company that already has
+  // an override to keep editing it even after switching the trade off (the
+  // same existing-data rule Cabinet Rates and the Kitchen Designer use).
+  if (!(await canUseMaterialCostsCategory(member.companyId, categoryKey))) {
+    return NextResponse.json(
+      { error: "This company doesn't sell that trade." },
+      { status: 403 },
+    );
   }
 
   const saved = await db.materialRecipeSetting.upsert({

@@ -27,6 +27,7 @@ import {
 } from "@/app/components/settings/SettingsDrillDown";
 import { SettingsAccessProvider } from "@/app/providers/SettingsAccessProvider";
 import { getCurrentMember } from "@/lib/currentMember";
+import { companyTradeGate } from "@/lib/settings/tradeGate";
 
 async function getAccess() {
   try {
@@ -44,14 +45,40 @@ async function getAccess() {
   }
 }
 
+/**
+ * Which trade-specific rows (Cabinet Rates, Material Costs) this company has
+ * a reason to see — see lib/settings/tradeGate.js for the full reasoning.
+ * Resolved here for the same reason `getAccess` is: the sidebar needs the
+ * answer before its FIRST paint, or it draws all thirty-six rows and then
+ * removes some, which is worse than never hiding them.
+ *
+ * Never throws, and null (not member.companyId, or the lookup failing) reads
+ * as "unresolved" everywhere this is consumed — which the trade-gate nav
+ * filter treats as "show it", the same fail-open posture featureFlags and
+ * access carry on this exact layout.
+ */
+async function getTradeGate() {
+  try {
+    const member = await getCurrentMember(
+      { headers: await headers(), method: "GET", url: "http://x/app/settings" },
+      { skipBillingGate: true },
+    );
+    if (!member?.companyId) return null;
+    return await companyTradeGate(member.companyId);
+  } catch (err) {
+    console.error("[SettingsLayout] couldn't resolve the company's trade gate:", err);
+    return null;
+  }
+}
+
 export default async function SettingsLayout({ children }) {
-  const access = await getAccess();
+  const [access, tradeGate] = await Promise.all([getAccess(), getTradeGate()]);
 
   return (
     <SettingsAccessProvider access={access}>
       <SettingsDrillDownProvider>
         <div className="lg:flex min-h-screen">
-          <SettingsSidebar />
+          <SettingsSidebar tradeGate={tradeGate} />
           <main className="flex-1 min-w-0">
             {/* Renders nothing unless this visit was a confirmed drill-down. */}
             <SettingsBackBar />
