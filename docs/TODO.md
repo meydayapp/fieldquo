@@ -46,6 +46,27 @@ Closed in this sweep:
   route literal rather than trusting the comment, and found no dead links and no
   stale entries.
 
+## Decide before the next demo — two live pricing models
+
+Both are in production code and they disagree about what a one-person company
+pays.
+
+| Path | Price | Used by |
+|---|---|---|
+| Tier ladder (`lib/pricing/ladder.js`) | **Solo $99** — 1 seat + 5 crew | the public pricing page, the seeded Plan rows, the signup tier buttons |
+| Per-licence (`lib/pricing.js`) | **$45/licence** flat, 1-9 | signup's headcount path, the "Add licences" upgrade, the billing checkout route, `PricingCard`, `salesKnowledge` |
+
+TWO LIVE PRICING MODELS is not automatically a bug — one is pick-a-tier, the
+other is buy-N-licences, and the database has a real `Custom (2 employees)
+$90.00` row that is 2 x $45. But a prospect asking "what does it cost me, I'm on
+my own" gets **$45 or $99 depending on which door they came through**, and the
+demo scripts quote different figures because the code does.
+
+The sales knowledge base quotes the per-licence number, so FieldQuo's own sales
+agent is saying $45.
+
+Decide which is the price. The docs and scripts follow.
+
 ## Waiting on the owner, not on me
 
 - **Stripe live keys.** Order matters: create both live webhook endpoints first,
