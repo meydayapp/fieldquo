@@ -25,13 +25,13 @@
 // (Worker.phone isn't unique) and unauthenticated (`From` is forgeable).
 export const runtime = "nodejs";
 
-import twilio from "twilio";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { handleCrewMessage } from "@/lib/crew/inbox";
 import { crewInboxCapability } from "@/lib/crew/capability";
 import { tenantKeyFromInbound, collectMediaUrls, pointFromInbound } from "@/lib/crew/inboundParse";
 import { sendSms } from "@/lib/sms/twilioClient";
+import { verifyTwilioWebhook } from "@/lib/sms/verifyTwilioWebhook";
 import { crewSpendFor, chargeOutboundCrewReply, disconnectForNonPayment } from "@/lib/crew/messaging";
 import { recordError } from "@/lib/platform/errorLog";
 
@@ -70,6 +70,8 @@ async function settleCrewSpend({ line, to, from, reply }) {
   if (reply) {
     if (spend.canReply) {
       // To the crew member who texted, FROM the crew line they texted.
+      // `from` here is a CREW member (staff), not a client — not gated by
+      // lib/sms/optOut.js's maySms(), which is the client opt-out list.
       const sent = await sendSms({ to: from, from: to, body: reply }).catch(() => null);
       if (sent?.success && sent.sid) {
         await chargeOutboundCrewReply({
@@ -108,17 +110,9 @@ async function settleCrewSpend({ line, to, from, reply }) {
 }
 
 export async function POST(request) {
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const raw = await request.text();
-  const params = Object.fromEntries(new URLSearchParams(raw));
-
   // ── Verify ────────────────────────────────────────────────────────────────
-  const signature = request.headers.get("x-twilio-signature");
-  const url = request.headers.get("x-forwarded-proto") && request.headers.get("host")
-    ? `${request.headers.get("x-forwarded-proto")}://${request.headers.get("host")}${new URL(request.url).pathname}`
-    : request.url;
-
-  if (!token || !signature || !twilio.validateRequest(token, signature, url, params)) {
+  const { ok, params } = await verifyTwilioWebhook(request);
+  if (!ok) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

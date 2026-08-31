@@ -10,7 +10,11 @@
 //
 // Three guards keep it from becoming a nuisance or a double-send:
 //   * reminderSentAt — once-only, so an appointment is reminded exactly once
-//   * CallConsent.optedOutAt — an opt-out always wins, never texted again
+//   * maySms() — an SMS opt-out (or a CallConsent opt-out) always wins, never
+//     texted again. Used to be an inline CallConsent-only query; now shared
+//     with every other client-facing SMS path via lib/sms/optOut.js, so a
+//     STOP recorded through app/api/sms/inbound refuses a reminder same as it
+//     refuses an "on my way" text — one gate, not one per call site.
 //   * client must have a phone number
 export const runtime = "nodejs";
 
@@ -18,6 +22,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendSms, toE164 } from "@/lib/sms/twilioClient";
 import { appointmentReminderText } from "@/lib/sms/templates";
+import { maySms } from "@/lib/sms/optOut";
 
 // Only look a week out, whatever a company's lead time is — bounds the query,
 // and no sane reminder lead time exceeds it. The per-company window is applied
@@ -73,11 +78,8 @@ export async function GET(request) {
     // An opt-out always wins. Checked per appointment — reminder volume is low
     // and this is a cron, so the extra query is cheaper than the risk of texting
     // someone who asked us to stop.
-    const optedOut = await db.callConsent.findFirst({
-      where: { companyId: appt.company.id, e164, optedOutAt: { not: null } },
-      select: { id: true },
-    });
-    if (optedOut) {
+    const allowed = await maySms({ companyId: appt.company.id, phone: e164 });
+    if (!allowed) {
       skipped++;
       continue;
     }

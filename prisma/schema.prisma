@@ -1080,7 +1080,15 @@ model Company {
   /// name in the body). This is NOT a free-text field a company types their cell
   /// into — carriers block sending from a number you don't control — it's set
   /// only when a real SMS number has been bought or hosted for them.
-  smsFromNumber String?
+  ///
+  /// @unique because app/api/sms/inbound/route.js resolves "which company does
+  /// this inbound STOP belong to" by matching the webhook's `To` against this
+  /// column and nothing else — the same one-number-one-tenant guarantee
+  /// CrewInboxNumber.e164 gives the crew line. Without the constraint, two
+  /// companies typed into the same row would make that lookup ambiguous, which
+  /// on an inbound webhook means "whichever row Postgres returns first" —
+  /// silently filing one company's opt-out against another's clients.
+  smsFromNumber String? @unique
   dateFormat   String? @default("MM/DD/YYYY")
   weekStartsOn Int?    @default(0) // 0 = Sunday, 1 = Monday
   // The currency this company BILLS ITS CLIENTS in — quotes, invoices, the
@@ -1174,6 +1182,7 @@ model Company {
   voiceAutoTopup VoiceAutoTopup?
   aiCreditBundle AiCreditBundle?
   callConsents  CallConsent[]
+  smsOptOuts    SmsOptOut[]
 
   /// Where a happy customer should leave a review. Usually a Google review
   /// link. Null means we don't ask — a review request with nowhere to go is
@@ -3164,7 +3173,62 @@ model MarketingSubscriber {
   source     String   @default("manual") // "manual" | "client_import"
   createdAt  DateTime @default(now())
 
+  /// The credential in the unsubscribe link — same shape as Client.portalToken
+  /// (32 CSPRNG bytes, base64url): unguessable, and unique per ROW rather than
+  /// derived from the email, so a token can resolve to exactly one company's
+  /// subscriber and nothing else. Null until first needed; lib/marketing/
+  /// unsubscribe.js mints one lazily the same way ensurePortalToken does,
+  /// which is also why a row can exist (manual add, client import) with no
+  /// token yet — nothing sent them a link, so nothing needed one.
+  unsubscribeToken String? @unique
+
+  /// When they clicked. Set once and never moved on a repeat click — CASL asks
+  /// when they asked to stop, not how many times they've confirmed it since.
+  unsubscribedAt DateTime?
+
+  /// The exact copy the unsubscribe page showed them, stored verbatim rather
+  /// than referenced — same reasoning as CallConsent.disclosure: the page copy
+  /// WILL change, and the defence has to be what THIS person actually saw.
+  unsubscribeDisclosure String?
+
   @@unique([companyId, email])
+}
+
+/// One phone number's current SMS opt-out status for one company.
+///
+/// Deliberately NOT the same field as CallConsent.optedOutAt. That column is
+/// documented as permanent — "always wins, whatever else is on file... never
+/// deleted" — because a voice opt-out under TCPA is a heavier, one-way signal
+/// and this codebase chose not to let it be silently reversed by a new consent
+/// row. SMS STOP/START are different: they're standard, REVERSIBLE keywords
+/// carriers expect an application to honour in real time (CTIA guidelines,
+/// and Twilio's own opt-out/opt-in handling). Forcing that through the
+/// one-way CallConsent ledger would mean either STOP never truly clearing (a
+/// false compliance signal) or quietly rewriting voice's permanence rule for
+/// everyone. So this is its own status row, updated in place: STOP flips it
+/// true, START flips it back. lib/sms/optOut.js's maySms() checks BOTH this
+/// AND CallConsent — a number that opted out of calls is refused SMS too, but
+/// opting back into SMS here never silently restores call consent.
+model SmsOptOut {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// E.164, normalised — same lookup key CallConsent uses, so a number typed
+  /// one way and texted another can't slip past the check.
+  e164 String
+
+  optedOut Boolean @default(true)
+
+  /// The exact inbound text that set this status ("stop", "STOP.", "please
+  /// STOP") — the defence for "we honoured what they actually sent" is the
+  /// message itself, not our interpretation of it.
+  lastMessageBody String?
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, e164])
 }
 
 // One address on a pamphlet route. Ordering is precomputed (nearest-neighbor

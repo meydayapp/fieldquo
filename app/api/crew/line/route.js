@@ -460,6 +460,10 @@ export async function POST(request) {
       );
     }
 
+    // Not gated by lib/sms/optOut.js's maySms(): `to` is the STAFF member's
+    // own worker phone, not a client's — this is a test text an employee
+    // sent to themself, and the client SMS opt-out list has nothing to say
+    // about it.
     const sent = await sendSms({
       to,
       from: line.e164,

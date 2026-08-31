@@ -136,6 +136,7 @@ Set only to override. The default is in brackets.
 | `SALES_NOTIFICATION_EMAIL` | `emilio@fieldquo.com` | Where new-signup alerts go |
 | `LARGE_QUOTE_LOOKBACK_MINUTES` | — | Large-quote cron window |
 | `PAYROLL_PROVIDER_API_BASE` · `PAYROLL_PROVIDER_API_KEY` | — | Payroll export. Absent = the export is unavailable, not silently wrong. |
+| `SMS_OPT_OUT_SEND_CONFIRMATION` | unset (`false`) | app/api/sms/inbound/route.js — whether to send FieldQuo's own "you're unsubscribed"/"you're resubscribed" text when a homeowner replies STOP/START to a company's client-facing number. Left unset on purpose: Twilio's own Advanced Opt-Out may already be sending that confirmation for the number(s) in `Company.smsFromNumber`, and this codebase can't see that console setting. **Check Twilio Console → the number's Messaging configuration (or account-wide Messaging → Settings) for Advanced Opt-Out / STOP-START auto-handling before touching this.** If it's OFF there, set this to the literal string `true` so FieldQuo's own confirmation actually goes out — otherwise a client who replies STOP gets no confirmation from anyone. If it's ON there, leave this unset; setting it anyway means the client gets two different confirmation texts for one STOP. Either way, the opt-out/opt-in itself is always recorded — this only gates the extra text. |
 
 `NODE_ENV` and `VERCEL_URL` are set by the platform. Don't set them by hand.
 
