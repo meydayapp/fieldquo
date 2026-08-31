@@ -93,6 +93,18 @@ const RESOLVES_ITS_OWN = {
     ".catch(() => null)` is deliberate: an absent, lapsed or billing-locked " +
     "session means 'you cannot import this', never an error on a page a " +
     "subcontractor's client is allowed to read logged out.",
+  "app/api/jennifer/route.js":
+    "ONE endpoint deliberately serves TWO audiences — a signed-in company " +
+    "member and an anonymous marketing-site visitor — and memberOrRefusal's " +
+    "whole contract is 'turn a failed resolution into an HTTP refusal', which " +
+    "is the wrong shape here: a failed resolution for Jennifer is not an " +
+    "error to report, it's the signal to serve the SAME request in anonymous " +
+    "mode (sales knowledge and public calculators only — a strict SUBSET of " +
+    "company mode, never a wider one). resolveCompanyMember() catches every " +
+    "failure (no session, impersonation hitting this write-shaped POST, a " +
+    "billing-locked account) and returns null uniformly, which the route then " +
+    "treats as 'anonymous' rather than surfacing any of memberOrRefusal's " +
+    "401/402/403 shapes to a visitor who was never asked to sign in.",
 };
 
 // The helpers that turn a thrown gate into something answerable.

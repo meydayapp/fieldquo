@@ -1028,6 +1028,59 @@ they set the pattern.
   drift from each other or from the sidebar's own source, and greps the routes
   (comments stripped) to prove the fix is wired in, not just written. 66
   assertions, each mutation-tested by hand against the real files.
+- **Jennifer — FieldQuo's own tier-1 support/sales assistant, text chat only,
+  in a right-hand panel on both the marketing site and `/app`.
+  `lib/ai/jennifer/` (new: `client.js`, `tools.js`, `prompt.js`, `knowledge.js`,
+  `allowlist.js`, `dataFence.js`, `escalate.js`, `conversations.js`),
+  `app/api/jennifer/route.js` (new), `app/components/jennifer/JenniferPanel.js`
+  (new), `app/platform/jennifer/page.js` + `app/api/platform/jennifer/
+  conversations/` (new — the operator side), `Feedback.type` gained
+  `jennifer_escalation`, `JenniferConversation`/`JenniferMessage` (new models,
+  company mode only), `lib/ai/provider.js` (`runToolLoop` gained optional
+  `images`), `scripts/check-jennifer.mjs` (new, wired into `check:all`).**
+
+  A DIFFERENT assistant from the in-app FieldQuo copilot
+  (`lib/ai/copilotClient.js`) — that one helps a contractor DO their work;
+  Jennifer helps when something's broken, or before they've signed up.
+  Two modes in one panel: anonymous (marketing site — reuses
+  `lib/platform/salesKnowledge.js` and the `lib/marketing/savings.js` /
+  `costCompare.js` calculators, never persisted, bounded by IP rate-limiting
+  since there's no company to meter against) and company (signed-in — reads
+  `docs/SUPPORT-GUIDE.md`, may check a FEW of the caller's own account facts
+  through an allowlisted tool set gated to owner/admin, mirroring the same
+  `UNRESTRICTED_ROLES` Settings → Voice already gates on).
+
+  A hostile message never reaches the model at all for three topics
+  (`lib/ai/jennifer/escalate.js`'s regex, checked BEFORE the model, not a
+  prompt instruction hoping to be followed): money moving, data deletion,
+  legal/privacy. Escalating a COMPANY conversation flips it to `escalated`
+  and lands it in `/platform/jennifer` for a FieldQuo operator to reply into
+  — the reply reaches the contractor's own panel by polling (no push
+  mechanism in this stack; see the route's own header for why streaming
+  Jennifer's own reply was cut under time pressure and named as such rather
+  than silently skipped). Escalating an ANONYMOUS conversation writes a
+  single `Feedback` row (one-sentence reason, never a transcript) into the
+  existing `/platform/feedback` queue instead — there is no persisted
+  anonymous conversation to point an operator at, by design
+  (non-negotiable #8).
+
+  Ported from `next15-echo-main`'s Convex/TypeScript reference for BEHAVIOUR
+  only — its conversation-status shape (`unresolved`/`escalated`/`resolved`)
+  and its "the agent stops answering once escalated" rule, reimplemented on
+  Prisma/Better Auth/`lib/ai/provider.js`. Its Convex tables, its own auth,
+  its `widgetSettings` (judged surplus — FieldQuo has one fixed panel, not a
+  per-org-configurable embed) and its `vapi.ts` voice integration were NOT
+  ported. No dependency FieldQuo lacked was needed — no Radix.
+
+  **Left unfinished, flagged rather than hidden:** Jennifer's own reply is not
+  token-streamed (a plain request/response with a loading spinner); the new
+  `JenniferConversation`/`JenniferMessage`/`FeedbackType.jennifer_escalation`
+  schema changes have not been pushed to a live database from this
+  environment (no `DATABASE_URL` available here — run `npx prisma db push`
+  before this ships); the operator routes in `app/api/platform/jennifer/`
+  aren't covered by `check-jennifer.mjs` (the six-plus-two guarantees the
+  brief named are all about the VISITOR-facing session/allowlist/escalation
+  boundary, which is what's covered).
 
 - **The public instant-quote draft now taxes, costs, and honestly leaves
   itself unassigned. `lib/estimate/createEstimateQuote.js`,

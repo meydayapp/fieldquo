@@ -8,6 +8,7 @@ import SeatSharingBanner from "@/app/components/layout/SeatSharingBanner";
 import AccountLocked from "@/app/components/layout/AccountLocked";
 import ErrorToast from "@/app/components/ErrorToast";
 import AppTours from "@/app/components/AppTours";
+import JenniferPanel from "@/app/components/jennifer/JenniferPanel";
 import CompanyPreferencesProvider from "@/app/providers/CompanyPreferencesProvider";
 import { LanguageProvider } from "@/app/providers/LanguageProvider";
 import { FeatureProvider } from "@/app/providers/FeatureProvider";
@@ -342,6 +343,12 @@ export default async function AppLayout({ children }) {
       {/* First-visit walkthroughs. Mounted once here so a page never has to
           wire its own — it just needs a data-tour anchor. See tours.js. */}
       <AppTours />
+      {/* Tier-1 support for THIS company only — a different assistant from the
+          FieldQuo AI copilot at /app/copilot, which helps run the business
+          rather than fix it. See lib/ai/jennifer/ for the whole boundary.
+          Mounted at the shell level, not per-page, for the same reason
+          ErrorToast is: one instance, reachable from anywhere in /app. */}
+      <JenniferPanel variant="app" />
     </div>
   );
 }
