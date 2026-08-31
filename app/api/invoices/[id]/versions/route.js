@@ -1,4 +1,18 @@
 // app/api/invoices/[id]/versions/route.js
+//
+// ── This file spent its whole life one directory too high ──────────────────
+//
+// It was at app/api/invoices/versions/route.js — no [id] segment — while every
+// line inside it assumed one. `await params` then `_params.id` gave undefined,
+// and Prisma drops an `undefined` from a where clause rather than matching
+// nothing, so `findFirst({ where: { id: undefined, companyId } })` quietly
+// returned whichever invoice happened to come back first for that company and
+// then reported ITS version chain. Tenant-scoped, so nothing leaked across
+// companies; simply the wrong invoice, every time, for anyone who found the URL.
+//
+// Nothing called it, which is why nobody saw it. Moved rather than deleted
+// because the handler is correct — it was only ever in the wrong place, and its
+// own header comment said so from the first commit.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";

@@ -416,7 +416,7 @@ for (const [label, rel] of [
 ]) check(`${label} requires showPricing`, /requireMoney\(full/.test(src(rel)));
 for (const [label, rel] of [
   ["GET /api/quotes/versions (the Good/Better/Best trio)", "app/api/quotes/versions/route.js"],
-  ["GET /api/invoices/versions", "app/api/invoices/versions/route.js"],
+  ["GET /api/invoices/[id]/versions", "app/api/invoices/[id]/versions/route.js"],
 ]) check(`${label} strips money`, /redact(Quote|Invoice)Money\(full/.test(src(rel)));
 check("GET /api/analytics/benchmark is gated like its longer-named twin",
   /requireToggle\(full, "showPricing"/.test(src("app/api/analytics/benchmark/route.js")));

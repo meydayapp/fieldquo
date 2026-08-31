@@ -146,6 +146,43 @@ Now: `lib/jobs/visitStatus.js` (the transitions and the label map),
 button and say where it goes), and `scripts/check-visit-status.mjs`, which asks
 the question no check in the repo asked — **does this route have a caller?**
 
+## Routes with no caller — swept 2026-08-31
+
+The visit-status bug (above) was a route nothing called. So the same question
+got asked of all 167: for each `app/api/**/route.js`, does its static path
+prefix appear anywhere outside `app/api`? Nine came back. Five are the cron
+endpoints, all present in `vercel.json`. One is a Stripe return URL built by a
+sibling route. That leaves three, and they are two separate findings.
+
+**Fixed.** `app/api/invoices/versions/route.js` lived one directory too high.
+Every line inside it read `_params.id`; there was no `[id]` segment to provide
+one. Prisma drops an `undefined` from a where clause rather than matching
+nothing, so it returned whichever invoice came back first for the company and
+reported *its* version chain — tenant-scoped, so nothing crossed companies,
+just the wrong invoice every time for anyone who found the URL. Moved to
+`app/api/invoices/[id]/versions/route.js`, which is what its own header comment
+had said since the first commit. `check-rbac-redaction.mjs` had been asserting
+this route redacts money, which it does; nobody had asked whether it worked.
+
+**For the owner: Good/Better/Best quote tiers are a whole feature with no
+front door.** `Quote.tierGroupId` and `Quote.tierLabel` are in the schema.
+`POST /api/quotes/tier-group` creates the linked trio. `GET
+/api/quotes/versions` returns it, sorted so "best" does not sort first and
+break the anchoring. `GET /api/quotes/tier-group/[tier-group]` exists too.
+`lib/analytics/winLoss.js` and `lib/analytics/kpis.js` both collapse a trio
+into one homeowner decision so the win rate is not diluted.
+
+Nothing in `/app` calls any of it. No screen creates a trio and no screen shows
+one. (`QuoteBuilder`'s `selectTier` is unrelated — it labels a line inside one
+scope group.) The analytics are correctly handling data that cannot exist.
+
+Not built tonight because the missing half is a product decision, not code:
+three quotes have to reach the homeowner somehow, and `/q/[token]` presents one
+quote and takes one signature. Either the client page grows a comparison with
+one approval across three, or a trio is an internal drafting aid and only the
+chosen one is ever sent. Those are different products. Deciding is a minute;
+guessing costs a rebuild.
+
 ## Planned, not started
 
 - Job-site photo documentation beyond intake: internal before/during/after
