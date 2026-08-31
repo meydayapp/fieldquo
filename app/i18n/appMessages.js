@@ -4294,6 +4294,152 @@ const en = {
   "app.auth.verify.resending": "Sending…",
   "app.auth.verify.resentTitle": "Check your inbox",
   "app.auth.verify.resentBody": "If that address still needs confirming, we’ve sent it a new link.",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  //
+  // First-run walkthroughs, one section per page they run on. Keep each
+  // sentence short — read on a phone, in a driveway, in the first minute of
+  // using the product. Titles/bodies are grouped by tour slug (the part of
+  // the key between "app.tour." and the step name), in the same order the
+  // steps run in tours.js, so the two files read side by side.
+  "app.tour.skip": "Skip",
+  "app.tour.stepCount": "{n} of {total}",
+
+  "app.tour.welcome.leadsTitle": "Leads land here",
+  "app.tour.welcome.leadsBody": "Every enquiry from your website, booking link or instant estimate shows up in Leads. Start of the pipeline.",
+  "app.tour.welcome.quotesTitle": "Turn them into quotes",
+  "app.tour.welcome.quotesBody": "Build a branded quote, send it, and get it approved and paid — all from here.",
+  "app.tour.welcome.estimateReviewsTitle": "Instant estimates to approve",
+  "app.tour.welcome.estimateReviewsBody": "When a homeowner gets an instant price from your site, it lands here for you to confirm before it's binding.",
+  "app.tour.welcome.aiTitle": "Ask FieldQuo AI",
+  "app.tour.welcome.aiBody": "Questions about your own numbers — “what did I quote the Bergerons?” — answered from your data.",
+  "app.tour.welcome.settingsTitle": "Set up your business",
+  "app.tour.welcome.settingsBody": "Branding, services, pricing, payments and your instant-quote rates all live in Settings. Worth 10 minutes up front.",
+
+  "app.tour.leads.tempTitle": "Leads are scored for you",
+  "app.tour.leads.tempBody": "Every lead is triaged hot, warm or cold from what they told you — budget, timeline, urgency. Filter to the ones ready to buy.",
+  "app.tour.leads.searchTitle": "Find anyone fast",
+  "app.tour.leads.searchBody": "Search by name, email or phone across your whole pipeline.",
+  "app.tour.leads.sortTitle": "Hottest first — then dig in",
+  "app.tour.leads.sortBody": "Sort so the ready-to-go leads rise to the top, or drag a card to a different column to update its status. Click any lead to open its detail: the score and why, assign an owner, log a call-back, and Convert to quote in one tap.",
+
+  "app.tour.funnels.newTitle": "Build a lead funnel",
+  "app.tour.funnels.newBody": "A mobile quiz for your ads and link-in-bio. Start from a TikTok, Instagram, YouTube or Web template — or describe it and let AI build it from your services. Every finished funnel drops a scored lead into your pipeline.",
+
+  "app.tour.funnelBuilder.stepsTitle": "Your steps",
+  "app.tour.funnelBuilder.stepsBody": "Each step is one full-screen question or screen. Add, reorder or delete them here, then edit the selected step in the middle — with a live preview beside you.",
+  "app.tour.funnelBuilder.publishTitle": "Publish and share",
+  "app.tour.funnelBuilder.publishBody": "When it's ready, Publish — then copy the link onto your ad, bio or a QR code. You can't publish without a contact step, so a funnel never goes live collecting nothing.",
+
+  "app.tour.bookingFee.feeTitle": "Charge for a visit",
+  "app.tour.bookingFee.feeBody": "Set a visit fee (with an optional promo price) to collect by card at booking — through your own Stripe. Later, credit it back onto the client's invoice in one tap if they hire you.",
+
+  "app.tour.quotes.newTitle": "Build a quote",
+  "app.tour.quotes.newBody": "Start a new branded quote for a client — pick services, set pricing, then send it to get approved and paid.",
+  "app.tour.quotes.statsTitle": "Track the pipeline",
+  "app.tour.quotes.statsBody": "See at a glance how many quotes are draft, sent and accepted.",
+  "app.tour.quotes.searchTitle": "Find any quote",
+  "app.tour.quotes.searchBody": "Search by quote number or client name across everything you've sent.",
+
+  "app.tour.quoteNew.clientTitle": "Pick the client",
+  "app.tour.quoteNew.clientBody": "Choose an existing client or add a new one — the quote and its emails go to them.",
+  "app.tour.quoteNew.serviceTitle": "Add your services",
+  "app.tour.quoteNew.serviceBody": "Tap the services you're quoting; each drops in priced line items you can fine-tune.",
+  "app.tour.quoteNew.totalsTitle": "Review and send",
+  "app.tour.quoteNew.totalsBody": "Check the total, then save as a draft or send it to the client for approval.",
+
+  "app.tour.estimateReviews.headerTitle": "Approve instant estimates",
+  "app.tour.estimateReviews.headerBody": "Prices your website quoted a homeowner land here first — confirm or adjust the figure before the quote can be sent.",
+
+  "app.tour.jobs.filtersTitle": "Work you've won",
+  "app.tour.jobs.filtersBody": "Jobs are scheduled work for a client — many appear automatically when a quote is accepted. Filter by status to see what needs a date or what's in progress.",
+  "app.tour.jobs.newTitle": "Add a job",
+  "app.tour.jobs.newBody": "Create a job by hand when the work didn't come from a quote.",
+  "app.tour.jobs.searchTitle": "Find a job",
+  "app.tour.jobs.searchBody": "Search by job title or client name.",
+
+  "app.tour.jobBuilder.statusTitle": "Move the job along",
+  "app.tour.jobBuilder.statusBody": "Update the status as work progresses — from needs-a-date through to completed.",
+  "app.tour.jobBuilder.clientTitle": "Everything for the crew",
+  "app.tour.jobBuilder.clientBody": "Client name, phone and a tap-to-navigate address — what someone needs before they set off.",
+  "app.tour.jobBuilder.visitsTitle": "Schedule the visits",
+  "app.tour.jobBuilder.visitsBody": "A job is done across one or more visits, each with its own date, assignee, checklist and photos. Add them here.",
+
+  "app.tour.invoices.newTitle": "Bill for completed work",
+  "app.tour.invoices.newBody": "Raise an invoice for a client, then send it and collect payment.",
+  "app.tour.invoices.statsTitle": "Know what you're owed",
+  "app.tour.invoices.statsBody": "Total billed, what's been paid, and what's still outstanding — always in view.",
+  "app.tour.invoices.searchTitle": "Find an invoice",
+  "app.tour.invoices.searchBody": "Search by invoice number or client name.",
+
+  "app.tour.invoiceNew.clientTitle": "Who's being billed",
+  "app.tour.invoiceNew.clientBody": "Search and pick the client this invoice goes to.",
+  "app.tour.invoiceNew.itemsTitle": "List the work",
+  "app.tour.invoiceNew.itemsBody": "Add a line per item with quantity and rate; the totals add up as you go.",
+  "app.tour.invoiceNew.saveTitle": "Save or send",
+  "app.tour.invoiceNew.saveBody": "Save it as a draft, or send it to email the invoice straight to the client.",
+
+  "app.tour.appointments.newTitle": "Book a visit",
+  "app.tour.appointments.newBody": "Add an appointment with a client, a time and a site address, and assign it to someone.",
+  "app.tour.appointments.filtersTitle": "See what's coming",
+  "app.tour.appointments.filtersBody": "Appointments list in time order with drive times between stops; filter by status to focus.",
+
+  "app.tour.tasks.newTitle": "Your team's to-do list",
+  "app.tour.tasks.newBody": "Tasks are internal reminders — follow up a client, order material, chase a deposit. Unlike a job, they're not scheduled work at a site.",
+  "app.tour.tasks.showDoneTitle": "Nothing slips",
+  "app.tour.tasks.showDoneBody": "Overdue and high-priority tasks rise to the top; flip this to review what's already done.",
+
+  "app.tour.marketing.newTitle": "Run a campaign",
+  "app.tour.marketing.newBody": "Track pamphlet drops, paid ads or an email blast — each with its own budget and progress.",
+  "app.tour.marketing.subscribersTitle": "Your audience",
+  "app.tour.marketing.subscribersBody": "Manage the contacts your email campaigns go out to.",
+
+  "app.tour.availability.workingTitle": "Your shift",
+  "app.tour.availability.workingBody": "Working hours are when you're on the clock — used for scheduling and timesheets, never shown to clients.",
+  "app.tour.availability.bookableTitle": "When clients can book you",
+  "app.tour.availability.bookableBody": "Bookable hours are the public window on your booking page — usually narrower than your shift.",
+
+  "app.tour.scheduler.weekTitle": "Plan the week",
+  "app.tour.scheduler.weekBody": "This is staff shift scheduling — step through the week to see who's rostered each day.",
+  "app.tour.scheduler.addTitle": "Draft, then publish",
+  "app.tour.scheduler.addBody": "Add shifts as drafts, then Publish so your team can see them — nothing shows to a worker until you do.",
+
+  "app.tour.schedule.headerTitle": "The team at a glance",
+  "app.tour.schedule.headerBody": "Everyone's weekly hours and what's booked in the next two weeks. People set their own under Settings → Availability, and you can set anyone's from here.",
+
+  "app.tour.expenseTracking.addTitle": "Log what you spend",
+  "app.tour.expenseTracking.addBody": "Record an expense and tag it to a job, to overhead, or as general spend.",
+  "app.tour.expenseTracking.kpisTitle": "Burn and runway",
+  "app.tour.expenseTracking.kpisBody": "See this month's spend, your monthly burn rate and how many months of runway that leaves.",
+  "app.tour.expenseTracking.aiTitle": "Ask for a read-out",
+  "app.tour.expenseTracking.aiBody": "Generate a plain-English summary that flags anything unusual in your spending.",
+
+  "app.tour.payroll.headerTitle": "Payslips and pay runs",
+  "app.tour.payroll.headerBody": "FieldQuo works out pay from approved hours and your saved rates — you still move the money yourself.",
+  "app.tour.payroll.runTitle": "Run a period",
+  "app.tour.payroll.runBody": "Pick the dates and calculate; only approved timesheets are included, so approve hours first.",
+
+  "app.tour.timeOff.headerTitle": "Book and track time off",
+  "app.tour.timeOff.headerBody": "See your balances, request vacation or sick days, and — if you manage people — approve theirs from the Team tab.",
+
+  "app.tour.timesheets.headerTitle": "Hours worked",
+  "app.tour.timesheets.headerBody": "Every clock-in and manual entry lands here for you to review before it's paid.",
+  "app.tour.timesheets.addTitle": "Add hours by hand",
+  "app.tour.timesheets.addBody": "Log time after the fact — pick the worker, the date and the start and end times.",
+  "app.tour.timesheets.listTitle": "Approve before payroll",
+  "app.tour.timesheets.listBody": "Clock out open entries and approve hours; only approved time flows into a pay run.",
+
+  "app.tour.voice.numberTitle": "A number to answer on",
+  "app.tour.voice.numberBody": "Get a new number or forward your own — this is what the AI receptionist picks up.",
+  "app.tour.voice.creditTitle": "Pay per minute",
+  "app.tour.voice.creditBody": "Calls draw down prepaid credit — your 30 free trial minutes are already loaded. Top up here to keep the line live.",
+  "app.tour.voice.answerTitle": "Turn it on",
+  "app.tour.voice.answerBody": "Once you've got a number and credit, switch the receptionist on to start catching missed calls.",
+
+  "app.tour.payments.headerTitle": "Get paid by card",
+  "app.tour.payments.headerBody": "Connect a payment provider so clients can pay quotes and invoices online.",
+  "app.tour.payments.stripeTitle": "Connect Stripe",
+  "app.tour.payments.stripeBody": "FieldQuo uses your own Stripe account — finish the connection here and the status shows once you're live.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -8343,6 +8489,152 @@ const fr = {
   "app.auth.verify.resending": "Envoi…",
   "app.auth.verify.resentTitle": "Vérifiez vos courriels",
   "app.auth.verify.resentBody": "Si cette adresse doit encore être confirmée, on lui a envoyé un nouveau lien.",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  // See the English block's comment for the shape. Terms here match what the
+  // French /app interface actually says on screen — "Prospects" for Leads,
+  // "Soumissions" for Quotes, "Chantiers" for Jobs, "Convertir en devis" for
+  // the leads board's own button — not a fresh translation of the English
+  // words, which is exactly the bug the header comment on tours.js warns
+  // about (the tour once said "Requests" while the menu said "Leads").
+  "app.tour.skip": "Passer",
+  "app.tour.stepCount": "{n} sur {total}",
+
+  "app.tour.welcome.leadsTitle": "Les prospects arrivent ici",
+  "app.tour.welcome.leadsBody": "Chaque demande venant de votre site, de votre page de réservation ou d'une estimation instantanée atterrit dans Prospects. Le début du pipeline.",
+  "app.tour.welcome.quotesTitle": "Transformez-les en soumissions",
+  "app.tour.welcome.quotesBody": "Préparez une soumission à votre image, envoyez-la, et faites-vous approuver et payer — le tout depuis ici.",
+  "app.tour.welcome.estimateReviewsTitle": "Estimations instantanées à approuver",
+  "app.tour.welcome.estimateReviewsBody": "Quand un client obtient un prix instantané sur votre site, il atterrit ici pour que vous le confirmiez avant qu'il devienne officiel.",
+  "app.tour.welcome.aiTitle": "Posez vos questions à FieldQuo IA",
+  "app.tour.welcome.aiBody": "Des questions sur vos propres chiffres — « combien j'ai chargé aux Bergeron? » — avec une réponse tirée de vos données.",
+  "app.tour.welcome.settingsTitle": "Configurez votre entreprise",
+  "app.tour.welcome.settingsBody": "L'image de marque, les services, les prix, les paiements et vos tarifs d'estimation instantanée se trouvent tous dans Paramètres. Ça vaut 10 minutes au départ.",
+
+  "app.tour.leads.tempTitle": "Vos prospects sont notés pour vous",
+  "app.tour.leads.tempBody": "Chaque prospect est classé chaud, tiède ou froid selon ce qu'il vous a dit — budget, délai, urgence. Filtrez pour ne voir que ceux prêts à acheter.",
+  "app.tour.leads.searchTitle": "Trouvez n'importe qui rapidement",
+  "app.tour.leads.searchBody": "Cherchez par nom, courriel ou téléphone dans tout votre pipeline.",
+  "app.tour.leads.sortTitle": "Les plus chauds en premier — puis creusez",
+  "app.tour.leads.sortBody": "Triez pour faire remonter les prospects prêts à conclure, ou glissez une carte vers une autre colonne pour changer son statut. Cliquez sur un prospect pour ouvrir sa fiche : la note et pourquoi, assignez un responsable, notez un rappel, et Convertir en devis en un clic.",
+
+  "app.tour.funnels.newTitle": "Créez un funnel de prospection",
+  "app.tour.funnels.newBody": "Un questionnaire mobile pour vos publicités et votre lien en bio. Partez d'un modèle TikTok, Instagram, YouTube ou Web — ou décrivez-le et laissez l'IA le construire à partir de vos services. Chaque funnel terminé dépose un prospect noté dans votre pipeline.",
+
+  "app.tour.funnelBuilder.stepsTitle": "Vos étapes",
+  "app.tour.funnelBuilder.stepsBody": "Chaque étape est une question ou un écran plein écran. Ajoutez, réorganisez ou supprimez-les ici, puis modifiez l'étape sélectionnée au centre — avec un aperçu en direct à côté.",
+  "app.tour.funnelBuilder.publishTitle": "Publiez et partagez",
+  "app.tour.funnelBuilder.publishBody": "Une fois prêt, cliquez sur Publier — puis copiez le lien dans votre publicité, votre bio ou un code QR. Impossible de publier sans étape de contact, donc un funnel ne peut jamais être mis en ligne sans rien récolter.",
+
+  "app.tour.bookingFee.feeTitle": "Facturez une visite",
+  "app.tour.bookingFee.feeBody": "Fixez des frais de visite (avec un prix promo optionnel) à percevoir par carte au moment de la réservation — via votre propre compte Stripe. Plus tard, créditez-les sur la facture du client en un clic s'il vous engage.",
+
+  "app.tour.quotes.newTitle": "Préparez une soumission",
+  "app.tour.quotes.newBody": "Démarrez une nouvelle soumission à votre image pour un client — choisissez les services, fixez les prix, puis envoyez-la pour la faire approuver et payer.",
+  "app.tour.quotes.statsTitle": "Suivez le pipeline",
+  "app.tour.quotes.statsBody": "Voyez d'un coup d'œil combien de soumissions sont en brouillon, envoyées et acceptées.",
+  "app.tour.quotes.searchTitle": "Trouvez n'importe quelle soumission",
+  "app.tour.quotes.searchBody": "Cherchez par numéro de soumission ou nom de client parmi tout ce que vous avez envoyé.",
+
+  "app.tour.quoteNew.clientTitle": "Choisissez le client",
+  "app.tour.quoteNew.clientBody": "Choisissez un client existant ou ajoutez-en un nouveau — la soumission et ses courriels lui seront destinés.",
+  "app.tour.quoteNew.serviceTitle": "Ajoutez vos services",
+  "app.tour.quoteNew.serviceBody": "Sélectionnez les services que vous soumissionnez; chacun ajoute des lignes déjà tarifées que vous pouvez ajuster.",
+  "app.tour.quoteNew.totalsTitle": "Vérifiez et envoyez",
+  "app.tour.quoteNew.totalsBody": "Vérifiez le total, puis enregistrez comme brouillon ou envoyez-la au client pour approbation.",
+
+  "app.tour.estimateReviews.headerTitle": "Approuvez les estimations instantanées",
+  "app.tour.estimateReviews.headerBody": "Les prix que votre site a proposés à un client atterrissent ici en premier — confirmez ou ajustez le montant avant que la soumission puisse être envoyée.",
+
+  "app.tour.jobs.filtersTitle": "Le travail que vous avez décroché",
+  "app.tour.jobs.filtersBody": "Les chantiers sont du travail planifié pour un client — plusieurs apparaissent automatiquement quand une soumission est acceptée. Filtrez par statut pour voir ce qui a besoin d'une date ou ce qui est en cours.",
+  "app.tour.jobs.newTitle": "Ajoutez un chantier",
+  "app.tour.jobs.newBody": "Créez un chantier manuellement quand le travail ne vient pas d'une soumission.",
+  "app.tour.jobs.searchTitle": "Trouvez un chantier",
+  "app.tour.jobs.searchBody": "Cherchez par titre de chantier ou nom de client.",
+
+  "app.tour.jobBuilder.statusTitle": "Faites avancer le chantier",
+  "app.tour.jobBuilder.statusBody": "Mettez à jour le statut à mesure que le travail avance — de « à planifier » jusqu'à « terminé ».",
+  "app.tour.jobBuilder.clientTitle": "Tout ce qu'il faut pour l'équipe",
+  "app.tour.jobBuilder.clientBody": "Nom du client, téléphone et une adresse qu'on touche pour naviguer — ce qu'il faut avant de partir.",
+  "app.tour.jobBuilder.visitsTitle": "Planifiez les visites",
+  "app.tour.jobBuilder.visitsBody": "Un chantier se fait en une ou plusieurs visites, chacune avec sa propre date, son responsable, sa liste de vérification et ses photos. Ajoutez-les ici.",
+
+  "app.tour.invoices.newTitle": "Facturez le travail terminé",
+  "app.tour.invoices.newBody": "Créez une facture pour un client, puis envoyez-la et encaissez le paiement.",
+  "app.tour.invoices.statsTitle": "Sachez ce qu'on vous doit",
+  "app.tour.invoices.statsBody": "Le total facturé, ce qui a été payé, et ce qui reste dû — toujours sous vos yeux.",
+  "app.tour.invoices.searchTitle": "Trouvez une facture",
+  "app.tour.invoices.searchBody": "Cherchez par numéro de facture ou nom de client.",
+
+  "app.tour.invoiceNew.clientTitle": "Qui sera facturé",
+  "app.tour.invoiceNew.clientBody": "Cherchez et choisissez le client à qui cette facture est destinée.",
+  "app.tour.invoiceNew.itemsTitle": "Listez le travail",
+  "app.tour.invoiceNew.itemsBody": "Ajoutez une ligne par article avec quantité et taux; le total s'ajuste au fur et à mesure.",
+  "app.tour.invoiceNew.saveTitle": "Enregistrez ou envoyez",
+  "app.tour.invoiceNew.saveBody": "Enregistrez-la comme brouillon, ou envoyez-la pour l'expédier directement au client par courriel.",
+
+  "app.tour.appointments.newTitle": "Réservez une visite",
+  "app.tour.appointments.newBody": "Ajoutez un rendez-vous avec un client, une heure et une adresse de chantier, et assignez-le à quelqu'un.",
+  "app.tour.appointments.filtersTitle": "Voyez ce qui s'en vient",
+  "app.tour.appointments.filtersBody": "Les rendez-vous s'affichent en ordre chronologique avec le temps de route entre les arrêts; filtrez par statut pour vous concentrer.",
+
+  "app.tour.tasks.newTitle": "La liste de tâches de votre équipe",
+  "app.tour.tasks.newBody": "Les tâches sont des rappels internes — relancer un client, commander du matériel, réclamer un dépôt. Contrairement à un chantier, ce n'est pas du travail planifié sur place.",
+  "app.tour.tasks.showDoneTitle": "Rien ne vous échappe",
+  "app.tour.tasks.showDoneBody": "Les tâches en retard et prioritaires remontent en haut; activez ceci pour revoir ce qui est déjà fait.",
+
+  "app.tour.marketing.newTitle": "Lancez une campagne",
+  "app.tour.marketing.newBody": "Suivez les distributions de dépliants, les publicités payantes ou un envoi massif de courriels — chacun avec son propre budget et sa progression.",
+  "app.tour.marketing.subscribersTitle": "Votre auditoire",
+  "app.tour.marketing.subscribersBody": "Gérez les contacts à qui vos campagnes de courriels sont envoyées.",
+
+  "app.tour.availability.workingTitle": "Votre horaire",
+  "app.tour.availability.workingBody": "Les heures de travail, c'est quand vous êtes au travail — utilisées pour la planification et les feuilles de temps, jamais montrées aux clients.",
+  "app.tour.availability.bookableTitle": "Quand les clients peuvent vous réserver",
+  "app.tour.availability.bookableBody": "Les heures réservables sont la plage publique sur votre page de rendez-vous — habituellement plus étroite que votre horaire.",
+
+  "app.tour.scheduler.weekTitle": "Planifiez la semaine",
+  "app.tour.scheduler.weekBody": "C'est la planification des quarts de l'équipe — parcourez la semaine pour voir qui est assigné chaque jour.",
+  "app.tour.scheduler.addTitle": "Brouillon, puis publication",
+  "app.tour.scheduler.addBody": "Ajoutez des quarts en brouillon, puis Publiez pour que votre équipe les voie — rien ne s'affiche à un employé avant que vous le fassiez.",
+
+  "app.tour.schedule.headerTitle": "Toute l'équipe en un coup d'œil",
+  "app.tour.schedule.headerBody": "Les heures hebdomadaires de tout le monde et ce qui est réservé pour les deux prochaines semaines. Chacun fixe les siennes dans Paramètres → Disponibilités, et vous pouvez fixer celles de n'importe qui à partir d'ici.",
+
+  "app.tour.expenseTracking.addTitle": "Notez vos dépenses",
+  "app.tour.expenseTracking.addBody": "Enregistrez une dépense et associez-la à un chantier, aux frais généraux, ou comme dépense générale.",
+  "app.tour.expenseTracking.kpisTitle": "Rythme de dépenses et autonomie",
+  "app.tour.expenseTracking.kpisBody": "Voyez les dépenses de ce mois-ci, votre rythme de dépenses mensuel et combien de mois d'autonomie il vous reste.",
+  "app.tour.expenseTracking.aiTitle": "Demandez un résumé",
+  "app.tour.expenseTracking.aiBody": "Générez un résumé en langage clair qui signale tout ce qui sort de l'ordinaire dans vos dépenses.",
+
+  "app.tour.payroll.headerTitle": "Talons de paie et cycles de paie",
+  "app.tour.payroll.headerBody": "FieldQuo calcule la paie à partir des heures approuvées et de vos taux enregistrés — c'est encore vous qui transférez l'argent.",
+  "app.tour.payroll.runTitle": "Lancez une période",
+  "app.tour.payroll.runBody": "Choisissez les dates et calculez; seules les feuilles de temps approuvées sont incluses, alors approuvez les heures d'abord.",
+
+  "app.tour.timeOff.headerTitle": "Réservez et suivez les congés",
+  "app.tour.timeOff.headerBody": "Consultez vos soldes, demandez des vacances ou des congés de maladie, et — si vous gérez du personnel — approuvez les leurs depuis l'onglet Équipe.",
+
+  "app.tour.timesheets.headerTitle": "Heures travaillées",
+  "app.tour.timesheets.headerBody": "Chaque pointage et entrée manuelle atterrit ici pour que vous les révisiez avant le paiement.",
+  "app.tour.timesheets.addTitle": "Ajoutez des heures manuellement",
+  "app.tour.timesheets.addBody": "Enregistrez du temps après coup — choisissez l'employé, la date, ainsi que l'heure de début et de fin.",
+  "app.tour.timesheets.listTitle": "Approuvez avant la paie",
+  "app.tour.timesheets.listBody": "Fermez les entrées ouvertes et approuvez les heures; seul le temps approuvé se rend jusqu'à un cycle de paie.",
+
+  "app.tour.voice.numberTitle": "Un numéro pour répondre",
+  "app.tour.voice.numberBody": "Obtenez un nouveau numéro ou transférez le vôtre — c'est ce que la réceptionniste IA décroche.",
+  "app.tour.voice.creditTitle": "Payez à la minute",
+  "app.tour.voice.creditBody": "Les appels puisent dans un crédit prépayé — vos 30 minutes d'essai gratuites sont déjà chargées. Rechargez ici pour garder la ligne active.",
+  "app.tour.voice.answerTitle": "Activez-la",
+  "app.tour.voice.answerBody": "Une fois que vous avez un numéro et du crédit, activez la réceptionniste pour commencer à intercepter les appels manqués.",
+
+  "app.tour.payments.headerTitle": "Faites-vous payer par carte",
+  "app.tour.payments.headerBody": "Connectez un fournisseur de paiement pour que les clients puissent payer les soumissions et factures en ligne.",
+  "app.tour.payments.stripeTitle": "Connectez Stripe",
+  "app.tour.payments.stripeBody": "FieldQuo utilise votre propre compte Stripe — terminez la connexion ici et le statut s'affiche une fois que c'est actif.",
 };
 
 
@@ -11579,6 +11871,151 @@ const es = {
   "app.auth.verify.resending": "Enviando…",
   "app.auth.verify.resentTitle": "Revisa tu correo",
   "app.auth.verify.resentBody": "Si esa dirección todavía necesita confirmarse, le hemos enviado un enlace nuevo.",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  // See the English block's comment for the shape. Terms match what the
+  // Spanish /app interface actually says on screen — "Prospectos" for Leads,
+  // "Cotizaciones" for Quotes, "Convertir en presupuesto" for the leads
+  // board's own button — checked against app.nav.* and app.leads.* above,
+  // not assumed from the English words.
+  "app.tour.skip": "Omitir",
+  "app.tour.stepCount": "{n} de {total}",
+
+  "app.tour.welcome.leadsTitle": "Los prospectos llegan aquí",
+  "app.tour.welcome.leadsBody": "Cada consulta de tu sitio web, tu página de reservas o una estimación instantánea aparece en Prospectos. El inicio del proceso.",
+  "app.tour.welcome.quotesTitle": "Conviértelos en cotizaciones",
+  "app.tour.welcome.quotesBody": "Prepara una cotización con tu marca, envíala, y logra que la aprueben y te paguen — todo desde aquí.",
+  "app.tour.welcome.estimateReviewsTitle": "Estimaciones instantáneas por aprobar",
+  "app.tour.welcome.estimateReviewsBody": "Cuando un cliente recibe un precio instantáneo de tu sitio, llega aquí primero para que lo confirmes antes de que sea definitivo.",
+  "app.tour.welcome.aiTitle": "Pregúntale a FieldQuo IA",
+  "app.tour.welcome.aiBody": "Preguntas sobre tus propios números — «¿cuánto le cobré a los Bergerons?» — respondidas con tus datos.",
+  "app.tour.welcome.settingsTitle": "Configura tu negocio",
+  "app.tour.welcome.settingsBody": "La marca, los servicios, los precios, los pagos y tus tarifas de cotización instantánea están todos en Configuración. Vale la pena dedicarle 10 minutos al inicio.",
+
+  "app.tour.leads.tempTitle": "Tus prospectos ya vienen calificados",
+  "app.tour.leads.tempBody": "Cada prospecto se clasifica caliente, templado o frío según lo que te dijo — presupuesto, plazo, urgencia. Filtra los que están listos para comprar.",
+  "app.tour.leads.searchTitle": "Encuentra a cualquiera rápido",
+  "app.tour.leads.searchBody": "Busca por nombre, correo o teléfono en todo tu proceso.",
+  "app.tour.leads.sortTitle": "Los más calientes primero — luego profundiza",
+  "app.tour.leads.sortBody": "Ordena para que los prospectos listos suban al principio, o arrastra una tarjeta a otra columna para actualizar su estado. Haz clic en cualquier prospecto para abrir su ficha: la puntuación y por qué, asigna un responsable, registra una llamada de vuelta, y Convertir en presupuesto en un toque.",
+
+  "app.tour.funnels.newTitle": "Crea un embudo de prospectos",
+  "app.tour.funnels.newBody": "Un cuestionario para móvil para tus anuncios y tu link en la bio. Empieza con una plantilla de TikTok, Instagram, YouTube o Web — o descríbelo y deja que la IA lo construya a partir de tus servicios. Cada embudo terminado deja caer un prospecto calificado en tu proceso.",
+
+  "app.tour.funnelBuilder.stepsTitle": "Tus pasos",
+  "app.tour.funnelBuilder.stepsBody": "Cada paso es una pregunta o pantalla a pantalla completa. Agrégalos, reordénalos o elimínalos aquí, y edita el paso seleccionado en el centro — con una vista previa en vivo a un lado.",
+  "app.tour.funnelBuilder.publishTitle": "Publica y comparte",
+  "app.tour.funnelBuilder.publishBody": "Cuando esté listo, Publica — y copia el enlace en tu anuncio, tu bio o un código QR. No puedes publicar sin un paso de contacto, así que un embudo nunca sale al aire sin recolectar nada.",
+
+  "app.tour.bookingFee.feeTitle": "Cobra por una visita",
+  "app.tour.bookingFee.feeBody": "Fija una tarifa de visita (con un precio promocional opcional) para cobrar con tarjeta al momento de reservar — a través de tu propia cuenta de Stripe. Más tarde, acredítala en la factura del cliente con un toque si te contrata.",
+
+  "app.tour.quotes.newTitle": "Prepara una cotización",
+  "app.tour.quotes.newBody": "Inicia una nueva cotización con tu marca para un cliente — elige servicios, fija precios, y envíala para que la aprueben y te paguen.",
+  "app.tour.quotes.statsTitle": "Sigue el proceso",
+  "app.tour.quotes.statsBody": "Ve de un vistazo cuántas cotizaciones están en borrador, enviadas y aceptadas.",
+  "app.tour.quotes.searchTitle": "Encuentra cualquier cotización",
+  "app.tour.quotes.searchBody": "Busca por número de cotización o nombre de cliente entre todo lo que has enviado.",
+
+  "app.tour.quoteNew.clientTitle": "Elige el cliente",
+  "app.tour.quoteNew.clientBody": "Elige un cliente existente o agrega uno nuevo — la cotización y sus correos le llegarán a él.",
+  "app.tour.quoteNew.serviceTitle": "Agrega tus servicios",
+  "app.tour.quoteNew.serviceBody": "Toca los servicios que estás cotizando; cada uno agrega líneas ya tarifadas que puedes ajustar.",
+  "app.tour.quoteNew.totalsTitle": "Revisa y envía",
+  "app.tour.quoteNew.totalsBody": "Revisa el total, luego guárdala como borrador o envíala al cliente para su aprobación.",
+
+  "app.tour.estimateReviews.headerTitle": "Aprueba estimaciones instantáneas",
+  "app.tour.estimateReviews.headerBody": "Los precios que tu sitio le dio a un cliente llegan aquí primero — confirma o ajusta la cifra antes de que se pueda enviar la cotización.",
+
+  "app.tour.jobs.filtersTitle": "El trabajo que has ganado",
+  "app.tour.jobs.filtersBody": "Los trabajos son trabajo programado para un cliente — muchos aparecen automáticamente cuando se acepta una cotización. Filtra por estado para ver qué necesita fecha o qué está en curso.",
+  "app.tour.jobs.newTitle": "Agrega un trabajo",
+  "app.tour.jobs.newBody": "Crea un trabajo a mano cuando no viene de una cotización.",
+  "app.tour.jobs.searchTitle": "Encuentra un trabajo",
+  "app.tour.jobs.searchBody": "Busca por título del trabajo o nombre del cliente.",
+
+  "app.tour.jobBuilder.statusTitle": "Avanza el trabajo",
+  "app.tour.jobBuilder.statusBody": "Actualiza el estado a medida que avanza el trabajo — desde «falta fecha» hasta «completado».",
+  "app.tour.jobBuilder.clientTitle": "Todo lo que necesita el equipo",
+  "app.tour.jobBuilder.clientBody": "Nombre del cliente, teléfono y una dirección para navegar con un toque — lo que alguien necesita antes de salir.",
+  "app.tour.jobBuilder.visitsTitle": "Programa las visitas",
+  "app.tour.jobBuilder.visitsBody": "Un trabajo se hace en una o varias visitas, cada una con su propia fecha, responsable, checklist y fotos. Agrégalas aquí.",
+
+  "app.tour.invoices.newTitle": "Factura el trabajo terminado",
+  "app.tour.invoices.newBody": "Genera una factura para un cliente, envíala y cobra el pago.",
+  "app.tour.invoices.statsTitle": "Sabe lo que te deben",
+  "app.tour.invoices.statsBody": "Total facturado, lo que se ha pagado, y lo que sigue pendiente — siempre a la vista.",
+  "app.tour.invoices.searchTitle": "Encuentra una factura",
+  "app.tour.invoices.searchBody": "Busca por número de factura o nombre de cliente.",
+
+  "app.tour.invoiceNew.clientTitle": "A quién se le factura",
+  "app.tour.invoiceNew.clientBody": "Busca y elige el cliente al que va dirigida esta factura.",
+  "app.tour.invoiceNew.itemsTitle": "Enumera el trabajo",
+  "app.tour.invoiceNew.itemsBody": "Agrega una línea por artículo con cantidad y tarifa; los totales se suman a medida que avanzas.",
+  "app.tour.invoiceNew.saveTitle": "Guarda o envía",
+  "app.tour.invoiceNew.saveBody": "Guárdala como borrador, o envíala para mandar la factura directo al cliente por correo.",
+
+  "app.tour.appointments.newTitle": "Reserva una visita",
+  "app.tour.appointments.newBody": "Agrega una cita con un cliente, una hora y una dirección del sitio, y asígnala a alguien.",
+  "app.tour.appointments.filtersTitle": "Ve lo que se viene",
+  "app.tour.appointments.filtersBody": "Las citas se listan en orden de hora con los tiempos de traslado entre paradas; filtra por estado para enfocarte.",
+
+  "app.tour.tasks.newTitle": "La lista de pendientes de tu equipo",
+  "app.tour.tasks.newBody": "Las tareas son recordatorios internos — dar seguimiento a un cliente, pedir material, cobrar un depósito. A diferencia de un trabajo, no son trabajo programado en un sitio.",
+  "app.tour.tasks.showDoneTitle": "Nada se te escapa",
+  "app.tour.tasks.showDoneBody": "Las tareas atrasadas y de alta prioridad suben al principio; activa esto para revisar lo que ya está hecho.",
+
+  "app.tour.marketing.newTitle": "Lanza una campaña",
+  "app.tour.marketing.newBody": "Da seguimiento a repartos de volantes, anuncios pagados o un envío masivo de correos — cada uno con su propio presupuesto y avance.",
+  "app.tour.marketing.subscribersTitle": "Tu audiencia",
+  "app.tour.marketing.subscribersBody": "Administra los contactos a los que van tus campañas de correo.",
+
+  "app.tour.availability.workingTitle": "Tu turno",
+  "app.tour.availability.workingBody": "Las horas de trabajo son cuando estás disponible para trabajar — se usan para programar y para las hojas de tiempo, nunca se muestran a los clientes.",
+  "app.tour.availability.bookableTitle": "Cuándo pueden reservarte los clientes",
+  "app.tour.availability.bookableBody": "Las horas reservables son la ventana pública en tu página de reservas — normalmente más estrecha que tu turno.",
+
+  "app.tour.scheduler.weekTitle": "Planifica la semana",
+  "app.tour.scheduler.weekBody": "Esto es la programación de turnos del personal — recorre la semana para ver quién está asignado cada día.",
+  "app.tour.scheduler.addTitle": "Borrador, luego publica",
+  "app.tour.scheduler.addBody": "Agrega turnos como borradores, y luego Publica para que tu equipo los vea — nada se muestra a un trabajador hasta que lo hagas.",
+
+  "app.tour.schedule.headerTitle": "Todo el equipo de un vistazo",
+  "app.tour.schedule.headerBody": "Las horas semanales de todos y lo que está reservado en las próximas dos semanas. Cada quien fija las suyas en Configuración → Disponibilidad, y tú puedes fijar las de cualquiera desde aquí.",
+
+  "app.tour.expenseTracking.addTitle": "Registra tus gastos",
+  "app.tour.expenseTracking.addBody": "Registra un gasto y asígnalo a un trabajo, a gastos generales, o como gasto general.",
+  "app.tour.expenseTracking.kpisTitle": "Ritmo de gasto y margen de tiempo",
+  "app.tour.expenseTracking.kpisBody": "Ve el gasto de este mes, tu ritmo de gasto mensual y cuántos meses de margen te quedan.",
+  "app.tour.expenseTracking.aiTitle": "Pide un resumen",
+  "app.tour.expenseTracking.aiBody": "Genera un resumen en lenguaje claro que señala cualquier cosa inusual en tus gastos.",
+
+  "app.tour.payroll.headerTitle": "Recibos de pago y periodos de nómina",
+  "app.tour.payroll.headerBody": "FieldQuo calcula el pago a partir de las horas aprobadas y tus tarifas guardadas — el dinero lo sigues moviendo tú.",
+  "app.tour.payroll.runTitle": "Corre un periodo",
+  "app.tour.payroll.runBody": "Elige las fechas y calcula; solo se incluyen las hojas de tiempo aprobadas, así que aprueba las horas primero.",
+
+  "app.tour.timeOff.headerTitle": "Reserva y controla tus ausencias",
+  "app.tour.timeOff.headerBody": "Consulta tus saldos, solicita vacaciones o días de enfermedad, y — si administras personal — aprueba las de ellos desde la pestaña Equipo.",
+
+  "app.tour.timesheets.headerTitle": "Horas trabajadas",
+  "app.tour.timesheets.headerBody": "Cada entrada de reloj y registro manual llega aquí para que lo revises antes de que se pague.",
+  "app.tour.timesheets.addTitle": "Agrega horas a mano",
+  "app.tour.timesheets.addBody": "Registra tiempo después del hecho — elige al trabajador, la fecha y las horas de inicio y fin.",
+  "app.tour.timesheets.listTitle": "Aprueba antes de la nómina",
+  "app.tour.timesheets.listBody": "Cierra las entradas abiertas y aprueba las horas; solo el tiempo aprobado pasa a un periodo de nómina.",
+
+  "app.tour.voice.numberTitle": "Un número donde contestar",
+  "app.tour.voice.numberBody": "Consigue un número nuevo o desvía el tuyo — esto es lo que contesta la recepcionista con IA.",
+  "app.tour.voice.creditTitle": "Paga por minuto",
+  "app.tour.voice.creditBody": "Las llamadas consumen crédito prepagado — tus 30 minutos de prueba gratis ya están cargados. Recarga aquí para mantener la línea activa.",
+  "app.tour.voice.answerTitle": "Actívala",
+  "app.tour.voice.answerBody": "Una vez que tengas número y crédito, activa la recepcionista para empezar a atender las llamadas perdidas.",
+
+  "app.tour.payments.headerTitle": "Cobra con tarjeta",
+  "app.tour.payments.headerBody": "Conecta un proveedor de pagos para que los clientes puedan pagar cotizaciones y facturas en línea.",
+  "app.tour.payments.stripeTitle": "Conecta Stripe",
+  "app.tour.payments.stripeBody": "FieldQuo usa tu propia cuenta de Stripe — termina la conexión aquí y el estado se muestra en cuanto esté activa.",
 };
 
 const uk = {
@@ -14846,6 +15283,150 @@ const uk = {
   "app.auth.verify.resending": "Надсилаємо…",
   "app.auth.verify.resentTitle": "Перевірте пошту",
   "app.auth.verify.resentBody": "Якщо цю адресу ще треба підтвердити, ми надіслали на неї нове посилання.",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  // See the English block's comment for the shape. Terms match the actual
+  // Ukrainian /app interface — "Ліди" for Leads, "Кошториси" for Quotes,
+  // "Створити кошторис" for the leads board's own convert button — read from
+  // app.nav.* and app.leads.* above, not guessed at.
+  "app.tour.skip": "Пропустити",
+  "app.tour.stepCount": "{n} з {total}",
+
+  "app.tour.welcome.leadsTitle": "Ліди потрапляють сюди",
+  "app.tour.welcome.leadsBody": "Кожен запит з вашого сайту, сторінки бронювання чи миттєвої оцінки з'являється в розділі Ліди. Початок вашого конвеєра.",
+  "app.tour.welcome.quotesTitle": "Перетворюйте їх на кошториси",
+  "app.tour.welcome.quotesBody": "Складіть кошторис у своєму фірмовому стилі, надішліть його — і отримайте підтвердження та оплату, все звідси.",
+  "app.tour.welcome.estimateReviewsTitle": "Миттєві оцінки на підтвердження",
+  "app.tour.welcome.estimateReviewsBody": "Коли клієнт отримує миттєву ціну з вашого сайту, вона спершу потрапляє сюди — підтвердіть або скоригуйте суму, перш ніж вона стане остаточною.",
+  "app.tour.welcome.aiTitle": "Запитайте FieldQuo ШІ",
+  "app.tour.welcome.aiBody": "Запитання про власні цифри — «скільки я порахував Бергеронам?» — з відповіддю на основі ваших даних.",
+  "app.tour.welcome.settingsTitle": "Налаштуйте свій бізнес",
+  "app.tour.welcome.settingsBody": "Фірмовий стиль, послуги, ціни, оплати та ваші тарифи миттєвої оцінки — все в Налаштуваннях. Варто витратити на це 10 хвилин на початку.",
+
+  "app.tour.leads.tempTitle": "Ліди вже оцінені за вас",
+  "app.tour.leads.tempBody": "Кожен лід сортується як гарячий, теплий або холодний на основі того, що він розповів — бюджет, терміни, терміновість. Відфільтруйте тих, хто готовий купувати.",
+  "app.tour.leads.searchTitle": "Швидко знайдіть будь-кого",
+  "app.tour.leads.searchBody": "Шукайте за іменем, поштою чи телефоном у всьому вашому конвеєрі.",
+  "app.tour.leads.sortTitle": "Спочатку найгарячіші — потім деталі",
+  "app.tour.leads.sortBody": "Сортуйте, щоб готові до угоди ліди піднімалися вгору, або перетягніть картку в іншу колонку, щоб змінити статус. Клацніть на будь-якого ліда, щоб відкрити картку: оцінку і чому саме така, призначте відповідального, запишіть зворотний дзвінок і натисніть «Створити кошторис» в один клік.",
+
+  "app.tour.funnels.newTitle": "Створіть воронку для лідів",
+  "app.tour.funnels.newBody": "Мобільний опитувальник для реклами та посилання в біо. Почніть із шаблону для TikTok, Instagram, YouTube чи Web — або опишіть його, і ШІ побудує його на основі ваших послуг. Кожна завершена воронка додає оцінений лід у ваш конвеєр.",
+
+  "app.tour.funnelBuilder.stepsTitle": "Ваші кроки",
+  "app.tour.funnelBuilder.stepsBody": "Кожен крок — це одне питання чи екран на весь екран. Додавайте, змінюйте порядок або видаляйте їх тут, а потім редагуйте вибраний крок посередині — з живим переглядом поруч.",
+  "app.tour.funnelBuilder.publishTitle": "Опублікуйте і поділіться",
+  "app.tour.funnelBuilder.publishBody": "Коли все готово — натисніть Опублікувати, а потім скопіюйте посилання в рекламу, біо чи QR-код. Опублікувати без кроку контактів не можна, тож воронка ніколи не запуститься, нічого не збираючи.",
+
+  "app.tour.bookingFee.feeTitle": "Візьміть плату за виїзд",
+  "app.tour.bookingFee.feeBody": "Встановіть плату за виїзд (з необов'язковою промо-ціною) для оплати карткою під час бронювання — через ваш власний Stripe. Пізніше зарахуйте її на рахунок клієнта в один клік, якщо він вас найме.",
+
+  "app.tour.quotes.newTitle": "Складіть кошторис",
+  "app.tour.quotes.newBody": "Почніть новий кошторис у своєму фірмовому стилі для клієнта — виберіть послуги, встановіть ціни, а потім надішліть його на підтвердження та оплату.",
+  "app.tour.quotes.statsTitle": "Стежте за конвеєром",
+  "app.tour.quotes.statsBody": "З першого погляду бачте, скільки кошторисів у чернетці, надіслано і прийнято.",
+  "app.tour.quotes.searchTitle": "Знайдіть будь-який кошторис",
+  "app.tour.quotes.searchBody": "Шукайте за номером кошторису чи іменем клієнта серед усього, що ви надіслали.",
+
+  "app.tour.quoteNew.clientTitle": "Виберіть клієнта",
+  "app.tour.quoteNew.clientBody": "Виберіть наявного клієнта або додайте нового — кошторис і листи підуть саме йому.",
+  "app.tour.quoteNew.serviceTitle": "Додайте свої послуги",
+  "app.tour.quoteNew.serviceBody": "Натисніть на послуги, які ви оцінюєте; кожна додає рядок із ціною, який можна уточнити.",
+  "app.tour.quoteNew.totalsTitle": "Перевірте і надішліть",
+  "app.tour.quoteNew.totalsBody": "Перевірте суму, а потім збережіть як чернетку або надішліть клієнту на підтвердження.",
+
+  "app.tour.estimateReviews.headerTitle": "Підтверджуйте миттєві оцінки",
+  "app.tour.estimateReviews.headerBody": "Ціни, які ваш сайт назвав клієнту, спершу потрапляють сюди — підтвердіть або скоригуйте суму, перш ніж кошторис можна буде надіслати.",
+
+  "app.tour.jobs.filtersTitle": "Робота, яку ви виграли",
+  "app.tour.jobs.filtersBody": "Роботи — це заплановане завдання для клієнта — багато з'являються автоматично, коли кошторис прийнято. Фільтруйте за статусом, щоб побачити, що потребує дати, а що вже триває.",
+  "app.tour.jobs.newTitle": "Додайте роботу",
+  "app.tour.jobs.newBody": "Створіть роботу вручну, якщо вона не походить від кошторису.",
+  "app.tour.jobs.searchTitle": "Знайдіть роботу",
+  "app.tour.jobs.searchBody": "Шукайте за назвою роботи чи іменем клієнта.",
+
+  "app.tour.jobBuilder.statusTitle": "Просувайте роботу далі",
+  "app.tour.jobBuilder.statusBody": "Оновлюйте статус у міру виконання роботи — від «потрібна дата» до «завершено».",
+  "app.tour.jobBuilder.clientTitle": "Все для бригади",
+  "app.tour.jobBuilder.clientBody": "Ім'я клієнта, телефон і адреса з переходом до навігації в один дотик — те, що потрібно, перш ніж вирушати.",
+  "app.tour.jobBuilder.visitsTitle": "Плануйте виїзди",
+  "app.tour.jobBuilder.visitsBody": "Робота виконується за один або кілька виїздів, кожен зі своєю датою, виконавцем, чек-листом і фото. Додавайте їх тут.",
+
+  "app.tour.invoices.newTitle": "Виставте рахунок за завершену роботу",
+  "app.tour.invoices.newBody": "Створіть рахунок для клієнта, потім надішліть його і отримайте оплату.",
+  "app.tour.invoices.statsTitle": "Знайте, скільки вам винні",
+  "app.tour.invoices.statsBody": "Загальна сума виставлених рахунків, що вже оплачено, і що ще залишається — завжди на виду.",
+  "app.tour.invoices.searchTitle": "Знайдіть рахунок",
+  "app.tour.invoices.searchBody": "Шукайте за номером рахунку чи іменем клієнта.",
+
+  "app.tour.invoiceNew.clientTitle": "Кому виставляється рахунок",
+  "app.tour.invoiceNew.clientBody": "Знайдіть і виберіть клієнта, кому призначено цей рахунок.",
+  "app.tour.invoiceNew.itemsTitle": "Перелічіть роботу",
+  "app.tour.invoiceNew.itemsBody": "Додайте рядок на кожну позицію з кількістю і ставкою; сума рахується автоматично.",
+  "app.tour.invoiceNew.saveTitle": "Збережіть або надішліть",
+  "app.tour.invoiceNew.saveBody": "Збережіть як чернетку, або надішліть, щоб відправити рахунок клієнту поштою.",
+
+  "app.tour.appointments.newTitle": "Забронюйте виїзд",
+  "app.tour.appointments.newBody": "Додайте зустріч із клієнтом, час і адресу об'єкта, і призначте відповідального.",
+  "app.tour.appointments.filtersTitle": "Дивіться, що попереду",
+  "app.tour.appointments.filtersBody": "Зустрічі показані в хронологічному порядку з часом на дорогу між зупинками; фільтруйте за статусом, щоб зосередитись.",
+
+  "app.tour.tasks.newTitle": "Список справ вашої команди",
+  "app.tour.tasks.newBody": "Завдання — це внутрішні нагадування — зв'язатися з клієнтом, замовити матеріал, нагадати про завдаток. На відміну від роботи, це не заплановане завдання на об'єкті.",
+  "app.tour.tasks.showDoneTitle": "Нічого не загубиться",
+  "app.tour.tasks.showDoneBody": "Прострочені та пріоритетні завдання піднімаються вгору; увімкніть це, щоб переглянути вже виконане.",
+
+  "app.tour.marketing.newTitle": "Запустіть кампанію",
+  "app.tour.marketing.newBody": "Відстежуйте розповсюдження листівок, платну рекламу чи розсилку — кожна зі своїм бюджетом і прогресом.",
+  "app.tour.marketing.subscribersTitle": "Ваша аудиторія",
+  "app.tour.marketing.subscribersBody": "Керуйте контактами, яким надсилаються ваші розсилки.",
+
+  "app.tour.availability.workingTitle": "Ваша зміна",
+  "app.tour.availability.workingBody": "Робочі години — це коли ви на роботі — використовуються для планування і табелів, клієнтам ніколи не показуються.",
+  "app.tour.availability.bookableTitle": "Коли клієнти можуть вас забронювати",
+  "app.tour.availability.bookableBody": "Години для бронювання — публічне вікно на вашій сторінці бронювання — зазвичай вужче за вашу зміну.",
+
+  "app.tour.scheduler.weekTitle": "Плануйте тиждень",
+  "app.tour.scheduler.weekBody": "Це планування змін персоналу — переглядайте тиждень, щоб побачити, хто на зміні щодня.",
+  "app.tour.scheduler.addTitle": "Спершу чернетка, потім публікація",
+  "app.tour.scheduler.addBody": "Додавайте зміни як чернетки, а потім Опублікуйте, щоб команда їх побачила — жоден працівник нічого не бачить, поки ви цього не зробите.",
+
+  "app.tour.schedule.headerTitle": "Уся команда на одному екрані",
+  "app.tour.schedule.headerBody": "Тижневі години кожного і що заброньовано на наступні два тижні. Кожен встановлює свої в Налаштування → Доступність, а ви можете встановити будь-чиї звідси.",
+
+  "app.tour.expenseTracking.addTitle": "Записуйте свої витрати",
+  "app.tour.expenseTracking.addBody": "Запишіть витрату і позначте її як пов'язану з роботою, накладними витратами або як загальну витрату.",
+  "app.tour.expenseTracking.kpisTitle": "Темп витрат і запас часу",
+  "app.tour.expenseTracking.kpisBody": "Переглядайте витрати цього місяця, ваш місячний темп витрат і на скільки місяців вистачить запасу.",
+  "app.tour.expenseTracking.aiTitle": "Запросіть підсумок",
+  "app.tour.expenseTracking.aiBody": "Створіть підсумок простими словами, який позначає все незвичне у ваших витратах.",
+
+  "app.tour.payroll.headerTitle": "Розрахункові листки та виплати зарплати",
+  "app.tour.payroll.headerBody": "FieldQuo розраховує зарплату на основі підтверджених годин і ваших збережених ставок — гроші ви все одно переказуєте самі.",
+  "app.tour.payroll.runTitle": "Запустіть період",
+  "app.tour.payroll.runBody": "Виберіть дати й розрахуйте; враховуються лише підтверджені табелі, тож спочатку підтвердіть години.",
+
+  "app.tour.timeOff.headerTitle": "Бронюйте і відстежуйте відпустки",
+  "app.tour.timeOff.headerBody": "Переглядайте свої залишки, подавайте заявку на відпустку чи лікарняний, а якщо керуєте людьми — підтверджуйте їхні заявки на вкладці Команда.",
+
+  "app.tour.timesheets.headerTitle": "Відпрацьовані години",
+  "app.tour.timesheets.headerBody": "Кожен запис приходу-виходу і ручний запис потрапляє сюди на перевірку перед оплатою.",
+  "app.tour.timesheets.addTitle": "Додайте години вручну",
+  "app.tour.timesheets.addBody": "Запишіть час заднім числом — виберіть працівника, дату, час початку і завершення.",
+  "app.tour.timesheets.listTitle": "Підтверджуйте перед виплатою",
+  "app.tour.timesheets.listBody": "Закрийте відкриті записи й підтвердіть години; лише підтверджений час потрапляє до виплати зарплати.",
+
+  "app.tour.voice.numberTitle": "Номер, на який відповідати",
+  "app.tour.voice.numberBody": "Отримайте новий номер або переадресуйте свій — саме на нього відповідає секретар зі ШІ.",
+  "app.tour.voice.creditTitle": "Оплата за хвилину",
+  "app.tour.voice.creditBody": "Дзвінки списуються з передплаченого кредиту — ваші 30 безкоштовних пробних хвилин уже нараховано. Поповніть тут, щоб лінія залишалася активною.",
+  "app.tour.voice.answerTitle": "Увімкніть її",
+  "app.tour.voice.answerBody": "Щойно у вас є номер і кредит, увімкніть секретаря, щоб почати перехоплювати пропущені дзвінки.",
+
+  "app.tour.payments.headerTitle": "Отримуйте оплату карткою",
+  "app.tour.payments.headerBody": "Підключіть платіжного провайдера, щоб клієнти могли оплачувати кошториси й рахунки онлайн.",
+  "app.tour.payments.stripeTitle": "Підключіть Stripe",
+  "app.tour.payments.stripeBody": "FieldQuo використовує ваш власний обліковий запис Stripe — завершіть підключення тут, і статус з'явиться, щойно все запрацює.",
 };
 
 const pa = {
@@ -18070,6 +18651,150 @@ const pa = {
   "app.auth.verify.resending": "ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…",
   "app.auth.verify.resentTitle": "ਆਪਣਾ ਇਨਬਾਕਸ ਦੇਖੋ",
   "app.auth.verify.resentBody": "ਜੇ ਉਸ ਪਤੇ ਦੀ ਪੁਸ਼ਟੀ ਹੋਣੀ ਬਾਕੀ ਹੈ, ਤਾਂ ਅਸੀਂ ਉਸ ਉੱਤੇ ਨਵਾਂ ਲਿੰਕ ਭੇਜ ਦਿੱਤਾ ਹੈ।",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  // See the English block's comment for the shape. Terms match the actual
+  // Punjabi /app interface — ਲੀਡਸ for Leads, ਕੋਟੇਸ਼ਨ for Quotes, ਹਵਾਲੇ ਵਿੱਚ
+  // ਬਦਲੋ for the leads board's own convert button — read from app.nav.* and
+  // app.leads.* above, not guessed at.
+  "app.tour.skip": "ਛੱਡੋ",
+  "app.tour.stepCount": "{total} ਵਿੱਚੋਂ {n}",
+
+  "app.tour.welcome.leadsTitle": "ਲੀਡਸ ਇੱਥੇ ਆਉਂਦੀਆਂ ਹਨ",
+  "app.tour.welcome.leadsBody": "ਤੁਹਾਡੀ ਵੈੱਬਸਾਈਟ, ਬੁਕਿੰਗ ਲਿੰਕ ਜਾਂ ਤੁਰੰਤ ਅਨੁਮਾਨ ਤੋਂ ਹਰ ਪੁੱਛਗਿੱਛ ਲੀਡਸ ਵਿੱਚ ਦਿਖਦੀ ਹੈ। ਪਾਈਪਲਾਈਨ ਦੀ ਸ਼ੁਰੂਆਤ।",
+  "app.tour.welcome.quotesTitle": "ਇਹਨਾਂ ਨੂੰ ਕੋਟੇਸ਼ਨ ਵਿੱਚ ਬਦਲੋ",
+  "app.tour.welcome.quotesBody": "ਆਪਣੇ ਬ੍ਰਾਂਡ ਵਾਲੀ ਕੋਟੇਸ਼ਨ ਬਣਾਓ, ਭੇਜੋ, ਅਤੇ ਮਨਜ਼ੂਰੀ ਤੇ ਭੁਗਤਾਨ ਲਵੋ — ਸਭ ਇੱਥੋਂ ਹੀ।",
+  "app.tour.welcome.estimateReviewsTitle": "ਮਨਜ਼ੂਰੀ ਲਈ ਤੁਰੰਤ ਅਨੁਮਾਨ",
+  "app.tour.welcome.estimateReviewsBody": "ਜਦੋਂ ਗਾਹਕ ਨੂੰ ਤੁਹਾਡੀ ਸਾਈਟ ਤੋਂ ਤੁਰੰਤ ਕੀਮਤ ਮਿਲਦੀ ਹੈ, ਇਹ ਪਹਿਲਾਂ ਇੱਥੇ ਆਉਂਦੀ ਹੈ — ਪੱਕੀ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਇਸਨੂੰ ਪੁਸ਼ਟੀ ਜਾਂ ਠੀਕ ਕਰੋ।",
+  "app.tour.welcome.aiTitle": "FieldQuo AI ਨੂੰ ਪੁੱਛੋ",
+  "app.tour.welcome.aiBody": "ਆਪਣੇ ਨੰਬਰਾਂ ਬਾਰੇ ਸਵਾਲ — “ਮੈਂ ਬਰਜਰੋਂ ਨੂੰ ਕਿੰਨਾ ਕੋਟ ਕੀਤਾ ਸੀ?” — ਤੁਹਾਡੇ ਡਾਟੇ ਤੋਂ ਜਵਾਬ।",
+  "app.tour.welcome.settingsTitle": "ਆਪਣਾ ਕਾਰੋਬਾਰ ਸੈੱਟ ਕਰੋ",
+  "app.tour.welcome.settingsBody": "ਬ੍ਰਾਂਡਿੰਗ, ਸੇਵਾਵਾਂ, ਕੀਮਤਾਂ, ਭੁਗਤਾਨ ਅਤੇ ਤੁਹਾਡੀਆਂ ਤੁਰੰਤ-ਕੋਟੇਸ਼ਨ ਦਰਾਂ ਸਭ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਹਨ। ਸ਼ੁਰੂ ਵਿੱਚ 10 ਮਿੰਟ ਲਾਉਣੇ ਫਾਇਦੇਮੰਦ ਹਨ।",
+
+  "app.tour.leads.tempTitle": "ਲੀਡਸ ਤੁਹਾਡੇ ਲਈ ਪਹਿਲਾਂ ਹੀ ਦਰਜੇ ਦਿੱਤੀਆਂ ਹਨ",
+  "app.tour.leads.tempBody": "ਹਰ ਲੀਡ ਨੂੰ ਉਹਨਾਂ ਦੇ ਦੱਸੇ ਮੁਤਾਬਕ ਗਰਮ, ਨਿੱਘਾ ਜਾਂ ਠੰਢਾ ਵਰਗੀਕ੍ਰਿਤ ਕੀਤਾ ਜਾਂਦਾ ਹੈ — ਬਜਟ, ਸਮਾਂ, ਜ਼ਰੂਰਤ। ਖਰੀਦਣ ਲਈ ਤਿਆਰ ਵਾਲਿਆਂ ਨੂੰ ਫਿਲਟਰ ਕਰੋ।",
+  "app.tour.leads.searchTitle": "ਕਿਸੇ ਨੂੰ ਵੀ ਜਲਦੀ ਲੱਭੋ",
+  "app.tour.leads.searchBody": "ਆਪਣੀ ਪੂਰੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਨਾਮ, ਈਮੇਲ ਜਾਂ ਫੋਨ ਨਾਲ ਖੋਜੋ।",
+  "app.tour.leads.sortTitle": "ਸਭ ਤੋਂ ਗਰਮ ਪਹਿਲਾਂ — ਫਿਰ ਡੂੰਘਾਈ ਨਾਲ ਦੇਖੋ",
+  "app.tour.leads.sortBody": "ਤਿਆਰ ਲੀਡਸ ਨੂੰ ਉੱਪਰ ਲਿਆਉਣ ਲਈ ਕ੍ਰਮਬੱਧ ਕਰੋ, ਜਾਂ ਸਟੇਟਸ ਬਦਲਣ ਲਈ ਕਾਰਡ ਨੂੰ ਕਿਸੇ ਹੋਰ ਕਾਲਮ ਵਿੱਚ ਖਿੱਚੋ। ਕਿਸੇ ਵੀ ਲੀਡ ਉੱਤੇ ਕਲਿੱਕ ਕਰਕੇ ਉਸਦੀ ਜਾਣਕਾਰੀ ਖੋਲ੍ਹੋ: ਸਕੋਰ ਅਤੇ ਕਾਰਨ, ਕਿਸੇ ਨੂੰ ਜ਼ਿੰਮੇਵਾਰ ਬਣਾਓ, ਕਾਲ-ਬੈਕ ਦਰਜ ਕਰੋ, ਅਤੇ ਇੱਕ ਟੈਪ ਵਿੱਚ ਹਵਾਲੇ ਵਿੱਚ ਬਦਲੋ।",
+
+  "app.tour.funnels.newTitle": "ਲੀਡ ਫਨਲ ਬਣਾਓ",
+  "app.tour.funnels.newBody": "ਤੁਹਾਡੇ ਇਸ਼ਤਿਹਾਰਾਂ ਅਤੇ ਬਾਇਓ ਲਿੰਕ ਲਈ ਇੱਕ ਮੋਬਾਈਲ ਕੁਇਜ਼। TikTok, Instagram, YouTube ਜਾਂ Web ਟੈਂਪਲੇਟ ਤੋਂ ਸ਼ੁਰੂ ਕਰੋ — ਜਾਂ ਇਸਨੂੰ ਦੱਸੋ ਅਤੇ AI ਨੂੰ ਤੁਹਾਡੀਆਂ ਸੇਵਾਵਾਂ ਤੋਂ ਬਣਾਉਣ ਦਿਓ। ਹਰ ਪੂਰਾ ਹੋਇਆ ਫਨਲ ਤੁਹਾਡੀ ਪਾਈਪਲਾਈਨ ਵਿੱਚ ਇੱਕ ਦਰਜਾ ਦਿੱਤੀ ਲੀਡ ਪਾਉਂਦਾ ਹੈ।",
+
+  "app.tour.funnelBuilder.stepsTitle": "ਤੁਹਾਡੇ ਕਦਮ",
+  "app.tour.funnelBuilder.stepsBody": "ਹਰ ਕਦਮ ਇੱਕ ਪੂਰੀ-ਸਕ੍ਰੀਨ ਸਵਾਲ ਜਾਂ ਸਕ੍ਰੀਨ ਹੈ। ਇੱਥੇ ਜੋੜੋ, ਕ੍ਰਮ ਬਦਲੋ ਜਾਂ ਹਟਾਓ, ਫਿਰ ਵਿਚਕਾਰ ਚੁਣੇ ਕਦਮ ਨੂੰ ਸੋਧੋ — ਨਾਲ ਹੀ ਲਾਈਵ ਝਲਕ ਦੇਖਦੇ ਹੋਏ।",
+  "app.tour.funnelBuilder.publishTitle": "ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ ਅਤੇ ਸਾਂਝਾ ਕਰੋ",
+  "app.tour.funnelBuilder.publishBody": "ਜਦੋਂ ਤਿਆਰ ਹੋਵੇ, ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ — ਫਿਰ ਲਿੰਕ ਆਪਣੇ ਇਸ਼ਤਿਹਾਰ, ਬਾਇਓ ਜਾਂ QR ਕੋਡ ਉੱਤੇ ਕਾਪੀ ਕਰੋ। ਸੰਪਰਕ ਵਾਲੇ ਕਦਮ ਤੋਂ ਬਿਨਾਂ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਹੋ ਸਕਦਾ, ਸੋ ਫਨਲ ਬਿਨਾਂ ਕੁਝ ਇਕੱਠਾ ਕੀਤੇ ਕਦੇ ਲਾਈਵ ਨਹੀਂ ਜਾਂਦਾ।",
+
+  "app.tour.bookingFee.feeTitle": "ਵਿਜ਼ਿਟ ਲਈ ਚਾਰਜ ਲਵੋ",
+  "app.tour.bookingFee.feeBody": "ਬੁਕਿੰਗ ਵੇਲੇ ਕਾਰਡ ਰਾਹੀਂ ਲੈਣ ਲਈ ਵਿਜ਼ਿਟ ਫੀਸ (ਨਾਲ ਇੱਕ ਵਿਕਲਪਿਕ ਪ੍ਰੋਮੋ ਕੀਮਤ) ਸੈੱਟ ਕਰੋ — ਆਪਣੇ Stripe ਰਾਹੀਂ। ਬਾਅਦ ਵਿੱਚ, ਜੇ ਗਾਹਕ ਤੁਹਾਨੂੰ ਕੰਮ ਦੇਵੇ ਤਾਂ ਇੱਕ ਟੈਪ ਵਿੱਚ ਇਸਨੂੰ ਗਾਹਕ ਦੇ ਇਨਵੌਇਸ ਉੱਤੇ ਵਾਪਸ ਕ੍ਰੈਡਿਟ ਕਰੋ।",
+
+  "app.tour.quotes.newTitle": "ਕੋਟੇਸ਼ਨ ਬਣਾਓ",
+  "app.tour.quotes.newBody": "ਗਾਹਕ ਲਈ ਨਵੀਂ ਬ੍ਰਾਂਡ ਵਾਲੀ ਕੋਟੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ — ਸੇਵਾਵਾਂ ਚੁਣੋ, ਕੀਮਤ ਸੈੱਟ ਕਰੋ, ਫਿਰ ਮਨਜ਼ੂਰੀ ਤੇ ਭੁਗਤਾਨ ਲਈ ਭੇਜੋ।",
+  "app.tour.quotes.statsTitle": "ਪਾਈਪਲਾਈਨ ਉੱਤੇ ਨਜ਼ਰ ਰੱਖੋ",
+  "app.tour.quotes.statsBody": "ਇੱਕ ਨਜ਼ਰ ਵਿੱਚ ਦੇਖੋ ਕਿੰਨੀਆਂ ਕੋਟੇਸ਼ਨ ਡਰਾਫਟ, ਭੇਜੀਆਂ ਅਤੇ ਸਵੀਕਾਰ ਹੋਈਆਂ ਹਨ।",
+  "app.tour.quotes.searchTitle": "ਕੋਈ ਵੀ ਕੋਟੇਸ਼ਨ ਲੱਭੋ",
+  "app.tour.quotes.searchBody": "ਤੁਹਾਡੀਆਂ ਭੇਜੀਆਂ ਸਾਰੀਆਂ ਵਿੱਚੋਂ ਕੋਟੇਸ਼ਨ ਨੰਬਰ ਜਾਂ ਗਾਹਕ ਨਾਮ ਨਾਲ ਖੋਜੋ।",
+
+  "app.tour.quoteNew.clientTitle": "ਗਾਹਕ ਚੁਣੋ",
+  "app.tour.quoteNew.clientBody": "ਮੌਜੂਦਾ ਗਾਹਕ ਚੁਣੋ ਜਾਂ ਨਵਾਂ ਜੋੜੋ — ਕੋਟੇਸ਼ਨ ਅਤੇ ਇਸਦੀਆਂ ਈਮੇਲਾਂ ਉਸਨੂੰ ਜਾਣਗੀਆਂ।",
+  "app.tour.quoteNew.serviceTitle": "ਆਪਣੀਆਂ ਸੇਵਾਵਾਂ ਜੋੜੋ",
+  "app.tour.quoteNew.serviceBody": "ਜਿਹੜੀਆਂ ਸੇਵਾਵਾਂ ਲਈ ਕੋਟ ਦੇ ਰਹੇ ਹੋ ਉਹਨਾਂ ਉੱਤੇ ਟੈਪ ਕਰੋ; ਹਰ ਇੱਕ ਕੀਮਤ ਵਾਲੀ ਲਾਈਨ ਪਾਉਂਦੀ ਹੈ ਜਿਸਨੂੰ ਤੁਸੀਂ ਠੀਕ ਕਰ ਸਕਦੇ ਹੋ।",
+  "app.tour.quoteNew.totalsTitle": "ਸਮੀਖਿਆ ਕਰੋ ਅਤੇ ਭੇਜੋ",
+  "app.tour.quoteNew.totalsBody": "ਕੁੱਲ ਰਕਮ ਚੈੱਕ ਕਰੋ, ਫਿਰ ਡਰਾਫਟ ਵਜੋਂ ਸੇਵ ਕਰੋ ਜਾਂ ਮਨਜ਼ੂਰੀ ਲਈ ਗਾਹਕ ਨੂੰ ਭੇਜੋ।",
+
+  "app.tour.estimateReviews.headerTitle": "ਤੁਰੰਤ ਅਨੁਮਾਨ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.tour.estimateReviews.headerBody": "ਤੁਹਾਡੀ ਸਾਈਟ ਵੱਲੋਂ ਗਾਹਕ ਨੂੰ ਦੱਸੀਆਂ ਕੀਮਤਾਂ ਪਹਿਲਾਂ ਇੱਥੇ ਆਉਂਦੀਆਂ ਹਨ — ਕੋਟੇਸ਼ਨ ਭੇਜਣ ਤੋਂ ਪਹਿਲਾਂ ਰਕਮ ਦੀ ਪੁਸ਼ਟੀ ਜਾਂ ਸੋਧ ਕਰੋ।",
+
+  "app.tour.jobs.filtersTitle": "ਤੁਹਾਡਾ ਜਿੱਤਿਆ ਕੰਮ",
+  "app.tour.jobs.filtersBody": "ਕੰਮ ਗਾਹਕ ਲਈ ਤਹਿ ਕੀਤਾ ਕੰਮ ਹੈ — ਬਹੁਤ ਸਾਰੇ ਆਪਣੇ ਆਪ ਦਿਖਦੇ ਹਨ ਜਦੋਂ ਕੋਟੇਸ਼ਨ ਸਵੀਕਾਰ ਹੁੰਦੀ ਹੈ। ਇਹ ਦੇਖਣ ਲਈ ਸਟੇਟਸ ਨਾਲ ਫਿਲਟਰ ਕਰੋ ਕਿ ਕਿਸ ਨੂੰ ਤਾਰੀਖ ਚਾਹੀਦੀ ਹੈ ਜਾਂ ਕੀ ਚੱਲ ਰਿਹਾ ਹੈ।",
+  "app.tour.jobs.newTitle": "ਕੰਮ ਜੋੜੋ",
+  "app.tour.jobs.newBody": "ਜਦੋਂ ਕੰਮ ਕੋਟੇਸ਼ਨ ਤੋਂ ਨਹੀਂ ਆਇਆ ਤਾਂ ਹੱਥੀਂ ਕੰਮ ਬਣਾਓ।",
+  "app.tour.jobs.searchTitle": "ਕੰਮ ਲੱਭੋ",
+  "app.tour.jobs.searchBody": "ਕੰਮ ਦੇ ਸਿਰਲੇਖ ਜਾਂ ਗਾਹਕ ਨਾਮ ਨਾਲ ਖੋਜੋ।",
+
+  "app.tour.jobBuilder.statusTitle": "ਕੰਮ ਨੂੰ ਅੱਗੇ ਲਿਜਾਓ",
+  "app.tour.jobBuilder.statusBody": "ਕੰਮ ਵਧਣ ਦੇ ਨਾਲ ਸਟੇਟਸ ਅਪਡੇਟ ਕਰੋ — “ਤਾਰੀਖ ਚਾਹੀਦੀ” ਤੋਂ ਲੈ ਕੇ “ਪੂਰਾ ਹੋਇਆ” ਤੱਕ।",
+  "app.tour.jobBuilder.clientTitle": "ਕਰੂ ਲਈ ਸਭ ਕੁਝ",
+  "app.tour.jobBuilder.clientBody": "ਗਾਹਕ ਦਾ ਨਾਮ, ਫੋਨ ਅਤੇ ਟੈਪ-ਕਰੋ-ਤੇ-ਨੈਵੀਗੇਟ ਪਤਾ — ਨਿਕਲਣ ਤੋਂ ਪਹਿਲਾਂ ਕਿਸੇ ਨੂੰ ਕੀ ਚਾਹੀਦਾ ਹੈ।",
+  "app.tour.jobBuilder.visitsTitle": "ਵਿਜ਼ਿਟਾਂ ਦੀ ਯੋਜਨਾ ਬਣਾਓ",
+  "app.tour.jobBuilder.visitsBody": "ਕੰਮ ਇੱਕ ਜਾਂ ਵਧੇਰੇ ਵਿਜ਼ਿਟਾਂ ਵਿੱਚ ਹੁੰਦਾ ਹੈ, ਹਰ ਇੱਕ ਦੀ ਆਪਣੀ ਤਾਰੀਖ, ਜ਼ਿੰਮੇਵਾਰ ਵਿਅਕਤੀ, ਚੈੱਕਲਿਸਟ ਅਤੇ ਫੋਟੋਆਂ ਹੁੰਦੀਆਂ ਹਨ। ਇੱਥੇ ਜੋੜੋ।",
+
+  "app.tour.invoices.newTitle": "ਪੂਰੇ ਹੋਏ ਕੰਮ ਦਾ ਬਿੱਲ ਬਣਾਓ",
+  "app.tour.invoices.newBody": "ਗਾਹਕ ਲਈ ਇਨਵੌਇਸ ਬਣਾਓ, ਫਿਰ ਭੇਜੋ ਅਤੇ ਭੁਗਤਾਨ ਲਵੋ।",
+  "app.tour.invoices.statsTitle": "ਜਾਣੋ ਤੁਹਾਡਾ ਕਿੰਨਾ ਬਾਕੀ ਹੈ",
+  "app.tour.invoices.statsBody": "ਕੁੱਲ ਬਿੱਲ ਕੀਤਾ, ਜੋ ਭੁਗਤਾਨ ਹੋ ਚੁੱਕਾ, ਅਤੇ ਜੋ ਹਾਲੇ ਬਾਕੀ ਹੈ — ਹਮੇਸ਼ਾ ਨਜ਼ਰ ਵਿੱਚ।",
+  "app.tour.invoices.searchTitle": "ਇਨਵੌਇਸ ਲੱਭੋ",
+  "app.tour.invoices.searchBody": "ਇਨਵੌਇਸ ਨੰਬਰ ਜਾਂ ਗਾਹਕ ਨਾਮ ਨਾਲ ਖੋਜੋ।",
+
+  "app.tour.invoiceNew.clientTitle": "ਕਿਸ ਨੂੰ ਬਿੱਲ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ",
+  "app.tour.invoiceNew.clientBody": "ਇਹ ਇਨਵੌਇਸ ਜਿਸ ਗਾਹਕ ਲਈ ਹੈ ਉਸਨੂੰ ਖੋਜੋ ਅਤੇ ਚੁਣੋ।",
+  "app.tour.invoiceNew.itemsTitle": "ਕੰਮ ਦੀ ਸੂਚੀ ਬਣਾਓ",
+  "app.tour.invoiceNew.itemsBody": "ਹਰ ਆਈਟਮ ਲਈ ਮਾਤਰਾ ਅਤੇ ਦਰ ਨਾਲ ਇੱਕ ਲਾਈਨ ਜੋੜੋ; ਕੁੱਲ ਆਪਣੇ ਆਪ ਜੁੜਦੇ ਜਾਂਦੇ ਹਨ।",
+  "app.tour.invoiceNew.saveTitle": "ਸੇਵ ਕਰੋ ਜਾਂ ਭੇਜੋ",
+  "app.tour.invoiceNew.saveBody": "ਡਰਾਫਟ ਵਜੋਂ ਸੇਵ ਕਰੋ, ਜਾਂ ਇਨਵੌਇਸ ਸਿੱਧਾ ਗਾਹਕ ਨੂੰ ਈਮੇਲ ਕਰਨ ਲਈ ਭੇਜੋ।",
+
+  "app.tour.appointments.newTitle": "ਵਿਜ਼ਿਟ ਬੁੱਕ ਕਰੋ",
+  "app.tour.appointments.newBody": "ਗਾਹਕ, ਸਮਾਂ ਅਤੇ ਸਾਈਟ ਪਤੇ ਨਾਲ ਮੁਲਾਕਾਤ ਜੋੜੋ, ਅਤੇ ਕਿਸੇ ਨੂੰ ਸੌਂਪੋ।",
+  "app.tour.appointments.filtersTitle": "ਦੇਖੋ ਕੀ ਆ ਰਿਹਾ ਹੈ",
+  "app.tour.appointments.filtersBody": "ਮੁਲਾਕਾਤਾਂ ਸਮੇਂ ਦੇ ਕ੍ਰਮ ਵਿੱਚ ਸਟਾਪਾਂ ਵਿਚਕਾਰ ਡਰਾਈਵ ਸਮੇਂ ਨਾਲ ਦਿਖਦੀਆਂ ਹਨ; ਧਿਆਨ ਕੇਂਦਰਿਤ ਕਰਨ ਲਈ ਸਟੇਟਸ ਨਾਲ ਫਿਲਟਰ ਕਰੋ।",
+
+  "app.tour.tasks.newTitle": "ਤੁਹਾਡੀ ਟੀਮ ਦੀ ਕਰਨ ਵਾਲੇ ਕੰਮਾਂ ਦੀ ਸੂਚੀ",
+  "app.tour.tasks.newBody": "ਕੰਮ ਅੰਦਰੂਨੀ ਯਾਦ-ਦਹਾਨੀਆਂ ਹਨ — ਗਾਹਕ ਨਾਲ ਫਾਲੋ-ਅੱਪ, ਸਮੱਗਰੀ ਆਰਡਰ, ਡਿਪਾਜ਼ਿਟ ਦੀ ਯਾਦ-ਦਹਾਨੀ। ਕੰਮ ਦੇ ਉਲਟ, ਇਹ ਸਾਈਟ ਉੱਤੇ ਤਹਿ ਕੀਤਾ ਕੰਮ ਨਹੀਂ ਹਨ।",
+  "app.tour.tasks.showDoneTitle": "ਕੁਝ ਨਹੀਂ ਖੁੰਝਦਾ",
+  "app.tour.tasks.showDoneBody": "ਦੇਰੀ ਵਾਲੇ ਅਤੇ ਉੱਚ-ਪ੍ਰਾਥਮਿਕਤਾ ਵਾਲੇ ਕੰਮ ਉੱਪਰ ਆਉਂਦੇ ਹਨ; ਪਹਿਲਾਂ ਹੋ ਚੁੱਕੇ ਕੰਮ ਦੇਖਣ ਲਈ ਇਸਨੂੰ ਬਦਲੋ।",
+
+  "app.tour.marketing.newTitle": "ਮੁਹਿੰਮ ਚਲਾਓ",
+  "app.tour.marketing.newBody": "ਪੈਂਫਲਿਟ ਵੰਡ, ਭੁਗਤਾਨ ਵਾਲੇ ਇਸ਼ਤਿਹਾਰ ਜਾਂ ਈਮੇਲ ਬਲਾਸਟ ਟਰੈਕ ਕਰੋ — ਹਰ ਇੱਕ ਦਾ ਆਪਣਾ ਬਜਟ ਅਤੇ ਤਰੱਕੀ।",
+  "app.tour.marketing.subscribersTitle": "ਤੁਹਾਡੇ ਦਰਸ਼ਕ",
+  "app.tour.marketing.subscribersBody": "ਉਹ ਸੰਪਰਕ ਪ੍ਰਬੰਧਿਤ ਕਰੋ ਜਿਹਨਾਂ ਨੂੰ ਤੁਹਾਡੀਆਂ ਈਮੇਲ ਮੁਹਿੰਮਾਂ ਜਾਂਦੀਆਂ ਹਨ।",
+
+  "app.tour.availability.workingTitle": "ਤੁਹਾਡੀ ਸ਼ਿਫਟ",
+  "app.tour.availability.workingBody": "ਕੰਮਕਾਜੀ ਘੰਟੇ ਉਹ ਸਮਾਂ ਹਨ ਜਦੋਂ ਤੁਸੀਂ ਡਿਊਟੀ ਉੱਤੇ ਹੋ — ਸ਼ਡਿਊਲਿੰਗ ਅਤੇ ਟਾਈਮਸ਼ੀਟਾਂ ਲਈ ਵਰਤੇ ਜਾਂਦੇ ਹਨ, ਗਾਹਕਾਂ ਨੂੰ ਕਦੇ ਨਹੀਂ ਦਿਖਾਏ ਜਾਂਦੇ।",
+  "app.tour.availability.bookableTitle": "ਗਾਹਕ ਕਦੋਂ ਤੁਹਾਨੂੰ ਬੁੱਕ ਕਰ ਸਕਦੇ ਹਨ",
+  "app.tour.availability.bookableBody": "ਬੁੱਕ ਕਰਨ ਯੋਗ ਘੰਟੇ ਤੁਹਾਡੇ ਬੁਕਿੰਗ ਪੰਨੇ ਉੱਤੇ ਜਨਤਕ ਵਿੰਡੋ ਹਨ — ਆਮ ਤੌਰ ਤੇ ਤੁਹਾਡੀ ਸ਼ਿਫਟ ਨਾਲੋਂ ਸੌੜੇ।",
+
+  "app.tour.scheduler.weekTitle": "ਹਫ਼ਤੇ ਦੀ ਯੋਜਨਾ ਬਣਾਓ",
+  "app.tour.scheduler.weekBody": "ਇਹ ਸਟਾਫ ਸ਼ਿਫਟ ਸ਼ਡਿਊਲਿੰਗ ਹੈ — ਇਹ ਦੇਖਣ ਲਈ ਹਫ਼ਤੇ ਵਿੱਚੋਂ ਲੰਘੋ ਕਿ ਹਰ ਦਿਨ ਕੌਣ ਲੱਗਿਆ ਹੈ।",
+  "app.tour.scheduler.addTitle": "ਪਹਿਲਾਂ ਡਰਾਫਟ, ਫਿਰ ਪ੍ਰਕਾਸ਼ਿਤ",
+  "app.tour.scheduler.addBody": "ਸ਼ਿਫਟਾਂ ਨੂੰ ਡਰਾਫਟ ਵਜੋਂ ਜੋੜੋ, ਫਿਰ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ ਤਾਂ ਜੋ ਤੁਹਾਡੀ ਟੀਮ ਦੇਖ ਸਕੇ — ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਨਾ ਕਰੋ, ਕਿਸੇ ਕਾਮੇ ਨੂੰ ਕੁਝ ਨਹੀਂ ਦਿਖਦਾ।",
+
+  "app.tour.schedule.headerTitle": "ਪੂਰੀ ਟੀਮ ਇੱਕ ਨਜ਼ਰ ਵਿੱਚ",
+  "app.tour.schedule.headerBody": "ਹਰ ਕਿਸੇ ਦੇ ਹਫ਼ਤਾਵਾਰੀ ਘੰਟੇ ਅਤੇ ਅਗਲੇ ਦੋ ਹਫ਼ਤਿਆਂ ਵਿੱਚ ਕੀ ਬੁੱਕ ਹੈ। ਹਰ ਵਿਅਕਤੀ ਸੈਟਿੰਗਾਂ → ਉਪਲਬਧਤਾ ਵਿੱਚ ਆਪਣੇ ਸੈੱਟ ਕਰਦਾ ਹੈ, ਅਤੇ ਤੁਸੀਂ ਇੱਥੋਂ ਕਿਸੇ ਦੇ ਵੀ ਸੈੱਟ ਕਰ ਸਕਦੇ ਹੋ।",
+
+  "app.tour.expenseTracking.addTitle": "ਆਪਣੇ ਖਰਚੇ ਦਰਜ ਕਰੋ",
+  "app.tour.expenseTracking.addBody": "ਖਰਚਾ ਦਰਜ ਕਰੋ ਅਤੇ ਇਸਨੂੰ ਕਿਸੇ ਕੰਮ, ਓਵਰਹੈੱਡ, ਜਾਂ ਆਮ ਖਰਚੇ ਵਜੋਂ ਟੈਗ ਕਰੋ।",
+  "app.tour.expenseTracking.kpisTitle": "ਖਰਚ ਦੀ ਰਫ਼ਤਾਰ ਅਤੇ ਬਾਕੀ ਸਮਾਂ",
+  "app.tour.expenseTracking.kpisBody": "ਇਸ ਮਹੀਨੇ ਦਾ ਖਰਚ, ਤੁਹਾਡੀ ਮਹੀਨਾਵਾਰ ਖਰਚ ਰਫ਼ਤਾਰ ਅਤੇ ਕਿੰਨੇ ਮਹੀਨਿਆਂ ਦਾ ਸਮਾਂ ਬਾਕੀ ਹੈ ਦੇਖੋ।",
+  "app.tour.expenseTracking.aiTitle": "ਸੰਖੇਪ ਮੰਗੋ",
+  "app.tour.expenseTracking.aiBody": "ਸਰਲ ਭਾਸ਼ਾ ਵਿੱਚ ਸੰਖੇਪ ਬਣਾਓ ਜੋ ਤੁਹਾਡੇ ਖਰਚਿਆਂ ਵਿੱਚ ਕੁਝ ਵੀ ਅਸਾਧਾਰਨ ਦੱਸੇ।",
+
+  "app.tour.payroll.headerTitle": "ਤਨਖਾਹ ਸਲਿੱਪਾਂ ਅਤੇ ਤਨਖਾਹ ਦੌਰ",
+  "app.tour.payroll.headerBody": "FieldQuo ਪ੍ਰਵਾਨਿਤ ਘੰਟਿਆਂ ਅਤੇ ਤੁਹਾਡੀਆਂ ਸੇਵ ਕੀਤੀਆਂ ਦਰਾਂ ਤੋਂ ਤਨਖਾਹ ਕੱਢਦਾ ਹੈ — ਪੈਸੇ ਤੁਸੀਂ ਖੁਦ ਹੀ ਭੇਜਦੇ ਹੋ।",
+  "app.tour.payroll.runTitle": "ਦੌਰ ਚਲਾਓ",
+  "app.tour.payroll.runBody": "ਤਾਰੀਖਾਂ ਚੁਣੋ ਅਤੇ ਗਿਣਤੀ ਕਰੋ; ਸਿਰਫ਼ ਪ੍ਰਵਾਨਿਤ ਟਾਈਮਸ਼ੀਟਾਂ ਸ਼ਾਮਲ ਹੁੰਦੀਆਂ ਹਨ, ਸੋ ਪਹਿਲਾਂ ਘੰਟੇ ਮਨਜ਼ੂਰ ਕਰੋ।",
+
+  "app.tour.timeOff.headerTitle": "ਛੁੱਟੀ ਬੁੱਕ ਕਰੋ ਅਤੇ ਟਰੈਕ ਕਰੋ",
+  "app.tour.timeOff.headerBody": "ਆਪਣੇ ਬਕਾਏ ਦੇਖੋ, ਛੁੱਟੀ ਜਾਂ ਬਿਮਾਰੀ ਦੀ ਛੁੱਟੀ ਦੀ ਬੇਨਤੀ ਕਰੋ, ਅਤੇ — ਜੇ ਤੁਸੀਂ ਲੋਕਾਂ ਦਾ ਪ੍ਰਬੰਧ ਕਰਦੇ ਹੋ — ਟੀਮ ਟੈਬ ਤੋਂ ਉਹਨਾਂ ਦੀਆਂ ਮਨਜ਼ੂਰ ਕਰੋ।",
+
+  "app.tour.timesheets.headerTitle": "ਕੰਮ ਕੀਤੇ ਘੰਟੇ",
+  "app.tour.timesheets.headerBody": "ਭੁਗਤਾਨ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਸਮੀਖਿਆ ਲਈ ਹਰ ਕਲਾਕ-ਇਨ ਅਤੇ ਹੱਥੀਂ ਐਂਟਰੀ ਇੱਥੇ ਆਉਂਦੀ ਹੈ।",
+  "app.tour.timesheets.addTitle": "ਹੱਥੀਂ ਘੰਟੇ ਜੋੜੋ",
+  "app.tour.timesheets.addBody": "ਬਾਅਦ ਵਿੱਚ ਸਮਾਂ ਦਰਜ ਕਰੋ — ਕਾਮਾ, ਤਾਰੀਖ ਅਤੇ ਸ਼ੁਰੂ ਤੇ ਖਤਮ ਹੋਣ ਦਾ ਸਮਾਂ ਚੁਣੋ।",
+  "app.tour.timesheets.listTitle": "ਤਨਖਾਹ ਤੋਂ ਪਹਿਲਾਂ ਮਨਜ਼ੂਰ ਕਰੋ",
+  "app.tour.timesheets.listBody": "ਖੁੱਲ੍ਹੀਆਂ ਐਂਟਰੀਆਂ ਨੂੰ ਕਲਾਕ-ਆਊਟ ਕਰੋ ਅਤੇ ਘੰਟੇ ਮਨਜ਼ੂਰ ਕਰੋ; ਸਿਰਫ਼ ਮਨਜ਼ੂਰ ਸਮਾਂ ਹੀ ਤਨਖਾਹ ਦੌਰ ਵਿੱਚ ਜਾਂਦਾ ਹੈ।",
+
+  "app.tour.voice.numberTitle": "ਜਵਾਬ ਦੇਣ ਲਈ ਇੱਕ ਨੰਬਰ",
+  "app.tour.voice.numberBody": "ਨਵਾਂ ਨੰਬਰ ਲਵੋ ਜਾਂ ਆਪਣਾ ਫਾਰਵਰਡ ਕਰੋ — AI ਰਿਸੈਪਸ਼ਨਿਸਟ ਇਹੀ ਚੁੱਕਦੀ ਹੈ।",
+  "app.tour.voice.creditTitle": "ਪ੍ਰਤੀ ਮਿੰਟ ਭੁਗਤਾਨ ਕਰੋ",
+  "app.tour.voice.creditBody": "ਕਾਲਾਂ ਪ੍ਰੀਪੇਡ ਕ੍ਰੈਡਿਟ ਵਿੱਚੋਂ ਕੱਟਦੀਆਂ ਹਨ — ਤੁਹਾਡੇ 30 ਮੁਫ਼ਤ ਟ੍ਰਾਇਲ ਮਿੰਟ ਪਹਿਲਾਂ ਹੀ ਲੋਡ ਹਨ। ਲਾਈਨ ਚਾਲੂ ਰੱਖਣ ਲਈ ਇੱਥੇ ਟਾਪ ਅੱਪ ਕਰੋ।",
+  "app.tour.voice.answerTitle": "ਇਸਨੂੰ ਚਾਲੂ ਕਰੋ",
+  "app.tour.voice.answerBody": "ਜਦੋਂ ਤੁਹਾਡੇ ਕੋਲ ਨੰਬਰ ਅਤੇ ਕ੍ਰੈਡਿਟ ਹੋਵੇ, ਖੁੰਝੀਆਂ ਕਾਲਾਂ ਫੜਨਾ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਰਿਸੈਪਸ਼ਨਿਸਟ ਨੂੰ ਚਾਲੂ ਕਰੋ।",
+
+  "app.tour.payments.headerTitle": "ਕਾਰਡ ਰਾਹੀਂ ਭੁਗਤਾਨ ਲਵੋ",
+  "app.tour.payments.headerBody": "ਭੁਗਤਾਨ ਪ੍ਰਦਾਤਾ ਜੋੜੋ ਤਾਂ ਜੋ ਗਾਹਕ ਕੋਟੇਸ਼ਨ ਅਤੇ ਇਨਵੌਇਸ ਆਨਲਾਈਨ ਭਰ ਸਕਣ।",
+  "app.tour.payments.stripeTitle": "Stripe ਜੋੜੋ",
+  "app.tour.payments.stripeBody": "FieldQuo ਤੁਹਾਡਾ ਆਪਣਾ Stripe ਖਾਤਾ ਵਰਤਦਾ ਹੈ — ਇੱਥੇ ਕਨੈਕਸ਼ਨ ਪੂਰਾ ਕਰੋ ਅਤੇ ਲਾਈਵ ਹੋਣ ਤੇ ਸਟੇਟਸ ਦਿਖ ਜਾਵੇਗਾ।",
 };
 
 const tl = {
@@ -21302,6 +22027,150 @@ const tl = {
   "app.auth.verify.resending": "Ipinapadala…",
   "app.auth.verify.resentTitle": "Tingnan ang inbox mo",
   "app.auth.verify.resentBody": "Kung kailangan pang kumpirmahin ang address na iyon, pinadalhan namin ito ng bagong link.",
+
+  // ── The onboarding tour (app/components/tours.js) ────────────────────────
+  // See the English block's comment for the shape. Terms match the actual
+  // Tagalog /app interface — "Mga Lead" for Leads, "Mga Kotasyon" for
+  // Quotes, "Gawing quote" for the leads board's own convert button — read
+  // from app.nav.* and app.leads.* above, not guessed at.
+  "app.tour.skip": "Laktawan",
+  "app.tour.stepCount": "{n} sa {total}",
+
+  "app.tour.welcome.leadsTitle": "Dito dumarating ang mga lead",
+  "app.tour.welcome.leadsBody": "Bawat tanong mula sa website mo, booking link, o instant estimate ay lumalabas sa Mga Lead. Simula ng pipeline.",
+  "app.tour.welcome.quotesTitle": "Gawin silang quote",
+  "app.tour.welcome.quotesBody": "Gumawa ng branded na quote, ipadala ito, at makuha ang approval at bayad — lahat dito na.",
+  "app.tour.welcome.estimateReviewsTitle": "Mga instant estimate na aaprubahan",
+  "app.tour.welcome.estimateReviewsBody": "Kapag nakatanggap ang isang homeowner ng instant na presyo mula sa website mo, dito muna ito dumarating para kumpirmahin o ayusin mo bago ito maging pangwakas.",
+  "app.tour.welcome.aiTitle": "Tanungin ang FieldQuo AI",
+  "app.tour.welcome.aiBody": "Mga tanong tungkol sa sarili mong numero — “magkano ang na-quote ko sa mga Bergeron?” — sinagot mula sa iyong datos.",
+  "app.tour.welcome.settingsTitle": "I-set up ang negosyo mo",
+  "app.tour.welcome.settingsBody": "Ang branding, mga serbisyo, presyo, bayad, at ang rate ng instant quote mo ay nasa Mga Setting. Sulit ang 10 minuto sa simula.",
+
+  "app.tour.leads.tempTitle": "Naka-score na ang mga lead mo",
+  "app.tour.leads.tempBody": "Bawat lead ay ma-triage bilang mainit, katamtaman, o malamig batay sa sinabi nila — budget, timeline, urgency. I-filter ang mga handa nang bumili.",
+  "app.tour.leads.searchTitle": "Mabilis na makahanap ng kahit sino",
+  "app.tour.leads.searchBody": "Maghanap sa pangalan, email, o telepono sa buong pipeline mo.",
+  "app.tour.leads.sortTitle": "Pinakamainit muna — tapos tingnan nang mabuti",
+  "app.tour.leads.sortBody": "I-sort para umakyat sa taas ang mga leads na handa nang isara, o i-drag ang isang card papunta sa ibang column para baguhin ang status nito. I-click ang kahit anong lead para buksan ang detalye: ang score at bakit, mag-assign ng may-ari, mag-log ng call-back, at Gawing quote sa isang tap.",
+
+  "app.tour.funnels.newTitle": "Gumawa ng lead funnel",
+  "app.tour.funnels.newBody": "Isang mobile quiz para sa mga ad at link-in-bio mo. Magsimula sa isang TikTok, Instagram, YouTube, o Web na template — o ilarawan ito at hayaan ang AI na buuin ito mula sa mga serbisyo mo. Bawat tapos na funnel ay naglalagay ng naka-score na lead sa pipeline mo.",
+
+  "app.tour.funnelBuilder.stepsTitle": "Ang mga hakbang mo",
+  "app.tour.funnelBuilder.stepsBody": "Bawat hakbang ay isang buong-screen na tanong o screen. Idagdag, i-reorder, o i-delete sila dito, tapos i-edit ang napiling hakbang sa gitna — may live preview sa tabi mo.",
+  "app.tour.funnelBuilder.publishTitle": "I-publish at ibahagi",
+  "app.tour.funnelBuilder.publishBody": "Kapag handa na, i-Publish — tapos kopyahin ang link sa ad, bio, o QR code mo. Hindi ka makaka-publish nang walang contact step, kaya hindi kailanman mapupunta online ang isang funnel na walang kinukolekta.",
+
+  "app.tour.bookingFee.feeTitle": "Maningil para sa isang visit",
+  "app.tour.bookingFee.feeBody": "Mag-set ng visit fee (may opsyonal na promo price) na sisingilin sa card sa oras ng booking — sa pamamagitan ng sarili mong Stripe. Sa bandang huli, i-credit ito pabalik sa invoice ng kliyente sa isang tap kung kinuha ka nila.",
+
+  "app.tour.quotes.newTitle": "Gumawa ng quote",
+  "app.tour.quotes.newBody": "Magsimula ng bagong branded na quote para sa isang kliyente — pumili ng mga serbisyo, mag-set ng presyo, tapos ipadala para maaprubahan at mabayaran.",
+  "app.tour.quotes.statsTitle": "Bantayan ang pipeline",
+  "app.tour.quotes.statsBody": "Makita agad kung ilan sa mga quote ang draft, naipadala, at na-accept.",
+  "app.tour.quotes.searchTitle": "Maghanap ng kahit anong quote",
+  "app.tour.quotes.searchBody": "Maghanap gamit ang quote number o pangalan ng kliyente sa lahat ng naipadala mo.",
+
+  "app.tour.quoteNew.clientTitle": "Piliin ang kliyente",
+  "app.tour.quoteNew.clientBody": "Pumili ng umiiral nang kliyente o magdagdag ng bago — dun mapupunta ang quote at ang mga email nito.",
+  "app.tour.quoteNew.serviceTitle": "Idagdag ang mga serbisyo mo",
+  "app.tour.quoteNew.serviceBody": "I-tap ang mga serbisyong kino-quote mo; bawat isa ay maglalagay ng naka-presyong line item na puwede mong ayusin.",
+  "app.tour.quoteNew.totalsTitle": "Suriin at ipadala",
+  "app.tour.quoteNew.totalsBody": "Tingnan ang total, tapos i-save bilang draft o ipadala sa kliyente para sa approval.",
+
+  "app.tour.estimateReviews.headerTitle": "Aprubahan ang mga instant estimate",
+  "app.tour.estimateReviews.headerBody": "Ang mga presyong ibinigay ng website mo sa isang homeowner ay dito muna dumarating — kumpirmahin o ayusin ang halaga bago maipadala ang quote.",
+
+  "app.tour.jobs.filtersTitle": "Ang trabahong napanalunan mo",
+  "app.tour.jobs.filtersBody": "Ang mga trabaho ay naka-iskedyul na trabaho para sa isang kliyente — marami ang lumalabas nang awtomatiko kapag na-accept ang isang quote. I-filter ayon sa status para makita kung ano ang kailangan ng petsa o kung ano ang ginagawa na.",
+  "app.tour.jobs.newTitle": "Magdagdag ng trabaho",
+  "app.tour.jobs.newBody": "Gumawa ng trabaho nang mano-mano kung hindi ito galing sa isang quote.",
+  "app.tour.jobs.searchTitle": "Maghanap ng trabaho",
+  "app.tour.jobs.searchBody": "Maghanap gamit ang pamagat ng trabaho o pangalan ng kliyente.",
+
+  "app.tour.jobBuilder.statusTitle": "Ipagpatuloy ang trabaho",
+  "app.tour.jobBuilder.statusBody": "I-update ang status habang umuusad ang trabaho — mula sa kailangan-ng-petsa hanggang tapos na.",
+  "app.tour.jobBuilder.clientTitle": "Lahat para sa crew",
+  "app.tour.jobBuilder.clientBody": "Pangalan ng kliyente, telepono, at address na pwedeng i-tap para mag-navigate — kailangan ng isang tao bago sila umalis.",
+  "app.tour.jobBuilder.visitsTitle": "I-iskedyul ang mga visit",
+  "app.tour.jobBuilder.visitsBody": "Ang isang trabaho ay natatapos sa isa o higit pang mga visit, bawat isa may sariling petsa, assignee, checklist, at mga larawan. Idagdag sila dito.",
+
+  "app.tour.invoices.newTitle": "Maningil para sa natapos na trabaho",
+  "app.tour.invoices.newBody": "Gumawa ng invoice para sa isang kliyente, tapos ipadala ito at kolektahin ang bayad.",
+  "app.tour.invoices.statsTitle": "Alamin kung ano ang utang sa iyo",
+  "app.tour.invoices.statsBody": "Kabuuang na-bill, kung ano ang nabayaran na, at kung ano pa ang nakabinbin — laging nakikita.",
+  "app.tour.invoices.searchTitle": "Maghanap ng invoice",
+  "app.tour.invoices.searchBody": "Maghanap gamit ang invoice number o pangalan ng kliyente.",
+
+  "app.tour.invoiceNew.clientTitle": "Sino ang sisingilin",
+  "app.tour.invoiceNew.clientBody": "Hanapin at piliin ang kliyente na pupuntahan ng invoice na ito.",
+  "app.tour.invoiceNew.itemsTitle": "Ilista ang trabaho",
+  "app.tour.invoiceNew.itemsBody": "Magdagdag ng linya bawat item na may quantity at rate; ang total ay tumataas habang idinadagdag mo.",
+  "app.tour.invoiceNew.saveTitle": "I-save o ipadala",
+  "app.tour.invoiceNew.saveBody": "I-save bilang draft, o ipadala para i-email ang invoice diretso sa kliyente.",
+
+  "app.tour.appointments.newTitle": "Mag-book ng visit",
+  "app.tour.appointments.newBody": "Magdagdag ng appointment kasama ang kliyente, oras, at address ng site, at mag-assign ng magsasagawa nito.",
+  "app.tour.appointments.filtersTitle": "Tingnan kung ano ang paparating",
+  "app.tour.appointments.filtersBody": "Nakalista ang mga appointment ayon sa oras kasama ang travel time sa pagitan ng mga stop; i-filter ayon sa status para mag-focus.",
+
+  "app.tour.tasks.newTitle": "Ang to-do list ng team mo",
+  "app.tour.tasks.newBody": "Ang mga gawain ay panloob na paalala — sumunod sa isang kliyente, mag-order ng materyales, humingi ng deposit. Hindi tulad ng isang trabaho, hindi sila naka-iskedyul na trabaho sa isang site.",
+  "app.tour.tasks.showDoneTitle": "Walang makakaligtaan",
+  "app.tour.tasks.showDoneBody": "Ang mga overdue at may mataas na priyoridad na gawain ay umaakyat sa taas; i-flip ito para tingnan kung ano na ang tapos.",
+
+  "app.tour.marketing.newTitle": "Magpatakbo ng campaign",
+  "app.tour.marketing.newBody": "Subaybayan ang pamamahagi ng pamphlet, bayad na ad, o email blast — bawat isa may sariling budget at progreso.",
+  "app.tour.marketing.subscribersTitle": "Ang audience mo",
+  "app.tour.marketing.subscribersBody": "Pamahalaan ang mga contact na pupuntahan ng email campaign mo.",
+
+  "app.tour.availability.workingTitle": "Ang shift mo",
+  "app.tour.availability.workingBody": "Ang working hours ay kung kailan ka naka-duty — ginagamit para sa scheduling at timesheet, hindi kailanman ipinapakita sa mga kliyente.",
+  "app.tour.availability.bookableTitle": "Kailan ka puwedeng i-book ng mga kliyente",
+  "app.tour.availability.bookableBody": "Ang bookable hours ay ang pampublikong window sa booking page mo — kadalasan mas makitid kaysa sa shift mo.",
+
+  "app.tour.scheduler.weekTitle": "Planuhin ang linggo",
+  "app.tour.scheduler.weekBody": "Ito ang staff shift scheduling — dumaan sa linggo para makita kung sino ang naka-schedule bawat araw.",
+  "app.tour.scheduler.addTitle": "Draft muna, tapos i-publish",
+  "app.tour.scheduler.addBody": "Magdagdag ng shift bilang draft, tapos i-Publish para makita ito ng team mo — walang ipinapakita sa isang worker hangga't hindi mo ito ginagawa.",
+
+  "app.tour.schedule.headerTitle": "Buong team sa isang tingin",
+  "app.tour.schedule.headerBody": "Ang lingguhang oras ng bawat isa at kung ano ang naka-book sa susunod na dalawang linggo. Ang bawat tao ay nagse-set ng sarili nila sa Mga Setting → Availability, at puwede mong i-set ang sa kahit sino mula dito.",
+
+  "app.tour.expenseTracking.addTitle": "I-log ang ginagastos mo",
+  "app.tour.expenseTracking.addBody": "Mag-record ng gastos at i-tag ito sa isang trabaho, sa overhead, o bilang pangkalahatang gastos.",
+  "app.tour.expenseTracking.kpisTitle": "Bilis ng gastos at runway",
+  "app.tour.expenseTracking.kpisBody": "Tingnan ang gastos ngayong buwan, ang buwanang bilis ng gastos mo, at ilang buwan pang runway ang natitira.",
+  "app.tour.expenseTracking.aiTitle": "Humingi ng summary",
+  "app.tour.expenseTracking.aiBody": "Gumawa ng buod na simpleng maintindihan na nagbababala sa kahit anong kakaiba sa gastos mo.",
+
+  "app.tour.payroll.headerTitle": "Payslip at mga pay run",
+  "app.tour.payroll.headerBody": "Kinakalkula ng FieldQuo ang sahod mula sa mga aprubadong oras at sa mga na-save mong rate — ikaw pa rin ang maglilipat ng pera.",
+  "app.tour.payroll.runTitle": "Magpatakbo ng period",
+  "app.tour.payroll.runBody": "Piliin ang mga petsa at i-calculate; mga aprubadong timesheet lang ang kasama, kaya aprubahan muna ang mga oras.",
+
+  "app.tour.timeOff.headerTitle": "Mag-book at subaybayan ang time off",
+  "app.tour.timeOff.headerBody": "Tingnan ang balanse mo, humiling ng bakasyon o sick day, at — kung namamahala ka ng mga tao — aprubahan ang sa kanila mula sa Team tab.",
+
+  "app.tour.timesheets.headerTitle": "Oras na na-trabaho",
+  "app.tour.timesheets.headerBody": "Bawat clock-in at manual na entry ay dumarating dito para suriin mo bago ito bayaran.",
+  "app.tour.timesheets.addTitle": "Magdagdag ng oras nang mano-mano",
+  "app.tour.timesheets.addBody": "Mag-log ng oras pagkatapos ng pangyayari — piliin ang worker, ang petsa, at ang oras ng simula at katapusan.",
+  "app.tour.timesheets.listTitle": "Aprubahan bago mag-payroll",
+  "app.tour.timesheets.listBody": "I-clock out ang mga bukas na entry at aprubahan ang mga oras; ang aprubadong oras lang ang pupunta sa isang pay run.",
+
+  "app.tour.voice.numberTitle": "Isang numero na sasagutin",
+  "app.tour.voice.numberBody": "Kumuha ng bagong numero o i-forward ang sarili mo — ito ang sinasagot ng AI receptionist.",
+  "app.tour.voice.creditTitle": "Magbayad kada minuto",
+  "app.tour.voice.creditBody": "Ang mga tawag ay bumabawas sa prepaid credit — naka-load na ang 30 libreng trial minute mo. Mag-top up dito para manatiling live ang linya.",
+  "app.tour.voice.answerTitle": "Buksan ito",
+  "app.tour.voice.answerBody": "Kapag mayroon ka nang numero at credit, buksan ang receptionist para simulan ang pagsagot sa mga nawalang tawag.",
+
+  "app.tour.payments.headerTitle": "Tumanggap ng bayad gamit ang card",
+  "app.tour.payments.headerBody": "Kumonekta ng payment provider para makapagbayad ang mga kliyente ng quote at invoice online.",
+  "app.tour.payments.stripeTitle": "Ikonekta ang Stripe",
+  "app.tour.payments.stripeBody": "Ginagamit ng FieldQuo ang sarili mong Stripe account — tapusin ang koneksyon dito at lalabas ang status sa oras na live ka na.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };
