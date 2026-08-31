@@ -101,9 +101,11 @@ deliveries stop, check the agent, not the account tab.
   `STRIPE_BILLING_WEBHOOK_SECRET` no subscription is ever marked `past_due`
   in the first place (see that row above), so this cron would simply find
   nothing to warn about — not a bug in this cron, but worth knowing before
-  concluding it's broken. Sends up to two emails per grace episode (a
-  heads-up, then a last-chance notice inside the final two days); see
-  `lib/billing/graceWarning.js` for why two rather than one.
+  concluding it's broken. Sends up to two emails per grace episode — the same
+  `grace_start` / `grace_remind` / `grace_wait` pattern `rentDecision()`
+  already uses for releasing an unpaid phone number: one when the account
+  goes read-only, one reminder inside the final two days, silence in
+  between. See `lib/billing/graceWarning.js` for the reasoning.
 - **Rotate three secrets** — they were pasted into a chat transcript:
   Cloudinary API secret, the Neon database password, `BETTER_AUTH_SECRET`.
 - **Resend DNS for `fieldquo.com`**: TXT at `resend._domainkey` with Resend's

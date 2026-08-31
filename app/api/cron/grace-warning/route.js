@@ -13,12 +13,14 @@
 // most expensive silence in the product: not one phone line, their whole
 // business record.
 //
-// ══ Two warnings, and why ═══════════════════════════════════════════════════
+// ══ Two notices, same pattern as the number-release path ═══════════════════
 //
-// This sends up to two emails per grace episode — a first heads-up and a
-// final notice inside the last two days — not one. The reasoning, and why
-// two days is not an arbitrary number, lives in lib/billing/graceWarning.js;
-// this route only executes the decision, the same "cron stays thin" split
+// This sends up to two emails per grace episode — grace_start the moment the
+// grace period opens, grace_remind once inside the last two days, silence
+// (grace_wait) in between — the same three-action shape rentDecision already
+// uses for releasing an unpaid phone number. The reasoning, and why two days
+// is not an arbitrary number, lives in lib/billing/graceWarning.js; this
+// route only executes the decision, the same "cron stays thin" split
 // billNumberRent uses for rentDecision.
 //
 // ══ Claim, send, and REVERT on failure — same as renewal-reminders ══════════
@@ -41,6 +43,7 @@ import { buildBillingEmail } from "@/lib/email/billingEmail";
 import { ownerEmailFor } from "@/lib/email/companySender";
 import { recordError } from "@/lib/platform/errorLog";
 import { getAppOrigin } from "@/lib/appUrl";
+import { formatDateOnly } from "@/lib/format/companyDate";
 import { graceWarningDecision } from "@/lib/billing/graceWarning";
 
 // Same shape and same reasoning as renewal-reminders' BATCH: the work per row
@@ -87,22 +90,23 @@ export async function GET(request) {
       now,
     });
 
-    if (decision.action !== "warn_first" && decision.action !== "warn_final") {
+    if (decision.action !== "grace_start" && decision.action !== "grace_remind") {
       note(decision.action === "skip" ? decision.reason : decision.action);
       continue;
     }
 
-    const isFinal = decision.action === "warn_final";
+    const isReminder = decision.action === "grace_remind";
     // Which column this send claims. Chosen once, used for both the claim
     // and its revert, so the two can never drift apart.
-    const field = isFinal ? "graceFinalWarnedAt" : "graceWarnedAt";
+    const field = isReminder ? "graceFinalWarnedAt" : "graceWarnedAt";
 
     // ── Claim (provisional) ───────────────────────────────────────────────
     //
     // Guarded on the field still being null, which it always is here by
-    // construction (the decision only returns warn_first/warn_final when the
-    // corresponding marker is unset) — this guard is what stops a SECOND,
-    // concurrent invocation of this same cron run claiming the same send.
+    // construction (the decision only returns grace_start/grace_remind when
+    // the corresponding marker is unset) — this guard is what stops a
+    // SECOND, concurrent invocation of this same cron run claiming the same
+    // send.
     const claim = await db.subscription.updateMany({
       where: { id: sub.id, [field]: null },
       data: { [field]: now },
@@ -126,7 +130,12 @@ export async function GET(request) {
       kind: "grace",
       companyName: sub.company?.name || "Your company",
       daysLeft: decision.daysLeft,
-      finalWarning: isFinal,
+      // Pre-formatted here, same convention as "renewal"'s periodEnd — the
+      // email module knows nothing about date formatting and shouldn't have
+      // to. Only the reminder's copy actually states this as a firm date
+      // ("locks on the 14th"); grace_start's copy uses daysLeft alone.
+      lockDate: formatDateOnly(decision.lockAt),
+      reminder: isReminder,
       billingUrl: `${origin}/app/settings/account-billing`,
     });
 
