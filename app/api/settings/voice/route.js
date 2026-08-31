@@ -425,6 +425,10 @@ export async function GET(request) {
         afford: spendVerdict({ kind: "number_setup", numberType: t.key, balanceCents: cents }),
       })),
       freeTrialMinutes: FREE_TRIAL_MINUTES,
+      // The same grant expressed as MONEY, which is what the screen now says.
+      // A number's rental is taken out of it immediately, so "minutes" reads as
+      // a promise the first invoice contradicts.
+      freeTrialCents: FREE_TRIAL_MINUTES * ratePerMinute("local"),
       // Whether the gift is still available. Once per company, forever — so a
       // second number after a release gets none, and the screen shouldn't offer
       // what the ledger will refuse.

@@ -1499,7 +1499,7 @@ export default function VoiceSettingsPage() {
                       ))}
                     {pricing.freeTrialAvailable && (
                       <p className="text-xs text-muted-foreground">
-                        {t("app.setVoice.trialWithNumber", "{minutes} free minutes are added to your credit with your first number.", { minutes: pricing.freeTrialMinutes })}
+                        {t("app.setVoice.trialWithNumber", "{amount} of credit is added with your first number. The number's {rental}/month rental comes out of it, so you start with the rest.", { amount: `$${((pricing.freeTrialCents ?? 0) / 100).toFixed(2)}`, rental: `$${((pricing.monthlyCents ?? 400) / 100).toFixed(2)}` })}
                       </p>
                     )}
                   </div>

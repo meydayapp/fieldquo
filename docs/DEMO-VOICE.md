@@ -53,7 +53,7 @@ explanation. `lib/voice/spendGate.js` prices a number's first month against
 the company's **real** balance before the "Purchased" button on this screen
 will even light up — that check runs the same way for a demo account as for a
 paying one, because the button's disabled state is computed by the same
-`spendVerdict()` either way. The free 30 minutes a company gets (
+`spendVerdict()` either way. The $10.50 of starting credit a company gets (
 `grantFreeTrial` in `lib/voice/credits.js`) is only granted **after** a number
 is bought, not before — so a demo account that has never had a number bought
 on it starts this screen with $0 of voice credit and a **greyed-out**

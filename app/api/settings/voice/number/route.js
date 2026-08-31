@@ -11,7 +11,7 @@
 //
 // Buying a number bills FIELDQUO, immediately and every month after, because
 // FieldQuo holds the one Retell account. This route used to buy one with no
-// balance check at all and then grant 30 free minutes on top, so a company that
+// balance check at all and then grant the starting credit on top, so a company that
 // had paid nothing could cost real money on their first click. Now the rental is
 // reserved from their prepaid balance BEFORE the provider is called, through the
 // one gate in lib/voice/spendGate.js, and refunded if the provider then refuses.
@@ -669,7 +669,7 @@ export async function POST(request) {
     //
     // Once per COMPANY, enforced by a unique ref in the ledger rather than by
     // "they have no number yet" — the release path below (rent unpaid) would
-    // otherwise turn this into 30 free minutes on tap, one per re-purchase.
+    // otherwise turn the starting credit into a tap, one grant per re-purchase.
     // FieldQuo's exposure here is bounded and deliberate: 30 minutes costs us
     // about $4.80 of provider time against the month's rental they just paid.
     await grantFreeTrial({ companyId: member.companyId, numberType: row.numberType });

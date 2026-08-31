@@ -3260,7 +3260,7 @@ const en = {
   "app.setVoice.firstMonthNow": "{amount} — the first month — comes out of your credit now.",
   "app.setVoice.firstMonthUpFront": "The first month's rental comes out of your credit as soon as you pick one.",
   "app.setVoice.cantAfford": "Add {amount} more credit first — the first month's {rental} rental is charged up front.",
-  "app.setVoice.trialWithNumber": "{minutes} free minutes are added to your credit with your first number.",
+  "app.setVoice.trialWithNumber": "{amount} of credit is added with your first number. The number's {rental}/month rental comes out of it, so you start with the rest.",
   "app.setVoice.pick.open": "Choose the number yourself",
   "app.setVoice.pick.title": "Pick your number",
   "app.setVoice.pick.hint": "These are real numbers that are free right now. The one you pick is the one you get — if somebody else takes it first we'll tell you, and nothing is charged.",
