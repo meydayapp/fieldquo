@@ -11,7 +11,27 @@
 // below is the ONLY place that turns `{ value, reason, reasonText }` into
 // pixels, so a new card cannot accidentally print "0%" for "we don't know" —
 // the same discipline app/app/analytics/estimate-accuracy/page.js's `Rate`
-// keeps for the same reason.
+// keeps for the same reason. `MoneyTile` keeps the identical discipline for
+// the Money flow section below, off a slightly different envelope shape (see
+// its own comment).
+//
+// ── Money flow lives here, on its own endpoint ──────────────────────────────
+//
+// Income, expenses, what's left, and the daily chart are a NEW section on
+// THIS page rather than a second dashboard — a contractor already has one
+// place to check business health, and a second screen for "money" would be
+// the /app/tasks failure again (built, and findable only by someone who
+// already knew it existed). It fetches from its own route,
+// app/api/analytics/money-flow, and keeps its own loading/error state:
+// lib/analytics/moneyFlow.js's aggregation is gated on
+// expenses:view_record_edit_all, a different permission axis than the
+// jobCosting toggle the rest of this page requires, so a member who can see
+// everything else here might still be refused just this section — and that
+// refusal renders inside the section, not as a blank page.
+//
+// It reuses this page's own period selector (`range`/`preset` below) rather
+// than adding a second one — one control governs the whole page, the way the
+// owner asked for it.
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -24,6 +44,7 @@ import { useTranslation } from "@/app/hooks/useTranslation";
 import Sparkline from "@/app/components/charts/Sparkline";
 import BarComparison from "@/app/components/charts/BarComparison";
 import GanttStrip from "@/app/components/charts/GanttStrip";
+import FlowChart from "@/app/components/charts/FlowChart";
 
 // Aging bucket labels — the SAME i18n keys the main dashboard already uses for
 // this exact ladder (app/app/page.js), so "1–30 days" doesn't get a second,
@@ -74,6 +95,63 @@ function KpiTile({ label, data, format, hint }) {
   );
 }
 
+/**
+ * The signed percentage a trend.js `compare()` result carries, or null.
+ *
+ * `deltaPct` is already null on compare()'s own zero-denominator branch — see
+ * lib/analytics/moneyFlow.js's header for why that branch is reused rather
+ * than re-decided. This only turns the signed fraction into a rounded, always
+ * positive whole number for display; the sign is read off `direction`
+ * instead, so "down -12%" can never appear.
+ */
+function pctFromTrend(trend) {
+  if (!trend || trend.deltaPct === null || trend.deltaPct === undefined) return null;
+  return Math.round(Math.abs(trend.deltaPct) * 100);
+}
+
+/**
+ * One money-flow tile: income, expenses or what's left, with a period-over-
+ * period trend line. Same "—" discipline as KpiTile above — `hasValue` gates
+ * everything, so a null figure can never be formatted as money.
+ */
+function MoneyTile({ label, figure, trend, money, t, hint }) {
+  const hasValue = figure && figure.value !== null && figure.value !== undefined;
+  const pct = pctFromTrend(trend);
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+        {figure?.incomplete && (
+          <TriangleAlert
+            size={14}
+            className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
+            aria-label="Incomplete data"
+          />
+        )}
+      </div>
+      <div className="mt-1 text-2xl font-semibold text-foreground">
+        {hasValue ? money(figure.value) : "—"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        {hasValue
+          ? trend
+            ? trend.direction === "flat"
+              ? t("app.kpis.moneyFlow.trend.flat", "About the same as last period")
+              : pct !== null
+                ? t(
+                    trend.direction === "up" ? "app.kpis.moneyFlow.trend.up" : "app.kpis.moneyFlow.trend.down",
+                    trend.direction === "up" ? "Up {pct}% on last period" : "Down {pct}% on last period",
+                    { pct },
+                  )
+                : t("app.kpis.moneyFlow.trend.fromZero", "Up from $0 last period")
+            : null
+          : figure?.reasonText || "No data yet."}
+      </div>
+      {hint}
+    </div>
+  );
+}
+
 function SectionHeading({ title, subtitle }) {
   return (
     <div className="mb-3">
@@ -92,6 +170,16 @@ export default function KpiDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // Money flow is its own endpoint (app/api/analytics/money-flow/route.js) —
+  // keeping the aggregation out of the KPI route rather than folding it in —
+  // but its own loading/error state, so a member who can see this page but
+  // lacks expenses:view_record_edit_all (a different permission axis than the
+  // jobCosting toggle the rest of this page gates on) sees a refusal in just
+  // this section instead of the whole dashboard going blank.
+  const [flow, setFlow] = useState(null);
+  const [flowLoading, setFlowLoading] = useState(true);
+  const [flowError, setFlowError] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -108,9 +196,27 @@ export default function KpiDashboardPage() {
     }
   }, [range.from, range.to]);
 
+  const loadFlow = useCallback(async () => {
+    setFlowLoading(true);
+    setFlowError("");
+    try {
+      const res = await fetchJson(`/api/analytics/money-flow?from=${range.from}&to=${range.to}`);
+      setFlow(res);
+    } catch (err) {
+      setFlowError(err.message);
+      setFlow(null);
+    } finally {
+      setFlowLoading(false);
+    }
+  }, [range.from, range.to]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    loadFlow();
+  }, [loadFlow]);
 
   const money = useMemo(() => {
     const currency = data?.currency || null;
@@ -143,6 +249,27 @@ export default function KpiDashboardPage() {
   }, [estimateDims]);
 
   const ganttRows = data?.execution?.onTimeCompletion?.jobs || [];
+
+  // "Other" and "Uncategorised" are moneyFlow.js's own bucket names (English
+  // constants, not user data) and get translated here; every other row is a
+  // category string a contractor typed on an expense, shown exactly as
+  // recorded — the same choice lib/analytics/expenseSummaryData.js makes for
+  // Expense Tracking's own category breakdown, so the two screens never
+  // disagree about what a category is called.
+  const flowCategoryRows = useMemo(() => {
+    const rows = flow?.categories;
+    if (!Array.isArray(rows)) return [];
+    return rows.map((c) => ({
+      key: c.name,
+      label:
+        c.name === "Other"
+          ? t("app.kpis.moneyFlow.other", "Other")
+          : c.name === "Uncategorised"
+            ? t("app.kpis.moneyFlow.uncategorised", "Uncategorised")
+            : c.name,
+      value: c.value,
+    }));
+  }, [flow, t]);
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
@@ -229,6 +356,149 @@ export default function KpiDashboardPage() {
                 )}
               />
             </div>
+          </section>
+
+          {/* ── Money flow ───────────────────────────────────────────────── */}
+          <section>
+            <SectionHeading
+              title={t("app.kpis.moneyFlow.title", "Money flow")}
+              subtitle={t(
+                "app.kpis.moneyFlow.subtitle",
+                "What came in, what went out, and what's left for this period — day by day. Income is actual payments received; expenses are what's been logged or imported, never a guess at what's missing.",
+              )}
+            />
+            {flowError && (
+              <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 mb-3 text-sm text-red-700 dark:text-red-300">
+                {flowError}
+              </div>
+            )}
+            {flowLoading && !flow && !flowError && (
+              <div className="animate-pulse space-y-3">
+                <div className="h-24 bg-accent rounded-lg" />
+                <div className="h-40 bg-accent rounded-lg" />
+              </div>
+            )}
+            {!flowError && flow && (
+              <>
+                {flow.materialsTrap?.triggered && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+                    <TriangleAlert size={16} className="shrink-0 mt-0.5" />
+                    <div>
+                      {t(
+                        "app.kpis.moneyFlow.materialsTrapNote",
+                        "These jobs show {buyList} bought off the materials buy-list this period, but only {expense} of that was ever entered as an expense. The expense total below is real — it just doesn't include those purchases. Log them as expenses, or import them from a bank statement, to see the true number.",
+                        {
+                          buyList: money(flow.materialsTrap.buyListTotal),
+                          expense: money(flow.materialsTrap.expenseTotal),
+                        },
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-3 mb-4">
+                  <MoneyTile
+                    label={t("app.kpis.moneyFlow.income", "Income")}
+                    figure={flow.income}
+                    trend={flow.trends?.income}
+                    money={money}
+                    t={t}
+                  />
+                  <MoneyTile
+                    label={t("app.kpis.moneyFlow.expenses", "Expenses")}
+                    figure={flow.expenses}
+                    trend={flow.trends?.expenses}
+                    money={money}
+                    t={t}
+                    hint={
+                      !flow.expenses.available ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          <Link href="/app/settings/expense-tracking/import" className="underline">
+                            {t("app.kpis.moneyFlow.importCsv", "Import a bank statement →")}
+                          </Link>
+                        </p>
+                      ) : flow.expenses.incomplete ? (
+                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                          {t(
+                            "app.kpis.moneyFlow.expensesIncompleteHint",
+                            "Some materials were bought off the buy-list and never logged — see the note above.",
+                          )}
+                        </p>
+                      ) : null
+                    }
+                  />
+                  <MoneyTile
+                    label={t("app.kpis.moneyFlow.remaining", "Remaining")}
+                    figure={flow.remaining}
+                    trend={flow.trends?.remaining}
+                    money={money}
+                    t={t}
+                  />
+                </div>
+
+                <div className="rounded-lg border border-border p-4 mb-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-3">
+                    {t("app.kpis.moneyFlow.chartTitle", "Income vs. expenses, by day")}
+                  </div>
+                  {flow.chartAvailable ? (
+                    <>
+                      <div className="overflow-x-auto">
+                        <FlowChart
+                          series={flow.days}
+                          width={Math.max(560, (flow.days?.length || 0) * 10)}
+                          height={180}
+                        />
+                      </div>
+                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: "var(--chart-1)" }}
+                          />
+                          {t("app.kpis.moneyFlow.legendIncome", "Income")}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: "var(--destructive)" }}
+                          />
+                          {t("app.kpis.moneyFlow.legendExpenses", "Expenses")}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t(
+                        "app.kpis.moneyFlow.noChart",
+                        "Nothing recorded yet, so there's no chart to draw.",
+                      )}{" "}
+                      <Link href="/app/settings/expense-tracking/import" className="underline">
+                        {t("app.kpis.moneyFlow.importCsv", "Import a bank statement →")}
+                      </Link>
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-border p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                    {t("app.kpis.moneyFlow.categoriesTitle", "Where the money went")}
+                  </div>
+                  {flowCategoryRows.length > 0 ? (
+                    <BarComparison rows={flowCategoryRows} formatValue={money} />
+                  ) : flow.expenses.available ? (
+                    <p className="text-xs text-muted-foreground">
+                      {t("app.kpis.moneyFlow.noCategories", "No expenses in this period.")}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t("app.kpis.moneyFlow.noExpensesYet", "No expenses have been logged yet.")}{" "}
+                      <Link href="/app/settings/expense-tracking/import" className="underline">
+                        {t("app.kpis.moneyFlow.importCsv", "Import a bank statement →")}
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </section>
 
           {/* ── Profit ───────────────────────────────────────────────────── */}

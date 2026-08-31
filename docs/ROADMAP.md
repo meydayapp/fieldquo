@@ -890,6 +890,58 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Money flow — income, expenses, what's left, as a new section on the KPI
+  dashboard, not a second one. `lib/analytics/moneyFlow.js`,
+  `app/api/analytics/money-flow/route.js`,
+  `app/components/charts/FlowChart.js`,
+  `scripts/check-money-flow.mjs`.** `app/app/analytics/kpis/page.js` gained a
+  "Money flow" section that reuses the page's own period selector rather than
+  adding a second one.
+
+  Shape borrowed from a good open-source reference
+  (`nextjs-finance-saas-master`'s summary endpoint): one conditional-aggregate
+  query per period, the same-length window immediately preceding it for
+  comparison, a gap-free daily series for the chart. Money in is `Payment`
+  rows, money out is `Expense` rows — never `Invoice.total`, which sidesteps
+  the amended-invoice double-count trap `lib/export/accountingExport.js`'s
+  `invoiceFamilies` exists for, by construction, rather than solving it a
+  second time (`scripts/check-money-flow.mjs`'s Section 3 proves this rather
+  than asserting it).
+
+  **Two required booleans, not defaulted:** `everRecordedIncome` /
+  `everRecordedExpense` say whether this company has EVER used the feature,
+  across all time. A company with no history ever shows "—", never $0 — the
+  same distinction `lib/analytics/receivables.js` already draws for AR
+  (`nothingOutstanding` vs `noInvoices`). A company WITH history that took
+  $0 this period gets an honest, real $0. `buildMoneyFlow()` throws rather
+  than guess either one.
+
+  **The materials buy-list trap is reused, not suppressed differently than
+  it's flagged elsewhere:** `detectMaterialsBuyListTrap()` from
+  `lib/analytics/kpis.js`, scoped to the period rather than to completed
+  jobs. Unlike `kpis.js`'s margin percentages (fully suppressed when the trap
+  fires, because a ratio on a known-short denominator is a wrong number),
+  the expense total here stays visible and gets `incomplete: true` — it's a
+  correct sum of what was actually logged, just a partial picture.
+
+  **No bank aggregator, anywhere.** The owner evaluated Plaid and rejected it
+  ($1,000–10,000/month minimums, no Canadian support). The honest
+  empty-state for thin expense data points at the CSV bank-statement import
+  that already shipped (`lib/expenses/csvImport.js`,
+  `/app/settings/expense-tracking/import`), never at connecting a bank.
+
+  **Category breakdown does NOT copy the reference's bug:** its query INNER
+  JOINs to a categories table, so an uncategorised expense silently vanishes
+  from the total. This buckets a blank/whitespace category into its own
+  named "Uncategorised" slice instead — `top + Other` always sums to the
+  full expense total, asserted directly in the check script.
+
+  `scripts/check-money-flow.mjs` executes the aggregation against fixtures
+  (no data, one payment, an amended invoice family, a real vs. zero vs.
+  absent prior period, uncategorised expenses, a range spanning a month
+  boundary, float precision) and mutation-tests 11 real bugs against the
+  live source, the same technique `scripts/check-kpis.mjs` uses.
+
 - **A company can now BUY AI credit — the two paid AI image features below
   correctly refused with "not enough AI balance" and there was nothing
   anyone could do about it. `lib/ai/topup.js`, `lib/ai/creditBundle.js`,
