@@ -1,6 +1,6 @@
 # FieldQuo — pre-launch health check
 
-**Date:** 2026-08-31 · **Scope:** whole repository · **Status: INTERIM** — 9 of 10 audits complete. The tour (§10) is still running; this file is regenerated when it lands.
+**Date:** 2026-08-31 · **Scope:** whole repository · **Status: COMPLETE** — all 10 audits in. One thing was fixed rather than reported, because you asked for it explicitly: the tour now speaks the account's language.
 
 Ten parallel audits, mapped onto the eight testing areas you named. Nothing in this report has been fixed — that was the instruction, and it is the right one: several of these are decisions, not defects.
 
@@ -57,6 +57,30 @@ The security audit initially worked to my stale "~170 routes". After the correct
 **No cross-tenant leak, no price leak, no unauthenticated write was found.** That is the headline and it is a good one. Its other findings: platform-admin sessions do not re-check `active` per request, so deactivating an admin does not take effect until their 12-hour JWT expires; and four public POST routes lack the rate limiting their siblings have, including `instant-quote/[companySlug]/measure`, which makes a billable Google API call.
 
 The known open question is unchanged: `PATCH /api/platform/companies/[id]` lets the console edit a company's name and suspend it, which is either the sanctioned exception to non-negotiable #3 or a violation of it. Still yours to decide.
+
+## The tour — fixed, and half-blocked
+
+**The language bug was real and total.** All 56 step titles and bodies in `app/components/tours.js` were hardcoded English literals; the only `t()` in the file was inside a comment. So every contractor who signed up in French, Spanish, Ukrainian, Punjabi or Tagalog got their entire first-run walkthrough in English.
+
+Now fixed: 114 `app.tour.*` keys across all six languages, resolved at render time. I verified rather than accepted it — 114 keys present in each of en/fr/es/uk/pa/tl, zero empty values, and zero French strings identical to their English source, which is what a copy-paste-instead-of-translate would look like. Spot-checking showed real translation, not word-for-word: the Punjabi step counter reorders its interpolation to `{total} ਵਿੱਚੋਂ {n}`.
+
+A regression guard was added to `scripts/check-translations.mjs`. I mutation-tested it myself: putting a hardcoded English title back produces `welcome-v1 step 1: titleKey is not an "app.tour.*" key … looks like a hardcoded string crept back in`.
+
+**The coverage half is not done, and here is the honest reason.** You asked for the tour to cover the new features. It does not, and no new tours were added — because every candidate page has **no `data-tour` anchor**, and I had explicitly forbidden that agent from editing other pages to add them, since four other agents were editing those same files for the mobile pass.
+
+Features with a page and no tour at all, ranked by how badly a new contractor needs one:
+
+| Feature | Why it matters |
+|---|---|
+| AI receptionist / voice | The most expensive thing they can switch on, and the least self-explanatory |
+| AI credit and top-ups | They will hit a wall and not know why |
+| Job costing, materials, checklists, photos | The whole job page, which is where a crew lives |
+| Marketing Designer | Ported from a desktop-first editor; least discoverable surface in the product |
+| KPIs / Insights | Fifteen charts nobody was introduced to |
+| Website builder | Publishes something a homeowner sees |
+| Crew inbox, service plans, referrals | Real features, no introduction |
+
+This is a **one-line-per-page change** — a `data-tour="…"` attribute — plus a short tour each. It is queued behind the mobile agents, not blocked on a decision.
 
 ## What is genuinely strong
 
