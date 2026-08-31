@@ -12,6 +12,7 @@ import { validateWorkProfile } from "@/lib/team/workProfile";
 import { managementChain } from "@/lib/org/reportingLine";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { requirePermission, can } from "@/lib/permissions";
+import { hasWorkerHistory } from "@/lib/team/workerArchive";
 // Same normaliser the crew inbox matches with, so a number accepted here is a
 // number that will actually be recognised on an inbound text.
 import { toE164 } from "@/lib/sms/twilioClient";
@@ -261,14 +262,41 @@ export async function DELETE(request, { params }) {
 
   const existing = await db.worker.findFirst({
     where: { id: _params.id, companyId: member.companyId },
-    include: { payouts: true },
+    select: { id: true },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (existing.payouts.length > 0) {
-    // Same principle as everywhere else in this app: don't let a payment history
-    // record disappear. Deactivate instead.
+  // ── "Deleted" must mean archived, not erased ─────────────────────────────
+  //
+  // lib/billing/access.js states the rule for a COMPANY that stops paying:
+  // "a locked account is inaccessible, not erased." The same rule applies one
+  // level down, to a PERSON: a pay run naming somebody who worked in March is
+  // an accounting record, and a worker's timesheets are somebody's employment
+  // history. Neither gets to develop a hole because they left in August.
+  //
+  // This used to check ONLY payouts.length — a worker paid through Stripe was
+  // protected, but one who had logged hours (TimeEntry, cascade-deletes with
+  // the Worker row) or already appeared on a committed pay run (PayRunLine —
+  // captures workerName at run time precisely so a rate change or a departure
+  // can't rewrite what a past payslip says, which a silently-succeeding delete
+  // defeated just as completely as an edit would) was hard-deleted anyway.
+  // That is exactly how a real hire — logged time, no Stripe payout because
+  // they were paid by cheque — could vanish from the books while their pay
+  // run still existed with a dangling workerId, or (if PayRunLine's required
+  // relation refused the delete at the database level) the request simply
+  // 500'd with no explanation and the row was never actually removed —
+  // "deleted, and still shows in Payroll" either way.
+  //
+  // Checked as existence, not full rows: this only needs to know whether
+  // history exists, never what it says.
+  const [payoutCount, timeEntryCount, payRunLineCount] = await Promise.all([
+    db.payout.count({ where: { workerId: _params.id } }),
+    db.timeEntry.count({ where: { workerId: _params.id } }),
+    db.payRunLine.count({ where: { workerId: _params.id } }),
+  ]);
+
+  if (hasWorkerHistory({ payoutCount, timeEntryCount, payRunLineCount })) {
     await db.worker.update({
       where: { id: _params.id },
       data: { active: false },
@@ -276,6 +304,10 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true, deactivated: true });
   }
 
+  // Reaches here only for a worker who was never paid, never logged an hour,
+  // and never appeared on a pay run — genuinely nothing to keep. Removing
+  // them is not a policy exception to "nothing is ever deleted"; there is no
+  // record yet for that rule to protect.
   await db.worker.delete({ where: { id: _params.id } });
   return NextResponse.json({ success: true, deleted: true });
 }

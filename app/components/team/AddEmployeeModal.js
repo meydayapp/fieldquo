@@ -10,12 +10,13 @@
 // depending on which door the contractor walked through.
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { X, AlertTriangle } from "lucide-react";
 import AddressAutocomplete from "@/app/components/AddressAutocomplete";
 import { PERMISSION_PRESETS, PRESET_TO_ROLE } from "@/lib/permissions";
 import { ROLE_LABELS } from "@/lib/permissions/roleManagement";
+import { seatFits } from "@/lib/pricing/seatLimit";
 import { formatPhoneInput } from "@/lib/validation";
 import { fetchJson } from "@/lib/fetchJson";
 
@@ -29,6 +30,41 @@ const inputClass =
 const PRESET_KEYS = ["worker", "estimator", "dispatcher", "manager"];
 
 export default function AddEmployeeModal({ onClose, onAdded }) {
+  // Seat usage — same shape and same endpoint the Manage Team and New User
+  // pages read. Used to grey out presets this company has no room for, so the
+  // popup stops offering a seat it doesn't have. Null until it loads; every
+  // preset renders enabled while it's unknown rather than guessing wrong in
+  // either direction — the server refusal (below) is what actually protects
+  // the seat count, this is only the early warning.
+  const [seats, setSeats] = useState(null);
+
+  useEffect(() => {
+    fetchJson("/api/settings/members/pending")
+      .then((data) => setSeats(data?.seats || null))
+      .catch(() => {
+        // Non-fatal — every option just stays enabled and the POST below
+        // still enforces the real limit.
+      });
+  }, []);
+
+  // Which of the four presets this company currently has room for. Computed
+  // from the grid each preset actually grants — the same thing billing reads
+  // — not from the preset's label, so "Worker" staying free and the other
+  // three costing a seat is derived, not hard-coded here.
+  const eligibility = useMemo(() => {
+    const out = {};
+    for (const key of PRESET_KEYS) {
+      out[key] =
+        seats == null ||
+        seatFits({
+          role: PRESET_TO_ROLE[key],
+          permissions: PERMISSION_PRESETS[key].values,
+          seats,
+        });
+    }
+    return out;
+  }, [seats]);
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -58,6 +94,23 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
   const [submitting, setSubmitting] = useState(false);
 
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
+
+  // "estimator" is the default because it's the most common first hire, not
+  // because it's always available. Once seat usage loads, if that default (or
+  // whatever the owner had picked) no longer fits, move to the first preset
+  // that does — "worker" is always last resort, since crew has no cap of its
+  // own here (a company that's also out of crew is a conversation, not a
+  // silent fallback). Runs only when eligibility actually changes, so it
+  // can't fight a manual selection the owner makes afterward.
+  useEffect(() => {
+    if (!seats) return;
+    setForm((f) => {
+      if (eligibility[f.preset]) return f;
+      const fallback = PRESET_KEYS.find((key) => eligibility[key]) || "worker";
+      return { ...f, preset: fallback };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seats]);
 
   function handlePlaceSelected({ address, city, province, postalCode, country }) {
     set({
@@ -244,11 +297,42 @@ export default function AddEmployeeModal({ onClose, onAdded }) {
                 className={`${inputClass} mt-1`}
               >
                 {PRESET_KEYS.map((key) => (
-                  <option key={key} value={key}>
+                  <option key={key} value={key} disabled={!eligibility[key]}>
                     {PERMISSION_PRESETS[key].label}
+                    {eligibility[key] ? "" : key === "worker" ? " — no crew room left" : " — no seats left"}
                   </option>
                 ))}
               </select>
+              {/* Seats and crew are both real caps (lib/pricing/seatLimit.js).
+                  Worker (crew) runs out too, on a company that's also filled
+                  every free crew slot — rare, since crew absorbs into a spare
+                  seat first, but real, so the copy below has to cover it
+                  rather than assume Worker is always the fallback. Closing
+                  this door is the fix; hiding it isn't — the POST below still
+                  refuses either case even if this banner is ever wrong. */}
+              {seats && !eligibility.estimator && !eligibility.dispatcher && !eligibility.manager && (
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                  {eligibility.worker ? (
+                    <>
+                      Every seat on your plan is in use, so this popup can only
+                      add Worker (crew — free) right now. Add a seat from{" "}
+                      <Link href="/app/settings/team" className="underline underline-offset-2">
+                        Manage Team
+                      </Link>{" "}
+                      to bring on an Estimator, Dispatcher or Manager.
+                    </>
+                  ) : (
+                    <>
+                      Every seat AND every free crew slot on your plan is in
+                      use — this popup has nowhere to put a new hire. Go to{" "}
+                      <Link href="/app/settings/team" className="underline underline-offset-2">
+                        Manage Team
+                      </Link>{" "}
+                      to upgrade your plan.
+                    </>
+                  )}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 {/* The access level FIRST, then the tier it sits in. It used
                     to name the tier only — "Joins as Manager." for a
