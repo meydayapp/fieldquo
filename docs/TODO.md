@@ -16,19 +16,25 @@ gap.
 | Designer UX — tool rail spacing, mobile layout, AI prompt panel, clone-origin copy | `app/components/designer/` | agent building |
 | Navigation sweep — every page reachable, sidebars intuitive | both sidebars | agent building |
 
-## Known unreachable or hard to find — the actual complaint
+## Reachability — swept 2026-08-30, and now guarded
 
-Pages that exist, work, and have no obvious way in:
+Every page under `app/app` (97) and `app/platform` (24) is a sidebar row, a
+named drill-in with a stated reason, or an explicit exclusion with one.
+`scripts/check-nav-audit.mjs` fails the build if a new page slips through, in
+either tree — so this cannot silently rot again.
 
-- `/platform/voice-webhooks` — built 2026-08-30. Linked ONLY from the phone-pool
-  alert on `/platform`. Not in the platform sidebar. If the alert is not showing,
-  there is no way to reach it.
-- `/app/settings/expense-tracking/import` — reached only from a button on the
-  Expense Tracking page. Registered as a drill-in, which is correct, but worth
-  confirming the button is findable.
-- `/app/analytics/{digest,statements,win-loss,estimate-accuracy}` — no sidebar
-  row at all; reachable only from in-page links on the Insights hub. Flagged by
-  the nav audit and never resolved.
+Closed in this sweep:
+
+- `/platform/voice-webhooks` — was linked ONLY from the phone-pool alert on
+  `/platform`, so with no alert showing there was no way in. Now has a sidebar
+  row.
+- `/app/analytics/{digest,statements,win-loss,estimate-accuracy}` — kept as
+  drill-ins off the Insights hub rather than four more rows, each with its
+  inbound link named. Documented rather than silent, which was the actual
+  complaint.
+- An independent second pass re-verified every drill-in by grepping for the
+  route literal rather than trusting the comment, and found no dead links and no
+  stale entries.
 
 ## Waiting on the owner, not on me
 

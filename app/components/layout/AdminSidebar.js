@@ -176,11 +176,15 @@ const NAV_GROUPS = [
     ],
   },
   // Marketing Designer (the ad-creative canvas editor, marketing_designer in
-  // lib/features/registry.js) belongs here, directly after
-  // "app.nav.marketing" — it's a tool FOR marketing campaigns, not a
-  // separate concern. It has no route yet (the feature entry is deliberately
-  // `hidden`, no page mounts DesignerLoader), so there is nothing to add
-  // until that lands; this comment is the seam.
+  // lib/features/registry.js) sits here, directly after "app.nav.marketing" —
+  // it's a tool FOR marketing campaigns, not a separate concern.
+  //
+  // This comment used to say the designer "has no route yet" and that there was
+  // "nothing to add until that lands". It landed, the row directly below was
+  // added, and the comment was left behind contradicting the line under it. A
+  // wrong comment is worse than none: the next person reads it and goes looking
+  // for work that is already done. AGENTS.md asks for the comment to be fixed
+  // too, so it is.
   {
     key: "app.nav.group.grow",
     items: [
