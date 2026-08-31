@@ -13,7 +13,38 @@ and that pipeline is the product.
 
 ---
 
+## How to use this document
+
+Open **Part B** on a second screen and read it out loud, word for word,
+while you click through the demo on the main screen. That's the whole
+system:
+
+- **Plain text = say it.** Read it as written. It's written the way you
+  already talk, so reading it straight should sound normal, not like you're
+  reading.
+- **`[Bracketed lines] = do it, don't say it.`** Every stage direction is
+  bracketed and on its own line, separate from anything you speak. If you
+  ever catch yourself about to read a bracket out loud, stop — that's the
+  signal you drifted off-script.
+- **Bold headers over each block are timings**, e.g. `(1:30)`. They tell you
+  the pace, not a stopwatch to watch — glance at the clock once or twice
+  during the call, not constantly.
+- **Part A is a checklist, done before you dial in — never read aloud.** It's
+  in dependency order: skip a step and a later screen goes blank or a control
+  disappears, silently.
+- **Parts C and D are reference, not spoken.** Part C explains what you
+  cannot demo live and why. Part D is your answer key for questions that come
+  up — read the answer that matches the question, in your own words, if
+  asked; don't recite it as prose.
+
+Five minutes before a call: skim Part A's checklist top to bottom, confirm
+each box, then open Part B and start reading from "1. Open."
+
+---
+
 ## 0. The account, and what "demo" means here
+
+*(Not read aloud — background, done once, not per call.)*
 
 Sales demos run on one of ten fixture companies — `demo1.fieldquo.com`
 through `demo10` — seeded by `lib/demo/industries.js` and provisioned by
@@ -48,6 +79,8 @@ only your *overrides* are lost).
 ---
 
 ## PART A — Setup checklist, in dependency order
+
+**NOT READ ALOUD. Done before the call, alone, with no prospect watching.**
 
 This is the part the owner asked for by name: a quote demo against an empty
 account renders "—" everywhere, correctly, because the product refuses to
@@ -218,6 +251,10 @@ moment entirely rather than promise it and go quiet.
 
 ## PART B — The 15-minute script
 
+**READ ALOUD, VERBATIM.** Plain text is what you say. Bracketed lines are
+what you do — don't say them. Bold headers are timings. Read straight down
+the page in order.
+
 Shape: the contractor's own day, not the product's menu. A job shows up, it
 becomes a priced document in front of the customer, the customer says yes on
 their own phone, and — without another click — a job appears on the
@@ -229,138 +266,233 @@ day one; a phone robot is the thing that keeps them once they're in.
 
 Total: 15:00.
 
-### 1. Open — the contrast, fast (1:30)
-**Click:** land on `/app` (the dashboard).
-**Say:** "This is what you'd see every morning instead of the spreadsheet.
-Everything on this page is real — money owed, what came in this month, what's
-scheduled." Point at the **Needs You** panel at the top if it's showing
-anything (it will, from the seeded receptionist calls) — "and this is what
-happened while you were on a ladder: a call came in, the AI answered it, and
-it's sitting here waiting on you, not lost in a voicemail you'll check at 9pm."
-**Feel:** relief — this is not one more app to babysit, it's a summary of a
-day that already happened.
-**The number that lands:** whatever the receivables tile shows (real money,
-not a zero) — say it out loud once.
-**Don't linger** — this is the appetizer. Under two minutes.
+### 1. Open — the contrast, fast — **(1:30)**
 
-### 2. Build the quote, live, in front of "the customer" (4:00)
-**Click:** `+ New Quote` from the dashboard (or `/app/quotes/new`).
-**Say:** "Say you just walked the outside of a house with someone — this is
-what you'd do standing in their driveway, or that evening at the kitchen
-table." Create the client live (step 6 above) with a real-sounding name and
-address. Pick **Exterior painting — siding**, punch in a plausible
-square footage, let the rate card price it. Add a second line — trim, or a
-drywall repair hour — to show it isn't a one-line calculator.
-**Say, while it's pricing itself:** "Every number here is coming off your own
-rate card, not something I typed in — the one we set up in Settings a minute
-ago." (Don't over-explain the setup; just gesture at the fact that it's
-theirs.)
-**Feel:** speed and competence — a quote that looks like it came from a
-five-person shop, built in under two minutes, by one person, out loud.
-**The number that lands:** the total, printed on a document with the
-company's own brand colour and logo on it (`data-brand`/`BrandTheme` — this
-is the non-negotiable: nothing here says FieldQuo). Say: "That took less time
-than finding the estimate you wrote on the back of a business card last
-month."
+[Land on `/app`, the dashboard.]
 
-### 3. The AI review — upsell, without the hard sell (2:00)
-**Click:** save the quote as a draft, then **"Review"** (`SuggestAddOns`,
-which needs a saved `quoteId` — it reads the quote back from the database,
-so this only works after the save, not while still typing).
-**Say:** "Before you send it, one click asks: what did I usually sell
-alongside this that I might have forgotten?" Let it propose an add-on (a
-second coat upgrade, a deck stain, whatever the AI surfaces) and add one to
-the quote.
-**Feel:** being coached by someone who's seen a thousand of these, not sold
-to.
-**The number that lands:** the dollar amount the single suggested add-on
-adds to the total — a real, small increase that came from one click, not
-from remembering to upsell under pressure.
-**If photos exist on the quote,** this is also where you could mention the
-"deep read" (AI vision pass over uploaded jobsite photos) — one sentence,
-not a demo of its own: "if you'd attached photos, this same button reads them
-and catches things like missed prep work." Don't run it live unless there's
-time to spare; it costs AI credit (25 credits) and isn't the core beat.
+This is what you'd see every morning instead of the spreadsheet. Everything
+on this page is real — money owed, what came in this month, what's
+scheduled.
 
-### 4. Send it, and the customer accepts on their own phone (2:00)
-**Click:** `Send` on the quote detail page (real email, via Resend — say so:
-"that just actually sent"). Then click **"Get approved"** →
-`/app/quote-approval/[id]` — this is the internal page that mints the same
-public link a client gets, specifically so it can be opened on a *second*
-device right now. Open that link (your own phone, or a second browser tab
-styled as "the customer's phone") — this is `/q/[token]`, the real
-client-facing document.
-**Say:** "This is exactly what they'd see — nothing fake about this screen,
-it's the same link that went out in the email." Walk through the two-step
-confirm, sign with a finger/mouse on the actual signature pad
-(`SignaturePad`), and accept.
-**Feel:** this is where "does this work on a phone in a driveway" gets
-answered without anyone having to ask it — you just showed them.
-**The number that lands:** flip back to the quote detail tab. **Without
-touching anything else**, the quote now shows `accepted`, a **Job** already
-exists (unscheduled, waiting for a date), and a **draft Invoice** already
-exists — both created automatically the instant the client signed
-(`onQuoteAccepted()` in `lib/quotes/quoteLifecycle.js` fires both
-`ensureJobForAcceptedQuote` and `ensureInvoiceForQuote`). Say it plainly:
-"You didn't do anything else. That's the whole pipeline moving on its own."
+[Point at the Needs You panel at the top, if it's showing anything — it will
+be, from the seeded receptionist calls.]
 
-### 5. The job, and — briefly — the receptionist (1:30)
-**Click:** the new job, or `/app/appointments` to show a visit can be
-scheduled against it. Then pivot: "and this happens on the phone too, not
-just online" → open `/app/receptionist`.
-**Say:** "Every call your business gets, answered, every time, even at 9pm on
-a Sunday." Show the seeded call list — a real summary, a flagged voicemail
-that needs a callback. **Do not attempt to demonstrate a live call on this
-account** — see Part C for exactly why, and only offer the real dial-in if
-you confirmed beforehand (checklist item 9) that FieldQuo's own line is live:
-"Want to actually hear it? Call {number} right now." If you didn't confirm
-it's live, skip the invitation entirely rather than promise it.
-**Feel:** this is the thing that keeps working when the painter is up a
-ladder with wet hands — the reason to stay, not the reason to start.
+And this is what happened while you were on a ladder. A call came in, the AI
+answered it, and it's sitting here waiting on you — not lost in a voicemail
+you'll check at nine tonight.
 
-### 6. Invoice and payment (2:00)
-**Click:** the draft invoice created in beat 4 → `Send`.
-**Say:** "Same as the quote — real email, and it mirrors the quote's design
-exactly, because your client shouldn't have to re-recognize your business
-between the two documents."
-**If Stripe Connect is connected on this demo account** (checklist item 8):
-open the client's payment view and actually click "Pay now" through a Stripe
-test card. **If it is not connected:** narrate instead — "from here your
-client pays by card, right in the email or the portal, and the money lands
-in your bank account, not ours — that's Stripe Connect, and you'd set it up
-once in Settings, the same real bank-verification flow any payment processor
-uses." Do not attempt to start that onboarding live.
-**Feel:** the loop closes — quoted, accepted, scheduled, billed, paid,
-without leaving one app.
-**The number that lands:** the amount, marked paid, on the invoice.
+[Point at the receivables tile.]
 
-### 7. The numbers underneath (1:30)
-**Click:** `/app/analytics/kpis`.
-**Say:** "And this is the part most software never shows you — not just what
-you billed, but whether it was worth doing." Point at the minimum-price
-figures from Settings → Overhead if they're visible here too, and at
-whichever KPI tile has real data from the seeded jobs (win rate, a
-receivables aging bucket, anything that isn't a dash). Say clearly: **"a
-number you were never shown here shows as a dash, on purpose — we don't make
-up a business's numbers."** That's a feature, not a gap, and naming it builds
-trust faster than pretending every tile is full.
-**Feel:** this isn't a toy — it's the same discipline an accountant would
-insist on.
-**The number that lands:** the minimum price figure from step 3 of the
-checklist, said out loud: "so you now know that under $X, you're losing
-money on a job, and nothing before today told you that."
+That's real money owed, right there. Not a demo number.
 
-### 8. Close (0:30)
-**Say:** "That's lead to paid, one app, your brand on every page the client
-sees. First month's free, and at two of you it's $90 a month after that."
-Ask what they want to see again, or what didn't fit — don't cram in a second
-feature in the last thirty seconds.
+[Move on. Don't linger here — this is the appetizer, not the meal.]
+
+### 2. Build the quote, live, in front of "the customer" — **(4:00)**
+
+[Click `+ New Quote` from the dashboard, or go to `/app/quotes/new`.]
+
+Say you just walked the outside of a house with someone. This is what you'd
+do standing in their driveway, or that evening at the kitchen table.
+
+[Create the client live — a real-sounding name and address, typed in front
+of them.]
+
+[Pick Exterior painting — siding. Punch in a plausible square footage.]
+
+[While it's pricing itself, keep talking — this is dead air otherwise:]
+
+Every number here is coming off your own rate card, not something I typed
+in. We set that up in Settings a minute ago.
+
+[Add a second line — trim, or a drywall repair hour.]
+
+That's so it's not a one-line calculator — real jobs have more than one
+line, and so does this.
+
+[Point at the total.]
+
+That took less time than finding the estimate you wrote on the back of a
+business card last month.
+
+*[If the price feels slow to calculate: keep talking through it — "it's
+pulling live off your rate card, one second" — do not go silent while you
+wait.]*
+
+**If they interrupt here — "how much is it":**
+Say: "Good question — I'll show you exactly what this quote costs to send
+in a second. What FieldQuo itself costs is ninety bucks a month for the two
+of you, and I'll come back to that at the end." Then keep building.
+
+### 3. The AI review — upsell, without the hard sell — **(2:00)**
+
+[Save the quote as a draft. Click "Review."]
+
+*[Review needs a saved quote — if the button looks inactive, the save
+hasn't landed yet. Say "just saving it" and wait a beat rather than
+re-clicking.]*
+
+Before you send it, one click asks: what did I usually sell alongside this
+that I might have forgotten?
+
+[Let it propose an add-on — a second coat upgrade, a deck stain, whatever it
+surfaces. Add one to the quote.]
+
+That's not a script telling you to upsell. That's someone who's seen a
+thousand of these jobs, tapping you on the shoulder before you hit send.
+
+[Point at the new total.]
+
+That's real money, added with one click, that you might have just forgotten
+to ask for.
+
+*[If photos are on the quote, add one line, don't demo it live: "If you'd
+attached photos, this same button reads them too, and catches things like
+missed prep work." Don't run a live deep read here — it spends AI credit and
+it's not today's story.]*
+
+### 4. Send it, and the customer accepts on their own phone — **(2:00)**
+
+[Click Send on the quote detail page.]
+
+That just actually sent — real email, not a mockup.
+
+[Click "Get approved" on the quote detail page. Open the resulting link on a
+second device — your own phone, or a second browser tab.]
+
+This is exactly what they'd see. Nothing fake about this screen — it's the
+same link that just went out in their inbox.
+
+[Walk the two-step confirm. Sign on the pad with a finger or the mouse.
+Accept.]
+
+*[If the signature pad doesn't respond first tap: tap again, closer to the
+line — it's a real canvas, not a bug, but it can miss a light first touch.]*
+
+[Flip back to the quote detail tab. Don't touch anything else.]
+
+Look at that — you didn't do anything else, and the quote now says accepted.
+There's already a job sitting on your schedule, and there's already a draft
+invoice, both created the second they signed. That's the whole pipeline
+moving on its own.
+
+**If they interrupt here — "can I do this on my phone":**
+Say: "You're looking at it — that's the same page whether it's a laptop or
+a phone, signature and all. Your back office is the same story, usable from
+a truck." Then continue.
+
+**If they interrupt here — "what if my customer doesn't have email":**
+Say: "Then you send the same link by text instead — it's the identical page,
+it just doesn't require an inbox." Then continue.
+
+### 5. The job, and — briefly — the receptionist — **(1:30)**
+
+[Click into the new job, or open `/app/appointments` to show a visit can be
+scheduled against it.]
+
+And this happens on the phone too, not just online.
+
+[Open `/app/receptionist`.]
+
+Every call your business gets, answered, every time, even nine o'clock on a
+Sunday.
+
+[Show the seeded call list — a real summary, a flagged voicemail that needs
+a callback.]
+
+That's a real summary of a real call, not a transcript nobody reads.
+
+*[Only say the next line if you personally confirmed FieldQuo's own line was
+live before this call — checklist item 9. If you didn't confirm it, skip
+straight to beat 6 without offering the call.]*
+
+Want to actually hear it? Call {number} right now.
+
+**If they interrupt here — "I already use QuickBooks":**
+Say: "Good — keep it. This isn't your books, it's everything upstream of
+them: the quote, the job, the invoice. It hands off cleanly whenever you're
+ready to export." Then continue to the job or the receptionist, whichever
+you were on.
+
+### 6. Invoice and payment — **(2:00)**
+
+[Open the draft invoice created in beat 4. Click Send.]
+
+Same as the quote — real email, and it mirrors the quote's design exactly,
+because your client shouldn't have to re-recognize your business between the
+two documents.
+
+*[If Stripe Connect is connected on this demo account — checklist item 8 —
+continue with the next line and actually click Pay now with a Stripe test
+card. If it is not connected, skip straight to the line after that instead.]*
+
+[If connected: open the client's payment view, click Pay now, use a Stripe
+test card.]
+
+From here your client pays by card, right in the email or the portal.
+
+[If not connected, say instead:]
+
+From here your client pays by card, right in the email or the portal, and
+the money lands in your bank account, not ours — that's Stripe Connect. You
+set it up once in Settings, same real bank-verification flow any payment
+processor uses. I'm not going to run that live today, it's a few minutes of
+paperwork, not a demo.
+
+[Point at the invoice total, marked paid — or, if not run live, describe
+what the paid state looks like.]
+
+Quoted, accepted, scheduled, billed, paid — without leaving one app.
+
+### 7. The numbers underneath — **(1:30)**
+
+[Open `/app/analytics/kpis`.]
+
+And this is the part most software never shows you — not just what you
+billed, but whether it was worth doing.
+
+[Point at whichever KPI tile has real data — win rate, a receivables aging
+bucket, anything that isn't a dash.]
+
+*[If a tile does show a dash, don't skip past it — name it:]*
+
+That dash isn't a bug. A number we were never given shows as a dash, on
+purpose — this app doesn't make up your numbers for you.
+
+[Point at the minimum price figure, read off the screen live — don't recite
+a number from memory.]
+
+So now you know that under that number, you're losing money on a job. Until
+today, nothing told you that.
+
+### 8. Close — **(0:30)**
+
+That's lead to paid, one app, your brand on every page your client sees.
+First month's free. After that, at two of you, it's ninety dollars a month.
+
+What do you want to see again, or what didn't we get to?
+
+*[Stop talking after asking. Let them answer. Don't add a second feature in
+the last thirty seconds.]*
+
+---
+
+**Recovery, if something breaks mid-demo:** Don't apologize at length and
+don't troubleshoot live with the prospect watching. Say: "That's a display
+hiccup on the demo account, not something your business would ever see" —
+true in every case above, since every genuine gap here is a documented
+demo-only limitation, not a broken feature — then move to the next beat and
+come back to the skipped one only if time allows. If the whole session
+looks dead, say "let me get you a cleaner window in one second," open
+`/platform/demo` in another tab, and re-enter fresh (see Part 0, "Getting
+in") rather than reloading and hoping.
 
 **Total: 1:30 + 4:00 + 2:00 + 2:00 + 1:30 + 2:00 + 1:30 + 0:30 = 15:00.**
 
 ---
 
 ## PART C — What cannot be demoed live, and what to do instead
+
+**NOT READ ALOUD — reference only.**
 
 ### The AI receptionist cannot take a real call on this account
 `lib/voice/demoLine.js` is explicit about this by design, not by omission: a
@@ -415,6 +547,9 @@ between calls on the same demo account — see checklist item 7.
 
 ## PART D — "If they ask about X"
 
+**NOT READ ALOUD — reference only. Answer in your own words, matched to the
+question asked; don't recite this as prose.**
+
 **"What does it cost?"**
 $45 per licensed seat for up to 9 employees (`lib/pricing.js`,
 `calculatePricing()`). A solo painter plus the one new hire is 2 licenses =
@@ -462,6 +597,8 @@ asked the right question is expensive and unconvincing.
 ---
 
 ## What's genuinely half-built or unverifiable from this pass
+
+**NOT READ ALOUD — reference only.**
 
 Said plainly, per the project's own rule about never promising a screen that
 isn't there:
