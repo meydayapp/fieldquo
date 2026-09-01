@@ -2377,9 +2377,9 @@ const PAGES = [
           "Fixed costs, debt and business expenses produce the figure a day has to bring in before you make anything.",
       },
       {
-        step: "Marketing spend sits beside what it produced",
+        step: "A blended cost per lead, not a guess",
         body:
-          "Spend by channel against the jobs it brought in, so a channel that produces nothing is visible instead of assumed to be working.",
+          "Log what you spend by channel and see one honest number — total spend over real leads, company-wide. It won't tell you which channel is working; it will tell you what the whole picture costs.",
       },
     ],
     features: [

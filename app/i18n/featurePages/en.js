@@ -81,6 +81,7 @@ const en = {
   "feature.payroll.limits": "FieldQuo works out gross pay, produces the payslips and exports the run. It does not pay employees or file your payroll taxes — deductions are the ones you or your accountant supply.",
   "feature.contractor_payouts.limits": "This pays a person on your own roster, for hours they clocked, at the rate you set. It cannot pay a fixed bid to another company. Transfers are sent in Canadian dollars today, so it is not ready for a US payout.",
   "feature.languages.limits": "English and French are finished. Spanish, Ukrainian, Punjabi and Tagalog are translated and still being checked by a speaker, so they are not switched on yet.",
+  "feature.marketing_spend.limits": "Cost per lead is blended across every channel, not broken out per channel or per campaign — nothing in FieldQuo links a specific dollar of spend to a specific lead yet.",
 
   // ══ Generated from app/data/featurePages.js — pinned, see the header ══
 
@@ -864,8 +865,8 @@ const en = {
   "featurePage.reporting.how.1.body": "The comparison is aggregated. No other company's figures are ever shown to you, and yours are never shown to them.",
   "featurePage.reporting.how.2.step": "Overhead is a real number, not a percentage",
   "featurePage.reporting.how.2.body": "Fixed costs, debt and business expenses produce the figure a day has to bring in before you make anything.",
-  "featurePage.reporting.how.3.step": "Marketing spend sits beside what it produced",
-  "featurePage.reporting.how.3.body": "Spend by channel against the jobs it brought in, so a channel that produces nothing is visible instead of assumed to be working.",
+  "featurePage.reporting.how.3.step": "A blended cost per lead, not a guess",
+  "featurePage.reporting.how.3.body": "Log what you spend by channel and see one honest number — total spend over real leads, company-wide. It won't tell you which channel is working; it will tell you what the whole picture costs.",
 
   // /features/payroll
   "featurePage.payroll.label": "Payroll and payouts",

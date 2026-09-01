@@ -219,8 +219,11 @@ for (const [language, script] of Object.entries(SCRIPTS)) {
 }
 // The Latin that IS allowed in those two blocks: product and brand names, and
 // the file format. Anything else is an English fragment that survived.
+// "Meta" and "Ads" together are the product's own proper name (Meta Ads),
+// same treatment as "Instagram" — kept in Latin script rather than invented
+// as a transliteration nobody searches for.
 {
-  const ALLOWED = ["FieldQuo", "AI", "PDF", "Instagram"];
+  const ALLOWED = ["FieldQuo", "AI", "PDF", "Instagram", "Meta", "Ads"];
   const strays = [];
   for (const language of Object.keys(SCRIPTS)) {
     for (const key of FEATURE_LABEL_KEYS) {

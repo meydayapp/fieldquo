@@ -496,7 +496,9 @@ const en = {
     "Record what you spend, split what belongs to a job from what belongs to the business.",
   "feature.marketing_spend.name": "What your advertising is worth",
   "feature.marketing_spend.summary":
-    "Spend by channel against the jobs it actually brought in, so you can stop paying for the ones that don't.",
+    "Log what you spend by channel — including an automatic import from Meta Ads — and see a blended cost per lead across everything you do to bring in work.",
+  "feature.marketing_spend.limits":
+    "Cost per lead is blended across every channel, not broken out per channel or per campaign — nothing in FieldQuo links a specific dollar of spend to a specific lead yet.",
   "feature.payroll.name": "Payroll",
   "feature.payroll.summary":
     "Approved hours become a pay run with payslips you can hand over or export for your accountant.",
@@ -980,7 +982,9 @@ const fr = {
     "Notez ce que vous dépensez, en séparant ce qui appartient à un chantier de ce qui appartient à l'entreprise.",
   "feature.marketing_spend.name": "Ce que votre publicité vous rapporte",
   "feature.marketing_spend.summary":
-    "Les dépenses par canal face aux chantiers qu'elles ont réellement amenés, pour cesser de payer ceux qui ne donnent rien.",
+    "Enregistrez vos dépenses par canal — avec une importation automatique depuis Meta Ads — et voyez un coût par prospect moyen sur tout ce que vous faites pour obtenir des contrats.",
+  "feature.marketing_spend.limits":
+    "Le coût par prospect est calculé en moyenne sur tous les canaux, sans détail par canal ni par campagne — rien dans FieldQuo ne relie encore un dollar de dépense précis à un prospect précis.",
   "feature.payroll.name": "Paie",
   "feature.payroll.summary":
     "Les heures approuvées deviennent une paie avec des bulletins à remettre ou à exporter pour votre comptable.",
@@ -1459,7 +1463,9 @@ const es = {
     "Anota lo que gastas y separa lo que va a un trabajo de lo que va al negocio.",
   "feature.marketing_spend.name": "Cuánto vale tu publicidad",
   "feature.marketing_spend.summary":
-    "El gasto por canal frente a los trabajos que de verdad trajo, para dejar de pagar los que no traen nada.",
+    "Registra lo que gastas por canal — incluida una importación automática desde Meta Ads — y ve un costo por cliente potencial promedio en todo lo que haces para conseguir trabajo.",
+  "feature.marketing_spend.limits":
+    "El costo por cliente potencial es un promedio combinado de todos los canales, sin desglose por canal ni por campaña — nada en FieldQuo vincula todavía un dólar de gasto concreto con un cliente potencial concreto.",
   "feature.payroll.name": "Nómina",
   "feature.payroll.summary":
     "Las horas aprobadas se vuelven una corrida de pago con recibos que puedes entregar o exportar a tu contador.",
@@ -1939,7 +1945,9 @@ const uk = {
     "Записуйте, що витрачаєте, відділяючи те, що належить роботі, від того, що належить бізнесу.",
   "feature.marketing_spend.name": "Скільки варта ваша реклама",
   "feature.marketing_spend.summary":
-    "Витрати по кожному каналу проти робіт, які він справді приніс, щоб перестати платити за ті, що не приносять.",
+    "Записуйте витрати по каналах — з автоматичним імпортом із Meta Ads — і бачте усереднену вартість ліда по всьому, що ви робите, щоб отримати роботу.",
+  "feature.marketing_spend.limits":
+    "Вартість одного ліда усереднена по всіх каналах, без розбивки за каналом чи кампанією — наразі ніщо у FieldQuo не пов'язує конкретний долар витрат із конкретним лідом.",
   "feature.payroll.name": "Зарплата",
   "feature.payroll.summary":
     "Затверджені години стають нарахуванням із розрахунковими листками, які можна віддати або вивантажити бухгалтеру.",
@@ -2418,7 +2426,9 @@ const pa = {
     "ਜੋ ਖਰਚ ਕਰਦੇ ਹੋ ਲਿਖੋ, ਅਤੇ ਜੌਬ ਦਾ ਖਰਚ ਕਾਰੋਬਾਰ ਦੇ ਖਰਚ ਤੋਂ ਵੱਖ ਕਰੋ।",
   "feature.marketing_spend.name": "ਤੁਹਾਡੀ ਇਸ਼ਤਿਹਾਰਬਾਜ਼ੀ ਦੀ ਕੀਮਤ",
   "feature.marketing_spend.summary":
-    "ਹਰ ਥਾਂ ਦਾ ਖਰਚ ਉਹਨਾਂ ਜੌਬਾਂ ਦੇ ਸਾਹਮਣੇ ਜੋ ਸੱਚਮੁੱਚ ਆਈਆਂ, ਤਾਂ ਜੋ ਬੇਕਾਰ ਵਾਲੀਆਂ 'ਤੇ ਪੈਸਾ ਬੰਦ ਕਰੋ।",
+    "ਹਰ ਚੈਨਲ ਦਾ ਖਰਚ ਦਰਜ ਕਰੋ — Meta Ads ਤੋਂ ਆਟੋਮੈਟਿਕ ਇੰਪੋਰਟ ਸਮੇਤ — ਅਤੇ ਕੰਮ ਲਿਆਉਣ ਲਈ ਤੁਸੀਂ ਜੋ ਕੁਝ ਕਰਦੇ ਹੋ ਉਸ ਸਭ 'ਤੇ ਔਸਤ ਪ੍ਰਤੀ-ਲੀਡ ਲਾਗਤ ਵੇਖੋ।",
+  "feature.marketing_spend.limits":
+    "ਪ੍ਰਤੀ ਲੀਡ ਲਾਗਤ ਹਰ ਚੈਨਲ ਵਿੱਚ ਮਿਲਾ ਕੇ ਦਿਖਾਈ ਜਾਂਦੀ ਹੈ, ਚੈਨਲ ਜਾਂ ਮੁਹਿੰਮ ਅਨੁਸਾਰ ਵੱਖਰੀ ਨਹੀਂ ਦਿਖਾਈ ਜਾਂਦੀ — ਹਾਲੇ FieldQuo ਵਿੱਚ ਕੋਈ ਵੀ ਖਾਸ ਖਰਚੇ ਦਾ ਡਾਲਰ ਕਿਸੇ ਖਾਸ ਲੀਡ ਨਾਲ ਨਹੀਂ ਜੋੜਿਆ ਜਾਂਦਾ।",
   "feature.payroll.name": "ਪੇਰੋਲ",
   "feature.payroll.summary":
     "ਮਨਜ਼ੂਰ ਘੰਟੇ ਤਨਖਾਹ ਦੀ ਰਨ ਬਣ ਜਾਂਦੇ ਹਨ, ਨਾਲ ਪੇਅ-ਸਲਿੱਪਾਂ ਜੋ ਦੇ ਸਕਦੇ ਹੋ ਜਾਂ ਅਕਾਊਂਟੈਂਟ ਲਈ ਕੱਢ ਸਕਦੇ ਹੋ।",
@@ -2902,7 +2912,9 @@ const tl = {
     "Itala ang ginagastos mo, at ihiwalay ang para sa trabaho sa para sa negosyo.",
   "feature.marketing_spend.name": "Kung magkano ang halaga ng ad mo",
   "feature.marketing_spend.summary":
-    "Ang gastos sa bawat channel kumpara sa trabahong talagang dinala nito, para itigil mo ang hindi umuubra.",
+    "Itala ang ginastos mo kada channel — kasama ang awtomatikong pag-import mula sa Meta Ads — at makita ang pinagsama-samang gastos kada lead sa lahat ng ginagawa mo para makakuha ng trabaho.",
+  "feature.marketing_spend.limits":
+    "Ang gastos kada lead ay pinagsama-sama sa lahat ng channel, hindi hiwa-hiwalay ayon sa channel o kampanya — wala pang koneksyon sa FieldQuo sa pagitan ng isang partikular na piso ng gastos at isang partikular na lead.",
   "feature.payroll.name": "Payroll",
   "feature.payroll.summary":
     "Ang aprubadong oras ay nagiging pay run na may payslip na pwede mong iabot o i-export para sa accountant mo.",

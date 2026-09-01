@@ -11,7 +11,7 @@ import {
   redactLeads,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { isValidLeadStatus, canSetLeadStatus } from "@/lib/leads/pipeline";
+import { isValidLeadStatus, canSetLeadStatus, isValidLostReason } from "@/lib/leads/pipeline";
 
 // Authed — the pipeline view for staff
 export async function GET(request) {
@@ -139,7 +139,7 @@ export async function PATCH(request) {
     return NextResponse.json(body, { status });
   }
 
-  const { id, status } = await request.json();
+  const { id, status, lostReason } = await request.json();
   if (!id || !status) {
     return NextResponse.json(
       { error: "id and status are required" },
@@ -150,6 +150,9 @@ export async function PATCH(request) {
   // stored and then silently bucketed into "new" by the board.
   if (!isValidLeadStatus(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+  if (lostReason !== undefined && lostReason !== null && !isValidLostReason(lostReason)) {
+    return NextResponse.json({ error: "Invalid lost reason" }, { status: 400 });
   }
 
   const existing = await db.leadRequest.findFirst({
@@ -162,15 +165,22 @@ export async function PATCH(request) {
   // being poked — see lib/leads/pipeline.js. This is what makes a drag drop
   // onto the Converted column an honest refusal rather than a lead marked Won
   // with no quote behind it, and it applies to the drawer's own status button
-  // exactly the same way, for the exact same reason.
-  const statusCheck = canSetLeadStatus(existing, status);
+  // exactly the same way, for the exact same reason. The "lost" branch of the
+  // same function is what makes a drag drop onto Lost require a real reason
+  // rather than accepting a bare status flip.
+  const statusCheck = canSetLeadStatus(existing, status, { lostReason });
   if (!statusCheck.ok) {
     return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
   }
 
   const updated = await db.leadRequest.update({
     where: { id },
-    data: { status },
+    data: {
+      status,
+      // See app/api/leads/[id]/route.js's PATCH for why this clears outside
+      // "lost" rather than only ever being set.
+      lostReason: status === "lost" ? (lostReason ?? existing.lostReason) : null,
+    },
   });
   return NextResponse.json(updated);
 }

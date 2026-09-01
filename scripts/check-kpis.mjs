@@ -45,6 +45,7 @@ import {
   buildMarginRollup,
   buildOnTimeCompletion,
   buildUtilisationRate,
+  buildBlendedCostPerLead,
   REASONS,
   NOT_TRACKED,
   RATE_FLOOR,
@@ -323,6 +324,43 @@ ok("utilisation is exactly 75% (45 job hours of 60 scheduled) — office worker 
   utilisation.value === 75, utilisation.value);
 ok("an unrated worker among the field crew flags the figure incomplete",
   utilisation.incomplete === true);
+
+// ── buildBlendedCostPerLead — docs/META-ADS-INTEGRATION.md Part 2, Level 1 ──
+//
+// The one new KPI this file gained for the Meta-ads build: total marketing
+// spend over REAL LeadRequest counts, manual/imported sources excluded from
+// the denominator and reported as `excludedCount` rather than dropped
+// silently. No database of its own — see the function's own header —so
+// these fixtures are hand-built groupBy-shaped objects, exactly what
+// lib/analytics/marketingRollup.js's getLeadCountsBySource actually returns.
+const blendedNoLeadsAtAll = buildBlendedCostPerLead({ totalSpend: 500, leadCountsBySource: {} });
+ok("no leads in the period at all -> null, not a fabricated $500/0",
+  blendedNoLeadsAtAll.value === null && blendedNoLeadsAtAll.reason === "no_leads_in_period",
+  blendedNoLeadsAtAll);
+
+const blendedOnlyManual = buildBlendedCostPerLead({
+  totalSpend: 500,
+  leadCountsBySource: { manual: 3, imported: 5 },
+});
+ok("manual + imported leads alone still refuse — they don't count toward what spend produced",
+  blendedOnlyManual.value === null && blendedOnlyManual.excludedCount === 8,
+  blendedOnlyManual);
+
+const blendedReal = buildBlendedCostPerLead({
+  totalSpend: 1000,
+  leadCountsBySource: { self_quote: 8, phone_agent: 2, manual: 3 },
+});
+ok("blended CPL is spend over REAL leads only — 1000/10, manual's 3 excluded and reported",
+  blendedReal.value === 100 && blendedReal.sampleSize === 10 && blendedReal.excludedCount === 3,
+  blendedReal);
+
+const blendedZeroSpendRealLeads = buildBlendedCostPerLead({
+  totalSpend: 0,
+  leadCountsBySource: { self_quote: 10 },
+});
+ok("zero spend with real leads is an honest $0, not null — a referral-only month is a real zero",
+  blendedZeroSpendRealLeads.value === 0 && blendedZeroSpendRealLeads.reason === null,
+  blendedZeroSpendRealLeads);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 4 — the sample floor, at the boundary
@@ -639,6 +677,10 @@ for (const [label, result] of [
   ["backlogNoThroughput", backlogNoThroughput],
   ["onTime", onTime],
   ["utilisation", utilisation],
+  ["blendedNoLeadsAtAll", blendedNoLeadsAtAll],
+  ["blendedOnlyManual", blendedOnlyManual],
+  ["blendedReal", blendedReal],
+  ["blendedZeroSpendRealLeads", blendedZeroSpendRealLeads],
 ]) {
   if (result.reason) seenReasons.add(result.reason);
   ok(`${label}: value is null iff reason is set`, (result.value === null) === Boolean(result.reason), result);
@@ -798,6 +840,14 @@ const MUTATIONS = [
   [
     "drops the human sentence off every reason code",
     (s) => s.replace("reasonText: reason ? REASONS[reason] || reason : null,", "reasonText: null,"),
+  ],
+  [
+    "counts manual/imported leads toward the blended cost-per-lead denominator",
+    (s) => s.replace('BLENDED_CPL_EXCLUDED_SOURCES.has(source)', "false"),
+  ],
+  [
+    "prints a blended cost-per-lead with zero real leads instead of refusing",
+    (s) => s.replace("if (counted <= 0) {", "if (false) {"),
   ],
 ];
 

@@ -68,6 +68,7 @@ import {
   Settings as SettingsIcon,
   ChevronDown,
   X,
+  Share2,
 } from "lucide-react";
 import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
@@ -153,6 +154,10 @@ const GROUPS = [
     key: "app.settings.group.paid",
     items: [
       { key: "app.settings.payments", href: "/app/settings/payments", icon: Receipt },
+      // Same shelf as Payments — a third-party account a company connects
+      // its own money/spend to, not a price charged to a client. See
+      // lib/permissions/settingsAccess.js: gated "billing", same as Payments.
+      { key: "app.settings.metaAds", href: "/app/settings/meta-ads", icon: Share2 },
       { key: "app.settings.expenseTracking", href: "/app/settings/expense-tracking", icon: Wallet },
       { key: "app.settings.aiCredit", href: "/app/settings/ai-credit", icon: Sparkles },
       // Moved in from Services & pricing: a deduction rate isn't a price

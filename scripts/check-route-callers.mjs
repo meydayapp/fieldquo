@@ -119,6 +119,11 @@ const EXTERNAL_CALLERS = {
   "/api/platform/billing/webhook":
     "Stripe Billing's own endpoint for FieldQuo's subscriptions — a separate " +
     "integration from Connect above, registered separately in Stripe.",
+  "/api/meta-ads/callback":
+    "Meta's OAuth redirect target — set as this app's redirect_uri in Meta's " +
+    "App Dashboard (see docs/META-ADS-BUILD.md), never fetched by our own " +
+    "code. app/api/meta-ads/connect/route.js builds the URL Meta redirects " +
+    "back to; the browser is what calls it, via a 302 from facebook.com.",
 };
 
 /**
@@ -141,10 +146,6 @@ const NO_FRONT_DOOR = {
     "Templates page uses the guarded /api/settings/document-templates. See " +
     "the route's own header. A 403 is safe whether or not something reaches " +
     "it; remove once that is confirmed.",
-  "/api/marketing-spend":
-    "MarketingSpend is READ — lib/analytics/marketingRollup.js feeds the " +
-    "monthly digest from it — and no screen writes it, so the digest reports " +
-    "zero spend forever. The entry UI is the missing half. See docs/TODO.md.",
   "/api/analytics/burn-rate":
     "Already known and documented at lib/permissions/costBasis.js — monthly " +
     "burn and runway, gated not deleted for the same reason as the templates " +

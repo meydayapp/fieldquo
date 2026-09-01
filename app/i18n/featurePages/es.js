@@ -64,6 +64,7 @@ const es = {
   "feature.payroll.limits": "FieldQuo calcula el pago bruto, genera los recibos y exporta la corrida. No paga a los empleados ni presenta tus impuestos de nómina — las deducciones son las que pongas tú o tu contador.",
   "feature.contractor_payouts.limits": "Esto le paga a una persona de tu propia plantilla, por horas que marcó, a la tarifa que tú fijaste. No puede pagar una oferta cerrada a otra empresa. Hoy las transferencias salen en dólares canadienses, así que no está listo para un pago en Estados Unidos.",
   "feature.languages.limits": "El inglés y el francés están terminados. El español, el ucraniano, el punyabí y el tagalo están traducidos y todavía los está revisando un hablante, así que aún no están activados.",
+  "feature.marketing_spend.limits": "El costo por cliente potencial es un promedio combinado de todos los canales, sin desglose por canal ni por campaña — nada en FieldQuo vincula todavía un dólar de gasto concreto con un cliente potencial concreto.",
 
   // ══ The pages ═════════════════════════════════════════════════════════
 
@@ -847,8 +848,8 @@ const es = {
   "featurePage.reporting.how.1.body": "La comparación va agregada. Nunca se te muestran las cifras de ninguna otra empresa, y las tuyas nunca se les muestran a ellas.",
   "featurePage.reporting.how.2.step": "Los gastos fijos son un número real, no un porcentaje",
   "featurePage.reporting.how.2.body": "Los costos fijos, la deuda y los gastos del negocio producen la cifra que un día tiene que dejar antes de que ganes algo.",
-  "featurePage.reporting.how.3.step": "El gasto de mercadeo queda al lado de lo que produjo",
-  "featurePage.reporting.how.3.body": "El gasto por canal frente a los trabajos que trajo, para que un canal que no produce nada se vea en vez de darse por bueno.",
+  "featurePage.reporting.how.3.step": "Un costo por cliente potencial promedio, no una suposición",
+  "featurePage.reporting.how.3.body": "Registra lo que gastas por canal y obtén una sola cifra honesta — el gasto total sobre los clientes potenciales reales, para toda la empresa. No dice qué canal funciona; dice cuánto cuesta el panorama completo.",
 
   // /features/payroll
   "featurePage.payroll.label": "Nómina y pagos",

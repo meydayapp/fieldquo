@@ -228,6 +228,7 @@ const DRILL_INS = {
   "/app/leads/import": "opened from the Leads list page's own Import button",
   "/app/settings/expense-tracking/import": "bank-statement CSV import — opened from the Expense Tracking page's own Import button, and deliberately not a nav row: it is a thing you do to expenses, not a place you go",
   "/app/marketing/[id]": "campaign detail — opened from the Marketing list",
+  "/app/marketing/spend": "opened from the Marketing hub's own Marketing spend button — a manual entry screen and the blended cost-per-lead figure, not a place someone browses to from the sidebar",
   "/app/marketing/designer/[id]": "the canvas editor for one ad creative — opened from the Designer index, and never linked directly because a design has no meaning outside the campaign that owns it",
   "/app/marketing/subscribers": "opened from the Marketing list and from a campaign's own detail view",
   "/app/payroll/[id]": "one pay run — opened from the Payroll list",

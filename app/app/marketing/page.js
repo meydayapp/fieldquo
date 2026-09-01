@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Mail,
   Contact,
+  DollarSign,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
@@ -159,6 +160,14 @@ export default function MarketingPage() {
           >
             <Contact size={14} /> {t("app.marketing.subscribers")}
           </Link>
+          {canManageMarketing && (
+            <Link
+              href="/app/marketing/spend"
+              className="flex items-center gap-2 border border-border text-foreground px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-muted"
+            >
+              <DollarSign size={14} /> {t("app.marketing.spendLink", "Marketing spend")}
+            </Link>
+          )}
           {canManageMarketing && (
             <button
               data-tour="marketing-new"

@@ -13,7 +13,7 @@ import {
   redactLead,
   permissionErrorResponse,
 } from "@/lib/permissions/enforce";
-import { isValidLeadStatus, canSetLeadStatus } from "@/lib/leads/pipeline";
+import { isValidLeadStatus, canSetLeadStatus, isValidLostReason } from "@/lib/leads/pipeline";
 
 // One lead, with everything the detail view shows.
 export async function GET(request, { params }) {
@@ -83,7 +83,10 @@ export async function PATCH(request, { params }) {
     where: { id, companyId: member.companyId },
     // quoteId is here for canSetLeadStatus below — "converted" is Won, and
     // this is what proves whether the lead has anything to be won FROM.
-    select: { id: true, budgetBand: true, timeline: true, quoteId: true },
+    // lostReason is here for the same function's "lost" branch — a re-drag
+    // of an already-lost card carries no new reason in the request body, so
+    // the existing value is what makes it a no-op rather than a refusal.
+    select: { id: true, budgetBand: true, timeline: true, quoteId: true, lostReason: true },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -94,13 +97,22 @@ export async function PATCH(request, { params }) {
   if (body.status !== undefined) {
     if (!isValidLeadStatus(body.status))
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    if (body.lostReason !== undefined && body.lostReason !== null && !isValidLostReason(body.lostReason)) {
+      return NextResponse.json({ error: "Invalid lost reason" }, { status: 400 });
+    }
     // "Converted" is Won, and nothing may land there on nothing but the enum
     // being poked — see lib/leads/pipeline.js. Covers both the drawer's own
     // status buttons and the board's drag-to-move, which both PATCH here.
-    const statusCheck = canSetLeadStatus(existing, body.status);
+    // Same file's "lost" branch requires a real reason, new or existing.
+    const statusCheck = canSetLeadStatus(existing, body.status, { lostReason: body.lostReason });
     if (!statusCheck.ok)
       return NextResponse.json({ error: statusCheck.reason }, { status: 409 });
     data.status = body.status;
+    // A reason only means something WHILE the lead is lost — moving it
+    // anywhere else clears a value that would otherwise read as still true
+    // after the fact (a lead reopened and later re-lost for a DIFFERENT
+    // reason must not keep showing the first one).
+    data.lostReason = body.status === "lost" ? (body.lostReason ?? existing.lostReason) : null;
   }
 
   if (body.assignedToId !== undefined) {
