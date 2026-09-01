@@ -6465,6 +6465,31 @@ model JobPhoto {
   /// Manual ordering within an album; lower shows first.
   sortOrder  Int     @default(0)
 
+  /// The markup layer — Fabric's canvas.getObjects(), serialised, and
+  /// nothing else. Deliberately NEVER includes the photo itself: `url` above
+  /// is the one and only copy of the original pixels, forever. See
+  /// docs/PHOTO-ANNOTATION.md for why the objects live here instead of
+  /// flattened into `url` — the short version is AGENTS.md's hard rule that
+  /// customer data (a contractor's evidence photo) is never destroyed.
+  annotationJson      String?
+  /// The pixel dimensions annotationJson's object coordinates are relative
+  /// to (the working canvas at the moment it was saved) — needed to rescale
+  /// the markup correctly if it's ever reopened against a differently-sized
+  /// render of the same photo.
+  annotationWidth     Int?
+  annotationHeight    Int?
+  annotationUpdatedAt DateTime?
+  /// A SECOND Cloudinary asset: the original photo with annotationJson
+  /// baked in, PNG. Fabric cannot run server-side in this repo (no jsdom —
+  /// see AGENTS.md's Next.js banner and DesignerLoader.js), so this is
+  /// rendered client-side at save time via canvas.toDataURL() and uploaded
+  /// through the existing /api/upload — there is no way to flatten on
+  /// demand from a server route. `flattenedPublicId` lets a re-save or a
+  /// cleared annotation delete the previous flattened asset instead of
+  /// accumulating one per edit.
+  flattenedUrl        String?
+  flattenedPublicId   String?
+
   createdAt DateTime @default(now())
 
   @@index([companyId, featured])
