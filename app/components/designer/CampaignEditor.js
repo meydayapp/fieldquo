@@ -62,8 +62,9 @@
 // editor; the general resize tool predates this component and is not
 // disabled here.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { fabric } from "fabric";
-import { ArrowLeft, Download, Share2, TriangleAlert } from "lucide-react";
+import { ArrowLeft, CalendarDays, Download, Share2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
@@ -156,6 +157,35 @@ export function CampaignEditor({ design, onBack }) {
   const [editorInstance, setEditorInstance] = useState(undefined);
   const [downloading, setDownloading] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  // Whether Instagram/Facebook publishing is visible AT ALL for this
+  // company — see docs/SOCIAL-SCHEDULING.md, "hidden until approved."
+  // Starts false (not "loading") deliberately: AGENTS.md's rule is "either
+  // it is not there, or it explains itself," and a Publish button that
+  // flickers into existence after a fetch resolves is close enough to "not
+  // there" that a brief false-start beats rendering a control before this
+  // company's own visibility is confirmed. Reuses the SAME per-design
+  // publish GET the modal itself calls when opened — one more request on
+  // mount, not a second endpoint to keep in sync with it.
+  const [socialVisible, setSocialVisible] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/marketing/designer/designs/${design.id}/publish`);
+        if (cancelled || !res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setSocialVisible(Boolean(data.visible));
+      } catch {
+        // Swallowed, same as CompanyPreferencesProvider's own fetch: the
+        // safe failure direction for a feature gated on Meta approval is
+        // "stays hidden," not "throws and takes the editor down with it."
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [design.id]);
 
   // Keyed by ratioKey -> { json (parsed object), width, height }. A ref, not
   // state: read synchronously from inside the tab-click handler and the
@@ -378,19 +408,41 @@ export function CampaignEditor({ design, onBack }) {
           {downloading ? t("app.marketingDesigner.downloading") : t("app.marketingDesigner.downloadAll")}
         </button>
 
-        {/* Visible always, per AGENTS.md's "don't render a dead button" —
-            the modal itself is what stays honest about Instagram/Facebook
-            not being connected yet, rather than hiding or disabling the
-            entry point (see PublishModal.js's own header). */}
-        <button
-          type="button"
-          onClick={() => setPublishOpen(true)}
-          disabled={!editorInstance}
-          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
-        >
-          <Share2 size={13} />
-          {t("app.marketingDesigner.publish")}
-        </button>
+        {/* Both rendered ONLY when socialVisible — docs/SOCIAL-SCHEDULING.md's
+            "hide until Meta approves the app" — rather than always-visible-
+            but-disabled or always-visible-but-honest-in-the-modal. That was
+            the earlier design (see the comment this replaced, and
+            PublishModal.js's own header, still accurate for what happens
+            once this IS visible): a real company with no Meta connection
+            saw a working dialog that explained "not connected yet." The
+            owner's later instruction was stricter — nothing about
+            Instagram/Facebook should be reachable at all until Meta's own
+            App Review clears, for either platform — so the button and the
+            dialog behind it are absent rather than explaining themselves,
+            for a real company, until metaAppConfigured() is true. A demo
+            company (isDemo) is always visible; see
+            lib/social/metaConnection.js and metaSpecs.js's
+            isSocialPublishingVisible(). */}
+        {socialVisible && (
+          <>
+            <Link
+              href="/app/marketing/designer/calendar"
+              className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0"
+            >
+              <CalendarDays size={13} />
+              {t("app.marketingDesigner.calendarLink", "Calendar")}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setPublishOpen(true)}
+              disabled={!editorInstance}
+              className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+            >
+              <Share2 size={13} />
+              {t("app.marketingDesigner.publish")}
+            </button>
+          </>
+        )}
       </div>
 
       {anyOverflow && (
@@ -410,12 +462,14 @@ export function CampaignEditor({ design, onBack }) {
         />
       </div>
 
-      <PublishModal
-        isOpen={publishOpen}
-        onClose={() => setPublishOpen(false)}
-        design={design}
-        preparePublishAsset={preparePublishAsset}
-      />
+      {socialVisible && (
+        <PublishModal
+          isOpen={publishOpen}
+          onClose={() => setPublishOpen(false)}
+          design={design}
+          preparePublishAsset={preparePublishAsset}
+        />
+      )}
     </div>
   );
 }
