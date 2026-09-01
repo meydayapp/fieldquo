@@ -73,7 +73,17 @@ const PREVIEW_MERGE_DATA = {
   projectStartDate: "Jul 28, 2026",
   projectEndDate: "Jul 30, 2026",
   jobTitle: "Kitchen Cabinet Refinishing",
-  depositAmount: "$1,275.00",
+  // depositAmount was here, with a convincing "$1,275.00". Removed 2026-08-31
+  // along with its chip in MERGE_FIELDS: no send path has ever supplied it,
+  // because FieldQuo has no deposit concept to derive one from — staged
+  // billing is 0% built (docs/PAYMENT-SCHEDULE.md; only the cosmetic
+  // free-text-to-cards display exists).
+  //
+  // A sample value here was worse than the chip. Someone who types the token
+  // by hand saw $1,275.00 in the preview and got an empty string in the real
+  // email, so the preview was actively vouching for a token that never works.
+  // check-follow-up-flow.mjs now asserts this fixture carries nothing a send
+  // path cannot fill, so the sample cannot come back before the feature does.
   amountPaid: "$3,000.00",
   subtotal: "$3,900.00",
   discount: "$150.00",

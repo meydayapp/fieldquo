@@ -251,6 +251,38 @@ for (const { token } of MERGE_FIELDS) {
   );
 }
 
+// The PREVIEW fixtures get the same test, and for a sharper reason.
+//
+// depositAmount survived one pass: the chip was pulled from MERGE_FIELDS, but
+// both fixtures kept a convincing "$1,275.00". That is the worse half. A chip
+// you cannot click is merely absent; a preview that renders $1,275.00 for a
+// token a real send leaves blank is the editor VOUCHING for something that
+// never works — and it is exactly what would justify putting the chip back.
+//
+// So a fixture may only carry what a send path can fill.
+const PREVIEW_FIXTURES = [
+  "app/app/settings/email-templates/[id]/page.js",
+  "app/api/settings/document-templates/[id]/test/route.js",
+];
+for (const rel of PREVIEW_FIXTURES) {
+  const src = fs
+    .readFileSync(path.join(ROOT, rel), "utf8")
+    .replace(/^\s*\/\/.*$/gm, " ");
+  // The sample block runs from the first merge key to lineItems, which is an
+  // array of objects whose own keys would otherwise be read as tokens.
+  const start = src.indexOf("quoteNumber:");
+  const block = start === -1 ? "" : src.slice(start, src.indexOf("lineItems:", start));
+  const keys = [...block.matchAll(/^\s+([a-zA-Z][A-Za-z0-9]*):/gm)].map((m) => m[1]);
+  const orphans = keys.filter((k) => !supplied.has(k));
+  ok(
+    `${rel.split("/").slice(-2).join("/")} previews nothing a send path can't fill`,
+    orphans.length === 0,
+    orphans.length
+      ? `sample values for ${orphans.join(", ")} — the preview shows a figure the real email leaves blank`
+      : "",
+  );
+}
+
 console.log(
   `\n${checks} checks, ${failures} failure(s).${failures ? "" : " Diagram matches the cron."}\n`,
 );
