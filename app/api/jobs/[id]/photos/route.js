@@ -76,12 +76,31 @@ export async function POST(request, { params }) {
   const { member, response } = await memberOrRefusal(request);
   if (response) return response;
 
-  // The same level as re-staging a photo or editing the job itself. Filing a
-  // photo is an edit to the job's record, not a view of it.
+  // ── Was view_create_edit; the real gap it created ──────────────────────
+  //
+  // "Filing a photo is an edit to the job's record, not a view of it" was
+  // the original reasoning, and it quietly locked the Crew preset — jobs:
+  // view_only, and the ONLY tier this upload control exists for — out of the
+  // button this route sits behind. GET a job's photos needs only view_only;
+  // POSTing a new one needed a level Crew has never held, so the upload panel
+  // rendered for every crew member and 403'd for all of them: a control that
+  // appears to work and doesn't, the exact failure AGENTS.md names.
+  //
+  // Filing was already the crew's job by SMS (lib/crew/inbox.js), with no
+  // permission check on `jobs` at all — only a phone number matched against
+  // the Worker roster. Requiring MORE from the web control than the text
+  // line ever did was the actual bug, not a deliberate stricter gate. This
+  // still can't reach another tenant's job, or (for a scoped Crew member) a
+  // job they aren't on — assignedJobWhere below narrows that exactly as it
+  // does for GET.
+  //
+  // Featuring a photo onto the public website, or re-staging it, is a
+  // curation decision and stays at view_create_edit on PATCH below — that
+  // distinction is deliberate, not a leftover.
   const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
-    "view_create_edit",
+    "view_only",
     "add job photos",
   );
   if (denied) return denied;
