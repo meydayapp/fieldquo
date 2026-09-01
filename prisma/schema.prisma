@@ -1020,6 +1020,7 @@ model Company {
   customQuoteTypes      ServiceCategory[]
   marketingCampaigns    MarketingCampaign[]
   marketingDesigns      MarketingDesign[]
+  socialPublishes       SocialPublish[]
   documentTemplates     DocumentTemplate[]
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
@@ -3138,7 +3139,8 @@ model MarketingDesign {
 
   name String
 
-  layouts MarketingDesignLayout[]
+  layouts         MarketingDesignLayout[]
+  socialPublishes SocialPublish[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3183,6 +3185,89 @@ model MarketingDesignLayout {
   // One saved layout per ratio per design — saving again for the same ratio
   // REPLACES it (upsert on this key), it never accumulates a history row.
   @@unique([designId, ratioKey])
+  @@index([designId])
+}
+
+enum SocialPlatform {
+  facebook
+  instagram
+}
+
+// Mirrors the container-then-publish state machine lib/social/metaSpecs.js
+// drives (see that file's own header): a container is created, polled until
+// Meta finishes processing it, then published — or the attempt fails or hits
+// Meta's rolling content_publishing_limit before it gets there. Stored as an
+// explicit enum, not derived from externalPostId/errorMessage being
+// null-or-not, so "rate limited" and "failed for some other reason" are two
+// different facts a support conversation can tell apart at a glance.
+enum SocialPublishStatus {
+  pending
+  container_created
+  publishing
+  published
+  failed
+  rate_limited
+}
+
+// One attempt to publish a rendered MarketingDesign asset to a contractor's
+// own Facebook Page or Instagram professional account, through Meta's
+// Content Publishing API. See lib/social/ for the flow this records.
+//
+// Exists for the same reason every other write in this codebase gets an
+// audit row rather than a fire-and-forget call: AGENTS.md's rule that a
+// control must never appear to work when it doesn't. Persisting every
+// attempt — including a failed or rate-limited one — is what lets the
+// Marketing Designer say "already posted this today" instead of inviting a
+// second click that would duplicate a real post under the contractor's own
+// name to a real audience.
+//
+// companyId is direct rather than reached only through designId, for the
+// identical reason MarketingDesign.companyId is direct (see that model's
+// own comment above) — a lookup should never have to walk a relation to
+// prove ownership.
+model SocialPublish {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  designId String
+  design   MarketingDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  /// One of lib/marketing/ratios.js's AD_RATIOS keys — the exact crop that
+  /// was rasterised and sent, kept so a later look-back compares against
+  /// what actually went out, not whatever ratio happens to be open now.
+  ratioKey String
+  platform SocialPlatform
+  status   SocialPublishStatus @default(pending)
+
+  /// The caption exactly as posted — not re-derived from a later edit, same
+  /// reasoning as CallConsent.disclosure: what shipped, not what the current
+  /// draft says.
+  caption String @db.Text
+
+  /// The public Cloudinary URL Meta was told to fetch the image from —
+  /// Instagram's Content Publishing API only ever reads a public URL, it is
+  /// never sent bytes directly. Kept after publish so a support
+  /// conversation can confirm what image Meta actually pulled.
+  imageUrl String
+
+  /// Meta's own container id from POST /media, set before publish — needed
+  /// to resume polling if a request times out between create and publish
+  /// rather than creating a second, orphaned container.
+  externalContainerId String?
+  /// Meta's own post/media id. Set only once status = published.
+  externalPostId String?
+
+  /// Meta's own error text or quota message, set only on status = failed or
+  /// rate_limited — never a generic "something went wrong": the contractor's
+  /// own Meta account is what has to act on this, not FieldQuo's.
+  errorMessage String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  @@index([companyId])
   @@index([designId])
 }
 
