@@ -183,8 +183,14 @@ ok("arAging: no invoices ever → null / no_invoices, not $0.00",
   EMPTY.cash.arAging.value === null && EMPTY.cash.arAging.reason === "no_invoices");
 ok("revenueTrend: no payments ever → unavailable, not a flat line at zero",
   EMPTY.cash.revenueTrend.available === false);
-ok("NOT_TRACKED lists exactly the six metrics this file refuses to invent",
-  NOT_TRACKED.length === 6 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
+// safetyIncidentRate moved OFF this list — SafetyIncident exists now and
+// buildSafetyIncidentRate is a real, gated figure (see section 12 below).
+// equipmentUtilisation stays, with an updated reason: AssetUseLog exists too,
+// but that figure is its own report (GET /api/assets/utilisation), not a
+// per-period rate rolled into this KPI page — see the entry's own reason for
+// why forcing it into a rate would invent a claim this file won't make.
+ok("NOT_TRACKED lists exactly the five metrics this file refuses to invent",
+  NOT_TRACKED.length === 5 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 2 — one job, missing rates, null overhead
