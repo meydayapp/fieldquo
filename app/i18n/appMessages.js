@@ -4870,6 +4870,13 @@ const en = {
   "app.jobEquipment.hoursShort": "h",
   "app.jobEquipment.save": "Log it",
   "app.jobEquipment.cancel": "Cancel",
+
+  // ── Equipment section on JobCosting.js — see the double-count note on
+  // lib/costing/actualJobCost.js for why these two sentences differ.
+  "app.jobCosting.equipmentInOverhead":
+    "Equipment logged on this job ({amount}) is already covered by the overhead share above — it isn't added again.",
+  "app.jobCosting.equipmentAdded":
+    "Equipment logged on this job added {amount} to the total above — set up Settings → Overhead and this stops being counted twice.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -9485,6 +9492,11 @@ const fr = {
   "app.jobEquipment.hoursShort": "h",
   "app.jobEquipment.save": "Enregistrer",
   "app.jobEquipment.cancel": "Annuler",
+
+  "app.jobCosting.equipmentInOverhead":
+    "L'équipement enregistré sur ce chantier ({amount}) est déjà couvert par la part de frais généraux ci-dessus — il n'est pas ajouté une deuxième fois.",
+  "app.jobCosting.equipmentAdded":
+    "L'équipement enregistré sur ce chantier a ajouté {amount} au total ci-dessus — configurez Paramètres → Frais généraux pour que ce ne soit plus compté deux fois.",
 };
 
 
