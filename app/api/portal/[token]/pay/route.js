@@ -75,7 +75,17 @@ export async function POST(request, { params }) {
   let amountCents;
   if (stageId) {
     const stage = await db.jobPaymentStage.findFirst({
-      where: { id: stageId, invoiceId: invoice.id, status: "requested" },
+      // companyId, not just invoiceId — belt and braces the same way the
+      // invoice lookup above is scoped to client.id rather than trusting
+      // invoiceId alone. scripts/check-tenant-scope.mjs requires a by-id
+      // lookup on a tenant model to be company-scoped directly, not only
+      // provably-so through a chain of other scoped lookups.
+      where: {
+        id: stageId,
+        companyId: client.companyId,
+        invoiceId: invoice.id,
+        status: "requested",
+      },
       select: { amountCents: true },
     });
     if (stage) amountCents = stage.amountCents;
