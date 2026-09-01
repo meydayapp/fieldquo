@@ -77,6 +77,7 @@ import QuoteCostEditor from "@/app/components/quotes/QuoteCostEditor";
 import EmailSectionsPanel from "./EmailSectionsPanel";
 import EmailSectionsBlockedModal from "./EmailSectionsBlockedModal";
 import ImportedCostsPanel from "./ImportedCostsPanel";
+import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { formatAddress } from "@/lib/format/address";
 import {
   COMPLEXITY_LEVELS,
@@ -1015,7 +1016,12 @@ export default function QuoteDetailPage() {
                   )}
                 </div>
                 <div className="px-4 py-1">
-                  {(group.lineItems || []).map((item, i) => (
+                  {/* Not group.lineItems directly — a blended subcontractor
+                      import's one line repeats the card head above (same
+                      label, same amount) word for word, which is what made
+                      "Subcontracted work $9,871.68" read as two lines on
+                      Q-2026-0014. See lib/quotes/scopeGroupDisplay.js. */}
+                  {visibleLineItems(group).map((item, i) => (
                     <div
                       key={i}
                       className="flex justify-between gap-4 text-sm text-foreground py-1.5 border-b border-border last:border-0"
