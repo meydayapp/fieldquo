@@ -272,8 +272,16 @@ export default function ProductsPage() {
         </button>
       </div>
 
+      {/* Below `sm` this was a 4-column CSS grid (1fr/1.5fr/auto/auto) inside
+          a parent with `overflow-hidden`, not `overflow-x-auto` — a grid
+          item's default min-width is its content's min-content size, not 0,
+          so on a 375px phone the row didn't reflow and didn't scroll either.
+          It just clipped: the edit/delete column could be cut off entirely,
+          not merely hard to reach. Below `sm` this now stacks each product
+          into a card instead; the grid returns at `sm` and up, where four
+          columns fit without any of that. */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <div className="hidden sm:grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 border-b border-border text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           <span>{t("app.field.name")}</span>
           <span>{t("app.setProducts.description")}</span>
           <span>{t("app.setProducts.type")}</span>
@@ -296,39 +304,65 @@ export default function ProductsPage() {
             pageItems.map((p) => (
               <div
                 key={p.id}
-                className="grid grid-cols-[1fr_1.5fr_auto_auto] gap-4 px-5 py-3 items-center"
+                className="flex flex-col gap-2 px-5 py-3 sm:grid sm:grid-cols-[1fr_1.5fr_auto_auto] sm:gap-4 sm:items-center"
               >
-                <span className="text-sm font-medium text-foreground">
-                  {p.name}
-                  {Array.isArray(p.categories) && p.categories.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {p.categories.map((c) => (
-                        <span
-                          key={c.id}
-                          className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
-                        >
-                          {c.label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </span>
-                <span className="text-sm text-muted-foreground truncate">
-                  {p.description}
-                </span>
+                <div className="flex items-start justify-between gap-2 sm:contents">
+                  <span className="text-sm font-medium text-foreground min-w-0">
+                    {p.name}
+                    {Array.isArray(p.categories) && p.categories.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {p.categories.map((c) => (
+                          <span
+                            key={c.id}
+                            className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full"
+                          >
+                            {c.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </span>
+                  {/* Actions move up beside the name below `sm` — sm:contents
+                      drops this wrapper from layout there so the grid's own
+                      4th column (below) takes over instead of nesting one
+                      grid cell inside another. */}
+                  <div className="flex items-center gap-1 shrink-0 sm:hidden">
+                    <button
+                      onClick={() => openEdit(p)}
+                      aria-label={t("app.action.edit", "Edit")}
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      aria-label={t("app.action.delete", "Delete")}
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                {p.description && (
+                  <span className="text-sm text-muted-foreground sm:truncate">
+                    {p.description}
+                  </span>
+                )}
                 <span className="text-xs bg-muted px-2.5 py-1 rounded-full capitalize w-fit">
                   {p.type}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <button
                     onClick={() => openEdit(p)}
-                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={t("app.action.edit", "Edit")}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(p.id)}
-                    className="text-muted-foreground hover:text-red-500"
+                    aria-label={t("app.action.delete", "Delete")}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500"
                   >
                     <Trash2 size={14} />
                   </button>
