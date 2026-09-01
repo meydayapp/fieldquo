@@ -69,6 +69,7 @@ import {
   ChevronDown,
   X,
   Share2,
+  ArrowUpDown,
 } from "lucide-react";
 import { NavFilter, NavEmptyState, useGroupDisclosure } from "@/app/components/layout/NavFilter";
 import { activeGroupKey, isGroupOpen, visibleGroups } from "@/app/components/layout/navDisclosure";
@@ -86,6 +87,11 @@ const GROUPS = [
     items: [
       { key: "app.settings.accountBilling", href: "/app/settings/account-billing", icon: CreditCard },
       { key: "app.settings.refer", href: "/app/settings/refer", icon: Gift },
+      // FieldQuo billing the COMPANY for a one-off surcharge, same shelf as
+      // Account & Billing — see SETTINGS_ROW_CAPABILITY, gated "billing" for
+      // the same reason: the price and the payment button are the owner's
+      // business, not an employee's.
+      { key: "app.settings.migration", href: "/app/settings/migration", icon: ArrowUpDown },
       { key: "app.settings.productUpdates", href: "/app/settings/product-updates", icon: Megaphone },
     ],
   },

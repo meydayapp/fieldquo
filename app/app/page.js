@@ -24,6 +24,7 @@ import OnboardingProgress from "@/app/components/dashboard/OnboardingProgress";
 import RevenueGoalCard from "@/app/components/dashboard/RevenueGoalCard";
 import AwaitingPayment from "@/app/components/dashboard/AwaitingPayment";
 import NeedsYou from "@/app/components/dashboard/NeedsYou";
+import MigrationNotice from "@/app/components/dashboard/MigrationNotice";
 
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
@@ -922,6 +923,12 @@ export default function DashboardPage() {
           Appointment by design, so they appear on no calendar — this is the one
           place they are visible at all. Renders itself away when empty. */}
       <AwaitingPayment />
+
+      {/* FieldQuo's own migration surcharge waiting on a decision or a
+          payment — the "similar to an invoice they'd need to pay" surface
+          the data-migration brief asked for. Renders itself away when there
+          is nothing quoted or accepted-and-unpaid. */}
+      <MigrationNotice />
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-xl overflow-hidden">

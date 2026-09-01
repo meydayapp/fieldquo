@@ -75,6 +75,7 @@ import {
   Percent,
   Webhook,
   Gauge,
+  ArrowUpDown,
 } from "lucide-react";
 
 const HOME_ITEM = { label: "Dashboard", href: "/platform", icon: LayoutDashboard, exact: true };
@@ -93,6 +94,13 @@ const GROUPS = [
       // bulk" rather than as a Business-metrics screen, since two of its
       // three CSVs are literally the two rows above it.
       { label: "Reports", href: "/platform/reports", icon: FileSpreadsheet },
+      // The paid data-migration service — a company's request, the quote, and
+      // (once paid) the ONE write path onto a customer's own tenant data.
+      // Sits with Companies/Subscriptions rather than Billing: those two are
+      // about the company's PLAN; this is a one-off job for one company, and
+      // the person who'd look for it is already thinking "this company", not
+      // "our price list".
+      { label: "Migrations", href: "/platform/migrations", icon: ArrowUpDown },
     ],
   },
   {

@@ -96,6 +96,34 @@ These came from the product owner directly. Do not relax them without asking.
    Hiding buttons is not access control.
 3. **The platform console can view everything and edit nothing** on a company's
    data. FieldQuo must never modify a customer's quote.
+
+   **One narrow, sanctioned exception: the paid data-migration service.** A
+   superadmin may CREATE new records (a `Client`, a `Quote`) inside a
+   company's tenant — never update or delete anything that already
+   existed — and only when ALL of the following are true at the moment of
+   the write, re-checked fresh from the database on every write, never
+   trusted from an earlier request:
+
+     - the company itself requested the migration;
+     - a superadmin (not "admin", not "support" — see
+       `SUPERADMIN_ONLY_PERMISSIONS` in `lib/platform/permissions.js`) has
+       priced it;
+     - the company has accepted that price and paid it through Stripe
+       Billing (never Stripe Connect — this is FieldQuo billing the
+       company, the opposite direction from a contractor getting paid);
+     - the request's `MigrationRequestStatus` is `paid` or `in_progress` —
+       see `lib/migrations/state.js`'s `canWrite()`, which is the ONE
+       function every write route calls immediately before writing.
+
+   Every write is attributed and logged to `MigrationWrite` in the same
+   transaction as the write itself (who, when, which migration, what was
+   created) — see `lib/migrations/writes.js`. This is a DIFFERENT mechanism
+   from impersonation (non-negotiable #2 above), on purpose: impersonation
+   stays absolutely read-only, with no exception, for a support session
+   looking at a live customer account unprompted. This exception exists only
+   for a company that asked for it and paid FieldQuo to do it, and only for
+   records FieldQuo creates fresh — never a company's existing quote, client
+   or invoice. Full write-up: `docs/MIGRATION-SERVICE.md`.
 4. **Public endpoints never return prices.** `/api/self-quote/*` returns
    services and intake fields, never rates. Publishing a rate card openly hands
    it to every competitor in the city.

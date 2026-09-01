@@ -1009,6 +1009,9 @@ model Company {
   clients               Client[]
   quotes                Quote[]
   invoices              Invoice[]
+  // FieldQuo's paid data-migration service — the sanctioned write exception,
+  // see the model's own header comment.
+  migrationRequests     MigrationRequest[]
   // Cross-company quote imports (GC ↔ subcontractor). AsSource: our quotes that
   // other companies imported. AsTarget: other companies' quotes we imported.
   quoteImportsAsSource  QuoteImport[] @relation("QuoteImportSourceCompany")
@@ -2856,6 +2859,195 @@ model DemoBooking {
   /// written from here on has a host.
   @@unique([hostAdminId, scheduledAt])
   @@index([status, scheduledAt])
+}
+
+// ═══ The paid data-migration service ═══════════════════════════════════════
+//
+// The one sanctioned exception to non-negotiable #3 ("the platform console can
+// view everything and edit nothing on a company's data"). Read the exception
+// as narrow: it is not "a superadmin may edit a company's data", it is "a
+// superadmin may CREATE new records, attributed and logged, inside ONE paid,
+// accepted MigrationRequest, and never touch anything that already existed
+// outside it." lib/migrations/state.js is the single place that decides which
+// status a write is legal from — see its header before changing any route
+// that touches this table.
+//
+// Unrelated to `Migrations` in AGENTS.md's stack table, which is about Prisma
+// schema migrations (`prisma db push`). Two different meanings of the same
+// word; docs/MIGRATION-SERVICE.md says so up front.
+enum MigrationRequestStatus {
+  requested // the company described what they have; nothing scheduled or priced yet
+  scheduled // a consultation is booked with a superadmin
+  quoted // FieldQuo set a price; waiting on the company
+  accepted // the company said yes; waiting on payment
+  declined // the company said no to the price — terminal
+  paid // paid; the write path is open
+  in_progress // a superadmin has made at least one write
+  completed // the superadmin has finished and closed it out — terminal
+  cancelled // withdrawn before payment, or called off by a superadmin after payment
+  // (e.g. a refund handled outside the product) — terminal either way
+}
+
+/// One request to bring a contractor's pre-FieldQuo records — old quotes,
+/// invoices, jobs, whatever a shoebox or a QuickBooks export holds — into
+/// their FieldQuo account. Priced by FieldQuo per request (the amount of work
+/// varies with how much data there is and how messy it is), billed through
+/// Stripe BILLING (FieldQuo charging the company), never Stripe Connect
+/// (contractor payouts) — see lib/platform/stripeBilling.js and the warning in
+/// AGENTS.md about not conflating the two integrations.
+///
+/// One row per lifecycle, not one row reused across attempts: a declined or
+/// cancelled request is left as-is and the company starts a new one if they
+/// change their mind, so the history of what was offered and refused is never
+/// overwritten (the same reasoning PlatformAuditLog uses — a wrong row is
+/// corrected by a new row, not by editing history).
+model MigrationRequest {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  status MigrationRequestStatus @default(requested)
+
+  /// What the company says they're bringing over — free text entered at
+  /// request time ("QuickBooks Online, 6 years of invoices", "Jobber CSV
+  /// export", "a shoebox, honestly"). Not structured: the intake is a
+  /// conversation starter for the consultation, not a form the pricing derives
+  /// from — non-negotiable #5 does not apply here because nothing about this
+  /// text sets a price; the superadmin does that by hand after the call.
+  sourceSystems String?
+  description   String?
+
+  /// The Member who submitted the request. A plain column, not a relation —
+  /// same convention as Quote.sourceCallId: this is looked up for display
+  /// ("requested by Jane, Aug 30") and never listed FROM the User side, so a
+  /// relation would hang an unused array off User.
+  requestedById String?
+
+  // ── The consultation ─────────────────────────────────────────────────────
+  // Reuses DemoHostAvailability (FieldQuo's own staff calendar — see
+  // lib/migrations/hosts.js for why the busy-time check spans BOTH this table
+  // and DemoBooking: a superadmin who is mid-demo cannot also be mid-migration
+  // call, and the two must draw on one shared calendar or double-book them.
+  // What is NOT reused is DemoBooking itself — that model is shaped for an
+  // anonymous, pre-signup prospect (free-text name/email, no company, no
+  // auth); a migration consultation belongs to an authenticated company and a
+  // MigrationRequest, which DemoBooking has no column for.
+  hostAdminId       String?
+  scheduledAt       DateTime?
+  consultationNotes String? // the superadmin's own notes from the call — platform-only, never shown to the company
+
+  // ── The quote FieldQuo writes ────────────────────────────────────────────
+  // Set from /platform only. The browser never sends this — non-negotiable
+  // #5 — the company only ever reads it back once quotedAt is set.
+  priceCents Int?
+  currency   String?   @default("CAD")
+  quoteNote  String? // what the surcharge covers, shown to the company on their dashboard
+  quotedById String? // PlatformAdmin.id, plain column — same reasoning as requestedById
+  quotedAt   DateTime?
+
+  // ── Accept / decline ─────────────────────────────────────────────────────
+  respondedAt   DateTime?
+  respondedById String? // the Member's User.id who answered
+  declineReason String?
+
+  // ── Payment — Stripe Billing, one-time (`mode: "payment"`), never Connect ──
+  stripeCheckoutSessionId String?
+  stripePaymentIntentId   String?
+  paidAt                  DateTime?
+
+  // ── Work + close-out ──────────────────────────────────────────────────────
+  startedAt     DateTime?
+  completedAt   DateTime?
+  cancelledAt   DateTime?
+  cancelledById String? // a PlatformAdmin.id or a Member's User.id — whoever called it off
+  cancelReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents MigrationDocument[]
+  writes    MigrationWrite[]
+
+  @@index([companyId])
+  @@index([status])
+  // Mirrors DemoBooking's own @@unique([hostAdminId, scheduledAt]) — the
+  // DB-level guard against two companies grabbing the same superadmin's slot
+  // in the race between the availability check and the write. Postgres
+  // treats NULLs as distinct, so a `requested` row with no consultation
+  // booked yet is never deduped by this, which is correct.
+  //
+  // What this does NOT catch: a demo booking and a migration consultation
+  // landing on the very same host+instant at the very same moment — the two
+  // live in different tables, so one constraint can't span both. The
+  // availability check in lib/migrations/hosts.js reads both tables and is
+  // re-run immediately before every write, which closes all but that
+  // vanishingly narrow window; a true cross-table constraint would need a
+  // single shared bookings table, which is a bigger refactor than this
+  // feature's slice of the calendar justifies today.
+  @@unique([hostAdminId, scheduledAt])
+}
+
+/// A file the company handed over for the migration — a QuickBooks or Jobber
+/// export, a spreadsheet, a photographed ledger page. Cloudinary-backed, like
+/// every other upload in this product, but through its OWN classifier
+/// (lib/media/validate.js: classifyMigrationDocument) rather than the shared
+/// classifyMedia — that one is deliberately narrow (photo/video/PDF only)
+/// because it also guards public, unauthenticated endpoints, and widening it
+/// there would be new attack surface on a stranger-facing route for a need
+/// that is authenticated-only here.
+model MigrationDocument {
+  id                 String            @id @default(cuid())
+  migrationRequestId String
+  migrationRequest   MigrationRequest  @relation(fields: [migrationRequestId], references: [id], onDelete: Cascade)
+
+  url          String // Cloudinary secure_url
+  publicId     String // Cloudinary public_id — needed to delete the asset later
+  filename     String?
+  resourceType String  @default("raw") // Cloudinary resource_type
+  bytes        Int?
+
+  uploadedById String? // the Member's User.id who uploaded it
+
+  createdAt DateTime @default(now())
+
+  @@index([migrationRequestId])
+}
+
+/// One row per WRITE the sanctioned migration path makes into a company's own
+/// tenant data. This table IS the audit trail non-negotiable #3's exception
+/// requires — every write anywhere in lib/migrations/writes.js creates exactly
+/// one of these, in the same transaction as the write it describes, so a row
+/// here is proof a write happened and never a record of an intention (the
+/// same "write it and read it" discipline AGENTS.md asks of every field).
+///
+/// Deliberately company-agnostic on the surface (no companyId of its own) —
+/// every read goes through the MigrationRequest, which is already scoped to
+/// one company, and a second copy of the tenant key is a second thing that
+/// can disagree. See PlatformAuditLog for the same pattern at the platform
+/// level; this is the tenant-data-shaped sibling of it.
+model MigrationWrite {
+  id                 String           @id @default(cuid())
+  migrationRequestId String
+  migrationRequest   MigrationRequest @relation(fields: [migrationRequestId], references: [id], onDelete: Cascade)
+
+  platformAdminId String // plain column, same reasoning as elsewhere in this file
+
+  /// What got created. "Client" | "Quote" today — see docs/MIGRATION-SERVICE.md
+  /// for exactly what is wired in and what is deliberately not.
+  entityType String
+  entityId   String
+
+  /// A frozen copy of what was written. Read for a company's "what did FieldQuo
+  /// bring in" screen and for any later audit WITHOUT joining back to a row the
+  /// company may have since edited themselves — a migrated Client the owner
+  /// corrects afterwards must not rewrite this log's account of what FieldQuo
+  /// actually wrote.
+  snapshot Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([migrationRequestId])
+  @@index([entityType, entityId])
 }
 
 model Task {
