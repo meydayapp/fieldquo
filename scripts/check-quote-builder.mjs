@@ -46,6 +46,15 @@ import {
 import { quoteTotals } from "@/lib/quotes/totals";
 import { createTradeConfig } from "@/lib/pricing/tradeScope";
 import { TAKEOFF_TRADES, hasTakeoff } from "@/lib/pricing/takeoffTrades";
+import {
+  performImport,
+  reconcileScopeGroups,
+  reconcileImportsForQuote,
+  recomputeQuoteTotals,
+  updateImportMarkup,
+  ImportError,
+} from "@/lib/quotes/importQuote";
+import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 
 let fail = 0;
 const ok = (name, pass, detail = "") => {
@@ -490,6 +499,424 @@ eq("the wire shape is id / categoryId / label / intakeValues / lineItems / subto
 console.log(
   `  note  payload md5 ${createHash("md5").update(JSON.stringify(canonical)).digest("hex")}`,
 );
+
+// ───────────────────────────────────────────────────────────────────────────
+section(
+  "9. Subcontract import — Q-2026-0002 into Q-2026-0014 (see docs/SUBCONTRACT-DUPLICATION.md)",
+);
+// ───────────────────────────────────────────────────────────────────────────
+//
+// A real quote (Q-2026-0014) showed "Subcontracted work $9,871.68" twice with
+// a total ($18,132.68) that is neither one copy nor two — 2×9,871.68 is
+// 19,743.36, more than the total, so the total cannot be double-counting the
+// line. This section EXECUTES the write path with the reported figures
+// (source cost 9,871.68, an existing group of 8,261.00 — 8,261.00 +
+// 9,871.68 = 18,132.68, exactly the reported total) to prove where the
+// duplication actually lives, and to falsify the id-dropping hypothesis
+// rather than assume it.
+//
+// The fake db below snapshots state around $transaction the way Postgres
+// would roll back a failed one — a fake that let a half-written import
+// survive a thrown P2002 would prove nothing about atomicity.
+
+function makeFakeDb() {
+  const state = { quoteScopeGroup: [], quoteImport: [], quote: [], serviceCategory: [] };
+  let seq = 0;
+  const newId = (p) => `${p}_${++seq}`;
+
+  const matches = (row, where = {}) =>
+    Object.entries(where).every(([k, v]) => {
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        if ("in" in v) return v.in.includes(row[k]);
+        if ("notIn" in v) return !v.notIn.includes(row[k]);
+        return true;
+      }
+      return row[k] === v;
+    });
+
+  const tx = {
+    serviceCategory: {
+      upsert: async ({ where, create }) => {
+        let row = state.serviceCategory.find((r) => matches(r, where));
+        if (!row) {
+          row = { id: newId("cat"), ...create };
+          state.serviceCategory.push(row);
+        }
+        return row;
+      },
+    },
+    quoteScopeGroup: {
+      create: async ({ data }) => {
+        const row = { id: newId("grp"), ...data };
+        state.quoteScopeGroup.push(row);
+        return row;
+      },
+      updateMany: async ({ where, data }) => {
+        const rows = state.quoteScopeGroup.filter((r) => matches(r, where));
+        rows.forEach((r) => Object.assign(r, data));
+        return { count: rows.length };
+      },
+      // Singular update, matched by unique id — what updateImportMarkup uses
+      // for the re-scale path (as distinct from reconcileScopeGroups' by-set
+      // updateMany above).
+      update: async ({ where, data }) => {
+        const row = state.quoteScopeGroup.find((r) => matches(r, where));
+        if (row) Object.assign(row, data);
+        return row;
+      },
+      deleteMany: async ({ where }) => {
+        const before = state.quoteScopeGroup.length;
+        state.quoteScopeGroup = state.quoteScopeGroup.filter((r) => !matches(r, where));
+        return { count: before - state.quoteScopeGroup.length };
+      },
+      findMany: async ({ where } = {}) => state.quoteScopeGroup.filter((r) => matches(r, where)),
+      findFirst: async ({ where } = {}) =>
+        state.quoteScopeGroup.find((r) => matches(r, where)) || null,
+    },
+    quoteImport: {
+      create: async ({ data }) => {
+        // The DB-level @@unique([targetQuoteId, sourceQuoteId]) — scripted
+        // here, not skipped, because "does the unique constraint actually
+        // stop a double import" is exactly what section 9b needs to execute
+        // rather than take on faith.
+        const dup = state.quoteImport.find(
+          (r) =>
+            r.targetQuoteId === data.targetQuoteId &&
+            r.sourceQuoteId === data.sourceQuoteId,
+        );
+        if (dup) {
+          const err = new Error("Unique constraint failed on (targetQuoteId, sourceQuoteId)");
+          err.code = "P2002";
+          throw err;
+        }
+        const row = { id: newId("imp"), ...data };
+        state.quoteImport.push(row);
+        return row;
+      },
+      findMany: async ({ where } = {}) => state.quoteImport.filter((r) => matches(r, where)),
+      findFirst: async ({ where } = {}) => {
+        const row = state.quoteImport.find((r) => matches(r, where));
+        if (!row) return null;
+        const q = state.quote.find((qq) => qq.id === row.targetQuoteId);
+        return {
+          ...row,
+          targetQuote: q
+            ? { status: q.status, discount: q.discount, taxEnabled: q.taxEnabled }
+            : null,
+        };
+      },
+      update: async ({ where, data }) => {
+        const row = state.quoteImport.find((r) => matches(r, where));
+        if (row) Object.assign(row, data);
+        return row;
+      },
+      delete: async ({ where }) => {
+        const i = state.quoteImport.findIndex((r) => matches(r, where));
+        if (i >= 0) state.quoteImport.splice(i, 1);
+      },
+    },
+    quote: {
+      update: async ({ where, data }) => {
+        const row = state.quote.find((r) => matches(r, where));
+        if (row) Object.assign(row, data);
+        return row;
+      },
+    },
+    expense: { delete: async () => {} },
+  };
+
+  return {
+    state,
+    ...tx,
+    $transaction: async (fn) => {
+      const snapshot = JSON.parse(JSON.stringify(state));
+      try {
+        return await fn(tx);
+      } catch (err) {
+        Object.keys(state).forEach((k) => {
+          state[k] = snapshot[k];
+        });
+        throw err;
+      }
+    },
+  };
+}
+
+const member = { companyId: "gc1", userId: "u1" };
+const targetCompany = { taxRate: 0 };
+
+// The reported figures. 8,261.00 is invented to complete the picture — the
+// only number the owner reported was the total, and this is the one existing
+// line that makes 8,261.00 + 9,871.68 land on 18,132.68 to the cent.
+const SOURCE_COST = 9871.68;
+const EXISTING_GROUP_SUBTOTAL = 8261.0;
+const REPORTED_TOTAL = 18132.68;
+
+function freshFixture() {
+  const db = makeFakeDb();
+  db.state.quote.push({
+    id: "tq14",
+    companyId: "gc1",
+    status: "draft",
+    discount: 0,
+    taxEnabled: false,
+  });
+  const existingGroup = {
+    id: "existing-painting",
+    quoteId: "tq14",
+    subtotal: EXISTING_GROUP_SUBTOTAL,
+  };
+  db.state.quoteScopeGroup.push(existingGroup);
+  const sourceQuote = {
+    id: "src2",
+    companyId: "subco",
+    total: SOURCE_COST,
+    scopeGroups: [],
+  };
+  const targetQuote = {
+    id: "tq14",
+    companyId: "gc1",
+    status: "draft",
+    discount: 0,
+    taxEnabled: false,
+    scopeGroups: [existingGroup],
+  };
+  return { db, sourceQuote, targetQuote };
+}
+
+console.log(
+  `\n  fixture: existing group ${EXISTING_GROUP_SUBTOTAL.toFixed(2)} + subcontract cost ${SOURCE_COST.toFixed(2)} = ${REPORTED_TOTAL.toFixed(2)}\n`,
+);
+
+// ── 9a. One import ───────────────────────────────────────────────────────
+{
+  const { db, sourceQuote, targetQuote } = freshFixture();
+  const result = await performImport({
+    db,
+    member,
+    sourceQuote,
+    targetQuote,
+    targetCompany,
+    markupPercent: 0,
+    display: "blended",
+  });
+
+  eq("9a: exactly one scope group holds the import", db.state.quoteScopeGroup.length, 2);
+  eq("9a: exactly one QuoteImport row", db.state.quoteImport.length, 1);
+  eq("9a: the group's line item description matches buildGroupLines", result.group.lineItems[0].description, "Subcontracted work");
+  eq("9a: the group's subtotal is the source cost, no markup", Number(result.group.subtotal), SOURCE_COST);
+  eq(
+    "9a: recomputeQuoteTotals matches the OWNER'S REPORTED TOTAL exactly",
+    result.targetTotal,
+    REPORTED_TOTAL,
+  );
+  ok(
+    "9a: that total is NOT source cost doubled (2 x 9,871.68 = 19,743.36)",
+    Math.round(result.targetTotal * 100) !== Math.round(SOURCE_COST * 2 * 100),
+    `${result.targetTotal} vs ${SOURCE_COST * 2}`,
+  );
+
+  // ── This is the actual bug: the header (label+subtotal) and the sole line
+  // item (description+amount) are textually and numerically identical, so
+  // every render surface draws the same $9,871.68 twice.
+  ok(
+    "9a: group label and its one line item read as the SAME text — the visible duplicate",
+    result.group.label === result.group.lineItems[0].description,
+    `label="${result.group.label}" item="${result.group.lineItems[0].description}"`,
+  );
+  eq(
+    "9a: FIX — visibleLineItems collapses the redundant row for display",
+    visibleLineItems(result.group).length,
+    0,
+  );
+  eq(
+    "9a: …but the STORED line item is untouched (groupSubtotal still reads it)",
+    groupSubtotal({ persisted: true, lineItems: result.group.lineItems }, null),
+    SOURCE_COST,
+  );
+}
+
+// ── 9b. The same source quote imported twice ────────────────────────────
+{
+  const { db, sourceQuote, targetQuote } = freshFixture();
+  await performImport({ db, member, sourceQuote, targetQuote, targetCompany, markupPercent: 0, display: "blended" });
+
+  let threw = null;
+  try {
+    // targetQuote here is stale on purpose — the route re-reads it, but a
+    // double-click races the SAME snapshot, which is the case worth proving.
+    await performImport({ db, member, sourceQuote, targetQuote, targetCompany, markupPercent: 0, display: "blended" });
+  } catch (err) {
+    threw = err;
+  }
+  ok("9b: the second import is refused", threw instanceof ImportError, String(threw));
+  eq("9b: refused with 409, not a silent 200", threw?.status, 409);
+  eq(
+    "9b: still exactly one imported group — the create rolled back with the P2002",
+    db.state.quoteScopeGroup.length,
+    2,
+  );
+  eq("9b: still exactly one QuoteImport row", db.state.quoteImport.length, 1);
+}
+
+// ── 9c. Editor save round-trip (id preserved, as the real GET→builder→PATCH
+// chain sends it — see groupFromStored/scopeGroupPayload) ──────────────────
+{
+  const { db, sourceQuote, targetQuote } = freshFixture();
+  const { group } = await performImport({
+    db, member, sourceQuote, targetQuote, targetCompany, markupPercent: 0, display: "blended",
+  });
+
+  // What GET /api/quotes/[id] → groupFromStored → scopeGroupPayload actually
+  // produces for a persisted, imported group: `persisted: true`, `id` carried
+  // through, lineItems read back via lineItemsFromStored.
+  const reopened = {
+    tempId: group.id,
+    id: group.id,
+    persisted: true,
+    imported: true,
+    categoryId: group.categoryId,
+    label: group.label,
+    intakeValues: {},
+    takeoff: null,
+    lineItems: lineItemsFromStored(group.lineItems),
+  };
+  const incoming = [
+    { id: "existing-painting", categoryId: "cat-paint", label: "Painting", lineItems: [], subtotal: EXISTING_GROUP_SUBTOTAL },
+    scopeGroupPayload(reopened, null),
+  ];
+
+  await db.$transaction(async (tx) => {
+    await reconcileScopeGroups(tx, "tq14", incoming);
+    await reconcileImportsForQuote(tx, "tq14");
+  });
+
+  eq("9c: the id survives GET -> builder -> PATCH, so the SAME row is updated, not a new one", db.state.quoteScopeGroup.length, 2);
+  eq("9c: the QuoteImport linkage survives the save", db.state.quoteImport.length, 1);
+  const savedGroup = db.state.quoteScopeGroup.find((r) => r.id === group.id);
+  eq("9c: the subtotal a normal save recomputes still matches the import", Number(savedGroup.subtotal), SOURCE_COST);
+}
+
+// ── 9d. Falsifying the id-dropping hypothesis ────────────────────────────
+//
+// The working theory going in was that the editor could send the imported
+// group back WITHOUT its id (or with one that fails to match) and that
+// reconcileScopeGroups' "create on no match" branch would then create a
+// SECOND group beside the first. Executed below: it does not. deleteMany's
+// `notIn: keepIds` prunes anything not present in the SAME incoming payload
+// BEFORE the create-on-no-match loop runs, so a missing/foreign id replaces
+// the row (new id, same data) rather than duplicating it — and
+// reconcileImportsForQuote then deletes the now-orphaned QuoteImport, since
+// its targetLineId no longer matches any group. That is data LOSS, a real
+// and separate risk, but it is not the reported duplicate.
+{
+  const { db, sourceQuote, targetQuote } = freshFixture();
+  const { group } = await performImport({
+    db, member, sourceQuote, targetQuote, targetCompany, markupPercent: 0, display: "blended",
+  });
+
+  const idDropped = [
+    { id: "existing-painting", categoryId: "cat-paint", label: "Painting", lineItems: [], subtotal: EXISTING_GROUP_SUBTOTAL },
+    // No `id` — as if the browser round-trip had lost it.
+    { categoryId: group.categoryId, label: group.label, lineItems: group.lineItems, subtotal: group.subtotal },
+  ];
+  await db.$transaction(async (tx) => {
+    await reconcileScopeGroups(tx, "tq14", idDropped);
+    await reconcileImportsForQuote(tx, "tq14");
+  });
+
+  eq(
+    "9d: an id-dropped save produces ONE group, not two — replaced, not duplicated",
+    db.state.quoteScopeGroup.length,
+    2,
+  );
+  ok(
+    "9d: …with a REGENERATED id, proving the hypothesis wrong",
+    !db.state.quoteScopeGroup.some((r) => r.id === group.id),
+    "the original row is gone, not doubled",
+  );
+  eq(
+    "9d: the id-dropping hypothesis's real cost is the import link, silently deleted",
+    db.state.quoteImport.length,
+    0,
+  );
+}
+
+// ── 9e. Markup changed after import (the re-scale path) ─────────────────
+{
+  const { db, sourceQuote, targetQuote } = freshFixture();
+  const { import: imp } = await performImport({
+    db, member, sourceQuote, targetQuote, targetCompany, markupPercent: 0, display: "blended",
+  });
+
+  const rescaled = await updateImportMarkup({
+    db, member, quoteId: "tq14", importId: imp.id, markupPercent: 20, targetCompany,
+  });
+
+  eq("9e: re-scaling updates the SAME group, no new one", db.state.quoteScopeGroup.length, 2);
+  eq("9e: client price is cost x 1.20", rescaled.clientPrice, Math.round(SOURCE_COST * 1.2 * 100) / 100);
+  eq(
+    "9e: quote total reflects the new markup, still just this group + the other",
+    rescaled.targetTotal,
+    Math.round((EXISTING_GROUP_SUBTOTAL + rescaled.clientPrice) * 100) / 100,
+  );
+  const rescaledGroup = db.state.quoteScopeGroup.find((r) => r.id === imp.targetLineId);
+  eq(
+    "9e: FIX still holds after a re-scale — label and item still collapse to one visible row",
+    visibleLineItems(rescaledGroup).length,
+    0,
+  );
+}
+
+// ── 9f. visibleLineItems does not over-suppress ──────────────────────────
+{
+  const base = { label: "Subcontracted work", subtotal: 100 };
+  eq(
+    "9f: default blended import collapses",
+    visibleLineItems({ ...base, lineItems: [{ description: "Subcontracted work", amount: 100, quantity: 1 }] }).length,
+    0,
+  );
+  eq(
+    "9f: itemized (multiple real lines) is untouched",
+    visibleLineItems({
+      ...base,
+      lineItems: [
+        { description: "Rough-in", amount: 60, quantity: 1 },
+        { description: "Fixtures", amount: 40, quantity: 1 },
+      ],
+    }).length,
+    2,
+  );
+  eq(
+    "9f: a custom label paired with the generic item text is NOT hidden — the texts differ",
+    visibleLineItems({
+      label: "Electrical — ABC Corp",
+      subtotal: 100,
+      lineItems: [{ description: "Subcontracted work", amount: 100, quantity: 1 }],
+    }).length,
+    1,
+  );
+  eq(
+    "9f: a quantity above 1 carries information the header doesn't — kept",
+    visibleLineItems({ ...base, lineItems: [{ description: "Subcontracted work", amount: 100, quantity: 3 }] }).length,
+    1,
+  );
+  eq(
+    "9f: a detail paragraph is kept even when the text matches",
+    visibleLineItems({ ...base, lineItems: [{ description: "Subcontracted work", amount: 100, quantity: 1, detail: "Scope notes" }] }).length,
+    1,
+  );
+  eq(
+    "9f: an amount that disagrees with the header is a real discrepancy — kept, not hidden",
+    visibleLineItems({ ...base, lineItems: [{ description: "Subcontracted work", amount: 87, quantity: 1 }] }).length,
+    1,
+  );
+  eq(
+    "9f: an empty group is untouched (nothing to collapse)",
+    visibleLineItems({ ...base, lineItems: [] }).length,
+    0,
+  );
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 

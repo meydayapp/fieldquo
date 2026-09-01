@@ -930,6 +930,33 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **A subcontracted line reading twice on a quote was a display bug, not a
+  double-charge — full reconciliation in `docs/SUBCONTRACT-DUPLICATION.md`.
+  `lib/quotes/scopeGroupDisplay.js` (new), `lib/email/quoteSections.js`,
+  `app/app/quotes/[id]/page.js`, `app/q/[token]/QuoteApproval.js`,
+  `app/components/quotes/builder/QuoteBuilder.js`,
+  `scripts/check-quote-builder.mjs`.**
+
+  Reported live: quote Q-2026-0014 showed "Subcontracted work $9,871.68"
+  twice, total $18,132.68. $9,871.68 × 2 is $19,743.36 — more than the total —
+  so the total was never doubling the line; a card's header (label +
+  subtotal) and its one line item (description + amount) were. A blended
+  subcontractor import defaults BOTH to the literal string "Subcontracted
+  work" (`buildGroupLines` in `lib/quotes/importQuote.js`), so every render
+  surface — app quote page, PDF, email, and the public `/q/[token]` approval
+  page a homeowner or the GC's client could already have received — drew the
+  same figure twice, adjacently. `visibleLineItems()` hides a group's line
+  item at RENDER time only when it repeats the header's text and amount
+  exactly (same description as label, same amount as subtotal, quantity 1, no
+  detail) — stored data is untouched, because `groupSubtotal` recomputes a
+  persisted group's subtotal FROM its line items on every editor save, and an
+  emptied-out line item would have zeroed real money on the next save. The
+  "editor drops the imported group's id" hypothesis that prompted this
+  investigation was executed and disproved: dropping the id replaces the row
+  (new id) rather than duplicating it, and orphans the `QuoteImport` link —
+  a real, different, unfixed risk (imported costs vanishing, not doubling),
+  noted in the doc for a future pass. No existing data was touched.
+
 - **A caller who is a danger to themselves is now handled — everywhere a
   model's words reach a person, not just the receptionist.
   `lib/ai/crisisRule.js` (new), `lib/voice/prompt.js`,

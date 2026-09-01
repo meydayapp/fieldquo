@@ -20,6 +20,7 @@ import { documentLabels, documentFormatters } from "@/lib/i18n/documentLabels";
 import { clientDocCopy } from "@/lib/i18n/clientDocCopy";
 import { monthlyPayment } from "@/lib/financing/monthlyEstimate";
 import { jsonBody } from "@/lib/jsonBody";
+import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 
 export default function QuoteApproval({ token }) {
   const [quote, setQuote] = useState(null);
@@ -390,7 +391,11 @@ export default function QuoteApproval({ token }) {
                   )}
 
                   <div className="space-y-1.5">
-                    {g.lineItems.map((li, j) => (
+                    {/* Not g.lineItems directly — a blended subcontractor
+                        import's one line repeats the card head above word
+                        for word, dollar for dollar. See
+                        lib/quotes/scopeGroupDisplay.js. */}
+                    {visibleLineItems(g).map((li, j) => (
                       <div key={j}>
                         <div className="flex justify-between gap-4 text-sm text-[#2d2520]">
                           <span>

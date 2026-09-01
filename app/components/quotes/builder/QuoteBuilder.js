@@ -98,6 +98,7 @@ import { jsonBody } from "@/lib/jsonBody";
 import { resolveDocumentTax } from "@/lib/tax/documentTax";
 import { quoteTotals, round2 } from "@/lib/quotes/totals";
 import { defaultValidUntil } from "@/lib/quotes/validUntil";
+import { visibleLineItems } from "@/lib/quotes/scopeGroupDisplay";
 import { LANGUAGES } from "@/app/i18n/languages";
 import { useHasLevel, useHasToggle } from "@/app/providers/PermissionProvider";
 
@@ -1855,7 +1856,11 @@ export function QuoteBuilderForm({
 
             {locked ? (
               <div className="space-y-1.5">
-                {(group.lineItems || []).map((item, li) => (
+                {/* Not group.lineItems directly — ScopeGroupCard above already
+                    shows this group's label and subtotal; a blended
+                    subcontractor import's one line item repeats both, word
+                    for word. See lib/quotes/scopeGroupDisplay.js. */}
+                {visibleLineItems(group).map((item, li) => (
                   <div
                     key={li}
                     className="flex justify-between gap-3 text-sm text-muted-foreground"
