@@ -5736,3 +5736,64 @@ what was deliberately left uncovered (the website builder's first-run screen
 has no stable anchor; `JobCosting`/`JobMaterials`/`JobTasks` all `return null`
 on an empty job, so they got no anchor either), and what a browser-less
 session couldn't verify: `docs/TOUR-COVERAGE.md`.
+
+## Publish to Instagram/Facebook from the Marketing Designer (built, blocked on Meta App Review)
+
+Full design and status in `docs/SOCIAL-PUBLISHING.md` — this entry is the
+short version for the roadmap.
+
+**What's real:** a Publish button on the Marketing Designer's campaign editor
+(`app/components/designer/CampaignEditor.js`) opens
+`app/components/designer/PublishModal.js` — a preview of the exact rendered
+JPEG, a caption editor enforcing Instagram's real 2200-char/30-hashtag/
+20-mention limits, and a platform picker. Confirming calls
+`app/api/marketing/designer/designs/[id]/publish/route.js`, which uploads
+the asset to Cloudinary and runs the real container-then-publish flow
+(`lib/social/publishDesign.js`, `lib/social/metaGraphClient.js`) against
+Instagram's `/media` → poll → `/media_publish` state machine and Facebook's
+single-call Page photo post, recording every attempt to the new
+`SocialPublish` model. Every rule (aspect ratio, caption limits, the
+container status machine, the rolling `content_publishing_limit`, Facebook's
+native `scheduled_publish_time` window) lives in `lib/social/metaSpecs.js`,
+pure and hostile-input-tested — 119 executed assertions added to
+`scripts/check-designer-reach.mjs` and `scripts/check-ad-ratios.mjs`, four
+mutations run against them, all caught.
+
+**What's not real yet:** the connection. `lib/social/metaConnection.js`
+always returns `connected: false` — there is no Meta OAuth/per-tenant token
+storage in this codebase, by design (a sibling worktree owns that, per
+`docs/META-ADS-INTEGRATION.md`'s shared research). The Publish button and
+modal are fully honest about this: they render (per AGENTS.md, a real
+"coming soon" beats a hidden or dead control) and everything up to the
+actual Meta call works today, but the dialog states plainly that publishing
+isn't connected rather than faking a result. **No real publish call has ever
+been made — there are no Meta credentials in this environment.**
+
+**Blocked on, independent of the OAuth layer landing:** `instagram_content_
+publish` and `pages_manage_posts` both require Meta App Review and Business
+Verification — weeks, not days, per the same research already on file for
+the ads/insights import. This cannot go live for real customers until that
+clears, on top of the OAuth connection existing at all.
+
+**Scheduling — the finding and the decision:** Facebook Page posts support
+native scheduling (`scheduled_publish_time`, 10 minutes–75 days out) — Meta
+holds and publishes it, so it's implemented in `lib/social/metaGraphClient.js`
+and `lib/social/publishDesign.js` but not exposed in the UI yet (a date/time
+picker is a small, separate addition). **Instagram's Content Publishing API
+has no scheduling parameter for organic posts at all** — third-party
+schedulers fake it by holding the content and calling the real API at the
+right time, which for FieldQuo means a queue and a cron, not a client
+publish parameter. Decided out of scope for this build to keep the change
+proportionate to what was asked (a Publish control, not a new job-queue
+subsystem) — revisit if/when Instagram scheduling is specifically requested.
+
+**New processor entry:** `lib/legal/processors.js`'s `meta-content-publishing`
+— what Meta receives (the rendered ad image via a public Cloudinary URL, the
+caption, the company's own Page/IG ids and token) and what it doesn't
+(no homeowner data — this publishes the company's own advertisement, not a
+client record). `scripts/check-legal-pages.mjs` passes with 15 verified
+processors.
+
+**Not built:** the Settings screen to actually connect a Meta Business
+account (belongs with the OAuth layer), a scheduling UI for Facebook, and
+Instagram's own hold-and-post scheduling queue (see above).

@@ -63,10 +63,11 @@
 // disabled here.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fabric } from "fabric";
-import { ArrowLeft, Download, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Download, Share2, TriangleAlert } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { reportResponseError } from "@/lib/clientErrors";
 import DesignerLoader from "@/app/components/designer/DesignerLoader";
+import PublishModal from "@/app/components/designer/PublishModal";
 import { JSON_KEYS } from "@/lib/designer/constants";
 import { downloadFile } from "@/lib/designer/utils";
 import {
@@ -78,9 +79,16 @@ import {
   assetFilename,
 } from "@/lib/marketing/ratios";
 
-// Renders `doc` (a parsed fabric document) to a PNG data URL on an offscreen
-// canvas, never touching the live editor.
-function rasterize(doc, fallbackWidth, fallbackHeight) {
+// Renders `doc` (a parsed fabric document) to a data URL on an offscreen
+// canvas, never touching the live editor. `format` defaults to "png" for
+// "download all" (unchanged behaviour); the social publish flow below passes
+// "jpeg" because Instagram's Content Publishing API only accepts JPEG
+// (lib/social/metaSpecs.js's INSTAGRAM_IMAGE_SPEC) — a PNG export would fail
+// on Meta's side with an error naming a format nobody on this screen chose.
+// Resolves with the pixel size actually rendered, not just the data URL: the
+// publish flow validates that size against Instagram's aspect-ratio rule
+// before ever uploading it.
+function rasterize(doc, fallbackWidth, fallbackHeight, format = "png") {
   return new Promise((resolve) => {
     const el = document.createElement("canvas");
     const canvas = new fabric.StaticCanvas(el, { width: fallbackWidth, height: fallbackHeight });
@@ -99,10 +107,25 @@ function rasterize(doc, fallbackWidth, fallbackHeight) {
       // offscreen canvas has no window to inherit a size from, so it is
       // sized explicitly to contain the crop before cropping it.
       canvas.setDimensions({ width: left + width, height: top + height });
+      // JPEG has no alpha channel — an unset canvas background composites
+      // transparent pixels as BLACK per the canvas spec, which would turn
+      // any design with see-through areas into a black rectangle behind the
+      // artwork the moment it's exported for social. PNG already has no such
+      // problem (alpha survives), so this only applies to the jpeg path.
+      if (format === "jpeg") canvas.backgroundColor = "#ffffff";
       canvas.renderAll();
-      const dataUrl = canvas.toDataURL({ format: "png", width, height, left, top });
+      // quality:0.92 keeps the file well under Instagram's 8MB cap at these
+      // pixel sizes without a visible loss on a phone screen.
+      const dataUrl = canvas.toDataURL({
+        format,
+        quality: format === "jpeg" ? 0.92 : undefined,
+        width,
+        height,
+        left,
+        top,
+      });
       canvas.dispose();
-      resolve(dataUrl);
+      resolve({ dataUrl, width, height });
     });
   });
 }
@@ -132,6 +155,7 @@ export function CampaignEditor({ design, onBack }) {
   });
   const [editorInstance, setEditorInstance] = useState(undefined);
   const [downloading, setDownloading] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   // Keyed by ratioKey -> { json (parsed object), width, height }. A ref, not
   // state: read synchronously from inside the tab-click handler and the
@@ -202,44 +226,57 @@ export function CampaignEditor({ design, onBack }) {
     setActiveRatio(ratioKey);
   }
 
-  async function handleDownloadAll() {
-    if (!editorInstance || downloading) return;
-    setDownloading(true);
-    try {
-      const liveDoc = editorInstance.canvas.toJSON(JSON_KEYS);
+  // The "what document, what pixel size, for this one ratio" resolution —
+  // live-on-screen if it's the open tab (so a download or a publish never
+  // ships a stale version of the tab you're LOOKING at, which would be its
+  // own dead-control failure), else the saved layout, else a fresh reflow()
+  // for a ratio nobody has opened yet. Shared by handleDownloadAll's loop
+  // below and preparePublishAsset() (PublishModal.js's caller) — both need
+  // the exact same answer to "what would ratio X actually render as right
+  // now", and this was two copies of that question before the social flow
+  // needed to ask it a second time.
+  const resolveRatioFrame = useCallback(
+    (ratioKey) => {
+      if (!editorInstance) return null;
       const liveWorkspace = editorInstance.getWorkspace();
       const liveFrame = liveWorkspace
         ? { width: liveWorkspace.width, height: liveWorkspace.height }
         : null;
 
+      if (ratioKey === activeRatio && liveFrame) {
+        return { doc: editorInstance.canvas.toJSON(JSON_KEYS), frame: liveFrame };
+      }
+
+      const saved = layoutsRef.current[ratioKey];
+      if (saved) {
+        return { doc: saved.json, frame: { width: saved.width, height: saved.height } };
+      }
+
+      if (liveFrame) {
+        const r = ratioByKey(ratioKey);
+        if (!r) return null;
+        const liveDoc = editorInstance.canvas.toJSON(JSON_KEYS);
+        return {
+          doc: reflow(liveDoc, liveFrame, { width: r.width, height: r.height }),
+          frame: { width: r.width, height: r.height },
+        };
+      }
+
+      return null;
+    },
+    [editorInstance, activeRatio],
+  );
+
+  async function handleDownloadAll() {
+    if (!editorInstance || downloading) return;
+    setDownloading(true);
+    try {
       for (const r of AD_RATIOS) {
-        let doc;
-        let frame;
-        if (r.key === activeRatio && liveFrame) {
-          // Whatever is actually on screen right now, even if the last
-          // keystroke hasn't cleared Editor.js's 500ms debounce yet — a
-          // "download all" that ships a stale version of the tab you're
-          // LOOKING at would be its own dead-control failure.
-          doc = liveDoc;
-          frame = liveFrame;
-        } else {
-          const saved = layoutsRef.current[r.key];
-          if (saved) {
-            doc = saved.json;
-            frame = { width: saved.width, height: saved.height };
-          } else if (liveFrame) {
-            // Never visited: derive a starting layout the same way a tab
-            // click would, via the same reflow() this whole feature is
-            // built on — no fabric needed to COMPUTE it, only to render it.
-            doc = reflow(liveDoc, liveFrame, { width: r.width, height: r.height });
-            frame = { width: r.width, height: r.height };
-          } else {
-            continue;
-          }
-        }
+        const resolved = resolveRatioFrame(r.key);
+        if (!resolved) continue;
 
         // eslint-disable-next-line no-await-in-loop
-        const dataUrl = await rasterize(doc, frame.width, frame.height);
+        const { dataUrl } = await rasterize(resolved.doc, resolved.frame.width, resolved.frame.height, "png");
         downloadFile(dataUrl, "png", assetFilename(design?.campaign?.name, r.key));
         // A browser blocks a burst of same-tick downloads as a popup storm;
         // spacing them out is what keeps all five actually landing.
@@ -250,6 +287,27 @@ export function CampaignEditor({ design, onBack }) {
       setDownloading(false);
     }
   }
+
+  // For PublishModal: rasterise ONE ratio as a JPEG (Instagram's required
+  // format — see the rasterize() header) and hand back the data URL plus the
+  // pixel size actually rendered, so the modal can run
+  // lib/social/metaSpecs.js's validateImageForInstagram() against the REAL
+  // output before anything is uploaded, not against AD_RATIOS' nominal
+  // width/height which a hand-adjusted layout may no longer match exactly.
+  const preparePublishAsset = useCallback(
+    async (ratioKey) => {
+      const resolved = resolveRatioFrame(ratioKey);
+      if (!resolved) return null;
+      const { dataUrl, width, height } = await rasterize(
+        resolved.doc,
+        resolved.frame.width,
+        resolved.frame.height,
+        "jpeg",
+      );
+      return { dataUrl, width, height };
+    },
+    [resolveRatioFrame],
+  );
 
   // Computed ONCE, off the design this component mounted with — Editor.js
   // reads initialData through a useRef on mount and never again (its own
@@ -319,6 +377,20 @@ export function CampaignEditor({ design, onBack }) {
           <Download size={13} />
           {downloading ? t("app.marketingDesigner.downloading") : t("app.marketingDesigner.downloadAll")}
         </button>
+
+        {/* Visible always, per AGENTS.md's "don't render a dead button" —
+            the modal itself is what stays honest about Instagram/Facebook
+            not being connected yet, rather than hiding or disabling the
+            entry point (see PublishModal.js's own header). */}
+        <button
+          type="button"
+          onClick={() => setPublishOpen(true)}
+          disabled={!editorInstance}
+          className="flex items-center gap-2 bg-inverted text-inverted-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
+        >
+          <Share2 size={13} />
+          {t("app.marketingDesigner.publish")}
+        </button>
       </div>
 
       {anyOverflow && (
@@ -337,6 +409,13 @@ export function CampaignEditor({ design, onBack }) {
           onEditorReady={setEditorInstance}
         />
       </div>
+
+      <PublishModal
+        isOpen={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        design={design}
+        preparePublishAsset={preparePublishAsset}
+      />
     </div>
   );
 }
