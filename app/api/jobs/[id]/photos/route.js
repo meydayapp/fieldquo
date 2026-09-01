@@ -2,13 +2,24 @@
 //
 // The photos on a job, and curating them for the website.
 //
-// GET   → this job's JobPhoto rows (with stage + featured), newest first.
-// PATCH → feature/unfeature a photo, change its stage, set a caption, OR
-//         save/clear its markup layer (see the annotation block below).
+// GET   → this job's JobPhoto rows (with stage + featured + tags), newest first.
+// PATCH → feature/unfeature a photo, change its stage, set a caption,
+//         save/clear its markup layer (see the annotation block below), OR
+//         change which company-defined tags (lib/gallery/tags.js) sit on it.
 //
 // Featuring is what lifts a photo onto the public site, so it's gated on the
 // same company scope every job route uses — a photo can only be curated by
 // someone in the company that owns the job.
+//
+// ── Tags never touch `stage` ────────────────────────────────────────────────
+//
+// tagIds below writes JobPhotoTagOnPhoto rows only. It never sets `stage` and
+// never reads a tag's NAME to decide anything — a company could name a tag
+// "issue" and this route would treat it exactly like a tag named "sanding",
+// because nothing here compares a tag string against the word "issue". The
+// privacy boundary two blocks down (`data.featured === true` → refuse an
+// `issue`-STAGE photo) is the only "issue" this file knows about, and tags
+// cannot reach it. See prisma/schema.prisma's JobPhotoTag comment.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -19,6 +30,28 @@ import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
 import { sanitiseAnnotationJson } from "@/lib/jobs/photoAnnotation";
+
+// Same shape at every query site in this file, so GET/POST/PATCH can never
+// disagree about what a "photo" looks like to the caller.
+//
+// The full markup layer comes along with the list, not through a second
+// round-trip when someone taps "Annotate" — this route is already the one
+// and only place JobPhotoCurator.js reads a job's photos from, and
+// PhotoAnnotatorEditor.js opens against whichever photo object the curator
+// already has in state. annotationJson is capped at MAX_ANNOTATION_JSON_BYTES
+// (300KB) per photo, so this stays bounded even for a job with many
+// annotated photos.
+const PHOTO_SELECT = {
+  id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
+  annotationJson: true, annotationWidth: true, annotationHeight: true,
+  flattenedUrl: true, annotationUpdatedAt: true,
+  tags: { select: { tag: { select: { id: true, name: true, color: true, active: true } } } },
+};
+
+/** JobPhotoTagOnPhoto rows flattened to a plain `tags: [{id,name,color,active}]` array. */
+function flattenTags(photo) {
+  return { ...photo, tags: (photo.tags || []).map((row) => row.tag) };
+}
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -45,23 +78,23 @@ export async function GET(request, { params }) {
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
-      // The full markup layer comes along with the list, not through a
-      // second round-trip when someone taps "Annotate" — this route is
-      // already the one and only place JobPhotoCurator.js reads a job's
-      // photos from, and PhotoAnnotatorEditor.js opens against whichever
-      // photo object the curator already has in state. annotationJson is
-      // capped at MAX_ANNOTATION_JSON_BYTES (300KB) per photo, so this
-      // stays bounded even for a job with many annotated photos.
-      annotationJson: true, annotationWidth: true, annotationHeight: true,
-      flattenedUrl: true, annotationUpdatedAt: true,
-    },
+    select: PHOTO_SELECT,
+  });
+
+  // Only ACTIVE tags are offered for a NEW selection — a retired one stays
+  // visible on whatever photo already carries it (see flattenTags above) but
+  // drops out of the picker, same as Worker.active hides a departed worker
+  // from new assignments without touching their history.
+  const companyTags = await db.jobPhotoTag.findMany({
+    where: { companyId: member.companyId, active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, color: true },
   });
 
   return NextResponse.json({
-    photos,
+    photos: photos.map(flattenTags),
     stages: Object.values(STAGES).map((s) => ({ key: s.key, label: s.label })),
+    tags: companyTags,
   });
 }
 
@@ -106,9 +139,10 @@ export async function POST(request, { params }) {
   // job they aren't on — assignedJobWhere below narrows that exactly as it
   // does for GET.
   //
-  // Featuring a photo onto the public website, or re-staging it, is a
-  // curation decision and stays at view_create_edit on PATCH below — that
-  // distinction is deliberate, not a leftover.
+  // Featuring a photo onto the public website, re-staging it, annotating it
+  // or changing its tags is a curation decision and stays at
+  // view_create_edit on PATCH below — that distinction is deliberate, not a
+  // leftover.
   const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
@@ -155,20 +189,9 @@ export async function POST(request, { params }) {
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
-      // The full markup layer comes along with the list, not through a
-      // second round-trip when someone taps "Annotate" — this route is
-      // already the one and only place JobPhotoCurator.js reads a job's
-      // photos from, and PhotoAnnotatorEditor.js opens against whichever
-      // photo object the curator already has in state. annotationJson is
-      // capped at MAX_ANNOTATION_JSON_BYTES (300KB) per photo, so this
-      // stays bounded even for a job with many annotated photos.
-      annotationJson: true, annotationWidth: true, annotationHeight: true,
-      flattenedUrl: true, annotationUpdatedAt: true,
-    },
+    select: PHOTO_SELECT,
   });
-  return NextResponse.json({ added: rows.length, photos });
+  return NextResponse.json({ added: rows.length, photos: photos.map(flattenTags) });
 }
 
 export async function PATCH(request, { params }) {
@@ -178,7 +201,12 @@ export async function PATCH(request, { params }) {
 
   // Featuring lifts a photo onto the company's public website, and this route
   // asked for nothing but a session and a company match. It sits at the same
-  // level as the job's other edits — materials, status, the job itself.
+  // level as the job's other edits — materials, status, the job itself. Every
+  // write this route can make — feature/stage/caption, annotation, tags —
+  // stays behind this ONE level check, so a crew member (jobs:view_only)
+  // 403s on all of them alike. That is why every one of those controls in
+  // JobPhotoCurator.js is gated on canCurate: an ungated button here would be
+  // the same dead-control failure the upload button was fixed for.
   const { full, response: denied } = await levelOrRefusal(
     member,
     "jobs",
@@ -220,6 +248,12 @@ export async function PATCH(request, { params }) {
   if (typeof body.featured === "boolean") data.featured = body.featured;
   if (typeof body.stage === "string") data.stage = normaliseStage(body.stage);
   if (typeof body.caption === "string") data.caption = body.caption.trim().slice(0, 200) || null;
+
+  // tagIds is its own axis, separate from `data` above — it never sets
+  // `stage` and is validated/applied further down. A request that changes
+  // ONLY the tags (no scalar field) is legitimate, so the "nothing to change"
+  // guard below has to know about it too.
+  const wantsTagChange = Array.isArray(body.tagIds);
 
   // ── Markup layer: save or clear ─────────────────────────────────────────
   //
@@ -269,7 +303,7 @@ export async function PATCH(request, { params }) {
     oldFlattenedPublicId = photo.flattenedPublicId;
   }
 
-  if (!Object.keys(data).length) {
+  if (!Object.keys(data).length && !wantsTagChange) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
@@ -286,15 +320,9 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  const updated = await db.jobPhoto.update({
-    where: { id: photoId },
-    data,
-    select: {
-      id: true, stage: true, featured: true, caption: true,
-      annotationJson: true, annotationWidth: true, annotationHeight: true,
-      flattenedUrl: true, annotationUpdatedAt: true,
-    },
-  });
+  if (Object.keys(data).length) {
+    await db.jobPhoto.update({ where: { id: photoId }, data });
+  }
 
   // Best-effort cleanup, AFTER the row is safely updated — a Cloudinary
   // hiccup deleting last edit's asset must never roll back or fail a save
@@ -311,5 +339,47 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  return NextResponse.json({ ok: true, photo: updated });
+  // ── Sync tags ──────────────────────────────────────────────────────────
+  //
+  // Diffed against the current set rather than blindly deleteMany+createMany,
+  // so a request that only re-sends the tags it already had touches nothing.
+  // Only tags this COMPANY owns can be attached — a tag id from another
+  // tenant is silently dropped rather than erroring, the same tolerance
+  // `assignedJobWhere` extends to a stale candidate list elsewhere in this
+  // codebase, because the browser's own state can be a request behind the
+  // server's. A newly REQUESTED tag must be `active` (retired tags are hidden
+  // from the picker); a tag the photo already carries stays even if it was
+  // retired in between, because retiring must not un-tag existing photos.
+  if (wantsTagChange) {
+    const requestedIds = [...new Set(body.tagIds.filter((x) => typeof x === "string" && x))];
+    const [companyTags, currentJoins] = await Promise.all([
+      db.jobPhotoTag.findMany({
+        where: { companyId: member.companyId, id: { in: requestedIds } },
+        select: { id: true, active: true },
+      }),
+      db.jobPhotoTagOnPhoto.findMany({ where: { photoId }, select: { tagId: true } }),
+    ]);
+    const companyTagById = new Map(companyTags.map((t) => [t.id, t]));
+    const currentIds = new Set(currentJoins.map((j) => j.tagId));
+
+    const toAdd = requestedIds.filter((tagId) => {
+      if (currentIds.has(tagId)) return false; // already on the photo
+      const tag = companyTagById.get(tagId);
+      return tag && tag.active; // must be ours AND currently offerable
+    });
+    const toRemove = [...currentIds].filter((tagId) => !requestedIds.includes(tagId));
+
+    if (toRemove.length) {
+      await db.jobPhotoTagOnPhoto.deleteMany({ where: { photoId, tagId: { in: toRemove } } });
+    }
+    if (toAdd.length) {
+      await db.jobPhotoTagOnPhoto.createMany({
+        data: toAdd.map((tagId) => ({ photoId, tagId })),
+      });
+    }
+  }
+
+  const updated = await db.jobPhoto.findUnique({ where: { id: photoId }, select: PHOTO_SELECT });
+
+  return NextResponse.json({ ok: true, photo: flattenTags(updated) });
 }
