@@ -533,7 +533,7 @@ function LeadCard({ lead, tone, onOpen, t, dragHandle }) {
           ref={dragHandle.ref}
           {...dragHandle.attributes}
           {...dragHandle.listeners}
-          className="absolute right-1.5 top-1.5 z-10 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent cursor-grab active:cursor-grabbing touch-none"
+          className="absolute right-1.5 top-1.5 z-10 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent cursor-grab active:cursor-grabbing touch-none"
           aria-label={t("app.leads.dragHandle", "Drag to move")}
           title={t("app.leads.dragHandle", "Drag to move")}
         >

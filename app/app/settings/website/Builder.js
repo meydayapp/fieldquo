@@ -524,8 +524,19 @@ export default function Builder({ data, onReload }) {
   }
 
   // ── After: conversation left, live site right ───────────────────────────
+  //
+  // dvh, not vh: iOS Safari's vh includes the space behind its retracting
+  // chrome, so 100vh on a phone is always a bit taller than what's actually
+  // visible — the classic "bottom of the page is under the browser bar" bug.
+  //
+  // The 3.5rem clears AdminSidebar's own mobile top bar (h-14, lg:hidden);
+  // below `lg` this also has to clear MobileTabBar's fixed row (its h-16 +
+  // safe-area inset — same figures app/app/layout.js already reserves on
+  // `main`), or the chat input at the bottom of this flex column renders
+  // behind the tab bar instead of above it. lg:h-[100dvh] drops both
+  // subtractions once neither bar renders.
   return (
-    <div className="h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col">
+    <div className="h-[calc(100dvh-3.5rem-4rem-env(safe-area-inset-bottom))] lg:h-[100dvh] flex flex-col">
       {/* One slim bar. Everything that isn't the conversation or the site lives
           here or behind Fine-tune. */}
       <div className="shrink-0 flex items-center gap-2 px-4 sm:px-5 h-14 border-b border-border bg-card">

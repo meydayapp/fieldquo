@@ -546,7 +546,7 @@ export default function ExpenseTrackingPage() {
               new Date(monthDate.getFullYear(), monthDate.getMonth() - 1, 1),
             )
           }
-          className="p-1.5 rounded-full hover:bg-muted"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-muted"
           aria-label={t("app.setExpenses.prevMonth")}
         >
           <ChevronLeft size={18} />
@@ -560,7 +560,7 @@ export default function ExpenseTrackingPage() {
               new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1),
             )
           }
-          className="p-1.5 rounded-full hover:bg-muted"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full hover:bg-muted"
           aria-label={t("app.setExpenses.nextMonth")}
         >
           <ChevronRight size={18} />

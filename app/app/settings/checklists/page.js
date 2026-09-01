@@ -313,7 +313,7 @@ export default function ChecklistsPage() {
                         items: draft.items.filter((_, j) => j !== i),
                       })
                     }
-                    className="text-muted-foreground hover:text-red-600 dark:text-red-400 p-1 shrink-0"
+                    className="text-muted-foreground hover:text-red-600 dark:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
                     aria-label={t("app.setChecklists.removeStep")}
                   >
                     <Trash2 size={14} />
