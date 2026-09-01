@@ -20,6 +20,7 @@ import {
   Briefcase,
   ListChecks,
   X,
+  Camera,
 } from "lucide-react";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { fetchArray } from "@/lib/loadState";
@@ -72,6 +73,7 @@ export default function TasksPage() {
   // outstanding" with no error anywhere on the screen.
   const [tasks, setTasks] = useState(null);
   const [members, setMembers] = useState([]);
+  const [jobs, setJobs] = useState([]);
   const [showDone, setShowDone] = useState(false);
   const [draft, setDraft] = useState(null);
 
@@ -85,17 +87,22 @@ export default function TasksPage() {
     setError("");
     setErrorKey("");
     setLoading(true);
-    const [taskResult, memberResult] = await Promise.all([
+    const [taskResult, memberResult, jobResult] = await Promise.all([
       fetchArray("/api/tasks"),
       // Assignee list. Genuinely non-fatal — the page still works, you just
       // can't hand a task to someone else — so a failure here degrades the
       // assignee dropdown and does NOT blank the task list.
       fetchArray("/api/settings/members"),
+      // Same non-fatal shape: without it you just can't link a new to-do to a
+      // job (and therefore can't ask it to require photos), the rest of the
+      // page still works.
+      fetchArray("/api/jobs"),
     ]);
     if (taskResult.aborted) return;
     if (taskResult.ok) setTasks(taskResult.data);
     else setErrorKey(taskResult.errorKey);
     setMembers(memberResult.ok ? memberResult.data : []);
+    setJobs(jobResult.ok ? jobResult.data : []);
     setLoading(false);
   }, []);
 
@@ -173,6 +180,15 @@ export default function TasksPage() {
           dueDate: draft.dueDate || null,
           priority: draft.priority,
           assignedToId: draft.assignedToId || null,
+          jobId: draft.jobId || null,
+          // "" (the empty input) means no requirement — sent as null rather
+          // than 0 so the server's normaliseRequiredPhotoCount() sees the
+          // same "not set" shape whether the field was left blank or the
+          // request omitted it entirely.
+          requiredPhotoCount: draft.requiredPhotoCount
+            ? Number(draft.requiredPhotoCount)
+            : null,
+          requiresComment: Boolean(draft.requiresComment),
         }),
       });
       const d = await res.json().catch(() => null);
@@ -224,6 +240,9 @@ export default function TasksPage() {
                 dueDate: "",
                 priority: "normal",
                 assignedToId: "",
+                jobId: "",
+                requiredPhotoCount: "",
+                requiresComment: false,
               })
             }
             className="inline-flex items-center gap-2 bg-inverted text-inverted-foreground text-sm font-semibold px-4 py-2 rounded-full"
@@ -327,6 +346,72 @@ export default function TasksPage() {
             </div>
           </div>
 
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              {t("app.tasks.linkToJob")}
+            </label>
+            <select
+              value={draft.jobId}
+              onChange={(e) => {
+                const jobId = e.target.value;
+                setDraft({
+                  ...draft,
+                  jobId,
+                  // A requirement with no job to file the photo against is
+                  // refused server-side (see POST /api/tasks) — clearing it
+                  // here the moment the job link is removed keeps the form
+                  // from offering a combination the API will just reject.
+                  requiredPhotoCount: jobId ? draft.requiredPhotoCount : "",
+                  requiresComment: jobId ? draft.requiresComment : false,
+                });
+              }}
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+            >
+              <option value="">{t("app.tasks.noJob")}</option>
+              {jobs.map((j) => (
+                <option key={j.id} value={j.id}>
+                  {j.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Only offered once a job is picked — a photo requirement with
+              nowhere for the photo to land is exactly the dead control
+              AGENTS.md is swept for, so the form doesn't offer the
+              combination rather than letting someone hit Save and read a
+              refusal. */}
+          {draft.jobId && (
+            <div className="grid gap-3 sm:grid-cols-2 bg-muted/50 rounded-lg p-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  {t("app.tasks.requiredPhotos")}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={draft.requiredPhotoCount}
+                  onChange={(e) =>
+                    setDraft({ ...draft, requiredPhotoCount: e.target.value })
+                  }
+                  placeholder={t("app.tasks.requiredPhotosPlaceholder")}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-foreground self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={draft.requiresComment}
+                  onChange={(e) =>
+                    setDraft({ ...draft, requiresComment: e.target.checked })
+                  }
+                />
+                {t("app.tasks.requiresComment")}
+              </label>
+            </div>
+          )}
+
           <button
             onClick={create}
             disabled={saving || !draft.title.trim()}
@@ -400,6 +485,29 @@ export default function TasksPage() {
                     {task.overdue && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-600 text-white">
                         {t("app.tasks.overdue")}
+                      </span>
+                    )}
+                    {/* Why the tick might refuse — attaching the photo itself
+                        happens on the job page (JobTasks), not here, so this
+                        is a status readout rather than a control. */}
+                    {!done && Boolean(task.requiredPhotoCount) && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${
+                          (task.photos?.length || 0) >= task.requiredPhotoCount
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900"
+                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900"
+                        }`}
+                      >
+                        <Camera size={11} />
+                        {t("app.tasks.photoBadge", {
+                          have: task.photos?.length || 0,
+                          need: task.requiredPhotoCount,
+                        })}
+                      </span>
+                    )}
+                    {!done && task.requiresComment && !task.completionComment && (
+                      <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-900">
+                        {t("app.tasks.commentBadge")}
                       </span>
                     )}
                   </div>

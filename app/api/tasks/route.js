@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can, requirePermission } from "@/lib/permissions";
+import { normaliseRequiredPhotoCount } from "@/lib/tasks/completion";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -87,6 +88,15 @@ export async function GET(request) {
       // can get to the job they came from — a title alone makes you search for
       // it. Title and status only: the row shows a link, not a job summary.
       job: { select: { id: true, title: true, status: true } },
+      // The proof, not just the count — JobTasks.js shows small thumbnails so
+      // the crew member can see what's already been filed rather than
+      // guessing whether the last upload actually landed. Capped nowhere
+      // here: normaliseRequiredPhotoCount() already caps the REQUIREMENT at
+      // 20, which bounds how many rows this can realistically return.
+      photos: {
+        select: { id: true, url: true, stage: true, caption: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: [{ priority: "desc" }, { dueDate: "asc" }],
   });
@@ -119,10 +129,34 @@ export async function POST(request) {
     invoiceId,
     jobId,
     workAreaId,
+    requiredPhotoCount: rawRequiredPhotoCount,
+    requiresComment,
   } = body;
 
   if (!title)
     return NextResponse.json({ error: "title is required" }, { status: 400 });
+
+  const requiredPhotoCountResult = normaliseRequiredPhotoCount(rawRequiredPhotoCount);
+  if (!requiredPhotoCountResult.ok) {
+    return NextResponse.json({ error: requiredPhotoCountResult.error }, { status: 400 });
+  }
+  const requiredPhotoCount = requiredPhotoCountResult.value;
+
+  // The photo has nowhere to land without a job — see lib/tasks/completion.js
+  // and the matching guard on PATCH. Refused here rather than silently
+  // dropping the requirement, because a manager who typed "3" and watched it
+  // save deserves to know it didn't take, not discover it the day a crew
+  // member can't complete the to-do they were handed.
+  if (requiredPhotoCount && !jobId) {
+    return NextResponse.json(
+      {
+        error:
+          "A to-do needs to be linked to a job before it can require photos — " +
+          "there's nowhere for them to land.",
+      },
+      { status: 400 },
+    );
+  }
 
   if (
     assignedToId &&
@@ -188,6 +222,8 @@ export async function POST(request) {
       invoiceId: invoiceId || null,
       jobId: jobId || null,
       workAreaId: workAreaId || null,
+      requiredPhotoCount,
+      requiresComment: Boolean(requiresComment),
     },
     include: {
       assignedTo: { select: { id: true, name: true } },

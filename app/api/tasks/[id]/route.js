@@ -6,6 +6,11 @@ import { db } from "@/lib/db";
 import { memberOrRefusal } from "@/lib/apiMember";
 import { can } from "@/lib/permissions";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import {
+  canEditTask,
+  completionGate,
+  normaliseRequiredPhotoCount,
+} from "@/lib/tasks/completion";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -32,12 +37,12 @@ export async function PATCH(request, { params }) {
   //
   // An unassigned task is claimable the same way an unassigned appointment is
   // — assigning it to YOURSELF is allowed, anything else about it is not.
-  const mine =
-    !!member.userId &&
-    (existing.assignedToId === member.userId ||
-      existing.createdById === member.userId);
-  const claimable = existing.assignedToId === null;
-  if (!mine && !claimable && !can(member.role, "task:create")) {
+  //
+  // canEditTask() is the "mine-or-claimable" half, shared with
+  // POST /api/tasks/[id]/photos (see lib/tasks/completion.js's own comment for
+  // why it's a shared helper now rather than a third inline copy).
+  const editable = canEditTask(member, existing);
+  if (!editable && !can(member.role, "task:create")) {
     return NextResponse.json(
       {
         error:
@@ -62,6 +67,59 @@ export async function PATCH(request, { params }) {
     );
   }
 
+  // ── The photo/comment requirement is a manager decision, not the ─────────
+  //     assignee's to loosen
+  //
+  // "mine" already lets an assignee edit their own to-do freely — that's the
+  // whole point of the ownership rule above. But requiredPhotoCount,
+  // requiresComment and jobId are the RULE the assignee is being held to (jobId
+  // decides WHERE a required photo is even allowed to land), not their own
+  // content, so changing any of them is held to the same bar as task:create:
+  // the same tier that can hand a to-do to someone else is the one that can
+  // decide what it takes to finish it. Without this, an assignee stuck on "2
+  // of 3 photos" could simply PATCH the requirement down to 2 and tick it —
+  // a self-service bypass of the control this whole feature exists to add.
+  const wantsPhotoCountChange = "requiredPhotoCount" in body;
+  const wantsCommentFlagChange = "requiresComment" in body;
+  const wantsJobChange = "jobId" in body;
+  if (
+    (wantsPhotoCountChange || wantsCommentFlagChange || wantsJobChange) &&
+    !can(member.role, "task:create")
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Only an owner, admin or supervisor can change what this to-do requires.",
+      },
+      { status: 403 },
+    );
+  }
+
+  let requiredPhotoCount = existing.requiredPhotoCount;
+  if (wantsPhotoCountChange) {
+    const parsed = normaliseRequiredPhotoCount(body.requiredPhotoCount);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    requiredPhotoCount = parsed.value;
+  }
+
+  // Would the job link be cleared in this same request? wantsJobChange rather
+  // than a truthiness check on body.jobId, so a request that doesn't mention
+  // jobId at all reads the EXISTING value — the same "undefined means
+  // unchanged" convention every other field on this route already uses.
+  const nextJobId = wantsJobChange ? body.jobId || null : existing.jobId;
+  if (requiredPhotoCount && !nextJobId) {
+    return NextResponse.json(
+      {
+        error:
+          "A to-do needs to be linked to a job before it can require photos — " +
+          "there's nowhere for them to land.",
+      },
+      { status: 400 },
+    );
+  }
+
   // POST /api/tasks proves every linked id belongs to this company. This
   // PATCH proved neither of the two it can change: `assignedToId` could name a
   // user in another tenant (whose name then comes back in
@@ -70,8 +128,47 @@ export async function PATCH(request, { params }) {
   const notOurs = await ownedIdsRefusal(NextResponse, db, member.companyId, {
     ...("assignedToId" in body && { assignedToId: body.assignedToId }),
     ...(body.workAreaId !== undefined && { workAreaId: body.workAreaId }),
+    ...("jobId" in body && { jobId: body.jobId }),
   });
   if (notOurs) return notOurs;
+
+  // ── The enforcement itself ────────────────────────────────────────────
+  //
+  // Only checked when this request is actually trying to REACH "done" — a
+  // PATCH that renames a still-open to-do, or one that's already done and
+  // isn't touching status, doesn't re-run the gate. See completionGate's own
+  // header for why an already-done to-do is never walked back by this check.
+  const enteringDone = body.status === "done" && existing.status !== "done";
+  if (enteringDone) {
+    const effectiveRequirement = {
+      requiredPhotoCount,
+      requiresComment: wantsCommentFlagChange
+        ? Boolean(body.requiresComment)
+        : existing.requiresComment,
+    };
+    const effectiveComment =
+      body.completionComment !== undefined
+        ? body.completionComment
+        : existing.completionComment;
+
+    const photoCount = await db.jobPhoto.count({
+      where: { taskId: existing.id },
+    });
+
+    const gate = completionGate(effectiveRequirement, {
+      photoCount,
+      completionComment: effectiveComment,
+    });
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          error: gate.missing.map((m) => m.message).join(" "),
+          missing: gate.missing,
+        },
+        { status: 400 },
+      );
+    }
+  }
 
   const updated = await db.task.update({
     where: { id: _params.id },
@@ -87,8 +184,19 @@ export async function PATCH(request, { params }) {
         assignedToId: body.assignedToId || null,
       }),
       ...(body.workAreaId !== undefined && { workAreaId: body.workAreaId }),
+      ...("jobId" in body && { jobId: body.jobId || null }),
+      ...(wantsPhotoCountChange && { requiredPhotoCount }),
+      ...(wantsCommentFlagChange && { requiresComment: Boolean(body.requiresComment) }),
+      ...(body.completionComment !== undefined && {
+        completionComment: body.completionComment
+          ? String(body.completionComment).trim().slice(0, 2000)
+          : null,
+      }),
     },
-    include: { assignedTo: { select: { id: true, name: true } } },
+    include: {
+      assignedTo: { select: { id: true, name: true } },
+      _count: { select: { photos: true } },
+    },
   });
 
   return NextResponse.json(updated);

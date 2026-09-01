@@ -33,7 +33,16 @@
 // That's the "Coming soon panel is honest" half of the same rule, applied to
 // the one part of the screen that truly isn't finished.
 import { useEffect, useMemo, useState } from "react";
-import { Check, Clock, FlaskConical, Loader2, Send, TriangleAlert, X } from "lucide-react";
+import {
+  Check,
+  Clock,
+  FlaskConical,
+  Loader2,
+  Send,
+  Sparkles,
+  TriangleAlert,
+  X,
+} from "lucide-react";
 // lucide-react 1.x dropped brand/trademark icons (Facebook, Instagram, …) —
 // there is no icon here to stand in for either platform, so the checkbox
 // labels below carry the platform by name/handle alone rather than reaching
@@ -97,8 +106,13 @@ const CAPTION_ERROR_KEYS = {
  * @param {() => void} props.onClose
  * @param {{id:string,name:string,campaign?:{name?:string}}} props.design
  * @param {(ratioKey: string) => Promise<{dataUrl:string,width:number,height:number}|null>} props.preparePublishAsset
+ * @param {() => string[]} props.getCanvasPhotoUrls  every photo URL currently
+ *   on the canvas — see CampaignEditor.js's own comment on this function.
+ *   Backs the "Generate with AI" caption button below; optional so this
+ *   modal doesn't break if a future caller doesn't wire it, in which case
+ *   the button simply doesn't render (see the render guard below it).
  */
-export default function PublishModal({ isOpen, onClose, design, preparePublishAsset }) {
+export default function PublishModal({ isOpen, onClose, design, preparePublishAsset, getCanvasPhotoUrls }) {
   const { t } = useTranslation();
 
   const [connection, setConnection] = useState(null); // null = loading
@@ -120,11 +134,22 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   // since the API refuses this field outright unless connection.mock.
   const [mockFailure, setMockFailure] = useState("none");
 
+  // The AI caption generator's own, separate busy/error/result state — kept
+  // apart from submitting/submitError above because generating a caption and
+  // publishing the post are two independent actions a person can retry
+  // independently; conflating them would grey out the wrong control while
+  // the other one runs.
+  const [copyGenerating, setCopyGenerating] = useState(false);
+  const [copyError, setCopyError] = useState("");
+  const [copyMeta, setCopyMeta] = useState(null); // last generateMarketingCopy() result
+
   // Reset per-open, not per-unmount — the modal is kept mounted (isOpen
   // just returns null) so CampaignEditor doesn't remount PublishModal, and
   // therefore doesn't lose editorInstance wiring, every time it's toggled.
   useEffect(() => {
     if (!isOpen) return;
+    setCopyError("");
+    setCopyMeta(null);
     setResults(null);
     setSubmitError("");
     setConnection(null);
@@ -220,6 +245,54 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
     scheduleOk &&
     Boolean(asset) &&
     !submitting;
+
+  // ── "Generate with AI" — the AI context bridge, reached from the one ────
+  //     place a caption actually gets typed
+  //
+  // Deliberately reads the canvas at the MOMENT this is pressed (a function
+  // call, not a prop kept in sync) — see CampaignEditor.js's
+  // getCanvasPhotoUrls() header. Grounded via POST /api/designer/copy →
+  // lib/ai/marketingCopy.js, which is the only thing between "generate a
+  // caption" and a caption claiming work that was never done — see that
+  // file's own header for the argument. This button does not know or care
+  // whether the result is grounded; it shows whatever the server reports
+  // (`copyMeta.grounded`) so the person composing the post can see for
+  // themselves whether it was written from real scope-of-work data or is
+  // generic copy because none was found.
+  async function handleGenerateCopy() {
+    const photoUrls = getCanvasPhotoUrls?.() || [];
+    if (!photoUrls.length) {
+      setCopyError(t("app.marketingDesigner.publishModal.copyNoPhotos"));
+      return;
+    }
+    setCopyGenerating(true);
+    setCopyError("");
+    try {
+      const res = await fetch("/api/designer/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoUrls }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCopyError(data?.error || t("app.marketingDesigner.publishModal.copyError"));
+        return;
+      }
+      if (!data.photosUsed) {
+        // Every photo on the canvas was excluded (issue-tagged, or the
+        // request carried nothing usable at all) — a real, distinct answer
+        // from "the vendor failed", so it gets its own sentence rather than
+        // the generic error above.
+        setCopyError(t("app.marketingDesigner.publishModal.copyNoUsablePhotos"));
+        return;
+      }
+      const hashtagLine = data.hashtags?.length ? `\n\n${data.hashtags.join(" ")}` : "";
+      setCaption(`${data.caption}${hashtagLine}`.trim());
+      setCopyMeta(data);
+    } finally {
+      setCopyGenerating(false);
+    }
+  }
 
   async function handlePublish() {
     if (!canSubmit) return;
@@ -419,6 +492,29 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                   })}
                 </span>
               </div>
+
+              {/* Only rendered when the caller actually wired the canvas
+                  reader — see this component's own prop doc. Not gated on
+                  anything else: unlike Publish, generating a caption doesn't
+                  need Meta connected at all. */}
+              {getCanvasPhotoUrls && (
+                <button
+                  type="button"
+                  onClick={handleGenerateCopy}
+                  disabled={copyGenerating}
+                  className="mb-1.5 inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground disabled:opacity-60"
+                >
+                  {copyGenerating ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={12} />
+                  )}
+                  {copyGenerating
+                    ? t("app.marketingDesigner.publishModal.copyGenerating")
+                    : t("app.marketingDesigner.publishModal.copyGenerate")}
+                </button>
+              )}
+
               <textarea
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
@@ -436,6 +532,30 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                       </li>
                     ))}
                 </ul>
+              )}
+              {copyError && (
+                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <TriangleAlert size={12} className="shrink-0" />
+                  {copyError}
+                </p>
+              )}
+              {/* Honesty about what the caption is actually grounded in —
+                  the same instinct as showing a price/balance on a refusal
+                  rather than "something went wrong": the person composing a
+                  post under their own brand can see whether this came from
+                  real scope-of-work data or is generic copy, before they
+                  post it. */}
+              {copyMeta && !copyError && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {copyMeta.grounded
+                    ? t("app.marketingDesigner.publishModal.copyGrounded")
+                    : t("app.marketingDesigner.publishModal.copyGeneric")}
+                  {copyMeta.photosExcludedIssue > 0 &&
+                    " " +
+                      t("app.marketingDesigner.publishModal.copyExcludedIssue", {
+                        count: copyMeta.photosExcludedIssue,
+                      })}
+                </p>
               )}
             </div>
 

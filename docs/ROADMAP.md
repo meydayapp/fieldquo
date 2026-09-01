@@ -992,6 +992,39 @@ they set the pattern.
   matches nobody) is executed against a stub database in
   `scripts/check-job-photos.mjs`, mutation-tested by hand.
 
+- **Tasks that require photos, and feeding a job's real scope of work to the
+  Marketing Designer's AI — two connected features, full account:
+  `docs/PHOTO-TASKS-AND-AI-CONTEXT.md`. `prisma/schema.prisma`
+  (`Task.requiredPhotoCount/requiresComment/completionComment`,
+  `JobPhoto.taskId`), `lib/tasks/completion.js` (new — the pure completion
+  gate), `app/api/tasks/route.js`, `app/api/tasks/[id]/route.js`,
+  `app/api/tasks/[id]/photos/route.js` (new), `app/app/tasks/page.js`,
+  `app/components/jobs/JobTasks.js` (un-read-onlied — see the doc for why the
+  old justification went stale), `lib/marketing/jobPhotoContext.js` (new),
+  `lib/ai/marketingCopy.js` (new), `app/api/designer/copy/route.js` (new),
+  `app/components/designer/ImageSidebar.js` (Job photos tab),
+  `app/components/designer/PublishModal.js` ("Generate with AI"),
+  `app/components/designer/CampaignEditor.js`, `lib/features/registry.js`.**
+
+  Part one: a to-do can require N photos and/or a comment, enforced
+  server-side in `completionGate()` off a LIVE count (never a cached flag) —
+  a lowered requirement or a reassignment can't leave a "done" to-do lying
+  about what happened. `JobTasks.js` went from read-only to interactive
+  because the reason it was read-only had gone stale: GET `/api/tasks` was
+  scoped to match PATCH's own ownership rule before this session, so every
+  row the panel can show is one the viewer can already act on.
+
+  Part two: the Marketing Designer's AI got no job context at all before this
+  — `lib/marketing/jobPhotoContext.js` resolves canvas photo URLs back to
+  their JobPhoto rows, drops `issue`-tagged photos unconditionally, and picks
+  one job's story when photos span more than one. `lib/ai/marketingCopy.js`
+  grounds the caption in the quote's real scope groups (never a dollar
+  figure) and refuses to describe a before/after unless both a start- and a
+  finish-tagged photo are actually present. Custom tags (see
+  `docs/PHOTO-TAGS.md` if a parallel pass has landed it) flow through as
+  themselves rather than being mislabelled by `stageLabel()`'s "In progress"
+  fallback.
+
 - **Meta Ads: the three Meta-free wins from `docs/META-ADS-INTEGRATION.md`'s
   research, built now — plus the Meta import itself, real code that has
   never made a real API call. Full account: `docs/META-ADS-BUILD.md`.
