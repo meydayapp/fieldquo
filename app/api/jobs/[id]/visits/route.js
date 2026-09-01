@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/permissions";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { ownedIdsRefusal } from "@/lib/tenant/ownedIds";
+import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 
 export async function GET(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -82,11 +83,23 @@ export async function POST(request, { params }) {
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { scheduledAt, assignedToId, checklistItems, notes } = body;
+  const { scheduledAt, assignedToId, checklistItems, notes, returnReason, returnNotes } = body;
 
   if (!scheduledAt) {
     return NextResponse.json(
       { error: "scheduledAt is required" },
+      { status: 400 },
+    );
+  }
+
+  // Whoever books the return visit is the one who says why — see
+  // lib/jobs/callbackReasons.js. An unrecognised value is refused rather than
+  // silently stored, the same discipline the checklist normaliser applies to
+  // its own input: a typo here would make a real callback invisible to
+  // buildReworkCallbackRate rather than loud.
+  if (returnReason !== undefined && returnReason !== null && !isCallbackReason(returnReason)) {
+    return NextResponse.json(
+      { error: `Unknown return reason: ${returnReason}` },
       { status: 400 },
     );
   }
@@ -125,6 +138,8 @@ export async function POST(request, { params }) {
       assignedToId: assignedToId || null,
       checklistItems: items.length ? items : null,
       notes: notes || null,
+      returnReason: returnReason || null,
+      returnNotes: returnNotes || null,
     },
     include: { assignedTo: { select: { id: true, name: true } } },
   });

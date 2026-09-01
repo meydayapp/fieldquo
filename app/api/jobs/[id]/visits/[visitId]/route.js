@@ -10,6 +10,7 @@ import { maySms } from "@/lib/sms/optOut";
 import { ensureUpcomingVisit } from "@/lib/jobs/recurrence";
 import { normalizeChecklistItems } from "@/lib/jobs/checklistItems";
 import { loadEnforceableMember, hasLevel } from "@/lib/permissions/enforce";
+import { isCallbackReason } from "@/lib/jobs/callbackReasons";
 
 export async function PATCH(request, { params }) {
   // Next 16: `params` is a Promise; reading it synchronously gives undefined.
@@ -53,7 +54,14 @@ export async function PATCH(request, { params }) {
   }
 
   const body = await request.json();
-  const { status, checklistItems, photos, notes, scheduledAt } = body;
+  const { status, checklistItems, photos, notes, scheduledAt, returnReason, returnNotes } = body;
+
+  if (returnReason !== undefined && returnReason !== null && !isCallbackReason(returnReason)) {
+    return NextResponse.json(
+      { error: `Unknown return reason: ${returnReason}` },
+      { status: 400 },
+    );
+  }
 
   // keepDone: this is the crew ticking things off, so `done` is the payload,
   // not noise to reset. No forcePhase either — a visit's list is mixed by
@@ -74,6 +82,11 @@ export async function PATCH(request, { params }) {
       ...(photos !== undefined && { photos }),
       ...(notes !== undefined && { notes }),
       ...(scheduledAt !== undefined && { scheduledAt: new Date(scheduledAt) }),
+      // Null is a legal value here — "actually, this wasn't a callback" has to
+      // be un-settable, not just settable, or a mis-tap permanently taints a
+      // job's rework rate with no way back.
+      ...(returnReason !== undefined && { returnReason: returnReason || null }),
+      ...(returnNotes !== undefined && { returnNotes: returnNotes || null }),
     },
     include: { assignedTo: { select: { id: true, name: true } } },
   });
