@@ -18,12 +18,15 @@
 // start + finish of the same job is the before/after the site pairs up.
 
 import { useEffect, useState, useCallback } from "react";
-import { Star, ImageIcon, Loader2, AlertTriangle, MessageCircle } from "lucide-react";
+import { Star, ImageIcon, Loader2, AlertTriangle, MessageCircle, PenLine } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { useTranslation } from "@/app/hooks/useTranslation";
 import { useHasLevel } from "@/app/providers/PermissionProvider";
 import MediaUploader from "@/app/components/MediaUploader";
 import JobPhotoComments from "@/app/components/jobs/JobPhotoComments";
+import PhotoAnnotatorLoader from "@/app/components/photoAnnotator/PhotoAnnotatorLoader";
+import { displayPhotoUrl, isAnnotated } from "@/lib/jobs/photoAnnotation";
+
 
 export default function JobPhotoCurator({ jobId }) {
   const { t } = useTranslation();
@@ -32,12 +35,23 @@ export default function JobPhotoCurator({ jobId }) {
   const [busy, setBusy] = useState(null);
   const [commentingOn, setCommentingOn] = useState(null); // a photo object, or null
 
-  // Featuring and re-staging are curation decisions — PATCH /api/jobs/[id]/
-  // photos still requires jobs:view_create_edit, unchanged by this change.
-  // Rendering those controls for someone who holds only view_only (Crew,
-  // Estimator) would be exactly the dead-button failure this whole panel was
-  // already found to have on the UPLOAD control: a tap that always 403s.
+  // The photo currently open in the full-screen markup editor, or null. Kept
+  // as the whole photo object (not just an id) so PhotoAnnotatorEditor mounts
+  // with its annotationJson/annotationWidth/annotationHeight already in hand.
+  const [annotating, setAnnotating] = useState(null);
+
+  // Featuring, re-staging AND marking up are all curation decisions — PATCH
+  // /api/jobs/[id]/photos requires jobs:view_create_edit for every one of
+  // them. Rendering any of those controls for someone holding only view_only
+  // (Crew, Estimator) is the dead-button failure this panel was already found
+  // to have on its UPLOAD control: a tap that always 403s.
+  //
+  // Annotation was built in a parallel worktree that did not know about this
+  // gate, so it arrived ungated. It writes annotationJson through that same
+  // PATCH, so it belongs behind the same check — commenting does NOT, since
+  // that is its own route a crew member is meant to reach.
   const canCurate = useHasLevel("jobs", "view_create_edit");
+
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/jobs/${jobId}/photos`);
@@ -95,6 +109,7 @@ export default function JobPhotoCurator({ jobId }) {
   // photos. Absent and empty are different statements, and this rendered the
   // wrong one.
   return (
+    <>
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -122,6 +137,8 @@ export default function JobPhotoCurator({ jobId }) {
               onFeature={() => patch(p.id, { featured: !p.featured })}
               onStage={(stage) => patch(p.id, { stage })}
               onComment={() => setCommentingOn(p)}
+              onAnnotate={() => setAnnotating(p)}
+              onRemoveMarkup={() => patch(p.id, { clearAnnotation: true })}
             />
           ))}
         </div>
@@ -178,18 +195,43 @@ export default function JobPhotoCurator({ jobId }) {
         />
       )}
     </section>
+
+    {/* Full-screen, mounted only while open — PhotoAnnotatorLoader is the
+        ssr:false boundary (see its own header); nothing in this component
+        or its parents ever touches "fabric" directly. */}
+    {annotating && (
+      <PhotoAnnotatorLoader
+        photo={annotating}
+        jobId={jobId}
+        onCancel={() => setAnnotating(null)}
+        onDone={async () => {
+          setAnnotating(null);
+          // Re-read rather than splicing the PATCH response into local
+          // state — the same reasoning the upload handler above already
+          // follows: the server decided flattenedUrl/annotationUpdatedAt,
+          // and the next page load should show exactly what this shows now.
+          await load();
+        }}
+      />
+    )}
+    </>
   );
 }
 
-function PhotoCard({ photo, stages, busy, canCurate, t, onFeature, onStage, onComment }) {
+function PhotoCard({ photo, stages, busy, canCurate, t, onFeature, onStage, onComment, onAnnotate, onRemoveMarkup }) {
   const isIssue = photo.stage === "issue";
+  const annotated = isAnnotated(photo);
   const stageLabel = stages.find((s) => s.key === photo.stage)?.label || photo.stage;
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-background">
       <div className="relative aspect-square bg-muted">
+        {/* Shows the FLATTENED preview when one exists (displayPhotoUrl falls
+            back to the untouched original otherwise) — the same URL choice
+            the public gallery and the photo report PDF make, so what staff
+            see here is what a client or a report will actually show. The
+            original itself is never touched; see docs/PHOTO-ANNOTATION.md. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt={photo.caption || ""} className="w-full h-full object-cover" />
-
+        <img src={displayPhotoUrl(photo)} alt={photo.caption || ""} className="w-full h-full object-cover" />
         <button
           type="button"
           onClick={onComment}
@@ -199,11 +241,20 @@ function PhotoCard({ photo, stages, busy, canCurate, t, onFeature, onStage, onCo
           <MessageCircle size={14} />
         </button>
 
-        {/* Featuring is a curation decision — the server still refuses this
-            at jobs:view_only (PATCH stays at view_create_edit), and offering
-            a star that always 403s for Crew/Estimator is the dead-control
-            failure this whole panel was already found to have once, on the
-            upload button. Simplest honest fix: don't render it for them. */}
+        {/* Both of these write through PATCH, which stays at
+            jobs:view_create_edit — so both are gated. Offering a control that
+            always 403s for Crew is the failure this panel already had once. */}
+        {canCurate && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onAnnotate}
+            title={t("app.photoAnnotator.openEditor", "Add markup")}
+            className="absolute top-1.5 left-1.5 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-black/40 text-white disabled:opacity-50"
+          >
+            <PenLine size={14} />
+          </button>
+        )}
         {canCurate && (
           <button
             type="button"
@@ -224,7 +275,7 @@ function PhotoCard({ photo, stages, busy, canCurate, t, onFeature, onStage, onCo
           </button>
         )}
       </div>
-      <div className="p-1.5">
+      <div className="p-1.5 space-y-1">
         {canCurate ? (
           <select
             value={photo.stage}
@@ -238,6 +289,16 @@ function PhotoCard({ photo, stages, busy, canCurate, t, onFeature, onStage, onCo
           </select>
         ) : (
           <p className="w-full text-xs text-muted-foreground px-1.5 py-1 truncate">{stageLabel}</p>
+        )}
+        {canCurate && annotated && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onRemoveMarkup}
+            className="w-full text-[10px] font-semibold text-muted-foreground hover:text-red-600 disabled:opacity-50 text-left"
+          >
+            {t("app.photoAnnotator.markedUp", "Marked up")} · {t("app.photoAnnotator.removeMarkup", "Remove")}
+          </button>
         )}
       </div>
     </div>
