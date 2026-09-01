@@ -331,8 +331,15 @@ export default function AvailabilityPage() {
       </section>
 
       {/* Sticky save — on a phone the button would otherwise sit below two
-          full weeks of inputs. */}
-      <div className="fixed bottom-0 left-0 right-0 sm:left-64 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-3">
+          full weeks of inputs.
+          sm:left-64 was already wrong on its own terms — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex, see AdminSidebar.js), so
+          this bar sat indented under a phantom sidebar gap from 640–1024px.
+          Fixed alongside the bottom offset below, which clears
+          MobileTabBar's fixed bottom row (same calc as app/app/layout.js's
+          `main` padding) so the two no longer stack on top of each other
+          below `lg`. */}
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-64 bg-card border-t border-border px-4 py-3 flex items-center justify-end gap-3">
         {saved && (
           <span className="text-sm text-green-600 flex items-center gap-1.5">
             <Check size={15} /> {t("app.action.saved", "Saved")}

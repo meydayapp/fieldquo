@@ -407,8 +407,14 @@ export default function BioLinkSettingsPage() {
       </div>
 
       {/* Sticky, because the list above is long on a phone and a Save button
-          you have to scroll to find is one people don't press. */}
-      <div className="fixed bottom-0 inset-x-0 lg:left-64 border-t border-border bg-card/95 backdrop-blur px-4 py-3 flex items-center gap-3 justify-end">
+          you have to scroll to find is one people don't press.
+          bottom-0 alone used to land this directly on top of MobileTabBar
+          below `lg` (both fixed to the viewport bottom) — the save button
+          rendered under the tab bar's Jobs/Invoices row. The calc clears
+          the tab bar's exact height (its own h-16 + safe-area inset, see
+          app/components/layout/MobileTabBar.js); lg:bottom-0 restores the
+          true bottom once the tab bar stops rendering. */}
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 inset-x-0 lg:left-64 border-t border-border bg-card/95 backdrop-blur px-4 py-3 flex items-center gap-3 justify-end">
         {incomplete && (
           <span className="text-xs text-muted-foreground mr-auto">
             {t("app.setBioLink.incomplete", "Your own links need both text and a URL.")}

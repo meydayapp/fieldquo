@@ -398,30 +398,38 @@ export default function WinLossPage() {
               <h2 className="font-semibold text-foreground">
                 {t("app.winLoss.byEstimator", "By whoever wrote the quote")}
               </h2>
-              <table className="mt-3 w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <th className="py-1 font-medium">{t("app.winLoss.who", "Who")}</th>
-                    <th className="py-1 font-medium">{t("app.winLoss.decided", "Decided")}</th>
-                    <th className="py-1 font-medium">{t("app.winLoss.wonCol", "Won")}</th>
-                    <th className="py-1 font-medium">{t("app.winLoss.rateCol", "Win rate")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.byEstimator.rows.map((row) => (
-                    <tr key={row.id} className="border-t border-border">
-                      <td className="py-1.5 text-foreground">
-                        {row.name || t("app.winLoss.unnamed", "Unnamed user")}
-                      </td>
-                      <td className="py-1.5">{row.decided}</td>
-                      <td className="py-1.5">{row.won}</td>
-                      <td className="py-1.5 font-semibold text-foreground">
-                        {Math.round(row.winRate * 100)}%
-                      </td>
+              {/* overflow-x-auto: the only other table on this page already
+                  has one (see the estimate-accuracy tables this page shares
+                  its pattern with) — this one didn't. A long name in "Who"
+                  next to three more columns is exactly the row that pushes a
+                  375px phone into scrolling the whole document sideways
+                  instead of just this table. */}
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <th className="py-1 font-medium">{t("app.winLoss.who", "Who")}</th>
+                      <th className="py-1 font-medium">{t("app.winLoss.decided", "Decided")}</th>
+                      <th className="py-1 font-medium">{t("app.winLoss.wonCol", "Won")}</th>
+                      <th className="py-1 font-medium">{t("app.winLoss.rateCol", "Win rate")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.byEstimator.rows.map((row) => (
+                      <tr key={row.id} className="border-t border-border">
+                        <td className="py-1.5 text-foreground whitespace-nowrap">
+                          {row.name || t("app.winLoss.unnamed", "Unnamed user")}
+                        </td>
+                        <td className="py-1.5">{row.decided}</td>
+                        <td className="py-1.5">{row.won}</td>
+                        <td className="py-1.5 font-semibold text-foreground">
+                          {Math.round(row.winRate * 100)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {data.byEstimator.unattributed > 0 && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   {t(

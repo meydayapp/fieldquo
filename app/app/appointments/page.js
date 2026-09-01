@@ -419,7 +419,7 @@ export default function AppointmentsPage() {
                 )
               }
               aria-label={t("app.action.previous")}
-              className="p-1.5 rounded-lg border border-border hover:bg-muted"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border hover:bg-muted"
             >
               <ChevronLeft size={15} />
             </button>
@@ -439,7 +439,7 @@ export default function AppointmentsPage() {
                 )
               }
               aria-label={t("app.action.next")}
-              className="p-1.5 rounded-lg border border-border hover:bg-muted"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-border hover:bg-muted"
             >
               <ChevronRight size={15} />
             </button>

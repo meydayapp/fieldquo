@@ -218,7 +218,7 @@ export default function EditPdfTemplatePage() {
                     <button
                       onClick={() => move(i, -1)}
                       disabled={i === 0}
-                      className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-25"
                       aria-label={t("app.editPdf.moveUp", "Move up")}
                     >
                       <ArrowUp size={14} />
@@ -226,7 +226,7 @@ export default function EditPdfTemplatePage() {
                     <button
                       onClick={() => move(i, 1)}
                       disabled={i === sections.length - 1}
-                      className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-25"
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-25"
                       aria-label={t("app.editPdf.moveDown", "Move down")}
                     >
                       <ArrowDown size={14} />
@@ -235,7 +235,7 @@ export default function EditPdfTemplatePage() {
                       onClick={() =>
                         setSections(sections.filter((_, j) => j !== i))
                       }
-                      className="p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-400"
+                      className="min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-600 dark:text-red-400"
                       aria-label={t("app.editPdf.removeSection", "Remove section")}
                     >
                       <Trash2 size={14} />

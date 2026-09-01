@@ -531,7 +531,13 @@ export default function NewInvoicePage() {
         </div>
       </div>
 
-      <div data-tour="invoice-save" className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
+      {/* sm:left-60 was wrong on its own terms — AdminSidebar only becomes a
+          rail at `lg` (hidden lg:flex), so this bar sat indented under a
+          phantom sidebar gap from 640–1024px; fixed to lg:left-60. The bottom
+          offset clears MobileTabBar's fixed row below `lg` (same calc as
+          app/app/layout.js's `main` padding) so this bar no longer lands on
+          top of the tab bar. */}
+      <div data-tour="invoice-save" className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-60 bg-card border-t border-border px-6 py-4 flex gap-3 justify-end items-center">
         <p className="text-xs text-muted-foreground mr-auto max-w-xs">
           {t("app.invoiceNew.sendHelper", "Emails the invoice to the client’s email on file.")}
         </p>

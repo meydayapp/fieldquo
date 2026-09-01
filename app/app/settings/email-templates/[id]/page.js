@@ -371,7 +371,7 @@ function BlockFields({ block, update, setFocus }) {
                     stages.filter((_, idx) => idx !== i),
                   )
                 }
-                className="text-muted-foreground hover:text-red-500 p-1 shrink-0"
+                className="text-muted-foreground hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
                 aria-label={t("app.emailEditor.removeStageAria", "Remove stage {num}", { num: i + 1 })}
               >
                 <Trash2 size={14} />
@@ -465,7 +465,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
             {...attributes}
             {...listeners}
             aria-label={t("app.emailEditor.dragToReorder", "Drag to reorder")}
-            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1 p-1 rounded"
+            className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground -ml-1 min-h-[44px] min-w-[44px] flex items-center justify-center rounded shrink-0"
           >
             <GripVertical size={18} />
           </button>
@@ -476,7 +476,7 @@ function SortableBlock({ block, update, remove, setFocus }) {
         <button
           type="button"
           onClick={() => remove(block.id)}
-          className="text-muted-foreground hover:text-red-500 p-1"
+          className="text-muted-foreground hover:text-red-500 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label={t("app.emailEditor.removeBlock", "Remove block")}
         >
           <Trash2 size={15} />

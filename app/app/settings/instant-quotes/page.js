@@ -594,7 +594,7 @@ function TradeCard({ trade, canEdit, onSaved }) {
                     onClick={() =>
                       patch({ materials: materials.filter((_, j) => j !== i) })
                     }
-                    className="text-muted-foreground hover:text-red-600 p-1"
+                    className="text-muted-foreground hover:text-red-600 min-h-[44px] min-w-[44px] flex items-center justify-center"
                     aria-label={t(
                       "app.setInstantQuotes.removeMaterial",
                       "Remove material",
