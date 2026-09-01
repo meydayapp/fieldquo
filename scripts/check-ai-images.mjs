@@ -74,7 +74,15 @@ const VISION = code(read("lib/ai/visionPass.js"));
 const REVIEW = code(read("lib/ai/quoteReview.js"));
 const VISION_ROUTE = code(read("app/api/quotes/[id]/vision/route.js"));
 const DESIGNER_ROUTE = code(read("app/api/marketing/designer/images/route.js"));
-const CLOUDINARY = code(read("lib/cloudinary.js"));
+// resizedUrl() itself moved to lib/media/cloudinaryUrl.js when the photo
+// annotator needed to call it from a "use client" component — lib/cloudinary.js
+// pulls in the Cloudinary Node SDK at its own top level (a `cloudinary.config()`
+// call), which can't be imported into a browser bundle, and resizedUrl() was
+// pure string surgery with no actual dependency on that SDK. lib/cloudinary.js
+// re-exports it unchanged for every existing caller (this file's own IMAGES
+// import among them — still `from "@/lib/cloudinary"`, see the assertion a few
+// lines below), so only WHERE the `c_limit` literal itself lives changed.
+const CLOUDINARY = code(read("lib/media/cloudinaryUrl.js"));
 // Read RAW, not comment-stripped: an earlier feature's own apiPrefixes comment
 // in this file contains the literal text "/api/instant-quote/[companySlug]/*"
 // inside an ordinary `//` line — real, valid source, and not a block comment —
