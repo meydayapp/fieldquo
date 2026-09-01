@@ -728,7 +728,10 @@ export default function BookingFlow({ companySlug, initialEventSlug, prefill = n
             {company.eventTypes?.length > 1 && (
               <button
                 onClick={() => setEventType(null)}
-                className="inline-flex items-center gap-1 text-xs mb-0.5"
+                // py-2, not zero: this was a text-xs label with no padding
+                // at all, so its tap target was the line-height of the text —
+                // well under 44px, and it's the only way back to step 1.
+                className="inline-flex items-center gap-1 text-xs mb-0.5 py-2"
                 style={{ color: theme.inkMuted }}
               >
                 <ArrowLeft size={11} /> Change service

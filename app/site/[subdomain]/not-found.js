@@ -20,7 +20,7 @@ import Link from "next/link";
 
 export default function SiteNotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 text-center">
+    <div className="min-h-dvh flex flex-col items-center justify-center px-6 text-center">
       <h1 className="text-2xl font-semibold text-neutral-900">
         Page not found
       </h1>

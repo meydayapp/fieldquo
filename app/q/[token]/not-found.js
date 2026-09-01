@@ -23,7 +23,7 @@ export const metadata = {
 
 export default function QuoteNotFound() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-16 bg-background">
+    <main className="min-h-dvh flex items-center justify-center px-6 py-16 bg-background">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold text-foreground">
           This link isn&apos;t valid

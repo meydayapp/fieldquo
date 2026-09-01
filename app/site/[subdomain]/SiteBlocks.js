@@ -380,7 +380,10 @@ function SiteHeader({ company, theme, fill, blocks = [], S, t, language, languag
           {isMulti && (
             <details className="md:hidden relative">
               <summary
-                className="list-none cursor-pointer grid place-items-center w-9 h-9 rounded-lg"
+                // w-11 h-11 (44px), not w-9 h-9 (36px): the only nav control
+                // on a multi-page mobile site, and it was under the 44px
+                // touch-target floor. The icon stays 22px; only the box grew.
+                className="list-none cursor-pointer grid place-items-center w-11 h-11 rounded-lg"
                 aria-label={t.menu || "Menu"}
                 style={{ color: overlay ? "#fff" : theme.accentText }}
               >
@@ -1158,10 +1161,16 @@ function Contact({ block, company, theme, fill, accent2, S, t }) {
             </a>
           )}
         </div>
+        {/* break-words on each item: a company's own email/address is free
+            text with no length cap, and an email address in particular has
+            no spaces to wrap at. Without it, one long enough email pushes
+            this flex row past the viewport width on a phone instead of
+            wrapping inside its own pill — flex-wrap only moves whole items
+            to a new line, it doesn't shrink the text within one. */}
         <div className="mt-10 flex flex-wrap gap-x-8 gap-y-3 justify-center text-sm" style={{ color: theme.inkMuted }}>
-          {company.phone && <a href={`tel:${company.phone}`} className="inline-flex items-center gap-2"><Phone size={15} /> {company.phone}</a>}
-          {company.email && <a href={`mailto:${company.email}`} className="inline-flex items-center gap-2"><Mail size={15} /> {company.email}</a>}
-          {place && <span className="inline-flex items-center gap-2"><MapPin size={15} /> {place}</span>}
+          {company.phone && <a href={`tel:${company.phone}`} className="inline-flex items-center gap-2 break-words"><Phone size={15} /> {company.phone}</a>}
+          {company.email && <a href={`mailto:${company.email}`} className="inline-flex items-center gap-2 break-words min-w-0"><Mail size={15} /> {company.email}</a>}
+          {place && <span className="inline-flex items-center gap-2 break-words"><MapPin size={15} /> {place}</span>}
         </div>
         {mapUrl && (
           <a

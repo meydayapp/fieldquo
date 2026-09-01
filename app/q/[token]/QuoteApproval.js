@@ -648,7 +648,15 @@ export default function QuoteApproval({ token }) {
                 {copy.paymentTerms}
               </h3>
               {quote.paymentSchedule?.length > 0 ? (
-                <div className="grid grid-cols-3 gap-2">
+                // grid-cols-2, not -3: parsePaymentSchedule (lib/documents/
+                // paymentSchedule.js) reads the company's own free-text
+                // payment terms, so a stage's label can be "At rough-in
+                // inspection" rather than "Deposit", and there can be more
+                // than three stages. Three fixed columns on a 375px phone
+                // gave labels like that ~100px to wrap into; two columns
+                // leaves real room and still shows the whole schedule at a
+                // glance from sm up.
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {quote.paymentSchedule.map((s, i) => (
                     <div
                       key={i}
@@ -947,7 +955,7 @@ export default function QuoteApproval({ token }) {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f5f2ec] py-8 sm:py-14 px-4">
+    <div className="min-h-dvh bg-[#f5f2ec] py-8 sm:py-14 px-4">
       <div className="max-w-2xl mx-auto">{children}</div>
     </div>
   );
