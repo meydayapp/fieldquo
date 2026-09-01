@@ -1121,6 +1121,17 @@ they set the pattern.
   A "Jennifer" support assistant is being built in a parallel worktree and was
   deliberately left untouched; `CRISIS_RULE` is written to be imported from
   there too rather than copied a fifth time.
+
+  **Superseded 2026-08-31.** The owner gave a direct, simpler instruction and
+  the entry above now describes the OLD rule, not the current one — see
+  `docs/TODO.md`, "Crisis rule, simplified 2026-08-31", for what
+  `lib/ai/crisisRule.js` says today: 911 only (no 988), one merged rule for
+  both a job-site and a personal emergency, and "say it once, then continue"
+  rather than stopping the call. The downstream gate in
+  `lib/ai/callQuoteDraft.js` / `lib/ai/callLeadRecovery.js` now flags a crisis
+  transcript (`needsReview`) instead of refusing to draft or recover from it,
+  for the reason written in `lib/ai/crisisRule.js` itself. Do not restore the
+  988/stop-the-call version from the paragraphs above.
 - **Cabinet Rates and Material Costs stop appearing for companies that can't
   use them. `lib/settings/tradeGate.js` (new), `lib/settings/tradeGateNav.js`
   (new), `lib/trades/companyCategories.js` (new — `companyEnabledCategoryKeys`

@@ -45,9 +45,19 @@ ok(/Never claim to be a person/i.test(full), "it must admit to being an assistan
 // Whitespace-normalised: the rule spans a line break in the source, and an
 // assertion that fails on formatting teaches you to loosen assertions.
 const flat = full.replace(/\s+/g, " ");
-ok(/emergency/i.test(flat) && /gas, fire, flooding, sewage/i.test(flat),
-   "emergencies break the script rather than continuing the questionnaire");
-ok(/call the relevant emergency number/i.test(flat), "and it points them at the real emergency service");
+// The old rule (a separate property-emergency paragraph, ahead of a
+// stop-the-call personal-danger rule) was replaced 2026-08-31 by the owner's
+// simpler instruction: CRISIS_RULE, imported whole from lib/ai/crisisRule.js,
+// covers a job-site emergency (gas, fire, a live wire...) and a personal one
+// with the SAME line — call 911 — and then the call CONTINUES rather than
+// stopping. See scripts/check-crisis-handling.mjs for the full assertion
+// suite on that shared rule; this file just proves it actually reached the
+// receptionist's prompt, which is this file's job.
+ok(/EMERGENCY/i.test(flat) && /gas, fire, a live wire/i.test(flat),
+   "the shared crisis rule (job-site AND personal) reaches the receptionist prompt");
+ok(/call 911/i.test(flat), "and it names 911, not a script it has to work through first");
+ok(/carry on/i.test(flat) && !/none of it matters right now/i.test(flat),
+   "…and tells the model to carry on afterward, not stop the questionnaire — that's the 2026-08-31 change");
 ok(/Do not take payment details/i.test(full), "no card numbers over the phone");
 
 // ── Only real facts ──────────────────────────────────────────────────────
