@@ -337,9 +337,20 @@ export default function QuoteTotalsBar({
           "Save & se…" with the "?" bubble over it, at 1366px and at 1600px.
           Reserving the space is more robust than moving the launcher, which is
           global and knows nothing about this bar. */}
+      {/* bottom-0 alone landed this directly on MobileTabBar below `lg` — same
+          z-40, both fixed to the viewport bottom, so the Save/Send buttons and
+          the tab bar's Jobs/Invoices row occupied the same pixels. The calc
+          clears the tab bar's exact height (its h-16 + safe-area inset, see
+          MobileTabBar.js); lg:bottom-0 restores the true bottom once the tab
+          bar stops rendering. HelpButton.js shifts by the identical amount so
+          the two stay in the same relative position to each other that pr-20
+          above already assumes.
+          sm:left-60 was also wrong on its own terms — AdminSidebar only
+          becomes a rail at `lg` (hidden lg:flex), not `sm` — fixed to
+          lg:left-60. */}
       <div
         data-tour="totals"
-        className="fixed bottom-0 left-0 right-0 sm:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40"
+        className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] lg:bottom-0 left-0 right-0 lg:left-60 bg-card border-t border-border pl-4 sm:pl-6 pr-20 py-3 flex items-center justify-between gap-3 z-40"
       >
         <div className="min-w-0">
           <div className="text-[11px] text-muted-foreground leading-none">
