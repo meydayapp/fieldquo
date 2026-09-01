@@ -2892,6 +2892,37 @@ model Task {
   /// duplicate reminder nagging someone about a job they already scheduled.
   sourceKey String? @unique
 
+  /// How many photos this to-do requires before it can be marked done. Null
+  /// (not zero) means no requirement — POST/PATCH /api/tasks normalise
+  /// omitted/blank/0 to null (lib/tasks/completion.js's
+  /// normaliseRequiredPhotoCount()), so "no requirement" only ever has one
+  /// stored shape. A photo can only be filed against a to-do that has a job
+  /// (POST /api/tasks/[id]/photos refuses otherwise), so creating or editing
+  /// one with a count > 0 and no jobId is refused server-side — the
+  /// alternative is a requirement that can never be satisfied, which is
+  /// exactly the "control that appears to work and doesn't" AGENTS.md is
+  /// swept for.
+  requiredPhotoCount Int?
+
+  /// Whether completing this to-do also requires a written comment —
+  /// `completionComment` below. Independent of the photo requirement: a
+  /// manager might want either, both, or neither.
+  requiresComment Boolean @default(false)
+
+  /// What the assignee wrote when they completed it. Free text, not a note
+  /// thread — one comment, captured at the moment of completion, because
+  /// that's the one a completion requirement is actually asking for ("what
+  /// am I looking at"), not an ongoing conversation. JobPhoto's own
+  /// `caption` covers per-photo detail; this is the task-level "here's what
+  /// I did."
+  completionComment String?
+
+  /// Photos filed against this specific to-do — a subset of the job's
+  /// JobPhoto rows, not a separate table. See JobPhoto.taskId for the
+  /// SetNull reasoning: removing a to-do never deletes a photo that already
+  /// landed on the job.
+  photos JobPhoto[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -6453,6 +6484,15 @@ model JobPhoto {
   job        Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   jobVisitId String?
 
+  /// The to-do this photo was filed to satisfy, if any — set only by
+  /// POST /api/tasks/[id]/photos. Most JobPhoto rows have no task: this is
+  /// the exception, not the rule. SetNull rather than Cascade: a completed
+  /// to-do can be deleted later (DELETE /api/tasks/[id]) without deleting the
+  /// evidence the crew actually filed — a photo of finished work outlives the
+  /// checklist item that asked for it.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
   url     String
   /// start | progress | finish | issue — see lib/gallery/stages.js.
   stage   String  @default("progress")
@@ -6469,6 +6509,7 @@ model JobPhoto {
 
   @@index([companyId, featured])
   @@index([jobId, stage])
+  @@index([taskId])
 }
 
 // ============================================================
