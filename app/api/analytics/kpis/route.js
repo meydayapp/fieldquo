@@ -46,7 +46,7 @@ import {
 import { invoiceFamilies } from "@/lib/export/accountingExport";
 import { weeksBetween } from "@/lib/costing/utilisation";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
-import { buildKpis, detectMaterialsBuyListTrap } from "@/lib/analytics/kpis";
+import { buildKpis, detectMaterialsBuyListTrap, mergeCallbackReasons } from "@/lib/analytics/kpis";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const startOfDay = (key) => new Date(`${key}T00:00:00.000Z`);
@@ -443,18 +443,13 @@ export async function GET(request) {
   // A same-job touch-up (JobVisit.returnReason, already in completedJobs.visits
   // above) and a bigger return that became its own Job (callbackJobs, queried
   // separately because it's a DIFFERENT job pointing back at this one) both
-  // name a reason against the ORIGINAL job's id — merged here so
-  // buildReworkCallbackRate never has to know which shape produced a reason.
-  const callbackReasonsByJob = new Map();
-  const addCallbackReason = (jobId, reason) => {
-    if (!jobId || !reason) return;
-    if (!callbackReasonsByJob.has(jobId)) callbackReasonsByJob.set(jobId, new Set());
-    callbackReasonsByJob.get(jobId).add(reason);
-  };
-  for (const job of completedJobs) {
-    for (const v of job.visits || []) addCallbackReason(job.id, v.returnReason);
-  }
-  for (const cb of callbackJobs) addCallbackReason(cb.originalJobId, cb.callbackReason);
+  // name a reason against the ORIGINAL job's id — merged by the same pure
+  // function scripts/check-kpis.mjs exercises directly, including the "points
+  // at a job outside this period" case a route-level test can't reach.
+  const visitReturns = completedJobs.flatMap((job) =>
+    (job.visits || []).map((v) => ({ jobId: job.id, returnReason: v.returnReason })),
+  );
+  const callbackReasonsByJob = mergeCallbackReasons({ visitReturns, callbackJobs });
 
   // Excludes jobs that are THEMSELVES a callback (originalJobId set) — see
   // buildReworkCallbackRate's own comment for why that denominator would be

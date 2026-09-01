@@ -46,6 +46,9 @@ import {
   buildOnTimeCompletion,
   buildUtilisationRate,
   buildBlendedCostPerLead,
+  buildReworkCallbackRate,
+  buildChangeOrderRate,
+  mergeCallbackReasons,
   REASONS,
   NOT_TRACKED,
   RATE_FLOOR,
@@ -89,6 +92,7 @@ function kpisCall(overrides = {}) {
       onTimeJobs: [],
       utilisation: { workers: [], jobHoursById: {} },
     },
+    quality: { reworkJobs: [], changeOrderJobs: [] },
     cash: { invoices: [], payments: [], asOf: ASOF },
     ...overrides,
   });
@@ -183,8 +187,16 @@ ok("arAging: no invoices ever → null / no_invoices, not $0.00",
   EMPTY.cash.arAging.value === null && EMPTY.cash.arAging.reason === "no_invoices");
 ok("revenueTrend: no payments ever → unavailable, not a flat line at zero",
   EMPTY.cash.revenueTrend.available === false);
-ok("NOT_TRACKED lists exactly the six metrics this file refuses to invent",
-  NOT_TRACKED.length === 6 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
+ok("reworkCallbackRate: no completed jobs → null / no_completed_jobs",
+  EMPTY.quality.reworkCallbackRate.value === null &&
+    EMPTY.quality.reworkCallbackRate.reason === "no_completed_jobs");
+ok("changeOrderRate: no completed jobs → null / no_completed_jobs",
+  EMPTY.quality.changeOrderRate.value === null &&
+    EMPTY.quality.changeOrderRate.reason === "no_completed_jobs");
+ok("NOT_TRACKED lists exactly the four metrics this file refuses to invent (rework/callback and change-order rate moved off this list)",
+  NOT_TRACKED.length === 4 && NOT_TRACKED.every((m) => typeof m.reason === "string" && m.reason.length > 20));
+ok("…and neither moved-off metric is still named on it",
+  !NOT_TRACKED.some((m) => m.key === "reworkCallbackRate" || m.key === "changeOrderRate"));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Section 2 — one job, missing rates, null overhead
@@ -490,6 +502,140 @@ ok("backlog with exactly 1 completed, priced job this period: a real pace prints
   backlogOne.value !== null && backlogOne.reason === null, backlogOne);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Section 4b — rework/callback rate and change-order rate, at the boundary
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Not numbered "5" onward to avoid renumbering every section below it — see
+// the header note this file otherwise keeps sequential. Same discipline as
+// every other section here: known numbers in, known numbers out, then the
+// floor boundary, then the two hostile shapes the task called out by name —
+// a callback with no matching original in this period's job list, and a
+// change order on a job with no quote at all.
+
+console.log("\n4b. Rework/callback rate and change-order rate\n");
+
+function reworkJob(id, ...reasons) {
+  return { id, callbackReasons: reasons };
+}
+
+// ── Known numbers: 10 jobs, exact counts, so the rate has somewhere to hide
+//    a wrong formula ──────────────────────────────────────────────────────
+const reworkKnown = buildReworkCallbackRate({
+  jobs: [
+    reworkJob("r1", "rework"),
+    reworkJob("r2", "warranty"),
+    reworkJob("r3", "rework", "warranty"), // both reasons on one job — counts once
+    reworkJob("r4", "not_our_fault"), // excluded from the numerator
+    reworkJob("r5"),
+    reworkJob("r6"),
+    reworkJob("r7"),
+    reworkJob("r8"),
+    reworkJob("r9"),
+    reworkJob("r10"),
+  ],
+});
+ok("10 jobs, 3 with rework/warranty, 1 not-our-fault-only → rate is exactly 30%",
+  reworkKnown.value === 30 && reworkKnown.sampleSize === 10, reworkKnown);
+ok("…rework and warranty counted separately in `raw`, not-our-fault-only named rather than folded in",
+  reworkKnown.raw.reworkCount === 2 &&
+    reworkKnown.raw.warrantyCount === 2 &&
+    reworkKnown.raw.callbackJobs === 3 &&
+    reworkKnown.raw.notOurFaultOnly === 1,
+  reworkKnown.raw);
+
+const changeOrderKnown = buildChangeOrderRate({
+  jobs: [
+    { id: "c1", changeOrders: [{ priceDelta: 500 }, { priceDelta: -100 }] },
+    { id: "c2", changeOrders: [{ priceDelta: 200 }] },
+    ...Array.from({ length: 8 }, (_, i) => ({ id: `c${i + 3}`, changeOrders: [] })),
+  ],
+});
+ok("10 jobs, 2 with a change order (one carrying two) → rate is exactly 20%",
+  changeOrderKnown.value === 20 && changeOrderKnown.sampleSize === 10, changeOrderKnown);
+ok("…3 total change orders counted, net price effect is exactly $600",
+  changeOrderKnown.raw.totalChangeOrders === 3 && changeOrderKnown.raw.totalPriceDelta === 600,
+  changeOrderKnown.raw);
+
+// ── The floor, at 0 / 1 / floor-1 / floor / floor+1 callback jobs ──────────
+console.log("\n  reworkCallbackRate — 0, 1, floor-1, floor, floor+1 jobs, ALL with a rework callback\n");
+for (const n of [0, 1, RATE_FLOOR - 1, RATE_FLOOR, RATE_FLOOR + 1]) {
+  const jobs = Array.from({ length: n }, (_, i) => reworkJob(`f${i}`, "rework"));
+  const r = buildReworkCallbackRate({ jobs });
+  console.log(`    ${n} jobs → ${r.value === null ? `null (${r.reason})` : `${r.value}%`}`);
+  if (n === 0) {
+    ok(`reworkCallbackRate at 0 completed jobs: no_completed_jobs`, r.reason === "no_completed_jobs");
+  } else if (n < RATE_FLOOR) {
+    ok(`reworkCallbackRate at ${n} of ${RATE_FLOOR}: below_floor, sampleSize ${n}, ${RATE_FLOOR - n} remaining`,
+      r.reason === "below_floor" && r.sampleSize === n && r.remaining === RATE_FLOOR - n, r);
+  } else {
+    // Every job in this fixture has a callback, so the rate is a real 100%.
+    ok(`reworkCallbackRate at ${n} of ${RATE_FLOOR}: a real rate (100%, every job here had one)`,
+      r.value === 100 && r.reason === null, r);
+  }
+}
+
+console.log("\n  changeOrderRate — 0, 1, floor-1, floor, floor+1 jobs, ALL with a change order\n");
+for (const n of [0, 1, RATE_FLOOR - 1, RATE_FLOOR, RATE_FLOOR + 1]) {
+  const jobs = Array.from({ length: n }, (_, i) => ({ id: `g${i}`, changeOrders: [{ priceDelta: 50 }] }));
+  const r = buildChangeOrderRate({ jobs });
+  console.log(`    ${n} jobs → ${r.value === null ? `null (${r.reason})` : `${r.value}%`}`);
+  if (n === 0) {
+    ok(`changeOrderRate at 0 completed jobs: no_completed_jobs`, r.reason === "no_completed_jobs");
+  } else if (n < RATE_FLOOR) {
+    ok(`changeOrderRate at ${n} of ${RATE_FLOOR}: below_floor, sampleSize ${n}, ${RATE_FLOOR - n} remaining`,
+      r.reason === "below_floor" && r.sampleSize === n && r.remaining === RATE_FLOOR - n, r);
+  } else {
+    ok(`changeOrderRate at ${n} of ${RATE_FLOOR}: a real rate (100%, every job here had one)`,
+      r.value === 100 && r.reason === null, r);
+  }
+}
+
+// ── A job with a callback and no original — the merge function's own hard
+//    case, per the task's own wording ──────────────────────────────────────
+const orphanMerge = mergeCallbackReasons({
+  visitReturns: [{ jobId: "in-period-1", returnReason: "rework" }],
+  // "job-from-last-quarter" never appears in the caller's own completed-jobs
+  // list below — its original finished outside this period (or hasn't
+  // finished at all). The merge must not throw, and must not invent an entry
+  // for a job the caller never asks about.
+  callbackJobs: [{ originalJobId: "job-from-last-quarter", callbackReason: "warranty" }],
+});
+ok("mergeCallbackReasons: an in-period visit return is in the map",
+  [...(orphanMerge.get("in-period-1") || [])].includes("rework"));
+ok("mergeCallbackReasons: a callback pointing outside this period still lands in the map (harmless — see below)",
+  [...(orphanMerge.get("job-from-last-quarter") || [])].includes("warranty"));
+const reworkWithOrphan = buildReworkCallbackRate({
+  jobs: [
+    { id: "in-period-1", callbackReasons: [...(orphanMerge.get("in-period-1") || [])] },
+    // Nine more, uncalled-back, so this fixture clears RATE_FLOOR and prints
+    // a real rate rather than "below_floor" — the orphan's absence has to be
+    // visible in an actual percentage, not just hidden by a floor refusal.
+    ...Array.from({ length: 9 }, (_, i) => ({ id: `clean${i}`, callbackReasons: [] })),
+  ],
+});
+ok("…but the orphaned reason never reaches the rate — only the job actually in the caller's list counts (1 of 10 = 10%)",
+  reworkWithOrphan.value === 10 && reworkWithOrphan.raw.callbackJobs === 1, reworkWithOrphan);
+ok("mergeCallbackReasons: no jobId/reason on a row is silently skipped, not a crash",
+  mergeCallbackReasons({ visitReturns: [{ jobId: null, returnReason: "rework" }], callbackJobs: [] }).size === 0);
+
+// ── A change order on a job whose quote was never sent ──────────────────────
+//
+// buildChangeOrderRate takes jobs, not quotes, and never reads job.quote —
+// this fixture proves it: a job with NO quote link at all still counts a
+// change order exactly the same as one that came off an accepted quote,
+// because "the client agreed to a change mid-job" doesn't require the
+// original scope to have gone through a Quote row (a manual job can still
+// have change orders).
+const changeOrderNoQuote = buildChangeOrderRate({
+  jobs: [
+    { id: "manual-job", changeOrders: [{ priceDelta: 250 }] }, // no `quote` key present at all
+    ...Array.from({ length: 9 }, (_, i) => ({ id: `plain${i}`, changeOrders: [] })),
+  ],
+});
+ok("a change order on a job with no quote at all still counts (1 of 10 = 10%, $250)",
+  changeOrderNoQuote.value === 10 && changeOrderNoQuote.raw.totalPriceDelta === 250, changeOrderNoQuote);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Section 5 — the materials buy-list trap
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -628,6 +774,16 @@ const FULL_PAYLOADS = [
       activeWorkerCount: 4,
     },
   }),
+  // Exercises quality.reworkCallbackRate/changeOrderRate through the FULL
+  // envelope, not just the standalone builder calls above — the same reason
+  // FIVE_JOBS gets its own kpisCall rather than only being asserted via
+  // buildMarginRollup directly.
+  kpisCall({
+    quality: {
+      reworkJobs: [reworkJob("qr1", "rework"), reworkJob("qr2")],
+      changeOrderJobs: [{ id: "qc1", changeOrders: [{ priceDelta: 75 }] }, { id: "qc2", changeOrders: [] }],
+    },
+  }),
 ];
 
 // Zeros this file KNOWS are honest, named so a NEW zero-with-no-reason has to
@@ -681,6 +837,10 @@ for (const [label, result] of [
   ["blendedOnlyManual", blendedOnlyManual],
   ["blendedReal", blendedReal],
   ["blendedZeroSpendRealLeads", blendedZeroSpendRealLeads],
+  ["reworkKnown", reworkKnown],
+  ["changeOrderKnown", changeOrderKnown],
+  ["reworkWithOrphan", reworkWithOrphan],
+  ["changeOrderNoQuote", changeOrderNoQuote],
 ]) {
   if (result.reason) seenReasons.add(result.reason);
   ok(`${label}: value is null iff reason is set`, (result.value === null) === Boolean(result.reason), result);
@@ -848,6 +1008,22 @@ const MUTATIONS = [
   [
     "prints a blended cost-per-lead with zero real leads instead of refusing",
     (s) => s.replace("if (counted <= 0) {", "if (false) {"),
+  ],
+  [
+    "counts a not-our-fault-only job toward the rework/callback rate numerator",
+    (s) => s.replace("if (hasRework || hasWarranty) {", 'if (hasRework || hasWarranty || reasons.has("not_our_fault")) {'),
+  ],
+  [
+    "drops the second reason on a job carrying both rework and warranty",
+    (s) => s.replace("if (hasWarranty) warrantyCount += 1;", "// dropped"),
+  ],
+  [
+    "counts a job with zero change orders as having one",
+    (s) => s.replace("if (orders.length > 0) jobsWithChangeOrder += 1;", "jobsWithChangeOrder += 1;"),
+  ],
+  [
+    "mergeCallbackReasons attaches a reason with no jobId instead of skipping it",
+    (s) => s.replace("if (!jobId || !reason) return;", "if (!reason) return;"),
   ],
 ];
 
