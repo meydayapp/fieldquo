@@ -1042,6 +1042,8 @@ model Company {
   leadRequests          LeadRequest[]
   materials             Material[]
   notificationRules     NotificationRule[]
+  jobPhotoComments      JobPhotoComment[]
+  jobPhotoMentions      JobPhotoMention[]
   aiDigests             AiDigest[]
   subscription          Subscription?
   instantQuoteConfigs   InstantQuoteConfig[]
@@ -1510,6 +1512,9 @@ model Member {
   permissions      Json?
 
   invitationLanguage String? @default("en")
+
+  jobPhotoCommentsAuthored JobPhotoComment[]
+  jobPhotoMentions         JobPhotoMention[]
 
   @@unique([userId, companyId])
 }
@@ -6852,8 +6857,77 @@ model JobPhoto {
 
   createdAt DateTime @default(now())
 
+  comments JobPhotoComment[]
+
   @@index([companyId, featured])
   @@index([jobId, stage])
+}
+
+/// An internal note on a job photo — never a client-facing surface. Nothing
+/// under /quote, /book, /portal, /site or /embed, no PDF and no email selects
+/// this model; the public gallery (lib/site/jobPhotos.js) and the photo report
+/// PDF (lib/jobs/photoReport.js) both hand-pick { url, caption, stage,
+/// createdAt } and would need a deliberate edit to ever reach this table. The
+/// second guard is memberOrRefusal itself: a homeowner has no Member row, so
+/// even a route that mistakenly queried this would refuse them before the
+/// query ran. See docs/PHOTO-COMMENTS.md.
+///
+/// Flat, not threaded. A photo's comment thread is short — "who tagged the
+/// trim, what's the touch-up colour" — and a reply-to-reply tree buys
+/// structure a handful of short-lived company staff comments never need.
+model JobPhotoComment {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  jobPhotoId String
+  jobPhoto   JobPhoto @relation(fields: [jobPhotoId], references: [id], onDelete: Cascade)
+
+  /// The Member row, not the User — this is company-scoped identity, the same
+  /// thing every permission check in lib/permissions/enforce.js reasons about.
+  authorMemberId String
+  authorMember   Member @relation(fields: [authorMemberId], references: [id], onDelete: Cascade)
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  mentions JobPhotoMention[]
+
+  @@index([jobPhotoId, createdAt])
+  @@index([companyId])
+}
+
+/// One @mention inside a comment, and the record of whether — and how — the
+/// mentioned person was actually told. This IS the notification store: there
+/// is no generic Notification/inbox model anywhere else in this schema (see
+/// docs/PHOTO-COMMENTS.md for what was checked before this was added), so
+/// "was this person notified" has nowhere else to be durable.
+model JobPhotoMention {
+  id        String          @id @default(cuid())
+  commentId String
+  comment   JobPhotoComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  /// sms | email | none — how delivery was attempted, decided once at write
+  /// time and never revisited. A member's phone number changing next week
+  /// must not rewrite history about how THIS mention was (or wasn't) sent.
+  notifiedVia String    @default("none")
+  notifiedAt  DateTime?
+
+  /// Populated only when notifiedVia is "none" — self_mention | no_channel |
+  /// crew_line_not_set_up | opted_out | insufficient_balance | send_failed.
+  /// See lib/photoComments/notify.js, the only writer of these two columns.
+  skipReason String?
+
+  createdAt DateTime @default(now())
+
+  @@index([memberId, createdAt])
+  @@index([commentId])
 }
 
 // ============================================================

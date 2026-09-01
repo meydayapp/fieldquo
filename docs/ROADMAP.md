@@ -956,6 +956,42 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Internal comments and @mentions on job photos, with the crew-upload gate
+  they surfaced fixed along the way. Full writeup:
+  `docs/PHOTO-COMMENTS.md`. `prisma/schema.prisma` (`JobPhotoComment`,
+  `JobPhotoMention` — new, additive), `lib/photoComments/` (new —
+  `mentionable.js`, `notify.js`), `app/api/jobs/[id]/photos/[photoId]/comments`
+  (new), `app/api/jobs/[id]/mentionable` (new),
+  `app/components/jobs/JobPhotoComments.js` (new),
+  `app/components/jobs/JobPhotoCurator.js`,
+  `app/api/jobs/[id]/photos/route.js`, `scripts/check-job-photos.mjs`.**
+
+  The owner's ask included "crews should be able to add pictures to a job" —
+  investigating that first (rather than assuming it needed building) found it
+  was already built and silently broken: `POST /api/jobs/[id]/photos`
+  required `jobs:view_create_edit`, a level the Crew preset has never held
+  (it sits at `view_only`), so the upload button `JobPhotoCurator.js` already
+  rendered for every crew member 403'd for all of them — the exact
+  "appears to work and doesn't" failure AGENTS.md names, with an existing
+  check-script assertion that had baked the bug in as a requirement. Fixed:
+  lowered to `view_only` (still scoped by `assignedJobWhere`), leaving
+  featuring/re-staging at `view_create_edit`.
+
+  Comments are flat, company-scoped, internal-only — checked, not assumed,
+  against the public gallery, the photo-report PDF and the client portal (none
+  select the new tables; the portal doesn't reference `JobPhoto` at all).
+  There is no `Notification`/inbox model anywhere in this schema, checked
+  before building anything — `JobPhotoMention` doubles as the mention record
+  and the delivery record rather than a bell icon over a table that doesn't
+  exist. A mention reaches a crew member over the company's own crew SMS line
+  (only when one is actually set up; billed and STOP-gated exactly like a
+  crew reply) and falls back to a staff-facing email otherwise; self-mentions
+  never notify. Every hostile-input case the owner listed (cross-company
+  mention, deactivated member, someone scoped off the job, five mentions at
+  once, a comment on a vanished photo, access revoked mid-request, an @ that
+  matches nobody) is executed against a stub database in
+  `scripts/check-job-photos.mjs`, mutation-tested by hand.
+
 - **Meta Ads: the three Meta-free wins from `docs/META-ADS-INTEGRATION.md`'s
   research, built now — plus the Meta import itself, real code that has
   never made a real API call. Full account: `docs/META-ADS-BUILD.md`.
