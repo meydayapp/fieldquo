@@ -26,6 +26,8 @@ import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import VisitStatus from "@/app/components/jobs/VisitStatus";
 import { visitStatusLabel } from "@/lib/jobs/visitStatus";
 import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
+import { callbackReasonLabel } from "@/lib/jobs/callbackReasons";
+import ChangeOrders from "@/app/components/jobs/ChangeOrders";
 import {
   ArrowLeft,
   Pencil,
@@ -427,6 +429,40 @@ export default function JobDetail({ jobId }) {
         </div>
       )}
 
+      {/* Callback banners — both directions. A job pointing BACK at an
+          original (this job IS the callback), and a job that has already had
+          returns booked against it (this job HAS callbacks). Both are just
+          links; the KPI dashboard is where the rate lives. */}
+      {job.originalJob && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+          {t("app.job.isCallbackFor", "This job is a callback")}
+          {job.callbackReason && ` (${callbackReasonLabel(job.callbackReason, t)})`}
+          {" — "}
+          <Link href={`/app/jobs/${job.originalJob.id}`} className="underline">
+            {job.originalJob.title}
+          </Link>
+        </div>
+      )}
+      {job.callbackJobs?.length > 0 && (
+        <div className="bg-card border border-border rounded-xl px-4 py-3 text-sm">
+          <p className="font-medium text-foreground mb-1.5">
+            {t("app.job.hasCallbacks", "Callback jobs for this one")}
+          </p>
+          <ul className="space-y-1">
+            {job.callbackJobs.map((cb) => (
+              <li key={cb.id}>
+                <Link href={`/app/jobs/${cb.id}`} className="underline text-foreground">
+                  {cb.title}
+                </Link>
+                {cb.callbackReason && (
+                  <span className="text-muted-foreground"> — {callbackReasonLabel(cb.callbackReason, t)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Empty for every job whose company has no structured payment
           schedule — see lib/paymentSchedule/run.js. */}
       <PaymentScheduleCard stages={job.paymentStages} />
@@ -498,6 +534,11 @@ export default function JobDetail({ jobId }) {
           been recorded and for anyone without the jobCosting toggle. */}
       <JobCosting jobId={job.id} />
 
+      {/* Scope changes agreed after the quote was accepted — see the
+          ChangeOrder model's own header for why this is a deliberate log,
+          never inferred from a quote or invoice edit. */}
+      <ChangeOrders jobId={job.id} changeOrders={job.changeOrders} onChanged={load} />
+
       {/* What has to be bought before the crew leaves the yard. Sits under the
           costing because it is the same bill of materials — one derived from
           the quote's takeoff — seen from the other end: the cost panel asks
@@ -525,13 +566,21 @@ export default function JobDetail({ jobId }) {
               </p>
             )}
           </div>
-          <Link
-            href={`/app/jobs/${jobId}/visits/new`}
-            className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
-          >
-            <Plus size={13} />
-            {t("app.job.addVisit")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/app/jobs/new?originalJobId=${jobId}&clientId=${job.clientId}`}
+              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+            >
+              {t("app.job.logCallbackJob", "Log a callback job")}
+            </Link>
+            <Link
+              href={`/app/jobs/${jobId}/visits/new`}
+              className="inline-flex items-center gap-1.5 border border-border text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-muted"
+            >
+              <Plus size={13} />
+              {t("app.job.addVisit")}
+            </Link>
+          </div>
         </div>
 
         {!job.visits?.length ? (
@@ -572,6 +621,11 @@ export default function JobDetail({ jobId }) {
                             {t("app.job.visitOutsideRange", "Outside job dates")}
                           </span>
                         )}
+                        {v.returnReason && (
+                          <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                            {callbackReasonLabel(v.returnReason, t)}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {v.assignedTo?.name
@@ -585,6 +639,11 @@ export default function JobDetail({ jobId }) {
                       {v.notes && (
                         <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
                           {v.notes}
+                        </p>
+                      )}
+                      {v.returnNotes && (
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-2 whitespace-pre-wrap">
+                          {v.returnNotes}
                         </p>
                       )}
                     </div>

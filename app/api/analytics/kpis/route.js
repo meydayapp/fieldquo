@@ -46,7 +46,7 @@ import {
 import { invoiceFamilies } from "@/lib/export/accountingExport";
 import { weeksBetween } from "@/lib/costing/utilisation";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
-import { buildKpis, detectMaterialsBuyListTrap } from "@/lib/analytics/kpis";
+import { buildKpis, detectMaterialsBuyListTrap, mergeCallbackReasons } from "@/lib/analytics/kpis";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const startOfDay = (key) => new Date(`${key}T00:00:00.000Z`);
@@ -220,6 +220,10 @@ export async function GET(request) {
       title: true,
       completedAt: true,
       quoteId: true,
+      // Whether THIS job is itself a callback — read by buildReworkCallbackRate's
+      // caller below to exclude it from that rate's denominator; a warranty
+      // return isn't "new work" being measured for whether it needed a return.
+      originalJobId: true,
       client: { select: { id: true, name: true } },
       quote: {
         select: {
@@ -241,7 +245,10 @@ export async function GET(request) {
           scopeGroups: { select: { category: { select: { key: true, label: true } } } },
         },
       },
-      visits: { select: { scheduledAt: true } },
+      // returnReason feeds buildReworkCallbackRate; onTimeJobs below only
+      // reads scheduledAt off this same array, so one fetch serves both
+      // rather than querying JobVisit a second time.
+      visits: { select: { scheduledAt: true, returnReason: true } },
     },
   });
 
@@ -251,7 +258,17 @@ export async function GET(request) {
     completedJobs.filter((j) => j.quoteId).map((j) => [j.quoteId, j.id]),
   );
 
-  const [expenses, timeEntries, jobMaterials, revenueInvoices, jobHoursGrouped, periodRevenueAgg, forecastResult] =
+  const [
+    expenses,
+    timeEntries,
+    jobMaterials,
+    revenueInvoices,
+    jobHoursGrouped,
+    periodRevenueAgg,
+    forecastResult,
+    callbackJobs,
+    changeOrders,
+  ] =
     completedJobIds.length
       ? await Promise.all([
           db.expense.findMany({
@@ -312,6 +329,25 @@ export async function GET(request) {
           // defaulted: needsCapacity means ForecastSettings.jobsPerWeekCapacity
           // was never set, and netMarginPct stays null rather than guessing it.
           calculateMinimumPrice({ companyId, targetMargin: 0.2 }),
+          // Jobs that point BACK at one of these as their originalJobId — the
+          // "big enough to be its own job" shape of a callback (the other
+          // shape, a same-job return visit, is already in `visits` above via
+          // returnReason). Company-scoped explicitly rather than relying on
+          // originalJobId alone being enough proof, matching every other
+          // query on this route.
+          db.job.findMany({
+            where: { companyId, originalJobId: { in: completedJobIds } },
+            select: { id: true, originalJobId: true, callbackReason: true },
+          }),
+          // Scope changes logged against these jobs — see the ChangeOrder
+          // model's own header. Unbounded by date, same reasoning AR aging
+          // uses: a change order agreed near the end of this job's life might
+          // be logged the week after completedAt, and excluding it here would
+          // undercount the very jobs this metric exists to catch.
+          db.changeOrder.findMany({
+            where: { jobId: { in: completedJobIds } },
+            select: { jobId: true, priceDelta: true },
+          }),
         ])
       : [
           [],
@@ -324,6 +360,8 @@ export async function GET(request) {
             _sum: { total: true },
           }),
           await calculateMinimumPrice({ companyId, targetMargin: 0.2 }),
+          [],
+          [],
         ];
 
   const expensesByJob = new Map();
@@ -400,6 +438,36 @@ export async function GET(request) {
 
   const throughputJobs = completedJobs.map((job) => ({ id: job.id, quote: job.quote }));
 
+  // ── Callback reasons, merged from both shapes a return can take ──────────
+  //
+  // A same-job touch-up (JobVisit.returnReason, already in completedJobs.visits
+  // above) and a bigger return that became its own Job (callbackJobs, queried
+  // separately because it's a DIFFERENT job pointing back at this one) both
+  // name a reason against the ORIGINAL job's id — merged by the same pure
+  // function scripts/check-kpis.mjs exercises directly, including the "points
+  // at a job outside this period" case a route-level test can't reach.
+  const visitReturns = completedJobs.flatMap((job) =>
+    (job.visits || []).map((v) => ({ jobId: job.id, returnReason: v.returnReason })),
+  );
+  const callbackReasonsByJob = mergeCallbackReasons({ visitReturns, callbackJobs });
+
+  // Excludes jobs that are THEMSELVES a callback (originalJobId set) — see
+  // buildReworkCallbackRate's own comment for why that denominator would be
+  // wrong to include them in.
+  const reworkJobs = completedJobs
+    .filter((job) => !job.originalJobId)
+    .map((job) => ({ id: job.id, callbackReasons: [...(callbackReasonsByJob.get(job.id) || [])] }));
+
+  const changeOrdersByJob = new Map();
+  for (const co of changeOrders) {
+    if (!changeOrdersByJob.has(co.jobId)) changeOrdersByJob.set(co.jobId, []);
+    changeOrdersByJob.get(co.jobId).push({ priceDelta: co.priceDelta });
+  }
+  const changeOrderJobs = completedJobs.map((job) => ({
+    id: job.id,
+    changeOrders: changeOrdersByJob.get(job.id) || [],
+  }));
+
   const weeksInPeriod = weeksBetween(gte, lte);
 
   let payload;
@@ -435,6 +503,7 @@ export async function GET(request) {
           jobHoursById,
         },
       },
+      quality: { reworkJobs, changeOrderJobs },
       cash: { invoices: allInvoices, payments: allPayments, asOf: new Date() },
     });
   } catch (err) {

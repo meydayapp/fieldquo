@@ -4,6 +4,8 @@ Last updated: 31 August 2026 (payment schedule). **Update this file when you fin
 Last updated: 1 September 2026. **Update this file when you finish something.**
 Last updated: 1 September 2026 (business costs). **Update this file when you finish something.**
 
+Last updated: 1 September 2026 (callbacks and change orders). **Update this file when you finish something.**
+
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
@@ -58,6 +60,40 @@ trend and `lib/export/accountingExport.js` (which says outright it records
 no refunds) — not a gap this session introduced, and not one screen's to fix
 alone without touching the other two the same way. Flagged in the writeup as
 a real, deliberate omission rather than fixed unilaterally.
+
+## Callback/rework tracking and change orders — two KPIs that had nothing
+
+Full writeup: [CALLBACKS-AND-CHANGE-ORDERS.md](CALLBACKS-AND-CHANGE-ORDERS.md).
+`lib/analytics/kpis.js` used to refuse `reworkCallbackRate` and
+`changeOrderRate` outright — no field recorded a callback, and a quote edit
+carried no history to compare against. Both now compute honestly.
+
+Additive schema: `JobVisit.returnReason`/`returnNotes` (a same-job return
+visit — rework/warranty/not_our_fault, a person's judgement call; no warranty
+period exists anywhere in the schema to compute one from, confirmed by grep
+before writing anything), `Job.originalJobId`/`callbackReason` (a callback big
+enough to be its own job, self-relation), and a new `ChangeOrder` model (a
+scope change agreed after quote acceptance, logged by a person — description
++ price effect, never inferred from a `Quote` or `Invoice` edit; see the doc
+for why invoice versioning's `changeLog` looked close but fires on the wrong
+trigger, and would have flooded the rate with due-date fixes and typo
+corrections).
+
+Both KPIs sit under a new `quality` section of `buildKpis()` and a new
+Quality section on `/app/analytics/kpis`, reusing the existing `RATE_FLOOR`
+and `no_completed_jobs`/`below_floor` reason codes — no new copy needed.
+`scripts/check-kpis.mjs` gained known-number and floor-boundary fixtures for
+both, plus the two hostile shapes named in the task (a callback pointing at
+a job outside the period, a change order on a job with no quote at all) and
+four new mutations, all caught (212 assertions without mutation, 232 with).
+
+English and French translated (the two `check:translations` gates); es/uk/pa/
+tl deliberately not, matching the precedent `KPI-EMPTY-STATES.md` already set
+for this exact page.
+
+No `prisma db push` run — schema validated with `npx prisma validate` only,
+per the task's own instruction. **Whoever picks this up next needs to run the
+migration before these fields do anything in a real database.**
 
 ## Photo annotation — Apple Markup, on a job photo
 

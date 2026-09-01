@@ -55,6 +55,14 @@ export async function GET(request, { params }) {
       // the client-portal payload in app/api/portal/[token]/route.js, which
       // allow-lists to label + amount only.
       paymentStages: { orderBy: { seq: "asc" } },
+      // Scope changes agreed after acceptance — see ChangeOrder's own header.
+      // Same "internal staff view" reasoning as paymentStages above: nothing
+      // here reaches the client-portal payload.
+      changeOrders: { orderBy: { createdAt: "desc" }, include: { createdBy: { select: { id: true, name: true } } } },
+      // Both directions of a callback: what this job was a return FOR, and
+      // what returns THIS job has already spawned.
+      originalJob: { select: { id: true, title: true, completedAt: true } },
+      callbackJobs: { select: { id: true, title: true, status: true, callbackReason: true, createdAt: true } },
     },
   });
 

@@ -821,6 +821,37 @@ export default function KpiDashboardPage() {
             )}
           </section>
 
+          {/* ── Quality ──────────────────────────────────────────────────── */}
+          <section>
+            <SectionHeading
+              title={t("app.kpis.quality.title", "Quality")}
+              subtitle={t(
+                "app.kpis.quality.subtitle",
+                "Work that had to be revisited, and scope that changed after the client said yes.",
+              )}
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <KpiTile
+                label={t("app.kpis.reworkCallbackRate", "Rework / callback rate")}
+                data={data.quality.reworkCallbackRate}
+                format={pct}
+                hint={t(
+                  "app.kpis.reworkCallbackHint",
+                  "Completed jobs the company had to go back to for a redo or a warranty return. A client who thought something was missing and wasn't doesn't count against this — see the job page for how to record which is which.",
+                )}
+              />
+              <KpiTile
+                label={t("app.kpis.changeOrderRate", "Change-order rate")}
+                data={data.quality.changeOrderRate}
+                format={pct}
+                hint={t(
+                  "app.kpis.changeOrderHint",
+                  "Completed jobs with at least one scope change logged after the quote was accepted — never inferred from an ordinary quote or invoice edit.",
+                )}
+              />
+            </div>
+          </section>
+
           {/* ── Cash ─────────────────────────────────────────────────────── */}
           <section>
             <SectionHeading

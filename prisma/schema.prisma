@@ -1479,6 +1479,7 @@ model User {
   eventTypes            EventType[]
   jobVisitsAssigned     JobVisit[]             @relation("JobVisitAssignee")
   jobMaterialsPurchased JobMaterial[]          @relation("JobMaterialPurchaser")
+  changeOrdersCreated   ChangeOrder[]          @relation("ChangeOrderCreatedBy")
   shiftOverrides        Shift[]                @relation("ShiftAvailabilityOverride")
   workerProfile         Worker?
   campaignsAssigned     MarketingCampaign[]    @relation("CampaignAssignee")
@@ -3426,6 +3427,35 @@ model Job {
   /// This job's frozen payment schedule, one row per stage — empty for every
   /// job whose company has no structured schedule. See JobPaymentStage.
   paymentStages JobPaymentStage[]
+
+  // ── Callbacks: a return that's big enough to be its own job ──────────────
+  //
+  // Two ways a company goes back, and they're deliberately different shapes —
+  // see JobVisit.returnReason for the other one. A same-week touch-up is one
+  // more visit on THIS job; a three-week warranty return, or anything that
+  // needs its own scheduling, materials list or invoice, is a new Job that
+  // points back here. Self-relation, nullable on both fields, together —
+  // every job created before this existed, and every job that was never a
+  // callback, reads null on both.
+  //
+  // No onDelete clause, matching Invoice.parentInvoiceId's own self-relation:
+  // a job carrying approved hours or tasks already can't be deleted, so this
+  // never has to decide what happens to a callback's link when its original
+  // disappears.
+  originalJobId String?
+  originalJob   Job?    @relation("JobCallback", fields: [originalJobId], references: [id])
+  callbackJobs  Job[]   @relation("JobCallback")
+
+  /// Why THIS job exists as a callback — "rework" | "warranty" |
+  /// "not_our_fault", see lib/jobs/callbackReasons.js. Null unless
+  /// originalJobId is set; the API writes the two together and never one
+  /// without the other.
+  callbackReason String?
+
+  /// Scope changes agreed after the original quote was accepted. See
+  /// ChangeOrder's own header for why this is a deliberate log a person
+  /// writes, never inferred from a quote or invoice edit.
+  changeOrders ChangeOrder[]
 }
 
 /// One line of a job's sourcing list: what to buy, how much, and whether it has
@@ -3511,6 +3541,65 @@ model JobVisit {
   photos         String[] @default([])
   notes          String?
   createdAt      DateTime @default(now())
+
+  /// Set when this visit is a RETURN to the address for work already covered
+  /// by THIS job — not a brand-new trip. Null (the default, and every
+  /// existing row) means an ordinary visit. "rework" | "warranty" |
+  /// "not_our_fault" — see lib/jobs/callbackReasons.js, and Job.originalJobId
+  /// for the other shape a callback can take, when the gap is big enough to
+  /// need its own job rather than one more visit on this one.
+  ///
+  /// Deliberately chosen by whoever books the return, not inferred: nothing
+  /// in the schema knows a warranty period (grepped for one before writing
+  /// this — there isn't one), and "the client thinks something's missing but
+  /// it's actually a scope misunderstanding" is a judgement call a computed
+  /// date could never make. See docs/CALLBACKS-AND-CHANGE-ORDERS.md.
+  returnReason String?
+  /// What the client reported or what was found. Free text on purpose, the
+  /// same reasoning Quote.declineReason gives for staying free text rather
+  /// than a forced dropdown.
+  returnNotes  String?
+}
+
+/// A scope change the client agreed to AFTER the original quote was
+/// accepted — "add this while you're here," a fixture swap, something
+/// discovered mid-job that changes the price. Its own record, deliberately
+/// NOT inferred from a quote or invoice edit — see
+/// docs/CALLBACKS-AND-CHANGE-ORDERS.md for the evidence:
+///
+///   * Quote is edited in place with no history kept at all — there is
+///     nothing to log an original scope against.
+///   * Invoice versioning (Invoice.parentInvoiceId) already exists, but a new
+///     version is created by ANY edit to a sent invoice — a due-date fix, a
+///     typo in the notes, a photo swap — not only a scope change. Counting
+///     every version as a change order would flood the rate with edits that
+///     were never agreed with the client at all.
+///
+/// So this is logged by a person, at the point the change is actually
+/// agreed — never auto-created by a PATCH. What changed and what it did to
+/// the price are both free-typed by whoever is talking to the client, the
+/// same trust boundary Quote.declineReason and JobMaterial's hand-entered
+/// receipts already sit inside; this is an internal /app record, never a
+/// client-facing price a browser could set (AGENTS.md non-negotiable #5 is
+/// about that surface, not this one).
+model ChangeOrder {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  description String
+  /// The effect on price — positive adds to what the client owes, negative
+  /// credits them. Staff-typed, never derived from a quote or invoice total:
+  /// the two rarely move in lockstep (a change order agreed today might not
+  /// be invoiced until the final bill), and inventing a link between them
+  /// would be a truer-looking number standing on a guess.
+  priceDelta Decimal @db.Decimal(12, 2)
+
+  createdById String?
+  createdBy   User?    @relation("ChangeOrderCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([jobId])
 }
 
 model JobChecklistTemplate {
