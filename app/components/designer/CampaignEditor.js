@@ -288,6 +288,30 @@ export function CampaignEditor({ design, onBack }) {
     }
   }
 
+  // For PublishModal's "Generate with AI" caption button: every photo URL
+  // actually placed on the LIVE canvas right now, read straight off the
+  // fabric objects rather than from any saved layout — the same "what's
+  // really on screen, not the last save" instinct resolveRatioFrame applies
+  // to the active tab. A function, not a memoised value, because the canvas
+  // mutates on every drag/add/remove and PublishModal only needs the answer
+  // at the moment someone presses the button, not a value kept in sync on
+  // every keystroke.
+  //
+  // fabric.Image objects expose their url via getSrc() — see
+  // useEditor.js's addImage(), the one place an image object is ever
+  // created here. Filtered to http(s) only: complete() in
+  // lib/ai/provider.js would silently drop a data:/blob: URL anyway, and
+  // POST /api/designer/copy refuses a request with no usable URLs at all
+  // rather than quietly captioning nothing.
+  const getCanvasPhotoUrls = useCallback(() => {
+    if (!editorInstance?.canvas) return [];
+    return editorInstance.canvas
+      .getObjects()
+      .filter((o) => o.type === "image" && typeof o.getSrc === "function")
+      .map((o) => o.getSrc())
+      .filter((src) => typeof src === "string" && /^https?:\/\//.test(src));
+  }, [editorInstance]);
+
   // For PublishModal: rasterise ONE ratio as a JPEG (Instagram's required
   // format — see the rasterize() header) and hand back the data URL plus the
   // pixel size actually rendered, so the modal can run
@@ -415,6 +439,7 @@ export function CampaignEditor({ design, onBack }) {
         onClose={() => setPublishOpen(false)}
         design={design}
         preparePublishAsset={preparePublishAsset}
+        getCanvasPhotoUrls={getCanvasPhotoUrls}
       />
     </div>
   );
