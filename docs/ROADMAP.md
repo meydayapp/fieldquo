@@ -2,10 +2,62 @@
 
 Last updated: 31 August 2026 (payment schedule). **Update this file when you finish something.**
 Last updated: 1 September 2026. **Update this file when you finish something.**
+Last updated: 1 September 2026 (business costs). **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Business costs — payroll, fixed costs, marketing spend and backlog, on the KPI dashboard
+
+Full writeup: [FINANCE-DASHBOARD.md](FINANCE-DASHBOARD.md), which opens with
+the audit the owner actually asked for: was the `nextjs-finance-saas-master`
+reference ever integrated? Yes — as of commit `8c14f93` (30 August 2026), as
+the "Money flow" section already on `/app/analytics/kpis`, tested by
+`scripts/check-money-flow.mjs`. "It wasn't integrated" was true before that
+commit and isn't anymore; what was still missing was the owner's *actual*
+ask underneath the complaint: a finance view useful **before** any bank
+statement, built from payroll, overhead and committed work FieldQuo already
+tracks, not only `Payment`/`Expense`.
+
+New "Business costs" section, same page, below Money flow: payroll this
+period (`lib/analytics/payrollCost.js`, new — approved `TimeEntry` hours ×
+`effectiveWageRate()`, imported unchanged from `lib/payroll/buildPayRun.js`
+rather than adding the fourth pay-rate path §5 below warns about), fixed
+costs (`lib/analytics/burnRate.js`'s `totalMonthlyCost`, reused unchanged
+from Settings → Overhead, shown as a flat monthly figure rather than prorated
+onto the selected period — inventing a proration rule would be its own
+"padding absent data" bug), marketing spend
+(`lib/analytics/marketingRollup.js`, reused unchanged), and committed-but-
+unbilled work (`buildBacklogWeeks().raw.backlogValue`, read off the KPI
+payload the page already fetches — not queried a second time).
+`app/api/analytics/finance-overview/route.js` gates on the union of every
+permission the three DB-backed pieces already carry on their own screens
+(`jobCosting`+`payroll:view_all`, `jobCosting`+`showPricing` via
+`canReadCostBasis`, `user:manage`), the same "one 403, name what's missing"
+shape `money-flow/route.js` already uses.
+
+**Deliberately not summed into one "total money out" figure** — payroll and
+marketing spend may already be double-counted against a manually-logged
+`Expense` for the same real-world cost, and nothing links those tables to
+detect the overlap. Each figure stays separate and labelled; a combined
+total would look precise and sometimes be wrong.
+
+`scripts/check-money-flow.mjs` gained Section 17 (17 fixture assertions
+against `buildPayrollCost()` — no approved time ever vs. a real $0 quiet
+period, the Member-fallback rate, an unrated worker's hours excluded and
+named rather than priced at $0, pending hours never paid, float precision
+across multiple workers) and Section 18 (5 mutations, all caught). Full run:
+143/143 assertions, 29/29 mutations across all four files this script now
+covers. `npm run check:all` and `npm run build` both exit 0.
+
+Refund/dispute netting on the income figure was checked, not built: `Payment
+.amount` staying gross (never netted against `refundedAmount`) is an
+existing, consistent choice across `lib/analytics/receivables.js`'s revenue
+trend and `lib/export/accountingExport.js` (which says outright it records
+no refunds) — not a gap this session introduced, and not one screen's to fix
+alone without touching the other two the same way. Flagged in the writeup as
+a real, deliberate omission rather than fixed unilaterally.
 
 ## Photo annotation — Apple Markup, on a job photo
 

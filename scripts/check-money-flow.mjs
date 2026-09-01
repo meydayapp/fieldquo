@@ -19,8 +19,12 @@
 // lib/paymentSchedule/engine.js — the payment-schedule engine's halfway
 // math, trigger resolution, cent-exact allocation and validity gate,
 // executed against the owner's own worked example, odd durations, missing
-// dates, a backwards range and a DST-spanning job. Section 11 mutates all
-// three files on disk, one bug at a time, and re-runs this file as a
+// dates, a backwards range and a DST-spanning job. Section 17 does the
+// identical thing for lib/analytics/payrollCost.js — the Business costs
+// section's payroll figure, a different table (TimeEntry, not Expense) with
+// its own everRecorded rule and its own "hours with no resolvable rate"
+// refusal. Section 11 mutates all
+// four files on disk, one bug at a time, and re-runs this file as a
 // subprocess to confirm each bug makes an assertion above fail —
 // check-kpis.mjs's own technique, and the same reason: a mutation that
 // ISN'T caught means the assertion guarding that line has no teeth.
@@ -34,6 +38,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildMoneyFlow, priorWindow, categoryBreakdown, REASONS } from "@/lib/analytics/moneyFlow";
+import { buildPayrollCost, REASONS as PAYROLL_REASONS } from "@/lib/analytics/payrollCost";
 import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 import {
   jobDurationDays,
@@ -669,6 +674,131 @@ ok("an empty schedule renders nothing",
   scheduleToText([]) === "");
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Section 17 — lib/analytics/payrollCost.js: payroll cost, the Business
+// costs section's own figure, mutation-tested in Section 18 below
+// ═══════════════════════════════════════════════════════════════════════════
+
+console.log("\n17. lib/analytics/payrollCost.js — approved hours × each worker's own rate\n");
+
+const PAYROLL_RESULTS = [];
+function payrollRun(overrides) {
+  const r = buildPayrollCost({
+    workers: [],
+    laborCostByUser: new Map(),
+    approvedHoursByWorker: {},
+    pendingHoursByWorker: {},
+    everRecordedTime: false,
+    ...overrides,
+  });
+  PAYROLL_RESULTS.push(r);
+  return r;
+}
+
+// ── No approved time ever, at any date — unknown, not a $0 ─────────────────
+const NO_TIME = payrollRun({});
+ok("value is null, unavailable, no_time_entries_recorded",
+  NO_TIME.value === null && !NO_TIME.available && NO_TIME.reason === "no_time_entries_recorded");
+ok("a real sentence rides along", NO_TIME.reasonText === PAYROLL_REASONS.no_time_entries_recorded);
+ok("sampleSize is 0 with nobody paid", NO_TIME.sampleSize === 0);
+
+// ── Approved time exists as a fact, none clocked THIS period — a real $0 ───
+const PAYROLL_QUIET_PERIOD = payrollRun({
+  everRecordedTime: true,
+  workers: [{ id: "w1", userId: "u1", hourlyRate: 25 }],
+});
+ok("a real $0 — the crew has clocked before, just not this period",
+  PAYROLL_QUIET_PERIOD.value === 0 && PAYROLL_QUIET_PERIOD.available === true);
+
+// ── One rated worker, straightforward arithmetic ───────────────────────────
+const ONE_WORKER = payrollRun({
+  everRecordedTime: true,
+  workers: [{ id: "w1", userId: "u1", hourlyRate: 25 }],
+  approvedHoursByWorker: { w1: 10 },
+});
+ok("10h × $25 = $250", ONE_WORKER.value === 250, ONE_WORKER.value);
+ok("one worker paid", ONE_WORKER.sampleSize === 1);
+ok("not incomplete — the one worker who logged hours has a rate", ONE_WORKER.incomplete === false);
+
+// ── effectiveWageRate's own fallback: Worker.hourlyRate wins when set, else
+// Member.laborCostPerHour by userId — reused from buildPayRun.js, not
+// re-decided (docs/ROADMAP.md §5's three drifted pay-rate paths) ───────────
+const FALLBACK_RATE = payrollRun({
+  everRecordedTime: true,
+  workers: [{ id: "w2", userId: "u2", hourlyRate: null }],
+  laborCostByUser: new Map([["u2", 20]]),
+  approvedHoursByWorker: { w2: 5 },
+});
+ok("5h × the Member fallback rate ($20) = $100, when Worker.hourlyRate is unset",
+  FALLBACK_RATE.value === 100, FALLBACK_RATE.value);
+
+const EXPLICIT_WINS = payrollRun({
+  everRecordedTime: true,
+  workers: [{ id: "w1", userId: "u1", hourlyRate: 25 }],
+  laborCostByUser: new Map([["u1", 999]]), // must never be read — hourlyRate is set
+  approvedHoursByWorker: { w1: 4 },
+});
+ok("Worker.hourlyRate ($25) wins over a Member fallback that's also on file",
+  EXPLICIT_WINS.value === 100, EXPLICIT_WINS.value);
+
+// ── Hours with no resolvable rate: excluded, named, never free ─────────────
+const UNRATED = payrollRun({
+  everRecordedTime: true,
+  workers: [
+    { id: "w1", userId: "u1", hourlyRate: 25 },
+    { id: "w3", userId: null, hourlyRate: null }, // no Worker rate, no Member to fall back to
+  ],
+  approvedHoursByWorker: { w1: 10, w3: 8 },
+});
+ok("only the rated worker's hours are priced: 10h × $25 = $250, the unrated 8h excluded",
+  UNRATED.value === 250, UNRATED.value);
+ok("incomplete — a real worker logged real hours this file can't price",
+  UNRATED.incomplete === true);
+ok("the excluded hours and the worker count both ride along, not silently dropped",
+  UNRATED.raw.unratedHours === 8 && UNRATED.raw.unratedWorkers === 1);
+ok("the rated worker's hours are counted separately from the unrated ones",
+  UNRATED.raw.ratedHours === 10);
+
+// ── Pending hours: counted for visibility, never priced ─────────────────────
+const PENDING = payrollRun({
+  everRecordedTime: true,
+  workers: [{ id: "w1", userId: "u1", hourlyRate: 25 }],
+  approvedHoursByWorker: { w1: 10 },
+  pendingHoursByWorker: { w1: 6 },
+});
+ok("pending hours don't inflate the paid total", PENDING.value === 250, PENDING.value);
+ok("pending hours are reported so the screen can say what's still awaiting approval",
+  PENDING.raw.pendingHours === 6);
+
+// ── Float precision — moneyFlow.js's own 0.10 + 0.20 proof, restated for a
+// running total accumulated across MULTIPLE workers rather than summed once
+// at the end ──────────────────────────────────────────────────────────────
+const PAYROLL_FLOAT = payrollRun({
+  everRecordedTime: true,
+  workers: [
+    { id: "w1", userId: "u1", hourlyRate: 0.1 },
+    { id: "w2", userId: "u2", hourlyRate: 0.2 },
+  ],
+  approvedHoursByWorker: { w1: 1, w2: 1 },
+});
+ok("0.1 + 0.2, accumulated one worker at a time, still lands on exactly $0.30",
+  PAYROLL_FLOAT.value === 0.3, PAYROLL_FLOAT.value);
+
+// ── The required boolean, not defaulted ─────────────────────────────────────
+let payrollThrew = false;
+try {
+  buildPayrollCost({ workers: [], everRecordedTime: undefined });
+} catch (err) {
+  payrollThrew = err.status === 500;
+}
+ok("refuses to guess everRecordedTime when the caller doesn't supply it", payrollThrew);
+
+// ── Generic invariant, same shape Section 9 asserts for moneyFlow.js ───────
+ok("payrollCost: value is null exactly when unavailable, over every fixture above",
+  PAYROLL_RESULTS.every((r) => (r.value === null) === !r.available));
+ok("payrollCost: a reason is only ever attached when unavailable",
+  PAYROLL_RESULTS.every((r) => r.available || r.reason !== null));
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Section 11 — mutation pass: every guarantee above must be load-bearing
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -695,6 +825,10 @@ const LIB2 = fileURLToPath(new URL("../lib/invoices/computeInvoiceState.js", imp
 // person watching (a cron fires it), which is exactly the case the money-
 // fixes brief singles out for execution over reading.
 const LIB3 = fileURLToPath(new URL("../lib/paymentSchedule/engine.js", import.meta.url));
+// lib/analytics/payrollCost.js — Section 17's own guarantees, mutated the
+// same way, same reason: this is the arithmetic behind the Business costs
+// section's payroll figure, which nobody hand-checks against a payslip.
+const LIB4 = fileURLToPath(new URL("../lib/analytics/payrollCost.js", import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 const LOADER = fileURLToPath(new URL("./alias-loader.mjs", import.meta.url));
 
@@ -702,9 +836,11 @@ const backupDir = mkdtempSync(join(tmpdir(), "money-flow-"));
 const ORIGINAL = readFileSync(LIB, "utf8");
 const ORIGINAL2 = readFileSync(LIB2, "utf8");
 const ORIGINAL3 = readFileSync(LIB3, "utf8");
+const ORIGINAL4 = readFileSync(LIB4, "utf8");
 writeFileSync(join(backupDir, "moneyFlow.js.bak"), ORIGINAL);
 writeFileSync(join(backupDir, "computeInvoiceState.js.bak"), ORIGINAL2);
 writeFileSync(join(backupDir, "paymentScheduleEngine.js.bak"), ORIGINAL3);
+writeFileSync(join(backupDir, "payrollCost.js.bak"), ORIGINAL4);
 
 const MUTATIONS = [
   [
@@ -894,6 +1030,46 @@ const MUTATIONS3 = [
   ],
 ];
 
+// lib/analytics/payrollCost.js's own mutants — Section 17's guarantees, run
+// in Section 18 below, the same technique as the three lists above.
+const MUTATIONS4 = [
+  [
+    "shows a real $0 of payroll for a company that has never had approved time — the everRecorded refusal stops being load-bearing",
+    (s) => s.replace(
+      "  const available = everRecordedTime;",
+      "  const available = true;",
+    ),
+  ],
+  [
+    "folds unrated hours in as free labour instead of excluding them",
+    (s) => s.replace(
+      "    if (rate === null) {\n      unratedHours = round2(unratedHours + hours);\n      unratedWorkers += 1;\n      continue;\n    }",
+      "    if (rate === null) {\n      unratedHours = round2(unratedHours + hours);\n      unratedWorkers += 1;\n    }",
+    ),
+  ],
+  [
+    "stops flagging incomplete when a real worker's hours couldn't be priced",
+    (s) => s.replace(
+      "  const incomplete = unratedWorkers > 0;",
+      "  const incomplete = false;",
+    ),
+  ],
+  [
+    "prices PENDING hours as if they were approved — buildPayRun.js's own 'only approved time is paid' rule, unenforced here",
+    (s) => s.replace(
+      "  for (const worker of workers) {\n    const hours = num(approvedHoursByWorker[worker.id]);",
+      "  for (const worker of workers) {\n    const hours = num(approvedHoursByWorker[worker.id]) + num(pendingHoursByWorker[worker.id]);",
+    ),
+  ],
+  [
+    "stops rounding the running total, letting float dust leak into every figure",
+    (s) => s.replace(
+      "    total = round2(total + hours * rate);",
+      "    total = total + hours * rate;",
+    ),
+  ],
+];
+
 // ── One mutation that was tried and is NOT in the list above ────────────────
 //
 // There is no line in this file that reads Invoice.total, invoiceId or
@@ -956,10 +1132,16 @@ try {
   const r3 = runMutations(LIB3, ORIGINAL3, MUTATIONS3);
   caught += r3.caught;
   escaped.push(...r3.escaped);
+
+  console.log("\n18. lib/analytics/payrollCost.js mutants\n");
+  const r4 = runMutations(LIB4, ORIGINAL4, MUTATIONS4);
+  caught += r4.caught;
+  escaped.push(...r4.escaped);
 } finally {
   writeFileSync(LIB, ORIGINAL);
   writeFileSync(LIB2, ORIGINAL2);
   writeFileSync(LIB3, ORIGINAL3);
+  writeFileSync(LIB4, ORIGINAL4);
   rmSync(backupDir, { recursive: true, force: true });
 }
 ok(`all ${MUTATIONS.length} moneyFlow.js mutants caught`,
@@ -970,6 +1152,9 @@ ok(`all ${MUTATIONS2.length} computeInvoiceState.js mutants caught`,
   escaped.join(" | "));
 ok(`all ${MUTATIONS3.length} lib/paymentSchedule/engine.js mutants caught`,
   !escaped.some((e) => MUTATIONS3.some(([l]) => e.startsWith(l))),
+  escaped.join(" | "));
+ok(`all ${MUTATIONS4.length} payrollCost.js mutants caught`,
+  !escaped.some((e) => MUTATIONS4.some(([l]) => e.startsWith(l))),
   escaped.join(" | "));
 pass += caught;
 

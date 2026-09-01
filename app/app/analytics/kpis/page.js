@@ -220,6 +220,17 @@ export default function KpiDashboardPage() {
   const [flowLoading, setFlowLoading] = useState(true);
   const [flowError, setFlowError] = useState("");
 
+  // Business costs — payroll, fixed costs and marketing spend — is its own
+  // endpoint too (app/api/analytics/finance-overview/route.js), for the same
+  // reason Money flow is: its permission union (jobCosting + payroll:view_all
+  // + user:manage, see the route) is narrower than either the base KPI gate
+  // or Money flow's own, so a member who can see everything else on this
+  // page might still be refused just this section, and the refusal belongs
+  // inside the section, not as a blank page.
+  const [finance, setFinance] = useState(null);
+  const [financeLoading, setFinanceLoading] = useState(true);
+  const [financeError, setFinanceError] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -250,6 +261,20 @@ export default function KpiDashboardPage() {
     }
   }, [range.from, range.to]);
 
+  const loadFinance = useCallback(async () => {
+    setFinanceLoading(true);
+    setFinanceError("");
+    try {
+      const res = await fetchJson(`/api/analytics/finance-overview?from=${range.from}&to=${range.to}`);
+      setFinance(res);
+    } catch (err) {
+      setFinanceError(err.message);
+      setFinance(null);
+    } finally {
+      setFinanceLoading(false);
+    }
+  }, [range.from, range.to]);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -257,6 +282,10 @@ export default function KpiDashboardPage() {
   useEffect(() => {
     loadFlow();
   }, [loadFlow]);
+
+  useEffect(() => {
+    loadFinance();
+  }, [loadFinance]);
 
   const money = useMemo(() => {
     const currency = data?.currency || null;
@@ -310,6 +339,17 @@ export default function KpiDashboardPage() {
       value: c.value,
     }));
   }, [flow, t]);
+
+  // Committed work — accepted quotes on open jobs, not yet invoiced. Already
+  // computed by lib/analytics/kpis.js's buildBacklogWeeks (data.sales.
+  // backlogWeeks), fetched once for the Sales card above; reading its `raw`
+  // here rather than fetching it a second time from finance-overview is the
+  // reuse AGENTS.md asks for (failure class 4) — the two screens can never
+  // show a different backlog dollar figure because there is only one query.
+  // `raw.backlogValue` is always a real number (0 when nothing's open), even
+  // on the `no_throughput_reference` branch where `value` (weeks) is null —
+  // see buildBacklogWeeks's own comments.
+  const backlogRaw = data?.sales?.backlogWeeks?.raw || null;
 
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
@@ -538,6 +578,120 @@ export default function KpiDashboardPage() {
                   )}
                 </div>
               </>
+            )}
+          </section>
+
+          {/* ── Business costs ──────────────────────────────────────────────
+              The owner's own ask: "we have all the information from
+              expenses, payroll, jobs etc." — payroll, fixed costs and
+              committed work each had a screen that computed them (Payroll,
+              Settings → Overhead, the Backlog card above) but no shared money
+              view. This section reuses every one of those, unchanged, rather
+              than re-deriving any of them — see app/api/analytics/
+              finance-overview/route.js's header for why nothing here is
+              summed into one "total money out" figure. */}
+          <section>
+            <SectionHeading
+              title={t("app.kpis.finance.title", "Business costs")}
+              subtitle={t(
+                "app.kpis.finance.subtitle",
+                "Payroll, fixed costs, marketing spend, and work already committed — built from what FieldQuo already knows, no bank statement required.",
+              )}
+            />
+            {financeError && (
+              <div className="rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-4 py-3 mb-3 text-sm text-red-700 dark:text-red-300">
+                {financeError}
+              </div>
+            )}
+            {financeLoading && !finance && !financeError && (
+              <div className="animate-pulse space-y-3">
+                <div className="h-24 bg-accent rounded-lg" />
+              </div>
+            )}
+            {!financeError && finance && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <MoneyTile
+                  label={t("app.kpis.finance.payrollTitle", "Payroll this period")}
+                  figure={finance.payroll}
+                  money={money}
+                  t={t}
+                  hint={
+                    finance.payroll?.incomplete ? (
+                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                        {t(
+                          "app.kpis.finance.payrollUnratedHint",
+                          "{count} hours logged by {workers} have no pay rate on file and aren't counted here.",
+                          {
+                            count: finance.payroll.raw?.unratedHours ?? 0,
+                            workers: finance.payroll.raw?.unratedWorkers ?? 0,
+                          },
+                        )}
+                      </p>
+                    ) : finance.payroll?.raw?.pendingHours > 0 ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {t(
+                          "app.kpis.finance.payrollPendingHint",
+                          "{hours}h still awaiting approval, not counted yet.",
+                          { hours: finance.payroll.raw.pendingHours },
+                        )}
+                      </p>
+                    ) : null
+                  }
+                />
+                <div className="rounded-lg border border-border p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t("app.kpis.finance.fixedCostsTitle", "Fixed costs")}
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-foreground">
+                    {money(finance.fixedCosts.monthlyTotal)}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {t(
+                      "app.kpis.finance.fixedCostsHint",
+                      "Per month, regardless of the period above — rent, overhead pay and debt.",
+                    )}
+                  </div>
+                  <Link
+                    href="/app/settings/overhead"
+                    className="mt-2 inline-block text-xs underline text-foreground"
+                  >
+                    {t("app.kpis.finance.fixedCostsLink", "See the breakdown →")}
+                  </Link>
+                </div>
+                <MoneyTile
+                  label={t("app.kpis.finance.marketingTitle", "Marketing spend")}
+                  figure={finance.marketing}
+                  money={money}
+                  t={t}
+                  hint={
+                    finance.marketing?.available ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {t(
+                          "app.kpis.finance.marketingOverlapHint",
+                          "May overlap with a cost also logged in Expense Tracking — not combined with Expenses above.",
+                        )}
+                      </p>
+                    ) : null
+                  }
+                />
+                <div className="rounded-lg border border-border p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {t("app.kpis.finance.backlogTitle", "Committed, not yet invoiced")}
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-foreground">
+                    {backlogRaw ? money(backlogRaw.backlogValue) : "—"}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {backlogRaw
+                      ? t(
+                          "app.kpis.finance.backlogCount",
+                          "{count} accepted, open jobs.",
+                          { count: backlogRaw.backlogJobCount },
+                        )
+                      : t("app.kpis.finance.backlogUnknown", "No data yet.")}
+                  </div>
+                </div>
+              </div>
             )}
           </section>
 
