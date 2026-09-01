@@ -4,9 +4,12 @@
 // standing in a driveway needs — who, where, when, what's left — rather than
 // around the shape of the database record.
 //
-// Visits are the substance here. A Job is mostly a container; JobVisit is
-// where scheduling, assignment, checklists and photos actually live, so the
-// visit list is the main body rather than a footnote.
+// Visits are still most of the substance here — assignment, checklists and
+// photos live on JobVisit, not on the job itself, so the visit list stays the
+// main body rather than a footnote. The one thing the job now owns directly is
+// its own start/end (below the "needs a date" banner): a two-week repaint has
+// no single site trip to hang a date off, and forcing one into a visit was
+// the gap this page used to have.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -22,6 +25,7 @@ import SuggestedTasks from "@/app/components/jobs/SuggestedTasks";
 import VisitChecklist from "@/app/components/jobs/VisitChecklist";
 import VisitStatus from "@/app/components/jobs/VisitStatus";
 import { visitStatusLabel } from "@/lib/jobs/visitStatus";
+import { isVisitOutsideJobRange } from "@/lib/jobs/visitInRange";
 import {
   ArrowLeft,
   Pencil,
@@ -73,6 +77,19 @@ function formatDateTime(value) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+  });
+}
+
+// startDate/endDate are calendar dates, not moments — no time-of-day to show,
+// and UTC so the day printed is the day that was stored regardless of where
+// the browser sits (same reasoning as documentFormatters' date()).
+function formatDateOnly(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-CA", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
@@ -351,21 +368,61 @@ export default function JobDetail({ jobId }) {
       )}
 
       {/* Needs a date — the clear call to action the badge only hinted at. A job
-          fresh off an accepted quote lands here unscheduled; scheduling a visit
-          (below) flips it to "scheduled" automatically. */}
+          fresh off an accepted quote lands here unscheduled. Two honest ways
+          out, not one: a visit is a TRIP to the address (an assessment, a
+          repair call), and plenty of jobs — a two-week repaint with no site
+          visit of its own — need only the work's own start/end instead. Either
+          flips the job to "scheduled" automatically (POST .../visits and PATCH
+          .../[id] both do it, from `unscheduled` only), so this banner is never
+          steering someone toward a visit that isn't the right recommendation. */}
       {job.status === "unscheduled" && (
         <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2 text-sm text-purple-800 dark:text-purple-200">
             <Calendar size={16} className="shrink-0" />
-            This job needs a date. Schedule its first visit to get it on the
-            calendar.
+            {t(
+              "app.job.needsDateBanner",
+              "This job needs a date — schedule a visit, or set the work's own start and end dates.",
+            )}
           </div>
-          <Link
-            href={`/app/jobs/${jobId}/visits/new`}
-            className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold shrink-0"
-          >
-            <Plus size={14} /> Schedule a visit
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link
+              href={`/app/jobs/${jobId}/edit`}
+              className="inline-flex items-center gap-1.5 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-200 px-3 py-1.5 rounded-lg text-sm font-semibold"
+            >
+              {t("app.job.setDates", "Set dates")}
+            </Link>
+            <Link
+              href={`/app/jobs/${jobId}/visits/new`}
+              className="inline-flex items-center gap-1.5 bg-purple-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold"
+            >
+              <Plus size={14} /> {t("app.job.scheduleVisit", "Schedule a visit")}
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* The work's own dates, when set — independent of any visit. Shown
+          whether or not the banner above is visible, so a job that already
+          has dates but is picking up a follow-up visit still shows them. */}
+      {job.startDate && (
+        <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center gap-2 text-sm text-foreground">
+          <Calendar size={16} className="shrink-0 text-muted-foreground" />
+          <span>
+            {t("app.job.workDates", "Work scheduled")}:{" "}
+            <span className="font-medium">{formatDateOnly(job.startDate)}</span>
+            {job.endDate && (
+              <>
+                {" – "}
+                <span className="font-medium">{formatDateOnly(job.endDate)}</span>
+              </>
+            )}
+            {!job.endDate && (
+              <span className="text-muted-foreground">
+                {" "}
+                ({t("app.job.noEndDateYet", "no end date yet")})
+              </span>
+            )}
+          </span>
         </div>
       )}
 
@@ -483,6 +540,10 @@ export default function JobDetail({ jobId }) {
                 ? v.checklistItems
                 : [];
               const done = items.filter((i) => i?.done).length;
+              // A nudge, not a rule — see lib/jobs/visitInRange.js for why a
+              // visit before startDate or after endDate is often intentional
+              // (a pre-job look, a warranty callback) and never blocked.
+              const outsideRange = isVisitOutsideJobRange(v, job);
 
               return (
                 <div key={v.id} className="py-4 first:pt-0 last:pb-0">
@@ -501,6 +562,11 @@ export default function JobDetail({ jobId }) {
                         >
                           {visitStatusLabel(v.status)}
                         </span>
+                        {outsideRange && (
+                          <span className="text-xs px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                            {t("app.job.visitOutsideRange", "Outside job dates")}
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {v.assignedTo?.name

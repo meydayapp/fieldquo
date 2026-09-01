@@ -2899,6 +2899,27 @@ model Job {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
+  /// The work's own start and end — a two-week repaint has no single "visit",
+  /// only the span of days somebody is on the tools. Distinct from
+  /// JobVisit.scheduledAt, which is a TRIP to the address (an assessment, a
+  /// repair callout, one day of a multi-day job somebody wants tracked on its
+  /// own). A job can carry both — an onsite look first, then two weeks of
+  /// booked work — and neither replaces the other; see JobVisit's own comment.
+  ///
+  /// Both nullable and independently settable. A start with no end is a job
+  /// that has begun and not yet been given a finish date — honest and common
+  /// (weather, scope changes) rather than a value to force a guess at. An end
+  /// with no start is rejected by the API (app/api/jobs/[id]/route.js;
+  /// lib/jobs/validateJobDates.js), because work cannot finish on a date it
+  /// never started.
+  ///
+  /// Setting a start date flips `unscheduled` to `scheduled`, the same rule
+  /// POST /api/jobs/[id]/visits already applies for a first visit — see that
+  /// route's comment. Two honest ways to answer "when is this job on the
+  /// calendar", both closing the "needs a date" banner.
+  startDate DateTime?
+  endDate   DateTime?
+
   visits      JobVisit[]
   timeEntries TimeEntry[]
   shifts      Shift[]
@@ -3007,6 +3028,17 @@ model JobMaterial {
   @@index([jobId, purchasedAt])
 }
 
+/// A trip to the job's address — an assessment, a repair callout, one day of a
+/// longer job somebody wants tracked with its own checklist and photos.
+///
+/// Distinct from Job.startDate/endDate, which is the span of the WORK itself
+/// and carries no address, checklist or assignment of its own — see that
+/// field's comment. A job can have either, both, or several visits inside one
+/// date range; nothing here enforces a visit to fall within its job's range,
+/// because a pre-job site look legitimately happens before `startDate` and a
+/// warranty callback legitimately happens after `endDate`. The job page flags
+/// a visit that falls outside the range instead — a nudge to check it was
+/// meant, not a rule that blocks entering it.
 model JobVisit {
   id             String   @id @default(cuid())
   jobId          String
