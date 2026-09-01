@@ -44,6 +44,28 @@ const BLANK = {
   maxUsers: "",
   maxQuotesPerMonth: "",
   aiCopilotEnabled: false,
+  // ── Private by default, and that is not the cautious choice — it is the
+  //    only correct one for THIS form ──────────────────────────────────────
+  //
+  // Plan.isPublic defaults to true in the schema, and this payload never sent
+  // the field, so parsePlanFields' `has("isPublic")` was false and Prisma
+  // applied that default. Every plan an operator created here was PUBLIC, with
+  // no control to say otherwise — it appeared on /pricing and in the
+  // company-facing picker for everyone, which for a rate negotiated with one
+  // company hands a private discount to every competitor in their city.
+  //
+  // lib/billing/customPlan.js used to set isPublic: false automatically when
+  // it minted a bespoke row. That protection went with the file when the
+  // per-licence model was retired (docs/PRICING-CLEANUP.md), and it had never
+  // covered this path anyway.
+  //
+  // Defaulting FALSE rather than true, because a ladder tier cannot be born
+  // here: tierKey is display-only in this form (see the header note), and the
+  // four public tiers come from scripts/seed-seat-ladder.mjs, which sets
+  // tierKey and isPublic: true explicitly. So every row created on this screen
+  // is tierKey-less — bespoke by construction. Defaulting true would recreate
+  // the bug for the exact case the form exists to serve.
+  isPublic: false,
 };
 
 /**
@@ -157,6 +179,12 @@ export default function PlatformPlansPage() {
             ? null
             : Number(draft.maxQuotesPerMonth),
         aiCopilotEnabled: !!draft.aiCopilotEnabled,
+        // Always sent, never conditional. parsePlanFields only writes the
+        // column when the KEY is present, so omitting it on a create silently
+        // takes the schema default and omitting it on an edit silently keeps
+        // whatever was there. Sending it every time makes the checkbox mean
+        // what it looks like it means.
+        isPublic: !!draft.isPublic,
       };
 
       await fetchJson(
@@ -209,6 +237,13 @@ export default function PlatformPlansPage() {
       maxUsers: p.maxUsers ?? "",
       maxQuotesPerMonth: p.maxQuotesPerMonth ?? "",
       aiCopilotEnabled: p.aiCopilotEnabled,
+      // The row's OWN value, not the create-time default. An edit that
+      // silently re-published a plan somebody had deliberately made private
+      // would be worse than the bug this fixes. `!== false` rather than
+      // Boolean(): a legacy row predating the column reads undefined, and
+      // undefined here means "nobody ever said", which for an EXISTING row
+      // matches the schema default it was created under.
+      isPublic: p.isPublic !== false,
     });
   }
 
@@ -410,6 +445,30 @@ export default function PlatformPlansPage() {
               </label>
             </Field>
           </div>
+
+          {/* Full width, below the grid, because this is the only field on the
+              form whose consequence is visible to people outside the company
+              it was created for — and it is worth more than a half-column. */}
+          <Field label="Who can see this plan">
+            <label className="flex items-start gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={!!draft.isPublic}
+                onChange={(e) =>
+                  setDraft({ ...draft, isPublic: e.target.checked })
+                }
+                className="mt-0.5 rounded border-border accent-primary"
+              />
+              <span>
+                Offer this plan publicly
+                <span className="block text-xs text-muted-foreground mt-0.5">
+                  {draft.isPublic
+                    ? "Anyone will see this on the pricing page and in the plan picker."
+                    : "Only a company already on this plan will see it. Leave this off for a rate you negotiated with one customer."}
+                </span>
+              </span>
+            </label>
+          </Field>
 
           <div className="flex gap-2">
             <button

@@ -39,6 +39,7 @@ import { parsePlanFields } from "@/lib/billing/planFields";
 import { parsePromotionFields } from "@/lib/billing/promotionFields";
 import { promotionStatus } from "@/lib/pricing/promotionStatus";
 import { promotionIsLive, priceFor, SEAT_LADDER } from "@/lib/pricing/ladder";
+import { isSellable } from "@/lib/platform/sellablePlans";
 
 let pass = 0;
 const fails = [];
@@ -532,6 +533,101 @@ ok("there is no DELETE — a promotion is why an old invoice was cheap", () => {
       code("app/api/platform/billing/promotions/[id]/route.js"),
     ),
   );
+});
+
+/* ── A plan born in this console is private until somebody says otherwise ──
+ *
+ * Plan.isPublic defaults to TRUE in the schema, and parsePlanFields only
+ * writes the column when the key is present in the body. The console's New
+ * Plan form never sent it — so every plan an operator created was published to
+ * /pricing and the company-facing picker, with no control on the form to say
+ * otherwise. A rate negotiated with one company was advertised to all of them.
+ *
+ * lib/billing/customPlan.js used to set isPublic: false whenever it minted a
+ * bespoke row automatically. That went with the file when the per-licence
+ * model was retired, and it had never covered this path anyway.
+ *
+ * The default is FALSE rather than true because a ladder tier cannot be
+ * created here — tierKey is display-only on this form, and the four public
+ * tiers come from scripts/seed-seat-ladder.mjs, which sets tierKey and
+ * isPublic: true explicitly. Every row born on this screen is tierKey-less,
+ * which is what bespoke means.
+ */
+console.log("\nA negotiated rate is not advertised to everybody\n");
+
+const CONSOLE_FORM = "app/platform/billing/plans/page.js";
+
+// A sellable ladder row, so the isPublic assertion below isolates that one
+// field rather than tripping over a missing price or a null currency.
+const LADDER_ROW = {
+  id: "plan_solo_cad",
+  name: "Solo",
+  tierKey: "solo",
+  currency: "CAD",
+  priceMonthly: 99,
+  seats: 1,
+  crewSeats: 5,
+  isPublic: true,
+};
+
+ok("the New Plan draft starts PRIVATE", () => {
+  const src = code(CONSOLE_FORM);
+  const blank = src.slice(src.indexOf("const BLANK"), src.indexOf("const BLANK") + 600);
+  assert.match(
+    blank,
+    /isPublic:\s*false/,
+    "BLANK must set isPublic: false — omitting it takes the schema default, which is true",
+  );
+});
+
+ok("...and an edit carries the row's own value rather than that default", () => {
+  const src = code(CONSOLE_FORM);
+  const fn = src.slice(src.indexOf("function edit("));
+  assert.match(
+    fn.slice(0, fn.indexOf("}")),
+    /isPublic:\s*p\.isPublic/,
+    "editing a plan must not silently re-publish one somebody made private",
+  );
+});
+
+ok("the payload sends isPublic every time, not conditionally", () => {
+  const src = code(CONSOLE_FORM);
+  const payload = src.slice(src.indexOf("const payload = {"));
+  assert.match(
+    payload.slice(0, payload.indexOf("};")),
+    /isPublic:\s*!!draft\.isPublic/,
+    "parsePlanFields only writes the column when the KEY is present, so an " +
+      "omitted field silently takes the default on create and silently keeps " +
+      "the old value on edit",
+  );
+});
+
+ok("there is a real control bound to it, not just a field in the payload", () => {
+  const src = code(CONSOLE_FORM);
+  assert.match(src, /checked=\{!!draft\.isPublic\}/, "no checkbox reads draft.isPublic");
+  assert.match(
+    src,
+    /setDraft\(\{ \.\.\.draft, isPublic: e\.target\.checked \}\)/,
+    "the checkbox does not write back to the draft",
+  );
+});
+
+ok("parsePlanFields still only writes the column when the key is sent", () => {
+  // The coupling the payload assertion above depends on. If this ever becomes
+  // unconditional, sending the field stops being load-bearing — and the next
+  // person to drop it from the payload would reintroduce the bug silently.
+  assert.match(
+    code("lib/billing/planFields.js"),
+    /has\("isPublic"\)/,
+    "planFields no longer gates isPublic on key presence",
+  );
+});
+
+ok("a private plan is refused by the company-facing picker", () => {
+  // The behaviour the whole thing exists to protect, asserted on the real
+  // function rather than on the form's source.
+  assert.equal(isSellable({ ...LADDER_ROW, isPublic: false }), false);
+  assert.equal(isSellable({ ...LADDER_ROW, isPublic: true }), true);
 });
 
 console.log(
