@@ -1032,6 +1032,8 @@ model Company {
   salaries              Salary[]
   debts                 Debt[]
   assets                Asset[]
+  assetUseLogs          AssetUseLog[]
+  safetyIncidents       SafetyIncident[]
   forecastSettings      ForecastSettings?
   workers               Worker[]
   shifts                Shift[]
@@ -1515,6 +1517,10 @@ model Member {
 
   jobPhotoCommentsAuthored JobPhotoComment[]
   jobPhotoMentions         JobPhotoMention[]
+
+  safetyIncidentsReported SafetyIncident[] @relation("SafetyIncidentReportedBy")
+  safetyIncidentsReviewed SafetyIncident[] @relation("SafetyIncidentReviewedBy")
+  assetUseLogsLogged      AssetUseLog[]
 
   @@unique([userId, companyId])
 }
@@ -3426,6 +3432,15 @@ model Job {
   /// This job's frozen payment schedule, one row per stage — empty for every
   /// job whose company has no structured schedule. See JobPaymentStage.
   paymentStages JobPaymentStage[]
+
+  /// Safety incidents filed against this job. See SafetyIncident — most of a
+  /// company's incidents will carry a jobId, but a shop accident or a drive
+  /// between jobs will not, so this is never assumed non-empty.
+  safetyIncidents SafetyIncident[]
+
+  /// Which of the company's equipment was logged on this job, and for how
+  /// long. See AssetUseLog and lib/costing/equipmentUsage.js.
+  assetUseLogs AssetUseLog[]
 }
 
 /// One line of a job's sourcing list: what to buy, how much, and whether it has
@@ -4555,6 +4570,7 @@ model Worker {
   salaryComponents WorkerSalaryComponent[]
   leaveBalances    LeaveBalance[]
   leaveRequests    LeaveRequest[]
+  safetyIncidentsInvolved SafetyIncident[]
 }
 
 model TimeEntry {
@@ -5248,8 +5264,184 @@ model Asset {
   notes     String?
   createdAt DateTime @default(now())
 
+  /// What KIND of thing this is — "spray_rig", "ladder", "vehicle" — free text,
+  /// not an enum. Two jobs: it groups the register for the owner ("everything
+  /// with 'vehicle'"), and it is the key lib/costing/assetLifeSuggestions.js
+  /// looks up to SUGGEST a usefulLifeMonths when someone is adding a new
+  /// asset. A suggestion only: the form pre-fills the field and the person
+  /// adding the asset can change or clear it before saving. Nothing ever
+  /// writes usefulLifeMonths from this table on its own — a silently-applied
+  /// suggestion is an invented fact about a real truck (AGENTS.md #5).
+  category String?
+
+  /// Which jobs this asset was actually used on, and for how long. See
+  /// AssetUseLog — this is what turns a calendar depreciation schedule into a
+  /// real utilisation figure, and (see actualJobCost.js) into a job cost that
+  /// isn't already covered by the company's overhead share.
+  useLogs AssetUseLog[]
+
   @@index([companyId, active])
   @@index([debtId])
+}
+
+/// One entry: this asset was on this job, on this day, for about this long.
+///
+/// ── Why this is cheap to log ────────────────────────────────────────────
+///
+/// A contractor will not fill in a form per tool per day. So this is one row
+/// per (asset, job, day) rather than a clock-in/clock-out pair, `hours` is
+/// OPTIONAL ("used it" is worth recording even with no duration attached), and
+/// the intended entry point is a short multi-select on the job page — pick
+/// which of the company's assets came along today — not a destination of its
+/// own. See app/api/jobs/[id]/asset-use/route.js.
+///
+/// ── Why this does NOT feed job costing by default ──────────────────────────
+///
+/// lib/accounting/depreciation.js already spreads EVERY asset's depreciation
+/// evenly across the company's estimated job capacity
+/// (lib/analytics/minimumPrice.js's costPerJob, folded into overheadPerJob on
+/// the job costing screen). A job that logs the spray rig here would be
+/// charged for it TWICE — once in its even overhead share, once again from
+/// this log — which is exactly the double count lib/accounting/depreciation.js
+/// exists to prevent for the truck-loan case. See
+/// lib/costing/equipmentUsage.js and the note on actualJobCost's `equipment`
+/// field for the rule this file's data feeds.
+model AssetUseLog {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  /// The day it was used, not a timestamp — "which day was the rig on this
+  /// job" is the question a crew answers at a glance; nobody clocks a
+  /// compressor in and out.
+  usedOn DateTime
+
+  /// Optional. Null means "it was there", not "zero hours" — the same
+  /// absence-is-not-zero rule TimeEntry.hours and Salary.hoursPerWeek follow.
+  hours Decimal? @db.Decimal(6, 2)
+
+  loggedByMemberId String?
+  loggedByMember   Member? @relation(fields: [loggedByMemberId], references: [id], onDelete: SetNull)
+
+  note String?
+
+  createdAt DateTime @default(now())
+
+  @@index([companyId, assetId])
+  @@index([jobId])
+}
+
+/// A safety incident or near-miss, filed by whoever was there.
+///
+/// ── Why near-misses live in the same table as injuries ──────────────────────
+///
+/// A trade that only logs injuries learns nothing until someone is hurt. The
+/// ladder that slipped and didn't fall is the same hazard as the one that
+/// will, next time, and the only difference worth a column is `kind`.
+///
+/// ── Why `kind` and `status` are free text, not enums ────────────────────────
+///
+/// Same reasoning as JobChecklistTemplate.phase: the shape a working day
+/// actually has shouldn't need a schema change to grow a fifth value.
+/// lib/safety/incidentFields.js is the single place that names the ones the
+/// UI offers and coerces anything else back to a safe default.
+///
+/// ── Why there is no `reportable` flag or reporting deadline ─────────────────
+///
+/// FieldQuo does not know which province's threshold this crosses, or which
+/// authority to name — CNESST and WSIB have different rules, and a wrong
+/// guess here is worse than an honest blank. `regulatoryNote` is free text the
+/// COMPANY fills in, never a system-computed claim. See
+/// docs/SAFETY-AND-EQUIPMENT.md.
+///
+/// ── Never deleted ────────────────────────────────────────────────────────
+///
+/// This is a safety record, potentially the one a WCB claim or an insurer asks
+/// for later. There is deliberately no DELETE route — see
+/// app/api/safety-incidents/[id]/route.js. `status` moves an incident through
+/// open → reviewed → closed; nothing ever removes the row.
+model SafetyIncident {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// The job it happened on, if any — a shop accident or a drive between jobs
+  /// has none. SetNull: a job can be archived or otherwise cleared without
+  /// destroying the safety record that happened on it.
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  /// Who filed the report. Required — an incident with nobody accountable for
+  /// having reported it is not a usable record. Member, not User: this is
+  /// company-scoped identity, same as JobPhotoComment.authorMemberId.
+  reportedByMemberId String
+  reportedByMember   Member @relation("SafetyIncidentReportedBy", fields: [reportedByMemberId], references: [id], onDelete: Cascade)
+
+  /// The person it happened TO, when it was a specific person and they are on
+  /// the crew roster. Nullable: a near-miss often involves nobody in
+  /// particular, and a client or a passerby is not a Worker row.
+  involvedWorkerId String?
+  involvedWorker   Worker? @relation(fields: [involvedWorkerId], references: [id], onDelete: SetNull)
+
+  /// When it happened — not when it was typed up. A crew member filing this
+  /// from the truck an hour later still records the real time.
+  occurredAt DateTime
+
+  /// Free text: "second floor bathroom", "the yard", "Hwy 40 near exit 62".
+  /// Not derived from the job's address — an incident during transport or at
+  /// the shop has no job address to fall back to.
+  location String?
+
+  /// injury | near_miss | property_damage | other — see
+  /// lib/safety/incidentFields.js. Near-miss is the DEFAULT, not injury: a
+  /// report defaults toward the harmless case rather than the alarming one,
+  /// and the person filing it upgrades it deliberately.
+  kind String @default("near_miss")
+
+  /// What happened, in the reporter's own words. Required — the one field this
+  /// record cannot be usable without.
+  description String
+
+  /// Did the crew stop work because of this. A near-miss that didn't stop
+  /// anything and an injury that halted the whole job are both worth knowing,
+  /// and this is the one fact a follow-up review always asks first.
+  workStopped Boolean @default(false)
+
+  /// A note the COMPANY writes about whether/how this gets reported to a
+  /// provincial authority, and by when. Deliberately free text — see the
+  /// model-level comment on why FieldQuo does not compute this itself.
+  regulatoryNote String?
+
+  /// open | reviewed | closed — see lib/safety/incidentFields.js.
+  status String @default("open")
+
+  followUpNotes String?
+  followUpAt    DateTime?
+
+  reviewedByMemberId String?
+  reviewedByMember   Member?   @relation("SafetyIncidentReviewedBy", fields: [reviewedByMemberId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?
+
+  /// Photos of the scene, the hazard, or the injury. Reuses JobPhoto rather
+  /// than a second photo table — same signed Cloudinary upload path, and the
+  /// same "issue" stage that already never reaches the public gallery, the
+  /// marketing AI context, or any client-facing surface (see
+  /// lib/gallery/stages.js and lib/gallery/albums.js#publishable). The upload
+  /// route hardcodes stage "issue" for these; it is not left to the client.
+  photos JobPhoto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, occurredAt])
+  @@index([companyId, status])
+  @@index([jobId])
 }
 
 // ── Twelve of these thirteen columns are unused ─────────────────────────────
@@ -6966,6 +7158,16 @@ model JobPhoto {
   taskId String?
   task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
+  /// The safety incident this is evidence for, if any — set only by
+  /// POST /api/safety-incidents/[id]/photos. SetNull rather than Cascade: a
+  /// photo of a hazard is evidence in its own right and must survive even if
+  /// the incident record it was filed against were ever removed (it isn't —
+  /// see SafetyIncident's own comment — but the relation follows the same
+  /// "evidence outlives the record that asked for it" rule JobPhoto.taskId
+  /// already states above).
+  safetyIncidentId String?
+  safetyIncident   SafetyIncident? @relation(fields: [safetyIncidentId], references: [id], onDelete: SetNull)
+
   url     String
   /// start | progress | finish | issue — see lib/gallery/stages.js.
   stage   String  @default("progress")
@@ -7010,6 +7212,7 @@ model JobPhoto {
   @@index([companyId, featured])
   @@index([jobId, stage])
   @@index([taskId])
+  @@index([safetyIncidentId])
 }
 
 /// An internal note on a job photo — never a client-facing surface. Nothing
