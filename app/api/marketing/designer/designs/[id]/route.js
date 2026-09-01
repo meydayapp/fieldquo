@@ -64,7 +64,24 @@ export async function DELETE(request, { params }) {
 
   // layouts cascade with the design (onDelete: Cascade on
   // MarketingDesignLayout.design) — one delete, not a fan-out of five.
-  await db.marketingDesign.delete({ where: { id } });
+  //
+  // SocialPublish rows do NOT cascade (see that model's own comment in
+  // prisma/schema.prisma — designId is onDelete: SetNull, deliberately,
+  // because every field a publish or a scheduled fire needs is already
+  // captured on the row itself). But a row still `scheduled` at this moment
+  // represents a real, future post the contractor asked for — deleting the
+  // design out from under it must not leave that intent silently pointing
+  // at nothing, waiting for a cron to fire a post nobody would recognise
+  // asking for anymore. So it's explicitly canceled here, in the same
+  // transaction as the delete: SetNull still runs (the audit trail keeps
+  // the row), but its status says why nothing is coming.
+  await db.$transaction([
+    db.socialPublish.updateMany({
+      where: { designId: id, status: "scheduled" },
+      data: { status: "canceled", errorMessage: "Canceled — the source design was deleted." },
+    }),
+    db.marketingDesign.delete({ where: { id } }),
+  ]);
   return NextResponse.json({ ok: true });
 }
 

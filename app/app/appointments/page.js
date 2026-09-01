@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
 import { fetchJson } from "@/lib/fetchJson";
+import { dayKey, monthGrid, localeFormat, localeDateTime } from "@/lib/calendar/monthGrid";
 import { travelLegs, describeTravel } from "@/lib/booking/travel";
 import { useCompanyPreferences } from "@/app/providers/CompanyPreferencesProvider";
 import { usePermissions } from "@/app/providers/PermissionProvider";
@@ -37,70 +38,12 @@ const STATUS_STYLES = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
-/**
- * A LOCAL calendar day key.
- *
- * Deliberately not isoDateOnly() from lib/format/companyDate: that reads its
- * getters in UTC because it exists for date-only values (a leave date, a pay
- * period). An appointment is an instant, and 8pm Monday in Toronto is Tuesday
- * in UTC — grouping by the UTC day would file the last visit of most evenings
- * under tomorrow. Two kinds of value, two functions, on purpose.
- */
-function dayKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/**
- * The cells of a month grid, including the leading and trailing days that fill
- * out the first and last weeks.
- *
- * Built from the (year, month, day) constructor rather than by adding
- * milliseconds, so the days it produces are local midnights and a DST weekend
- * doesn't shunt half the month by an hour.
- *
- * @param weekStartsOn 0 = Sunday, 1 = Monday — the company's setting.
- */
-function monthGrid(anchor, weekStartsOn) {
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth();
-  const lead = (new Date(y, m, 1).getDay() - weekStartsOn + 7) % 7;
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const cells = Math.ceil((lead + daysInMonth) / 7) * 7;
-  return Array.from({ length: cells }, (_, i) => new Date(y, m, 1 - lead + i));
-}
-
-/**
- * Intl with the app's interface language, falling back to the browser's.
- *
- * Every language code the app offers is a well-formed tag, so this can't throw
- * in practice — but a formatter that throws would take out the whole calendar,
- * and an unstyled crash is a much worse outcome than a weekday name in the
- * wrong language.
- */
-function localeFormat(date, language, opts) {
-  try {
-    return date.toLocaleDateString(language || undefined, opts);
-  } catch {
-    return date.toLocaleDateString(undefined, opts);
-  }
-}
-
-/**
- * localeFormat's sibling for an INSTANT, which needs the time as well as the
- * date.
- *
- * The row below used to hardcode "en-US" while the month grid two inches above
- * it formatted in the interface language — so a French back office read
- * "Mon, Aug 31" under "août 2026". Same try/catch reasoning as localeFormat: a
- * formatter that throws would take out the whole list.
- */
-function localeDateTime(date, language, opts) {
-  try {
-    return date.toLocaleString(language || undefined, opts);
-  } catch {
-    return date.toLocaleString(undefined, opts);
-  }
-}
+// dayKey, monthGrid, localeFormat, localeDateTime now live in
+// lib/calendar/monthGrid.js — extracted from here so
+// app/app/marketing/designer/calendar/page.js (the scheduled social-post
+// calendar, docs/SOCIAL-SCHEDULING.md) could reuse the exact same date math
+// instead of a second hand-copied version. See that file's own header for
+// why the grid JSX itself was NOT extracted alongside it.
 
 /**
  * Which KIND of appointment this is — the fact the owner asked for by name.

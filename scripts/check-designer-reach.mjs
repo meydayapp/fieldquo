@@ -155,6 +155,12 @@ function makeStore() {
   const campaigns = [];
   const designs = [];
   const layouts = [];
+  // Only populated by the scheduling section's own tests below — the
+  // per-ratio persistence tests above never create a SocialPublish row, so
+  // this stays empty for them and their updateMany calls (the design
+  // DELETE route's own "cancel any still-scheduled rows first" step)
+  // legitimately match zero rows.
+  const socialPublishes = [];
   let seq = 1;
   const nextId = (p) => `${p}${seq++}`;
 
@@ -244,9 +250,39 @@ function makeStore() {
         return { ...row };
       },
     },
+    // Just enough of SocialPublish for the design DELETE route's own
+    // "cancel still-scheduled rows first" step (see
+    // app/api/marketing/designer/designs/[id]/route.js) — create/updateMany
+    // only, matched by designId. Real publish/schedule behaviour is
+    // exercised separately in section 6 against publishDesign.js directly,
+    // not through this fake store.
+    socialPublish: {
+      async create({ data }) {
+        const row = { id: nextId("sp"), createdAt: new Date(), updatedAt: new Date(), ...data };
+        socialPublishes.push(row);
+        return { ...row };
+      },
+      async updateMany({ where, data }) {
+        let count = 0;
+        for (const row of socialPublishes) {
+          if (row.designId === where.designId && row.status === where.status) {
+            Object.assign(row, data, { updatedAt: new Date() });
+            count++;
+          }
+        }
+        return { count };
+      },
+    },
+    // Real Prisma runs the array's operations inside one transaction; this
+    // fake has no isolation to offer, so it just awaits each in order —
+    // enough to exercise "both writes happen, and happen using the SAME
+    // fake store" without pretending to test atomicity itself.
+    async $transaction(ops) {
+      return Promise.all(ops);
+    },
   };
 
-  return { db, campaigns, designs, layouts };
+  return { db, campaigns, designs, layouts, socialPublishes };
 }
 
 const store = makeStore();
@@ -431,6 +467,64 @@ ok(
   "…and both of its layouts are gone with it (cascade) — no orphan rows left behind",
 );
 
+// ── A still-`scheduled` SocialPublish row must not be silently orphaned by
+//    deleting its design (docs/SOCIAL-SCHEDULING.md) — executed against the
+//    REAL DELETE handler, not read off the source. designId is nullable/
+//    SetNull now (prisma/schema.prisma), specifically so a scheduled row
+//    can survive its design being deleted; the route's own job is making
+//    sure a SURVIVING row that hasn't fired yet says why nothing is coming,
+//    rather than sitting there looking like it's still waiting.
+{
+  const scheduleDesignId = (
+    await designsRoute.POST(
+      req("http://x/x", "POST", { name: "Being deleted while scheduled", campaignId: "camp1" }),
+    )
+  ).body.id;
+  const scheduledRow = await store.db.socialPublish.create({
+    data: {
+      companyId: "co1",
+      designId: scheduleDesignId,
+      ratioKey: "instagram_post",
+      platform: "instagram",
+      caption: "hi",
+      imageUrl: "https://x/y.jpg",
+      status: "scheduled",
+      isMock: false,
+    },
+  });
+  const publishedRow = await store.db.socialPublish.create({
+    data: {
+      companyId: "co1",
+      designId: scheduleDesignId,
+      ratioKey: "instagram_post",
+      platform: "instagram",
+      caption: "already went out",
+      imageUrl: "https://x/y.jpg",
+      status: "published",
+      isMock: false,
+    },
+  });
+
+  const delWithSchedule = await designRoute.DELETE(req(`http://x/x`), {
+    params: Promise.resolve({ id: scheduleDesignId }),
+  });
+  ok(delWithSchedule.status === 200, "deleting a design with a scheduled post still succeeds");
+  ok(
+    store.socialPublishes.find((r) => r.id === scheduledRow.id)?.status === "canceled",
+    "…and the still-scheduled row is explicitly canceled, not left saying 'scheduled' for a post that will never fire",
+    store.socialPublishes.find((r) => r.id === scheduledRow.id)?.status,
+  );
+  ok(
+    Boolean(store.socialPublishes.find((r) => r.id === scheduledRow.id)?.errorMessage),
+    "…with a reason a support conversation (or the calendar page) can show",
+  );
+  ok(
+    store.socialPublishes.find((r) => r.id === publishedRow.id)?.status === "published",
+    "…while an ALREADY-published row's status is left alone — it has a real outcome, not a pending one",
+    store.socialPublishes.find((r) => r.id === publishedRow.id)?.status,
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    4. Download-all: five ratios in, five distinctly-named files out
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -555,6 +649,12 @@ const {
   interpretRateLimit,
   nextContainerAction,
   isValidFacebookScheduleTime,
+  isValidScheduleTime,
+  isSocialPublishingVisible,
+  FACEBOOK_SCHEDULE_MIN_MINUTES,
+  FACEBOOK_SCHEDULE_MAX_DAYS,
+  FIELDQUO_SCHEDULE_MIN_MINUTES,
+  FIELDQUO_SCHEDULE_MAX_DAYS,
   QUOTA_TOTAL_FALLBACK,
 } = await import("../lib/social/metaSpecs.js");
 
@@ -659,6 +759,217 @@ ok(isValidFacebookScheduleTime(new Date(NOW.getTime() + 75 * 24 * 60 * 60 * 1000
 ok(!isValidFacebookScheduleTime(new Date(NOW.getTime() + 76 * 24 * 60 * 60 * 1000), NOW), "76 days out is refused — over Meta's ceiling");
 ok(!isValidFacebookScheduleTime("not a date", NOW), "garbage input is refused, not coerced into some date");
 ok(!isValidFacebookScheduleTime(undefined, NOW), "no time at all is refused");
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   8. Scheduling (docs/SOCIAL-SCHEDULING.md) — FieldQuo's own window, the
+      visibility gate, the container-timing decision, and the cron's
+      idempotency guard — all executed against hostile input, not read.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+console.log("\n── Scheduling: FieldQuo's own window (isValidScheduleTime) ──────\n");
+
+// A time in the PAST — the hostile input the brief names first. `now` is
+// injected so this isn't racing the real clock.
+ok(!isValidScheduleTime(new Date(NOW.getTime() - 60 * 1000), NOW), "one minute in the PAST is refused");
+ok(!isValidScheduleTime(NOW, NOW), "exactly 'now' is refused — not far enough in the future to be a schedule");
+// Under the floor / at the floor / over the ceiling / at the ceiling — the
+// four boundary cases the brief calls out by name, for FieldQuo's OWN
+// window this time (5 minutes / 180 days), not Facebook's.
+ok(
+  !isValidScheduleTime(new Date(NOW.getTime() + (FIELDQUO_SCHEDULE_MIN_MINUTES - 1) * 60 * 1000), NOW),
+  "one minute under FieldQuo's own 5-minute floor is refused",
+);
+ok(
+  isValidScheduleTime(new Date(NOW.getTime() + FIELDQUO_SCHEDULE_MIN_MINUTES * 60 * 1000), NOW),
+  "exactly 5 minutes out is accepted — the floor is inclusive",
+);
+ok(
+  isValidScheduleTime(new Date(NOW.getTime() + FIELDQUO_SCHEDULE_MAX_DAYS * 24 * 60 * 60 * 1000), NOW),
+  "exactly 180 days out is accepted — the ceiling is inclusive",
+);
+ok(
+  !isValidScheduleTime(new Date(NOW.getTime() + (FIELDQUO_SCHEDULE_MAX_DAYS + 1) * 24 * 60 * 60 * 1000), NOW),
+  "181 days out is refused — a fat-fingered year does not sit `scheduled` forever",
+);
+ok(!isValidScheduleTime("not a date", NOW), "garbage input is refused, not coerced into some date");
+ok(!isValidScheduleTime(undefined, NOW), "no time at all is refused");
+ok(!isValidScheduleTime(null, NOW), "null is refused");
+
+// ── A real DST boundary, both directions ──────────────────────────────────
+//
+// North America springs forward on the second Sunday of March and falls
+// back on the first Sunday of November. Scheduling FROM one side of that
+// transition TO a moment on the other side must not gain or lose an hour —
+// millisecond epoch arithmetic (what both isValidScheduleTime and
+// isValidFacebookScheduleTime actually do; see their own comments) has no
+// timezone to fall out of step with, but this proves it rather than
+// asserting it from the source.
+{
+  // 2027-03-14 is the US/Canada spring-forward Sunday. 1:30am EST (UTC-5)
+  // does not exist as a wall-clock reading of "spring forward TO" — using
+  // epoch instants sidesteps that ambiguity entirely, which is the point:
+  // this function never asks what a wall clock reads.
+  const beforeSpringForward = new Date("2027-03-14T05:00:00Z"); // 12:00am EST
+  const acrossSpringForward = new Date(beforeSpringForward.getTime() + 3 * 60 * 60 * 1000); // +3h real elapsed time
+  ok(
+    isValidScheduleTime(acrossSpringForward, beforeSpringForward),
+    "a schedule 3 real hours across the spring-forward transition is accepted (not miscounted as 2 or 4)",
+  );
+  const justUnderFloorAcrossDst = new Date(
+    beforeSpringForward.getTime() + (FIELDQUO_SCHEDULE_MIN_MINUTES - 1) * 60 * 1000,
+  );
+  ok(
+    !isValidScheduleTime(justUnderFloorAcrossDst, beforeSpringForward),
+    "…and the floor itself is still exactly 5 REAL minutes, not shifted by the transition sitting nearby",
+  );
+}
+
+console.log("\n── Scheduling: the hide-until-approved visibility gate ──────────\n");
+
+ok(isSocialPublishingVisible({ isDemo: true, appConfigured: false }) === true, "a demo company is visible even with no Meta app configured at all");
+ok(isSocialPublishingVisible({ isDemo: false, appConfigured: true }) === true, "a real company IS visible once Meta app credentials exist");
+ok(isSocialPublishingVisible({ isDemo: false, appConfigured: false }) === false, "a real company stays hidden with no Meta app configured — the state this whole codebase is in today");
+ok(isSocialPublishingVisible({ isDemo: true, appConfigured: true }) === true, "both true is still visible (not an XOR)");
+ok(isSocialPublishingVisible({}) === false, "no input at all defaults to hidden, never visible");
+
+console.log("\n── Scheduling: validateInstagramSchedule touches no client at all ─\n");
+
+const { validateInstagramSchedule } = await import("../lib/social/publishDesign.js");
+
+ok(
+  validateInstagramSchedule({
+    caption: "A real caption",
+    width: 1080,
+    height: 1080,
+    scheduledFor: new Date(NOW.getTime() + 60 * 60 * 1000),
+    now: NOW,
+  }).ok,
+  "a valid caption, a compliant image, and a time inside the window all together pass",
+);
+ok(
+  !validateInstagramSchedule({
+    caption: "",
+    width: 1080,
+    height: 1080,
+    scheduledFor: new Date(NOW.getTime() + 60 * 60 * 1000),
+    now: NOW,
+  }).ok,
+  "an empty caption fails at SCHEDULE time — not silently discovered when the cron fires days later",
+);
+ok(
+  !validateInstagramSchedule({
+    caption: "hi",
+    width: 1080,
+    height: 1920, // a Story crop
+    scheduledFor: new Date(NOW.getTime() + 60 * 60 * 1000),
+    now: NOW,
+  }).ok,
+  "a non-compliant crop fails at schedule time too",
+);
+ok(
+  !validateInstagramSchedule({
+    caption: "hi",
+    width: 1080,
+    height: 1080,
+    scheduledFor: new Date(NOW.getTime() - 60 * 1000), // in the past
+    now: NOW,
+  }).ok,
+  "a time in the past fails — even with an otherwise-perfect caption and image",
+);
+{
+  const allBad = validateInstagramSchedule({
+    caption: "",
+    width: 1080,
+    height: 1920,
+    scheduledFor: new Date(NOW.getTime() - 60 * 1000),
+    now: NOW,
+  });
+  ok(!allBad.ok, "all three wrong at once still just refuses — doesn't throw or half-accept");
+  ok(
+    allBad.errors.includes("empty") && allBad.errors.includes("aspect_ratio") && allBad.errors.includes("invalid_schedule"),
+    "…and reports EVERY problem, not just the first one hit — a form wants to show all three at once",
+    allBad.errors,
+  );
+}
+
+console.log("\n── Scheduling: the cron's double-fire guard, exercised directly ─\n");
+
+// Not a re-implementation of the cron's logic — this is the EXACT shape of
+// its atomic claim query (see app/api/cron/social-scheduled-publish/
+// route.js's fireOne()): an updateMany() whose WHERE re-checks
+// status='scheduled' AND firingClaimedAt IS NULL. A tiny in-memory table
+// with the same updateMany semantics Prisma actually has (matches, then
+// mutates, then reports how many rows it touched) is enough to prove the
+// ALGORITHM is sound — that a second claim attempt against an
+// already-claimed row matches zero rows — without a live Postgres
+// connection. Real concurrent-request safety is Postgres's own row-level
+// locking underneath an identical WHERE clause, which is exactly why the
+// route's own comment points at that clause rather than at application code
+// as "the entire guard."
+{
+  const table = [{ id: "sp1", status: "scheduled", firingClaimedAt: null }];
+  function claim(id, now) {
+    let count = 0;
+    for (const row of table) {
+      if (row.id === id && row.status === "scheduled" && row.firingClaimedAt === null) {
+        row.status = "publishing";
+        row.firingClaimedAt = now;
+        count++;
+      }
+    }
+    return { count };
+  }
+  const first = claim("sp1", new Date());
+  ok(first.count === 1, "the first claim on a due row succeeds");
+  const second = claim("sp1", new Date());
+  ok(second.count === 0, "a SECOND claim attempt on the same row — simulating an overlapping cron invocation — matches zero rows and does nothing further");
+  ok(table[0].status === "publishing", "the row is left exactly as the first claim set it — the second attempt never touched it");
+}
+
+// Structural: the cron's own query must exclude a real (non-mock) Facebook
+// row — Meta's native scheduler already owns those, and firing one again
+// here would be the exact double-post this guard exists to prevent, just
+// from the OTHER direction (two different code paths racing the same post
+// instead of two cron ticks racing each other).
+{
+  const cronSrc = stripComments(read("app/api/cron/social-scheduled-publish/route.js"));
+  ok(
+    /platform.*instagram/.test(cronSrc) && /isMock.*true/.test(cronSrc),
+    "the cron's due-row query names both conditions that route a row to it: platform === instagram, or isMock === true",
+  );
+  ok(
+    /firingClaimedAt:\s*null/.test(cronSrc) && /status:\s*["']scheduled["']/.test(cronSrc),
+    "the claim's WHERE clause re-checks status and firingClaimedAt — an UPDATE, not a read-then-write",
+  );
+  ok(
+    /getMetaConnection\(row\.companyId\)/.test(cronSrc),
+    "the connection is re-fetched fresh at fire time, keyed off the ROW's own companyId — never a cached or passed-in connection",
+  );
+  ok(
+    /connection\.mock.*row\.isMock|row\.isMock.*connection\.mock/.test(cronSrc),
+    "isMock is compared against a freshly-read connection.mock, not trusted from the row alone — the demo/real invariant is re-checked at fire time, not just at schedule time",
+  );
+}
+
+// Structural: CampaignEditor.js's gate, and the publish route's server-side
+// enforcement of the identical rule — a hidden button with no matching
+// server-side refusal is exactly "hiding a button is not access control."
+// Read fresh here (not reusing `campaignEditorSrc`, which this file defines
+// further down, in section 7) so this section has no ordering dependency on
+// code that comes after it.
+{
+  const campaignEditorSrcForSchedule = stripComments(read("app/components/designer/CampaignEditor.js"));
+  ok(
+    /socialVisible/.test(campaignEditorSrcForSchedule) &&
+      /isSocialPublishingVisible|data\.visible/.test(campaignEditorSrcForSchedule),
+    "CampaignEditor.js gates the Publish button/Calendar link/modal on a visibility flag read from the server",
+  );
+  const publishRouteFullyStripped = stripComments(read("app/api/marketing/designer/designs/[id]/publish/route.js"));
+  ok(
+    /isSocialPublishingVisible/.test(publishRouteFullyStripped) && /not_available/.test(publishRouteFullyStripped),
+    "the publish route refuses server-side (not_available) when isSocialPublishingVisible() is false — not just a hidden client-side button",
+  );
+}
 
 console.log("\n── Social publish: the orchestration, against a FAKE Meta client ─\n");
 

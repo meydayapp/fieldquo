@@ -169,6 +169,15 @@ const NO_FRONT_DOOR = {
     "An HTTP wrapper around lib/ai/quoteSuggestions.js, which IS used — " +
     "lib/ai/quoteReview.js imports getSuggestedAddOns and calls it in " +
     "process. The feature ships; this door onto it is redundant.",
+  "/api/cron/social-scheduled-publish":
+    "Fires every due scheduled Instagram/demo-mock social post — see " +
+    "docs/SOCIAL-SCHEDULING.md. Genuinely unreachable today: this worktree " +
+    "was explicitly told not to edit vercel.json's cron schedule, so the " +
+    "entry that would make it reachable (an interval of a few minutes is " +
+    "recommended in that doc) is a follow-up for whoever can add it. Not a " +
+    "hidden gap — the publish route already writes `scheduled` rows and " +
+    "docs/SOCIAL-SCHEDULING.md's own verification section says this in " +
+    "plain language too. Remove this entry once vercel.json is updated.",
 };
 
 /**

@@ -100,6 +100,16 @@ const GLOBAL_BY_DESIGN = {
       "this run's own findMany, and the second is a REVERT to the row's own " +
       "prior values (not a foreign key from a caller) when a send didn't happen.",
   },
+  "app/api/cron/social-scheduled-publish/route.js": {
+    socialPublish:
+      "Same shape as appointment-reminders: a cron over every tenant's due " +
+      "scheduled posts, authenticated by CRON_SECRET, no member and no " +
+      "company to scope by. Every row updated here is either row.id from " +
+      "this run's own findMany, or (the claim step) an id filtered by " +
+      "status/firingClaimedAt rather than by caller input — see the " +
+      "route's own comments on why the claim is an atomic UPDATE, not a " +
+      "read-then-write.",
+  },
   "app/api/cron/grace-warning/route.js": {
     subscription:
       "Same shape as renewal-reminders: a cron over every past_due FieldQuo " +

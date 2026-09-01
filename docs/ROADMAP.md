@@ -5839,55 +5839,72 @@ has no stable anchor; `JobCosting`/`JobMaterials`/`JobTasks` all `return null`
 on an empty job, so they got no anchor either), and what a browser-less
 session couldn't verify: `docs/TOUR-COVERAGE.md`.
 
-## Publish to Instagram/Facebook from the Marketing Designer (built, blocked on Meta App Review)
+## Publish to Instagram/Facebook from the Marketing Designer (built, hidden until Meta App Review)
 
-Full design and status in `docs/SOCIAL-PUBLISHING.md` — this entry is the
-short version for the roadmap.
+Full design and status in `docs/SOCIAL-PUBLISHING.md` (the original publish
+flow) and `docs/SOCIAL-SCHEDULING.md` (scheduling, the calendar, the demo
+mock, and the hide-until-approved gate — this entry is the short version of
+both for the roadmap).
 
 **What's real:** a Publish button on the Marketing Designer's campaign editor
 (`app/components/designer/CampaignEditor.js`) opens
 `app/components/designer/PublishModal.js` — a preview of the exact rendered
 JPEG, a caption editor enforcing Instagram's real 2200-char/30-hashtag/
-20-mention limits, and a platform picker. Confirming calls
+20-mention limits, a platform picker, and now a "Schedule for later"
+date/time picker. Confirming calls
 `app/api/marketing/designer/designs/[id]/publish/route.js`, which uploads
-the asset to Cloudinary and runs the real container-then-publish flow
-(`lib/social/publishDesign.js`, `lib/social/metaGraphClient.js`) against
-Instagram's `/media` → poll → `/media_publish` state machine and Facebook's
-single-call Page photo post, recording every attempt to the new
-`SocialPublish` model. Every rule (aspect ratio, caption limits, the
-container status machine, the rolling `content_publishing_limit`, Facebook's
-native `scheduled_publish_time` window) lives in `lib/social/metaSpecs.js`,
-pure and hostile-input-tested — 119 executed assertions added to
-`scripts/check-designer-reach.mjs` and `scripts/check-ad-ratios.mjs`, four
-mutations run against them, all caught.
+the asset to Cloudinary and either runs the real container-then-publish flow
+immediately or queues a `SocialPublish` row with `status: "scheduled"`.
+Every rule (aspect ratio, caption limits, the container status machine, the
+rolling `content_publishing_limit`, both platforms' scheduling windows) lives
+in `lib/social/metaSpecs.js`, pure and hostile-input-tested — 154 executed
+assertions total across `scripts/check-designer-reach.mjs` and
+`scripts/check-ad-ratios.mjs` (119 from the original publish flow, 35 more
+for scheduling), eight mutations run against them total, all caught.
 
-**What's not real yet:** the connection. `lib/social/metaConnection.js`
-always returns `connected: false` — there is no Meta OAuth/per-tenant token
-storage in this codebase, by design (a sibling worktree owns that, per
-`docs/META-ADS-INTEGRATION.md`'s shared research). The Publish button and
-modal are fully honest about this: they render (per AGENTS.md, a real
-"coming soon" beats a hidden or dead control) and everything up to the
-actual Meta call works today, but the dialog states plainly that publishing
-isn't connected rather than faking a result. **No real publish call has ever
-been made — there are no Meta credentials in this environment.**
+**Hidden until Meta approves the app:** the Publish button, the Calendar
+link, and PublishModal itself are not rendered at all for a real company
+until `META_APP_ID`/`META_APP_SECRET` exist
+(`lib/meta/client.js`'s `metaAppConfigured()`) — enforced client-side
+(`CampaignEditor.js`) AND server-side (the publish route refuses `POST`
+with `not_available` when hidden, since a hidden button is not access
+control). **No real publish call has ever been made — there are no Meta
+credentials in this environment**, so this is the state every real company
+sees today.
 
-**Blocked on, independent of the OAuth layer landing:** `instagram_content_
-publish` and `pages_manage_posts` both require Meta App Review and Business
-Verification — weeks, not days, per the same research already on file for
-the ads/insights import. This cannot go live for real customers until that
-clears, on top of the OAuth connection existing at all.
+**A demo company (`Company.isDemo`) is always visible**, and never touches
+Meta at all — `lib/social/metaConnection.js` fabricates a `connected: true,
+mock: true` connection, and every Graph call routes through
+`lib/social/mockMetaGraphClient.js` instead. A visible amber badge
+("FieldQuo demo mock") and a "simulate a failure" selector make this
+undeniable to the operator while still exercising the exact real
+orchestration code (the poll loop, the rate-limit check, the container
+state machine) against Meta-shaped fake responses.
 
-**Scheduling — the finding and the decision:** Facebook Page posts support
-native scheduling (`scheduled_publish_time`, 10 minutes–75 days out) — Meta
-holds and publishes it, so it's implemented in `lib/social/metaGraphClient.js`
-and `lib/social/publishDesign.js` but not exposed in the UI yet (a date/time
-picker is a small, separate addition). **Instagram's Content Publishing API
-has no scheduling parameter for organic posts at all** — third-party
-schedulers fake it by holding the content and calling the real API at the
-right time, which for FieldQuo means a queue and a cron, not a client
-publish parameter. Decided out of scope for this build to keep the change
-proportionate to what was asked (a Publish control, not a new job-queue
-subsystem) — revisit if/when Instagram scheduling is specifically requested.
+**Scheduling — built.** Facebook Page posts use Meta's own native scheduler
+(`scheduled_publish_time`, 10 minutes–75 days out) — the publish route calls
+it immediately when a real company schedules a Facebook post; Meta holds and
+fires it, and this codebase does nothing further. **Instagram's Content
+Publishing API still has no scheduling parameter at all** (re-confirmed
+against Meta's live docs the day this was built) — those rows are queued
+(`status: "scheduled"`, no container created yet, so the 24h container
+lifetime is never at risk) and fired by a new cron,
+`app/api/cron/social-scheduled-publish/route.js`, which creates the
+container AND publishes in the same call, at the actual scheduled moment.
+The cron also fires every DEMO row regardless of platform, since a mock
+connection has no real Meta scheduler to hand a Facebook post to either.
+**This cron has no vercel.json entry yet** — this worktree was told not to
+edit that file's schedule; `docs/SOCIAL-SCHEDULING.md` says what to add (an
+interval of a few minutes) and someone with write access to `vercel.json`
+needs to add it before any scheduled Instagram or demo post can actually
+fire. Declared in `scripts/check-route-callers.mjs`'s `NO_FRONT_DOOR` list
+in the meantime, not silently passing.
+
+**The calendar:** `app/app/marketing/designer/calendar/page.js` — every
+`SocialPublish` row company-wide, month grid, honest about showing image
+posts only (no Reels/video tabs that would do nothing when clicked). Reuses
+`lib/calendar/monthGrid.js`, extracted from `app/app/appointments/page.js`
+rather than re-copied.
 
 **New processor entry:** `lib/legal/processors.js`'s `meta-content-publishing`
 — what Meta receives (the rendered ad image via a public Cloudinary URL, the
@@ -5951,3 +5968,9 @@ against the engine, hostile input included (a backwards date range, no
 dates at all, a job spanning the 2026 US DST change, 99%/101% schedules, a
 £0 quote), and 7 mutations, all caught. `npm run check:all` and
 `npm run build` both pass.
+
+account (belongs with the OAuth layer per `docs/SOCIAL-PUBLISHING.md`), the
+vercel.json cron entry (see above), and confirmation that a Facebook post
+Meta's native scheduler holds actually went live — FieldQuo hands it off and
+trusts Meta's own scheduler rather than polling to verify. See
+`docs/SOCIAL-SCHEDULING.md`'s own "what was not built" for the full list.

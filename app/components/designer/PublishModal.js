@@ -33,7 +33,7 @@
 // That's the "Coming soon panel is honest" half of the same rule, applied to
 // the one part of the screen that truly isn't finished.
 import { useEffect, useMemo, useState } from "react";
-import { Check, Loader2, Send, TriangleAlert, X } from "lucide-react";
+import { Check, Clock, FlaskConical, Loader2, Send, TriangleAlert, X } from "lucide-react";
 // lucide-react 1.x dropped brand/trademark icons (Facebook, Instagram, …) —
 // there is no icon here to stand in for either platform, so the checkbox
 // labels below carry the platform by name/handle alone rather than reaching
@@ -44,7 +44,35 @@ import {
   validateCaption,
   validateImageForInstagram,
   INSTAGRAM_CAPTION_SPEC,
+  isValidFacebookScheduleTime,
+  isValidScheduleTime,
+  FACEBOOK_SCHEDULE_MIN_MINUTES,
+  FACEBOOK_SCHEDULE_MAX_DAYS,
 } from "@/lib/social/metaSpecs";
+
+// The datetime-local picker's own min/max — the INTERSECTION of Facebook's
+// Meta-enforced window and FieldQuo's own Instagram window, so a single
+// control stays honest whichever platform(s) end up checked. Facebook's is
+// the tighter window on both ends (10min/75days vs FieldQuo's own 5min/
+// 180days for Instagram — see metaSpecs.js) so it's the one the widget's
+// browser-native min/max attributes use; the real per-platform check still
+// happens server-side either way, this is only the picker's guardrail.
+function scheduleBounds(now) {
+  return {
+    min: new Date(now.getTime() + FACEBOOK_SCHEDULE_MIN_MINUTES * 60 * 1000),
+    max: new Date(now.getTime() + FACEBOOK_SCHEDULE_MAX_DAYS * 24 * 60 * 60 * 1000),
+  };
+}
+
+// datetime-local wants "YYYY-MM-DDTHH:mm" in LOCAL time with no offset — the
+// browser interprets a bare value that way on both read and write, which is
+// exactly what keeps this DST-safe: no manual offset math happens anywhere
+// in this file, only Date's own local-time getters and its own parsing of
+// what the input hands back.
+function toLocalInputValue(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 // The only two AD_RATIOS crops this dialog will ever offer — both verified
 // compliant with Instagram's 4:5–1.91:1 aspect-ratio gate in
@@ -83,6 +111,14 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   const [submitting, setSubmitting] = useState(false);
   const [results, setResults] = useState(null); // { facebook?: {...}, instagram?: {...} }
   const [submitError, setSubmitError] = useState("");
+  // Off by default — publishing now is the common case, and the picker only
+  // adds a control for the contractor to see when they actually want it.
+  const [scheduleOn, setScheduleOn] = useState(false);
+  const [scheduleValue, setScheduleValue] = useState(""); // datetime-local string, local time
+  // Demo-only — see this file's mock badge below. "none" is the default and
+  // the only value a real connection's request ever effectively carries,
+  // since the API refuses this field outright unless connection.mock.
+  const [mockFailure, setMockFailure] = useState("none");
 
   // Reset per-open, not per-unmount — the modal is kept mounted (isOpen
   // just returns null) so CampaignEditor doesn't remount PublishModal, and
@@ -92,6 +128,9 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
     setResults(null);
     setSubmitError("");
     setConnection(null);
+    setScheduleOn(false);
+    setScheduleValue("");
+    setMockFailure("none");
     let cancelled = false;
     (async () => {
       const res = await fetch(`/api/marketing/designer/designs/${design.id}/publish`);
@@ -154,8 +193,33 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
   // A Facebook-only post only needs a non-empty caption.
   const captionOk = wantsInstagram ? captionCheck.ok : caption.trim().length > 0;
   const imageOk = !wantsInstagram || Boolean(imageCheck?.ok);
+
+  const scheduledForDate = scheduleOn && scheduleValue ? new Date(scheduleValue) : null;
+  // Client-side guardrail only — a UX nicety, not the real gate. The API
+  // re-checks the exact same windows itself (isValidFacebookScheduleTime,
+  // isValidScheduleTime) before ever touching Meta, per platform, because a
+  // browser's clock and validation are never trusted for anything that
+  // costs money or posts publicly (AGENTS.md non-negotiable #5's discipline
+  // applied here to "is this a legal time" instead of "is this a legal
+  // price"). Facebook and Instagram get their OWN real windows checked
+  // rather than the picker's intersected one, so a request that happens to
+  // squeak past the tighter UI guardrail because only Instagram is checked
+  // still gets Instagram's real (wider) window applied server-side.
+  const scheduleOk =
+    !scheduleOn ||
+    (Boolean(scheduledForDate) &&
+      !Number.isNaN(scheduledForDate?.getTime()) &&
+      (!platforms.facebook || isValidFacebookScheduleTime(scheduledForDate)) &&
+      (!platforms.instagram || isValidScheduleTime(scheduledForDate)));
+
   const canSubmit =
-    connection?.connected && anyPlatform && captionOk && imageOk && Boolean(asset) && !submitting;
+    connection?.connected &&
+    anyPlatform &&
+    captionOk &&
+    imageOk &&
+    scheduleOk &&
+    Boolean(asset) &&
+    !submitting;
 
   async function handlePublish() {
     if (!canSubmit) return;
@@ -172,6 +236,11 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
             .map(([key]) => key),
           caption,
           imageBase64: asset.dataUrl,
+          scheduledFor: scheduledForDate ? scheduledForDate.toISOString() : undefined,
+          // Only ever acted on server-side when connection.mock is true —
+          // sending it for a real connection is simply ignored there.
+          simulateFailure:
+            connection?.mock && mockFailure !== "none" ? mockFailure : undefined,
         }),
       });
       if (!res.ok) {
@@ -212,6 +281,21 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
             <X size={18} />
           </button>
         </div>
+
+        {/* Required whenever connection.mock is true, per
+            docs/SOCIAL-SCHEDULING.md: convincing in shape, but never allowed
+            to look identical to the real thing — this is FieldQuo's own
+            back office, so naming FieldQuo here is the honest choice rather
+            than a vague "demo mode." Nothing downstream (the caption, the
+            image, the schedule picker) looks any different — only this
+            badge and the failure-simulation control below it exist because
+            of `mock`. */}
+        {connection?.mock && !done && (
+          <div className="flex items-center gap-1.5 bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold px-2.5 py-1 rounded-full w-fit mb-3">
+            <FlaskConical size={12} />
+            {t("app.marketingDesigner.publishModal.mockBadge", "FieldQuo demo mock — no real post is made")}
+          </div>
+        )}
 
         {loadingConnection && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
@@ -355,6 +439,84 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
               )}
             </div>
 
+            {/* Scheduling — see docs/SOCIAL-SCHEDULING.md. Facebook holds a
+                scheduled post itself (Meta's own native scheduler);
+                Instagram never touches Meta until the moment this fires —
+                FieldQuo's own queue and cron do the holding. Neither
+                distinction is worth surfacing here: the contractor picked a
+                date and time, and what happens behind it is this feature's
+                job to get right, not theirs to reason about. */}
+            <div className="border-t border-border pt-3">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={scheduleOn}
+                  onChange={(e) => {
+                    setScheduleOn(e.target.checked);
+                    if (e.target.checked && !scheduleValue) {
+                      // A sane default one hour out, so the picker never
+                      // opens on a value that's already invalid (the
+                      // "now" it would otherwise default to fails every
+                      // window's minimum).
+                      setScheduleValue(toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000)));
+                    }
+                  }}
+                />
+                <Clock size={13} />
+                {t("app.marketingDesigner.publishModal.scheduleToggle", "Schedule for later")}
+              </label>
+              {scheduleOn && (
+                <div className="mt-2">
+                  <input
+                    type="datetime-local"
+                    value={scheduleValue}
+                    min={toLocalInputValue(scheduleBounds(new Date()).min)}
+                    max={toLocalInputValue(scheduleBounds(new Date()).max)}
+                    onChange={(e) => setScheduleValue(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background p-2.5 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t(
+                      "app.marketingDesigner.publishModal.scheduleHint",
+                      "Facebook: 10 minutes to 75 days out. Instagram: at least 5 minutes out — FieldQuo holds it and posts it for you at the right moment.",
+                    )}
+                  </p>
+                  {!scheduleOk && scheduleValue && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                      <TriangleAlert size={12} />
+                      {t("app.marketingDesigner.publishModal.scheduleInvalid", "Choose a time inside the windows above.")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Demo-only — see the mock badge above. Lets an operator show
+                the two failure states a real account can hit without
+                waiting for either to happen naturally. */}
+            {connection?.mock && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  {t("app.marketingDesigner.publishModal.simulateFailureLabel", "Simulate a failure (demo)")}
+                </label>
+                <select
+                  value={mockFailure}
+                  onChange={(e) => setMockFailure(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-background p-2.5 text-sm"
+                >
+                  <option value="none">
+                    {t("app.marketingDesigner.publishModal.simulateFailureNone", "None — succeed normally")}
+                  </option>
+                  <option value="rate_limited">
+                    {t("app.marketingDesigner.publishModal.simulateFailureRateLimited", "Meta's posting limit reached")}
+                  </option>
+                  <option value="container_error">
+                    {t("app.marketingDesigner.publishModal.simulateFailureContainerError", "Meta rejects the image")}
+                  </option>
+                </select>
+              </div>
+            )}
+
             {submitError && (
               <p className="text-xs text-red-600 dark:text-red-400">{submitError}</p>
             )}
@@ -381,7 +543,9 @@ export default function PublishModal({ isOpen, onClose, design, preparePublishAs
                 )}
                 {submitting
                   ? t("app.marketingDesigner.publishModal.publishing")
-                  : t("app.marketingDesigner.publishModal.confirm")}
+                  : scheduleOn
+                    ? t("app.marketingDesigner.publishModal.confirmSchedule", "Schedule")
+                    : t("app.marketingDesigner.publishModal.confirm")}
               </button>
             </div>
           </div>
@@ -414,6 +578,23 @@ function ResultRow({ platform, result, t }) {
       <div className="flex items-start gap-2 bg-muted rounded-lg p-3 text-sm text-foreground">
         <Check size={16} className="mt-0.5 shrink-0" />
         <span>{t("app.marketingDesigner.publishModal.resultPublished", { platform: platformLabel })}</span>
+      </div>
+    );
+  }
+
+  if (result.status === "scheduled") {
+    const when = result.scheduledFor ? new Date(result.scheduledFor) : null;
+    return (
+      <div className="flex items-start gap-2 bg-muted rounded-lg p-3 text-sm text-foreground">
+        <Clock size={16} className="mt-0.5 shrink-0" />
+        <span>
+          {when && !Number.isNaN(when.getTime())
+            ? t("app.marketingDesigner.publishModal.resultScheduled", {
+                platform: platformLabel,
+                when: when.toLocaleString(),
+              })
+            : t("app.marketingDesigner.publishModal.resultScheduledNoTime", { platform: platformLabel })}
+        </span>
       </div>
     );
   }
