@@ -13,18 +13,24 @@ gap.
 | What | Where | State |
 |---|---|---|
 | Meta ad spend + insights | `lib/meta/`, marketing KPIs | building |
-| Publish a design to Instagram / Facebook | Marketing Designer | building |
-| Mobile sweep — client-facing pages | `app/quote`, `book`, `q`, `portal`, `site` | building |
-| Mobile sweep — back office | `app/app/**` | building |
+| Publish a design to Instagram / Facebook | Marketing Designer | **landed** |
+| Mobile sweep — client-facing pages | `app/quote`, `book`, `q`, `portal`, `site` | **landed** |
+| Mobile sweep — back office | `app/app/**` | **landed** |
 | KPI empty states | — | **landed** |
+| Crisis rule → 911 | every AI surface | **landed** |
 
 ### Lost, and re-dispatched
 
 Five agents ran a long time on the night of 2026-08-30 and produced **no
 branch and no commits**: four mobile sweeps and the crisis rule. The crisis
 rule has since been rebuilt and landed. Two of the four mobile sweeps are
-re-dispatched above; the dense-screens sweep (settings, analytics, designer,
-platform) and the mobile regression check are still outstanding.
+re-dispatched and have since landed. **Still outstanding:** the dense-screens
+sweep (settings, analytics, the Marketing Designer, `/platform`) and the mobile
+regression check that would guard all of this from coming back.
+
+Also still outstanding, and named so it is not mistaken for done: **nothing in
+any of the mobile work has been seen rendering on a real device.** Every fix is
+verified at the code and build level only. Both audit docs say so.
 
 The lesson is procedural: an agent reporting a long run is not evidence of
 work. Check `git rev-list --count main..<branch>` before believing a summary.
