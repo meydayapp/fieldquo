@@ -12,7 +12,12 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function PortalInvoicePage({ params }) {
+export default async function PortalInvoicePage({ params, searchParams }) {
   const { token, id } = await params;
-  return <PortalInvoice token={token} invoiceId={id} />;
+  // Next 16: searchParams is a Promise too. `?stage=<id>` arrives on a
+  // payment-schedule stage's own email link (lib/paymentSchedule/run.js) so
+  // this page can ask for that stage's amount instead of the invoice's full
+  // remaining balance — see PortalInvoice.js.
+  const { stage } = (await searchParams) || {};
+  return <PortalInvoice token={token} invoiceId={id} stageId={stage || null} />;
 }
