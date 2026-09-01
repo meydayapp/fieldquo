@@ -29,6 +29,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildMoneyFlow, priorWindow, categoryBreakdown, REASONS } from "@/lib/analytics/moneyFlow";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 
 let pass = 0;
 const fails = [];
@@ -380,6 +381,101 @@ ok("every REASONS key was produced by at least one fixture above",
   Object.keys(REASONS).filter((code) => !producedReasons.has(code)));
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Section 12 — computeInvoiceState: a refund or a chargeback must not leave
+//               an invoice reading "paid" (money-fixes: finding #1)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// lib/invoices/computeInvoiceState.js is the one place recordStripePayment.js,
+// recordStripeRefund.js, recordStripeDispute.js and app/api/payments/route.js
+// all derive an invoice's amountPaid/amountDue/amountRefunded/status from its
+// Payment rows. Fixture-tested here the same way buildMoneyFlow is above —
+// pure function, no database — and mutation-tested alongside it in Section 13.
+
+console.log("\n12. computeInvoiceState — refunds and disputes never read as 'paid'\n");
+
+const pay2 = (amount, extra = {}) => ({ amount, refundedAmount: 0, disputeStatus: null, ...extra });
+
+const NO_PAYMENTS = computeInvoiceState({ total: 500, payments: [], priorStatus: "sent" });
+ok("no payments: nothing paid, nothing due changes, status untouched",
+  NO_PAYMENTS.amountPaid === 0 && NO_PAYMENTS.amountDue === 500 &&
+    NO_PAYMENTS.amountRefunded === 0 && NO_PAYMENTS.status === "sent" && !NO_PAYMENTS.isPaid);
+
+const FULLY_PAID = computeInvoiceState({ total: 500, payments: [pay2(500)], priorStatus: "sent" });
+ok("one payment covering the total: paid, isPaid true",
+  FULLY_PAID.amountPaid === 500 && FULLY_PAID.amountDue === 0 &&
+    FULLY_PAID.status === "paid" && FULLY_PAID.isPaid === true);
+
+const ZERO_TOTAL_NO_PAYMENTS = computeInvoiceState({ total: 0, payments: [], priorStatus: "draft" });
+ok("a $0 invoice with nothing paid is NOT 'paid' — amountDue<=0 alone must not imply isPaid (lib/invoices/lifecycle.js draws exactly this distinction)",
+  ZERO_TOTAL_NO_PAYMENTS.isPaid === false, ZERO_TOTAL_NO_PAYMENTS);
+
+const FULL_REFUND = computeInvoiceState({
+  total: 500,
+  payments: [pay2(500, { refundedAmount: 500 })],
+  priorStatus: "paid",
+});
+ok("fully refunded: status becomes 'refunded', not 'paid', and amountDue reopens",
+  FULL_REFUND.status === "refunded" && FULL_REFUND.amountPaid === 0 &&
+    FULL_REFUND.amountDue === 500 && FULL_REFUND.amountRefunded === 500,
+  FULL_REFUND);
+
+const PARTIAL_REFUND = computeInvoiceState({
+  total: 500,
+  payments: [pay2(500, { refundedAmount: 200 })],
+  priorStatus: "paid",
+});
+ok("partially refunded: a DIFFERENT status from a full refund, per the brief's own instruction",
+  PARTIAL_REFUND.status === "partially_refunded" && PARTIAL_REFUND.amountPaid === 300 &&
+    PARTIAL_REFUND.amountDue === 200 && PARTIAL_REFUND.amountRefunded === 200,
+  PARTIAL_REFUND);
+
+const MIXED_PAYMENTS = computeInvoiceState({
+  total: 500,
+  payments: [pay2(200), pay2(300, { refundedAmount: 300 })],
+  priorStatus: "paid",
+});
+ok("two payments, only one refunded: nets out per-payment, not per-invoice",
+  MIXED_PAYMENTS.amountPaid === 200 && MIXED_PAYMENTS.amountRefunded === 300 &&
+    MIXED_PAYMENTS.status === "partially_refunded", MIXED_PAYMENTS);
+
+const OPEN_DISPUTE = computeInvoiceState({
+  total: 500,
+  payments: [pay2(500, { disputeStatus: "needs_response" })],
+  priorStatus: "paid",
+});
+ok("an open dispute outranks 'paid' — different from both paid and unpaid, per the brief",
+  OPEN_DISPUTE.status === "disputed" && OPEN_DISPUTE.amountRefunded === 0,
+  OPEN_DISPUTE);
+
+const WON_DISPUTE = computeInvoiceState({
+  total: 500,
+  payments: [pay2(500, { disputeStatus: "won" })],
+  priorStatus: "disputed",
+});
+ok("a WON dispute clears back to an ordinary paid invoice — nothing was actually taken",
+  WON_DISPUTE.status === "paid" && WON_DISPUTE.amountPaid === 500, WON_DISPUTE);
+
+const LOST_DISPUTE = computeInvoiceState({
+  total: 500,
+  payments: [pay2(500, { disputeStatus: "lost" })],
+  priorStatus: "disputed",
+});
+ok("a LOST dispute reads as refunded — Stripe never fires charge.refunded for one, so this is the only place that fact gets recorded",
+  LOST_DISPUTE.status === "refunded" && LOST_DISPUTE.amountRefunded === 500 &&
+    LOST_DISPUTE.amountPaid === 0, LOST_DISPUTE);
+
+const OVERPAID = computeInvoiceState({ total: 500, payments: [pay2(600)], priorStatus: "sent" });
+ok("amountDue never goes negative on an overpayment", OVERPAID.amountDue === 0, OVERPAID);
+
+const OVER_REFUNDED = computeInvoiceState({
+  total: 500,
+  payments: [pay2(300, { refundedAmount: 400 })],
+  priorStatus: "paid",
+});
+ok("amountPaid never goes negative even if refundedAmount somehow exceeds the payment",
+  OVER_REFUNDED.amountPaid === 0, OVER_REFUNDED);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Section 11 — mutation pass: every guarantee above must be load-bearing
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -396,12 +492,19 @@ if (!MUTATING) {
 console.log("\n11. Mutation pass — every guarantee above must actually be load-bearing\n");
 
 const LIB = fileURLToPath(new URL("../lib/analytics/moneyFlow.js", import.meta.url));
+// computeInvoiceState.js — mutated alongside moneyFlow.js below (Section 12's
+// own guarantees) rather than in a second script, since this file already
+// carries the exact machinery (backup, mutate, re-run as a subprocess,
+// restore) a second pure-function mutation pass needs.
+const LIB2 = fileURLToPath(new URL("../lib/invoices/computeInvoiceState.js", import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 const LOADER = fileURLToPath(new URL("./alias-loader.mjs", import.meta.url));
 
 const backupDir = mkdtempSync(join(tmpdir(), "money-flow-"));
 const ORIGINAL = readFileSync(LIB, "utf8");
+const ORIGINAL2 = readFileSync(LIB2, "utf8");
 writeFileSync(join(backupDir, "moneyFlow.js.bak"), ORIGINAL);
+writeFileSync(join(backupDir, "computeInvoiceState.js.bak"), ORIGINAL2);
 
 const MUTATIONS = [
   [
@@ -489,6 +592,54 @@ const MUTATIONS = [
   ],
 ];
 
+// computeInvoiceState.js's own mutants — the money-fixes brief's own
+// instruction: "mutation-test every assertion and report which mutations
+// you ran."
+const MUTATIONS2 = [
+  [
+    "a lost dispute stops reading as a refund — Stripe never fires charge.refunded for one, so this would leave the invoice claiming money that's actually gone",
+    (s) => s.replace(
+      'p.disputeStatus === "lost" ? Math.max(0, num(p.amount) - refunded) : 0;',
+      "0;",
+    ),
+  ],
+  [
+    "an open dispute stops outranking 'paid'",
+    (s) => s.replace(
+      'if (hasOpenDispute) {\n    // Outranks "refunded" and "paid" alike',
+      'if (false) {\n    // Outranks "refunded" and "paid" alike',
+    ),
+  ],
+  [
+    "a $0 invoice with nothing paid reads as isPaid — amountDue<=0 alone starts to mean 'paid'",
+    (s) => s.replace(
+      "isPaid = amountDue <= PAID_EPSILON && netPaid > PAID_EPSILON;",
+      "isPaid = amountDue <= PAID_EPSILON;",
+    ),
+  ],
+  [
+    "a partial refund reads as a FULL refund — the brief's own instruction was that these must stay distinguishable",
+    (s) => s.replace(
+      'status = netPaid <= PAID_EPSILON ? "refunded" : "partially_refunded";',
+      'status = "refunded";',
+    ),
+  ],
+  [
+    "amountDue can go negative on an overpayment",
+    (s) => s.replace(
+      "const amountDue = Math.max(0, num(total) - netPaid);",
+      "const amountDue = num(total) - netPaid;",
+    ),
+  ],
+  [
+    "amountPaid (netPaid) can go negative when refundedAmount exceeds the payment",
+    (s) => s.replace(
+      "const netPaid = Math.max(0, grossPaid - amountRefunded);",
+      "const netPaid = grossPaid - amountRefunded;",
+    ),
+  ],
+];
+
 // ── One mutation that was tried and is NOT in the list above ────────────────
 //
 // There is no line in this file that reads Invoice.total, invoiceId or
@@ -501,16 +652,21 @@ const MUTATIONS = [
 // expressed would be the same "check that can never fail" check-kpis.mjs's
 // own header warns against.
 
-let caught = 0;
-const escaped = [];
-try {
-  for (const [label, mutate] of MUTATIONS) {
-    const mutated = mutate(ORIGINAL);
-    if (mutated === ORIGINAL) {
-      escaped.push(`${label} — the mutation did not apply (the source moved under it)`);
+// Runs one file's mutation list, one mutant at a time: mutate, re-run this
+// whole script (minus mutation) as a subprocess, restore, repeat. Shared by
+// moneyFlow.js's own mutants above and computeInvoiceState.js's below —
+// same technique, different target file, so this is the one place either
+// list is actually applied.
+function runMutations(file, original, mutations) {
+  let localCaught = 0;
+  const localEscaped = [];
+  for (const [label, mutate] of mutations) {
+    const mutated = mutate(original);
+    if (mutated === original) {
+      localEscaped.push(`${label} — the mutation did not apply (the source moved under it)`);
       continue;
     }
-    writeFileSync(LIB, mutated);
+    writeFileSync(file, mutated);
     let survived = false;
     try {
       execFileSync(process.execPath, ["--import", LOADER, SELF, "--no-mutate"], {
@@ -520,18 +676,38 @@ try {
     } catch {
       /* non-zero exit = the mutant was caught, which is the point */
     }
-    writeFileSync(LIB, ORIGINAL);
-    if (survived) escaped.push(`${label} — NOT caught`);
+    writeFileSync(file, original);
+    if (survived) localEscaped.push(`${label} — NOT caught`);
     else {
-      caught++;
+      localCaught++;
       console.log(`  ✓ caught: ${label}`);
     }
   }
+  return { caught: localCaught, escaped: localEscaped };
+}
+
+let caught = 0;
+const escaped = [];
+try {
+  const r1 = runMutations(LIB, ORIGINAL, MUTATIONS);
+  caught += r1.caught;
+  escaped.push(...r1.escaped);
+
+  console.log("\n13. computeInvoiceState.js mutants\n");
+  const r2 = runMutations(LIB2, ORIGINAL2, MUTATIONS2);
+  caught += r2.caught;
+  escaped.push(...r2.escaped);
 } finally {
   writeFileSync(LIB, ORIGINAL);
+  writeFileSync(LIB2, ORIGINAL2);
   rmSync(backupDir, { recursive: true, force: true });
 }
-ok(`all ${MUTATIONS.length} mutants caught`, escaped.length === 0, escaped.join(" | "));
+ok(`all ${MUTATIONS.length} moneyFlow.js mutants caught`,
+  escaped.length === 0 || !escaped.some((e) => MUTATIONS.some(([l]) => e.startsWith(l))),
+  escaped.join(" | "));
+ok(`all ${MUTATIONS2.length} computeInvoiceState.js mutants caught`,
+  !escaped.some((e) => MUTATIONS2.some(([l]) => e.startsWith(l))),
+  escaped.join(" | "));
 pass += caught;
 
 console.log(

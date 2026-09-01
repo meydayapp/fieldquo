@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { recordStripePayment } from "@/lib/invoices/recordStripePayment";
 import { settleOccurrenceFromIntent } from "@/lib/servicePlans/run";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 
 // Record an invoice payment from a completed/settled checkout session.
 //
@@ -124,6 +125,17 @@ export async function POST(request) {
       if (intent.metadata?.servicePlanOccurrenceId) {
         await settleOccurrenceFromIntent(intent);
       }
+      break;
+    }
+
+    // A refund or a chargeback — see lib/stripe/settleChargeEvent.js's header
+    // for why this dispatches the same way checkout.session.completed does
+    // above rather than assuming which endpoint Stripe delivers it to.
+    case "charge.refunded":
+    case "charge.dispute.created":
+    case "charge.dispute.updated":
+    case "charge.dispute.closed": {
+      await settleChargeEvent(event);
       break;
     }
   }

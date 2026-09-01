@@ -12,6 +12,7 @@ import {
 } from "@/lib/permissions/enforce";
 import { formatAppMoney } from "@/lib/format/money";
 import { resolveInvoiceChaseTask } from "@/lib/tasks/autoCreate";
+import { computeInvoiceState } from "@/lib/invoices/computeInvoiceState";
 
 export async function GET(request) {
   const { member, response } = await memberOrRefusal(request);
@@ -112,8 +113,17 @@ export async function POST(request) {
   //
   // Tolerance matches isPaid below: half a cent, so float residue on an
   // instalment plan can't refuse the final legitimate payment.
-  const alreadyPaid = invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-  const outstanding = Number(invoice.total) - alreadyPaid;
+  // Net of any Stripe refund already recorded against this invoice — see
+  // lib/invoices/computeInvoiceState.js. A gross sum of Payment.amount here
+  // would understate `outstanding` after a partial refund: the money came
+  // back out, so it is owed again, and this cap must not let a client's own
+  // portal say otherwise.
+  const before = computeInvoiceState({
+    total: invoice.total,
+    payments: invoice.payments,
+    priorStatus: invoice.status,
+  });
+  const outstanding = Number(invoice.total) - before.amountPaid;
   if (Number(amount) - outstanding > 0.005) {
     return NextResponse.json(
       {
@@ -136,22 +146,20 @@ export async function POST(request) {
     },
   });
 
-  const totalPaid = alreadyPaid + Number(amount);
-  const amountDue = Math.max(0, Number(invoice.total) - totalPaid);
-  // Half a cent, not zero — the same threshold every other balance recompute
-  // uses (the Stripe webhook, credit-visit-fee). Summing Decimals through
-  // Number leaves float residue, so an invoice paid off in instalments could
-  // land on 0.0000000001 owing and never be marked paid, and the difference
-  // between the two rules showed up as one path marking it and the other not.
-  const isPaid = amountDue <= 0.005;
+  const after = computeInvoiceState({
+    total: invoice.total,
+    payments: [...invoice.payments, { amount: Number(amount), refundedAmount: 0, disputeStatus: null }],
+    priorStatus: invoice.status,
+  });
 
   await db.invoice.update({
     where: { id: invoiceId },
     data: {
-      amountPaid: totalPaid,
-      amountDue,
-      status: isPaid ? "paid" : invoice.status,
-      paidDate: isPaid ? new Date() : invoice.paidDate,
+      amountPaid: after.amountPaid,
+      amountDue: after.amountDue,
+      amountRefunded: after.amountRefunded,
+      status: after.status,
+      paidDate: after.isPaid ? new Date() : invoice.paidDate,
     },
   });
 
@@ -159,14 +167,14 @@ export async function POST(request) {
   // answered. Only on isPaid: a deposit is not a reason to stop chasing the
   // rest, and closing it early would take the invoice off the to-do list while
   // most of the money was still outstanding.
-  if (isPaid) await resolveInvoiceChaseTask(invoiceId);
+  if (after.isPaid) await resolveInvoiceChaseTask(invoiceId);
 
   await recordActivity(member, {
     action: "payment.recorded",
     entityType: "payment",
     entityId: payment.id,
     summary: `Recorded a ${method} payment of ${amount} on invoice ${invoice.invoiceNumber || invoiceId}`,
-    metadata: { invoiceId, amount, method, isPaid },
+    metadata: { invoiceId, amount, method, isPaid: after.isPaid },
   });
 
   return NextResponse.json(payment, { status: 201 });

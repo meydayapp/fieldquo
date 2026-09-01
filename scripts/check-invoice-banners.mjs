@@ -20,6 +20,7 @@ import {
   invoiceMoney,
   calendarDaysBetween,
   PAID_EPSILON,
+  stripBannerMoney,
 } from "@/lib/invoices/lifecycle";
 import { groupInvoiceLineItems } from "@/lib/invoices/documentGroups";
 
@@ -96,6 +97,55 @@ t("an open chase task cannot resurrect the chase banner on a paid invoice",
 t("float residue still counts as paid",
   ids({ invoice: { ...paid, amountDue: 0.0000000001 }, job }).includes("paid"),
   true);
+
+console.log("\nRefunded and disputed (money-fixes finding #1)");
+// computeInvoiceState (lib/invoices/computeInvoiceState.js) is what SETS
+// amountPaid/amountDue/amountRefunded/status on a real invoice; this file
+// only checks that selectInvoiceBanners reads status honestly once it's set,
+// the same division of labour the rest of this file already keeps.
+const refunded = {
+  ...base,
+  status: "refunded",
+  amountPaid: 0,
+  amountDue: 2100,
+  amountRefunded: 2100,
+  dueDate: "2026-08-01T00:00:00", // in the past — must not ALSO read overdue
+};
+t("a fully refunded invoice shows 'refunded', not 'paid'",
+  ids({ invoice: refunded, job }).includes("refunded"), true);
+t("...and never 'paid' — the money isn't there any more",
+  ids({ invoice: refunded, job }).includes("paid"), false);
+t("...with the refunded amount attached",
+  find({ invoice: refunded, job }, "refunded")?.data.refunded, 2100);
+
+const partiallyRefunded = {
+  ...base,
+  status: "partially_refunded",
+  amountPaid: 1600,
+  amountDue: 500,
+  amountRefunded: 500,
+};
+t("a PARTIAL refund is a different banner from a full one",
+  ids({ invoice: partiallyRefunded, job }).includes("partiallyRefunded"), true);
+t("...and is not the full-refund banner too",
+  ids({ invoice: partiallyRefunded, job }).includes("refunded"), false);
+
+const disputed = { ...base, status: "disputed", amountPaid: 2100, amountDue: 0 };
+t("an open dispute shows its own banner, outranking 'paid'",
+  ids({ invoice: disputed, job }).includes("disputed"), true);
+t("...even though the money hasn't technically left yet (amountDue is 0)",
+  ids({ invoice: disputed, job }).includes("paid"), false);
+// Disputed and overdue are compatible facts — see lib/invoices/lifecycle.js's
+// own comment on why this does NOT return early the way superseded does.
+const disputedAndLate = { ...disputed, dueDate: "2026-08-01T00:00:00" };
+t("disputed does not suppress a genuinely overdue balance",
+  ids({ invoice: disputedAndLate, job }).includes("disputed"), true);
+
+console.log("\nstripBannerMoney redacts the refunded figure too");
+const strippedRefunded = stripBannerMoney(selectInvoiceBanners({ invoice: refunded, job, now: NOW }));
+const refundedBanner = strippedRefunded.find((b) => b.id === "refunded");
+t("the dollar figure is REMOVED, not zeroed", refundedBanner?.data.refunded === undefined, true);
+t("...and flagged, the same as every other money banner", refundedBanner?.pricingHidden, true);
 
 console.log("\nA $0 invoice owes nothing but was never paid");
 t("no invented payment",

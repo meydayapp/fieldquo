@@ -23,6 +23,13 @@ export default function NotificationsPage() {
   const [remSaving, setRemSaving] = useState(false);
   const [remSaved, setRemSaved] = useState(false);
 
+  // Default true — matches lib/notifications/invoicePaymentNotice.js's own
+  // rule: no row at all means never configured, which means still ON. The
+  // load() below only ever flips this to false, when a row exists and says
+  // so explicitly.
+  const [invoicePaidActive, setInvoicePaidActive] = useState(true);
+  const [ipSaving, setIpSaving] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,6 +49,10 @@ export default function NotificationsPage() {
         setThreshold(large.threshold != null ? String(Number(large.threshold)) : "");
         setActive(large.active !== false);
       }
+
+      const invoicePaid = list.find((r) => r.type === "invoice_paid");
+      // No row = never configured = still ON (see the state's own comment).
+      setInvoicePaidActive(invoicePaid ? invoicePaid.active !== false : true);
 
       const rem = await fetch("/api/settings/appointment-reminders");
       if (rem.ok) {
@@ -82,6 +93,30 @@ export default function NotificationsPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Auto-saves on toggle, the same optimistic-with-rollback shape
+  // saveReminders below already uses — no threshold to fill in first, so a
+  // separate Save button would just be one more click for nothing.
+  async function saveInvoicePaid(nextActive) {
+    setIpSaving(true);
+    setError("");
+    const previous = invoicePaidActive;
+    setInvoicePaidActive(nextActive);
+    try {
+      const res = await fetch("/api/settings/notification-rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "invoice_paid", active: nextActive }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error || t("app.setNotifications.saveError"));
+    } catch (err) {
+      setInvoicePaidActive(previous);
+      setError(err.message);
+    } finally {
+      setIpSaving(false);
     }
   }
 
@@ -210,6 +245,29 @@ export default function NotificationsPage() {
             </span>
           )}
         </div>
+      </div>
+
+      <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+        <div className="flex items-start gap-3">
+          <Bell size={18} className="text-muted-foreground mt-0.5 shrink-0" />
+          <div className="min-w-0">
+            <h2 className="font-semibold text-foreground">{t("app.setNotifications.invoicePaidTitle")}</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {t("app.setNotifications.invoicePaidDesc")}
+            </p>
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={invoicePaidActive}
+            disabled={ipSaving}
+            onChange={(e) => saveInvoicePaid(e.target.checked)}
+          />
+          {t("app.setNotifications.sendAlert")}
+          {ipSaving && <Loader2 size={12} className="animate-spin" />}
+        </label>
       </div>
 
       <div className="bg-card border border-border rounded-xl p-5 space-y-4">

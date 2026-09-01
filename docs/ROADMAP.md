@@ -1033,6 +1033,41 @@ they set the pattern.
   change (`EmailCampaignDetail.js`'s "partial" banner) was read carefully but
   not visually verified.
 
+- **Five money-correctness findings from the pre-launch health check, fixed.
+  Full writeup, the invoice-status decision, the cron-quota decision and the
+  exact @unique pre-flight in `docs/MONEY-FIXES.md`.**
+  `lib/invoices/computeInvoiceState.js` (new), `lib/invoices/recordStripeRefund.js`
+  (new), `lib/invoices/recordStripeDispute.js` (new), `lib/stripe/settleChargeEvent.js`
+  (new), `lib/notifications/invoicePaymentNotice.js` (new), `prisma/schema.prisma`
+  (`InvoiceStatus` gains `refunded`/`partially_refunded`/`disputed`; `Invoice` gains
+  `amountRefunded`/`refundedAt`/`disputedAt`; `Payment` gains
+  `refundedAmount`/`refundedAt`/`disputeStatus`/`disputedAt` — all additive, no
+  `@unique`, safe under `prisma db push`), `app/api/stripe/webhook/route.js`,
+  `app/api/platform/billing/webhook/route.js`, `lib/invoices/recordStripePayment.js`,
+  `app/api/payments/route.js`, `lib/invoices/lifecycle.js`,
+  `app/app/invoices/[id]/LifecycleBanners.js`, `lib/ai/monthlyDigest.js`,
+  `app/api/ai/ai-summary/route.js`, `lib/jobs/createJobFromQuote.js`,
+  `lib/invoices/createInvoiceFromQuote.js`, `app/api/companies/route.js`.
+
+  Neither Stripe webhook handled `charge.refunded` or `charge.dispute.*` — a
+  refund or a lost chargeback left `Invoice.status` reading "paid" forever.
+  Both AI paths that skipped `checkAiQuota` are gated now, and the monthly
+  digest cron no longer just silently skips a company over its allowance — it
+  still sends the digest with the real numbers, swaps in the same quota
+  message an on-demand feature shows, and logs it to `/platform/errors`.
+  Nothing told a contractor a Stripe payment landed; there's a notification
+  now (`invoice_paid`, in the existing `NotificationRule` catalog, default
+  ON). The quote-accept race (`ensureJobForAcceptedQuote` /
+  `ensureInvoiceForQuote`) is closed with a `SELECT ... FOR UPDATE` row lock
+  inside a transaction, NOT a `@unique` on `Job.quoteId`/`Invoice.quoteId` —
+  both were tried and rejected for concrete reasons in `MONEY-FIXES.md` (an
+  invoice VERSION deliberately carries its parent's `quoteId`; a shipped
+  cross-company-import feature already reads a quote's jobs as a list). Company
+  bootstrap (`POST /api/companies`) wraps Company+Member creation in a
+  transaction and rolls back by hand if the external Better-Auth org creation
+  fails, so a mid-signup failure can no longer strand an unreachable,
+  un-retriable orphan company.
+
 - **A caller who is a danger to themselves is now handled — everywhere a
   model's words reach a person, not just the receptionist.
   `lib/ai/crisisRule.js` (new), `lib/voice/prompt.js`,

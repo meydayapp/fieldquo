@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { syncSubscriptionFromStripeEvent } from "@/lib/platform/stripeBilling";
 import { settleCheckoutSession } from "@/lib/stripe/settleCheckoutSession";
+import { settleChargeEvent } from "@/lib/stripe/settleChargeEvent";
 import { grantAiBundlePeriod, resolveAiBundleSubscription } from "@/lib/ai/creditBundle";
 import { recordError } from "@/lib/platform/errorLog";
 
@@ -65,6 +66,37 @@ export async function POST(request) {
           metadata: event?.data?.object?.metadata || null,
           needsManualReconciliation: true,
         },
+      });
+      return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
+    }
+  }
+
+  // ── A refund or a chargeback ────────────────────────────────────────────
+  //
+  // Same reasoning as checkout.session.completed just above: every
+  // client-facing charge is a destination charge on the PLATFORM account, so
+  // Stripe decides which registered endpoint a refund/dispute event lands
+  // on, not this file. See lib/stripe/settleChargeEvent.js.
+  if (
+    event.type === "charge.refunded" ||
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.updated" ||
+    event.type === "charge.dispute.closed"
+  ) {
+    try {
+      const { handled, kind } = await settleChargeEvent(event);
+      if (handled) {
+        return NextResponse.json({ received: true, settled: kind });
+      }
+    } catch (err) {
+      // A refund/dispute that failed to record IS worth retrying — the
+      // invoice's status is genuinely wrong until this lands. 500 asks
+      // Stripe to redeliver.
+      await recordError({
+        area: "billing-webhook",
+        code: "settle_charge_event",
+        message: `Settling ${event.type} failed: ${err?.message}`,
+        detail: { eventId: event?.id, type: event?.type },
       });
       return NextResponse.json({ error: "Settlement failed" }, { status: 500 });
     }
