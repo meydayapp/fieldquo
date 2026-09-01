@@ -20,6 +20,16 @@ export const RULE_TYPES = {
     description:
       "Email owners and admins when a quote is created above this amount.",
   },
+  // Default ON everywhere it's read (lib/notifications/invoicePaymentNotice.js)
+  // — no threshold, because "a client paid" has no dollar figure to gate on.
+  // Listed here so the settings screen can offer a way to turn it OFF; a
+  // company that never creates this row keeps getting notified, which is the
+  // point (see that file's header for why the default has to be ON).
+  invoice_paid: {
+    label: "Invoice paid",
+    needsThreshold: false,
+    description: "Email owners and admins when a client pays an invoice.",
+  },
 };
 
 // Coarse role check on purpose. The granular grid (PERMISSION_CATEGORIES) has

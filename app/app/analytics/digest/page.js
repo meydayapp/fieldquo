@@ -104,6 +104,21 @@ export default function DigestPage() {
                   <p className="text-sm leading-relaxed whitespace-pre-line">
                     {d.summaryText}
                   </p>
+                  {d.highlightsJson?.aiSkipped && (
+                    // lib/ai/monthlyDigest.js sends the digest even when the
+                    // company is over its monthly AI allowance — the numbers
+                    // above are always real, only the AI-written paragraph
+                    // is missing (replaced with the same reason text a
+                    // quota-blocked feature shows anywhere else). Said here
+                    // rather than left implicit, so this doesn't read as a
+                    // broken or oddly terse AI summary.
+                    <p className="text-xs text-muted-foreground italic">
+                      {t(
+                        "app.digest.aiSkipped",
+                        "This month's AI summary was skipped — your FieldQuo AI allowance is used up. The numbers above are unaffected.",
+                      )}
+                    </p>
+                  )}
 
                   {flags.length > 0 && (
                     <div className="space-y-2">

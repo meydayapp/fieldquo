@@ -64,6 +64,7 @@ const INVOICE_SELECT = {
   discount: true,
   amountPaid: true,
   amountDue: true,
+  amountRefunded: true,
   paidDate: true,
   paidVia: true,
   dueDate: true,

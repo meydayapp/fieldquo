@@ -143,6 +143,18 @@ function sentence({ banner, t, money, formatDate }) {
         total: money(d.total),
         due: money(d.due),
       });
+    case "disputed":
+      // Carries no figure at all — the disputed AMOUNT is Stripe's own
+      // dispute.amount, which this codebase doesn't fetch or store (see
+      // lib/invoices/computeInvoiceState.js's header), so there is nothing
+      // to hide from a restricted-pricing member here in the first place.
+      return t("app.invoiceLifecycle.disputed");
+    case "refunded":
+      if (hidden) return t("app.invoiceLifecycle.refundedNoAmount");
+      return t("app.invoiceLifecycle.refunded", { amount: money(d.refunded) });
+    case "partiallyRefunded":
+      if (hidden) return t("app.invoiceLifecycle.partiallyRefundedNoAmount");
+      return t("app.invoiceLifecycle.partiallyRefunded", { amount: money(d.refunded) });
     case "unsent":
       return t("app.invoiceLifecycle.unsent");
     case "noClientEmail":

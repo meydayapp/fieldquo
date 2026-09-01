@@ -2237,6 +2237,23 @@ model Invoice {
   amountDue  Decimal   @default(0) @db.Decimal(12, 2)
   paidDate   DateTime?
 
+  // ── Refunds and disputes ─────────────────────────────────────────────────
+  //
+  // Neither Stripe webhook handled charge.refunded or charge.dispute.created
+  // before — a refund issued from the contractor's own Stripe dashboard left
+  // this invoice reading "paid" forever, with the money already gone. Derived
+  // fresh from every Payment row's own refundedAmount/disputeStatus by
+  // lib/invoices/computeInvoiceState.js, the same way amountPaid/amountDue
+  // are derived from the payments themselves rather than tracked by hand.
+  //
+  // amountRefunded is the net figure across every payment (a lost dispute
+  // counts as refunded here too, because Stripe never fires charge.refunded
+  // for one — see computeInvoiceState's header). refundedAt/disputedAt are
+  // stamped once, the same convention paidDate and sentAt already use.
+  amountRefunded Decimal   @default(0) @db.Decimal(12, 2)
+  refundedAt     DateTime?
+  disputedAt     DateTime?
+
   // ── Email trail ─────────────────────────────────────────────────────────
   // sentAt existed but was written by a button that only changed the status
   // and never sent anything — so it recorded an intention, not an event. It's
@@ -2357,6 +2374,26 @@ model Payment {
   stripePaymentIntentId String?       @unique
   date                  DateTime      @default(now())
   createdAt             DateTime      @default(now())
+
+  // ── What Stripe took back, after the fact ────────────────────────────────
+  //
+  // Read by lib/invoices/computeInvoiceState.js to derive the OWNING
+  // invoice's status/amountPaid — this row itself is never rewritten to
+  // pretend the original charge was smaller. refundedAmount is the CHARGE's
+  // cumulative amount_refunded (Stripe's own running total), not a delta:
+  // a replayed charge.refunded webhook writes the same number twice, which
+  // is what makes the handler idempotent without a separate event ledger —
+  // see lib/invoices/recordStripeRefund.js.
+  //
+  // disputeStatus mirrors Stripe's own dispute.status verbatim
+  // (needs_response / under_review / won / lost / ...) rather than a
+  // FieldQuo-invented enum, because Stripe is the only party that decides
+  // this and re-encoding it here is a translation that can drift out of
+  // sync with what Stripe actually says.
+  refundedAmount Decimal   @default(0) @db.Decimal(12, 2)
+  refundedAt     DateTime?
+  disputeStatus  String?
+  disputedAt     DateTime?
 }
 
 // ============================================================
@@ -4727,6 +4764,17 @@ enum InvoiceStatus {
   sent
   paid
   overdue
+  // Money that was collected has since gone back out, in whole or in part —
+  // a Stripe refund or a lost dispute. Deliberately NOT folded into "overdue"
+  // or left silently as "paid": neither is true, and AGENTS.md's own rule is
+  // that a status must not be overloaded with a meaning it wasn't given. See
+  // lib/invoices/computeInvoiceState.js for exactly when each applies.
+  refunded
+  partially_refunded
+  // A chargeback is open — the bank is deciding, the money is not yet
+  // reversed. Different from "unpaid": the client DID pay, and different from
+  // "paid": the contractor cannot rely on the money staying theirs yet.
+  disputed
 }
 
 enum PaymentMethod {

@@ -23,6 +23,7 @@ import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
 import { billingBasis } from "@/lib/signup/funnel";
 import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
+import { recordError } from "@/lib/platform/errorLog";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -232,33 +233,48 @@ export async function POST(request) {
     .replace(/(^-|-$)/g, "")
     .concat(`-${Math.random().toString(36).slice(2, 6)}`);
 
-  const company = await db.company.create({
-    data: {
-      name,
-      slug,
-      // The address the person REGISTERED with. Company.email was never set at
-      // signup, so Company Details opened with an empty Email field for every
-      // company ever created — and every client-facing document that falls back
-      // to it had nothing to fall back to. The signed-in user's address is the
-      // one they just proved they own, so it's the right default; they can change
-      // it on Company Settings if the business uses a different inbox.
-      email: session.user.email || null,
-      phone: phone || null,
-      address: address || null,
-      city: city || null,
-      province: province || null,
-      postalCode: postalCode || null,
-      country: homeCountry,
-      defaultLanguage,
-      currency,
-      industries: Array.isArray(industries) ? industries : [],
-      onboardingStatus: "pending",
-      trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
-  });
+  // ── Company + owner membership: one unit, or neither ────────────────────
+  //
+  // These two writes used to run as two separate `await`s. A failure between
+  // them — a database blip, a Neon cold start — left a Company row with no
+  // Member on it: not just unusable, but PERMANENTLY unusable, because the
+  // "one business per login" guard above keys off Member, not Company. The
+  // stranded row satisfies neither check: it's not a company this user can
+  // reach, and it's not a company this user is blocked from creating another
+  // one over, so a retry doesn't recover it — it silently mints a second
+  // orphan next to the first. A transaction makes the pair atomic instead:
+  // either both rows exist, or neither does and the request failed cleanly.
+  const company = await db.$transaction(async (tx) => {
+    const c = await tx.company.create({
+      data: {
+        name,
+        slug,
+        // The address the person REGISTERED with. Company.email was never set at
+        // signup, so Company Details opened with an empty Email field for every
+        // company ever created — and every client-facing document that falls back
+        // to it had nothing to fall back to. The signed-in user's address is the
+        // one they just proved they own, so it's the right default; they can change
+        // it on Company Settings if the business uses a different inbox.
+        email: session.user.email || null,
+        phone: phone || null,
+        address: address || null,
+        city: city || null,
+        province: province || null,
+        postalCode: postalCode || null,
+        country: homeCountry,
+        defaultLanguage,
+        currency,
+        industries: Array.isArray(industries) ? industries : [],
+        onboardingStatus: "pending",
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
+    });
 
-  await db.member.create({
-    data: { userId: session.user.id, companyId: company.id, role: "owner" },
+    await tx.member.create({
+      data: { userId: session.user.id, companyId: c.id, role: "owner" },
+    });
+
+    return c;
   });
 
   // The code the signup carried is EITHER a platform promo code (influencer /
@@ -273,14 +289,43 @@ export async function POST(request) {
       ? await applySignupReferral({ company, code: referralCode })
       : null;
 
+  // ── The org: external, and cannot join the transaction above ────────────
+  //
   // Better Auth generates its OWN id for the organization — it is NOT the same
   // as company.id, even though we pass company.id in as the slug. We capture
   // org.id here and store it on Company.authOrgId so getCurrentMember() can
   // translate session.activeOrganizationId -> the right Company row.
-  const org = await auth.api.createOrganization({
-    body: { name, slug: company.id },
-    headers: request.headers,
-  });
+  //
+  // This is an external system (a different library, plausibly its own
+  // tables), so it genuinely cannot be enlisted in the db.$transaction above
+  // the way Stripe can't either — that part of the "no transaction" finding
+  // is real and stays true. What changes: if IT fails, the Company + Member
+  // just committed are rolled back by hand rather than left as an orphan the
+  // "one business per login" guard would then block the user from ever
+  // retrying past. This is a request-scoped compensating delete of rows THIS
+  // request created seconds ago, not a mutation of existing customer data —
+  // the same idea as settleBookingFee.js deleting the Appointment it
+  // optimistically created when it loses a race.
+  let org;
+  try {
+    org = await auth.api.createOrganization({
+      body: { name, slug: company.id },
+      headers: request.headers,
+    });
+  } catch (err) {
+    await db.member.deleteMany({ where: { companyId: company.id } }).catch(() => {});
+    await db.company.delete({ where: { id: company.id } }).catch(() => {});
+    await recordError({
+      area: "signup",
+      code: "create_organization",
+      message: `Better Auth org creation failed during signup: ${err?.message}`,
+      detail: { companyId: company.id, userId: session.user.id },
+    });
+    return NextResponse.json(
+      { error: "Couldn't finish setting up your account. Please try again." },
+      { status: 500 },
+    );
+  }
 
   await db.company.update({
     where: { id: company.id },
@@ -288,11 +333,26 @@ export async function POST(request) {
   });
 
   // Without this, activeOrganizationId stays null on the session, and every
-  // company-scoped API route 401s regardless of how correct everything else is.
-  await auth.api.setActiveOrganization({
-    body: { organizationId: org.id },
-    headers: request.headers,
-  });
+  // company-scoped API route 401s regardless of how correct everything else
+  // is. Company + Member + org are all genuinely valid at this point though —
+  // unlike the createOrganization failure above, there is nothing here to
+  // roll back, only a session pointer that didn't get set. Logged rather
+  // than left silent, and NOT fatal: the owner is a real member of a real,
+  // fully-formed company and can still sign in and pick up from there.
+  try {
+    await auth.api.setActiveOrganization({
+      body: { organizationId: org.id },
+      headers: request.headers,
+    });
+  } catch (err) {
+    await recordError({
+      area: "signup",
+      code: "set_active_organization",
+      message: `setActiveOrganization failed during signup: ${err?.message}`,
+      companyId: company.id,
+      detail: { orgId: org.id, userId: session.user.id },
+    });
+  }
 
   if (Array.isArray(serviceCategoryIds) && serviceCategoryIds.length > 0) {
     await db.companyServiceCategory.createMany({
@@ -351,37 +411,69 @@ export async function POST(request) {
     Math.ceil((effectiveTrialEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
   );
 
-  const checkoutSession = await createTrialCheckoutSession({
-    company,
-    pricing,
-    // The ROW, not just its id. The recurring line is built from the plan's own
-    // price now — see lib/platform/stripeBilling.js for why the old
-    // calculatePricing() line was charging a seat-ladder signup a different
-    // number from the one on the card they clicked.
-    plan,
-    interval,
-    trialDays,
-    // {CHECKOUT_SESSION_ID} is a literal Stripe template placeholder — Stripe
-    // substitutes it with the real session id before redirecting the
-    // browser. /app reads it and calls /api/platform/billing/reconcile-session
-    // so the Subscription row exists immediately even if the
-    // checkout.session.completed webhook is delayed or never arrives.
-    // Carry a validated internal `next` through checkout so /app can bounce the
-    // new contractor back to where they started (e.g. the received quote).
-    // Internal-path only — never an absolute URL — so this can't become an open
-    // redirect through the signup flow.
-    successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
-      isInternalPath(next) ? `&next=${encodeURIComponent(next)}` : ""
-    }`,
-    // Back to BILLING, not back to /signup. By the time Stripe can cancel,
-    // everything above has already run — the company, the membership and the
-    // org all exist — so /signup is the one page that can't help: it would
-    // greet them as a signed-in owner and offer to set up an *additional*
-    // business, which is how you end up with two companies and one contractor.
-    // Account & Billing is where the same plans are listed and where "Choose
-    // plan" starts checkout again.
-    cancelUrl: `${baseUrl}/app/settings/account-billing`,
-  });
+  // ── The last step is deliberately the external, hard-to-undo one ────────
+  //
+  // Company, Member and org are all fully committed by now — reversible,
+  // local state that a transaction and a compensating delete above already
+  // protect. A Stripe Checkout session is the opposite: it's a real object
+  // on a third party's server, not something to roll back if a LATER step
+  // fails, so it stays exactly where the original code already put it —
+  // last. If creating it fails, nothing above needs undoing: the owner is a
+  // real member of a real company and Account & Billing's own "Choose plan"
+  // button (see cancelUrl below) starts checkout again from there. That
+  // existing recovery path is why this can be a friendly message instead of
+  // a raw 500 with no way forward.
+  let checkoutSession;
+  try {
+    checkoutSession = await createTrialCheckoutSession({
+      company,
+      pricing,
+      // The ROW, not just its id. The recurring line is built from the plan's own
+      // price now — see lib/platform/stripeBilling.js for why the old
+      // calculatePricing() line was charging a seat-ladder signup a different
+      // number from the one on the card they clicked.
+      plan,
+      interval,
+      trialDays,
+      // {CHECKOUT_SESSION_ID} is a literal Stripe template placeholder — Stripe
+      // substitutes it with the real session id before redirecting the
+      // browser. /app reads it and calls /api/platform/billing/reconcile-session
+      // so the Subscription row exists immediately even if the
+      // checkout.session.completed webhook is delayed or never arrives.
+      // Carry a validated internal `next` through checkout so /app can bounce the
+      // new contractor back to where they started (e.g. the received quote).
+      // Internal-path only — never an absolute URL — so this can't become an open
+      // redirect through the signup flow.
+      successUrl: `${baseUrl}/app?welcome=true&session_id={CHECKOUT_SESSION_ID}${
+        isInternalPath(next) ? `&next=${encodeURIComponent(next)}` : ""
+      }`,
+      // Back to BILLING, not back to /signup. By the time Stripe can cancel,
+      // everything above has already run — the company, the membership and the
+      // org all exist — so /signup is the one page that can't help: it would
+      // greet them as a signed-in owner and offer to set up an *additional*
+      // business, which is how you end up with two companies and one contractor.
+      // Account & Billing is where the same plans are listed and where "Choose
+      // plan" starts checkout again.
+      cancelUrl: `${baseUrl}/app/settings/account-billing`,
+    });
+  } catch (err) {
+    await recordError({
+      area: "signup",
+      code: "create_trial_checkout_session",
+      message: `Trial checkout session creation failed after signup completed: ${err?.message}`,
+      companyId: company.id,
+      detail: { userId: session.user.id, planId },
+    });
+    return NextResponse.json(
+      {
+        error:
+          "Your account was created, but we couldn't start checkout. Go to Account & Billing in the app to choose your plan and finish.",
+        code: "checkout_failed",
+        recoverable: true,
+      },
+      { status: 500 },
+    );
+  }
 
   return NextResponse.json({
     checkoutUrl: checkoutSession.url,

@@ -35,6 +35,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 import {
   poolForKind,
@@ -711,6 +712,150 @@ section("8c. The spend gate has NO isDemo branch — a demo has a balance, not a
   const gate = read("lib/voice/spendGate.js");
   ok("checkSpend takes no isDemo-shaped parameter at all",
     !/checkSpend\([^)]*isDemo/.test(gate) && !/reserveSpend\([^)]*isDemo/.test(gate));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Money-fixes finding #2: checkAiQuota BEFORE the model call, on the
+   monthly-digest cron. Executed against lib/ai/monthlyDigest.js's
+   buildDigestSummaryText with every dependency faked — the injection seam
+   exists specifically so this can run without a database or an OpenAI key,
+   the same discipline check-digest-transcripts.mjs already uses for
+   buildCallInsights's own quota gate.
+
+   (The other half of finding #2 — app/api/ai/ai-summary/route.js, the
+   on-demand expense summary — is a two-line route guard with no logic of
+   its own to execute: `if (!quota.allowed) return 429`. Covered by
+   node --check plus reading the 429 body shape matches every OTHER
+   quota-gated route in this codebase (app/api/quotes/[id]/review,
+   app/api/ai/copilot) rather than by a fixture here.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+{
+  section("AI quota gate — monthly digest cron (money-fixes finding #2)");
+
+  const { buildDigestSummaryText } = await import("@/lib/ai/monthlyDigest");
+
+  // Under quota: complete() runs, recordAiUsage runs, nothing logged as an
+  // error.
+  {
+    let completeCalls = 0;
+    let usageCalls = 0;
+    let errorCalls = 0;
+    const result = await buildDigestSummaryText({
+      companyId: "co1",
+      companyName: "Acme Painting",
+      metricsForPrompt: { revenue: 1000 },
+      flags: [],
+      periodStart: new Date("2026-07-01"),
+      periodEnd: new Date("2026-07-31"),
+      checkAiQuota: async () => ({ allowed: true, cap: 750000, usage: { tokens: 100 } }),
+      complete: async ({ onUsage }) => {
+        completeCalls++;
+        onUsage({ model: "gpt-5.4", promptTokens: 10, completionTokens: 20 });
+        return "A real AI paragraph.";
+      },
+      recordAiUsage: async () => {
+        usageCalls++;
+      },
+      recordError: async () => {
+        errorCalls++;
+      },
+    });
+    ok("under quota: complete() is called exactly once", completeCalls === 1);
+    ok("under quota: recordAiUsage fires from complete()'s own onUsage hook", usageCalls === 1);
+    ok("under quota: summaryText is the model's own text", result.summaryText === "A real AI paragraph.");
+    ok("under quota: aiSkipped is false", result.aiSkipped === false);
+    ok("under quota: nothing logged to /platform/errors", errorCalls === 0);
+  }
+
+  // Over quota: complete() must NEVER run — checkAiQuota is a gate, not a
+  // formality. The digest still gets a real summaryText (the same reason
+  // text an on-demand feature shows), not null, not empty, not silence —
+  // and the skip is logged somewhere a human looks.
+  {
+    let completeCalls = 0;
+    let usageCalls = 0;
+    let errorCalls = 0;
+    let errorDetail = null;
+    const result = await buildDigestSummaryText({
+      companyId: "co2",
+      companyName: "Overcap Roofing",
+      metricsForPrompt: { revenue: 500 },
+      flags: [],
+      periodStart: new Date("2026-07-01"),
+      periodEnd: new Date("2026-07-31"),
+      checkAiQuota: async () => ({
+        allowed: false,
+        reason: "You've used this month's FieldQuo AI allowance.",
+        cap: 750000,
+        usage: { tokens: 750000 },
+      }),
+      complete: async () => {
+        completeCalls++;
+        return "should never run";
+      },
+      recordAiUsage: async () => {
+        usageCalls++;
+      },
+      recordError: async (e) => {
+        errorCalls++;
+        errorDetail = e;
+      },
+    });
+    ok("over quota: complete() is NEVER called — the gate runs before the spend, not after",
+      completeCalls === 0);
+    ok("over quota: recordAiUsage never fires either — nothing to meter for a call that didn't happen",
+      usageCalls === 0);
+    ok("over quota: summaryText falls back to the SAME reason text an on-demand feature shows, not null/empty/silence",
+      result.summaryText === "You've used this month's FieldQuo AI allowance.");
+    ok("over quota: aiSkipped is true, so a UI can tell the digest apart from a real AI paragraph",
+      result.aiSkipped === true);
+    ok("over quota: logged to /platform/errors so a human can see it, not just the company's own owner",
+      errorCalls === 1 &&
+        errorDetail?.area === "ai" &&
+        errorDetail?.code === "monthly_digest_quota_exceeded" &&
+        errorDetail?.companyId === "co2");
+  }
+
+  // Mutation pass: prove the two blocks above are load-bearing by actually
+  // breaking the "checkAiQuota BEFORE complete()" ordering and confirming
+  // THIS check catches it — guarded against re-spawning itself the same way
+  // check-money-flow.mjs guards its own mutation pass.
+  if (!process.argv.includes("--no-mutate")) {
+    const LIB = path.join(ROOT, "lib/ai/monthlyDigest.js");
+    const ORIGINAL = fs.readFileSync(LIB, "utf8");
+    const SELF = fileURLToPath(import.meta.url);
+    const LOADER = path.join(ROOT, "scripts/alias-loader.mjs");
+
+    const MUTATIONS = [
+      [
+        "quota refusal is ignored — complete() runs even when checkAiQuota says no",
+        (s) =>
+          s.replace(
+            "  const quota = await checkQuotaFn(companyId);\n\n  if (!quota.allowed) {",
+            "  const quota = await checkQuotaFn(companyId);\n\n  if (false) {",
+          ),
+      ],
+    ];
+
+    for (const [label, mutate] of MUTATIONS) {
+      const mutated = mutate(ORIGINAL);
+      if (mutated === ORIGINAL) {
+        ok(`mutation applies: ${label}`, false, "— the source moved under it");
+        continue;
+      }
+      fs.writeFileSync(LIB, mutated);
+      let caught = false;
+      try {
+        execFileSync(process.execPath, ["--import", LOADER, SELF, "--no-mutate"], {
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+      } catch {
+        caught = true; // non-zero exit = the mutant was caught
+      }
+      fs.writeFileSync(LIB, ORIGINAL);
+      ok(`mutation caught: ${label}`, caught);
+    }
+  }
 }
 
 console.log(`\n${checks - failures}/${checks} checks passed`);
