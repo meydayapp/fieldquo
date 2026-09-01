@@ -1,10 +1,32 @@
 # FieldQuo — current phase and what's left
 
-Last updated: 31 August 2026. **Update this file when you finish something.**
+Last updated: 1 September 2026. **Update this file when you finish something.**
 
 Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
+
+## Photo annotation — Apple Markup, on a job photo
+
+Full writeup: [PHOTO-ANNOTATION.md](PHOTO-ANNOTATION.md). Pencil, pen,
+marker, and highlighter (all `fabric.PencilBrush`, differently configured),
+text, an arrow, a rectangle, and an ellipse, on any job photo — a
+full-screen overlay opened from `JobPhotoCurator.js`. Every annotation gets
+an automatic contrasting halo (`lib/photoAnnotator/contrast.js`) so it reads
+on both a dark photo and a bright one, measured at ≥4.5:1 for every toolbar
+colour.
+
+A separate, small Fabric tree — not a reuse of the marketing designer's
+`Editor.js`; see the doc for why bending a 14-sidebar design tool to a
+fixed-aspect-ratio photo would have cost more than it saved. The original
+photo (`JobPhoto.url`) is never touched; markup lives in four new nullable
+columns, and a flattened preview (rendered client-side — Fabric can't run
+server-side in this repo) is a *second* Cloudinary asset the public gallery
+and photo-report PDF read through, never the original. Not verified: the
+actual feel of finger-drawing on a real phone (see the doc's Touch
+section) — worth a real-device pass before calling this closed. Pinch-zoom
+is unavailable; this fabric build has the `gestures` module excluded from
+its own vendored bundle, unrelated to this feature.
 
 ## Client-facing mobile usability — audited and partly fixed
 
