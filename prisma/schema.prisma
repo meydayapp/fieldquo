@@ -1024,6 +1024,7 @@ model Company {
   expenses              Expense[]
   expenseImportBatches  ExpenseImportBatch[]
   marketingSpends       MarketingSpend[]
+  metaAdConnection      MetaAdConnection?
   salaries              Salary[]
   debts                 Debt[]
   assets                Asset[]
@@ -3338,6 +3339,14 @@ model LeadRequest {
   category   ServiceCategory? @relation(fields: [categoryId], references: [id])
   message    String?
   status     LeadStatus       @default(new)
+  // Set when staff move a lead to "lost" — a closed vocabulary
+  // (lib/leads/pipeline.js's LOST_REASONS), not free text, so "not a real
+  // inquiry" is something a human affirmatively recorded rather than a
+  // guess computed from score/temperature (that heuristic-filtering design
+  // was considered and rejected — see docs/META-ADS-INTEGRATION.md Part 2b).
+  // Null on every lead that has never been marked lost, and cleared if the
+  // lead is reopened out of "lost".
+  lostReason String?
   source     String?
   createdAt  DateTime         @default(now())
   // A kitchen the CLIENT drew themselves, from the public self-quote designer.
@@ -4076,6 +4085,73 @@ model MarketingSpend {
   date         DateTime          @default(now())
   notes        String?
   createdAt    DateTime          @default(now())
+
+  // ── Added for the Meta Ads import (docs/META-ADS-BUILD.md) ───────────────
+  //
+  // `source` distinguishes a row a human typed from one a sync wrote, so the
+  // sync never silently overwrites a hand-typed entry and the UI can label
+  // each row honestly. Never part of the duplicate KEY, though — see
+  // lib/meta/insightsImport.js's naturalKey(), which is deliberately
+  // source-blind (same reasoning as lib/expenses/csvImport.js's naturalKey):
+  // a manual entry and a later Meta-imported row for the same
+  // platform/date/campaign are recognised as a possible duplicate, never
+  // silently double-counted.
+  source       String            @default("manual") // "manual" | "meta_api"
+  // Meta's own composite id for the insights row this came from
+  // (`<campaignId>:<date>`) — lets a re-run of the sync UPDATE the same row
+  // instead of inserting a duplicate. Null for every manual entry; Postgres
+  // treats each NULL in a unique index as distinct, so manual rows are never
+  // deduplicated against each other by the constraint below.
+  externalId   String?
+  // ISO 4217, as Meta reported it for the ad account this row was synced
+  // from — set ONLY when it differs from Company.currency, so a mismatch is
+  // a fact sitting on the row rather than something the UI has to
+  // rediscover. Null means "the company's own currency" for both manual and
+  // synced rows. See lib/meta/insightsImport.js on why a mismatched-currency
+  // row is excluded from the blended total rather than silently summed.
+  currency     String?
+
+  @@unique([companyId, source, externalId])
+}
+
+// ── Meta (Facebook/Instagram) Ads connection ────────────────────────────────
+//
+// One contractor's OWN ad account, connected via OAuth — the multi-tenant
+// shape docs/META-ADS-INTEGRATION.md Part 3 argues for: one FieldQuo-owned
+// Meta app, each company authorises it against THEIR ad account, the same
+// pattern as Stripe Connect (Company.stripeAccountId) rather than Better
+// Auth's per-USER Account table, because this is a company-level connection
+// set up once by whoever holds billing access, not a personal login.
+//
+// `accessTokenEnc` is AES-256-GCM ciphertext (lib/meta/tokenCrypto.js) — never
+// a plaintext token at rest. `status` is DERIVED state the sync job writes,
+// never the connect flow's own optimism: a token that 401s is marked
+// `needs_reauth` by the NEXT sync attempt, not assumed healthy until then —
+// see lib/meta/insightsImport.js. Row stays until the company explicitly
+// disconnects; a broken connection is shown as broken, not deleted out from
+// under the settings screen. See docs/META-ADS-BUILD.md for what "connected"
+// means with no Meta App Review yet granted.
+model MetaAdConnection {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  adAccountId       String // Meta's "act_<id>" — the ad account this token can read.
+  adAccountName     String?
+  // ISO 4217, as Meta reports it for this ad account — may differ from
+  // Company.currency. See MarketingSpend.currency above.
+  adAccountCurrency String?
+
+  accessTokenEnc String // AES-256-GCM: base64(iv | authTag | ciphertext).
+  tokenExpiresAt DateTime? // Meta long-lived user tokens run roughly 60 days.
+
+  status        String    @default("connected") // "connected" | "needs_reauth" | "error"
+  lastSyncedAt  DateTime?
+  lastSyncError String?
+
+  connectedByUserId String?
+  connectedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 // ── Leave / PTO ─────────────────────────────────────────────────────────────

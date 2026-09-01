@@ -147,10 +147,23 @@ ok("canSetLeadStatus({}, 'new') is allowed with no quote at all",
   canSetLeadStatus({}, "new").ok === true);
 ok("canSetLeadStatus({}, 'contacted') is allowed with no quote at all",
   canSetLeadStatus({}, "contacted").ok === true);
-ok("canSetLeadStatus({}, 'lost') is allowed with no quote at all",
-  canSetLeadStatus({}, "lost").ok === true);
-ok("canSetLeadStatus({ quoteId: 'q_1' }, 'lost') is ALSO allowed — having a quote doesn't lock a lead out of Lost",
-  canSetLeadStatus({ quoteId: "q_1" }, "lost").ok === true);
+// "lost" needs no quote either way — but, separately, it DOES need a real
+// reason (see the block below this one), so these two pass one to isolate
+// the thing they're actually testing: the quote rule, not the reason rule.
+ok("canSetLeadStatus({}, 'lost', { lostReason: 'other' }) is allowed with no quote at all",
+  canSetLeadStatus({}, "lost", { lostReason: "other" }).ok === true);
+ok("canSetLeadStatus({ quoteId: 'q_1' }, 'lost', { lostReason: 'other' }) is ALSO allowed — having a quote doesn't lock a lead out of Lost",
+  canSetLeadStatus({ quoteId: "q_1" }, "lost", { lostReason: "other" }).ok === true);
+
+// The SEPARATE rule "lost" is the one status transition that DOES need — a
+// real, closed-vocabulary lostReason, new or already on the lead. See this
+// file's own header comment for why (docs/META-ADS-INTEGRATION.md Part 2b).
+ok("canSetLeadStatus({}, 'lost') with NO reason at all, new or existing, refuses",
+  canSetLeadStatus({}, "lost").ok === false);
+ok("canSetLeadStatus({}, 'lost', { lostReason: 'not_a_real_code' }) refuses — not in the closed vocabulary",
+  canSetLeadStatus({}, "lost", { lostReason: "not_a_real_code" }).ok === false);
+ok("canSetLeadStatus({ lostReason: 'price_too_high' }, 'lost') — a re-drag with an EXISTING reason and none new is allowed",
+  canSetLeadStatus({ lostReason: "price_too_high" }, "lost").ok === true);
 
 // Invalid enum values are refused independently of the quote rule.
 ok("canSetLeadStatus({ quoteId: 'q_1' }, 'won') refuses — not a real status, even with a quote",
@@ -318,8 +331,31 @@ for (const [label, patch] of [
     currentDb.writes);
 
   resetFixtures();
-  res = await patch("m_owner", { id: "lead_with_quote", status: "lost" });
+  res = await patch("m_owner", { id: "lead_with_quote", status: "lost", lostReason: "price_too_high" });
   ok(`${label}: an owner bypasses the grid entirely (200)`, res.status === 200, res.status);
+
+  // ── THE OTHER TRAP: "lost" needs a REAL reason too, grid or no grid ─────
+  //
+  // lib/leads/pipeline.js's canSetLeadStatus refuses "lost" without one, same
+  // shape as the "converted" trap below — an owner holding every grid
+  // permission there is still isn't a reason a human recorded existing.
+  // docs/META-ADS-INTEGRATION.md Part 2b is why: "not a real inquiry" has to
+  // be something a person picked, not the enum accepting the value on its own.
+  resetFixtures();
+  res = await patch("m_owner", { id: "lead_with_quote", status: "lost" });
+  ok(`${label}: an owner still can't drop a lead onto Lost with no reason (409, not 200)`,
+    res.status === 409, res.status);
+  ok(`${label}: …and nothing was written`,
+    !currentDb.writes.some((w) => w.model === "leadRequest" && w.action === "update"),
+    currentDb.writes);
+
+  resetFixtures();
+  res = await patch("m_owner", { id: "lead_with_quote", status: "lost", lostReason: "not_a_real_code" });
+  ok(`${label}: an invalid lost reason is refused as 400 — same distinction as an invalid status`,
+    res.status === 400, res.status);
+  ok(`${label}: …and nothing was written`,
+    !currentDb.writes.some((w) => w.model === "leadRequest" && w.action === "update"),
+    currentDb.writes);
 
   // ── THE TRAP ────────────────────────────────────────────────────────────
   resetFixtures();

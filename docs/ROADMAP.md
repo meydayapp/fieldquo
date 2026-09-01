@@ -930,6 +930,46 @@ reasoning over our own tables, the way `lib/site/generateSite.js` already does.
 Newest first. Read the code in these areas before writing anything similar —
 they set the pattern.
 
+- **Meta Ads: the three Meta-free wins from `docs/META-ADS-INTEGRATION.md`'s
+  research, built now — plus the Meta import itself, real code that has
+  never made a real API call. Full account: `docs/META-ADS-BUILD.md`.
+  `app/app/marketing/spend/page.js` (new), `app/app/settings/meta-ads/page.js`
+  (new), `lib/meta/` (new — `client.js`, `tokenCrypto.js`, `connection.js`,
+  `insightsImport.js`, `oauthCookies.js`), `app/api/marketing-spend/summary`
+  (new), `app/api/meta-ads/*` (new — connect, callback, finalize, disconnect,
+  sync, status), `lib/analytics/kpis.js`
+  (`buildBlendedCostPerLead`), `lib/analytics/marketingRollup.js`
+  (`getLeadCountsBySource`, currency-mismatch exclusion), `lib/ai/monthlyDigest.js`,
+  `lib/leads/pipeline.js` (`LOST_REASONS`), `app/app/leads/page.js`,
+  `prisma/schema.prisma` (`MetaAdConnection`, `MarketingSpend.source/externalId/currency`,
+  `LeadRequest.lostReason`), `lib/legal/processors.js`, `docs/VERCEL.md`,
+  `lib/marketing/featureMatrix.js`.**
+
+  The manual `MarketingSpend` entry screen the previous pass scoped
+  (`docs/TODO.md`, `scripts/check-route-callers.mjs`'s own `NO_FRONT_DOOR`
+  entry for `/api/marketing-spend`) now exists — the monthly digest stops
+  reporting $0 spend forever, and every `MarketingPlatform` works, not just
+  Meta. Blended cost-per-lead (`buildBlendedCostPerLead`) is spend over REAL
+  `LeadRequest` counts, never the hand-typed `MarketingSpend.leads` figure
+  `kpis.js` already refuses per channel — the digest's old
+  `marketing.totals.blendedCostPerLead` was exactly that flawed figure,
+  fixed alongside it. `LeadRequest.lostReason` closes the junk-vs-real gap:
+  moving a lead to Lost now requires a real, closed-vocabulary reason (drag
+  board and drawer both), not a guess from score/temperature.
+
+  The Meta import itself: per-company OAuth (`Company`-scoped, matching the
+  Stripe Connect shape, not Better Auth's per-user `Account` table), the
+  token AES-256-GCM-encrypted at rest (`lib/meta/tokenCrypto.js`, a dedicated
+  `META_TOKEN_ENCRYPTION_KEY` — never `BETTER_AUTH_SECRET`), and a sync that
+  classifies Meta's own error shapes (auth/rate-limit/not-found/unknown) into
+  `MetaAdConnection.status` rather than reporting silent zero spend. No Meta
+  App ID/Secret exist on any deployment yet — `metaAppConfigured()` gates
+  every screen into an honest "not set up" state rather than a dead Connect
+  button, and this has never been tested against Meta's real API. Ad
+  creation (`ads_management`) was NOT built — read-only `ads_read` only. See
+  `docs/META-ADS-BUILD.md` for the exact App Review submission, what Meta
+  will ask for, and what happens on token expiry.
+
 - **A subcontracted line reading twice on a quote was a display bug, not a
   double-charge — full reconciliation in `docs/SUBCONTRACT-DUPLICATION.md`.
   `lib/quotes/scopeGroupDisplay.js` (new), `lib/email/quoteSections.js`,

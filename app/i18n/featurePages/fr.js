@@ -64,6 +64,7 @@ const fr = {
   "feature.payroll.limits": "FieldQuo calcule la paie brute, produit les bulletins de paie et exporte la paie. Il ne paie pas les employés et ne produit pas vos déclarations de retenues à la source — les retenues sont celles que vous ou votre comptable fournissez.",
   "feature.contractor_payouts.limits": "Ça paie une personne inscrite à votre équipe, pour les heures qu'elle a pointées, au taux que vous fixez. Ça ne peut pas payer un prix forfaitaire à une autre entreprise. Les virements partent en dollars canadiens pour l'instant, donc ce n'est pas prêt pour un versement aux États-Unis.",
   "feature.languages.limits": "L'anglais et le français sont terminés. L'espagnol, l'ukrainien, le pendjabi et le tagalog sont traduits et encore en vérification par un locuteur, donc ils ne sont pas encore activés.",
+  "feature.marketing_spend.limits": "Le coût par prospect est calculé en moyenne sur tous les canaux, sans détail par canal ni par campagne — rien dans FieldQuo ne relie encore un dollar de dépense précis à un prospect précis.",
 
   // ══ The pages ═════════════════════════════════════════════════════════
 
@@ -847,8 +848,8 @@ const fr = {
   "featurePage.reporting.how.1.body": "La comparaison est agrégée. Les chiffres d'aucune autre entreprise ne vous sont jamais montrés, et les vôtres ne leur sont jamais montrés.",
   "featurePage.reporting.how.2.step": "Les frais généraux sont un vrai chiffre, pas un pourcentage",
   "featurePage.reporting.how.2.body": "Les coûts fixes, les dettes et les dépenses d'entreprise donnent le chiffre qu'une journée doit rapporter avant que vous fassiez quoi que ce soit.",
-  "featurePage.reporting.how.3.step": "Les dépenses de mise en marché sont à côté de ce qu'elles ont produit",
-  "featurePage.reporting.how.3.body": "Les dépenses par canal face aux chantiers qu'elles ont amenés, pour qu'un canal qui ne produit rien se voie au lieu d'être présumé efficace.",
+  "featurePage.reporting.how.3.step": "Un coût par prospect moyen, pas une estimation à l'œil",
+  "featurePage.reporting.how.3.body": "Enregistrez vos dépenses par canal et obtenez un seul chiffre honnête — les dépenses totales sur les vrais prospects, pour toute l'entreprise. Cela ne dit pas quel canal fonctionne ; cela dit ce que l'ensemble coûte réellement.",
 
   // /features/payroll
   "featurePage.payroll.label": "Paie et versements",

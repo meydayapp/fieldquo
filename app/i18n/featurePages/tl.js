@@ -64,6 +64,7 @@ const tl = {
   "feature.payroll.limits": "Kinukuwenta ng FieldQuo ang gross pay, ginagawa ang mga payslip at ini-export ang pay run. Hindi nito binabayaran ang mga empleyado at hindi nito inihahain ang payroll taxes mo — ang mga bawas ay iyong ibinigay mo o ng accountant mo.",
   "feature.contractor_payouts.limits": "Binabayaran nito ang taong nasa sarili mong roster, para sa oras na na-clock nila, sa rate na itinakda mo. Hindi nito kayang magbayad ng fixed bid sa ibang kumpanya. Sa Canadian dollars ipinapadala ang mga transfer sa ngayon, kaya hindi pa ito handa para sa payout sa US.",
   "feature.languages.limits": "Tapos na ang Ingles at Pranses. Naisalin na ang Espanyol, Ukranyano, Punjabi at Tagalog pero sinusuri pa ng isang nagsasalita nito, kaya hindi pa ito nakabukas.",
+  "feature.marketing_spend.limits": "Ang gastos kada lead ay pinagsama-sama sa lahat ng channel, hindi hiwa-hiwalay ayon sa channel o kampanya — wala pang koneksyon sa FieldQuo sa pagitan ng isang partikular na piso ng gastos at isang partikular na lead.",
 
   // ══ The pages ═════════════════════════════════════════════════════════
 
@@ -847,8 +848,8 @@ const tl = {
   "featurePage.reporting.how.1.body": "Pinagsama-sama ang paghahambing. Walang halaga ng ibang kumpanya ang ipinapakita sa iyo kailanman, at ang sa iyo ay hindi kailanman ipinapakita sa kanila.",
   "featurePage.reporting.how.2.step": "Ang overhead ay totoong numero, hindi porsiyento",
   "featurePage.reporting.how.2.body": "Ang mga nakapirming gastos, utang at gastos sa negosyo ang bumubuo sa halagang dapat pumasok sa isang araw bago ka kumita ng kahit ano.",
-  "featurePage.reporting.how.3.step": "Nakahanay ang gastos sa marketing sa kung ano ang nagawa nito",
-  "featurePage.reporting.how.3.body": "Ang gastos bawat channel kumpara sa mga trabahong dinala nito, kaya nakikita ang channel na walang naibibigay sa halip na ipagpalagay na umuubra ito.",
+  "featurePage.reporting.how.3.step": "Pinagsama-samang gastos kada lead, hindi hula",
+  "featurePage.reporting.how.3.body": "Itala ang ginastos mo kada channel at makakita ng isang tapat na numero — kabuuang gastos sa totoong mga lead, para sa buong kompanya. Hindi nito sasabihin kung aling channel ang umuubra; sasabihin nito kung magkano ang gastos ng buong larawan.",
 
   // /features/payroll
   "featurePage.payroll.label": "Payroll at payout",

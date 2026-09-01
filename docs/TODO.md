@@ -220,7 +220,7 @@ declared in the check with the reason, rather than suppressed:
 
 | Route | Why it has no caller |
 |---|---|
-| `/api/marketing-spend` | `MarketingSpend` is READ — `lib/analytics/marketingRollup.js` feeds the monthly digest from it — and **no screen writes it**, so the digest reports zero spend forever. Small build: date, platform, amount. |
+| ~~`/api/marketing-spend`~~ | **Built 2026-08-31** — `app/app/marketing/spend/page.js`. See `docs/META-ADS-BUILD.md` and the "Recently completed" entry in `docs/ROADMAP.md`. Removed from `NO_FRONT_DOOR` in `scripts/check-route-callers.mjs`. |
 | `/api/analytics/burn-rate` | Already documented in `lib/permissions/costBasis.js`. Monthly burn and runway. The numbers exist on the Overhead screen; this presentation of them has no page. |
 | `/api/analytics/pricing-benchmark` | A second door onto what `/api/analytics/benchmark` already serves. |
 | `/api/leads/public` | `app/quote/[companySlug]/page.js` was built to give this and `/api/self-quote` a home; only the self-quote half was wired. The public quote form works — the page's header comment just overstates what it closed. |
@@ -264,10 +264,6 @@ guessing costs a rebuild.
   `PATCH /api/quotes/[id]` replaces that JSON array wholesale, so a photo
   referencing one by id orphans on the next edit. Needs a stable line-item id
   and a reconciliation pass, mirroring `QuoteImport.targetLineId` one level up.
-- A marketing-spend entry screen. `MarketingSpend` is read by
-  `lib/analytics/marketingRollup.js` and written by nothing, so the monthly
-  digest reports zero spend forever. `/api/marketing-spend` already has GET,
-  POST and per-row PATCH/DELETE; only the form is missing.
 - Screen-reader drag announcements on the leads board. dnd-kit's defaults are
   English-only and not routed through `t()`. Keyboard dragging itself works.
 - Plaid, when there are enough paying companies to amortise a $1,000+/month

@@ -23,6 +23,8 @@ does nothing to the deployment.
 | `PLATFORM_JWT_SECRET` | Superadmin console session | Fails **closed** — jose refuses a zero-length key, so login appears to work and bounces you straight back out with nothing in any log. |
 | `IMPERSONATION_JWT_SECRET` | Read-only support tokens | Throws a 500 with instructions. The one that fails honestly. |
 | `UNSPLASH_ACCESS_KEY` | Stock-photo tab in the Marketing Designer's Image sidebar | The tab says the stock library isn't set up on this deployment — not "no images found", which is a different, wrong statement. See `lib/designer/unsplash.js`. |
+| `META_APP_ID` · `META_APP_SECRET` | Meta (Facebook/Instagram) Ads import — see `docs/META-ADS-BUILD.md` | Settings → Meta Ads shows "not set up yet" and never renders a "Connect" button. No company can connect an ad account. **Requires a Meta App Review approval for `ads_read` first** — creating the app and setting these two vars does not, on its own, make the connection work in production. |
+| `META_TOKEN_ENCRYPTION_KEY` | AES-256-GCM key that encrypts a connected company's Meta access token at rest — `lib/meta/tokenCrypto.js` | Settings → Meta Ads shows "can't store a token safely yet" even if the two vars above are set. Generate with `openssl rand -base64 32`; this is a SEPARATE key from `BETTER_AUTH_SECRET` — see the file's own header for why the two must not be conflated. |
 
 Generate the secrets with:
 
@@ -61,6 +63,20 @@ triggered for that agent"
 into Settings → Webhooks will be **silently ignored** for every FieldQuo agent
 — which looks exactly like a webhook that is configured and working. If
 deliveries stop, check the agent, not the account tab.
+
+### `META_APP_ID`/`META_APP_SECRET` alone don't turn the feature on
+
+Unlike every other pair of credentials on this page, creating a Meta app and
+pasting its id/secret here does **not** make the "Connect Meta Ads" button
+work for a real customer. Meta gates `ads_read` behind App Review — an
+app-role video walkthrough, a written use-case, and a live test by a Meta
+reviewer — plus Business Verification, both of which have never been
+submitted for this app (see `docs/META-ADS-BUILD.md` for the exact submission
+this needs and what Meta will ask for). Until that's approved, these two vars
+only let a FieldQuo developer's own Meta account walk through the OAuth flow
+in **Development** access — Meta's own limited tier, rate-capped at 60 points
+per ad account with a 300-second block once exhausted, explicitly documented
+as "for development, not for production apps used by real advertisers."
 
 ### Not an environment variable
 

@@ -105,6 +105,18 @@ const RESOLVES_ITS_OWN = {
     "billing-locked account) and returns null uniformly, which the route then " +
     "treats as 'anonymous' rather than surfacing any of memberOrRefusal's " +
     "401/402/403 shapes to a visitor who was never asked to sign in.",
+  "app/api/meta-ads/callback/route.js":
+    "Meta's OAuth redirect target — the browser lands here straight off " +
+    "facebook.com with no way to show it a JSON body, which is " +
+    "memberOrRefusal's whole contract. A failed resolution here (no session, " +
+    "a company switched mid-flow, impersonation) has to become a 302 back to " +
+    "the settings screen with an error banner, not a 401 page — so it wraps " +
+    "getCurrentMember in its own try/catch and redirects on every failure " +
+    "path, the same 'this shape needs a different response' reasoning as " +
+    "the jennifer route above, for a different reason (a redirect target, " +
+    "not a dual-audience endpoint). Every OTHER app/api/meta-ads/* route is " +
+    "a normal POST reached via fetch() and uses memberOrRefusal like " +
+    "everything else.",
 };
 
 // The helpers that turn a thrown gate into something answerable.

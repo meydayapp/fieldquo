@@ -54,7 +54,7 @@ import { fetchArray } from "@/lib/loadState";
 import ListState from "@/app/components/ListState";
 import PlanSvg from "@/app/components/kitchen/PlanSvg";
 import { describeFinish } from "@/lib/kitchen/finishes";
-import { LEAD_STATUSES, canSetLeadStatus } from "@/lib/leads/pipeline";
+import { LEAD_STATUSES, canSetLeadStatus, LOST_REASONS, isValidLostReason } from "@/lib/leads/pipeline";
 
 const COLUMNS = [
   { key: "new", labelKey: "app.status.new", tone: "border-blue-200 dark:border-blue-900" },
@@ -191,6 +191,13 @@ export default function LeadsPage() {
   // revert.
   const [pendingIds, setPendingIds] = useState(() => new Set());
   const [boardError, setBoardError] = useState("");
+  // The lead awaiting a lost-reason pick, and the reason picked so far — a
+  // drop onto Lost pauses HERE rather than moving the card and reverting it,
+  // because canSetLeadStatus refuses the move without a reason anyway (see
+  // lib/leads/pipeline.js), and asking before moving means there's nothing
+  // to roll back if the person picking abandons the prompt.
+  const [lostPromptLead, setLostPromptLead] = useState(null);
+  const [lostReasonDraft, setLostReasonDraft] = useState("");
 
   // Two device-specific sensors rather than one PointerSensor: a distance
   // threshold that feels right for a mouse (8px) would make a touch scroll
@@ -226,6 +233,15 @@ export default function LeadsPage() {
     const targetStatus = over.id;
     if (!lead || lead.status === targetStatus) return;
 
+    // A drop onto Lost needs a reason before it can move at all — ask first
+    // rather than let canSetLeadStatus refuse it below every time, which
+    // would read as a stuck card with no way to ever complete the drop.
+    if (targetStatus === "lost" && !isValidLostReason(lead.lostReason)) {
+      setLostReasonDraft("");
+      setLostPromptLead(lead);
+      return;
+    }
+
     // THE TRAP: "Converted" is Won, and Won is not a thing a slide gesture
     // gets to declare — see lib/leads/pipeline.js. Refused here, before
     // anything moves, so there is nothing to revert and no request to send:
@@ -239,12 +255,21 @@ export default function LeadsPage() {
     await moveLead(lead, targetStatus);
   }
 
+  async function confirmLostPrompt() {
+    if (!lostPromptLead || !isValidLostReason(lostReasonDraft)) return;
+    const lead = lostPromptLead;
+    const reason = lostReasonDraft;
+    setLostPromptLead(null);
+    setLostReasonDraft("");
+    await moveLead(lead, "lost", reason);
+  }
+
   // Optimistic move that ACTUALLY reverts. The reference Trello clone this
   // idea came from applied the drop locally and never rolled back on
   // failure — the card stayed where it was dropped while the server had
   // refused it, a control that appears to work and doesn't. Here the card
   // jumps immediately, and jumps back the moment the server disagrees.
-  async function moveLead(lead, targetStatus) {
+  async function moveLead(lead, targetStatus, lostReason) {
     const prevStatus = lead.status;
     setPendingIds((prev) => new Set(prev).add(lead.id));
     setLeads((prev) =>
@@ -254,7 +279,11 @@ export default function LeadsPage() {
       const res = await fetch("/api/leads", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: lead.id, status: targetStatus }),
+        body: JSON.stringify({
+          id: lead.id,
+          status: targetStatus,
+          ...(targetStatus === "lost" && { lostReason }),
+        }),
       });
       if (!res.ok) {
         setLeads((prev) =>
@@ -346,6 +375,58 @@ export default function LeadsPage() {
           >
             <X size={14} />
           </button>
+        </div>
+      )}
+
+      {lostPromptLead && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setLostPromptLead(null)}
+        >
+          <div
+            className="bg-card border border-border rounded-xl shadow-lg w-full max-w-sm p-4 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm font-semibold text-foreground">
+              {t("app.leads.lostReasonTitle", "Why is this lead lost?")}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "app.leads.lostReasonBody",
+                "Real inquiries and accidental clicks both used to land in the same bucket — this is what tells them apart later.",
+              )}
+            </p>
+            <select
+              autoFocus
+              value={lostReasonDraft}
+              onChange={(e) => setLostReasonDraft(e.target.value)}
+              className="w-full border border-border rounded-lg px-2.5 py-2 text-sm bg-card"
+            >
+              <option value="">{t("app.leads.lostReasonSelect", "Select a reason…")}</option>
+              {LOST_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {t(`app.leads.lostReason.${r}`)}
+                </option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setLostPromptLead(null)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground"
+              >
+                {t("app.action.cancel", "Cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={!isValidLostReason(lostReasonDraft)}
+                onClick={confirmLostPrompt}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-inverted text-inverted-foreground disabled:opacity-40"
+              >
+                {t("app.leads.lostReasonConfirm", "Mark as lost")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -447,7 +528,13 @@ function TempBadge({ temperature, score, t, size = "sm" }) {
 // boundary rather than only after it's released.
 function LeadColumn({ col, leads, onOpen, t, canEdit, pendingIds, activeLead }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key });
-  const dropCheck = activeLead ? canSetLeadStatus(activeLead, col.key) : { ok: true };
+  // "Lost" always shows as a legal drop target during the drag itself — the
+  // reason canSetLeadStatus would refuse it for (no lostReason yet) is
+  // collected AFTER the drop, in handleDragEnd's prompt, not before. Ringing
+  // this column red while dragging would read as "you can never drop a lead
+  // here", which isn't true.
+  const dropCheck =
+    activeLead && col.key !== "lost" ? canSetLeadStatus(activeLead, col.key) : { ok: true };
   const showInvalid = isOver && activeLead && activeLead.status !== col.key && !dropCheck.ok;
   const showValid = isOver && activeLead && activeLead.status !== col.key && dropCheck.ok;
 
@@ -615,6 +702,12 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
   const [savingNote, setSavingNote] = useState(false);
   const [converting, setConverting] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Same reason-before-move shape as the board's drag prompt above — a click
+  // on "Lost" pauses here instead of patching straight through, unless the
+  // lead already carries a valid reason (re-clicking the button it's already
+  // on is a no-op, not a re-prompt).
+  const [showLostPrompt, setShowLostPrompt] = useState(false);
+  const [lostReasonDraft, setLostReasonDraft] = useState("");
 
   const reload = useCallback(async () => {
     const res = await fetch(`/api/leads/${leadId}`);
@@ -883,17 +976,25 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
               <div className="text-xs text-muted-foreground mb-1.5">{t("app.leads.status")}</div>
               <div className="flex flex-wrap gap-1.5">
                 {LEAD_STATUSES.map((s) => {
-                  // Same rule the drag board refuses a drop with — see
-                  // lib/leads/pipeline.js. A lead with no quote can't become
-                  // Won from this button either; the server would 409 it, and
-                  // a button that always fails silently is worse than one
-                  // that explains itself and stops short of trying.
-                  const statusCheck = canSetLeadStatus(lead, s);
+                  const isLostButton = s === "lost";
+                  // "Lost" is never shown blocked here — a click opens the
+                  // reason prompt below instead of the button disabling
+                  // itself over a rule the prompt exists to satisfy. Every
+                  // other status keeps the same refuse-and-explain rule the
+                  // drag board uses — see lib/leads/pipeline.js.
+                  const statusCheck = isLostButton ? { ok: true } : canSetLeadStatus(lead, s);
                   const blocked = lead.status !== s && !statusCheck.ok;
                   return (
                     <button
                       key={s}
-                      onClick={() => patch({ status: s })}
+                      onClick={() => {
+                        if (isLostButton && lead.status !== "lost") {
+                          setLostReasonDraft("");
+                          setShowLostPrompt(true);
+                          return;
+                        }
+                        patch({ status: s });
+                      }}
                       disabled={busy || lead.status === s || blocked}
                       title={blocked ? statusCheck.reason : undefined}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
@@ -913,6 +1014,52 @@ function LeadDrawer({ leadId, assignees, onClose, onPatched, t }) {
                 <p className="mt-1.5 text-[11px] text-muted-foreground italic">
                   {t("app.leads.wonNeedsQuote", "Won follows the quote's own outcome — convert this lead first.")}
                 </p>
+              )}
+              {lead.status === "lost" && lead.lostReason && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {t("app.leads.lostReasonShown", "Reason:")}{" "}
+                  {t(`app.leads.lostReason.${lead.lostReason}`)}
+                </p>
+              )}
+              {showLostPrompt && (
+                <div className="mt-2 p-3 border border-border rounded-lg bg-muted/40 space-y-2">
+                  <div className="text-xs font-medium text-foreground">
+                    {t("app.leads.lostReasonTitle", "Why is this lead lost?")}
+                  </div>
+                  <select
+                    autoFocus
+                    value={lostReasonDraft}
+                    onChange={(e) => setLostReasonDraft(e.target.value)}
+                    className="w-full border border-border rounded-lg px-2 py-1.5 text-sm bg-card"
+                  >
+                    <option value="">{t("app.leads.lostReasonSelect", "Select a reason…")}</option>
+                    {LOST_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {t(`app.leads.lostReason.${r}`)}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowLostPrompt(false)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground"
+                    >
+                      {t("app.action.cancel", "Cancel")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!isValidLostReason(lostReasonDraft) || busy}
+                      onClick={async () => {
+                        await patch({ status: "lost", lostReason: lostReasonDraft });
+                        setShowLostPrompt(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-inverted text-inverted-foreground disabled:opacity-40"
+                    >
+                      {t("app.leads.lostReasonConfirm", "Mark as lost")}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

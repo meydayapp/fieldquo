@@ -312,6 +312,7 @@ const SERVER_ENFORCEMENT = [
   ["app/api/settings/referral/route.js", "isBillingAdmin(member.role)", "Refer & Earn (read)"],
   ["app/api/settings/referral/invite/route.js", '["owner", "admin"].includes(member.role)', "Refer & Earn (invite)"],
   ["app/api/settings/plans/route.js", "isBillingAdmin(member.role)", "plan list"],
+  ["app/api/meta-ads/status/route.js", "isBillingAdmin(member.role)", "Meta Ads connection status"],
   ["app/api/settings/subscription/route.js", "isBillingAdmin(member.role)", "current plan"],
   ["app/api/settings/payroll-components/route.js", "isPayrollAdmin(member.role)", "payroll settings"],
   ["app/api/event-types/route.js", 'requirePermission(member.role, "user:manage")', "booking types"],
