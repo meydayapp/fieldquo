@@ -161,6 +161,7 @@ export default function MarketingDesignerPage() {
 
       <form
         onSubmit={handleCreateCampaign}
+        data-tour="designer-new-campaign"
         className="flex items-center gap-2 bg-card border border-border rounded-xl p-3"
       >
         <input

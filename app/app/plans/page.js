@@ -91,6 +91,7 @@ export default function ServicePlansPage() {
         </div>
         <Link
           href="/app/plans/new"
+          data-tour="plans-new"
           className="flex items-center gap-2 bg-inverted text-inverted-foreground px-4 py-2.5 rounded-full text-sm font-semibold"
         >
           <Plus size={16} /> {t("app.plans.new")}

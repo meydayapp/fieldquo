@@ -4440,6 +4440,45 @@ const en = {
   "app.tour.payments.headerBody": "Connect a payment provider so clients can pay quotes and invoices online.",
   "app.tour.payments.stripeTitle": "Connect Stripe",
   "app.tour.payments.stripeBody": "FieldQuo uses your own Stripe account — finish the connection here and the status shows once you're live.",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  "app.tour.receptionist.logTitle": "Every call, logged",
+  "app.tour.receptionist.logBody": "Who called, what they said, and what it cost you — right there on the row. Anything urgent stays flagged until you mark it dealt with.",
+  "app.tour.receptionist.settingsTitle": "Turn it on, or fine-tune it",
+  "app.tour.receptionist.settingsBody": "The number it answers on, the greeting, and your per-minute credit all live in Settings — this button gets you there.",
+
+  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceBody": "The receptionist and crew texting both spend from this one balance. Top up here before it runs dry, or manage auto top-up on the phone settings page.",
+  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageBody": "A separate balance for generated marketing images and the deep photo read on a quote — buy as you go, or subscribe monthly for a lower price per credit.",
+
+  "app.tour.jobBuilder.photosTitle": "Every photo, filed and dated",
+  "app.tour.jobBuilder.photosBody": "Photos from every visit land here, grouped by stage — hand it to a client or an insurer if the job's ever disputed, or download the whole record as a PDF.",
+
+  "app.tour.designer.newCampaignTitle": "Start with a campaign",
+  "app.tour.designer.newCampaignBody": "Every design belongs to a campaign — name one here, then add designs inside it. One campaign might hold a square post, a story and a TikTok cut of the same ad.",
+
+  "app.tour.designerEditor.ratiosTitle": "One design, every size",
+  "app.tour.designerEditor.ratiosBody": "Each tab is a different ad size — Instagram, TikTok, Facebook, YouTube. Switch tabs and adjust each one; your edits save per size.",
+  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadBody": "One click renders every size you've touched as a PNG, ready to upload to each platform.",
+
+  "app.tour.kpis.periodTitle": "Pick your window",
+  "app.tour.kpis.periodBody": "Every card below reflects this period — switch it and the whole dashboard follows.",
+  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedBody": "A card with no data says why instead of showing a zero — this list names what FieldQuo won't guess at all.",
+
+  "app.tour.website.publishTitle": "Nothing's public until you publish",
+  "app.tour.website.publishBody": "Describe your site on the left and watch it build on the right. Publish makes it live at your subdomain; press Update any time after to push a change.",
+
+  "app.tour.crewInbox.headerTitle": "Where the crew's texts land",
+  "app.tour.crewInbox.headerBody": "Photos and updates your crew text in show up here. Anything that needs a job picked stays at the top until you file it.",
+
+  "app.tour.plans.newTitle": "Sell recurring work",
+  "app.tour.plans.newBody": "Spring and fall gutter cleaning, a quarterly visit — set up a plan once and it repeats. Each row says plainly whether it bills automatically or still needs an invoice.",
+
+  "app.tour.refer.linkTitle": "Share your link",
+  "app.tour.refer.linkBody": "Send this to another business owner. They get a free month when they sign up — and once they're a paying customer, you earn credit worth a month of their plan.",
 };
 
 // ── French ─────────────────────────────────────────────────────────────────
@@ -8635,6 +8674,45 @@ const fr = {
   "app.tour.payments.headerBody": "Connectez un fournisseur de paiement pour que les clients puissent payer les soumissions et factures en ligne.",
   "app.tour.payments.stripeTitle": "Connectez Stripe",
   "app.tour.payments.stripeBody": "FieldQuo utilise votre propre compte Stripe — terminez la connexion ici et le statut s'affiche une fois que c'est actif.",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  "app.tour.receptionist.logTitle": "Chaque appel, consigné",
+  "app.tour.receptionist.logBody": "Qui a appelé, ce qu'il a dit, et ce que ça vous a coûté — directement sur la ligne. Tout appel urgent reste signalé jusqu'à ce que vous le marquiez comme traité.",
+  "app.tour.receptionist.settingsTitle": "Activez-la, ou ajustez-la",
+  "app.tour.receptionist.settingsBody": "Le numéro auquel elle répond, le message d'accueil et votre crédit à la minute se trouvent tous dans Paramètres — ce bouton vous y mène.",
+
+  "app.tour.aiCredit.voiceTitle": "Crédit téléphonique",
+  "app.tour.aiCredit.voiceBody": "La réceptionniste et les textos d'équipe puisent tous deux dans ce même solde. Rechargez ici avant qu'il ne s'épuise, ou gérez la recharge automatique dans les réglages du téléphone.",
+  "app.tour.aiCredit.imageTitle": "Crédit image IA",
+  "app.tour.aiCredit.imageBody": "Un solde séparé pour les images marketing générées et la lecture photo approfondie d'une soumission — achetez au fur et à mesure, ou abonnez-vous chaque mois pour un prix par crédit plus bas.",
+
+  "app.tour.jobBuilder.photosTitle": "Toutes les photos, classées et datées",
+  "app.tour.jobBuilder.photosBody": "Les photos de chaque visite arrivent ici, regroupées par étape — remettez-les à un client ou à un assureur en cas de litige, ou téléchargez tout le dossier en PDF.",
+
+  "app.tour.designer.newCampaignTitle": "Commencez par une campagne",
+  "app.tour.designer.newCampaignBody": "Chaque visuel appartient à une campagne — nommez-en une ici, puis ajoutez des visuels à l'intérieur. Une campagne peut contenir une publication carrée, une story et une version TikTok de la même publicité.",
+
+  "app.tour.designerEditor.ratiosTitle": "Un visuel, tous les formats",
+  "app.tour.designerEditor.ratiosBody": "Chaque onglet est un format publicitaire différent — Instagram, TikTok, Facebook, YouTube. Changez d'onglet et ajustez chacun; vos modifications s'enregistrent par format.",
+  "app.tour.designerEditor.downloadTitle": "Télécharger tous les formats",
+  "app.tour.designerEditor.downloadBody": "Un seul clic génère chaque format que vous avez touché en PNG, prêt à mettre en ligne sur chaque plateforme.",
+
+  "app.tour.kpis.periodTitle": "Choisissez votre période",
+  "app.tour.kpis.periodBody": "Chaque carte ci-dessous reflète cette période — changez-la et tout le tableau de bord suit.",
+  "app.tour.kpis.notTrackedTitle": "Non suivi",
+  "app.tour.kpis.notTrackedBody": "Une carte sans donnée dit pourquoi plutôt que d'afficher un zéro — cette liste nomme ce que FieldQuo refuse de deviner.",
+
+  "app.tour.website.publishTitle": "Rien n'est public tant que vous ne publiez pas",
+  "app.tour.website.publishBody": "Décrivez votre site à gauche et regardez-le se construire à droite. Publier le met en ligne à votre sous-domaine; appuyez sur Mettre à jour après coup pour pousser un changement.",
+
+  "app.tour.crewInbox.headerTitle": "Où arrivent les textos de l'équipe",
+  "app.tour.crewInbox.headerBody": "Les photos et mises à jour que votre équipe envoie par texto arrivent ici. Tout ce qui a besoin d'un travail choisi reste en haut jusqu'à ce que vous le classiez.",
+
+  "app.tour.plans.newTitle": "Vendez du travail récurrent",
+  "app.tour.plans.newBody": "Nettoyage de gouttières au printemps et à l'automne, une visite trimestrielle — configurez un forfait une fois et il se répète. Chaque ligne dit clairement s'il se facture automatiquement ou s'il a encore besoin d'une facture.",
+
+  "app.tour.refer.linkTitle": "Partagez votre lien",
+  "app.tour.refer.linkBody": "Envoyez-le à un autre propriétaire d'entreprise. Il reçoit un mois gratuit à l'inscription — et une fois qu'il devient client payant, vous gagnez un crédit équivalent à un mois de son forfait.",
 };
 
 
@@ -12016,6 +12094,52 @@ const es = {
   "app.tour.payments.headerBody": "Conecta un proveedor de pagos para que los clientes puedan pagar cotizaciones y facturas en línea.",
   "app.tour.payments.stripeTitle": "Conecta Stripe",
   "app.tour.payments.stripeBody": "FieldQuo usa tu propia cuenta de Stripe — termina la conexión aquí y el estado se muestra en cuanto esté activa.",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  // aiCredit / kpis / designer / designerEditor / plans title strings below
+  // quote a section or button that only exists in English and French on this
+  // screen today (app/i18n/appMessages.js's own header explains why: the app
+  // catalogue is English+French complete, the other four are reported, not
+  // gated). Quoting a Spanish word for something the screen still prints in
+  // English is the exact "Requests vs. Leads" trap this file's header warns
+  // about, so those specific labels stay in English here on purpose.
+  "app.tour.receptionist.logTitle": "Cada llamada, registrada",
+  "app.tour.receptionist.logBody": "Quién llamó, qué dijo y cuánto te costó — justo en la fila. Lo urgente queda marcado hasta que lo resuelvas.",
+  "app.tour.receptionist.settingsTitle": "Actívala, o ajústala",
+  "app.tour.receptionist.settingsBody": "El número al que contesta, el saludo y tu crédito por minuto están todos en Configuración — este botón te lleva ahí.",
+
+  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceBody": "La recepcionista y los mensajes de texto del equipo gastan del mismo saldo. Recarga aquí antes de que se agote, o administra la recarga automática en los ajustes del teléfono.",
+  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageBody": "Un saldo aparte para las imágenes de marketing generadas y la lectura profunda de fotos en una cotización — compra según lo necesites, o suscríbete cada mes por un precio más bajo por crédito.",
+
+  "app.tour.jobBuilder.photosTitle": "Todas las fotos, archivadas y con fecha",
+  "app.tour.jobBuilder.photosBody": "Las fotos de cada visita llegan aquí, agrupadas por etapa — entrégaselas a un cliente o a una aseguradora si el trabajo alguna vez se disputa, o descarga todo el registro en PDF.",
+
+  "app.tour.designer.newCampaignTitle": "Empieza con una campaña",
+  "app.tour.designer.newCampaignBody": "Cada diseño pertenece a una campaña — nombra una aquí, luego agrega diseños dentro de ella. Una campaña puede tener una publicación cuadrada, una historia y un corte para TikTok del mismo anuncio.",
+
+  "app.tour.designerEditor.ratiosTitle": "Un diseño, todos los tamaños",
+  "app.tour.designerEditor.ratiosBody": "Cada pestaña es un tamaño de anuncio distinto — Instagram, TikTok, Facebook, YouTube. Cambia de pestaña y ajusta cada uno; tus cambios se guardan por tamaño.",
+  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadBody": "Un clic genera cada tamaño que hayas tocado como PNG, listo para subir a cada plataforma.",
+
+  "app.tour.kpis.periodTitle": "Elige tu período",
+  "app.tour.kpis.periodBody": "Cada tarjeta de abajo refleja este período — cámbialo y todo el panel lo sigue.",
+  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedBody": "Una tarjeta sin datos dice por qué en vez de mostrar un cero — esta lista nombra lo que FieldQuo no va a inventar.",
+
+  "app.tour.website.publishTitle": "Nada es público hasta que publiques",
+  "app.tour.website.publishBody": "Describe tu sitio a la izquierda y mira cómo se construye a la derecha. Publicar lo pone en línea en tu subdominio; presiona Actualizar después para enviar un cambio.",
+
+  "app.tour.crewInbox.headerTitle": "Donde llegan los mensajes del equipo",
+  "app.tour.crewInbox.headerBody": "Las fotos y actualizaciones que tu equipo envía por texto aparecen aquí. Lo que necesita que elijas un trabajo queda arriba hasta que lo archives.",
+
+  "app.tour.plans.newTitle": "Vende trabajo recurrente",
+  "app.tour.plans.newBody": "Limpieza de canaletas en primavera y otoño, una visita trimestral — configura un plan una vez y se repite. Cada fila dice con claridad si cobra automáticamente o si todavía necesita una factura.",
+
+  "app.tour.refer.linkTitle": "Comparte tu enlace",
+  "app.tour.refer.linkBody": "Envíaselo a otro dueño de negocio. Él recibe un mes gratis al registrarse — y una vez que sea cliente de pago, tú ganas crédito por el valor de un mes de su plan.",
 };
 
 const uk = {
@@ -15427,6 +15551,50 @@ const uk = {
   "app.tour.payments.headerBody": "Підключіть платіжного провайдера, щоб клієнти могли оплачувати кошториси й рахунки онлайн.",
   "app.tour.payments.stripeTitle": "Підключіть Stripe",
   "app.tour.payments.stripeBody": "FieldQuo використовує ваш власний обліковий запис Stripe — завершіть підключення тут, і статус з'явиться, щойно все запрацює.",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  // Same note as the Spanish block: a few titles below name a card or button
+  // that this screen still shows only in English (app catalogue is English+
+  // French complete; see appMessages.js's own header), so those specific
+  // labels are left in English rather than inventing a translation the
+  // screen itself doesn't display.
+  "app.tour.receptionist.logTitle": "Кожен дзвінок — під записом",
+  "app.tour.receptionist.logBody": "Хто дзвонив, що сказав і скільки це коштувало — прямо в рядку. Термінові залишаються позначеними, доки ви не відмітите їх опрацьованими.",
+  "app.tour.receptionist.settingsTitle": "Увімкніть її або налаштуйте",
+  "app.tour.receptionist.settingsBody": "Номер, на який вона відповідає, привітання і ваш кредит за хвилину — все в Налаштуваннях, і ця кнопка веде туди.",
+
+  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceBody": "Секретар і текстові повідомлення бригади списуються з одного й того ж балансу. Поповніть тут, перш ніж він скінчиться, або керуйте автопоповненням у налаштуваннях телефону.",
+  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageBody": "Окремий баланс для згенерованих маркетингових зображень і поглибленого аналізу фото в кошторисі — купуйте за потреби або оформіть щомісячну підписку за нижчою ціною за кредит.",
+
+  "app.tour.jobBuilder.photosTitle": "Кожне фото — заархівоване й датоване",
+  "app.tour.jobBuilder.photosBody": "Фото з кожного виїзду потрапляють сюди, згруповані за етапом — покажіть їх клієнту чи страховій, якщо роботу колись оскаржать, або завантажте весь запис як PDF.",
+
+  "app.tour.designer.newCampaignTitle": "Почніть із кампанії",
+  "app.tour.designer.newCampaignBody": "Кожен дизайн належить до кампанії — назвіть її тут, а потім додавайте дизайни всередину. Одна кампанія може містити квадратний пост, історію і версію для TikTok однієї й тієї ж реклами.",
+
+  "app.tour.designerEditor.ratiosTitle": "Один дизайн, усі розміри",
+  "app.tour.designerEditor.ratiosBody": "Кожна вкладка — це інший розмір реклами: Instagram, TikTok, Facebook, YouTube. Перемикайте вкладки й налаштовуйте кожну — зміни зберігаються окремо для кожного розміру.",
+  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadBody": "Одне натискання створює кожен розмір, який ви редагували, як PNG — готовий до завантаження на кожну платформу.",
+
+  "app.tour.kpis.periodTitle": "Виберіть свій період",
+  "app.tour.kpis.periodBody": "Кожна картка нижче показує саме цей період — змініть його, і вся панель зміниться разом із ним.",
+  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedBody": "Картка без даних пояснює чому, а не показує нуль — цей список називає те, що FieldQuo не буде вигадувати.",
+
+  "app.tour.website.publishTitle": "Нічого не публічне, поки ви не опублікуєте",
+  "app.tour.website.publishBody": "Опишіть свій сайт зліва і дивіться, як він будується справа. Опублікувати робить його доступним на вашому субдомені; натисніть Оновити пізніше, щоб надіслати зміну.",
+
+  "app.tour.crewInbox.headerTitle": "Куди приходять повідомлення бригади",
+  "app.tour.crewInbox.headerBody": "Фото й оновлення, які бригада надсилає текстом, з'являються тут. Усе, що потребує вибору роботи, залишається зверху, доки ви це не розподілите.",
+
+  "app.tour.plans.newTitle": "Продавайте регулярну роботу",
+  "app.tour.plans.newBody": "Чищення ринв навесні й восени, щоквартальний виїзд — налаштуйте план один раз, і він повторюється. Кожен рядок чітко каже, чи стягується оплата автоматично, чи ще потрібен рахунок.",
+
+  "app.tour.refer.linkTitle": "Поділіться своїм посиланням",
+  "app.tour.refer.linkBody": "Надішліть його іншому власнику бізнесу. Він отримає безкоштовний місяць при реєстрації — а щойно стане платним клієнтом, ви заробите кредит на суму місяця його плану.",
 };
 
 const pa = {
@@ -18795,6 +18963,50 @@ const pa = {
   "app.tour.payments.headerBody": "ਭੁਗਤਾਨ ਪ੍ਰਦਾਤਾ ਜੋੜੋ ਤਾਂ ਜੋ ਗਾਹਕ ਕੋਟੇਸ਼ਨ ਅਤੇ ਇਨਵੌਇਸ ਆਨਲਾਈਨ ਭਰ ਸਕਣ।",
   "app.tour.payments.stripeTitle": "Stripe ਜੋੜੋ",
   "app.tour.payments.stripeBody": "FieldQuo ਤੁਹਾਡਾ ਆਪਣਾ Stripe ਖਾਤਾ ਵਰਤਦਾ ਹੈ — ਇੱਥੇ ਕਨੈਕਸ਼ਨ ਪੂਰਾ ਕਰੋ ਅਤੇ ਲਾਈਵ ਹੋਣ ਤੇ ਸਟੇਟਸ ਦਿਖ ਜਾਵੇਗਾ।",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  // As in the Spanish/Ukrainian blocks: a couple of titles below name a card
+  // or button this screen still shows only in English (app catalogue is
+  // English+French complete; see appMessages.js's own header), so those
+  // labels are left in English rather than inventing a translation nobody
+  // sees on screen.
+  "app.tour.receptionist.logTitle": "ਹਰ ਕਾਲ, ਦਰਜ ਕੀਤੀ ਗਈ",
+  "app.tour.receptionist.logBody": "ਕਿਸਨੇ ਕਾਲ ਕੀਤੀ, ਕੀ ਕਿਹਾ, ਅਤੇ ਇਸਦਾ ਕਿੰਨਾ ਖਰਚਾ ਹੋਇਆ — ਸਿੱਧਾ ਲਾਈਨ ਵਿੱਚ। ਜ਼ਰੂਰੀ ਕਾਲਾਂ ਉਦੋਂ ਤੱਕ ਫਲੈਗ ਰਹਿੰਦੀਆਂ ਹਨ ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਉਹਨਾਂ ਨੂੰ ਨਿਪਟਾਇਆ ਵਜੋਂ ਮਾਰਕ ਨਹੀਂ ਕਰਦੇ।",
+  "app.tour.receptionist.settingsTitle": "ਇਸਨੂੰ ਚਾਲੂ ਕਰੋ, ਜਾਂ ਠੀਕ ਕਰੋ",
+  "app.tour.receptionist.settingsBody": "ਜਿਸ ਨੰਬਰ ਤੇ ਇਹ ਜਵਾਬ ਦਿੰਦੀ ਹੈ, ਸੁਆਗਤੀ ਸੁਨੇਹਾ, ਅਤੇ ਤੁਹਾਡਾ ਪ੍ਰਤੀ-ਮਿੰਟ ਕ੍ਰੈਡਿਟ ਸਭ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਹਨ — ਇਹ ਬਟਨ ਤੁਹਾਨੂੰ ਉੱਥੇ ਲੈ ਜਾਂਦਾ ਹੈ।",
+
+  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceBody": "ਰਿਸੈਪਸ਼ਨਿਸਟ ਅਤੇ ਕਰੂ ਟੈਕਸਟਿੰਗ ਦੋਵੇਂ ਇੱਕੋ ਬੈਲੰਸ ਵਿੱਚੋਂ ਖਰਚ ਕਰਦੇ ਹਨ। ਖਤਮ ਹੋਣ ਤੋਂ ਪਹਿਲਾਂ ਇੱਥੇ ਟਾਪ ਅੱਪ ਕਰੋ, ਜਾਂ ਫੋਨ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਆਟੋ ਟਾਪ-ਅੱਪ ਸੰਭਾਲੋ।",
+  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageBody": "ਤਿਆਰ ਕੀਤੀਆਂ ਮਾਰਕੀਟਿੰਗ ਤਸਵੀਰਾਂ ਅਤੇ ਕੋਟੇਸ਼ਨ ਉੱਤੇ ਡੂੰਘੀ ਫੋਟੋ ਜਾਂਚ ਲਈ ਵੱਖਰਾ ਬੈਲੰਸ — ਲੋੜ ਮੁਤਾਬਕ ਖਰੀਦੋ, ਜਾਂ ਹਰ ਕ੍ਰੈਡਿਟ ਦੀ ਘੱਟ ਕੀਮਤ ਲਈ ਮਹੀਨਾਵਾਰ ਸਬਸਕ੍ਰਾਈਬ ਕਰੋ।",
+
+  "app.tour.jobBuilder.photosTitle": "ਹਰ ਫੋਟੋ, ਫਾਈਲ ਕੀਤੀ ਤੇ ਤਾਰੀਖ ਸਮੇਤ",
+  "app.tour.jobBuilder.photosBody": "ਹਰ ਵਿਜ਼ਿਟ ਦੀਆਂ ਫੋਟੋਆਂ ਇੱਥੇ ਆਉਂਦੀਆਂ ਹਨ, ਪੜਾਅ ਮੁਤਾਬਕ ਗਰੁੱਪ ਕੀਤੀਆਂ — ਜੇ ਕੰਮ ਬਾਰੇ ਕਦੇ ਵਿਵਾਦ ਹੋਵੇ ਤਾਂ ਗਾਹਕ ਜਾਂ ਬੀਮਾ ਕੰਪਨੀ ਨੂੰ ਦਿਖਾਓ, ਜਾਂ ਪੂਰਾ ਰਿਕਾਰਡ PDF ਵਜੋਂ ਡਾਊਨਲੋਡ ਕਰੋ।",
+
+  "app.tour.designer.newCampaignTitle": "ਇੱਕ ਮੁਹਿੰਮ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ",
+  "app.tour.designer.newCampaignBody": "ਹਰ ਡਿਜ਼ਾਈਨ ਇੱਕ ਮੁਹਿੰਮ ਨਾਲ ਸਬੰਧਿਤ ਹੁੰਦਾ ਹੈ — ਇੱਥੇ ਇੱਕ ਦਾ ਨਾਮ ਰੱਖੋ, ਫਿਰ ਅੰਦਰ ਡਿਜ਼ਾਈਨ ਜੋੜੋ। ਇੱਕ ਮੁਹਿੰਮ ਵਿੱਚ ਇੱਕੋ ਇਸ਼ਤਿਹਾਰ ਦੀ ਵਰਗ ਪੋਸਟ, ਸਟੋਰੀ ਅਤੇ TikTok ਕੱਟ ਹੋ ਸਕਦੀ ਹੈ।",
+
+  "app.tour.designerEditor.ratiosTitle": "ਇੱਕ ਡਿਜ਼ਾਈਨ, ਹਰ ਸਾਈਜ਼",
+  "app.tour.designerEditor.ratiosBody": "ਹਰ ਟੈਬ ਇੱਕ ਵੱਖਰਾ ਇਸ਼ਤਿਹਾਰ ਸਾਈਜ਼ ਹੈ — Instagram, TikTok, Facebook, YouTube। ਟੈਬਾਂ ਬਦਲੋ ਅਤੇ ਹਰ ਇੱਕ ਨੂੰ ਠੀਕ ਕਰੋ; ਤੁਹਾਡੀਆਂ ਤਬਦੀਲੀਆਂ ਹਰ ਸਾਈਜ਼ ਲਈ ਵੱਖਰੀਆਂ ਸੇਵ ਹੁੰਦੀਆਂ ਹਨ।",
+  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadBody": "ਇੱਕ ਕਲਿੱਕ ਹਰ ਸਾਈਜ਼ ਜੋ ਤੁਸੀਂ ਛੂਹਿਆ ਹੈ ਨੂੰ PNG ਵਜੋਂ ਬਣਾਉਂਦਾ ਹੈ, ਹਰ ਪਲੇਟਫਾਰਮ ਤੇ ਅਪਲੋਡ ਕਰਨ ਲਈ ਤਿਆਰ।",
+
+  "app.tour.kpis.periodTitle": "ਆਪਣੀ ਵਿੰਡੋ ਚੁਣੋ",
+  "app.tour.kpis.periodBody": "ਹੇਠਾਂ ਹਰ ਕਾਰਡ ਇਸ ਸਮੇਂ ਨੂੰ ਦਿਖਾਉਂਦਾ ਹੈ — ਇਸਨੂੰ ਬਦਲੋ ਅਤੇ ਪੂਰਾ ਡੈਸ਼ਬੋਰਡ ਇਸਦੇ ਨਾਲ ਬਦਲ ਜਾਂਦਾ ਹੈ।",
+  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedBody": "ਬਿਨਾਂ ਡਾਟੇ ਵਾਲਾ ਕਾਰਡ ਜ਼ੀਰੋ ਦਿਖਾਉਣ ਦੀ ਬਜਾਏ ਕਾਰਨ ਦੱਸਦਾ ਹੈ — ਇਹ ਸੂਚੀ ਦੱਸਦੀ ਹੈ ਕਿ FieldQuo ਕੀ ਅੰਦਾਜ਼ਾ ਨਹੀਂ ਲਾਵੇਗਾ।",
+
+  "app.tour.website.publishTitle": "ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਪ੍ਰਕਾਸ਼ਿਤ ਨਹੀਂ ਕਰਦੇ, ਕੁਝ ਵੀ ਜਨਤਕ ਨਹੀਂ",
+  "app.tour.website.publishBody": "ਖੱਬੇ ਪਾਸੇ ਆਪਣੀ ਸਾਈਟ ਬਾਰੇ ਦੱਸੋ ਅਤੇ ਸੱਜੇ ਪਾਸੇ ਇਸਨੂੰ ਬਣਦੇ ਦੇਖੋ। ਪ੍ਰਕਾਸ਼ਿਤ ਕਰੋ ਇਸਨੂੰ ਤੁਹਾਡੇ ਸਬਡੋਮੇਨ ਤੇ ਲਾਈਵ ਕਰਦਾ ਹੈ; ਬਦਲਾਅ ਭੇਜਣ ਲਈ ਬਾਅਦ ਵਿੱਚ ਕਿਸੇ ਵੀ ਸਮੇਂ ਅੱਪਡੇਟ ਕਰੋ ਦਬਾਓ।",
+
+  "app.tour.crewInbox.headerTitle": "ਜਿੱਥੇ ਕਰੂ ਦੇ ਟੈਕਸਟ ਆਉਂਦੇ ਹਨ",
+  "app.tour.crewInbox.headerBody": "ਤੁਹਾਡੀ ਕਰੂ ਵੱਲੋਂ ਟੈਕਸਟ ਕੀਤੀਆਂ ਫੋਟੋਆਂ ਅਤੇ ਅਪਡੇਟਾਂ ਇੱਥੇ ਦਿਖਦੀਆਂ ਹਨ। ਜਿਸ ਲਈ ਕੰਮ ਚੁਣਨ ਦੀ ਲੋੜ ਹੈ ਉਹ ਉੱਪਰ ਰਹਿੰਦਾ ਹੈ ਜਦੋਂ ਤੱਕ ਤੁਸੀਂ ਇਸਨੂੰ ਫਾਈਲ ਨਹੀਂ ਕਰਦੇ।",
+
+  "app.tour.plans.newTitle": "ਦੁਹਰਾਉਣ ਵਾਲਾ ਕੰਮ ਵੇਚੋ",
+  "app.tour.plans.newBody": "ਬਸੰਤ ਤੇ ਪਤਝੜ ਦੀ ਗਟਰ ਸਫਾਈ, ਤਿਮਾਹੀ ਵਿਜ਼ਿਟ — ਇੱਕ ਵਾਰ ਪਲਾਨ ਸੈੱਟ ਕਰੋ ਅਤੇ ਇਹ ਦੁਹਰਾਉਂਦਾ ਰਹਿੰਦਾ ਹੈ। ਹਰ ਲਾਈਨ ਸਾਫ਼ ਦੱਸਦੀ ਹੈ ਕਿ ਇਹ ਆਪਣੇ ਆਪ ਬਿੱਲ ਹੁੰਦਾ ਹੈ ਜਾਂ ਹਾਲੇ ਵੀ ਇਨਵੌਇਸ ਦੀ ਲੋੜ ਹੈ।",
+
+  "app.tour.refer.linkTitle": "ਆਪਣਾ ਲਿੰਕ ਸਾਂਝਾ ਕਰੋ",
+  "app.tour.refer.linkBody": "ਇਸਨੂੰ ਕਿਸੇ ਹੋਰ ਕਾਰੋਬਾਰ ਦੇ ਮਾਲਕ ਨੂੰ ਭੇਜੋ। ਸਾਈਨ ਅੱਪ ਕਰਨ ਤੇ ਉਹਨਾਂ ਨੂੰ ਇੱਕ ਮਹੀਨਾ ਮੁਫ਼ਤ ਮਿਲਦਾ ਹੈ — ਅਤੇ ਜਦੋਂ ਉਹ ਭੁਗਤਾਨ ਕਰਨ ਵਾਲੇ ਗਾਹਕ ਬਣ ਜਾਣ, ਤੁਹਾਨੂੰ ਉਹਨਾਂ ਦੇ ਪਲਾਨ ਦੇ ਇੱਕ ਮਹੀਨੇ ਜਿੰਨਾ ਕ੍ਰੈਡਿਟ ਮਿਲਦਾ ਹੈ।",
 };
 
 const tl = {
@@ -22171,6 +22383,49 @@ const tl = {
   "app.tour.payments.headerBody": "Kumonekta ng payment provider para makapagbayad ang mga kliyente ng quote at invoice online.",
   "app.tour.payments.stripeTitle": "Ikonekta ang Stripe",
   "app.tour.payments.stripeBody": "Ginagamit ng FieldQuo ang sarili mong Stripe account — tapusin ang koneksyon dito at lalabas ang status sa oras na live ka na.",
+
+  // ── Tours added for features that had none (see docs/TOUR-COVERAGE.md) ───
+  // Same note as the other non-gated languages: a couple of titles below name
+  // a card or button this screen still shows only in English (app catalogue
+  // is English+French complete; see appMessages.js's own header), so those
+  // labels stay in English rather than inventing a translation nobody sees.
+  "app.tour.receptionist.logTitle": "Bawat tawag, naka-log",
+  "app.tour.receptionist.logBody": "Sino ang tumawag, ano ang sinabi nila, at magkano ang ginastos — nasa mismong row. Ang mga urgent ay nananatiling naka-flag hanggang markahan mo itong naayos na.",
+  "app.tour.receptionist.settingsTitle": "Buksan ito, o i-fine-tune",
+  "app.tour.receptionist.settingsBody": "Ang numerong sinasagot nito, ang greeting, at ang credit mo kada minuto ay nasa Mga Setting — dadalhin ka ng button na ito doon.",
+
+  "app.tour.aiCredit.voiceTitle": "Phone credit",
+  "app.tour.aiCredit.voiceBody": "Ang receptionist at ang pag-text ng crew ay parehong gumagastos mula sa parehong balanse. Mag-top up dito bago ito maubos, o pamahalaan ang auto top-up sa settings ng telepono.",
+  "app.tour.aiCredit.imageTitle": "AI image credit",
+  "app.tour.aiCredit.imageBody": "Hiwalay na balanse para sa mga ginawang larawan sa marketing at sa deep photo read sa isang quote — bumili kung kailan mo kailangan, o mag-subscribe buwan-buwan para sa mas mababang presyo kada credit.",
+
+  "app.tour.jobBuilder.photosTitle": "Bawat larawan, naka-file at may petsa",
+  "app.tour.jobBuilder.photosBody": "Ang mga larawan mula sa bawat visit ay dumarating dito, naka-grupo ayon sa yugto — ipakita sa kliyente o sa insurance kung sakaling pagtalunan pa ang trabaho, o i-download ang buong record bilang PDF.",
+
+  "app.tour.designer.newCampaignTitle": "Magsimula sa isang campaign",
+  "app.tour.designer.newCampaignBody": "Ang bawat disenyo ay kabilang sa isang campaign — bigyan ito ng pangalan dito, tapos magdagdag ng mga disenyo sa loob nito. Ang isang campaign ay pwedeng maglaman ng square post, story, at TikTok cut ng parehong ad.",
+
+  "app.tour.designerEditor.ratiosTitle": "Isang disenyo, lahat ng laki",
+  "app.tour.designerEditor.ratiosBody": "Bawat tab ay ibang laki ng ad — Instagram, TikTok, Facebook, YouTube. Lumipat ng tab at ayusin ang bawat isa; nase-save ang mga pagbabago mo kada laki.",
+  "app.tour.designerEditor.downloadTitle": "Download all formats",
+  "app.tour.designerEditor.downloadBody": "Isang click lang para ma-render ang bawat laki na na-touch mo bilang PNG, handa nang i-upload sa bawat platform.",
+
+  "app.tour.kpis.periodTitle": "Piliin ang iyong window",
+  "app.tour.kpis.periodBody": "Bawat card sa ibaba ay sumasalamin sa period na ito — palitan ito at susunod ang buong dashboard.",
+  "app.tour.kpis.notTrackedTitle": "Not tracked",
+  "app.tour.kpis.notTrackedBody": "Ang card na walang datos ay nagsasabi kung bakit sa halip na magpakita ng zero — sinasabi ng listahang ito kung ano ang ayaw hulaan ng FieldQuo.",
+
+  "app.tour.website.publishTitle": "Walang publiko hangga't hindi ka nag-publish",
+  "app.tour.website.publishBody": "Ilarawan ang site mo sa kaliwa at panoorin itong mabuo sa kanan. Ang I-publish ay gagawin itong live sa subdomain mo; pindutin ang I-update anumang oras pagkatapos para itulak ang isang pagbabago.",
+
+  "app.tour.crewInbox.headerTitle": "Kung saan dumarating ang mga text ng crew",
+  "app.tour.crewInbox.headerBody": "Ang mga larawan at update na ipinapadala ng crew mo bilang text ay lumalabas dito. Ang kahit anong kailangang piliin ang trabaho ay nananatili sa taas hanggang i-file mo ito.",
+
+  "app.tour.plans.newTitle": "Magbenta ng paulit-ulit na trabaho",
+  "app.tour.plans.newBody": "Paglilinis ng gutter tuwing tagsibol at taglagas, isang quarterly visit — i-set up ang isang plan minsan at umuulit ito. Sinasabi ng bawat row nang malinaw kung awtomatikong sinisingil ito o kailangan pa rin ng invoice.",
+
+  "app.tour.refer.linkTitle": "Ibahagi ang link mo",
+  "app.tour.refer.linkBody": "Ipadala ito sa ibang may-ari ng negosyo. Makakakuha sila ng isang buwang libre pag nag-sign up sila — at kapag naging paying customer na sila, makakakuha ka ng credit na katumbas ng isang buwan ng plano nila.",
 };
 
 export const APP_MESSAGES = { en, fr, es, uk, pa, tl };

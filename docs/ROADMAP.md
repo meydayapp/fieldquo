@@ -5567,3 +5567,23 @@ writes `source: "google"`, and nothing should until the above is true.
    that silently stops leaves stale Google content on a public page past the
    window. It needs the same visible proof-of-life the review-request queue
    count gives on `/app/settings/reviews`.
+
+---
+
+## Onboarding tour — coverage for features that had none (31 August 2026)
+
+`docs/health/10-tour.md` translated the 24 existing tours into six languages
+but could add no new ones — every candidate page had no `data-tour` anchor,
+and touching those pages was out of scope while other agents were mid-edit on
+them. That constraint is lifted now: 9 new tours (`receptionist-v1`,
+`ai-credit-v1`, `marketing-designer-v1`/`-editor-v1`, `kpis-v1`, `website-v1`,
+`crew-inbox-v1`, `plans-v1`, `refer-v1`) plus one extended existing tour
+(`job-builder-v1` → `job-builder-v2`, +1 step for the job's photo record) —
+14 new anchors, 13 new steps, all six languages. `scripts/check-translations.mjs`
+gained a mutation-tested assertion that every tour `target` names a
+`data-tour` value something in `app/` actually renders — the previous
+check only verified the STRING keys, not that the anchor existed. Full table,
+what was deliberately left uncovered (the website builder's first-run screen
+has no stable anchor; `JobCosting`/`JobMaterials`/`JobTasks` all `return null`
+on an empty job, so they got no anchor either), and what a browser-less
+session couldn't verify: `docs/TOUR-COVERAGE.md`.

@@ -291,7 +291,7 @@ export default function KpiDashboardPage() {
         </Link>
       </div>
 
-      <div className="glass-effect rounded-lg p-4 mb-6">
+      <div data-tour="kpis-period" className="glass-effect rounded-lg p-4 mb-6">
         <div className="flex flex-wrap gap-2">
           {PERIOD_PRESETS.map(([key, label]) => (
             <button
@@ -672,7 +672,7 @@ export default function KpiDashboardPage() {
           </section>
 
           {/* ── Not tracked ──────────────────────────────────────────────── */}
-          <section>
+          <section data-tour="kpis-not-tracked">
             <SectionHeading
               title={t("app.kpis.notTracked.title", "Not tracked")}
               subtitle={t(

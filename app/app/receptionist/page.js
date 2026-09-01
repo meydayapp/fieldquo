@@ -348,7 +348,7 @@ export default function ReceptionistPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-[12rem]">
+        <div data-tour="receptionist-header" className="flex-1 min-w-[12rem]">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Headset size={22} /> {t("app.nav.receptionist")}
           </h1>
@@ -377,6 +377,7 @@ export default function ReceptionistPage() {
         )}
         <Link
           href="/app/settings/voice"
+          data-tour="receptionist-settings"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm text-foreground hover:bg-muted"
         >
           <Settings size={15} />{" "}

@@ -185,7 +185,7 @@ function ReferScreen() {
         </div>
       )}
 
-      <div className="bg-card border border-border rounded-xl p-5">
+      <div data-tour="refer-link" className="bg-card border border-border rounded-xl p-5">
         <label className="text-sm font-medium text-foreground block mb-2">
           {t("app.refer.yourLink")}
         </label>
