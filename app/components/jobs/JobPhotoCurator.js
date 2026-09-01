@@ -16,13 +16,27 @@
 // The crew agent tags each photo start / progress / finish / issue from what
 // was texted. It's usually right; when it isn't, one tap re-stages it — and
 // start + finish of the same job is the before/after the site pairs up.
+//
+// ── Tags are a second, unrelated axis ────────────────────────────────────
+//
+// Below the stage select, a photo can also carry company-defined tags —
+// "sanding", "priming", "top coat" — created on the Job photo tags settings
+// screen (lib/gallery/tags.js). These are pure decoration: toggling one never
+// touches `stage`, never affects featuring, and a tag literally named "Issue"
+// would behave exactly like one named "Sanding" — the privacy rule above is
+// entirely about the `stage` dropdown, and tags have no way to reach it. A
+// retired tag can still show up here, already checked, on whatever photo it
+// was on before it was retired — it just won't be offered as a NEW choice.
 
 import { useEffect, useState, useCallback } from "react";
-import { Star, ImageIcon, Loader2, AlertTriangle } from "lucide-react";
+import { Star, ImageIcon, Loader2, AlertTriangle, Settings2 } from "lucide-react";
+import Link from "next/link";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import MediaUploader from "@/app/components/MediaUploader";
 
 export default function JobPhotoCurator({ jobId }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
@@ -68,6 +82,7 @@ export default function JobPhotoCurator({ jobId }) {
 
   const photos = data?.photos || [];
   const stages = data?.stages || [];
+  const tags = data?.tags || [];
 
   const featuredCount = photos.filter((p) => p.featured).length;
 
@@ -92,9 +107,14 @@ export default function JobPhotoCurator({ jobId }) {
           {featuredCount} on your website
         </span>
       </div>
-      <p className="text-xs text-muted-foreground mb-3">
+      <p className="text-xs text-muted-foreground mb-1">
         Tap the star to show a photo on your website. Start + finish of a job
         become a before/after.
+      </p>
+      <p className="text-xs text-muted-foreground mb-3">
+        <Link href="/app/settings/job-photo-tags" className="inline-flex items-center gap-1 underline hover:no-underline">
+          <Settings2 size={11} /> {t("app.jobPhotoTags.manage")}
+        </Link>
       </p>
 
       {photos.length > 0 ? (
@@ -104,9 +124,12 @@ export default function JobPhotoCurator({ jobId }) {
               key={p.id}
               photo={p}
               stages={stages}
+              tags={tags}
               busy={busy === p.id}
               onFeature={() => patch(p.id, { featured: !p.featured })}
               onStage={(stage) => patch(p.id, { stage })}
+              onTags={(tagIds) => patch(p.id, { tagIds })}
+              t={t}
             />
           ))}
         </div>
@@ -157,8 +180,24 @@ export default function JobPhotoCurator({ jobId }) {
   );
 }
 
-function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
+function PhotoCard({ photo, stages, tags, busy, onFeature, onStage, onTags, t }) {
   const isIssue = photo.stage === "issue";
+  const photoTagIds = new Set((photo.tags || []).map((tg) => tg.id));
+  // Offer every ACTIVE company tag, plus whatever this specific photo already
+  // carries even if that tag has since been retired — a retired tag doesn't
+  // disappear off a photo that's already wearing it, it just stops being
+  // offered as a fresh choice elsewhere. See lib/gallery/tags.js.
+  const pickable = [
+    ...tags,
+    ...(photo.tags || []).filter((tg) => !tags.some((a) => a.id === tg.id)),
+  ];
+
+  function toggleTag(tagId) {
+    const next = photoTagIds.has(tagId)
+      ? [...photoTagIds].filter((id) => id !== tagId)
+      : [...photoTagIds, tagId];
+    onTags(next);
+  }
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-background">
       <div className="relative aspect-square bg-muted">
@@ -182,7 +221,7 @@ function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
           )}
         </button>
       </div>
-      <div className="p-1.5">
+      <div className="p-1.5 space-y-1.5">
         <select
           value={photo.stage}
           disabled={busy}
@@ -193,6 +232,29 @@ function PhotoCard({ photo, stages, busy, onFeature, onStage }) {
             <option key={s.key} value={s.key}>{s.label}</option>
           ))}
         </select>
+        {pickable.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {pickable.map((tg) => {
+              const on = photoTagIds.has(tg.id);
+              const retired = tg.active === false;
+              return (
+                <button
+                  key={tg.id}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => toggleTag(tg.id)}
+                  title={retired ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
+                  className={`text-[10px] leading-none px-1.5 py-1 rounded-full border disabled:opacity-50 ${
+                    on ? "text-white border-transparent" : "border-border text-muted-foreground"
+                  } ${retired ? "italic" : ""}`}
+                  style={on ? { backgroundColor: tg.color || "#52525b" } : undefined}
+                >
+                  {tg.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

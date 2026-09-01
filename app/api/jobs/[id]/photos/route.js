@@ -2,12 +2,23 @@
 //
 // The photos on a job, and curating them for the website.
 //
-// GET   → this job's JobPhoto rows (with stage + featured), newest first.
-// PATCH → feature/unfeature a photo, change its stage, or set a caption.
+// GET   → this job's JobPhoto rows (with stage + featured + tags), newest first.
+// PATCH → feature/unfeature a photo, change its stage, set a caption, or
+//         change which company-defined tags (lib/gallery/tags.js) sit on it.
 //
 // Featuring is what lifts a photo onto the public site, so it's gated on the
 // same company scope every job route uses — a photo can only be curated by
 // someone in the company that owns the job.
+//
+// ── Tags never touch `stage` ────────────────────────────────────────────────
+//
+// tagIds below writes JobPhotoTagOnPhoto rows only. It never sets `stage` and
+// never reads a tag's NAME to decide anything — a company could name a tag
+// "issue" and this route would treat it exactly like a tag named "sanding",
+// because nothing here compares a tag string against the word "issue". The
+// privacy boundary two blocks down (`data.featured === true` → refuse an
+// `issue`-STAGE photo) is the only "issue" this file knows about, and tags
+// cannot reach it. See prisma/schema.prisma's JobPhotoTag comment.
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
@@ -16,6 +27,18 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { assignedJobWhere } from "@/lib/permissions/enforce";
 import { normaliseStage, STAGES } from "@/lib/gallery/stages";
+
+// Same shape at every query site in this file, so GET/POST/PATCH can never
+// disagree about what a "photo" looks like to the caller.
+const PHOTO_SELECT = {
+  id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
+  tags: { select: { tag: { select: { id: true, name: true, color: true, active: true } } } },
+};
+
+/** JobPhotoTagOnPhoto rows flattened to a plain `tags: [{id,name,color,active}]` array. */
+function flattenTags(photo) {
+  return { ...photo, tags: (photo.tags || []).map((row) => row.tag) };
+}
 
 export async function GET(request, { params }) {
   const { id } = await params;
@@ -42,14 +65,23 @@ export async function GET(request, { params }) {
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
-    },
+    select: PHOTO_SELECT,
+  });
+
+  // Only ACTIVE tags are offered for a NEW selection — a retired one stays
+  // visible on whatever photo already carries it (see flattenTags above) but
+  // drops out of the picker, same as Worker.active hides a departed worker
+  // from new assignments without touching their history.
+  const companyTags = await db.jobPhotoTag.findMany({
+    where: { companyId: member.companyId, active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, color: true },
   });
 
   return NextResponse.json({
-    photos,
+    photos: photos.map(flattenTags),
     stages: Object.values(STAGES).map((s) => ({ key: s.key, label: s.label })),
+    tags: companyTags,
   });
 }
 
@@ -124,11 +156,9 @@ export async function POST(request, { params }) {
   const photos = await db.jobPhoto.findMany({
     where: { jobId: id, companyId: member.companyId },
     orderBy: [{ stage: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true, url: true, stage: true, featured: true, caption: true, createdAt: true,
-    },
+    select: PHOTO_SELECT,
   });
-  return NextResponse.json({ added: rows.length, photos });
+  return NextResponse.json({ added: rows.length, photos: photos.map(flattenTags) });
 }
 
 export async function PATCH(request, { params }) {
@@ -177,7 +207,13 @@ export async function PATCH(request, { params }) {
   if (typeof body.stage === "string") data.stage = normaliseStage(body.stage);
   if (typeof body.caption === "string") data.caption = body.caption.trim().slice(0, 200) || null;
 
-  if (!Object.keys(data).length) {
+  // tagIds is its own axis, separate from `data` above — it never sets
+  // `stage` and is validated/applied further down. A request that changes
+  // ONLY the tags (no scalar field) is legitimate, so the "nothing to change"
+  // guard below has to know about it too.
+  const wantsTagChange = Array.isArray(body.tagIds);
+
+  if (!Object.keys(data).length && !wantsTagChange) {
     return NextResponse.json({ error: "Nothing to change." }, { status: 400 });
   }
 
@@ -194,11 +230,51 @@ export async function PATCH(request, { params }) {
     }
   }
 
-  const updated = await db.jobPhoto.update({
-    where: { id: photoId },
-    data,
-    select: { id: true, stage: true, featured: true, caption: true },
-  });
+  if (Object.keys(data).length) {
+    await db.jobPhoto.update({ where: { id: photoId }, data });
+  }
 
-  return NextResponse.json({ ok: true, photo: updated });
+  // ── Sync tags ──────────────────────────────────────────────────────────
+  //
+  // Diffed against the current set rather than blindly deleteMany+createMany,
+  // so a request that only re-sends the tags it already had touches nothing.
+  // Only tags this COMPANY owns can be attached — a tag id from another
+  // tenant is silently dropped rather than erroring, the same tolerance
+  // `assignedJobWhere` extends to a stale candidate list elsewhere in this
+  // codebase, because the browser's own state can be a request behind the
+  // server's. A newly REQUESTED tag must be `active` (retired tags are hidden
+  // from the picker); a tag the photo already carries stays even if it was
+  // retired in between, because retiring must not un-tag existing photos.
+  if (wantsTagChange) {
+    const requestedIds = [...new Set(body.tagIds.filter((x) => typeof x === "string" && x))];
+    const [companyTags, currentJoins] = await Promise.all([
+      db.jobPhotoTag.findMany({
+        where: { companyId: member.companyId, id: { in: requestedIds } },
+        select: { id: true, active: true },
+      }),
+      db.jobPhotoTagOnPhoto.findMany({ where: { photoId }, select: { tagId: true } }),
+    ]);
+    const companyTagById = new Map(companyTags.map((t) => [t.id, t]));
+    const currentIds = new Set(currentJoins.map((j) => j.tagId));
+
+    const toAdd = requestedIds.filter((tagId) => {
+      if (currentIds.has(tagId)) return false; // already on the photo
+      const tag = companyTagById.get(tagId);
+      return tag && tag.active; // must be ours AND currently offerable
+    });
+    const toRemove = [...currentIds].filter((tagId) => !requestedIds.includes(tagId));
+
+    if (toRemove.length) {
+      await db.jobPhotoTagOnPhoto.deleteMany({ where: { photoId, tagId: { in: toRemove } } });
+    }
+    if (toAdd.length) {
+      await db.jobPhotoTagOnPhoto.createMany({
+        data: toAdd.map((tagId) => ({ photoId, tagId })),
+      });
+    }
+  }
+
+  const updated = await db.jobPhoto.findUnique({ where: { id: photoId }, select: PHOTO_SELECT });
+
+  return NextResponse.json({ ok: true, photo: flattenTags(updated) });
 }

@@ -28,10 +28,12 @@
 // which already owns those actions and their permission checks. This panel
 // only reads — the one thing it can DO is generate the PDF record, which is
 // its own, separately-gated route.
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Clock, Loader2, FileDown, AlertTriangle } from "lucide-react";
 import { reportResponseError } from "@/lib/clientErrors";
+import { useTranslation } from "@/app/hooks/useTranslation";
 import { stageTimeline } from "@/lib/gallery/albums";
+import { filterByTag } from "@/lib/gallery/tags";
 
 function formatDate(value) {
   if (!value) return "";
@@ -47,9 +49,11 @@ function formatDate(value) {
 }
 
 export default function JobPhotoTimeline({ jobId, jobTitle }) {
+  const { t } = useTranslation();
   const [photos, setPhotos] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [tagFilter, setTagFilter] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/jobs/${jobId}/photos`);
@@ -99,8 +103,26 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
     );
   }
 
-  const groups = stageTimeline(photos || []);
   const total = (photos || []).length;
+
+  // Filter options come from tags actually WORN by a photo on this job — not
+  // the company's active-tag picker list — so a retired tag still shows up
+  // here if a photo on this job carries it. Filtering must not go blind the
+  // moment a tag is retired; it just stops being offered on the CURATOR's
+  // picker for new photos (see JobPhotoCurator.js).
+  const tagOptions = useMemo(() => {
+    const byId = new Map();
+    for (const p of photos || []) {
+      for (const tg of p.tags || []) {
+        if (!byId.has(tg.id)) byId.set(tg.id, tg);
+      }
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [photos]);
+
+  const filteredPhotos = filterByTag(photos || [], tagFilter);
+  const visiblePhotos = tagFilter ? filteredPhotos : photos || [];
+  const groups = stageTimeline(visiblePhotos);
 
   return (
     <section data-tour="job-photos" className="rounded-xl border border-border bg-card p-5">
@@ -129,10 +151,33 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
         public website.
       </p>
 
+      {tagOptions.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <label htmlFor="job-photo-tag-filter" className="text-[11px] font-medium text-muted-foreground">
+            {t("app.jobPhotoTags.filterLabel")}
+          </label>
+          <select
+            id="job-photo-tag-filter"
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            className="text-xs bg-transparent text-foreground border border-border rounded px-1.5 py-1"
+          >
+            <option value="">{t("app.jobPhotoTags.filterAll")}</option>
+            {tagOptions.map((tg) => (
+              <option key={tg.id} value={tg.id}>
+                {tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {total === 0 ? (
         <p className="text-xs text-muted-foreground">
           Nothing filed yet. Add photos below, or text them to your crew line.
         </p>
+      ) : visiblePhotos.length === 0 ? (
+        <p className="text-xs text-muted-foreground">{t("app.jobPhotoTags.none")}</p>
       ) : (
         <div className="space-y-5">
           {groups.map((g) => (
@@ -165,6 +210,20 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
                         <p className="text-[11px] text-foreground truncate" title={p.caption}>
                           {p.caption}
                         </p>
+                      )}
+                      {p.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {p.tags.map((tg) => (
+                            <span
+                              key={tg.id}
+                              title={tg.active === false ? t("app.jobPhotoTags.retiredSuffix", { name: tg.name }) : tg.name}
+                              className={`text-[9px] leading-none px-1.5 py-0.5 rounded-full text-white ${tg.active === false ? "italic" : ""}`}
+                              style={{ backgroundColor: tg.color || "#52525b" }}
+                            >
+                              {tg.name}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
