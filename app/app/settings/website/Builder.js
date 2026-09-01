@@ -560,6 +560,7 @@ export default function Builder({ data, onReload }) {
           <button
             onClick={() => save({ published: true })}
             disabled={saving}
+            data-tour="website-publish"
             className="inline-flex items-center gap-1.5 rounded-full bg-inverted text-inverted-foreground px-3.5 py-1.5 text-xs font-bold disabled:opacity-60"
           >
             <Eye size={12} /> {site?.published ? t("app.siteBuilder.update", "Update") : t("app.siteBuilder.publish", "Publish")}

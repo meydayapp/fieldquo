@@ -111,7 +111,7 @@ export default function CrewInboxPage() {
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-[12rem]">
+        <div data-tour="crew-inbox-header" className="flex-1 min-w-[12rem]">
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <MessageSquare size={22} /> {t("app.nav.crewInbox")}
           </h1>

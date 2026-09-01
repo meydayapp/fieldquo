@@ -281,7 +281,7 @@ export function CampaignEditor({ design, onBack }) {
 
         <div className="h-5 w-px bg-border shrink-0" />
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div data-tour="designer-ratios" className="flex items-center gap-1 shrink-0">
           {AD_RATIOS.map((r) => {
             const isActive = r.key === activeRatio;
             const hasSaved = Boolean(layoutsRef.current[r.key]);
@@ -313,6 +313,7 @@ export function CampaignEditor({ design, onBack }) {
           type="button"
           onClick={handleDownloadAll}
           disabled={downloading || !editorInstance}
+          data-tour="designer-download"
           className="flex items-center gap-2 border border-border text-foreground px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap disabled:opacity-60 shrink-0"
         >
           <Download size={13} />

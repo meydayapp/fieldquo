@@ -208,12 +208,22 @@ export const TOURS = [
     ],
   },
   {
-    key: "job-builder-v1",
+    key: "job-builder-v2",
     match: (p) => p.startsWith("/app/jobs/") && p !== "/app/jobs/new" && p.split("/").length === 4,
     steps: [
       { target: "[data-tour='job-status']", titleKey: "app.tour.jobBuilder.statusTitle", bodyKey: "app.tour.jobBuilder.statusBody" },
       { target: "[data-tour='job-client']", titleKey: "app.tour.jobBuilder.clientTitle", bodyKey: "app.tour.jobBuilder.clientBody" },
       { target: "[data-tour='job-visits']", titleKey: "app.tour.jobBuilder.visitsTitle", bodyKey: "app.tour.jobBuilder.visitsBody" },
+      // New: JobCosting/JobMaterials/JobTasks (rendered just above job-visits
+      // in JobDetail.js) all `return null` on a job with nothing recorded yet
+      // — see JobDetail.js's own comments on each. A brand-new job is exactly
+      // that empty state, so none of the three is a safe spotlight target
+      // (AGENTS.md: "a panel that returns null when empty is not a reliable
+      // anchor"). JobPhotoTimeline, just below the visits list, was rebuilt to
+      // render even with zero photos (its own header explains why — a
+      // contractor who never uses crew SMS used to see no panel at all), so
+      // it's the one addition on this page that's guaranteed to be there.
+      { target: "[data-tour='job-photos']", titleKey: "app.tour.jobBuilder.photosTitle", bodyKey: "app.tour.jobBuilder.photosBody" },
     ],
   },
   {
@@ -333,6 +343,117 @@ export const TOURS = [
     steps: [
       { target: "[data-tour='payments-header']", titleKey: "app.tour.payments.headerTitle", bodyKey: "app.tour.payments.headerBody" },
       { target: "[data-tour='payments-stripe']", titleKey: "app.tour.payments.stripeTitle", bodyKey: "app.tour.payments.stripeBody" },
+    ],
+  },
+
+  // ═══ Added for features that had a page and no tour (docs/health/10-tour.md) ═══
+  //
+  // Every anchor below is new too — see docs/TOUR-COVERAGE.md for the full
+  // table of what was added where, what was deliberately left alone, and what
+  // could not be verified (no browser in this session).
+
+  // ── AI receptionist call log ─────────────────────────────────────────────
+  // Ranked highest by the owner: the most expensive thing a contractor can
+  // switch on, and this is where the payoff (or the bill) is actually
+  // checked. Setting the receptionist UP is voice-v1, above; this is the
+  // page where a contractor comes back to see what it did.
+  {
+    key: "receptionist-v1",
+    match: (p) => p === "/app/receptionist",
+    steps: [
+      { target: "[data-tour='receptionist-header']", titleKey: "app.tour.receptionist.logTitle", bodyKey: "app.tour.receptionist.logBody" },
+      { target: "[data-tour='receptionist-settings']", titleKey: "app.tour.receptionist.settingsTitle", bodyKey: "app.tour.receptionist.settingsBody" },
+    ],
+  },
+
+  // ── AI credit & top-ups ──────────────────────────────────────────────────
+  // Two wallets, never merged (see the page's own header on why). Both Card
+  // sections always render once the page loads — a zero balance still shows
+  // the card, just with "$0.00" — so both are safe anchors even for an
+  // account that has never spent a cent.
+  {
+    key: "ai-credit-v1",
+    match: (p) => p === "/app/settings/ai-credit",
+    steps: [
+      { target: "[data-tour='ai-credit-voice']", titleKey: "app.tour.aiCredit.voiceTitle", bodyKey: "app.tour.aiCredit.voiceBody" },
+      { target: "[data-tour='ai-credit-ai']", titleKey: "app.tour.aiCredit.imageTitle", bodyKey: "app.tour.aiCredit.imageBody" },
+    ],
+  },
+
+  // ── Marketing Designer ───────────────────────────────────────────────────
+  // Two separate tours, same shape as funnels-v1 / funnel-builder-v1 above:
+  // an index (pick or start a campaign) and the per-design canvas editor,
+  // because they're two different routes with two different jobs.
+  {
+    key: "marketing-designer-v1",
+    match: (p) => p === "/app/marketing/designer",
+    steps: [
+      { target: "[data-tour='designer-new-campaign']", titleKey: "app.tour.designer.newCampaignTitle", bodyKey: "app.tour.designer.newCampaignBody" },
+    ],
+  },
+  {
+    key: "marketing-designer-editor-v1",
+    match: (p) => p.startsWith("/app/marketing/designer/") && p !== "/app/marketing/designer",
+    steps: [
+      { target: "[data-tour='designer-ratios']", titleKey: "app.tour.designerEditor.ratiosTitle", bodyKey: "app.tour.designerEditor.ratiosBody" },
+      { target: "[data-tour='designer-download']", titleKey: "app.tour.designerEditor.downloadTitle", bodyKey: "app.tour.designerEditor.downloadBody" },
+    ],
+  },
+
+  // ── KPI dashboard ─────────────────────────────────────────────────────────
+  // Fifteen charts, and no attempt here to walk every one of them — that's
+  // the nagging AGENTS.md warns against. Two steps: the control that governs
+  // every card on the page, and the one section whose whole point is a
+  // philosophy (no invented numbers) rather than a figure to read.
+  {
+    key: "kpis-v1",
+    match: (p) => p === "/app/analytics/kpis",
+    steps: [
+      { target: "[data-tour='kpis-period']", titleKey: "app.tour.kpis.periodTitle", bodyKey: "app.tour.kpis.periodBody" },
+      { target: "[data-tour='kpis-not-tracked']", titleKey: "app.tour.kpis.notTrackedTitle", bodyKey: "app.tour.kpis.notTrackedBody" },
+    ],
+  },
+
+  // ── Website builder ──────────────────────────────────────────────────────
+  // Only the "already has a site" half of Builder.js has a stable anchor —
+  // see docs/TOUR-COVERAGE.md for why the first-run prompt screen (a
+  // completely different render tree) isn't touched here.
+  {
+    key: "website-v1",
+    match: (p) => p === "/app/settings/website",
+    steps: [
+      { target: "[data-tour='website-publish']", titleKey: "app.tour.website.publishTitle", bodyKey: "app.tour.website.publishBody" },
+    ],
+  },
+
+  // ── Crew inbox ────────────────────────────────────────────────────────────
+  // The setup panel above the message list can return null for a member
+  // without access to it (see SetupPanel's own comment), so the one anchor
+  // that's always there for anyone who can open the page at all is the page
+  // header.
+  {
+    key: "crew-inbox-v1",
+    match: (p) => p === "/app/crew-inbox",
+    steps: [
+      { target: "[data-tour='crew-inbox-header']", titleKey: "app.tour.crewInbox.headerTitle", bodyKey: "app.tour.crewInbox.headerBody" },
+    ],
+  },
+
+  // ── Service plans ────────────────────────────────────────────────────────
+  {
+    key: "plans-v1",
+    match: (p) => p === "/app/plans",
+    steps: [
+      { target: "[data-tour='plans-new']", titleKey: "app.tour.plans.newTitle", bodyKey: "app.tour.plans.newBody" },
+    ],
+  },
+
+  // ── Refer & Earn ──────────────────────────────────────────────────────────
+  {
+    key: "refer-v1",
+    match: (p) => p === "/app/settings/refer",
+    steps: [
+      { target: "[data-tour='refer-link']", titleKey: "app.tour.refer.linkTitle", bodyKey: "app.tour.refer.linkBody" },
     ],
   },
 ];

@@ -25,9 +25,9 @@ import { CREDIT_CURRENCY } from "@/lib/voice/creditCurrency";
 
 const money = (c) => formatAppMoney(Number(c || 0) / 100, CREDIT_CURRENCY, "en");
 
-function Card({ title, icon: Icon, hint, children }) {
+function Card({ title, icon: Icon, hint, children, tour }) {
   return (
-    <section className="bg-card border border-border rounded-xl p-5">
+    <section data-tour={tour} className="bg-card border border-border rounded-xl p-5">
       <div className="flex items-center gap-2">
         {Icon && <Icon size={17} className="text-muted-foreground" />}
         <h2 className="font-semibold text-foreground">{title}</h2>
@@ -260,6 +260,7 @@ export default function AiCreditPage() {
 
       {/* ── The phone wallet — a link out, not a rebuild ─────────────────── */}
       <Card
+        tour="ai-credit-voice"
         title={t("app.setAiCredit.voiceTitle", "Phone credit")}
         icon={Phone}
         hint={t("app.setAiCredit.voiceHint", "Spent by the phone receptionist ({rate}¢/min) and crew texting. Buying more, automatic top-up and the full statement live on the phone settings page.", { rate: voice.centsPerMinute })}
@@ -293,6 +294,7 @@ export default function AiCreditPage() {
 
       {/* ── The AI wallet — the new purchase surface ─────────────────────── */}
       <Card
+        tour="ai-credit-ai"
         title={t("app.setAiCredit.aiTitle", "AI image credit")}
         icon={Sparkles}
         hint={t("app.setAiCredit.aiHint", "Spent by AI image generation ({gen}¢ each) and the paid deep photo read on a quote ({vis}¢ per read, up to 8 photos).", { gen: ai.priceCents.image_generation, vis: ai.priceCents.image_vision })}

@@ -103,7 +103,7 @@ export default function JobPhotoTimeline({ jobId, jobTitle }) {
   const total = (photos || []).length;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
+    <section data-tour="job-photos" className="rounded-xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
         <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
           <Clock size={15} /> Photo record ({total})
