@@ -14,6 +14,7 @@ import { memberOrRefusal } from "@/lib/apiMember";
 import { levelOrRefusal } from "@/lib/permissions/apiGate";
 import { hasToggle, assignedJobWhere } from "@/lib/permissions/enforce";
 import { actualJobCost, compareJobCost } from "@/lib/costing/actualJobCost";
+import { equipmentCostForJob } from "@/lib/costing/equipmentUsage";
 import { calculateMinimumPrice } from "@/lib/analytics/minimumPrice";
 
 export async function GET(request, { params }) {
@@ -64,7 +65,7 @@ export async function GET(request, { params }) {
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const [expenses, timeEntries] = await Promise.all([
+  const [expenses, timeEntries, assetUseLogs] = await Promise.all([
     db.expense.findMany({
       where: { projectId: job.id, companyId: member.companyId },
       select: { category: true, amount: true },
@@ -76,6 +77,28 @@ export async function GET(request, { params }) {
         status: true,
         workerId: true,
         worker: { select: { hourlyRate: true } },
+      },
+    }),
+    // companyId re-checked on the row itself, not only on the job: a use log
+    // is only ever created against the caller's own company (see
+    // app/api/jobs/[id]/asset-use/route.js), but this is the same
+    // tenant-scope discipline every other query on this route already keeps.
+    db.assetUseLog.findMany({
+      where: { jobId: job.id, companyId: member.companyId },
+      select: {
+        hours: true,
+        asset: {
+          select: {
+            id: true,
+            name: true,
+            cost: true,
+            salvageValue: true,
+            inServiceDate: true,
+            usefulLifeMonths: true,
+            disposedOn: true,
+            active: true,
+          },
+        },
       },
     }),
   ]);
@@ -97,9 +120,18 @@ export async function GET(request, { params }) {
     .then((r) => (r && Number.isFinite(Number(r.costPerJob)) ? Number(r.costPerJob) : null))
     .catch(() => null);
 
+  // Raw allocation only — actualJobCost decides whether this is safe to add
+  // to the total, based on whether `overhead` above already carries it. See
+  // the double-count note on actualJobCost() and docs/SAFETY-AND-EQUIPMENT.md.
+  const equipment =
+    assetUseLogs.length > 0
+      ? equipmentCostForJob({ useLogs: assetUseLogs, asOf: new Date() })
+      : null;
+
   const actual = actualJobCost(expenses, timeEntries, {
     overheadPerJob: overhead,
     overheadBasis: overhead === null ? null : "per_job",
+    equipment,
   });
 
   // ── The estimate IS stored now ───────────────────────────────────────────
