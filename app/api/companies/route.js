@@ -23,11 +23,8 @@ import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
 import { billingBasis } from "@/lib/signup/funnel";
 import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
-<<<<<<< HEAD
 import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
-=======
 import { recordError } from "@/lib/platform/errorLog";
->>>>>>> worktree-agent-a91823a0d44afa599
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
