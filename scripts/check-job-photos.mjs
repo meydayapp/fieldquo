@@ -109,6 +109,28 @@ ok(
   postBody.indexOf("db.job.findFirst") < postBody.indexOf("createMany"),
   "…and the job is proven to exist and be theirs first",
 );
+// ── The assertion the level check quietly needed ──────────────────────────
+//
+// Lowering this gate to view_only was correct — Crew never held
+// view_create_edit, so the upload button the panel already rendered for them
+// 403'd for every one of them. But it moved load onto the OTHER half of the
+// rule: assignedJobWhere() is now the only thing stopping a crew member
+// restricted to their own jobs from filing a photo against any job in the
+// company.
+//
+// Nothing asserted that. Deleting assignedJobWhere(full) from this handler
+// passed both this script and check-tenant-scope cleanly — verified by
+// mutation before writing this. A permission check that proves the LEVEL and
+// not the SCOPE is only half a check, and the half it skipped is the half
+// that got harder.
+ok(
+  /assignedJobWhere\(full\)/.test(postBody),
+  "…and narrowed to jobs this member is actually on — view_only alone would otherwise let a crew member file a photo against any job in the company",
+);
+ok(
+  postBody.indexOf("assignedJobWhere") < postBody.indexOf("createMany"),
+  "…with that narrowing applied BEFORE anything is written",
+);
 
 section("3b. Curating a photo (feature it, re-stage it) stays a higher bar");
 
