@@ -2307,9 +2307,10 @@ model Invoice {
   /// if the plan is deleted.
   servicePlanOccurrence ServicePlanOccurrence?
 
-  /// Set when this invoice is one stage of a payment schedule rather than the
-  /// ordinary single quote-to-invoice path. See JobPaymentStage.invoiceId.
-  jobPaymentStage JobPaymentStage?
+  /// Set when this invoice carries a structured payment schedule — every
+  /// stage of it points back here, ONE invoice shared by all of them. See
+  /// JobPaymentStage's own header for why this is a list, not one each.
+  jobPaymentStages JobPaymentStage[]
 
   @@index([companyId, jobId])
 }
@@ -2508,23 +2509,42 @@ model JobPaymentStage {
   trigger    String  // frozen copy of PaymentScheduleStage.trigger
   percentage Decimal @db.Decimal(6, 3) // frozen copy of PaymentScheduleStage.percentage
 
-  /// pending — not yet raised. Its dueDate/blockedReason are RECOMPUTED every
-  ///   cron run from the job's current startDate/endDate (see
+  /// ── ONE invoice, requested in stages — not one invoice per stage ─────────
+  ///
+  /// lib/invoices/invoiceNumber.js already says this, and this schema honours
+  /// it: "there is no split-invoice/deposit model to number; stage payments
+  /// are a payment schedule on one invoice, not several invoices." A job gets
+  /// exactly the one invoice it always did (lib/invoices/createInvoiceFrom
+  /// Quote.js, unchanged) — every stage below points at THAT SAME invoice.
+  /// What a stage firing does is request payment of ITS SHARE, via a Stripe
+  /// Checkout session capped to that share (lib/stripe.js's
+  /// createInvoiceCheckoutSession, amountCents), never the invoice's full
+  /// balance. Invoice.amountPaid/amountDue and its Payment[] rows are already
+  /// exactly the running balance across however many stage payments have
+  /// landed — no new money-tracking needed here, on purpose.
+  ///
+  /// pending — not yet requested. Its dueDate/blockedReason are RECOMPUTED
+  ///   every cron run from the job's current startDate/endDate (see
   ///   app/api/cron/payment-schedule/route.js) — a job that slips a week
   ///   drags every pending stage with it, on purpose (the owner's dates move,
   ///   the money they're attached to should move too).
-  /// invoiced — its Invoice has been raised. dueDate is now FROZEN: a stage
-  ///   that has already billed a client for a date must not silently show a
-  ///   different one because the job got rescheduled afterwards.
-  /// waived — a 0% stage. Never raises a real $0 invoice (nothing to collect,
-  ///   and a $0 invoice emailed to a homeowner reads as a mistake); recorded
+  /// requested — the client has been emailed a pay link for this stage's
+  ///   amount. dueDate is now FROZEN: a stage that has already asked a client
+  ///   for a date must not silently show a different one because the job got
+  ///   rescheduled afterwards. Whether they've actually PAID lives on the
+  ///   invoice itself (amountPaid/Payment[]), never duplicated here — see
+  ///   below.
+  /// waived — a 0% stage. Never sends a real $0 payment request (nothing to
+  ///   collect, and one emailed to a homeowner reads as a mistake); recorded
   ///   as fired without one.
   ///
-  /// Deliberately NOT tracking "paid" here — an Invoice already has a status
-  /// and Payment rows of its own (lib/invoices/computeInvoiceState.js). A
-  /// second paid/unpaid flag on this row would be the exact "two places that
-  /// can disagree" failure this file's own header warns about; read
-  /// `invoice.status` through the relation instead.
+  /// Deliberately NOT tracking "paid" here — the Invoice already has a status
+  /// and Payment rows of its own (lib/invoices/computeInvoiceState.js), and
+  /// because every stage shares ONE invoice there is no clean per-stage
+  /// "paid" to derive without re-deciding which dollar paid which stage — a
+  /// question the running balance already answers better. A second paid flag
+  /// on this row would be the exact "two places that can disagree" failure
+  /// this file's own header warns about.
   status String @default("pending")
 
   /// Recomputed for `pending` rows, frozen for everything else — see status
@@ -2546,10 +2566,17 @@ model JobPaymentStage {
   /// there's nothing for a recompute to correct.
   amountCents Int @default(0)
 
-  /// The invoice this stage raised. SetNull, never Cascade — same reasoning
-  /// as ServicePlanOccurrence.invoiceId: an invoice is a financial record and
-  /// outranks its link back to the schedule that produced it.
-  invoiceId String?  @unique
+  /// When the payment request for this stage was actually sent — the "and
+  /// sent" half of the owner's own rule for the deposit. Null until a real
+  /// email goes out, same discipline Invoice.sentAt and Quote.sentAt already
+  /// keep: this records an EVENT, not an intention.
+  requestedAt DateTime?
+
+  /// The one invoice for this job — shared by every stage. Many stages to one
+  /// invoice, NOT one each; see the header above. SetNull, never Cascade: an
+  /// invoice is a financial record and outranks its link back to the
+  /// schedule that produced it.
+  invoiceId String?
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
@@ -2557,6 +2584,7 @@ model JobPaymentStage {
 
   @@unique([jobId, seq])
   @@index([companyId, status])
+  @@index([invoiceId])
 }
 
 // ============================================================
