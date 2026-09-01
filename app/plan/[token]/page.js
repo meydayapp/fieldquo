@@ -156,7 +156,7 @@ export default function PlanAuthorisationPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
+      <main className="min-h-dvh flex items-center justify-center p-6">
         <div className="animate-pulse w-full max-w-lg space-y-3" aria-busy="true">
           <div className="h-10 bg-black/10 rounded-lg" />
           <div className="h-48 bg-black/10 rounded-lg" />
@@ -167,7 +167,7 @@ export default function PlanAuthorisationPage() {
 
   if (!data) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
+      <main className="min-h-dvh flex items-center justify-center p-6">
         <p role="alert" className="text-sm text-center max-w-md">
           {error || PAGE.en.invalid}
         </p>
@@ -182,7 +182,7 @@ export default function PlanAuthorisationPage() {
   const disabled = neutralPair(theme);
 
   return (
-    <main style={{ background: theme.paper, color: theme.ink }} className="min-h-screen">
+    <main style={{ background: theme.paper, color: theme.ink }} className="min-h-dvh">
       {/* The brand band — the same first mark as the emails and the PDF. */}
       <div style={{ background: fill.bg, color: fill.fg }} className="px-5 py-4">
         <div className="max-w-lg mx-auto flex items-center gap-3">

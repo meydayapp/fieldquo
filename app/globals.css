@@ -257,3 +257,69 @@
     @apply font-sans;
   }
 }
+
+/* ── iOS Safari auto-zoom, fixed at the source ────────────────────────────
+ *
+ * Safari zooms the whole page in whenever a focused input/select/textarea
+ * computes under 16px, then leaves the page panned sideways after blur. The
+ * client-facing forms (quote intake, booking, portal, kitchen designer) use
+ * Tailwind's `text-sm` (14px) on almost every control, so this was hit on
+ * nearly every field a homeowner types into on a phone.
+ *
+ * The wrong fix is `maximum-scale=1` / `user-scalable=no` on the viewport
+ * meta tag — that disables pinch-zoom for everyone, not just the zoom this
+ * causes, current Safari ignores the property outright, and
+ * scripts/check-* now fails the build if either appears (see
+ * app/layout.js's viewport export, which documents the same decision). The
+ * real fix is a real 16px on the control below the breakpoint where a touch
+ * keyboard — and therefore this bug — is in play.
+ *
+ * ── Why this rule, and not a `text-base` sweep through every form ─────────
+ *
+ * Tailwind's utility classes (`text-sm` included) compile inside
+ * `@layer utilities` — see `@layer theme, base, components, utilities;` and
+ * `@layer utilities { @tailwind utilities; }` in node_modules/tailwindcss/
+ * index.css. Per the CSS Cascade Layers spec, ANY rule outside a `@layer`
+ * block beats EVERY rule inside one, regardless of selector specificity or
+ * source order. This rule is deliberately unlayered (not nested in
+ * `@layer base` above, which would put it back in a losing position against
+ * `@layer utilities`), so a plain, low-specificity `input` selector still
+ * wins over `.text-sm` on every control, present and future, without
+ * `!important` and without touching the ~20 form files that set it.
+ *
+ * Verified two ways: (1) reading node_modules/tailwindcss/index.css directly
+ * confirms utilities.css is wrapped in `@layer utilities`, so this
+ * comment's premise is fact, not assumption, for the installed Tailwind
+ * version (^4). (2) `npm run build` was run after adding this rule and the
+ * compiled CSS in .next/static/css was inspected to confirm the rule
+ * survives minification and still appears after the utilities layer's
+ * `.text-sm` definition in the output — see docs/MOBILE-AUDIT-CLIENT.md for
+ * the exact grep used. Not verified: nobody has opened Safari against a real
+ * device to watch the zoom not happen — that stays unverified per the task's
+ * own instruction not to claim a visual fix as confirmed.
+ *
+ * 767px, not `md` (768px+), so it lines up with Tailwind's own `max-sm`
+ * breakpoint boundary rather than inventing a different cutoff. Excludes the
+ * input types that never carry a font glyph a homeowner reads or that this
+ * codebase gives deliberately invisible styling (checkbox, radio, range,
+ * color, file, and the button-role types) — forcing 16px on those has no
+ * visual effect for the ones with visible text and would be a no-op or
+ * fight custom styling for the rest, so they're left alone rather than
+ * touched for no reason. */
+@media (max-width: 767px) {
+  input:not(
+      [type="checkbox"],
+      [type="radio"],
+      [type="range"],
+      [type="color"],
+      [type="file"],
+      [type="submit"],
+      [type="button"],
+      [type="reset"],
+      [type="image"]
+    ),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

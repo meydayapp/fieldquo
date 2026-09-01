@@ -6,6 +6,32 @@ Read `AGENTS.md` first for the product goal and the non-negotiables.
 
 ---
 
+## Client-facing mobile usability — audited and partly fixed
+
+Full writeup: [MOBILE-AUDIT-CLIENT.md](MOBILE-AUDIT-CLIENT.md). Scope was
+`/quote`, `/book`, `/q`, `/portal`, `/site`, `/embed`, `/plan` and the shared
+components they render — no `/app` or `/platform`.
+
+Fixed: the iOS Safari auto-zoom-on-focus bug (14px `text-sm` inputs across
+essentially every client-facing form) at the source, with a global
+`app/globals.css` rule verified to win the Tailwind cascade against the
+actual compiled output, not just reasoned about; `min-h-screen` →
+`min-h-dvh` on every full-page client container; a `grid-cols-3` payment
+schedule that could get long, free-text labels; two spots where a long
+email/URL with no spaces could overflow the viewport instead of wrapping;
+three icon-only controls under the 44px tap-target floor.
+
+Explicitly reviewed and left alone, not missed: `SignaturePad.js` (no
+resize/orientation handling — flagged, not touched, because a naive fix
+risks silently erasing a signature); `SlotCalendar.js`'s 40px controls (a
+previous pass already computed that size deliberately); the
+`MediaUploader.js` remove badge (grown 24px→32px, not to 44px — the
+thumbnail tile itself is only ~110px on a phone).
+
+No browser was available to confirm any of this renders correctly — see the
+audit doc's "Not verified" notes throughout. Worth a real-device pass before
+calling this closed.
+
 ## Where the product is
 
 **Phase: feature-complete on the core pipeline, hardening and monetising.**

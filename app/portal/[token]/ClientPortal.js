@@ -311,7 +311,7 @@ export default function ClientPortal({ token }) {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-[#f5f2ec] py-8 sm:py-14 px-4">
+    <div className="min-h-dvh bg-[#f5f2ec] py-8 sm:py-14 px-4">
       <div className="max-w-2xl mx-auto">{children}</div>
     </div>
   );

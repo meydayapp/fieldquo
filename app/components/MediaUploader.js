@@ -125,10 +125,17 @@ export default function MediaUploader({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white"
+                // h-8 w-8, not h-6 w-6: a 24px circle is the icon-only-button
+                // tap-target problem in miniature, and this is what a
+                // homeowner mis-taps trying to remove a photo of the wrong
+                // room. Not grown to the full 44px floor — at grid-cols-3 on
+                // a 375px phone the tile itself is only ~110px square, and a
+                // 44px badge would eat 40% of it — but 32px is a real,
+                // measurable improvement that still reads as a corner badge.
+                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white"
                 aria-label="Remove"
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             </div>
           ))}

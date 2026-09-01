@@ -717,7 +717,12 @@ function Confirmation({ doc, company, theme, fill, emailed, contactEmail }) {
               </p>
             )}
             {[doc.client.email, doc.client.phone].filter(Boolean).length > 0 && (
-              <p className="text-xs" style={{ color: theme.inkMutedOnWash }}>
+              // break-words: this is the email the visitor just typed into
+              // step 3, with no length limit and no spaces to wrap at. This
+              // card is also the narrowest place it's echoed back — inside a
+              // 600px iframe, half-width on the confirmation screen — so a
+              // long one is the most likely to overflow here first.
+              <p className="text-xs break-words" style={{ color: theme.inkMutedOnWash }}>
                 {[doc.client.email, doc.client.phone].filter(Boolean).join(" · ")}
               </p>
             )}
@@ -947,7 +952,14 @@ function BackLink({ onClick, theme, label }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs mb-3"
+      // py-2, not zero: a text-xs label with no padding is a tap target the
+      // height of one line, well under 44px, on the one control that steps
+      // back through this three-step form on a phone. (Not combined with a
+      // negative margin on the same edge as mb-3 — two utilities writing the
+      // same CSS property have their winner decided by Tailwind's
+      // stylesheet order, not by position in this className string, which
+      // is a fragile thing to rely on for a few pixels of spacing.)
+      className="inline-flex items-center gap-1 text-xs mb-3 py-2"
       style={{ color: theme.inkMuted }}
     >
       <ArrowLeft size={13} /> {label}

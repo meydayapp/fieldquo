@@ -339,7 +339,7 @@ export default function PortalInvoice({ token, invoiceId }) {
 
 function Shell({ token, children, backLabel = "Back to your account" }) {
   return (
-    <div className="min-h-screen bg-[#f5f2ec] py-8 sm:py-14 px-4">
+    <div className="min-h-dvh bg-[#f5f2ec] py-8 sm:py-14 px-4">
       <div className="max-w-2xl mx-auto">
         <Link
           href={`/portal/${token}`}

@@ -82,7 +82,7 @@ export default function KitchenSelfQuote({ company }) {
 
   if (sent) {
     return (
-      <main className="min-h-screen bg-white grid place-items-center p-6">
+      <main className="min-h-dvh bg-white grid place-items-center p-6">
         <div className="max-w-md text-center">
           <div
             className="mx-auto h-14 w-14 rounded-full grid place-items-center"
@@ -103,7 +103,7 @@ export default function KitchenSelfQuote({ company }) {
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-dvh bg-white">
       <header className="border-b border-neutral-200 sticky top-0 bg-white z-10">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
           {company.logoUrl ? (
