@@ -3284,38 +3284,69 @@ enum SocialPlatform {
 // explicit enum, not derived from externalPostId/errorMessage being
 // null-or-not, so "rate limited" and "failed for some other reason" are two
 // different facts a support conversation can tell apart at a glance.
+//
+// Two values added for scheduling (docs/SOCIAL-SCHEDULING.md):
+//   scheduled — waiting for its scheduledFor time. For Facebook this row's
+//     externalPostId may already be set (Meta is holding an unpublished post
+//     natively); for Instagram nothing has touched Meta yet — no container
+//     exists, on purpose, because a container created now would expire
+//     hours before a post scheduled for tomorrow ever fires.
+//   canceled — withdrawn before it fired, or its design was deleted out from
+//     under it (see MarketingDesign.socialPublishes below). Distinct from
+//     `failed`: nothing was ever attempted against Meta for this row.
 enum SocialPublishStatus {
   pending
+  scheduled
   container_created
   publishing
   published
   failed
   rate_limited
+  canceled
 }
 
-// One attempt to publish a rendered MarketingDesign asset to a contractor's
-// own Facebook Page or Instagram professional account, through Meta's
-// Content Publishing API. See lib/social/ for the flow this records.
+// One attempt — immediate or scheduled — to publish a rendered
+// MarketingDesign asset to a contractor's own Facebook Page or Instagram
+// professional account, through Meta's Content Publishing API (or, for a
+// demo company, through lib/social/mockMetaGraphClient.js — see `isMock`
+// below and lib/social/metaConnection.js for the ONLY place that decision is
+// made). See lib/social/ for the flow this records.
 //
 // Exists for the same reason every other write in this codebase gets an
 // audit row rather than a fire-and-forget call: AGENTS.md's rule that a
 // control must never appear to work when it doesn't. Persisting every
-// attempt — including a failed or rate-limited one — is what lets the
-// Marketing Designer say "already posted this today" instead of inviting a
-// second click that would duplicate a real post under the contractor's own
+// attempt — including a failed, rate-limited, or canceled one — is what lets
+// the Marketing Designer say "already posted this today" instead of inviting
+// a second click that would duplicate a real post under the contractor's own
 // name to a real audience.
 //
 // companyId is direct rather than reached only through designId, for the
 // identical reason MarketingDesign.companyId is direct (see that model's
 // own comment above) — a lookup should never have to walk a relation to
-// prove ownership.
+// prove ownership. It is also why this row survives its design being
+// deleted (see `design` below) rather than depending on it to even exist.
 model SocialPublish {
   id        String  @id @default(cuid())
   companyId String
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  designId String
-  design   MarketingDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+  /// Nullable, and onDelete: SetNull rather than the Cascade every other
+  /// design-owned row in this schema uses. Deliberately not the same
+  /// pattern: MarketingDesignLayout can cascade because losing it loses
+  /// nothing shippable — it is only the editor's saved canvas state. This
+  /// row is different the moment scheduling exists: everything Meta needs to
+  /// publish (imageUrl, caption, ratioKey) is captured on THIS row already,
+  /// independent of the design, specifically so a scheduled post keeps
+  /// working after its source design is deleted. Cascading here would mean
+  /// deleting an old design silently cancels a post that hasn't gone out
+  /// yet — exactly the "control that appears to work and doesn't" AGENTS.md
+  /// is built around, just discovered a week later when nothing posted. The
+  /// design DELETE route (app/api/marketing/designer/designs/[id]/route.js)
+  /// explicitly cancels any still-`scheduled` rows first, so a delete never
+  /// leaves a row silently orphaned in a state that looks like it's still
+  /// waiting to fire.
+  designId String?
+  design   MarketingDesign? @relation(fields: [designId], references: [id], onDelete: SetNull)
 
   /// One of lib/marketing/ratios.js's AD_RATIOS keys — the exact crop that
   /// was rasterised and sent, kept so a later look-back compares against
@@ -3332,14 +3363,27 @@ model SocialPublish {
   /// The public Cloudinary URL Meta was told to fetch the image from —
   /// Instagram's Content Publishing API only ever reads a public URL, it is
   /// never sent bytes directly. Kept after publish so a support
-  /// conversation can confirm what image Meta actually pulled.
+  /// conversation can confirm what image Meta actually pulled. Also what a
+  /// scheduled row's cron fire reads FROM — the image is uploaded once, at
+  /// schedule time, and reused; only Instagram's container is deferred.
   imageUrl String
+
+  /// The rendered asset's real pixel dimensions — needed again at a
+  /// scheduled row's fire time to re-run validateImageForInstagram() against
+  /// the actual image, not a remembered "it passed once." Null only on rows
+  /// written before this column existed.
+  width  Int?
+  height Int?
 
   /// Meta's own container id from POST /media, set before publish — needed
   /// to resume polling if a request times out between create and publish
   /// rather than creating a second, orphaned container.
   externalContainerId String?
-  /// Meta's own post/media id. Set only once status = published.
+  /// Meta's own post/media id. Set once status = published — OR, for a
+  /// Facebook row Meta is holding via its own native scheduler
+  /// (status = scheduled), set the moment the scheduling call succeeds:
+  /// that id is real and live at Meta from that instant, published:false
+  /// and all, and is what a support conversation would look up there.
   externalPostId String?
 
   /// Meta's own error text or quota message, set only on status = failed or
@@ -3347,12 +3391,51 @@ model SocialPublish {
   /// own Meta account is what has to act on this, not FieldQuo's.
   errorMessage String?
 
+  /// ── Scheduling (docs/SOCIAL-SCHEDULING.md) ──────────────────────────────
+  ///
+  /// The time this row was MEANT to post — set once, at schedule request
+  /// time, and never rewritten. Deliberately a separate fact from
+  /// `publishedAt` below: "we meant to post at 9am" and "we posted at 11am"
+  /// (a cron that fell behind, or a Facebook native-scheduler delay) are two
+  /// different things a contractor is entitled to see are different. Null
+  /// for an immediate (non-scheduled) publish — there was no intended time
+  /// other than "now", and `createdAt` already says when that was.
+  scheduledFor DateTime?
+
+  /// The cron's claim on this row, set atomically (an UPDATE ... WHERE
+  /// firingClaimedAt IS NULL, never a read-then-write) the instant a run
+  /// picks it up — see app/api/cron/social-scheduled-publish/route.js. This
+  /// is the ENTIRE guard against a double-post: Vercel Cron does not
+  /// guarantee at-most-once delivery, and appointment-reminders' own
+  /// `reminderSentAt` claim-before-send pattern is copied here rather than
+  /// reinvented, for a control where "posted twice" is a worse failure than
+  /// "posted a few minutes late." Null forever on a row that never reached
+  /// its scheduled time (still `scheduled`), or that was fired by the
+  /// synchronous POST path (an immediate publish is claimed by nothing —
+  /// there is no concurrent second attempt to race against).
+  firingClaimedAt DateTime?
+
+  /// True only for a row fired through lib/social/mockMetaGraphClient.js —
+  /// never a real Meta call, whatever `platform` or `status` says. Set once,
+  /// from Company.isDemo, by the SAME function (getMetaConnection) that
+  /// decides which client a live publish uses — never inferred here from
+  /// company state read a second time, which is how a demo/real branch
+  /// drifts. Kept even after the row is real again (a company can't
+  /// un-become a demo mid-history) so an audit trail never has to guess
+  /// whether a "published" row actually posted anywhere.
+  isMock Boolean @default(false)
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   publishedAt DateTime?
 
   @@index([companyId])
   @@index([designId])
+  /// The cron's whole query: due, unclaimed, scheduled rows. Composite
+  /// rather than two single-column indexes — the cron always filters both
+  /// together, and a single index it can use start-to-finish beats Postgres
+  /// intersecting two.
+  @@index([status, scheduledFor])
 }
 
 // A marketing-email recipient — either imported from the Client list or
