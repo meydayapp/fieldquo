@@ -31,6 +31,8 @@ import { fileURLToPath } from "node:url";
 import { transformText, isTextType, rgbaObjectToString } from "@/lib/designer/utils";
 import { debounce } from "@/lib/designer/debounce";
 import { selectionDependentTools } from "@/lib/designer/constants";
+import { buildPhotoContext, scopeOfWorkFacts } from "@/lib/marketing/jobPhotoContext";
+import { parseModelJson } from "@/lib/ai/marketingCopy";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -591,6 +593,179 @@ ok(
 for (const file of DESIGNER_FILES) {
   const code = stripComments(read(file));
   ok(!/\bbg-white\b/.test(code), `${file} does not hardcode bg-white`);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+section("15. AI text bridge — job photo context grounding and anti-embellishment");
+// ═════════════════════════════════════════════════════════════════════════
+// buildPhotoContext(), scopeOfWorkFacts() and parseModelJson() are pure —
+// see lib/marketing/jobPhotoContext.js's own header for why that's
+// deliberate — so they're executed here the same way section 5 executes
+// isTextType()/rgbaObjectToString(), not just read.
+//
+// The scenario the coordinator asked to see proven: two photos both tagged
+// "finish" and none tagged "start" must not be describable as a
+// before/after. beforeAfterAvailable is the pre-computed fact the system
+// prompt in lib/ai/marketingCopy.js relies on instead of leaving that
+// judgment to the model.
+ok(
+  buildPhotoContext(
+    ["https://cdn/a.jpg", "https://cdn/b.jpg"],
+    [
+      { url: "https://cdn/a.jpg", stage: "finish", caption: null, jobId: "job1" },
+      { url: "https://cdn/b.jpg", stage: "finish", caption: null, jobId: "job1" },
+    ],
+  ).beforeAfterAvailable === false,
+  "two 'finish' photos with no 'start' photo — beforeAfterAvailable is false, not inferred true",
+);
+ok(
+  buildPhotoContext(
+    ["https://cdn/a.jpg", "https://cdn/b.jpg"],
+    [
+      { url: "https://cdn/a.jpg", stage: "start", caption: null, jobId: "job1" },
+      { url: "https://cdn/b.jpg", stage: "finish", caption: null, jobId: "job1" },
+    ],
+  ).beforeAfterAvailable === true,
+  "a genuine start+finish pair — beforeAfterAvailable is true",
+);
+
+// "issue" photos are an office record and must never reach a marketing
+// asset — dropped from BOTH the images sent to the vendor and the text
+// describing them, not merely hidden from one or the other.
+{
+  const withIssue = buildPhotoContext(
+    ["https://cdn/issue.jpg", "https://cdn/finish.jpg"],
+    [
+      { url: "https://cdn/issue.jpg", stage: "issue", caption: "water damage behind cabinet", jobId: "job1" },
+      { url: "https://cdn/finish.jpg", stage: "finish", caption: null, jobId: "job1" },
+    ],
+  );
+  ok(!withIssue.images.includes("https://cdn/issue.jpg"), "an issue photo is dropped from the images sent to the vendor");
+  ok(!withIssue.photos.some((p) => p.url === "https://cdn/issue.jpg"), "…and from the text describing the photo set");
+  ok(withIssue.excludedIssue.includes("https://cdn/issue.jpg"), "…and is reported back as excluded, not silently dropped");
+  ok(withIssue.images.includes("https://cdn/finish.jpg"), "its non-issue sibling from the same job is still included");
+}
+ok(
+  buildPhotoContext(
+    ["https://cdn/issue1.jpg", "https://cdn/issue2.jpg"],
+    [
+      { url: "https://cdn/issue1.jpg", stage: "issue", caption: null, jobId: "job1" },
+      { url: "https://cdn/issue2.jpg", stage: "issue", caption: null, jobId: "job1" },
+    ],
+  ).images.length === 0,
+  "every supplied photo tagged issue — nothing usable reaches the vendor",
+);
+
+// Photos spanning two different jobs: only the most-represented job's story
+// gets told, so a caption never mixes two jobs' work into one claim.
+{
+  const twoJobs = buildPhotoContext(
+    ["https://cdn/a.jpg", "https://cdn/b.jpg", "https://cdn/c.jpg"],
+    [
+      { url: "https://cdn/a.jpg", stage: "start", caption: null, jobId: "job1" },
+      { url: "https://cdn/b.jpg", stage: "finish", caption: null, jobId: "job1" },
+      { url: "https://cdn/c.jpg", stage: "finish", caption: null, jobId: "job2" },
+    ],
+  );
+  ok(twoJobs.jobId === "job1", "the job with more photos on the canvas wins the tie-break");
+  ok(twoJobs.excludedOtherJob.includes("https://cdn/c.jpg"), "the other job's photo is excluded, not silently merged in");
+  ok(!twoJobs.images.includes("https://cdn/c.jpg"), "…and never reaches the vendor either");
+}
+
+// A photo with no JobPhoto match at all (a stock photo, a fresh upload never
+// filed against a job) is a real, legitimate case — kept as an image, but
+// carrying no invented tag.
+{
+  const untagged = buildPhotoContext(["https://cdn/stock.jpg"], []);
+  ok(untagged.images.includes("https://cdn/stock.jpg"), "an unmatched photo is still sent — it's a real photo on the canvas");
+  ok(untagged.photos[0].tag === null && untagged.photos[0].tagLabel === null, "…but with no tag invented for it");
+}
+
+// A company-defined custom tag (docs/PHOTO-TAGS.md) is not one of
+// lib/gallery/stages.js's four known keys, and stageLabel() falls back to
+// "In progress" for ANY unknown key — calling it unconditionally would
+// mislabel every custom tag as "in progress". isStage() must gate it.
+ok(
+  buildPhotoContext(
+    ["https://cdn/a.jpg"],
+    [{ url: "https://cdn/a.jpg", stage: "warranty-visit", caption: null, jobId: "job1" }],
+  ).photos[0].tagLabel === "warranty-visit",
+  "a custom, company-defined tag flows through as itself, not silently relabelled 'In progress'",
+);
+
+// Duplicate URLs (the same photo dragged onto the canvas twice) must not
+// double-count toward which job wins or appear twice in the vendor request.
+{
+  const deduped = buildPhotoContext(
+    ["https://cdn/a.jpg", "https://cdn/a.jpg"],
+    [{ url: "https://cdn/a.jpg", stage: "finish", caption: null, jobId: "job1" }],
+  );
+  ok(deduped.images.length === 1, "a duplicated URL appears once in images, not twice");
+}
+
+console.log("\nHostile input to buildPhotoContext — must never throw\n");
+ok(buildPhotoContext(null, []).images.length === 0, "null urls doesn't throw, returns empty");
+ok(buildPhotoContext(["https://cdn/a.jpg"], undefined).images.length === 1, "undefined photoRows doesn't throw — the url is kept, untagged");
+ok(
+  buildPhotoContext([null, 5, undefined, "https://cdn/a.jpg"], [
+    { url: "https://cdn/a.jpg", stage: "progress", caption: null, jobId: "job1" },
+  ]).images.length === 1,
+  "non-string entries in the url list are skipped, not thrown on",
+);
+
+console.log("\nscopeOfWorkFacts — a scope with no line items, and a job with no quote\n");
+ok(scopeOfWorkFacts([{ label: "Cabinet Refinishing", lineItems: [], category: { name: "Cabinets" } }]).hasScope === false, "a group with no line items — hasScope: false");
+ok(
+  scopeOfWorkFacts([{ label: "X", lineItems: [{ amount: 500 }, { description: "" }], category: {} }]).hasScope === false,
+  "line items present but every description is missing/blank — hasScope: false",
+);
+ok(scopeOfWorkFacts(null).hasScope === false, "a job with no quote behind it — loadJobPhotoContext hands this null straight through — hasScope: false, no throw");
+ok(scopeOfWorkFacts(undefined).hasScope === false, "undefined scopeGroups — same");
+{
+  const real = scopeOfWorkFacts([
+    {
+      label: "Cabinet Refinishing",
+      category: { name: "Cabinets" },
+      lineItems: [
+        { description: "37 doors, thermofoil", detail: "sanded and resprayed", amount: 4200, unitPrice: 113.5 },
+        { description: "8 drawer fronts", amount: 900 },
+      ],
+    },
+  ]);
+  ok(real.hasScope === true, "a real scope with real line items — hasScope: true");
+  ok(
+    !JSON.stringify(real).includes("4200") && !JSON.stringify(real).includes("900") && !JSON.stringify(real).includes("113.5"),
+    "every dollar figure on the line items (amount, unitPrice) is stripped — never reaches the facts sent to the model",
+  );
+}
+
+console.log("\nparseModelJson — a model asked for strict JSON still sends malformed output sometimes\n");
+ok(parseModelJson('{"caption":"Fresh coat.","hashtags":["#kitchen"]}').caption === "Fresh coat.", "well-formed JSON parses");
+ok(parseModelJson("```json\n{\"caption\":\"Done.\",\"hashtags\":[]}\n```").caption === "Done.", "a markdown-fenced reply is unwrapped first");
+ok(parseModelJson("Sure! Here's a caption: Fresh cabinets.").caption === "", "prose instead of JSON — degrades to empty, never throws");
+ok(parseModelJson("").caption === "" && parseModelJson(null).caption === "" && parseModelJson(undefined).caption === "", "empty/null/undefined input all degrade to empty");
+ok(parseModelJson("[1,2,3]").caption === "", "a JSON array instead of an object degrades to empty");
+ok(parseModelJson('{"caption":123,"hashtags":[]}').caption === "", "a non-string caption is dropped, not coerced to \"123\"");
+ok(parseModelJson('{"caption":"ok","hashtags":"#kitchen"}').hashtags.length === 0, "hashtags sent as a bare string (not an array) — treated as none, not split into characters");
+ok(
+  JSON.stringify(parseModelJson('{"caption":"ok","hashtags":["kitchen remodel","#Already-Tagged!"]}').hashtags) === '["#kitchenremodel","#AlreadyTagged"]',
+  "hashtags missing '#' or carrying punctuation/spaces are normalised into one clean token",
+);
+ok(
+  parseModelJson(JSON.stringify({ caption: "ok", hashtags: Array.from({ length: 500 }, (_, i) => `#tag${i}`) })).hashtags.length === 30,
+  "500 hashtags from a runaway model reply are capped at Instagram's own 30-hashtag limit",
+);
+ok(
+  parseModelJson('{"caption":"ok","hashtags":["#Kitchen","#kitchen","#KITCHEN"]}').hashtags.length === 1,
+  "the same hashtag repeated in different cases is deduplicated",
+);
+ok(
+  parseModelJson(JSON.stringify({ caption: "x".repeat(3000), hashtags: [] })).caption.length === 2200,
+  "an over-length caption is capped at Instagram's 2200-character limit, not sent through uncapped",
+);
+{
+  parseModelJson('{"caption":"ok","hashtags":[],"__proto__":{"polluted":true}}');
+  ok({}.polluted === undefined, "a __proto__ key in the model's JSON reply does not pollute Object.prototype");
 }
 
 console.log(`\n${fail === 0 ? "ALL PASS" : fail + " FAILED"}`);
