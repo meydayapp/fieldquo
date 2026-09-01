@@ -590,7 +590,14 @@ console.log("\n── The rental is actually wired to run ───────�
 
 ok(existsSync(CRON), "there is a rent cron at /api/cron/voice-rent");
 const cronSrc = code(src(CRON));
-ok(/CRON_SECRET/.test(cronSrc), "…protected by CRON_SECRET, like every other cron here");
+// Was a literal /CRON_SECRET/ text match. Every cron route now calls the
+// shared, fail-closed lib/security/cronAuth.js helper instead of hand-
+// comparing the env var (see docs/SECURITY-FIXES.md — a missing
+// CRON_SECRET used to authenticate anyone who sent the literal string
+// "Bearer undefined"). requireCronSecret() is the stronger, current proof
+// of "protected"; the old text would still match a stray comment even with
+// no real check behind it.
+ok(/requireCronSecret\(request\)/.test(cronSrc), "…protected by CRON_SECRET, like every other cron here");
 ok(/billNumberRent/.test(cronSrc), "…and it delegates every judgement to the gate");
 ok(/status:\s*"active"/.test(cronSrc), "…looking only at active numbers");
 const vercel = JSON.parse(src("vercel.json"));

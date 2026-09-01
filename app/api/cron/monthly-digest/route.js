@@ -2,14 +2,13 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { generateMonthlyDigest } from "@/lib/ai/monthlyDigest";
 
 export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const now = new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);

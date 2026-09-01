@@ -23,6 +23,7 @@ import { isSupported, DEFAULT_LANGUAGE } from "@/app/i18n/languages";
 import { currencyForCountry } from "@/lib/currency";
 import { billingBasis } from "@/lib/signup/funnel";
 import { chargeFor, isBillingInterval } from "@/lib/billing/interval";
+import { containsMarkupCharacters } from "@/lib/security/rejectMarkupCharacters";
 
 export async function POST(request) {
   const session = await auth.api.getSession({ headers: request.headers });
@@ -138,6 +139,17 @@ export async function POST(request) {
   if (!name) {
     return NextResponse.json(
       { error: "Company name is required" },
+      { status: 400 },
+    );
+  }
+  // Signup is self-serve (non-negotiable #1), so this is the one company-name
+  // write anyone on the internet can reach with no invite and no review.
+  // `<`/`>` have no legitimate use in a business name; see
+  // lib/security/rejectMarkupCharacters.js for why this is a second layer,
+  // not the actual fix.
+  if (containsMarkupCharacters(name)) {
+    return NextResponse.json(
+      { error: "Company name can't contain < or >" },
       { status: 400 },
     );
   }

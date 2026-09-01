@@ -2,6 +2,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { Resend } from "resend";
 import { lazyClient } from "@/lib/lazyClient";
@@ -26,10 +27,8 @@ const LOOKBACK_MINUTES =
   Number(process.env.LARGE_QUOTE_LOOKBACK_MINUTES) || 24 * 60;
 
 export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const since = new Date(Date.now() - LOOKBACK_MINUTES * 60 * 1000);
 

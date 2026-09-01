@@ -19,14 +19,13 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { db } from "@/lib/db";
 import { runServicePlan, settlePendingCharges } from "@/lib/servicePlans/run";
 
 export async function GET(request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   // Settle first. A pre-authorized debit that cleared overnight should mark its
   // invoice paid BEFORE anything else runs, so the contractor's screen is right

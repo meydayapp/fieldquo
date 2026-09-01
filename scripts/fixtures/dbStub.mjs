@@ -42,6 +42,16 @@ export const rows = {
 /** Every write the product attempted, in order: { model, action, data }. */
 export const writes = [];
 
+// Every READ the product attempted, in order: { model, action, args }. Added
+// for check-public-payload.mjs's portal assertion, which needs to inspect
+// the `select` shape a route actually asked Prisma for — a behavioural check
+// that a forbidden field is absent from the QUERY, not merely absent from
+// the response the stub happens to hand back (the stub doesn't project by
+// `select` the way real Prisma does, so a passing response proves nothing
+// about the query on its own). Existing checks that only read `rows`/`writes`
+// are unaffected: this is purely additive.
+export const reads = [];
+
 export function resetDbStub() {
   rows.instantQuoteConfig = [];
   rows.serviceCategory = [];
@@ -53,6 +63,7 @@ export function resetDbStub() {
   rows.companyServiceCategory = [];
   rows.materialRecipeSetting = [];
   writes.length = 0;
+  reads.length = 0;
 }
 
 // Prisma's `where` on a compound unique arrives as { companyId_trade: {...} };
@@ -82,9 +93,18 @@ function matches(row, where = {}) {
 
 function model(name) {
   return {
-    findUnique: async ({ where } = {}) => rows[name].find((r) => matches(r, where)) || null,
-    findFirst: async ({ where } = {}) => rows[name].find((r) => matches(r, where)) || null,
-    findMany: async ({ where } = {}) => rows[name].filter((r) => matches(r, where)),
+    findUnique: async (args = {}) => {
+      reads.push({ model: name, action: "findUnique", args });
+      return rows[name].find((r) => matches(r, args.where)) || null;
+    },
+    findFirst: async (args = {}) => {
+      reads.push({ model: name, action: "findFirst", args });
+      return rows[name].find((r) => matches(r, args.where)) || null;
+    },
+    findMany: async (args = {}) => {
+      reads.push({ model: name, action: "findMany", args });
+      return rows[name].filter((r) => matches(r, args.where));
+    },
     create: async ({ data } = {}) => {
       writes.push({ model: name, action: "create", data });
       const row = { id: `${name}_${rows[name].length + 1}`, ...data };

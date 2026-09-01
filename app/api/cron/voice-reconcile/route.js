@@ -36,15 +36,15 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { requireCronSecret } from "@/lib/security/cronAuth";
 import { reconcileVoiceCalls, RECONCILE_AREA } from "@/lib/voice/reconcileCalls";
 import { recordError } from "@/lib/platform/errorLog";
 
 const DAY = 24 * 60 * 60 * 1000;
 
 export async function GET(request) {
-  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCronSecret(request);
+  if (denied) return denied;
 
   const days = Number(new URL(request.url).searchParams.get("days"));
   const lookbackMs =

@@ -33,6 +33,7 @@ import { db } from "@/lib/db";
 import { getCurrentMember } from "@/lib/currentMember";
 import { isPaidSubscription } from "@/lib/billing/access";
 import { documentTheme, fillPair } from "@/lib/documents/theme";
+import { scriptSafeJson } from "@/lib/security/scriptSafeJson";
 import { openingHoursSpecification, hasBusinessHours } from "@/lib/company/businessHours";
 import SiteBlocks from "./SiteBlocks";
 import { recentJobPhotos, jobPhotoPairs } from "@/lib/site/jobPhotos";
@@ -375,7 +376,10 @@ export default async function CompanySitePage({ params, searchParams, language: 
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          // scriptSafeJson, not JSON.stringify: company.name and friends are
+          // whatever the contractor typed, and JSON.stringify does not escape
+          // `</script>` — see lib/security/scriptSafeJson.js.
+          __html: scriptSafeJson({
             "@context": "https://schema.org",
             "@type": "LocalBusiness",
             name: company.name,
